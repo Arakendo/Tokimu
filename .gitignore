@@ -1,0 +1,23 @@
+# Rust / Cargo
+/target/
+**/target/
+Cargo.lock
+
+# Build artifacts
+*.rlib
+*.rmeta
+*.pdb
+
+# WebAssembly / wasm-pack
+/pkg/
+**/pkg/
+*.wasm
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
