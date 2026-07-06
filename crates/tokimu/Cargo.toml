@@ -1,0 +1,19 @@
+[package]
+name = "tokimu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+platform = ["dep:tokimu-platform"]
+render = ["dep:tokimu-render"]
+
+[dependencies]
+tokimu-assets = { path = "../tokimu-assets" }
+tokimu-core = { path = "../tokimu-core" }
+tokimu-input = { path = "../tokimu-input" }
+tokimu-platform = { path = "../tokimu-platform", optional = true }
+tokimu-render = { path = "../tokimu-render", optional = true }
+tokimu-runtime = { path = "../tokimu-runtime" }

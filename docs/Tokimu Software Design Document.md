@@ -12,11 +12,24 @@
 
 Tokimu is a Rust-based real-time simulation and rendering engine intended for
 games, interactive tools, technical simulations, and eventually WebAssembly
-deployment.
+deployment, with VR/XR support planned as a first-class future capability.
 
 Tokimu is not merely a "game engine" in the mechanical sense. It is a
 state-processing runtime: it accepts input, rules, assets, and time, then
 produces updated world state and rendered output.
+
+Tokimu should be understood in layers:
+
+```text
+Tokimu
+  └─ Simulation Engine
+    └─ Interactive Simulation Engine
+      └─ Game Engine
+```
+
+Games are one important expression of the engine, but not the only one. The
+deeper primitive is a universe where entities exist, rules execute,
+relationships change, and observers view the result.
 
 ## 2. Core Goals
 
@@ -24,8 +37,12 @@ produces updated world state and rendered output.
 - Deterministic simulation core where practical
 - Modular subsystems
 - ECS-friendly world model
+- Semantic world model that remains inspectable as it evolves over time
 - Desktop-first development
 - Planned WebAssembly export support
+- Planned VR/XR support as a first-class architectural concern
+- Planned networking and transport boundary for future remote simulation use
+- Strong early input architecture, including controller and joystick support planning
 - Clean separation between engine core, platform backends, renderer, and tools
 - Minimal early scope with room for later expansion
 
@@ -40,24 +57,165 @@ produces updated world state and rendered output.
 - Mobile support
 - Console support
 
+## 3.1 Guiding Principles
+
+1. Finishable by a mortal. Each milestone should leave the project in a runnable,
+  testable state.
+2. Examples before abstractions. A window, a triangle, and a playable toy should
+  shape the engine more than speculative framework design.
+3. Structural boundaries over advisory rules. Crate boundaries and ownership
+  rules should make bad layering difficult, not merely discouraged.
+4. Core is the source of simulation truth. Rendering, platform, and tooling
+  observe or adapt simulation state; they do not silently own it.
+5. Prefer one concrete path before generalized infrastructure. The first native
+  backend should work cleanly before Tokimu grows broader backend abstraction.
+6. Stabilize public abstractions after real callers exist. Plugin APIs,
+  scheduling APIs, and asset interfaces should be shaped by concrete use rather
+  than theory alone.
+7. Prefer explicit diagnostics over silent fallback. Engine startup, asset
+  failures, backend selection, and schedule ordering issues should be visible.
+8. Declarative content, imperative runtime. Scene descriptions, asset metadata,
+   project files, and saved state describe what should exist; the runtime,
+   renderer, and platform layers decide how it executes frame to frame.
+9. Prefer a small set of world primitives over genre nouns. Avoid baking
+   domain-specific concepts like player, enemy, weapon, quest, or vehicle into
+   the engine core unless repeated examples prove they are truly general.
+10. Make the world model the engine center. Rendering is proof and
+  presentation, not the primary architectural gravity well.
+11. Prefer explicit world meaning over hidden transient meaning. Relations,
+  rule preconditions, and important state changes should be representable in a
+  form that tools can inspect rather than existing only as fleeting control
+  flow inside runtime code.
+12. Stage editors and scripting behind the world model. Do not let a custom
+  language, full editor, or visual graph system become the architecture before
+  the underlying world, rule, and inspection model are stable.
+13. Plan for multiple presentation surfaces early. Desktop, WASM, and future
+  VR/XR support should share the same simulation truth even when platform and
+  rendering adapters differ.
+14. Treat networking as an adapter layer, not a second simulation core. Future
+  transports, replication, and remote session concerns should translate engine
+  meaning across process or machine boundaries rather than redefining it.
+15. Normalize input devices early. Keyboard, mouse, controllers, and joysticks
+  should feed a coherent engine-facing input model so later device expansion is
+  additive rather than architectural rework.
+
+## 3.2 Naming and Conceptual Influence
+
+Tokimu is a peer project to Tosumu, and its name is derived from the same
+conlang tradition that shaped Tosumu's identity and parts of its design
+reasoning.
+
+That broader language project is Tonesu: a constructed language built around
+compositional meaning, explicit structural relations, and epistemic honesty.
+Its own name contracts from `to-ne-su` — pattern, relation, structure — which
+is also a useful summary of the intellectual style behind these sibling
+projects.
+
+That conlang carries strong opinions about reality, truth-claims, boundaries,
+and the difference between what exists, what is observed, and what can be
+honestly asserted. Those ideas were especially important in the Tosumu database
+project, where they influenced decisions around integrity, explicit state
+claims, and structural boundaries.
+
+For Tokimu, the influence is lighter but still relevant. It reinforces several
+engine design instincts already captured in this document:
+
+* simulation state should have a clear source of truth
+* subsystem boundaries should be structural, not merely advisory
+* diagnostics should make state and failure visible rather than implicit
+* tooling and persistence layers should not silently overclaim ownership of
+  runtime reality
+
+This is a conceptual influence, not a requirement that Tokimu adopt conlang
+terminology in its APIs. Code, crate names, and public engine concepts should
+remain plain English unless there is a strong reason to do otherwise.
+
 ## 4. Architecture Overview
 
 ```text
-Application
+Corpus / Examples
     ↓
-Tokimu Runtime
+ World Graph / State
     ↓
-World / ECS
+ Systems / Signals / Rules
     ↓
-Systems
-    ↓
-Platform Backend
-    ↓
-Renderer / Audio / Input / WASM Host
+  State Change
+  ↙       ↘
+Presentation  Replication
+   ↓          ↓
+Renderer / Platform / Audio / WASM Host / Network Transport
 ```
 
 Tokimu should avoid hard-coding platform assumptions into the simulation layer.
 The same core should eventually run on native desktop and WebAssembly.
+The same core should also remain compatible with a future VR/XR presentation
+path rather than assuming a permanently flat-screen engine model.
+The renderer should be treated as a consumer of world state, not the center of
+the engine architecture.
+Future networking should also be treated as a downstream consumer or publisher
+of engine meaning, not as the owner of the simulation model.
+
+## 4.1 World Corpus
+
+Tokimu should treat examples and scenarios as a world corpus.
+
+Tonesu grows meaning through vocabulary, composition, and sentence corpus.
+Tokimu can grow behavior through components, composition, and simulation corpus.
+
+This suggests a development shape like:
+
+```text
+components
+  ↓
+composition
+  ↓
+simulation corpus
+  ↓
+behavior emerges
+```
+
+Examples are not side material. Each example is a world sentence that proves a
+specific relationship, rule, or transformation. A game becomes a paragraph. A
+world becomes a document.
+
+Illustrative corpus progression:
+
+```text
+examples/
+  S0001_transform_motion/
+  S0002_parent_child_entity/
+  S0003_collision_event/
+  S0004_sprite_animation/
+  S0005_scene_transition/
+  S0006_ai_behavior/
+```
+
+Tokimu should prefer growing from such examples over inventing broad engine
+taxonomies too early.
+
+## 4.2 Core Vocabulary
+
+Tokimu's lowest-level vocabulary should stay small, reusable, and semantically
+clear.
+
+Suggested fundamental nouns:
+
+```text
+World      — container of existence
+Entity     — thing with identity
+Trait      — property attached to entity
+Relation   — connection between entities
+State      — current truth
+Rule       — transformation logic
+Signal     — notification of change
+Time       — ordered progression
+Resource   — external knowledge/data
+View       — observation of state
+```
+
+This vocabulary supports games, simulations, workflow models, AI worlds, and
+digital-twin style systems without forcing Tokimu to commit to one genre's noun
+set too early.
 
 ## 5. Major Subsystems
 
@@ -67,12 +225,14 @@ Owns the engine-neutral model:
 
 * world state
 * entities/components
+* relationship edges
 * resources
 * events
+* provenance and timeline primitives later
 * schedules
 * time-step policy
 * math primitives
-* asset handles
+* opaque asset references used by simulation state
 * diagnostics
 
 This crate should not depend on windowing, GPU, filesystem, or native OS APIs.
@@ -96,13 +256,54 @@ reserved Rust keyword and would otherwise require `mod r#loop;`.
 Owns rendering abstraction:
 
 * cameras
-* render graph
+* render commands
 * sprites/meshes/materials
 * texture handles
 * draw commands
 * backend-neutral renderer API
 
-Early implementation may use `wgpu`, since it supports native and WASM targets.
+Tokimu should use `wgpu` as the first renderer backend rather than starting
+from raw Vulkan. `wgpu` already spans native and WASM targets while hiding much
+of the platform-specific GPU setup burden.
+
+Recommended layering:
+
+```text
+tokimu-render abstraction
+    ↓
+   wgpu backend
+    ↓
+Native: Vulkan / Metal / D3D12 / OpenGL
+WASM:   WebGPU / WebGL2
+```
+
+Tokimu's public renderer API should not simply expose `wgpu` everywhere. The
+backend should stay behind Tokimu-owned concepts such as renderer traits,
+render commands, and resource handles.
+
+VR/XR should be treated as an additional presentation mode, not a separate
+engine architecture. Early renderer abstractions should leave room for stereo
+views, per-eye camera data, tracked spaces, and different frame submission
+models without forcing those concerns into `tokimu-core`.
+
+Illustrative direction:
+
+```rust
+trait Renderer {
+  fn begin_frame(&mut self);
+  fn submit(&mut self, commands: &[RenderCommand]);
+  fn end_frame(&mut self);
+}
+```
+
+Early file shape should stay small and concrete:
+
+```text
+renderer.rs       // Tokimu abstraction
+commands.rs       // draw and clear commands
+resources.rs      // texture/mesh handles
+wgpu_backend.rs   // backend implementation
+```
 
 ### 5.4 tokimu-platform
 
@@ -118,7 +319,8 @@ Likely native stack:
 
 * `winit`
 * `wgpu`
-* `gilrs` later for gamepads
+* `gilrs` or similar early for gamepads, controllers, and joystick-class devices
+* OpenXR later for VR/XR session and device integration
 
 Likely WASM stack:
 
@@ -127,6 +329,11 @@ Likely WASM stack:
 * browser canvas target
 * `wgpu` WebGPU path where available
 
+VR/XR support should likely arrive as a platform adapter concern coordinated
+with render abstractions rather than as special logic inside the simulation
+core. OpenXR is the most plausible first-class native integration target when
+Tokimu reaches that stage.
+
 ### 5.5 tokimu-assets
 
 Owns asset loading and management:
@@ -134,6 +341,8 @@ Owns asset loading and management:
 * asset IDs
 * handles
 * loaders
+* provider abstraction over file, network, embedded, and generated sources
+* asset storage and lifetime
 * hot reload later
 * embedded asset bundles later
 * WASM-friendly asset fetch abstraction
@@ -144,11 +353,53 @@ Owns normalized input state:
 
 * keyboard
 * mouse
-* gamepad later
+* controller and gamepad support planned early
+* joystick and analog axis normalization planned early
 * touch later
 * action mapping
 
-### 5.7 tokimu-audio
+The input layer should be organized around engine-facing actions, axes, button
+states, and device capabilities rather than around one-off keyboard events.
+That allows Tokimu to start small while still leaving a clean place for analog
+sticks, triggers, hats, deadzone handling, rebinding, and per-device quirks.
+
+Early input architecture should distinguish:
+
+* raw device events from normalized engine input state
+* digital actions from analog axes
+* per-device capabilities from game/application intent mappings
+* input sampling from simulation decisions
+
+### 5.7 tokimu-net
+
+Deferred early, but eventually owns remote simulation plumbing:
+
+* connection/session management
+* transport abstraction
+* message framing and channel semantics
+* replication protocols
+* authority and ownership strategy
+* snapshot/delta/event delivery later
+* loopback and local transport for tests later
+
+Tokimu should not begin with full multiplayer features, but it should avoid
+hard-coding assumptions that every simulation is permanently single-process.
+If networking arrives, the engine should replicate meaningful world changes,
+commands, and observations rather than exposing raw socket concerns through the
+simulation core.
+
+Early direction:
+
+* keep transport details out of `tokimu-core`
+* keep wire formats and session concerns out of renderer/platform APIs
+* prefer a Tokimu-owned transport or channel abstraction over leaking a
+  specific socket library everywhere
+* support both reliable and unreliable delivery semantics when the design earns
+  them, rather than assuming one universal channel
+* keep browser-facing transport constraints in mind from day one; native-only
+  UDP assumptions often become a trap if WASM matters later
+
+### 5.8 tokimu-audio
 
 Deferred early, but eventually owns:
 
@@ -157,7 +408,7 @@ Deferred early, but eventually owns:
 * spatial audio
 * mixer state
 
-### 5.8 tokimu-tools
+### 5.9 tokimu-tools
 
 Optional future tooling:
 
@@ -165,6 +416,81 @@ Optional future tooling:
 * debug overlays
 * asset inspection
 * editor support
+
+The first editor layer should be inspection-oriented rather than a full content
+authoring environment. A Rust-native tool stack such as `egui` is a plausible
+early fit for entity trees, inspectors, signal logs, relationship views, and
+system timing panels without committing Tokimu to a heavyweight editor shell too
+early.
+
+### 5.10 tokimu-persistence
+
+Optional future persistence layer:
+
+* scene serialization and save/load flows
+* project metadata and tool state
+* asset indexing or content metadata later
+* optional editor-facing storage later
+
+This layer must stay outside the simulation core. `tokimu-core` should model
+world state in memory; persistence code should translate to and from that model
+without making the ECS, runtime, or renderer depend on a database.
+
+The local Database project may be useful here, but only as an optional
+dependency or as a source of design patterns. If reused, it should live behind
+its own crate boundary rather than leaking storage concerns into engine core
+crates.
+
+Scene and prefab data should start as plain declarative documents rather than a
+custom scripting language. Rust-friendly formats such as RON are a good early
+fit, with TOML, YAML, JSON5, or similar alternatives acceptable if they better
+serve the actual tool chain.
+
+Illustrative direction:
+
+```text
+entity "player" {
+  traits: [
+    Transform { x: 0, y: 0 },
+    Sprite { texture: "player.png" },
+    InputController {},
+    Collider { shape: "capsule" }
+  ]
+}
+```
+
+This keeps scene data inspectable and editable without inventing a language
+ before the engine has earned one.
+
+### 5.11 Rule Frontends
+
+Tokimu should own a rule representation in the middle of the stack. Scene data,
+visual graphs, and future scripting should compile or translate into that
+engine-owned representation rather than each frontend inventing its own runtime.
+
+Illustrative shape:
+
+```text
+Scene Data  ┐
+Blueprints  ├→ Tokimu Rule IR → Runtime Systems
+Rhai/Lua    ┘
+```
+
+This keeps the world model and rule execution architecture primary, while
+treating editors and scripting as frontends.
+
+### 5.12 Dependency Rules
+
+The crate graph should stay intentionally narrow:
+
+* `tokimu-core` depends only on foundational libraries such as math, error, and diagnostics crates.
+* `tokimu-runtime` depends on `tokimu-core` and orchestrates schedules, plugins, and the app lifecycle.
+* `tokimu-input`, `tokimu-assets`, and `tokimu-render` may depend on `tokimu-core`, but not on each other unless a concrete use case justifies it.
+* `tokimu-platform` adapts OS or browser events into engine-facing abstractions; it should not absorb simulation logic.
+* `tokimu-net`, if added, should depend on engine-facing world, command, and replication shapes rather than making core types depend on socket or protocol libraries.
+* `tokimu-persistence`, if added, depends on stable engine-facing data formats or translation APIs; engine crates should not depend on it.
+* Editor tooling, visual rule graphs, and future scripting frontends should depend on Tokimu-owned world and rule abstractions, not become parallel runtimes.
+* The facade crate `tokimu` may re-export internal crates, but internal crates should avoid depending on the facade.
 
 ## 6. Engine Loop
 
@@ -201,6 +527,33 @@ PostRender
 Shutdown
 ```
 
+Pipeline view:
+
+```text
+Input
+  ↓
+Intent
+  ↓
+Simulation
+  ↓
+Rules
+  ↓
+World Mutation
+  ↓
+Presentation
+  ↓
+Render
+```
+
+Phase invariants should be documented and enforced where practical.
+
+Early invariants:
+
+* Render-phase code must not mutate the simulation world.
+* Input collection should normalize external device state, not silently own game logic.
+* World mutation should happen in simulation-owned phases, not in presentation code.
+* Physics or movement resolution should have a clear owning phase once introduced.
+
 ## 7. ECS Model
 
 Tokimu should support an ECS-style architecture.
@@ -221,6 +574,195 @@ has real examples. The ancient curse of engine developers is spending three
 months designing archetype storage before a triangle appears. Avoid the triangle
 goblin.
 
+### 7.1 Primitive-First World Model
+
+Tokimu should resist growing core engine nouns like `Player`, `Enemy`,
+`Weapon`, `Vehicle`, `NPC`, or `Quest` as first-class engine concepts.
+
+Prefer a smaller set of reusable primitives such as:
+
+```text
+World
+Entity
+Trait
+Relation
+State
+Change
+Signal
+Rule
+Time
+```
+
+Genre-specific meaning should emerge from composition.
+
+Examples:
+
+* player = entity + input relation + camera relation + physics state
+* enemy = entity + AI rule + physics state
+* projectile = entity + motion rule + collision relation
+* chess piece = entity + position trait + color trait + threat relations
+* factory machine = entity + feeds_into relations + consume/produce rules
+
+This keeps Tokimu from accidentally hardening into one game genre too early.
+
+### 7.2 Relationship Layer
+
+Tokimu's world model should allow first-class relationships alongside ordinary
+components.
+
+Most ECS designs focus on `entity has components`. Tokimu can use that and also
+model `thing relates to thing` explicitly where it improves clarity.
+
+Examples:
+
+* camera follows player
+* player owns sword
+* door requires key
+* projectile created_by weapon
+* NPC belongs_to faction
+
+Illustrative API direction:
+
+```rust
+world.link(camera, Relation::Follows, player);
+```
+
+Possible uses:
+
+* query everything following a target
+* query ownership or dependency graphs
+* detect deletion constraints and cascading cleanup
+
+This does not require a fully general graph engine in v0, but it is a useful
+directional constraint on how the world model should grow.
+
+The same relationship model can carry game-like and simulation-like structure
+without introducing genre nouns into the core:
+
+* entity owns item
+* entity targets entity
+* entity belongs_to faction
+* entity triggered_by event
+
+### 7.3 No Hidden Meaning
+
+Tokimu should avoid hiding important world meaning only inside momentary code
+paths.
+
+Instead of logic that only briefly implies a relation:
+
+```text
+if player.distance(enemy) < 5.0 {
+  enemy.attack();
+}
+```
+
+Tokimu should prefer a model that can expose inspectable meaning such as:
+
+```text
+Relation:
+Enemy targets Player
+
+Rule:
+Target within range enables Attack
+```
+
+That makes world state more intelligible to tools, editors, diagnostics, and
+future AI-assisted inspection.
+
+### 7.4 Knowledge Layer
+
+Tokimu may eventually benefit from a lightweight knowledge layer above raw
+state.
+
+Not just:
+
+```text
+entity 123 has component 55
+```
+
+But also:
+
+```text
+sword is held_by player
+door is locked_by key
+fire damages wood
+```
+
+This should be understood as meaningful world structure, not as a mandate to
+turn the engine core into a general-purpose database. The useful insight is that
+world semantics should stay inspectable and composable rather than collapsing
+into anonymous IDs too early.
+
+For AI or tooling integration, the useful target is not opaque rows like:
+
+```text
+id=38483, x=5, y=10, flags=128
+```
+
+But a more semantically meaningful world surface such as:
+
+```text
+Guard Bob
+- located in hallway
+- protecting vault
+- suspicious of player
+- following patrol route
+```
+
+### 7.5 Signals as First-Class Flow
+
+Signals and events should be treated as first-class coordination surfaces.
+
+Example flow:
+
+```text
+Physics emits CollisionStarted
+  ↓
+Audio plays an impact
+  ↓
+Quest logic checks objective state
+  ↓
+Particles spawn an effect
+```
+
+The goal is a society of ignorant systems: subsystems react to world signals
+without acquiring hard dependencies on one another.
+
+### 7.6 Provenance and Timeline Direction
+
+Tokimu should eventually be able to explain where state came from.
+
+The important question is not only what the world is now, but also:
+
+* what changed
+* which system changed it
+* why it changed
+* when it changed
+
+Illustrative debug view:
+
+```text
+Frame 8271
+
+Entity 552 moved
+
+Position:
+  (10,20)
+      ↓
+  (11,20)
+
+Reason:
+  MovementSystem
+
+Cause:
+  PlayerInput.Forward
+```
+
+This does not mean every runtime build must carry full audit history. It does
+mean Tokimu should leave room for optional provenance, state diffing, replay,
+rollback, and timeline inspection without fighting the core architecture.
+
 ## 8. Determinism
 
 Tokimu should prefer deterministic simulation where practical.
@@ -231,6 +773,12 @@ Rules:
 * random number generation should use explicit seeded RNG resources
 * floating-point determinism is best-effort, not guaranteed across all platforms
 * rendering must not mutate simulation state
+
+If Tokimu grows networked simulation later, it should not assume perfect
+cross-platform floating-point identity as a hidden requirement. Transport,
+replication, rollback, prediction, reconciliation, or authoritative correction
+strategies should be chosen explicitly rather than implied by wishful
+determinism.
 
 ## 9. WASM Strategy
 
@@ -244,6 +792,22 @@ Design constraints from day one:
 * use feature flags for native-only behavior
 * keep asset loading abstract
 * avoid threads in early WASM path unless explicitly designed
+* avoid choosing rendering APIs that force a native-only architecture
+* avoid presentation assumptions that make future VR/XR support awkward to add
+* avoid transport assumptions that make future browser-capable networking
+  impossible without a rewrite
+
+Rendering strategy:
+
+* Tokimu should target `wgpu` first for both native and browser-facing rendering.
+* Vulkan should be treated as one possible native backend under `wgpu`, not as
+  Tokimu's direct public rendering API.
+* WASM rendering should prefer WebGPU where available, with WebGL2 compatibility
+  handled by the backend rather than by leaking browser-specific rendering
+  assumptions into the engine core.
+* Early render abstractions should avoid assuming exactly one camera, one output
+  surface, or one presentation path per frame, because those assumptions tend
+  to fight VR/XR later.
 
 Target commands eventually:
 
@@ -259,6 +823,7 @@ Tokimu should expose structured diagnostics:
 * startup logs
 * asset load failures
 * renderer backend info
+* active presentation mode info such as desktop, WASM, or VR/XR session state later
 * frame timing
 * system timing later
 * WASM console bridge
@@ -286,7 +851,8 @@ tokimu/
 ├── docs/
 │   ├── Tokimu Software Design Document.md
 │   ├── ADR/
-│   │   └── ADR-0001-engine-boundaries.md
+│   │   ├── ADR-0001-engine-boundaries.md
+│   │   └── ADR-0002-conceptual-influence.md
 │   ├── wasm.md
 │   └── roadmap.md
 │
@@ -319,6 +885,8 @@ tokimu/
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── renderer.rs
+│   │       ├── commands.rs
+│   │       ├── resources.rs
 │   │       ├── camera.rs
 │   │       ├── color.rs
 │   │       ├── texture.rs
@@ -345,6 +913,15 @@ tokimu/
 │   │       ├── loader.rs
 │   │       └── store.rs
 │   │
+│   ├── tokimu-input/
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── keyboard.rs
+│   │       ├── mouse.rs
+│   │       ├── action_map.rs
+│   │       └── state.rs
+│   │
 │   ├── tokimu-wasm/
 │   │   ├── Cargo.toml
 │   │   └── src/
@@ -366,9 +943,14 @@ tokimu/
 │       ├── index.html
 │       └── package.json
 │
-└── tests/
-    └── smoke.rs
+└── crates/tokimu/tests/
+  └── smoke.rs
 ```
+
+`tokimu-audio` and `tokimu-tools` are intentionally omitted from the initial
+workspace skeleton. `tokimu-persistence` is also intentionally omitted at this
+stage. These crates should be added only once a concrete example or tool flow
+proves the need.
 
 ## 12. Workspace Cargo.toml
 
@@ -382,6 +964,7 @@ members = [
     "crates/tokimu-render",
     "crates/tokimu-platform",
     "crates/tokimu-assets",
+    "crates/tokimu-input",
     "crates/tokimu-wasm",
     "examples/hello-window",
     "examples/hello-triangle"
@@ -390,13 +973,16 @@ members = [
 [workspace.package]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/Arakendo/tokimu"
+repository = "https://github.com/Arakendo/Tokimu"
 version = "0.1.0"
 
 [workspace.dependencies]
 anyhow = "1"
 thiserror = "1"
 tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-wasm = "0.2"
+console_error_panic_hook = "0.1"
 glam = "0.29"
 wgpu = "23"
 winit = "0.30"
@@ -414,6 +1000,7 @@ js-sys = "0.3"
 pub use tokimu_core::*;
 pub use tokimu_runtime::*;
 pub use tokimu_assets::*;
+pub use tokimu_input::*;
 
 #[cfg(feature = "render")]
 pub use tokimu_render::*;
@@ -433,12 +1020,28 @@ This keeps users from depending directly on every internal crate.
 * docs added
 * native example compiles
 
+Acceptance criteria:
+
+* `cargo test --workspace` passes on stable Rust.
+* `hello-window` and `hello-triangle` compile as runnable example binaries.
+* The facade smoke test proves the public crate re-exports core runtime types.
+* The workspace contains the documented crate, docs, and example skeleton.
+
 ### M1 — Runtime Loop
 
 * app builder
 * plugin trait
 * fixed timestep clock
 * basic diagnostics
+* create world, relate entities, run systems, mutate state
+
+Acceptance criteria:
+
+* An `App` type exists as the runtime entry point.
+* A plugin can register itself through a stable early API.
+* Fixed-step update accounting is test-covered.
+* Diagnostics can record startup/runtime messages without platform coupling.
+* A minimal world can be created, mutated by a system, and inspected after the mutation.
 
 ### M2 — Minimal ECS
 
@@ -446,20 +1049,51 @@ This keeps users from depending directly on every internal crate.
 * components
 * resources
 * simple systems
+* relationship edges direction chosen
 * tests
+
+Acceptance criteria:
+
+* Entity creation is deterministic and test-covered.
+* Core ECS-facing types live in `tokimu-core`, not the runtime or renderer.
+* The minimal world model supports at least one real example-driven call site.
+* The engine direction for entity-to-entity relationships is documented, even if
+  the first implementation stays intentionally small.
 
 ### M3 — Window + Input
 
 * native window
 * keyboard/mouse input
 * normalized input resource
+* controller/joystick-oriented input model chosen
+
+Acceptance criteria:
+
+* Platform input is translated into engine-facing input state.
+* Input collection is separated from simulation decisions.
+* At least one example proves the input-to-intent path rather than only device capture.
+* The input model leaves a clear place for controllers, joysticks, analog axes,
+  deadzones, and rebinding even if the first shipped example uses only keyboard
+  and mouse.
 
 ### M4 — Renderer Spike
 
-* wgpu initialization
+* `wgpu` initialization
 * clear screen
 * triangle
+* textured quad
 * camera abstraction
+
+Acceptance criteria:
+
+* A real render backend initializes successfully.
+* The render path proves the render phases can observe world state.
+* Render code does not mutate simulation state.
+* Rendering remains downstream of world mutation rather than the primary organizing center.
+* The public render layer stays Tokimu-owned rather than exposing raw backend
+  objects as the default engine surface.
+* The spike avoids premature features such as PBR, shadows, deferred rendering,
+  or a generalized render graph.
 
 ### M5 — WASM Spike
 
@@ -468,12 +1102,116 @@ This keeps users from depending directly on every internal crate.
 * clear screen in browser
 * shared core reused
 
+Acceptance criteria:
+
+* The same core crates compile for native and WASM targets.
+* Browser startup reuses core/runtime concepts rather than bypassing them.
+* Platform-specific code remains isolated from engine-neutral crates.
+* The native/WASM split does not hard-code flat-screen assumptions that would
+  block a future VR/XR adapter.
+
+### M6.5 — Networking Boundary Note
+
+* remote simulation remains out of scope for v0 delivery
+* transport and replication boundary documented before ad hoc socket code appears
+
+Acceptance criteria:
+
+* The SDD clearly distinguishes future networking architecture from a promise of
+  near-term multiplayer delivery.
+* No early example or crate introduces socket code into `tokimu-core`.
+* Any future networking spike is routed through a dedicated boundary such as a
+  `tokimu-net` crate rather than scattered through runtime and platform code.
+
 ### M6 — First Playable Toy
 
 * movable entity
 * sprite or simple mesh
 * input-driven update
 * native + WASM demo
+
+Acceptance criteria:
+
+* A small world scenario demonstrates the engine's composition model.
+* Input, simulation, presentation, and rendering remain visibly separated.
+* The playable toy reads like one entry in the broader world corpus, not as a
+  special-case app.
+
+### M7 — Persistence Boundary
+
+* engine-facing save/load model defined
+* persistence crate boundary chosen
+* scene or project serialization spike proves the boundary
+* optional database integration, if any, stays outside core/runtime crates
+
+Acceptance criteria:
+
+* Scene or prefab data starts as declarative document data, not a custom language.
+* The save/load boundary distinguishes editor-facing documents from runtime state.
+* Persistence remains downstream of the world model rather than redefining it.
+
+### M8 — Scene and History Model
+
+* scene document shape defined
+* scene-to-world compilation path proven
+* state diff or history direction documented
+
+Acceptance criteria:
+
+* The engine distinguishes declarative scene documents from runtime world state.
+* A compile or translation step from scene description to runtime world exists
+  conceptually and, ideally, in a small spike.
+* World diff/history is documented as an explicit future capability for replay,
+  debugging, rollback, or inspection.
+* Provenance questions such as what changed, who changed it, and why are given
+  a concrete debug or inspection direction.
+
+### M9 — Inspector and Rule Frontends
+
+* inspection-first editor direction chosen
+* visual rule graph direction documented
+* scripting decision deferred until real behaviors justify it
+
+Acceptance criteria:
+
+* Tokimu has a clear editor v0 target: entity/world tree, trait inspector,
+  asset browser, system timing panel, signal log, and relationship viewer.
+* A visual rule graph is treated as a frontend over Tokimu rule execution, not
+  as a separate runtime architecture.
+* Any early scripting evaluation names an embeddable language such as Rhai or
+  Lua as a candidate, while explicitly rejecting a custom language until enough
+  real behaviors have been written.
+
+### M10 — VR/XR Architecture Spike
+
+* presentation-layer requirements for VR/XR documented
+* render and platform seams reviewed for headset support
+* first candidate integration path identified
+
+Acceptance criteria:
+
+* Tokimu documents VR/XR as a presentation and platform concern layered over
+  the same simulation core rather than as a forked engine mode.
+* The design identifies the minimum abstractions needed for stereo views,
+  tracked spaces, and headset-driven frame submission.
+* A likely integration direction such as OpenXR plus Tokimu-owned render and
+  input abstractions is named without forcing implementation before the engine
+  earns it.
+
+### M11 — Networking and Transport Architecture Spike
+
+* remote simulation requirements documented
+* transport abstraction seam chosen
+* browser and native constraints reviewed together
+
+Acceptance criteria:
+
+* Tokimu documents networking as a transport and replication concern layered
+  over the same simulation model rather than as a separate gameplay core.
+* The design names the unit of replication clearly enough to reason about,
+  whether that becomes commands, events, snapshots, state deltas, or a hybrid.
+* A likely future direction for native and browser-capable transport support is
+  identified without binding the engine to premature protocol decisions.
 
 ## 15. Design Invariants
 
@@ -482,10 +1220,130 @@ This keeps users from depending directly on every internal crate.
 * Platform backends must be replaceable.
 * Asset loading must work without direct filesystem access.
 * WASM support must not be bolted on after native design hardens.
+* VR/XR support should be planned early enough that flat-screen assumptions do
+  not become accidental architecture.
+* Networking, if added, must not make `tokimu-core` depend on sockets,
+  transport libraries, or protocol-specific data shapes.
+* Persistence must not become a hidden owner of world state.
 * Examples should drive engine growth.
 * No subsystem becomes "the engine" by accident.
+* Core engine concepts should remain primitive-first rather than genre-first.
+* Rendering must remain a consumer of world state, not the owner of engine meaning.
+* Editors, blueprints, and scripting must remain frontends over the world and
+  rule model, not alternate engine centers.
 
-## 16. Decision Summary
+## 16. Testing and Validation
+
+Tokimu should treat tests and runnable examples as part of the architecture, not
+as after-the-fact polish.
+
+Required validation layers:
+
+* Unit tests in each crate for local data structures such as entity IDs,
+  schedules, clocks, input state, and asset handles.
+* Integration or smoke tests in `tests/` that prove the workspace boots and the
+  public facade crate links correctly.
+* Example-driven validation: `hello-window`, `hello-triangle`, and `wasm-demo`
+  are architectural tests, not merely demos.
+* Corpus-driven validation: new examples should prove one world relation,
+  transformation, or rule cleanly enough that they can function as reusable
+  engine sentences.
+* Inspection-oriented validation: the architecture should preserve a path toward
+  diff, replay, provenance, and timeline debugging even when those features are
+  not yet fully implemented.
+* Tooling-oriented validation: editor and scripting experiments should prove
+  they consume Tokimu-owned world/rule abstractions rather than bypassing them.
+* Determinism-focused tests for fixed timestep behavior, seeded RNG resources,
+  and the rule that rendering must not mutate simulation state.
+* Target-specific smoke checks: native startup should open and close cleanly;
+  WASM should compile and reach a visible boot path without native-only code.
+* Future-facing checks: major render and platform refactors should be reviewed
+  against both WASM and planned VR/XR constraints, even before VR/XR exists.
+* Networking-facing checks, once networking exists: loopback tests should prove
+  transport independence, message ordering assumptions, and separation between
+  replicated meaning and local presentation concerns.
+* Input-facing checks: device normalization should prove that keyboard, mouse,
+  and later controller/joystick inputs map into the same engine-facing action
+  and axis model rather than producing fractured special cases.
+
+Document rule:
+
+* During M0-M2, this SDD is the source of truth for intended boundaries and
+  milestone scope. If implementation diverges, either the code or the document
+  should be corrected immediately rather than allowing architectural drift.
+
+## 17. Open Questions
+
+These are active design questions, not silent deferrals:
+
+1. ECS storage model. Should the first implementation use a simple sparse-set
+  style layout, or an even smaller map-based model until examples force a more
+  specialized design?
+2. Scheduling API shape. How much of the schedule should be declarative in M1-M2
+  versus hard-coded phase ordering?
+3. Plugin boundaries. Should plugins register only systems and resources in the
+  early engine, or also renderer and platform hooks?
+4. Asset lifecycle. Does M3-M4 need asynchronous asset loading immediately, or
+  is synchronous loading acceptable until WASM constraints force the split?
+5. Renderer abstraction depth. How much of `wgpu` should leak through the first
+  renderer spike before a Tokimu-owned renderer API becomes mandatory?
+6. Relationship representation. Should entity-to-entity links be stored as
+  dedicated relation components, edge tables, or a small graph resource?
+7. Save/load boundary. Which data is durable engine content versus transient
+  runtime state, and what translation layer should separate them?
+8. Database reuse. If Tokimu adopts parts of the local Database project, is the
+  first use case scene persistence, project metadata, asset indexing, or tool
+  cache data?
+9. Threading model. When should Tokimu introduce a job system, if at all,
+  instead of relying on a single-threaded runtime plus explicit background
+  loading?
+10. Knowledge layer. How much semantic structure should the world expose for
+   inspection and rules without collapsing into a database-shaped engine?
+11. History and diff model. Should replay, rollback, and timeline inspection be
+   based on event logs, state diffs, snapshots, or some hybrid?
+12. Resource provider model. How early should Tokimu formalize assets as
+   provider-backed resources rather than file-centric loads?
+13. Scene document format. Should the first durable scene format be RON, TOML,
+  YAML, JSON5, or another plain-data representation?
+14. Editor shell. Is `egui` the right first inspection/debug layer, or does the
+  project need a different Rust-native tool surface?
+15. Rule IR shape. What is the smallest Tokimu-owned rule representation that
+  can serve scene data, visual graphs, and later scripting equally well?
+16. Scripting threshold. After how many real behaviors should Tokimu reassess
+  whether Rhai, Lua, or no scripting at all is the right next step?
+17. VR/XR abstraction seam. Which concepts belong in render, platform, and
+  input layers to support OpenXR-style integration without leaking headset
+  details into the simulation core?
+18. Networking authority model. If Tokimu grows remote simulation, should the
+  first architecture assume authoritative host, deterministic lockstep,
+  snapshot interpolation, rollback, or another hybrid?
+19. Transport surface. What is the narrowest Tokimu-owned transport abstraction
+  that can span native and browser-capable environments without leaking a
+  specific networking library everywhere?
+20. Replication unit. What engine-level meaning should cross the wire first:
+  player commands, signals, world diffs, snapshots, or some mixed model?
+21. Input abstraction shape. What is the smallest Tokimu-owned action and axis
+  model that cleanly spans keyboard, mouse, controllers, joysticks, and later
+  VR/XR inputs without collapsing into device-specific special cases?
+
+## 18. Definition of Done
+
+A milestone is only done when its behavior is implemented, exercised, and still
+fits the engine boundaries described above.
+
+1. The relevant workspace crates compile on stable Rust.
+2. The milestone's example or smoke target runs successfully.
+3. New public APIs are exercised by at least one example or test, not only by
+  unit-level construction.
+4. Any boundary change between core, runtime, platform, renderer, input, or
+  assets is reflected in this SDD or an ADR before the change is treated as
+  settled.
+5. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, and
+  `cargo test --workspace` are clean once the workspace exists.
+6. WASM-related milestones additionally prove that native-only assumptions have
+  not leaked into core crates.
+
+## 19. Decision Summary
 
 Tokimu is a Rust-native real-time state-processing engine.
 
@@ -494,10 +1352,12 @@ It should start small:
 ```text
 runtime loop
 world state
+relationships
+signals
+state mutation
 input
-renderer
-native example
-WASM spike
+inspection
+renderer as proof
 ```
 
 Then grow only as examples prove the need.
