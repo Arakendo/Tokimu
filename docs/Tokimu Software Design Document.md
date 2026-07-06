@@ -38,6 +38,7 @@ relationships change, and observers view the result.
 - Modular subsystems
 - ECS-friendly world model
 - Semantic world model that remains inspectable as it evolves over time
+- Shared world model that can support both 2D and 3D presentation
 - Desktop-first development
 - Planned WebAssembly export support
 - Planned VR/XR support as a first-class architectural concern
@@ -98,6 +99,12 @@ relationships change, and observers view the result.
 15. Normalize input devices early. Keyboard, mouse, controllers, and joysticks
   should feed a coherent engine-facing input model so later device expansion is
   additive rather than architectural rework.
+16. Treat 2D and 3D as presentation choices over shared world meaning. Tokimu
+  should not split into separate engine architectures for sprites versus meshes
+  unless real examples later prove an unavoidable boundary.
+17. Treat overlays and diegetic interfaces as presentation layers too. A 2D HUD
+  and a 3D in-world interface should consume shared engine meaning rather than
+  becoming separate UI runtimes with their own hidden game state.
 
 ## 3.2 Naming and Conceptual Influence
 
@@ -155,6 +162,11 @@ the engine architecture.
 Future networking should be treated as an adapter around synchronized engine
 meaning, carrying replicated state, events, or remote commands without becoming
 the owner of the simulation model.
+Likewise, 2D and 3D should be treated as different presentation mappings over
+the same simulation truth rather than as separate cores.
+The same rule should apply to interface surfaces: screen-space HUDs and world-
+space interfaces should remain presentation consumers over shared simulation
+state rather than hidden parallel state machines.
 
 ## 4.1 World Corpus
 
@@ -218,6 +230,11 @@ This vocabulary supports games, simulations, workflow models, AI worlds, and
 digital-twin style systems without forcing Tokimu to commit to one genre's noun
 set too early.
 
+In code, `Component` is the implementation term and `Trait` is the semantic
+design term. If Tokimu uses both words, `Component` should name the storage or
+runtime unit, while `Trait` should name the inspectable capability or meaning in
+the document model.
+
 ## 5. Major Subsystems
 
 ### 5.1 tokimu-core
@@ -233,6 +250,7 @@ Owns the engine-neutral model:
 * schedules
 * time-step policy
 * math primitives
+* spatial meaning that is not prematurely locked to only 2D or only 3D
 * opaque asset references used by simulation state
 * diagnostics
 
@@ -263,6 +281,16 @@ Owns rendering abstraction:
 * draw commands
 * backend-neutral renderer API
 
+Tokimu should support both 2D and 3D rendering as first-class presentation
+targets over time, but it should do so through shared renderer abstractions
+rather than by growing separate engine cores. Early examples may be 2D-biased
+for speed, while the render architecture should remain able to grow toward 3D
+meshes, cameras, depth, and scene composition without a rewrite.
+
+That same presentation model should leave room for both 2D HUD layers and 3D
+in-world interface surfaces. Tokimu should not assume every interface is either
+pure screen-space UI or pure diegetic world geometry forever.
+
 Tokimu should use `wgpu` as the first renderer backend rather than starting
 from raw Vulkan. `wgpu` already spans native and WASM targets while hiding much
 of the platform-specific GPU setup burden.
@@ -281,6 +309,15 @@ WASM:   WebGPU / WebGL2
 Tokimu's public renderer API should not simply expose `wgpu` everywhere. The
 backend should stay behind Tokimu-owned concepts such as renderer traits,
 render commands, and resource handles.
+
+That renderer API should also avoid baking in assumptions that only sprites or
+only meshes matter. Cameras, transforms, render commands, visibility, and
+resource handles should leave room for both 2D and 3D content, even if the
+first examples emphasize one side.
+
+It should likewise leave a clean path for layering screen-space interface
+presentation and world-space interface presentation without forcing UI logic to
+fork into unrelated architectures.
 
 VR/XR should be treated as an additional presentation mode, not a separate
 engine architecture. Early renderer abstractions should leave room for stereo
@@ -364,6 +401,10 @@ states, and device capabilities rather than around one-off keyboard events.
 That allows Tokimu to start small while still leaving a clean place for analog
 sticks, triggers, hats, deadzone handling, rebinding, and per-device quirks.
 
+The same design habit applies to spatial interaction. Input meaning such as
+move, aim, select, pan, orbit, or confirm should not assume a permanently 2D
+or permanently 3D application shape.
+
 Early input architecture should distinguish:
 
 * raw device events from normalized engine input state
@@ -418,6 +459,11 @@ Optional future tooling:
 * asset inspection
 * editor support
 
+Tokimu should eventually be able to inspect both conventional 2D HUD state and
+3D in-world interface state as presentation layers over shared world meaning.
+The editor/tooling story should not assume that every interface is a flat debug
+overlay.
+
 The first editor layer should be inspection-oriented rather than a full content
 authoring environment. A Rust-native tool stack such as `egui` is a plausible
 early fit for entity trees, inspectors, signal logs, relationship views, and
@@ -447,6 +493,15 @@ custom scripting language. Rust-friendly formats such as RON are a good early
 fit, with TOML, YAML, JSON5, or similar alternatives acceptable if they better
 serve the actual tool chain.
 
+Scene data should also be able to describe both 2D-oriented and 3D-oriented
+content without forking into unrelated document models. Tokimu can start with a
+small shared scene vocabulary and let examples prove when separate 2D or 3D
+authoring conveniences are worth adding.
+
+That scene vocabulary should also be able to describe interface-bearing content,
+whether that becomes a screen-space HUD binding, a world-space panel, a labeled
+interaction point, or some other inspectable presentation attachment.
+
 Illustrative direction:
 
 ```text
@@ -461,13 +516,25 @@ entity "player" {
 ```
 
 This keeps scene data inspectable and editable without inventing a language
- before the engine has earned one.
+before the engine has earned one.
+
+Early scene examples may be sprite-heavy because they are cheaper to ship, but
+the data model should not imply that mesh-based or depth-aware worlds are
+second-class concepts.
+
+Likewise, early HUD examples may be flat overlays because they are cheaper to
+ship, but the data model should not imply that in-world diegetic interfaces are
+architecturally separate special cases.
 
 ### 5.11 Rule Frontends
 
 Tokimu should own a rule representation in the middle of the stack. Scene data,
 visual graphs, and future scripting should compile or translate into that
 engine-owned representation rather than each frontend inventing its own runtime.
+
+For v0, a rule is a named system-like transformation with declared inputs,
+outputs, and emitted signals. That is enough to anchor the architecture without
+building a full IR before the corpus proves the need.
 
 Illustrative shape:
 
@@ -554,6 +621,9 @@ Early invariants:
 * Input collection should normalize external device state, not silently own game logic.
 * World mutation should happen in simulation-owned phases, not in presentation code.
 * Physics or movement resolution should have a clear owning phase once introduced.
+* HUD and interface presentation should observe or request state changes through
+  explicit engine-facing inputs or signals rather than mutating world state as a
+  hidden side effect.
 
 ## 7. ECS Model
 
@@ -596,6 +666,10 @@ Time
 
 Genre-specific meaning should emerge from composition.
 
+Spatial presentation should also emerge from composition. An entity should not
+be forced into a permanent "2D entity" or "3D entity" identity in the core if
+the real difference is how the presentation layer interprets its state.
+
 Examples:
 
 * player = entity + input relation + camera relation + physics state
@@ -636,6 +710,11 @@ Possible uses:
 
 This does not require a fully general graph engine in v0, but it is a useful
 directional constraint on how the world model should grow.
+
+Relationship meaning should remain stable even if relationship storage changes.
+A relation can begin as a simple map, table, or dedicated component and later
+grow into a richer graph representation without changing what the relation
+means to tools or rules.
 
 The same relationship model can carry game-like and simulation-like structure
 without introducing genre nouns into the core:
@@ -1028,7 +1107,7 @@ This keeps users from depending directly on every internal crate.
 Acceptance criteria:
 
 * `cargo test --workspace` passes on stable Rust.
-* `hello-window` and `hello-triangle` compile as runnable example binaries.
+* `hello-window` compiles as a runnable example binary.
 * The facade smoke test proves the public crate re-exports core runtime types.
 * The workspace contains the documented crate, docs, and example skeleton.
 
@@ -1089,6 +1168,11 @@ Acceptance criteria:
 * textured quad
 * camera abstraction
 
+Acceptance direction:
+
+* The earliest concrete render examples may be 2D-oriented, 3D-oriented, or one
+  of each, but the abstraction work should avoid trapping Tokimu in only one.
+
 Acceptance criteria:
 
 * A real render backend initializes successfully.
@@ -1099,6 +1183,10 @@ Acceptance criteria:
   objects as the default engine surface.
 * The spike avoids premature features such as PBR, shadows, deferred rendering,
   or a generalized render graph.
+* The render abstraction leaves a coherent growth path for both 2D and 3D
+  presentation rather than overfitting only to sprites or only to meshes.
+* The render abstraction leaves room for both 2D HUD layering and 3D in-world
+  interface presentation without inventing separate UI engines prematurely.
 
 ### M5 — WASM Spike
 
@@ -1128,6 +1216,11 @@ Acceptance criteria:
 * Input, simulation, presentation, and rendering remain visibly separated.
 * The playable toy reads like one entry in the broader world corpus, not as a
   special-case app.
+* The playable toy may be 2D-first for speed, but it must not imply that the
+  engine core only makes sense for 2D worlds.
+* If the toy includes interface elements, they should already follow the same
+  architectural rule: presentation consumes shared world meaning rather than
+  storing hidden gameplay truth off to the side.
 
 ### M6.5 — Networking Boundary Note
 
@@ -1170,6 +1263,10 @@ Acceptance criteria:
   debugging, rollback, or inspection.
 * Provenance questions such as what changed, who changed it, and why are given
   a concrete debug or inspection direction.
+* The scene model can describe both 2D-oriented and 3D-oriented content without
+  splitting the engine into unrelated authoring paths too early.
+* The scene model can describe both screen-space HUD bindings and world-space
+  interface attachments without requiring a separate ad hoc UI document system.
 
 ### M9 — Inspector and Rule Frontends
 
@@ -1181,6 +1278,8 @@ Acceptance criteria:
 
 * Tokimu has a clear editor v0 target: entity/world tree, trait inspector,
   asset browser, system timing panel, signal log, and relationship viewer.
+* The tooling direction leaves room to inspect both overlay HUD elements and
+  world-space interface attachments as presentation over shared state.
 * A visual rule graph is treated as a frontend over Tokimu rule execution, not
   as a separate runtime architecture.
 * Any early scripting evaluation names an embeddable language such as Rhai or
@@ -1236,6 +1335,13 @@ Acceptance criteria:
 * Rendering must remain a consumer of world state, not the owner of engine meaning.
 * Editors, blueprints, and scripting must remain frontends over the world and
   rule model, not alternate engine centers.
+* Any new crate or major subsystem must justify which boundary it protects.
+* Relationship meaning should remain stable even if relationship storage is
+  replaced later.
+* 2D and 3D support should remain presentation-level differences over shared
+  engine meaning unless real corpus examples prove a harder boundary.
+* HUD and interface layers must not become hidden alternate owners of gameplay
+  state, whether they are screen-space overlays or world-space surfaces.
 
 ## 16. Testing and Validation
 
@@ -1270,6 +1376,13 @@ Required validation layers:
 * Input-facing checks: device normalization should prove that keyboard, mouse,
   and later controller/joystick inputs map into the same engine-facing action
   and axis model rather than producing fractured special cases.
+* Presentation-facing checks: early render and scene work should prove that 2D
+  and 3D examples can grow from shared engine concepts rather than from forked
+  architecture.
+* Interface-facing checks: HUD and in-world interface experiments should prove
+  that presentation reads shared state and routes interaction back through
+  engine-facing inputs, commands, or signals rather than inventing parallel UI
+  truth.
 
 Document rule:
 
@@ -1330,6 +1443,12 @@ These are active design questions, not silent deferrals:
 21. Input abstraction shape. What is the smallest Tokimu-owned action and axis
   model that cleanly spans keyboard, mouse, controllers, joysticks, and later
   VR/XR inputs without collapsing into device-specific special cases?
+22. Spatial abstraction shape. What is the smallest Tokimu-owned spatial model
+  that supports both 2D-oriented and 3D-oriented worlds without forcing a false
+  split too early or hiding real differences too long?
+23. Interface model. What is the smallest Tokimu-owned presentation model that
+  can describe both 2D HUD elements and 3D in-world interfaces without creating
+  a separate hidden gameplay state machine for UI?
 
 ## 18. Definition of Done
 
@@ -1349,6 +1468,14 @@ fits the engine boundaries described above.
   not leaked into core crates.
 
 ## 19. Decision Summary
+
+v0 succeeds when Tokimu can run one native playable toy whose world state,
+input, signals, and rendering path are inspectable and separated by crate
+boundaries.
+
+That v0 toy may be 2D-first for implementation speed, but the surrounding
+architecture should still preserve a clean path toward 3D-capable scenes and
+rendering.
 
 Tokimu is a Rust-native real-time state-processing engine.
 
