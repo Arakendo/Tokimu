@@ -3,7 +3,7 @@
 | Field        | Value                                             |
 | ------------ | ------------------------------------------------- |
 | Status       | Draft                                             |
-| Version      | 0.1.0                                             |
+| Version      | 0.2.0                                             |
 | Last updated | 2026-07-06                                        |
 | Scope        | v0 architecture and initial milestones            |
 | Language     | Rust (edition 2021)                               |
@@ -141,8 +141,8 @@ Corpus / Examples
     ↓
   State Change
   ↙       ↘
-Presentation  Replication
-   ↓          ↓
+Presentation  Synchronization
+  ↓             ↓
 Renderer / Platform / Audio / WASM Host / Network Transport
 ```
 
@@ -152,8 +152,9 @@ The same core should also remain compatible with a future VR/XR presentation
 path rather than assuming a permanently flat-screen engine model.
 The renderer should be treated as a consumer of world state, not the center of
 the engine architecture.
-Future networking should also be treated as a downstream consumer or publisher
-of engine meaning, not as the owner of the simulation model.
+Future networking should be treated as an adapter around synchronized engine
+meaning, carrying replicated state, events, or remote commands without becoming
+the owner of the simulation model.
 
 ## 4.1 World Corpus
 
@@ -947,10 +948,10 @@ tokimu/
   └── smoke.rs
 ```
 
-`tokimu-audio` and `tokimu-tools` are intentionally omitted from the initial
-workspace skeleton. `tokimu-persistence` is also intentionally omitted at this
-stage. These crates should be added only once a concrete example or tool flow
-proves the need.
+`tokimu-audio`, `tokimu-tools`, and `tokimu-net` are intentionally omitted from
+the initial workspace skeleton. `tokimu-persistence` is also intentionally
+omitted at this stage. These crates should be added only once a concrete example
+or tool flow proves the need.
 
 ## 12. Workspace Cargo.toml
 
@@ -991,6 +992,10 @@ wasm-bindgen = "0.2"
 web-sys = "0.3"
 js-sys = "0.3"
 ```
+
+`examples/wasm-demo` is intentionally not listed as a Cargo workspace member,
+because it is a browser host surface for the WASM build rather than a Rust
+crate in its own right.
 
 ## 13. Public Facade Crate
 
@@ -1110,19 +1115,6 @@ Acceptance criteria:
 * The native/WASM split does not hard-code flat-screen assumptions that would
   block a future VR/XR adapter.
 
-### M6.5 — Networking Boundary Note
-
-* remote simulation remains out of scope for v0 delivery
-* transport and replication boundary documented before ad hoc socket code appears
-
-Acceptance criteria:
-
-* The SDD clearly distinguishes future networking architecture from a promise of
-  near-term multiplayer delivery.
-* No early example or crate introduces socket code into `tokimu-core`.
-* Any future networking spike is routed through a dedicated boundary such as a
-  `tokimu-net` crate rather than scattered through runtime and platform code.
-
 ### M6 — First Playable Toy
 
 * movable entity
@@ -1136,6 +1128,19 @@ Acceptance criteria:
 * Input, simulation, presentation, and rendering remain visibly separated.
 * The playable toy reads like one entry in the broader world corpus, not as a
   special-case app.
+
+### M6.5 — Networking Boundary Note
+
+* remote simulation remains out of scope for v0 delivery
+* transport and replication boundary documented before ad hoc socket code appears
+
+Acceptance criteria:
+
+* The SDD clearly distinguishes future networking architecture from a promise of
+  near-term multiplayer delivery.
+* No early example or crate introduces socket code into `tokimu-core`.
+* Any future networking spike is routed through a dedicated boundary such as a
+  `tokimu-net` crate rather than scattered through runtime and platform code.
 
 ### M7 — Persistence Boundary
 
