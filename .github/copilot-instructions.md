@@ -6,6 +6,12 @@ Tokimu is a Rust-native real-time simulation and rendering engine with planned
 WebAssembly support. Treat it as an engine project, not as a general app or a
 database-backed tool.
 
+Longer term, Tokimu may support multiple application classes on top of the same
+core architecture: games, technical simulators, creative tools, robotics or
+industrial dashboards, and other semantic interactive applications. Treat that
+as a platform ambition, not as a reason to absorb domain-specific applications
+into the engine core.
+
 The current source-of-truth design document is `docs/Tokimu Software Design Document.md`.
 If code changes alter architecture, boundaries, or milestone expectations,
 update the SDD or add an ADR rather than letting code and docs drift apart.
@@ -22,6 +28,8 @@ update the SDD or add an ADR rather than letting code and docs drift apart.
   If database-backed persistence appears later, it belongs in its own crate.
 - Prefer structural boundaries over advisory comments. If a bad dependency or
   ownership direction is dangerous, redesign so the code shape makes it harder.
+- Prefer making specialized applications straightforward to build on Tokimu
+  over baking those applications directly into core engine crates.
 
 ## Design Habits
 
@@ -50,6 +58,25 @@ Tonesu projects.
   before or alongside the code.
 - Do not invent philosophical jargon in code. If conceptual lineage matters,
   record it in docs, not in public API names.
+- Treat the SDD as an architectural constraint system, not just background
+  reading. If a locally reasonable implementation conflicts with the SDD's
+  ownership model or boundaries, the SDD wins unless the architecture is being
+  intentionally revised.
+
+## AI Implementation Principles
+
+- Before introducing a new abstraction, crate, trait, service, or subsystem,
+  ask whether an existing abstraction can be extended instead.
+- Tie new abstractions to a concrete example, milestone need, or acceptance
+  criterion. Do not generalize because another engine happens to have a similar
+  layer.
+- Preserve world-first architecture: simulation owns truth; presentation,
+  platform, tooling, and persistence adapt or observe it.
+- Prefer semantic concepts over implementation-shaped concepts. Do not create a
+  new named layer when the real need is only an internal helper.
+- Avoid duplicating an existing concept under a different name.
+- Check whether a change bakes in assumptions that make native/WASM parity,
+  future VR/XR support, or replaceable presentation adapters harder.
 
 ## Implementation Preferences
 
@@ -61,6 +88,22 @@ Tonesu projects.
 - Rendering must not mutate simulation state.
 - Determinism-related behavior should be explicit: fixed timestep policy,
   seeded randomness, and clear ownership of time progression.
+- When a milestone or example only needs one concrete behavior, implement that
+  behavior directly before inventing extra generalized systems around it.
+- Prefer acceptance-criteria-complete work over speculative completeness.
+
+## Authoring Frontends
+
+- Tokimu itself remains primarily a Rust engine.
+- If TypeScript frontends are added later, treat them as author-facing adapters
+  over Tokimu-owned semantic models, not as alternate runtimes.
+- Prefer a Rust engine / TypeScript authors split: engine implementers mostly
+  work in Rust, while engine users should be able to author high-level content
+  in TypeScript.
+- Do not make `tokimu-core` or `tokimu-runtime` depend on TypeScript tooling,
+  JavaScript runtimes, or authoring frontend infrastructure.
+- Independent frontends should target interoperable Tokimu semantic models
+  rather than integrating through ad hoc TypeScript package conventions.
 
 ## Validation Expectations
 

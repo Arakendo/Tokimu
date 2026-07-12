@@ -31,6 +31,23 @@ Games are one important expression of the engine, but not the only one. The
 deeper primitive is a universe where entities exist, rules execute,
 relationships change, and observers view the result.
 
+Longer term, Tokimu should be understood less as "a game engine with a few
+extra modes" and more as a semantic runtime platform for interactive
+applications. Games, technical simulators, digital twins, creative tools,
+robotics dashboards, circuit-analysis tools, and domain-specific editors are
+all plausible applications built on the same core ideas: entities,
+relationships, rules, state, tools, and presentation.
+
+That does not mean Tokimu itself should absorb all of those applications into
+the engine. The healthier ambition is to make building such applications
+straightforward without turning core Tokimu into a monolithic editor suite.
+
+If Tokimu succeeds at that, many users may never think of themselves as "using
+Tokimu" directly. They may instead use higher-level engines, editors, or
+application kits built on top of Tokimu for specific domains. That is a healthy
+outcome. The core runtime should disappear into the background while
+domain-specific applications become the visible products.
+
 ## 2. Core Goals
 
 - Rust-native engine architecture
@@ -38,7 +55,7 @@ relationships change, and observers view the result.
 - Modular subsystems
 - ECS-friendly world model
 - Semantic world model that remains inspectable as it evolves over time
-- Shared world model that can support both 2D and 3D presentation
+- Shared world model that can support 2D, 3D, and text-first presentation
 - Desktop-first development
 - Planned WebAssembly export support
 - Planned VR/XR support as a first-class architectural concern
@@ -46,6 +63,7 @@ relationships change, and observers view the result.
 - Strong early input architecture, including controller and joystick support planning
 - Clean separation between engine core, platform backends, renderer, and tools
 - Minimal early scope with room for later expansion
+- A core architecture reusable across multiple application classes, not only games
 
 ## 3. Non-Goals for v0
 
@@ -105,6 +123,49 @@ relationships change, and observers view the result.
 17. Treat overlays and diegetic interfaces as presentation layers too. A 2D HUD
   and a 3D in-world interface should consume shared engine meaning rather than
   becoming separate UI runtimes with their own hidden game state.
+18. Treat text-first and MUD-like presentation as another adapter surface over
+  the same world model, not as a separate engine or special-case runtime.
+19. Prefer platform value over built-in specialization. Tokimu should make
+  specialized applications easier to build without forcing every such
+  application to become part of the engine itself.
+20. Prefer canonical primitives over domain packages in core. Tokimu should
+  standardize foundational concepts such as transform, hierarchy, asset,
+  command, signal, relation, and time, while leaving genre- or domain-specific
+  vocabularies such as health, quests, dialogue, or traffic to higher-level
+  engines built on top.
+
+### 3.1.1 AI Implementation Principles
+
+This SDD should also be treated as a constraint system for AI-assisted
+implementation.
+
+As code generation gets cheaper, the main risk shifts from "can the code be
+written" to "did the implementation preserve the intended architecture." The
+document exists partly to keep many separate coding sessions, human or agent,
+converging on the same engine rather than on many locally reasonable but
+incompatible designs.
+
+The document intentionally emphasizes responsibilities and boundaries more than
+function signatures. For Tokimu, a sentence such as "presentation consumes
+state but does not own simulation truth" is more valuable than prematurely
+standardizing ten APIs around the wrong ownership model.
+
+Before introducing a new abstraction, crate, trait, service, or subsystem,
+implementations should answer:
+
+1. Can an existing abstraction be extended instead?
+2. Is this required by a concrete example, milestone, or acceptance criterion?
+3. Does this preserve world-first architecture and simulation-owned truth?
+4. Does this accidentally push a presentation concern into simulation?
+5. Is this concept semantic, or merely implementation-specific?
+6. Does this duplicate an existing concept under a new name?
+7. Does this make native, WASM, or future VR/XR support harder by baking in
+  assumptions too early?
+
+For milestone work, smaller concrete success criteria should beat speculative
+completeness. If the current milestone needs one window, one triangle, or one
+playable toy, the correct implementation is usually the one that proves exactly
+that behavior while adding the fewest irreversible abstractions.
 
 ## 3.2 Naming and Conceptual Influence
 
@@ -167,6 +228,9 @@ the same simulation truth rather than as separate cores.
 The same rule should apply to interface surfaces: screen-space HUDs and world-
 space interfaces should remain presentation consumers over shared simulation
 state rather than hidden parallel state machines.
+The same rule should apply to text surfaces: room descriptions, command
+prompts, transcripts, and remote text sessions should stay over the same world,
+rule, signal, and input model.
 
 ## 4.1 World Corpus
 
@@ -372,6 +436,24 @@ with render abstractions rather than as special logic inside the simulation
 core. OpenXR is the most plausible first-class native integration target when
 Tokimu reaches that stage.
 
+Text/MUD support should arrive in the same spirit: a text adapter, command
+parser, and session surface coordinated with the same world and input model
+instead of a separate game loop or bespoke world representation.
+
+That makes text a simulation console for inspectable systems such as process
+models, digital twins, maintenance workflows, training scenarios, and other
+worlds where relations, rules, and traces matter more than visual polish.
+The surface should feel like textual inspection and command control, not a
+fantasy MUD by default.
+
+Early commands can stay intentionally small:
+
+* `look <entity>`
+* `list relations <entity>`
+* `step <seconds>`
+* `emit <signal>`
+* `why <entity/state>`
+
 ### 5.5 tokimu-assets
 
 Owns asset loading and management:
@@ -464,6 +546,11 @@ Tokimu should eventually be able to inspect both conventional 2D HUD state and
 The editor/tooling story should not assume that every interface is a flat debug
 overlay.
 
+Tokimu should also be able to expose text-first and MUD-like views over the same
+world meaning: room descriptions, command history, prompt state, and
+inventory/status summaries should be inspectable without becoming a separate
+authoring system.
+
 The first editor layer should be inspection-oriented rather than a full content
 authoring environment. A Rust-native tool stack such as `egui` is a plausible
 early fit for entity trees, inspectors, signal logs, relationship views, and
@@ -502,6 +589,10 @@ That scene vocabulary should also be able to describe interface-bearing content,
 whether that becomes a screen-space HUD binding, a world-space panel, a labeled
 interaction point, or some other inspectable presentation attachment.
 
+Likewise, early text examples may be simple room-and-command flows because they
+are cheaper to ship, but the data model should not imply that MUD-like or
+command-driven presentation is architecturally separate special-casing.
+
 Illustrative direction:
 
 ```text
@@ -518,6 +609,10 @@ entity "player" {
 This keeps scene data inspectable and editable without inventing a language
 before the engine has earned one.
 
+Text-first scenes should be able to represent command prompts, room
+descriptions, inventory/status summaries, and transcript-friendly labels using
+the same shared scene vocabulary.
+
 Early scene examples may be sprite-heavy because they are cheaper to ship, but
 the data model should not imply that mesh-based or depth-aware worlds are
 second-class concepts.
@@ -528,9 +623,20 @@ architecturally separate special cases.
 
 ### 5.11 Rule Frontends
 
-Tokimu should own a rule representation in the middle of the stack. Scene data,
+Tokimu should own a semantic rule model in the middle of the stack. Scene data,
 visual graphs, and future scripting should compile or translate into that
-engine-owned representation rather than each frontend inventing its own runtime.
+engine-owned model rather than each frontend inventing its own runtime.
+
+The important architectural point is not "Tokimu uses TypeScript." It is that
+Tokimu owns the semantics while authoring frontends remain adapters over that
+engine-owned meaning.
+
+That semantic rule model should be intentionally language-agnostic. TypeScript
+is the strongest early frontend candidate because of its mature tooling, not
+because Tokimu semantics should become tied to JavaScript. Tokimu itself should
+remain primarily a Rust engine, while developers building games, tools,
+scenarios, and content on top of Tokimu should be able to live mostly in
+TypeScript.
 
 For v0, a rule is a named system-like transformation with declared inputs,
 outputs, and emitted signals. That is enough to anchor the architecture without
@@ -539,13 +645,111 @@ building a full IR before the corpus proves the need.
 Illustrative shape:
 
 ```text
-Scene Data  ┐
-Blueprints  ├→ Tokimu Rule IR → Runtime Systems
-Rhai/Lua    ┘
+Scene Data         ┐
+Visual Graphs      ├→ Tokimu Semantic Rule Model → Runtime Systems
+TypeScript APIs    ┘
 ```
 
 This keeps the world model and rule execution architecture primary, while
 treating editors and scripting as frontends.
+
+The same pattern should generalize beyond rules when the corpus earns it:
+
+```text
+TypeScript syntax
+  ↓
+domain-specific Tokimu API
+  ↓
+domain-specific semantic model
+  ↓
+target compiler/runtime
+```
+
+Independent frontends should target interoperable Tokimu semantic models rather
+than communicating through TypeScript itself. Scenes, rules, queries,
+presentation bindings, and later specialized frontends should converge through
+Tokimu-owned meaning, not through ad hoc package conventions.
+
+That same rule should apply to higher-level domain engines and application kits.
+An RPG toolkit, CAD-oriented package, painting application, or circuit-analysis
+suite may each define richer domain semantics on top of Tokimu, but they should
+do so by extending or composing Tokimu-owned primitives rather than by forcing
+changes into the core runtime for every new application class.
+
+Recommended early implementation path:
+
+```text
+Phase 1  Declarative scene/rule data, no scripting
+Phase 2  Semantic rule model stabilizes with real callers
+Phase 3  TypeScript authoring lowers ahead of time into that model
+Phase 4  Optional embedded JS host, only if real use cases justify it
+```
+
+The preferred path is phase 3, not phase 4. Tokimu should favor ahead-of-time
+compilation of a restricted TypeScript frontend into the semantic rule model
+rather than embedding a general-purpose JavaScript runtime in core engine
+paths. That keeps determinism, native/WASM parity, and engine boundaries easier
+to preserve.
+
+Practical lowering pipeline:
+
+```text
+TypeScript source
+  ↓
+TypeScript compiler + typechecker
+  ↓
+typed AST / recognized Tokimu API calls
+  ↓
+Tokimu lowering pass
+  ↓
+Tokimu semantic rule model
+  ↓
+Runtime systems
+```
+
+Tokimu should not try to understand arbitrary JavaScript. The frontend should
+recognize specific Tokimu-owned API calls and lower those. In practice, that
+means "Tokimu supports the `tokimu` package" is a more accurate statement than
+"Tokimu supports TypeScript."
+
+Illustrative direction:
+
+```ts
+import { rule, query } from "tokimu";
+
+rule("movement", (ctx) => {
+  for (const e of query(Transform, Velocity)) {
+    e.get(Transform).x += e.get(Velocity).x * ctx.fixedDelta;
+  }
+});
+```
+
+Conceptual lowering target:
+
+```text
+rule "movement" {
+  reads: [Transform, Velocity]
+  writes: [Transform]
+  time: fixed_step
+  operation: integrate Transform.x with Velocity.x
+}
+```
+
+The first frontend should deliberately support only a small, explicit subset of
+constructs such as `rule()`, `query()`, `signal()`, `relation()`, `command()`,
+deterministic loops, and arithmetic. It should explicitly reject ambient I/O,
+DOM access, `async`, `Promise`, `Date`, `Math.random`, `fetch`, `eval`, and
+similar host-dependent features.
+
+Likely prototype toolchain:
+
+* TypeScript Compiler API for authoritative parsing, symbol resolution, diagnostics, and type information.
+* `ts-morph` as a friendlier wrapper for the first lowering prototypes.
+* `Oxc` as a later option only if more of the frontend pipeline moves fully into Rust.
+
+The toolchain is important because Tokimu does not need to build a TypeScript
+parser or type checker. It only needs to own the semantic validation and the
+lowering step into engine-owned meaning.
 
 ### 5.12 Dependency Rules
 
@@ -558,6 +762,8 @@ The crate graph should stay intentionally narrow:
 * `tokimu-net`, if added, should depend on engine-facing world, command, and replication shapes rather than making core types depend on socket or protocol libraries.
 * `tokimu-persistence`, if added, depends on stable engine-facing data formats or translation APIs; engine crates should not depend on it.
 * Editor tooling, visual rule graphs, and future scripting frontends should depend on Tokimu-owned world and rule abstractions, not become parallel runtimes.
+* If Tokimu grows TypeScript frontends, the shared TypeScript compiler integration, diagnostics, and lowering infrastructure should live in frontend-facing crates rather than leaking into core engine crates.
+* Independent authoring frontends should share infrastructure where useful, but each frontend should own its own API surface and semantic lowering rules rather than expanding into one monolithic "Tokimu understands TypeScript" compiler.
 * The facade crate `tokimu` may re-export internal crates, but internal crates should avoid depending on the facade.
 
 ## 6. Engine Loop
@@ -1032,6 +1238,32 @@ the initial workspace skeleton. `tokimu-persistence` is also intentionally
 omitted at this stage. These crates should be added only once a concrete example
 or tool flow proves the need.
 
+The authoring-frontend crates implied by sections 5.11 and 5.12 are likewise
+deferred, not yet present. When the semantic rule model earns real callers, the
+first additions would be an engine-owned `tokimu-rule` crate, followed only
+later by TypeScript frontend crates. None of these should exist before the rule
+model is exercised by concrete examples. See
+[scripting-typescript.md](scripting-typescript.md) for the full frontend design.
+
+Proposed future layout, added only when earned (illustrative, not current):
+
+```text
+crates/
+  tokimu-rule/          # engine-owned semantic rule model (Rust)
+  tokimu-ts-frontend/   # shared TS compiler integration + lowering host (Rust)
+
+frontends/              # TypeScript authoring packages (npm workspace)
+  tokimu-rules/         # @tokimu/rules  -> tokimu-rule model
+  tokimu-scenes/        # @tokimu/scenes -> tokimu-scene model
+  tokimu-query/         # @tokimu/query  -> tokimu-query model
+  tokimu-ui/            # @tokimu/ui     -> tokimu-presentation model
+```
+
+The split keeps Rust engine crates under `crates/` and TypeScript authoring
+packages under a separate top-level `frontends/` tree, so the two toolchains do
+not entangle build systems. Independent frontends target interoperable Tokimu
+semantic models rather than importing one another.
+
 ## 12. Workspace Cargo.toml
 
 ```toml
@@ -1221,6 +1453,8 @@ Acceptance criteria:
 * If the toy includes interface elements, they should already follow the same
   architectural rule: presentation consumes shared world meaning rather than
   storing hidden gameplay truth off to the side.
+* If the toy includes text commands or a transcript, those should be just
+  another presentation/input path over the same world state.
 
 ### M6.5 — Networking Boundary Note
 
@@ -1267,12 +1501,15 @@ Acceptance criteria:
   splitting the engine into unrelated authoring paths too early.
 * The scene model can describe both screen-space HUD bindings and world-space
   interface attachments without requiring a separate ad hoc UI document system.
+* The scene model can describe text-first and MUD-like presentation elements
+  without requiring a separate text-only world model.
 
 ### M9 — Inspector and Rule Frontends
 
 * inspection-first editor direction chosen
 * visual rule graph direction documented
-* scripting decision deferred until real behaviors justify it
+* TypeScript-first authoring direction documented
+* scripting implementation deferred until real behaviors justify it
 
 Acceptance criteria:
 
@@ -1280,11 +1517,17 @@ Acceptance criteria:
   asset browser, system timing panel, signal log, and relationship viewer.
 * The tooling direction leaves room to inspect both overlay HUD elements and
   world-space interface attachments as presentation over shared state.
+* The tooling direction leaves room to inspect text-first and MUD-like views,
+  including room descriptions, command history, and transcript logs.
 * A visual rule graph is treated as a frontend over Tokimu rule execution, not
   as a separate runtime architecture.
-* Any early scripting evaluation names an embeddable language such as Rhai or
-  Lua as a candidate, while explicitly rejecting a custom language until enough
-  real behaviors have been written.
+* Tokimu documents a clear product split: engine implementers mostly work in
+  Rust, while engine users should be able to author rules, scenarios, and other
+  high-level content primarily in TypeScript.
+* Any early scripting evaluation treats TypeScript as the preferred
+  author-facing frontend, while explicitly rejecting a general-purpose embedded
+  runtime in core engine crates until enough real behaviors have been written
+  to justify the cost.
 
 ### M10 — VR/XR Architecture Spike
 
@@ -1317,6 +1560,27 @@ Acceptance criteria:
 * A likely future direction for native and browser-capable transport support is
   identified without binding the engine to premature protocol decisions.
 
+### M12 — Text / MUD Architecture Spike
+
+* text-first presentation requirements documented
+* command parsing and transcript flow reviewed
+* remote text-session adapter path identified
+
+Acceptance criteria:
+
+* Tokimu documents text-first and MUD-like presentation as a view/control
+  adapter over the same simulation core rather than as a separate engine or
+  bespoke runtime.
+* The design identifies the minimum abstractions needed for room descriptions,
+  command dispatch, prompt state, inventory/status summaries, and transcripts.
+* The use case includes simulation-console-style inspection for engineering,
+  digital-twin, training, maintenance, and process-model workflows.
+* A likely integration direction such as a text adapter plus command parser,
+  layered over Tokimu-owned world and input abstractions, is named without
+  forcing a full MUD server or natural-language parser.
+* The first command surface remains deliberately small, with primitives such as
+  look, list relations, step, emit, and why.
+
 ## 15. Design Invariants
 
 * Core must not depend on platform APIs.
@@ -1342,6 +1606,15 @@ Acceptance criteria:
   engine meaning unless real corpus examples prove a harder boundary.
 * HUD and interface layers must not become hidden alternate owners of gameplay
   state, whether they are screen-space overlays or world-space surfaces.
+* Text-first and MUD-like presentation must also remain presentation-level over
+  shared engine meaning unless corpus examples prove a harder boundary.
+* Domain-specific applications such as painters, CAD tools, circuit analyzers,
+  robotics dashboards, or digital-twin viewers should build on Tokimu rather
+  than being absorbed into core engine crates unless a shared engine boundary
+  is clearly proven.
+* Core crates should prefer canonical primitives that enable many ecosystems
+  over genre- or application-shaped concepts that prematurely lock Tokimu to
+  one family of tools.
 
 ## 16. Testing and Validation
 
@@ -1383,6 +1656,9 @@ Required validation layers:
   that presentation reads shared state and routes interaction back through
   engine-facing inputs, commands, or signals rather than inventing parallel UI
   truth.
+* Text-facing checks: text-first and MUD-like experiments should prove that
+  descriptions, commands, and transcripts are just another view/controller over
+  shared world state rather than a separate game model.
 
 Document rule:
 
@@ -1425,8 +1701,9 @@ These are active design questions, not silent deferrals:
   YAML, JSON5, or another plain-data representation?
 14. Editor shell. Is `egui` the right first inspection/debug layer, or does the
   project need a different Rust-native tool surface?
-15. Rule IR shape. What is the smallest Tokimu-owned rule representation that
-  can serve scene data, visual graphs, and later scripting equally well?
+15. Semantic rule model shape. What is the smallest Tokimu-owned rule
+  representation that can serve scene data, visual graphs, and later scripting
+  equally well?
 16. Scripting threshold. After how many real behaviors should Tokimu reassess
   whether Rhai, Lua, or no scripting at all is the right next step?
 17. VR/XR abstraction seam. Which concepts belong in render, platform, and
@@ -1449,6 +1726,16 @@ These are active design questions, not silent deferrals:
 23. Interface model. What is the smallest Tokimu-owned presentation model that
   can describe both 2D HUD elements and 3D in-world interfaces without creating
   a separate hidden gameplay state machine for UI?
+24. Text presentation model. What is the smallest Tokimu-owned presentation and
+  command model that can support room descriptions, prompts, transcripts, and
+  MUD-like interaction without turning text mode into a separate engine?
+25. Frontend and model versioning. As authoring frontends and semantic models
+  evolve, how are they versioned so older authored content still compiles, and
+  how do independent frontends stay interoperable through shared engine meaning
+  rather than through ad hoc package conventions?
+26. Canonical primitive surface. Which concepts belong in Tokimu's shared
+  foundational vocabulary, and which should be left to higher-level engines so
+  the ecosystem does not fragment around incompatible names for the same idea?
 
 ## 18. Definition of Done
 
@@ -1466,6 +1753,9 @@ fits the engine boundaries described above.
   `cargo test --workspace` are clean once the workspace exists.
 6. WASM-related milestones additionally prove that native-only assumptions have
   not leaked into core crates.
+7. If a change introduces a new abstraction, crate, trait, or service layer,
+  it is justified against the AI Implementation Principles above and tied to a
+  concrete example, milestone need, or acceptance criterion.
 
 ## 19. Decision Summary
 
