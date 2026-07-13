@@ -7,3 +7,4 @@ repository.workspace = true
 
 [dependencies]
 tokimu-core = { path = "../tokimu-core" }
+tokimu-input = { path = "../tokimu-input" }

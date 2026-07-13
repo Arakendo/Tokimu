@@ -4,7 +4,7 @@
 | ------------ | ------------------------------------------------- |
 | Status       | Draft                                             |
 | Version      | 0.2.0                                             |
-| Last updated | 2026-07-06                                        |
+| Last updated | 2026-07-12                                        |
 | Scope        | v0 architecture and initial milestones            |
 | Language     | Rust (edition 2021)                               |
 
@@ -17,6 +17,18 @@ deployment, with VR/XR support planned as a first-class future capability.
 Tokimu is not merely a "game engine" in the mechanical sense. It is a
 state-processing runtime: it accepts input, rules, assets, and time, then
 produces updated world state and rendered output.
+
+Tokimu is also a strong fit for the label "engine kernel": a reusable runtime
+that provides core services higher-level engines and interactive applications
+build upon. That analogy is about scope and ownership, not about being an
+operating-system kernel.
+
+For public-facing copy, lead with the description before the label: Tokimu is
+a Rust-native runtime for building interactive engines, simulations, and
+applications. It provides reusable runtime services, including simulation,
+scheduling, rendering, input, resources, diagnostics, and world management,
+that higher-level engines build upon. Use "engine kernel" as the architectural
+term once the reader already has that mental model.
 
 Tokimu should be understood in layers:
 
@@ -341,6 +353,10 @@ Owns rendering abstraction:
 * cameras
 * render commands
 * sprites/meshes/materials
+* pipeline descriptors and handles
+* reusable renderable descriptors and handles
+* per-draw instance payloads
+* camera/view uniforms
 * texture handles
 * draw commands
 * backend-neutral renderer API
@@ -374,6 +390,66 @@ Tokimu's public renderer API should not simply expose `wgpu` everywhere. The
 backend should stay behind Tokimu-owned concepts such as renderer traits,
 render commands, and resource handles.
 
+Pipeline choice should remain explicit at draw submission time rather than
+being hidden inside material state. Materials describe bound data, while draw
+commands decide which mesh, material, and pipeline resources participate in a
+specific presentation step.
+
+Reusable renderable resources may bundle mesh, material, and pipeline handles
+for convenience, but they should remain presentation-facing tuples rather than
+quietly becoming scene ownership, transform storage, or simulation truth.
+
+Per-draw instance payloads may supply small placement-oriented data such as 2D
+translation, scale, and rotation so the same renderable can be submitted more
+than once.
+The current proof also uses multiple materials and renderable handles for the
+same mesh so distinct presentation variants stay explicit, and it can vary the
+clear color over time to keep the background part of the presentation proof.
+The current proof has since grown to six differently colored 2D shapes,
+including a square mesh and a diamond mesh, which keeps the example squarely
+in 2D presentation while making the reuse and motion more scene-like without
+introducing a scene graph or transform hierarchy.
+Keyboard input can also nudge part of the composition, with both WASD and the
+arrow keys mapped into the same Tokimu-owned input state, which keeps the
+platform event path visibly connected to presentation without turning the
+example into a gameplay loop.
+Mouse movement can nudge the square and diamond placements too, so the proof
+now visibly reacts to both cursor and keyboard state while remaining a 2D
+presentation example rather than a gameplay loop.
+The keyboard and mouse controls now steer different portions of the scene,
+which keeps the interaction legible without needing a gameplay-specific input
+model.
+The example also mirrors the current input state into the native window title,
+which gives the platform seam a visible readout without needing text rendering
+or a HUD layer yet, and Space now resets the visible offsets back to neutral.
+Left click toggles paused motion so the title can distinguish moving versus
+paused mode without inventing a gameplay loop.
+Right click toggles an alternate palette mode so the same scene can visibly
+shift without introducing a separate rendering abstraction.
+Middle click reverses motion direction so the proof can show another
+Tokimu-owned input path without adding a scene graph or a gameplay system.
+Holding a mouse button briefly boosts the background tint and motion amplitude
+and makes cursor-driven placement more pronounced, so the scene also reacts to
+pressed-state input, not only click toggles. In practice, the held state now
+behaves more like a visible drag gesture than a quiet modifier.
+That still does not make `tokimu-render` the owner of transform hierarchies,
+visibility graphs, or world truth.
+
+Camera/view uniforms are the next distinct lane: they define how a frame is
+seen, not what the world is. That keeps placement, view, and world meaning
+separable even in the first 2D render proofs.
+
+Tokimu's first concrete camera helper may be orthographic, since the early
+render proofs are 2D-oriented. That still serves the same boundary: projection
+is explicit, aspect-aware, and not implicit in the backend.
+
+Camera resources may be uploaded and selected by handle just like meshes,
+materials, pipelines, and renderables. Tokimu's first camera upload can carry
+separate matrix-based view and projection payloads, can be sized from the
+native window while preserving an explicit logical world height owned by the
+example, and the active camera is still a presentation choice, not a
+simulation owner.
+
 That renderer API should also avoid baking in assumptions that only sprites or
 only meshes matter. Cameras, transforms, render commands, visibility, and
 resource handles should leave room for both 2D and 3D content, even if the
@@ -403,7 +479,8 @@ Early file shape should stay small and concrete:
 ```text
 renderer.rs       // Tokimu abstraction
 commands.rs       // draw and clear commands
-resources.rs      // texture/mesh handles
+resources.rs      // texture/mesh/material/pipeline handles
+pipeline.rs       // minimal Tokimu-owned pipeline descriptors
 wgpu_backend.rs   // backend implementation
 ```
 
@@ -757,6 +834,7 @@ The crate graph should stay intentionally narrow:
 
 * `tokimu-core` depends only on foundational libraries such as math, error, and diagnostics crates.
 * `tokimu-runtime` depends on `tokimu-core` and orchestrates schedules, plugins, and the app lifecycle.
+* `tokimu-runtime` may also depend on `tokimu-input` once the runtime needs to own a current engine-facing input snapshot; `tokimu-platform` should still remain the adapter from OS or browser events into that state.
 * `tokimu-input`, `tokimu-assets`, and `tokimu-render` may depend on `tokimu-core`, but not on each other unless a concrete use case justifies it.
 * `tokimu-platform` adapts OS or browser events into engine-facing abstractions; it should not absorb simulation logic.
 * `tokimu-net`, if added, should depend on engine-facing world, command, and replication shapes rather than making core types depend on socket or protocol libraries.
@@ -1140,6 +1218,7 @@ tokimu/
 │   │   ├── ADR-0001-engine-boundaries.md
 │   │   └── ADR-0002-conceptual-influence.md
 │   ├── wasm.md
+│   ├── other-ideas.md
 │   └── roadmap.md
 │
 ├── crates/
@@ -1391,13 +1470,18 @@ Acceptance criteria:
 * The input model leaves a clear place for controllers, joysticks, analog axes,
   deadzones, and rebinding even if the first shipped example uses only keyboard
   and mouse.
+* `hello-window` is the current live proof for the M3 window/input spike, and
+  its intentionally blank surface is labeled as deliberate in the live title.
 
 ### M4 — Renderer Spike
 
 * `wgpu` initialization
 * clear screen
 * triangle
-* textured quad
+* explicit mesh/material/pipeline resource upload
+* reusable renderable-handle submission
+* minimal per-draw placement payload
+* first camera/view uniform
 * camera abstraction
 
 Acceptance direction:
@@ -1413,12 +1497,29 @@ Acceptance criteria:
 * Rendering remains downstream of world mutation rather than the primary organizing center.
 * The public render layer stays Tokimu-owned rather than exposing raw backend
   objects as the default engine surface.
+* Mesh, material, and pipeline identity become explicit Tokimu-owned resources
+  before generalized shader systems are introduced, and draw commands select
+  those resources directly rather than materials implicitly choosing pipelines.
+* Reusable renderable handles may reduce repeated submission tuples, but they
+  do not become transforms, visibility systems, or scene ownership by default.
+* Small per-draw instance payloads may support repeated placement of the same
+  renderable, but they do not imply a scene graph, transform hierarchy, or
+  runtime-owned visibility system.
+* The first camera/view uniform may define a frame-wide orthographic view and
+  projection transform using Tokimu-shared math types and may be refreshed on
+  resize with aspect awareness, but it should remain separate from per-draw
+  placement and from simulation truth.
+* Camera handles may select the active view without turning the renderer into
+  the owner of camera semantics or world-space meaning.
 * The spike avoids premature features such as PBR, shadows, deferred rendering,
   or a generalized render graph.
 * The render abstraction leaves a coherent growth path for both 2D and 3D
   presentation rather than overfitting only to sprites or only to meshes.
 * The render abstraction leaves room for both 2D HUD layering and 3D in-world
   interface presentation without inventing separate UI engines prematurely.
+* `hello-triangle` is the current live proof for the M4 renderer spike, and it
+  still intentionally stops short of transforms, scene ownership, or a general
+  render graph.
 
 ### M5 — WASM Spike
 
@@ -1783,3 +1884,38 @@ renderer as proof
 ```
 
 Then grow only as examples prove the need.
+
+## 20. Design Influences
+
+These are external principles Tokimu adopts in its own terms. They are only
+useful when translated into Tokimu-specific decisions.
+
+* Favor graceful degradation and actionable diagnostics over opaque failures.
+  Tokimu expresses this through structured diagnostics, startup messages,
+  explicit failure surfaces, and examples that fail loudly enough to be fixed.
+* Build great tools, not just products. Tokimu therefore treats editor and
+  authoring capabilities as first-class, and the platform aims to support a
+  tool ecosystem rather than a single shipped application.
+* Use tests and runnable examples as the development team. Tokimu reflects this
+  through milestone-driven implementation, validation after each behavior
+  change, and examples that prove architectural boundaries.
+* Fix visible bugs immediately. When an implementation or API mismatch appears,
+  Tokimu should stop, repair the local slice, and rerun the narrow validation
+  before widening the scope.
+* Use a development system that is better than the target. Tokimu leans on
+  Rust, TypeScript frontends, diagnostics, and AI-assisted iteration to build a
+  platform that can target native, browser, and future semantic-front-end
+  environments.
+* Encapsulate functionality to preserve design consistency. Tokimu expresses
+  this as explicit ownership boundaries between core, runtime, platform,
+  rendering, assets, and future authoring frontends.
+* Code transparently. Design decisions, hypotheses, and validation should be
+  documented alongside implementation so the implementation history becomes a
+  useful engineering artifact rather than an after-the-fact guess.
+* Write for the current milestone, but keep the platform reusable. Tokimu is an
+  infrastructure project, so it should avoid speculative abstraction while
+  still proving reusable boundaries one small step at a time.
+
+Principles that are philosophically true but not especially architectural, such
+as programming being a creative art form, are intentionally left out of the
+core design rules unless they become actionable for Tokimu's implementation.

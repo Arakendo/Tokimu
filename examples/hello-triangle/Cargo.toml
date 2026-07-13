@@ -6,4 +6,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-tokimu = { path = "../../crates/tokimu", features = ["render"] }
+tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
+tokimu-core = { path = "../../crates/tokimu-core" }

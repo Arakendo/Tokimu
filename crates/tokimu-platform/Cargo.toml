@@ -6,3 +6,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+tokimu-input = { path = "../tokimu-input" }
+winit.workspace = true
