@@ -1,13 +1,17 @@
+mod output;
+
+use output::{Channel, OutputRouter};
 use std::sync::Arc;
 use tokimu::{run_window_with_app, App, KeyCode, NativeWindow, PlatformEventHandler, PlatformInputEvent, PlatformResult, WindowConfig};
 
 fn main() -> PlatformResult<()> {
-    run_window_with_app(WindowConfig::default(), HelloWindowApp::default())
+    run_window_with_app(WindowConfig::default(), HelloWindowApp::new())
 }
 
 #[derive(Default)]
 struct HelloWindowApp {
     app: App,
+    output: OutputRouter,
     last_move_intent: (f32, f32),
     last_cursor_position: (f32, f32),
     last_mouse_button_count: usize,
@@ -19,11 +23,25 @@ struct HelloWindowApp {
 impl PlatformEventHandler for HelloWindowApp {
     fn on_native_window_created(&mut self, window: Arc<NativeWindow>) -> PlatformResult<()> {
         self.window = Some(window);
+        self.output.emit_one_shot(Channel::Lifecycle, "hello-window native window created");
         self.update_window_title();
         Ok(())
     }
 
     fn on_platform_event(&mut self, event: PlatformInputEvent) -> PlatformResult<()> {
+        if let PlatformInputEvent::CloseRequested = event {
+            let diagnostics = self.app.run_loop_diagnostics();
+            self.output.flush();
+            self.output.emit_one_shot(Channel::Lifecycle, format!(
+                "shutdown summary frames={} fixed_updates={} cap_hits={} elapsed={:.2}s",
+                diagnostics.frame_count(),
+                diagnostics.total_fixed_updates(),
+                diagnostics.fixed_step_cap_hits(),
+                self.app.elapsed_seconds(),
+            ));
+            return Ok(());
+        }
+
         let previous_cursor = self.cursor_position();
         let previous_mouse_button_count = self.mouse_button_count();
 
@@ -36,7 +54,17 @@ impl PlatformEventHandler for HelloWindowApp {
             || self.cursor_position() != previous_cursor
             || self.mouse_button_count() != previous_mouse_button_count
         {
-            println!("move intent = ({:.1}, {:.1})", move_intent.0, move_intent.1);
+            self.output.emit_on_change(
+                Channel::Input,
+                format!(
+                    "move intent = ({:.1}, {:.1}) cursor = ({:.0}, {:.0}) mouse_buttons = {}",
+                    move_intent.0,
+                    move_intent.1,
+                    self.cursor_position().0,
+                    self.cursor_position().1,
+                    self.mouse_button_count()
+                ),
+            );
             self.last_move_intent = move_intent;
             self.last_cursor_position = self.cursor_position();
             self.last_mouse_button_count = self.mouse_button_count();
@@ -46,45 +74,73 @@ impl PlatformEventHandler for HelloWindowApp {
         Ok(())
     }
 
-    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<()> {
-        let summary = self.app.tick(delta_seconds);
+    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<bool> {
+        let mut yielded_delta = false;
+        let summary = self
+            .app
+            .run_until(
+                || {
+                    if yielded_delta {
+                        None
+                    } else {
+                        yielded_delta = true;
+                        Some(delta_seconds)
+                    }
+                },
+                |_| {},
+            )
+            .expect("hello-window frame delta should always be present");
         let diagnostics = self.app.run_loop_diagnostics();
         let elapsed = self.app.elapsed_seconds();
 
         if summary.hit_fixed_step_cap {
-            println!(
-                "frame overrun dt={:.4}s requested_fixed_updates={} ran_fixed_updates={} leftover={:.4}s cap_hits={} elapsed={:.2}s",
+            self.output.emit_event(
+                Channel::Warn,
+                format!(
+                    "frame overrun dt={:.4}s requested_fixed_updates={} ran_fixed_updates={} leftover={:.4}s cap_hits={} elapsed={:.2}s",
                 summary.frame_delta_seconds,
                 summary.requested_fixed_updates,
                 summary.fixed_updates,
                 summary.accumulator_seconds,
                 diagnostics.fixed_step_cap_hits(),
                 self.app.elapsed_seconds()
+                ),
             );
         }
 
         if summary.fixed_updates != self.last_fixed_update_count
             || elapsed - self.last_status_print_elapsed >= 1.0
         {
-            println!(
-                "frame dt={:.4}s fixed_updates={} requested_fixed_updates={} elapsed={:.2}s total_frames={} cap_hits={}",
-                summary.frame_delta_seconds,
-                summary.fixed_updates,
-                summary.requested_fixed_updates,
+            self.output.emit_sampled(
+                Channel::Frame,
                 elapsed,
-                diagnostics.frame_count(),
-                diagnostics.fixed_step_cap_hits()
+                format!(
+                    "frame dt={:.4}s fixed_updates={} requested_fixed_updates={} elapsed={:.2}s total_frames={} cap_hits={}",
+                    summary.frame_delta_seconds,
+                    summary.fixed_updates,
+                    summary.requested_fixed_updates,
+                    elapsed,
+                    diagnostics.frame_count(),
+                    diagnostics.fixed_step_cap_hits()
+                ),
             );
             self.last_fixed_update_count = summary.fixed_updates;
             self.last_status_print_elapsed = elapsed;
             self.update_window_title();
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 
 impl HelloWindowApp {
+    fn new() -> Self {
+        Self {
+            output: OutputRouter::with_startup_policy(),
+            ..Self::default()
+        }
+    }
+
     fn update_window_title(&self) {
         if let Some(window) = self.window.as_ref() {
             let (x, y) = self.last_move_intent;

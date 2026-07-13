@@ -40,7 +40,8 @@ design pressure toward clearer truth boundaries and more honest system claims.
 ## Status
 
 The workspace has moved beyond scaffolding: the core crates, platform seam,
-renderer proof, and two native examples are all runnable. See the
+renderer proof, and two native examples are all runnable, with
+`hello-triangle` now carrying a small playable loop as well. See the
 [Software Design Document](docs/Tokimu%20Software%20Design%20Document.md) for the
 full architecture, subsystem breakdown, and milestone plan.
 

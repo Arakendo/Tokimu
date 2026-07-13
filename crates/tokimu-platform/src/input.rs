@@ -10,8 +10,8 @@ pub trait PlatformEventHandler {
         Ok(())
     }
 
-    fn on_frame(&mut self, _delta_seconds: f64) -> PlatformResult<()> {
-        Ok(())
+    fn on_frame(&mut self, _delta_seconds: f64) -> PlatformResult<bool> {
+        Ok(true)
     }
 }
 

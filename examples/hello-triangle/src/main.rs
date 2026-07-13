@@ -1,11 +1,15 @@
+mod output;
+
 use std::sync::Arc;
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawRenderableCommand,
-    Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton, NativeWindow,
-    Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
+    InputState, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton,
+    NativeWindow, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
     PlatformResult, RenderCommand, Renderable, RenderableHandle, Renderer, WgpuBackend,
     WindowConfig,
 };
+
+use output::{Channel, OutputRouter};
 
 const TRIANGLE_HANDLE: MeshHandle = MeshHandle(1);
 const QUAD_HANDLE: MeshHandle = MeshHandle(2);
@@ -23,6 +27,14 @@ const TRIANGLE_FOURTH_RENDERABLE: RenderableHandle = RenderableHandle(4);
 const QUAD_RENDERABLE: RenderableHandle = RenderableHandle(5);
 const DIAMOND_RENDERABLE: RenderableHandle = RenderableHandle(6);
 const TRIANGLE_CAMERA: CameraHandle = CameraHandle(1);
+const TARGET_POINTS: [[f32; 2]; 6] = [
+    [-0.55, 0.40],
+    [0.55, 0.28],
+    [0.40, -0.42],
+    [-0.15, -0.48],
+    [-0.70, 0.02],
+    [0.10, 0.52],
+];
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -31,27 +43,34 @@ fn main() -> PlatformResult<()> {
             width: 1280,
             height: 720,
         },
-        HelloTriangleApp::default(),
+        HelloTriangleApp::new(),
     )
 }
 
 struct HelloTriangleApp {
     renderer: Option<WgpuBackend>,
     window: Option<Arc<NativeWindow>>,
+    output: OutputRouter,
     camera: Camera,
     camera_world_height: f32,
     window_size: [f32; 2],
+    input: InputState,
     motion_phase: f32,
     input_offset: [f32; 2],
     cursor_offset: [f32; 2],
     square_offset: [f32; 2],
     diamond_offset: [f32; 2],
+    player_position: [f32; 2],
+    target_position: [f32; 2],
+    target_index: usize,
+    score: u32,
     paused: bool,
     palette_mode: bool,
     reverse_motion: bool,
     mouse_hold_active: bool,
     accent: Color,
     logged_backend: bool,
+    elapsed_seconds: f64,
 }
 
 impl Default for HelloTriangleApp {
@@ -59,20 +78,36 @@ impl Default for HelloTriangleApp {
         Self {
             renderer: None,
             window: None,
+            output: OutputRouter::default(),
             camera: Camera::default(),
             camera_world_height: 2.0,
             window_size: [1.0, 1.0],
+            input: InputState::default(),
             motion_phase: 0.0,
             input_offset: [0.0, 0.0],
             cursor_offset: [0.0, 0.0],
             square_offset: [0.0, 0.0],
             diamond_offset: [0.0, 0.0],
+            player_position: [0.0, -0.65],
+            target_position: TARGET_POINTS[0],
+            target_index: 0,
+            score: 0,
             paused: false,
             palette_mode: false,
             reverse_motion: false,
             mouse_hold_active: false,
             accent: Color::rgb(0.08, 0.18, 0.34),
             logged_backend: false,
+            elapsed_seconds: 0.0,
+        }
+    }
+}
+
+impl HelloTriangleApp {
+    fn new() -> Self {
+        Self {
+            output: OutputRouter::with_startup_policy(),
+            ..Self::default()
         }
     }
 }
@@ -82,6 +117,8 @@ impl PlatformEventHandler for HelloTriangleApp {
         let size = window.inner_size();
         self.window_size = [size.width.max(1) as f32, size.height.max(1) as f32];
         self.window = Some(window.clone());
+        self.output
+            .emit_one_shot(Channel::Lifecycle, "hello-triangle native window created");
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(TRIANGLE_HANDLE, &Mesh::triangle());
         renderer.upload_mesh(QUAD_HANDLE, &Mesh::quad());
@@ -152,6 +189,28 @@ impl PlatformEventHandler for HelloTriangleApp {
     }
 
     fn on_platform_event(&mut self, event: PlatformInputEvent) -> PlatformResult<()> {
+        if let PlatformInputEvent::CloseRequested = event {
+            self.output.flush();
+            self.output.emit_one_shot(
+                Channel::Lifecycle,
+                format!(
+                    "shutdown summary score={} target_index={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) motion_phase={:.2}",
+                    self.score,
+                    self.target_index,
+                    self.player_position[0],
+                    self.player_position[1],
+                    self.target_position[0],
+                    self.target_position[1],
+                    self.motion_phase,
+                ),
+            );
+            return Ok(());
+        }
+
+        if let Some(input_event) = event.as_input_event() {
+            self.input.apply_event(input_event);
+        }
+
         if let PlatformInputEvent::KeyboardInput { key, pressed } = event {
             if pressed {
                 self.handle_key_press(key);
@@ -165,7 +224,10 @@ impl PlatformEventHandler for HelloTriangleApp {
         }
 
         if let PlatformInputEvent::MouseInput { button, pressed } = event {
-            self.mouse_hold_active = pressed;
+            self.mouse_hold_active = pressed
+                || self.input.mouse.is_pressed(MouseButton::Left)
+                || self.input.mouse.is_pressed(MouseButton::Middle)
+                || self.input.mouse.is_pressed(MouseButton::Right);
             self.handle_mouse_press(button, pressed);
             self.update_window_title();
         }
@@ -186,10 +248,14 @@ impl PlatformEventHandler for HelloTriangleApp {
         Ok(())
     }
 
-    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<()> {
+    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<bool> {
+        self.elapsed_seconds += delta_seconds;
+        self.step_toy(delta_seconds as f32);
+        let player_rotation = self.player_rotation();
+
         let (stats, renderer_name, backend_api, adapter_name, device_kind) = {
             let Some(renderer) = self.renderer.as_mut() else {
-                return Ok(());
+                return Ok(true);
             };
 
             if !self.paused {
@@ -247,6 +313,14 @@ impl PlatformEventHandler for HelloTriangleApp {
             let diamond_orbit_x = self.input_offset[0] + self.diamond_offset[0] + self.motion_phase.sin() * (0.16 + hold_boost * 0.04) + drag_pull_x;
             let diamond_orbit_y = self.input_offset[1] + self.diamond_offset[1] + 0.18 + self.motion_phase.cos() * (0.07 + hold_boost * 0.03) + drag_pull_y;
             let diamond_scale = 0.20 + self.motion_phase.sin() * (0.025 + hold_boost * 0.01);
+            let player_instance = Instance2d::identity()
+                .with_translation(self.player_position)
+                .with_scale([0.20, 0.20])
+                .with_rotation(player_rotation);
+            let target_instance = Instance2d::identity()
+                .with_translation(self.target_position)
+                .with_scale([0.12, 0.12])
+                .with_rotation(self.motion_phase * 0.5);
             let left_instance = Instance2d::translated(-0.35 + left_wobble, 0.0)
                 .with_rotation(-self.motion_phase * 0.5);
             let right_instance = Instance2d::identity()
@@ -292,6 +366,14 @@ impl PlatformEventHandler for HelloTriangleApp {
                     instance: quad_instance,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
+                    renderable: TRIANGLE_RENDERABLE,
+                    instance: player_instance,
+                }),
+                RenderCommand::DrawRenderable(DrawRenderableCommand {
+                    renderable: QUAD_RENDERABLE,
+                    instance: target_instance,
+                }),
+                RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: DIAMOND_RENDERABLE,
                     instance: diamond_instance,
                 }),
@@ -307,47 +389,63 @@ impl PlatformEventHandler for HelloTriangleApp {
         };
         self.update_window_title();
 
+        self.output.emit_sampled(
+            Channel::App,
+            self.elapsed_seconds,
+            format!(
+                "status score={} target_index={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) motion_phase={:.2} draw_calls={}",
+                self.score,
+                self.target_index,
+                self.player_position[0],
+                self.player_position[1],
+                self.target_position[0],
+                self.target_position[1],
+                self.motion_phase,
+                stats.draw_calls,
+            ),
+        );
+
         if !self.logged_backend {
-            println!(
-                "Tokimu hello-triangle proof: renderer={} backend={} adapter={} device_type={} clear={:?} draw_calls={}",
-                renderer_name,
-                backend_api,
-                adapter_name,
-                device_kind,
-                self.accent,
-                stats.draw_calls
+            self.output.emit_one_shot(
+                Channel::Env,
+                format!(
+                    "Tokimu hello-triangle proof: renderer={} backend={} adapter={} device_type={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) clear={:?} draw_calls={}",
+                    renderer_name,
+                    backend_api,
+                    adapter_name,
+                    device_kind,
+                    self.score,
+                    self.player_position[0],
+                    self.player_position[1],
+                    self.target_position[0],
+                    self.target_position[1],
+                    self.accent,
+                    stats.draw_calls
+                ),
             );
             self.logged_backend = true;
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 
 impl HelloTriangleApp {
     fn handle_key_press(&mut self, key: KeyCode) {
-        let step = 0.04;
-
         match key {
-            KeyCode::KeyA => self.input_offset[0] -= step,
-            KeyCode::KeyD => self.input_offset[0] += step,
-            KeyCode::KeyW => self.input_offset[1] += step,
-            KeyCode::KeyS => self.input_offset[1] -= step,
-            KeyCode::ArrowLeft => self.input_offset[0] -= step * 1.5,
-            KeyCode::ArrowRight => self.input_offset[0] += step * 1.5,
-            KeyCode::ArrowUp => self.input_offset[1] += step * 1.5,
-            KeyCode::ArrowDown => self.input_offset[1] -= step * 1.5,
             KeyCode::Space => {
                 self.input_offset = [0.0, 0.0];
                 self.cursor_offset = [0.0, 0.0];
                 self.square_offset = [0.0, 0.0];
                 self.diamond_offset = [0.0, 0.0];
+                self.player_position = [0.0, -0.65];
+                self.target_index = 0;
+                self.target_position = TARGET_POINTS[0];
+                self.score = 0;
             }
             KeyCode::Escape => {}
+            _ => {}
         }
-
-        self.input_offset[0] = self.input_offset[0].clamp(-0.5, 0.5);
-        self.input_offset[1] = self.input_offset[1].clamp(-0.4, 0.4);
     }
 
     fn handle_cursor_move(&mut self, x: f32, y: f32) {
@@ -388,12 +486,17 @@ impl HelloTriangleApp {
             let direction_tag = if self.reverse_motion { "reverse" } else { "forward" };
             let hold_tag = if self.mouse_hold_active { "drag" } else { "idle" };
             let title = format!(
-                "Tokimu Hello Triangle | mode={} motion={} palette={} direction={} hold={} key=({:.2}, {:.2}) mouse=({:.2}, {:.2})",
+                "Tokimu Hello Triangle | mode={} motion={} palette={} direction={} hold={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) key=({:.2}, {:.2}) mouse=({:.2}, {:.2})",
                 activity_tag,
                 motion_tag,
                 palette_tag,
                 direction_tag,
                 hold_tag,
+                self.score,
+                self.player_position[0],
+                self.player_position[1],
+                self.target_position[0],
+                self.target_position[1],
                 self.input_offset[0],
                 self.input_offset[1],
                 self.cursor_offset[0],
@@ -401,5 +504,68 @@ impl HelloTriangleApp {
             );
             window.set_title(&title);
         }
+    }
+
+    fn step_toy(&mut self, delta_seconds: f32) {
+        if self.paused {
+            return;
+        }
+
+        let horizontal = axis(
+            self.input.keyboard.is_pressed(KeyCode::KeyA)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowLeft),
+            self.input.keyboard.is_pressed(KeyCode::KeyD)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowRight),
+        );
+        let vertical = axis(
+            self.input.keyboard.is_pressed(KeyCode::KeyS)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowDown),
+            self.input.keyboard.is_pressed(KeyCode::KeyW)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowUp),
+        );
+        let speed = 0.85;
+
+        self.player_position[0] = (self.player_position[0] + horizontal * speed * delta_seconds)
+            .clamp(-0.82, 0.82);
+        self.player_position[1] = (self.player_position[1] + vertical * speed * delta_seconds)
+            .clamp(-0.70, 0.70);
+
+        let dx = self.player_position[0] - self.target_position[0];
+        let dy = self.player_position[1] - self.target_position[1];
+        let collected = dx * dx + dy * dy < 0.028;
+        if collected {
+            self.score += 1;
+            self.target_index = (self.target_index + 1) % TARGET_POINTS.len();
+            self.target_position = TARGET_POINTS[self.target_index];
+        }
+    }
+
+    fn player_rotation(&self) -> f32 {
+        let horizontal = axis(
+            self.input.keyboard.is_pressed(KeyCode::KeyA)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowLeft),
+            self.input.keyboard.is_pressed(KeyCode::KeyD)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowRight),
+        );
+        let vertical = axis(
+            self.input.keyboard.is_pressed(KeyCode::KeyS)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowDown),
+            self.input.keyboard.is_pressed(KeyCode::KeyW)
+                || self.input.keyboard.is_pressed(KeyCode::ArrowUp),
+        );
+
+        if horizontal == 0.0 && vertical == 0.0 {
+            self.motion_phase * 0.4
+        } else {
+            vertical.atan2(horizontal) + std::f32::consts::FRAC_PI_2
+        }
+    }
+}
+
+fn axis(negative: bool, positive: bool) -> f32 {
+    match (negative, positive) {
+        (true, false) => -1.0,
+        (false, true) => 1.0,
+        _ => 0.0,
     }
 }

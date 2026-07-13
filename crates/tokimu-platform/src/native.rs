@@ -142,9 +142,16 @@ where
         let previous = self.last_frame.replace(now).unwrap_or(now);
         let delta_seconds = now.duration_since(previous).as_secs_f64();
         self.next_frame_deadline = Some(now + DEFAULT_FRAME_INTERVAL);
-        if let Err(error) = self.event_handler.on_frame(delta_seconds) {
-            self.record_handler_error(event_loop, error);
-            return;
+        match self.event_handler.on_frame(delta_seconds) {
+            Ok(true) => {}
+            Ok(false) => {
+                event_loop.exit();
+                return;
+            }
+            Err(error) => {
+                self.record_handler_error(event_loop, error);
+                return;
+            }
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(now + DEFAULT_FRAME_INTERVAL));
     }

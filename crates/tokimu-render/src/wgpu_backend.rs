@@ -330,6 +330,53 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
             ),
+            PipelineKind::CustomWgsl2d => create_custom_pipeline(
+                &self._device,
+                surface_state.config.format,
+                &surface_state.material_bind_group_layout,
+                &surface_state.instance_bind_group_layout,
+                &surface_state.camera_bind_group_layout,
+                pipeline
+                    .shader_source
+                    .as_deref()
+                    .unwrap_or_else(|| {
+                        r#"
+@group(0) @binding(0)
+var<uniform> material_color: vec4<f32>;
+
+struct InstanceParams {
+    translation: vec2<f32>,
+    scale: vec2<f32>,
+    rotation: vec2<f32>,
+    padding: vec2<f32>,
+};
+
+@group(1) @binding(0)
+var<uniform> instance_params: InstanceParams;
+
+@group(2) @binding(0)
+var<uniform> camera_params: mat4x4<f32>;
+
+@vertex
+fn vs_main(@location(0) position: vec2<f32>) -> @builtin(position) vec4<f32> {
+    let scaled_position = position * instance_params.scale;
+    let rotated_position = vec2<f32>(
+        (scaled_position.x * instance_params.rotation.y) - (scaled_position.y * instance_params.rotation.x),
+        (scaled_position.x * instance_params.rotation.x) + (scaled_position.y * instance_params.rotation.y)
+    );
+    let instance_position = rotated_position + instance_params.translation;
+    let world_position = vec4<f32>(instance_position, 0.0, 1.0);
+    return camera_params * world_position;
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4<f32> {
+    return material_color;
+}
+"#
+                            .trim()
+                    }),
+            ),
         };
 
         self.pipelines.insert(handle, compiled);
@@ -542,10 +589,13 @@ fn create_solid_color_pipeline(
     instance_bind_group_layout: &wgpu::BindGroupLayout,
     camera_bind_group_layout: &wgpu::BindGroupLayout,
 ) -> wgpu::RenderPipeline {
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("tokimu-solid-color-shader"),
-        source: wgpu::ShaderSource::Wgsl(
-            r#"
+    create_custom_pipeline(
+        device,
+        surface_format,
+        material_bind_group_layout,
+        instance_bind_group_layout,
+        camera_bind_group_layout,
+        r#"
 @group(0) @binding(0)
 var<uniform> material_color: vec4<f32>;
 
@@ -578,13 +628,25 @@ fn vs_main(@location(0) position: vec2<f32>) -> @builtin(position) vec4<f32> {
 fn fs_main() -> @location(0) vec4<f32> {
     return material_color;
 }
-"#
-            .into(),
-        ),
+"#,
+    )
+}
+
+fn create_custom_pipeline(
+    device: &wgpu::Device,
+    surface_format: wgpu::TextureFormat,
+    material_bind_group_layout: &wgpu::BindGroupLayout,
+    instance_bind_group_layout: &wgpu::BindGroupLayout,
+    camera_bind_group_layout: &wgpu::BindGroupLayout,
+    shader_source: &str,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("tokimu-custom-shader"),
+        source: wgpu::ShaderSource::Wgsl(shader_source.into()),
     });
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("tokimu-solid-color-pipeline-layout"),
+        label: Some("tokimu-custom-pipeline-layout"),
         bind_group_layouts: &[
             material_bind_group_layout,
             instance_bind_group_layout,
@@ -594,7 +656,7 @@ fn fs_main() -> @location(0) vec4<f32> {
     });
 
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("tokimu-solid-color-pipeline"),
+        label: Some("tokimu-custom-pipeline"),
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,

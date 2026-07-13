@@ -544,6 +544,9 @@ Owns asset loading and management:
 * embedded asset bundles later
 * WASM-friendly asset fetch abstraction
 
+See [on-assets.md](Conversations/on-assets.md) for the importer-oriented
+boundary between asset translation and rendering.
+
 ### 5.6 tokimu-input
 
 Owns normalized input state:
@@ -1556,6 +1559,8 @@ Acceptance criteria:
   storing hidden gameplay truth off to the side.
 * If the toy includes text commands or a transcript, those should be just
   another presentation/input path over the same world state.
+* `hello-triangle` is the current native seed for the M6 first playable toy
+  direction: a small collect-the-target loop over shared input and world state.
 
 ### M6.5 — Networking Boundary Note
 
