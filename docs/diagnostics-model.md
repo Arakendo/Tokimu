@@ -145,7 +145,8 @@ crate owns the failure. This keeps ownership honest and greppable.
 | Author   | `AUTH`   | authoring frontends | rule lowering / typecheck failures   |
 
 `AUTH` is reserved now even though authoring frontends do not exist yet, so that
-when TypeScript authoring lands (see `scripting-typescript.md`) its diagnostics
+when TypeScript authoring lands (see the TTSDD in
+`Tokimu TypeScript Design Document.md`) its diagnostics
 already have a home and do not leak into core classes.
 
 ## 6. Presentation Sinks

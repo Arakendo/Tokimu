@@ -132,46 +132,81 @@ Goal: make the world inspectable and author-facing content approachable.
 - [~] M9 inspector and rule frontends — inspection-first editor target, visual
   rule-graph direction, and TypeScript-first authoring direction documented
   - Deliverables (inspector v0 — SDD 5.9 names six concrete surfaces):
-    - [ ] Add a read-only world snapshot API the inspector can walk (entities,
+    - [x] Add a read-only world snapshot API the inspector can walk (entities,
       components, resources) without mutating state
-    - [ ] Ship a text or console dump of that snapshot as the editor v0 proof
-    - [ ] Entity/world tree: list live entities and their relationship edges
+    - [x] Ship a text or console dump of that snapshot as the editor v0 proof
+    - [x] Entity/world tree: list live entities and their relationship edges
       from the snapshot
-    - [ ] Trait inspector: show one entity's component values by name
-    - [ ] Asset browser: list loaded `AssetId`/`AssetHandle<T>` entries and
+    - [x] Trait inspector: show one entity's component values by name
+    - [x] Asset browser: list loaded `AssetId`/`AssetHandle<T>` entries and
       their source
-    - [ ] System timing panel: surface `Schedule`/`Diagnostics` timing already
+    - [x] System timing panel: surface `Schedule`/`Diagnostics` timing already
       collected by the runtime, not a new profiler
-    - [ ] Signal log: print emitted rule/event signals in arrival order
-    - [ ] Relationship viewer: render the directional relationship edges
+    - [x] Signal log: print emitted rule/event signals in arrival order
+    - [x] Relationship viewer: render the directional relationship edges
       `World` already tracks
-    - [ ] All six stay text/console output for v0; a graphical `egui` shell is
+    - [x] All six stay text/console output for v0; a graphical `egui` shell is
       out of scope until the console proof is solid
   - Deliverables (semantic rule model — prerequisite for any frontend):
-    - [ ] Define a v0 rule as a named system-like transformation with declared
+    - [x] Define a v0 rule as a named system-like transformation with declared
       inputs, outputs, and emitted signals (SDD 5.11)
-    - [ ] Land the rule model in an engine-owned `tokimu-rule` crate, exercised
+    - [x] Land the rule model in an engine-owned `tokimu-rule` crate, exercised
       by at least one real example before any frontend crate exists
-    - [ ] Prove scene data and a hand-written rule both lower into the same
+    - [x] Prove scene data and a hand-written rule both lower into the same
       runtime systems (SDD phases 1–2)
   - Deliverables (TypeScript authoring — the primary user-facing surface):
-    - [ ] Stand up a top-level `frontends/` npm workspace kept separate from
+    - [x] Stand up a top-level `frontends/` npm workspace kept separate from
       `crates/`, with `@tokimu/rules` as the first package targeting the rule
       model
+      - [x] Write the Tokimu TypeScript Design Document (TTSDD) as the
+        authoritative authoring-surface spec, superseding the exploratory
+        `archive/scripting-typescript.md`
+      - [x] Scaffold the authoring skeleton: `tokimu` import anchor, an enriched
+        `@tokimu/rules` (execution mode + `rule`/`query`/`signal`/`relation`/
+        `command` + `loweredRule`/`runtimeAction`), and an `@tokimu/examples`
+        package with lowered and runtime samples
     - [ ] Add a Rust `tokimu-ts-frontend` host that owns semantic validation and
       lowering via the TypeScript Compiler API (ts-morph for the first
       prototype), rather than reimplementing a parser or typechecker
+      - [x] Prototype host lowers constrained `rule(...)` source and emits
+        explicit diagnostics for runtime-only or unsupported constructs
+      - [ ] Retool the current hand-rolled recognizer into resolved-symbol
+        Compiler API / `ts-morph` recognition so `tokimu` re-exports, aliases,
+        and direct `@tokimu/*` imports all resolve through symbol identity
     - [ ] Support only the explicit v0 subset — `rule()`, `query()`, `signal()`,
       `relation()`, `command()`, deterministic loops, and arithmetic — and
       reject ambient I/O, DOM, `async`/`Promise`, `Date`, `Math.random`,
       `fetch`, and `eval`
+      - [x] Rule declarations can carry execution mode plus declared inputs,
+        outputs, and signals in the prototype
+      - [x] `query()`, `signal()`, `relation()`, `command()`, deterministic
+        loops, and arithmetic remain to be wired into the lowering host
     - [ ] Implement the ahead-of-time lowering path (TS source → tsc + typecheck
       → recognized `tokimu` API calls → lowering pass → semantic rule model →
-      runtime systems), SDD phase 3; keep an embedded JS host (phase 4)
-      explicitly out of scope
+      runtime systems), SDD phase 3; keep the runtime host boundary separate
+      from any later embedded JS engine choice
+      - [x] Define the lowering-boundary API-call model for recognized Tokimu
+        calls in the host prototype
+      - [ ] Add the execution-manifest path for `auto` so execution mode does
+        not silently migrate when the lowerer improves
+      - [ ] Carry source locations through recognition/lowering so diagnostics
+        point back to authored `.ts` instead of internal host state
+      - [ ] Define the first semantic-model/version stamp the manifest records
     - [ ] Prove one `@tokimu/rules`-authored rule lowers and runs identically to
       its hand-written Rust equivalent, so "Tokimu supports the `tokimu`
       package" stays truer than "Tokimu supports TypeScript"
+      - [x] A TS-authored lowered rule matches the hand-written Rust rule model
+        in runtime plan shape
+    - [ ] Define the runtime-host contract without committing to an embedded JS
+      engine yet
+      - [ ] Capability model: runtime code starts with no authority and only
+        receives allowlisted capabilities such as `world.query`, `signal.emit`,
+        or `ui.open`
+      - [ ] Runtime state ownership: ephemeral script-local state is allowed,
+        but durable simulation state must live in Tokimu-owned resources or
+        components
+      - [ ] Lifecycle vocabulary: load, initialize, invoke, suspend, reload,
+        dispose
 
 MVP 4 exit criteria: an inspection-first editor direction exists and authoring
 frontends are framed over the world/rule model rather than as alternate cores.
@@ -445,58 +480,64 @@ frontend package targets it (same rule-model-before-frontend ordering as M9).
 
 ## TypeScript Execution Model: Lowered Rules vs Runtime Actions
 
-Open design point: does *all* game logic need to lower into engine-owned models,
-or can some logic legitimately run in TypeScript at runtime? Honest answer: not
-everything needs to lower. A two-tier split is the likely right model, and the
-architecture already leaves room for it.
+This is no longer an open binary of "either everything lowers" or "runtime TS is
+an accidental escape hatch." The TTSDD settles the direction: lowered and
+runtime TypeScript are both legitimate execution modes, but they carry different
+guarantees and must stay under explicit author intent.
 
-**Tier 1 — lowered (deterministic simulation).** Rules, queries, scene data, and
-shaders — anything inside the fixed-timestep deterministic core — should lower
-ahead of time (SDD phase 3). Lowering is what preserves determinism, native/WASM
-parity, and the option of future lockstep networking. Running these in a JS
-runtime would put non-determinism into simulation truth.
+**Tier 1 — lowered (deterministic-eligible simulation).** Rules, queries, scene
+data, and shaders — anything inside the fixed-timestep deterministic core —
+should lower ahead of time (SDD phase 3). Lowering excludes known host-level
+nondeterminism, preserves native/WASM parity, and keeps lockstep/replay on the
+table. Lowered does not magically guarantee full determinism; scheduling,
+ordering, numeric behavior, and seeded RNG discipline still matter.
 
-**Tier 2 — runtime actions (optional, SDD phase 4).** Higher-level game actions,
-quest and orchestration logic, UI event handlers, and glue that does not need
-cross-platform determinism could run in a JS/TS runtime at runtime. This is the
-SDD's phase 4 ("optional embedded JS host, only if real use cases justify it") —
-deferred, not forbidden. This is the layer your question is really about, and it
-is a legitimate place for real TypeScript logic rather than lowering.
+**Tier 2 — runtime actions / runtime rules.** Higher-level game actions, quest
+and orchestration logic, UI event handlers, and glue that does not need
+deterministic simulation may run in a JS/TS runtime host at runtime. This is a
+first-class mode, not a quiet fallback. The host boundary stays narrow and
+capability-based, and the choice of a specific embedded JS engine remains a
+later, separate decision.
 
-Invariant for either tier:
+Invariants for either tier:
 
 - Both tiers touch the engine only through Tokimu-owned APIs (commands, queries,
-  signals, events); neither reads or mutates `World` state directly.
-- The engine owns world truth. A JS runtime must never become a hidden second
+  signals, events, relations); neither reads or mutates `World` state directly.
+- The engine owns world truth. A runtime host must never become a hidden second
   engine core or an alternate owner of simulation state.
-- Runtime-scripted actions stay outside the authoritative fixed-step simulation,
-  or are explicitly treated as non-authoritative, so determinism guarantees are
-  not silently broken.
+- Runtime-local ephemeral state may exist for convenience, but durable
+  simulation state must live in Tokimu-owned resources or components rather than
+  inside private script scope.
+- `lowered` means lower-or-error. Only `auto` may fall back, and even then the
+  resolution must stay visible and stable through an execution manifest rather
+  than silently changing when the compiler improves.
 
 Practical decision rule:
 
-- If logic must be deterministic or replayable → lower it (tier 1).
+- If logic must be deterministic, replay-authoritative, or lockstep-safe →
+  lower it.
 - If logic is orchestration or UX glue and iteration speed matters more than
-  determinism → a runtime tier is acceptable once a real use case justifies an
-  embedded host (tier 2).
-- Until that use case is concrete, prefer tier 1 and keep tier 2 as a documented
-  option, per the execution guardrails.
+  determinism → runtime is acceptable behind the host boundary.
+- If the author does not care which path wins → `auto`, but only with explicit
+  manifest-backed resolution rather than compiler whim.
 
 Roadmap implications:
 
 - [ ] Keep the command/query/signal/event APIs (see the engine-capabilities
-  section) rich enough that a future runtime-actions host calls into them rather
-  than needing raw world access
+  section) rich enough that a future runtime host calls into them rather than
+  needing raw world access
+- [ ] Define the execution manifest and acceptance flow for `auto` before the
+  real Compiler API path ships broadly
 - [ ] Define the boundary between authoritative deterministic simulation and
-  non-authoritative scripted actions before adding any embedded JS host
-- [ ] Decide the embedded-host trigger: which concrete game-action use case would
-  justify phase 4 (SDD Q16, scripting threshold)
-- [ ] Pick the runtime host deliberately when the time comes (embedded JS engine
-  for browser parity vs a native JS runtime), rather than defaulting into one
+  non-authoritative or host-mediated runtime actions before choosing any
+  embedded JS engine
+- [ ] Pick the runtime host deliberately when the time comes, rather than
+  defaulting into one because it was easiest to bind first
 
-Net: a runtime TypeScript actions layer is not needed now, the architecture
-already leaves room for it, and the guardrail is that world truth stays in the
-engine regardless of where the logic runs.
+Net: the architecture already leaves room for runtime TypeScript, but the
+retooling pressure is clear too — the current prototype must still grow an
+execution manifest, source-mapped diagnostics, a capability model, and a real
+Compiler API recognizer before the TypeScript story is stable.
 
 ## Determinism and Validation (SDD 8, 16)
 

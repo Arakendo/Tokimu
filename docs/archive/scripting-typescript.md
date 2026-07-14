@@ -1,8 +1,14 @@
 # TypeScript Scripting for Tokimu
 
+> **Superseded.** This exploratory note has been folded into the authoritative
+> [Tokimu TypeScript Design Document (TTSDD)](../Tokimu%20TypeScript%20Design%20Document.md).
+> It is kept as background for the reasoning that produced the TTSDD. Where the
+> two disagree — especially on runtime TypeScript being a first-class execution
+> mode rather than a discouraged later backend — the TTSDD is correct.
+
 | Field        | Value                                             |
 | ------------ | ------------------------------------------------- |
-| Status       | Exploratory                                       |
+| Status       | Superseded background (see TTSDD)                 |
 | Scope        | Scripting frontend design, not a v0 commitment    |
 | Relates to   | SDD 5.11 Rule Frontends, SDD 5.12 Dependency Rules |
 | Relates to   | ADR-0001 Engine Boundaries                        |

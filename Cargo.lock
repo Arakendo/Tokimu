@@ -624,6 +624,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-rule-model"
+version = "0.1.0"
+dependencies = [
+ "tokimu-core",
+ "tokimu-rule",
+]
+
+[[package]]
 name = "hello-snake"
 version = "0.1.0"
 dependencies = [
@@ -1710,6 +1718,7 @@ dependencies = [
  "tokimu-input",
  "tokimu-platform",
  "tokimu-render",
+ "tokimu-rule",
  "tokimu-runtime",
 ]
 
@@ -1758,11 +1767,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokimu-rule"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tokimu-core",
+]
+
+[[package]]
 name = "tokimu-runtime"
 version = "0.1.0"
 dependencies = [
  "tokimu-core",
  "tokimu-input",
+]
+
+[[package]]
+name = "tokimu-ts-frontend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tokimu-rule",
 ]
 
 [[package]]

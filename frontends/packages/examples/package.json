@@ -1,0 +1,13 @@
+{
+  "name": "@tokimu/examples",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Authored Tokimu content that consumes the authoring packages. Not an authoring API.",
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "@tokimu/rules": "0.1.0",
+    "tokimu": "0.1.0"
+  }
+}

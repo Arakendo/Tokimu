@@ -639,6 +639,22 @@ early fit for entity trees, inspectors, signal logs, relationship views, and
 system timing panels without committing Tokimu to a heavyweight editor shell too
 early.
 
+The first M9 proof is a text snapshot of world state: a read-only walk over live
+entities, component/resource summaries, and relationship edges, rendered as a
+console dump before any graphical shell exists.
+
+The same proof also supports a named component inspection path for one entity at
+a time, so the console layer can show a concrete component value by type name
+instead of only listing counts.
+
+The runtime timing panel follows the same rule: it renders the already-collected
+run-loop measurements as text, so the inspector can report timing without a new
+profiler subsystem.
+
+The asset browser proof is also console-first: it lists allocated asset ids and
+their recorded source strings, which is enough to prove the browsing surface
+before any richer importer or UI shell exists.
+
 ### 5.10 tokimu-persistence
 
 Optional future persistence layer:
@@ -721,9 +737,35 @@ remain primarily a Rust engine, while developers building games, tools,
 scenarios, and content on top of Tokimu should be able to live mostly in
 TypeScript.
 
+The Tokimu TypeScript Design Document (TTSDD) is the authority on the
+TypeScript authoring surface, runtime-host boundary, execution-manifest policy,
+recognized API families, lifecycle vocabulary, and other frontend-specific
+details. This SDD remains the authority on the engine-owned semantic model,
+crate boundaries, and the architectural rules that the TTSDD must obey.
+
 For v0, a rule is a named system-like transformation with declared inputs,
 outputs, and emitted signals. That is enough to anchor the architecture without
 building a full IR before the corpus proves the need.
+
+The first engine-owned rule model should also carry explicit execution intent,
+so authoring frontends can mark a rule as lowered, runtime, or auto. Tokimu
+should make the lowering boundary visible rather than treating it as an
+implementation detail:
+
+* `lowered` means "either lower this into Tokimu-owned semantics or fail the
+  build with a specific reason."
+* `runtime` means "keep this in the runtime host behind a narrow engine-owned
+  vocabulary."
+* `auto` means "resolve this through the frontend's explicit policy rather than
+  silently guessing."
+
+The SDD does not define the exact `auto` resolution or manifest format; the
+TTSDD does. The architectural requirement is that execution migration must not
+be a silent side effect of a smarter compiler.
+
+The initial proof lives in the `tokimu-rule` crate and the `hello-rule-model`
+example, where a hand-written rule and a scene-derived projection both lower
+into the same runtime-system plan.
 
 Illustrative shape:
 
@@ -765,14 +807,16 @@ Recommended early implementation path:
 Phase 1  Declarative scene/rule data, no scripting
 Phase 2  Semantic rule model stabilizes with real callers
 Phase 3  TypeScript authoring lowers ahead of time into that model
-Phase 4  Optional embedded JS host, only if real use cases justify it
+Phase 4  Runtime TypeScript host behind a narrow boundary, if real use cases justify it
+Phase 5  Optional embedded JS engine, only if that specific deployment path is justified
 ```
 
-The preferred path is phase 3, not phase 4. Tokimu should favor ahead-of-time
-compilation of a restricted TypeScript frontend into the semantic rule model
-rather than embedding a general-purpose JavaScript runtime in core engine
-paths. That keeps determinism, native/WASM parity, and engine boundaries easier
-to preserve.
+The preferred path is still phase 3, not phase 5. Tokimu should favor
+ahead-of-time compilation of a restricted TypeScript frontend into the semantic
+rule model rather than embedding a general-purpose JavaScript runtime in core
+engine paths. Runtime TypeScript is a legitimate execution mode, but its host
+must remain outside core engine crates and behind a narrow, capability-based
+boundary.
 
 Practical lowering pipeline:
 
@@ -792,8 +836,10 @@ Runtime systems
 
 Tokimu should not try to understand arbitrary JavaScript. The frontend should
 recognize specific Tokimu-owned API calls and lower those. In practice, that
-means "Tokimu supports the `tokimu` package" is a more accurate statement than
-"Tokimu supports TypeScript."
+means "Tokimu supports the `tokimu` package family" is a more accurate statement
+than "Tokimu supports TypeScript." Recognition should be based on resolved
+symbol identity from Tokimu-owned authoring exports, not on raw function names
+or source text.
 
 Illustrative direction:
 
@@ -820,9 +866,9 @@ rule "movement" {
 
 The first frontend should deliberately support only a small, explicit subset of
 constructs such as `rule()`, `query()`, `signal()`, `relation()`, `command()`,
-deterministic loops, and arithmetic. It should explicitly reject ambient I/O,
-DOM access, `async`, `Promise`, `Date`, `Math.random`, `fetch`, `eval`, and
-similar host-dependent features.
+deterministic loops, and arithmetic. For lowered execution it should explicitly
+reject ambient I/O, DOM access, `async`, `Promise`, `Date`, `Math.random`,
+`fetch`, `eval`, and similar host-dependent features.
 
 Likely prototype toolchain:
 
@@ -833,6 +879,66 @@ Likely prototype toolchain:
 The toolchain is important because Tokimu does not need to build a TypeScript
 parser or type checker. It only needs to own the semantic validation and the
 lowering step into engine-owned meaning.
+
+Execution mode should stay explicit and visible to authors rather than hidden in
+the tooling:
+
+* **Runtime TypeScript** is the faster-iteration path for gameplay glue, quest
+  orchestration, UI event handlers, dialogue, and other logic that does not
+  need engine-owned determinism.
+* **Lowered TypeScript** is the better fit for deterministic simulation,
+  replay, lockstep networking, portability, validation, and engine-facing
+  tooling.
+* Authors should be able to specify which pieces are intended to lower and
+  which pieces should stay runtime, and Tokimu should try to lower what it can
+  while making the result and any blockers explicit.
+* The same `rule` concept should not behave like folklore: if something cannot
+  lower, the engine should say so clearly instead of guessing.
+* Lowered rules are deterministic-eligible by construction because they exclude
+  known host-level nondeterminism, but overall determinism still depends on the
+  engine's ordering, numeric, and scheduling constraints.
+
+Illustrative shape:
+
+```ts
+runtimeAction("open-door", () => {
+  // executes in the TS runtime
+});
+
+loweredRule("enemy-step", () => {
+  // compiled into Tokimu-owned semantics
+});
+```
+
+Shared authoring shape with an explicit execution mode:
+
+```ts
+rule("enemy-step", {
+  execution: "lowered",
+  run(ctx) {
+    // deterministic simulation logic
+  }
+});
+
+rule("quest-dialogue", {
+  execution: "runtime",
+  run(ctx) {
+    // flexible orchestration logic
+  }
+});
+```
+
+Feature requirements should be legible too: multiplayer lockstep and replay-
+authoritative logic should require lowered execution, while UI button handlers
+or one-off orchestration can remain runtime actions when the author chooses.
+Tokimu should also accept mixed authorship intent inside the same project: lower
+what can be lowered, keep the rest runtime, and report the boundary explicitly.
+
+Runtime-hosted code may keep ephemeral local state for convenience, but any
+state that affects durable simulation behavior must live in Tokimu-owned
+resources or components rather than inside opaque script scope. The TTSDD owns
+the exact lifecycle, source-mapping, capability, and execution-manifest details
+for that boundary.
 
 ### 5.12 Dependency Rules
 
@@ -846,8 +952,9 @@ The crate graph should stay intentionally narrow:
 * `tokimu-net`, if added, should depend on engine-facing world, command, and replication shapes rather than making core types depend on socket or protocol libraries.
 * `tokimu-persistence`, if added, depends on stable engine-facing data formats or translation APIs; engine crates should not depend on it.
 * Editor tooling, visual rule graphs, and future scripting frontends should depend on Tokimu-owned world and rule abstractions, not become parallel runtimes.
-* If Tokimu grows TypeScript frontends, the shared TypeScript compiler integration, diagnostics, and lowering infrastructure should live in frontend-facing crates rather than leaking into core engine crates.
+* If Tokimu grows TypeScript frontends, the shared TypeScript compiler integration, diagnostics, execution-manifest handling, and lowering infrastructure should live in frontend-facing crates rather than leaking into core engine crates.
 * Independent authoring frontends should share infrastructure where useful, but each frontend should own its own API surface and semantic lowering rules rather than expanding into one monolithic "Tokimu understands TypeScript" compiler.
+* The TTSDD is the authority on TypeScript authoring-surface details; the SDD remains the authority on the engine-owned semantic model and the dependency rules that constrain every frontend.
 * The facade crate `tokimu` may re-export internal crates, but internal crates should avoid depending on the facade.
 
 ## 6. Engine Loop
@@ -1323,14 +1430,15 @@ the initial workspace skeleton. `tokimu-persistence` is also intentionally
 omitted at this stage. These crates should be added only once a concrete example
 or tool flow proves the need.
 
-The authoring-frontend crates implied by sections 5.11 and 5.12 are likewise
-deferred, not yet present. When the semantic rule model earns real callers, the
-first additions would be an engine-owned `tokimu-rule` crate, followed only
-later by TypeScript frontend crates. None of these should exist before the rule
-model is exercised by concrete examples. See
-[scripting-typescript.md](scripting-typescript.md) for the full frontend design.
+The authoring-frontend crates implied by sections 5.11 and 5.12 now exist in
+first-draft form. The engine-owned `tokimu-rule` crate anchors the semantic
+model, the Rust `tokimu-ts-frontend` crate owns recognition/validation/lowering,
+and the separate `frontends/` workspace holds the TypeScript authoring packages.
+See [Tokimu TypeScript Design Document.md](Tokimu%20TypeScript%20Design%20Document.md)
+for the full frontend design.
 
-Proposed future layout, added only when earned (illustrative, not current):
+Current / near-term layout (illustrative shape, still expected to grow only as
+examples earn it):
 
 ```text
 crates/
@@ -1338,10 +1446,10 @@ crates/
   tokimu-ts-frontend/   # shared TS compiler integration + lowering host (Rust)
 
 frontends/              # TypeScript authoring packages (npm workspace)
-  tokimu-rules/         # @tokimu/rules  -> tokimu-rule model
-  tokimu-scenes/        # @tokimu/scenes -> tokimu-scene model
-  tokimu-query/         # @tokimu/query  -> tokimu-query model
-  tokimu-ui/            # @tokimu/ui     -> tokimu-presentation model
+  tokimu/               # import anchor / stable re-export surface
+  rules/                # @tokimu/rules  -> tokimu-rule model
+  examples/             # authored content using the authoring packages
+  ...                   # future domains only when concrete examples earn them
 ```
 
 The split keeps Rust engine crates under `crates/` and TypeScript authoring

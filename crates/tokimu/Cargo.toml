@@ -17,5 +17,6 @@ tokimu-input = { path = "../tokimu-input" }
 tokimu-platform = { path = "../tokimu-platform", optional = true }
 tokimu-render = { path = "../tokimu-render", optional = true }
 tokimu-runtime = { path = "../tokimu-runtime" }
+tokimu-rule = { path = "../tokimu-rule" }
 ron = { workspace = true }
 serde = { workspace = true }

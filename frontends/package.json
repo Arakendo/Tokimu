@@ -1,0 +1,13 @@
+{
+  "name": "@tokimu/frontends",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "scripts": {
+    "typecheck": "tsc -p packages/rules/tsconfig.json --pretty false && tsc -p packages/tokimu/tsconfig.json --pretty false && tsc -p packages/examples/tsconfig.json --pretty false"
+  }
+}

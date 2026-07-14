@@ -4,6 +4,7 @@ pub use tokimu_assets::*;
 pub use tokimu_core::*;
 pub use tokimu_input::*;
 pub use tokimu_runtime::*;
+pub use tokimu_rule::*;
 
 pub use persistence::{DocumentCodec, PersistenceResult, RonDocumentCodec};
 

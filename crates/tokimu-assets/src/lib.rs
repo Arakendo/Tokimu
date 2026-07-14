@@ -6,4 +6,4 @@ pub mod store;
 pub use asset::{AssetId, AssetPath};
 pub use handle::AssetHandle;
 pub use loader::AssetLoader;
-pub use store::AssetStore;
+pub use store::{AssetInventory, AssetRecord, AssetStore};
