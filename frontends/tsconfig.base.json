@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "tokimu": ["packages/tokimu/src/index.ts"],
+      "@tokimu/rules": ["packages/rules/src/index.ts"]
+    },
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

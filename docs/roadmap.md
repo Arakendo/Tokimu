@@ -2,9 +2,10 @@
 
 Short-term focus:
 
-1. Close out MVP 1 by finishing the M1 loop seam and the M4 renderer gaps
-2. Get a monoscopic 3D scene rendering (perspective camera + depth + a cube)
-3. Add the second camera for stereo only after the mono 3D scene is solid
+1. Name the first replication unit concretely and prove the transport seam
+2. Keep the browser-parity proof documented and stable while transport work
+  lands
+3. Keep OpenXR shelved until explicitly reopened
 
 The main planning detail remains in the software design document.
 
@@ -77,8 +78,8 @@ Goal: a small playable loop that also proves the shared core runs in a browser.
 
 - [x] M5 WASM spike — the browser demo now runs through `tokimu-runtime::App`
   and world resources while the canvas remains the presentation layer; the
-  shared-core/browser parity path is now proven for one documented input
-  sequence
+  shared-core/browser parity path is proven for the documented `right, right,
+  up, up` sequence in the prototype
   - Deliverables:
     - [x] Run the same toy step system in the browser as native (shared code,
       not a parallel `wasm-demo` loop)
@@ -130,7 +131,9 @@ state, with persistence staying downstream of the world model.
 Goal: make the world inspectable and author-facing content approachable.
 
 - [~] M9 inspector and rule frontends — inspection-first editor target, visual
-  rule-graph direction, and TypeScript-first authoring direction documented
+  rule-graph direction, and TypeScript-first authoring direction documented;
+  the TTSDD now defines the authoritative authoring surface, so the remaining
+  work is host/tooling execution rather than frontend-direction discovery
   - Deliverables (inspector v0 — SDD 5.9 names six concrete surfaces):
     - [x] Add a read-only world snapshot API the inspector can walk (entities,
       components, resources) without mutating state
@@ -179,8 +182,11 @@ Goal: make the world inspectable and author-facing content approachable.
       `fetch`, and `eval`
       - [x] Rule declarations can carry execution mode plus declared inputs,
         outputs, and signals in the prototype
-      - [x] `query()`, `signal()`, `relation()`, `command()`, deterministic
-        loops, and arithmetic remain to be wired into the lowering host
+      - [x] The prototype host recognizes `query()`, `signal()`, `relation()`,
+        `command()`, deterministic loops, and arithmetic as explicit lowering-
+        boundary constructs
+      - [ ] Lower those recognized constructs into semantic rule-model meaning
+        instead of only reporting them in the prototype plan
     - [ ] Implement the ahead-of-time lowering path (TS source → tsc + typecheck
       → recognized `tokimu` API calls → lowering pass → semantic rule model →
       runtime systems), SDD phase 3; keep the runtime host boundary separate
@@ -192,6 +198,9 @@ Goal: make the world inspectable and author-facing content approachable.
       - [ ] Carry source locations through recognition/lowering so diagnostics
         point back to authored `.ts` instead of internal host state
       - [ ] Define the first semantic-model/version stamp the manifest records
+      - [ ] Replace the prototype string-matching recognizer with resolved-
+        symbol Compiler API / `ts-morph` recognition so lowering decisions come
+        from Tokimu symbol identity rather than source text heuristics
     - [ ] Prove one `@tokimu/rules`-authored rule lowers and runs identically to
       its hand-written Rust equivalent, so "Tokimu supports the `tokimu`
       package" stays truer than "Tokimu supports TypeScript"
@@ -215,7 +224,7 @@ frontends are framed over the world/rule model rather than as alternate cores.
 
 Goal: prove Tokimu can grow into new presentation and transport surfaces.
 
-- [~] M10 mono 3D architecture spike — prove the first 3D render path with a
+- [x] M10 mono 3D architecture spike — prove the first 3D render path with a
   desktop mono camera over the shared core
   - Deliverables:
     - [x] Add a `Mesh::cube()` (or similar) 3D mesh with real vertex normals
@@ -230,6 +239,8 @@ Goal: prove Tokimu can grow into new presentation and transport surfaces.
       `hello-3d-stereo`
 - [~] M10.5 VR/XR architecture spike — stereo views, tracked spaces, and
   headset frame submission as a presentation over the shared core
+  - Shelved for now. Do not add to or advance this slice unless it is explicitly
+    reopened.
   - Deliverables:
     - [x] Extend the camera concept to emit two per-eye views from one shared
       pose input
@@ -564,16 +575,15 @@ These crates are intentionally not in the workspace yet. Listed here so
 "should we add crate X" has a written trigger condition instead of being
 decided ad hoc.
 
-- `tokimu-rule` — add only once M9's semantic rule model has a real caller (see
-  M9 deliverables).
-- `tokimu-ts-frontend` — add only after `tokimu-rule` exists and is exercised
-  by an example.
 - `tokimu-persistence` — add only after the M7 save/load trait seam is proven
   by the round-trip test.
 - `tokimu-net` — add only after the M11 transport trait seam is proven by the
   serialize round-trip test.
 - `tokimu-audio`, `tokimu-tools` — no current trigger; do not add until a
   concrete example needs them.
+
+`tokimu-rule` and `tokimu-ts-frontend` are already in the workspace, so they
+are no longer part of the deferred list.
 
 ## Open Questions Tracker
 
@@ -599,12 +609,10 @@ listed, not as a separate documentation pass.
 Phases can overlap. The tracker shows where work is currently being invested,
 not a strict promise that every earlier MVP exit criterion is complete first.
 
-- MVP 1: partial — native runnable core is in place, but the host loop remains
-  partial and the renderer spike is still incomplete
+- MVP 1: done — native runnable core and renderer proof are in place
 - MVP 2: partial — the first playable toy exists, but WASM parity is still
   pending
-- MVP 3: partial — persistence, scene, and history groundwork is now being
-  documented
+- MVP 3: done — persistence, scene, and history groundwork is in place
 - MVP 4: partial — inspector and rule frontend direction is now being
   documented
 - MVP 5: partial — VR/XR, networking, and text-first presentation spikes are
