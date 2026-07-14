@@ -1,4 +1,4 @@
-use tokimu_core::math::Mat4;
+use tokimu_core::math::{Mat4, Vec3};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Camera {
@@ -45,6 +45,22 @@ impl Camera {
             1.0,
         );
     }
+
+    pub fn perspective_3d(width: f32, height: f32) -> Self {
+        let mut camera = Self::default();
+        camera.set_perspective_3d(width, height);
+        camera
+    }
+
+    pub fn set_perspective_3d(&mut self, width: f32, height: f32) {
+        let aspect_ratio = if height > 0.0 { width / height } else { 1.0 };
+        let eye = Vec3::new(0.0, 0.0, 3.0);
+        let target = Vec3::ZERO;
+        let up = Vec3::Y;
+
+        self.view = Mat4::look_at_rh(eye, target, up);
+        self.projection = Mat4::perspective_rh_gl(60.0_f32.to_radians(), aspect_ratio, 0.1, 100.0);
+    }
 }
 
 impl Default for Camera {
@@ -53,5 +69,18 @@ impl Default for Camera {
             view: Mat4::IDENTITY,
             projection: Mat4::IDENTITY,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn creates_a_perspective_camera() {
+        let camera = Camera::perspective_3d(1280.0, 720.0);
+
+        assert_ne!(camera.view, Mat4::IDENTITY);
+        assert_ne!(camera.projection, Mat4::IDENTITY);
     }
 }

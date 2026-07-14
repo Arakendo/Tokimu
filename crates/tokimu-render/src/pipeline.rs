@@ -1,7 +1,11 @@
+use crate::PipelineHandle;
+use std::collections::HashMap;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PipelineKind {
     #[default]
     SolidColor2d,
+    LitColor3d,
     CustomWgsl2d,
 }
 
@@ -13,6 +17,7 @@ impl PipelineKind {
     pub fn default_shader_source(self) -> Option<&'static str> {
         match self {
             PipelineKind::SolidColor2d => Some(default_2d_shader_source()),
+            PipelineKind::LitColor3d => Some(default_lit_3d_shader_source()),
             PipelineKind::CustomWgsl2d => None,
         }
     }
@@ -37,20 +42,75 @@ var<uniform> instance_params: InstanceParams;
 var<uniform> camera_params: mat4x4<f32>;
 
 @vertex
-fn vs_main(@location(0) position: vec2<f32>) -> @builtin(position) vec4<f32> {
-    let scaled_position = position * instance_params.scale;
+fn vs_main(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
+    let scaled_position = position.xy * instance_params.scale;
     let rotated_position = vec2<f32>(
         (scaled_position.x * instance_params.rotation.y) - (scaled_position.y * instance_params.rotation.x),
         (scaled_position.x * instance_params.rotation.x) + (scaled_position.y * instance_params.rotation.y)
     );
     let instance_position = rotated_position + instance_params.translation;
-    let world_position = vec4<f32>(instance_position, 0.0, 1.0);
+    let world_position = vec4<f32>(instance_position.x, instance_position.y, position.z, 1.0);
     return camera_params * world_position;
 }
 
 @fragment
 fn fs_main() -> @location(0) vec4<f32> {
     return material_color;
+}
+"#
+    .trim()
+}
+
+pub fn default_lit_3d_shader_source() -> &'static str {
+    r#"
+struct MaterialColor {
+    color: vec4<f32>,
+};
+
+@group(0) @binding(0)
+var<uniform> material_color: MaterialColor;
+
+struct InstanceParams {
+    translation: vec2<f32>,
+    scale: vec2<f32>,
+    rotation: vec2<f32>,
+    padding: vec2<f32>,
+};
+
+@group(1) @binding(0)
+var<uniform> instance_params: InstanceParams;
+
+@group(2) @binding(0)
+var<uniform> camera_params: mat4x4<f32>;
+
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) normal: vec3<f32>,
+};
+
+@vertex
+fn vs_main(
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+) -> VertexOutput {
+    let scaled_position = position.xy * instance_params.scale;
+    let rotated_position = vec2<f32>(
+        (scaled_position.x * instance_params.rotation.y) - (scaled_position.y * instance_params.rotation.x),
+        (scaled_position.x * instance_params.rotation.x) + (scaled_position.y * instance_params.rotation.y)
+    );
+    let instance_position = rotated_position + instance_params.translation;
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(instance_position.x, instance_position.y, position.z, 1.0);
+    output.normal = normal;
+    return output;
+}
+
+@fragment
+fn fs_main(@location(0) normal: vec3<f32>) -> @location(0) vec4<f32> {
+    let light_direction = normalize(vec3<f32>(0.35, 0.85, 0.45));
+    let diffuse = max(dot(normalize(normal), light_direction), 0.0);
+    let lighting = 0.20 + diffuse * 0.80;
+    return vec4<f32>(material_color.color.rgb * lighting, material_color.color.a);
 }
 "#
     .trim()
@@ -110,6 +170,37 @@ impl Pipeline {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct PipelineRegistry {
+    next_handle: u64,
+    handles_by_label: HashMap<String, PipelineHandle>,
+}
+
+impl PipelineRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register(&mut self, pipeline: &Pipeline) -> PipelineHandle {
+        let handle = PipelineHandle(self.next_handle);
+        self.next_handle += 1;
+        self.handles_by_label.insert(pipeline.label.clone(), handle);
+        handle
+    }
+
+    pub fn register_with_handle(&mut self, handle: PipelineHandle, pipeline: &Pipeline) {
+        self.handles_by_label.insert(pipeline.label.clone(), handle);
+    }
+
+    pub fn handle_for_label(&self, label: &str) -> Option<PipelineHandle> {
+        self.handles_by_label.get(label).copied()
+    }
+
+    pub fn label_count(&self) -> usize {
+        self.handles_by_label.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,8 +208,10 @@ mod tests {
     #[test]
     fn exposes_kind_defaults() {
         assert_eq!(PipelineKind::SolidColor2d.default_entry_points(), ("vs_main", "fs_main"));
+        assert_eq!(PipelineKind::LitColor3d.default_entry_points(), ("vs_main", "fs_main"));
         assert_eq!(PipelineKind::CustomWgsl2d.default_entry_points(), ("vs_main", "fs_main"));
         assert!(PipelineKind::SolidColor2d.default_shader_source().is_some());
+        assert!(PipelineKind::LitColor3d.default_shader_source().is_some());
         assert!(PipelineKind::CustomWgsl2d.default_shader_source().is_none());
     }
 
@@ -129,6 +222,7 @@ mod tests {
         assert!(shader_source.contains("@vertex"));
         assert!(shader_source.contains("@fragment"));
         assert!(shader_source.contains("material_color"));
+        assert!(shader_source.contains("vec3<f32>"));
     }
 
     #[test]
@@ -138,6 +232,17 @@ mod tests {
         assert_eq!(pipeline.label, "solid");
         assert_eq!(pipeline.kind, PipelineKind::SolidColor2d);
         assert_eq!(pipeline.shader_source.as_deref(), Some(default_2d_shader_source()));
+        assert_eq!(pipeline.vertex_entry_point, "vs_main");
+        assert_eq!(pipeline.fragment_entry_point, "fs_main");
+    }
+
+    #[test]
+    fn creates_default_lit_3d_pipeline() {
+        let pipeline = Pipeline::new("lit", PipelineKind::LitColor3d);
+
+        assert_eq!(pipeline.label, "lit");
+        assert_eq!(pipeline.kind, PipelineKind::LitColor3d);
+        assert_eq!(pipeline.shader_source.as_deref(), Some(default_lit_3d_shader_source()));
         assert_eq!(pipeline.vertex_entry_point, "vs_main");
         assert_eq!(pipeline.fragment_entry_point, "fs_main");
     }
@@ -170,5 +275,21 @@ mod tests {
 
         assert_eq!(pipeline.vertex_entry_point, "main_vs");
         assert_eq!(pipeline.fragment_entry_point, "main_fs");
+    }
+
+    #[test]
+    fn registers_named_pipelines_and_resolves_handles() {
+        let mut registry = PipelineRegistry::new();
+        let solid = Pipeline::new("solid", PipelineKind::SolidColor2d);
+        let lit = Pipeline::new("lit", PipelineKind::LitColor3d);
+
+        let solid_handle = registry.register(&solid);
+        let lit_handle = registry.register(&lit);
+
+        assert_eq!(solid_handle, PipelineHandle(0));
+        assert_eq!(lit_handle, PipelineHandle(1));
+        assert_eq!(registry.handle_for_label("solid"), Some(solid_handle));
+        assert_eq!(registry.handle_for_label("lit"), Some(lit_handle));
+        assert_eq!(registry.label_count(), 2);
     }
 }

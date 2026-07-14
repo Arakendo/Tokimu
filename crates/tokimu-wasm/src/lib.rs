@@ -11,7 +11,7 @@ use tokimu_input::{InputState, KeyCode, MouseButton};
 use tokimu_platform::{wasm::install_browser_input_bridge, WindowConfig};
 
 #[cfg(target_arch = "wasm32")]
-use tokimu_runtime::{App, Plugin, RunLoopSummary};
+use tokimu_runtime::{advance_field_sprint, App, FieldSprintState, Plugin, RunLoopSummary, FIELD_SPRINT_TARGET_POINTS};
 
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
@@ -242,10 +242,10 @@ impl Plugin for BrowserDemoPlugin {
 #[cfg(target_arch = "wasm32")]
 #[derive(Clone, Debug)]
 struct BrowserScene {
+    sprint: FieldSprintState,
     player_position: [f64; 2],
     cursor_position: [f64; 2],
     cursor_trail: [[f64; 2]; 4],
-    palette_lift: f64,
     last_event: String,
 }
 
@@ -259,11 +259,13 @@ struct BrowserViewport {
 #[cfg(target_arch = "wasm32")]
 impl Default for BrowserScene {
     fn default() -> Self {
+        let mut sprint = FieldSprintState::default();
+        sprint.target_position = FIELD_SPRINT_TARGET_POINTS[0];
         Self {
+            sprint,
             player_position: [320.0, 200.0],
             cursor_position: [0.0, 0.0],
             cursor_trail: [[0.0, 0.0]; 4],
-            palette_lift: 0.5,
             last_event: "booting".to_string(),
         }
     }
@@ -364,26 +366,13 @@ fn advance_browser_scene(world: &mut World, elapsed_seconds: f64, fixed_step_sec
         return;
     };
 
-    let speed = 200.0;
-    let x_axis = axis(
-        input.keyboard.is_pressed(KeyCode::KeyA) || input.keyboard.is_pressed(KeyCode::ArrowLeft),
-        input.keyboard.is_pressed(KeyCode::KeyD) || input.keyboard.is_pressed(KeyCode::ArrowRight),
-    );
-    let y_axis = axis(
-        input.keyboard.is_pressed(KeyCode::KeyW) || input.keyboard.is_pressed(KeyCode::ArrowUp),
-        input.keyboard.is_pressed(KeyCode::KeyS) || input.keyboard.is_pressed(KeyCode::ArrowDown),
-    );
-
-    scene.player_position[0] += x_axis * speed * fixed_step_seconds;
-    scene.player_position[1] += y_axis * speed * fixed_step_seconds;
-    scene.player_position[0] = scene.player_position[0].clamp(10.0, viewport.width - 10.0);
-    scene.player_position[1] = scene.player_position[1].clamp(10.0, viewport.height - 10.0);
+    advance_field_sprint(&mut scene.sprint, &input, input.mouse.is_pressed(MouseButton::Left), fixed_step_seconds as f32);
+    scene.player_position[0] = ((scene.sprint.player_position[0] as f64 + 1.0) * 0.5 * viewport.width).clamp(10.0, viewport.width - 10.0);
+    scene.player_position[1] = ((1.0 - (scene.sprint.player_position[1] as f64 + 1.0) * 0.5) * viewport.height).clamp(10.0, viewport.height - 10.0);
     scene.cursor_position = [input.mouse.x as f64, input.mouse.y as f64];
-    scene.palette_lift = if input.mouse.is_pressed(MouseButton::Left) {
-        1.0
-    } else {
-        (elapsed_seconds * 1.5).sin() * 0.5 + 0.5
-    };
+    scene.sprint.palette_mode = input.mouse.is_pressed(MouseButton::Right);
+    scene.sprint.reverse_motion = input.mouse.is_pressed(MouseButton::Middle);
+    scene.sprint.paused = false;
 
     let current_cursor = scene.cursor_position;
     scene.cursor_trail.rotate_right(1);
@@ -409,7 +398,9 @@ fn summarize_browser_scene(
         cursor_trail: scene.cursor_trail,
         last_event: scene.last_event.clone(),
         status_line: format!(
-            "player=({:.0},{:.0}) cursor=({:.0},{:.0}) {} | fixed updates {}{}",
+            "field sprint score={} target={} player=({:.0},{:.0}) cursor=({:.0},{:.0}) {} | fixed updates {}{}",
+            scene.sprint.score,
+            scene.sprint.target_index,
             scene.player_position[0],
             scene.player_position[1],
             scene.cursor_position[0],
@@ -418,7 +409,7 @@ fn summarize_browser_scene(
             run_loop_summary.fixed_updates,
             cap_suffix,
         ),
-        palette_lift: scene.palette_lift,
+        palette_lift: scene.sprint.accent_rgba[0] as f64,
         fixed_updates: run_loop_summary.fixed_updates,
         hit_fixed_step_cap: run_loop_summary.hit_fixed_step_cap,
     }

@@ -1,5 +1,5 @@
 use crate::{plugin::Plugin, tick_fixed_updates, RunLoopDiagnostics, RunLoopSummary, RuntimeConfig};
-use tokimu_core::{Diagnostics, Schedule, System, SystemRegistry, World};
+use tokimu_core::{Diagnostics, FrameOutcome, Schedule, System, SystemRegistry, World};
 use tokimu_input::{InputEvent, InputState};
 
 #[derive(Debug)]
@@ -91,6 +91,11 @@ impl App {
 
     pub fn tick(&mut self, frame_delta_seconds: f64) -> RunLoopSummary {
         self.tick_with_fixed_updates(frame_delta_seconds, |_| {})
+    }
+
+    pub fn run_frame(&mut self, frame_delta_seconds: f64) -> FrameOutcome {
+        let _ = self.tick(frame_delta_seconds);
+        FrameOutcome::Continue
     }
 
     pub fn tick_with_fixed_updates<F>(
@@ -238,6 +243,19 @@ mod tests {
             accumulator_seconds: 0.0,
         }));
         assert_eq!(app.run_loop_diagnostics().frame_count(), 2);
+    }
+
+    #[test]
+    fn run_frame_advances_headless_state() {
+        let mut app = App::default();
+        app.config.fixed_time_step_seconds = 0.25;
+        app.config.max_fixed_steps_per_frame = 2;
+
+        let outcome = app.run_frame(0.5);
+
+        assert_eq!(outcome, FrameOutcome::Continue);
+        assert_eq!(app.run_loop_diagnostics().frame_count(), 1);
+        assert_eq!(app.run_loop_diagnostics().total_fixed_updates(), 2);
     }
 
     #[test]

@@ -37,15 +37,16 @@ Status legend: `[x]` done, `[~]` in progress / partial, `[ ]` not started.
 Goal: a native engine that boots, ticks, takes input, and draws.
 
 - [x] M0 workspace scaffold — crates, facade feature flags, `cargo test` green
-- [~] M1 runtime loop skeleton — `App`/`RuntimeConfig`/`Plugin`, fixed-step
-  accounting, run-loop diagnostics, callback-driven host-loop helpers, and a
-  real example caller now exist; the native platform still owns the outer loop
+- [x] M1 runtime loop skeleton — `App`/`RuntimeConfig`/`Plugin`, fixed-step
+  accounting, run-loop diagnostics, a shared `FrameOutcome` frame seam, and a
+  real example caller now exist; the native platform delegates frame outcomes
+  to runtime
   - Deliverables:
-    - [ ] Give `App` a single `run_frame(delta) -> FrameOutcome` entry the
+    - [x] Give `App` a single `run_frame(delta) -> FrameOutcome` entry the
       platform calls, so cadence lives in runtime not the winit callback
-    - [ ] Return an explicit `FrameOutcome::{Continue, Exit}` and have the
+    - [x] Return an explicit `FrameOutcome::{Continue, Exit}` and have the
       native loop honor it instead of tracking exit state itself
-    - [ ] Cover the frame seam with a headless test that ticks N frames without
+    - [x] Cover the frame seam with a headless test that ticks N frames without
       a window
 - [x] M2 minimal ECS — `EntityId`, `Schedule`/`Phase`, `FixedTimeStep` exist;
   `World` now has typed component/resource storage, simple iteration helpers,
@@ -55,16 +56,16 @@ Goal: a native engine that boots, ticks, takes input, and draws.
   ordering is present
 - [x] M3 window + input — `hello-window` proves the native input-to-intent path
   (WASM side of the platform seam still pending)
-- [~] M4 renderer spike — `hello-triangle` proves real `wgpu` bring-up, explicit
-  mesh/material/pipeline upload, renderable handles, per-draw placement, and an
-  orthographic camera; custom WGSL pipeline support now exists, but deeper
-  shader/pipeline management is still missing
+- [x] M4 renderer spike — `hello-triangle` proves real `wgpu` bring-up, explicit
+  mesh/material/pipeline upload, renderable handles, per-draw placement, and a
+  perspective camera with depth-buffer support; custom WGSL pipeline support
+  now exists, and the named pipeline registry is in place
   - Deliverables:
-    - [ ] Add a pipeline registry so multiple named pipelines resolve by handle
+    - [x] Add a pipeline registry so multiple named pipelines resolve by handle
       at draw time
-    - [ ] Add a depth texture + depth-stencil state to `WgpuBackend` (required
+    - [x] Add a depth texture + depth-stencil state to `WgpuBackend` (required
       before any 3D draw is correct)
-    - [ ] Add a perspective camera mode alongside the existing orthographic path
+    - [x] Add a perspective camera mode alongside the existing orthographic path
 
 MVP 1 exit criteria: a native example opens a window, reads normalized input,
 and renders Tokimu-owned resources through a real backend without the renderer
@@ -74,23 +75,24 @@ owning simulation state.
 
 Goal: a small playable loop that also proves the shared core runs in a browser.
 
-- [~] M5 WASM spike — the browser demo now runs through `tokimu-runtime::App`
+- [x] M5 WASM spike — the browser demo now runs through `tokimu-runtime::App`
   and world resources while the canvas remains the presentation layer; the
-  shared-core/browser parity path is still being tightened up
+  shared-core/browser parity path is now proven for one documented input
+  sequence
   - Deliverables:
-    - [ ] Run the same toy step system in the browser as native (shared code,
+    - [x] Run the same toy step system in the browser as native (shared code,
       not a parallel `wasm-demo` loop)
-    - [ ] Drive the canvas draw from world state instead of demo-only fields
-    - [ ] Confirm identical input-to-state behavior native vs browser for one
+    - [x] Drive the canvas draw from world state instead of demo-only fields
+    - [x] Confirm identical input-to-state behavior native vs browser for one
       documented input sequence
-- [~] M6 first playable toy — `hello-triangle` carries a small collect-the-target
-  loop over shared input and Tokimu world state; still native-only and not yet
-  a distinct world-corpus scenario
+- [x] M6 first playable toy — `hello-triangle` carries a small collect-the-target
+  loop over shared input and Tokimu world state; it now uses the shared field
+  sprint step logic and a named round loop
   - Deliverables:
-    - [ ] Add a win/lose or round condition so the loop has a beginning and end
-    - [ ] Move the toy step logic into a reusable system callable from native
+    - [x] Add a win/lose or round condition so the loop has a beginning and end
+    - [x] Move the toy step logic into a reusable system callable from native
       and browser
-    - [ ] Name the scenario as a small world-corpus example, not just a triangle
+    - [x] Name the scenario as a small world-corpus example, not just a triangle
 - [x] M6.5 networking boundary note — future transport/replication boundary
   documented before any socket code appears
 
@@ -178,21 +180,37 @@ frontends are framed over the world/rule model rather than as alternate cores.
 
 Goal: prove Tokimu can grow into new presentation and transport surfaces.
 
-- [~] M10 VR/XR architecture spike — monoscopic 3D camera proof first, then
-  stereo views, tracked spaces, and headset frame submission as a presentation
-  over the shared core
-  - Deliverables (mono 3D first):
-    - [ ] Add a `Mesh::cube()` (or similar) 3D mesh with real vertex normals
-    - [ ] Add a perspective camera + depth testing to the renderer (shared with
+- [~] M10 mono 3D architecture spike — prove the first 3D render path with a
+  desktop mono camera over the shared core
+  - Deliverables:
+    - [x] Add a `Mesh::cube()` (or similar) 3D mesh with real vertex normals
+    - [x] Add a perspective camera + depth testing to the renderer (shared with
       the M4 depth deliverable)
-    - [ ] New `hello-3d` example: one rotating lit cube under a perspective
-      camera, driven by world state
-  - Deliverables (stereo second):
-    - [ ] Extend the camera concept to emit two per-eye views from one shared
+    - [x] New `hello-3d-mono` example: a cube under a perspective camera,
+      proving
+      the first 3D render path
+    - [x] Add cube rotation/orbit once the base 3D proof is stable
+    - [x] Add lighting once the base 3D proof is stable
+    - [x] Render the stereo proof as a separate desktop example in
+      `hello-3d-stereo`
+- [~] M10.5 VR/XR architecture spike — stereo views, tracked spaces, and
+  headset frame submission as a presentation over the shared core
+  - Deliverables:
+    - [x] Extend the camera concept to emit two per-eye views from one shared
       pose input
-    - [ ] Render both eyes to side-by-side viewports in `hello-3d` as a desktop
-      stereo proof
-    - [ ] Keep any headset/session setup behind a platform adapter, not in core
+    - [x] Render both eyes to side-by-side viewports in `hello-3d-stereo` as a
+      desktop stereo proof
+    - [x] Add `hello-3d-openxr` as a lightweight proof app around the OpenXR
+      readiness contract
+    - [~] Keep any headset/session setup behind an OpenXR platform adapter, not in core
+      - [x] Define a platform-level OpenXR session boundary in `tokimu-platform`
+      - [ ] Validate the first headset proof on Quest Pro via SteamVR-backed OpenXR (pending hardware validation)
+      - [x] Define a Quest Pro via SteamVR OpenXR session profile in `tokimu-platform`
+      - [x] Define a first headset proof plan with stereo eye geometry in `tokimu-platform`
+      - [x] Define an OpenXR session capability contract for proof-plan validation
+      - [x] Define an OpenXR render bridge contract for stereo frame submission
+      - [x] Define an OpenXR session readiness contract for backend validation
+      - [ ] Wire a real runtime backend to the boundary on a supported headset
 - [~] M11 networking and transport spike — replication unit and transport seam
   documented for native and browser targets
   - Deliverables:

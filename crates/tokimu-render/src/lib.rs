@@ -12,12 +12,14 @@ pub mod texture;
 pub mod wgpu_backend;
 
 pub use camera::Camera;
-pub use commands::{ClearCommand, DrawMeshCommand, DrawRenderableCommand, RenderCommand};
+pub use commands::{
+	ClearCommand, DrawMeshCommand, DrawRenderableCommand, RenderCommand, ViewportRect,
+};
 pub use color::Color;
 pub use instance::Instance2d;
 pub use material::Material;
 pub use mesh::Mesh;
-pub use pipeline::{Pipeline, PipelineKind};
+pub use pipeline::{Pipeline, PipelineKind, PipelineRegistry};
 pub use renderable::Renderable;
 pub use resources::{CameraHandle, MaterialHandle, MeshHandle, PipelineHandle, RenderableHandle, TextureHandle};
 pub use renderer::{RenderStats, Renderer};

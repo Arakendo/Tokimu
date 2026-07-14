@@ -11,6 +11,9 @@ members = [
     "crates/tokimu-wasm",
     "examples/hello-window",
     "examples/hello-triangle",
+    "examples/hello-3d",
+    "examples/hello-3d-mono",
+    "examples/hello-3d-openxr",
 ]
 
 [workspace.package]

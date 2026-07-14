@@ -21,6 +21,12 @@ pub use time::{FixedTimeStep, TimeStepPolicy};
 pub use system::{RegisteredSystem, System, SystemRegistry};
 pub use world::World;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FrameOutcome {
+    Continue,
+    Exit,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::World;

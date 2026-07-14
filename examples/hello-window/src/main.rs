@@ -3,6 +3,7 @@ mod output;
 use output::{Channel, OutputRouter};
 use std::sync::Arc;
 use tokimu::{run_window_with_app, App, KeyCode, NativeWindow, PlatformEventHandler, PlatformInputEvent, PlatformResult, WindowConfig};
+use tokimu::FrameOutcome;
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(WindowConfig::default(), HelloWindowApp::new())
@@ -74,21 +75,12 @@ impl PlatformEventHandler for HelloWindowApp {
         Ok(())
     }
 
-    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<bool> {
-        let mut yielded_delta = false;
+    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
+        let outcome = self.app.run_frame(delta_seconds);
         let summary = self
             .app
-            .run_until(
-                || {
-                    if yielded_delta {
-                        None
-                    } else {
-                        yielded_delta = true;
-                        Some(delta_seconds)
-                    }
-                },
-                |_| {},
-            )
+            .run_loop_diagnostics()
+            .last_summary()
             .expect("hello-window frame delta should always be present");
         let diagnostics = self.app.run_loop_diagnostics();
         let elapsed = self.app.elapsed_seconds();
@@ -129,7 +121,7 @@ impl PlatformEventHandler for HelloWindowApp {
             self.update_window_title();
         }
 
-        Ok(true)
+        Ok(outcome)
     }
 }
 

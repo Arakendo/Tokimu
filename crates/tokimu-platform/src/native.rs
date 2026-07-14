@@ -1,4 +1,5 @@
 use crate::{PlatformEventHandler, PlatformInputEvent, PlatformResult, WindowConfig};
+use tokimu_core::FrameOutcome;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -143,8 +144,8 @@ where
         let delta_seconds = now.duration_since(previous).as_secs_f64();
         self.next_frame_deadline = Some(now + DEFAULT_FRAME_INTERVAL);
         match self.event_handler.on_frame(delta_seconds) {
-            Ok(true) => {}
-            Ok(false) => {
+            Ok(FrameOutcome::Continue) => {}
+            Ok(FrameOutcome::Exit) => {
                 event_loop.exit();
                 return;
             }

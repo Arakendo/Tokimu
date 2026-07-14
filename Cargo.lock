@@ -578,6 +578,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
+name = "hello-3d-mono"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
+name = "hello-3d-openxr"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+]
+
+[[package]]
+name = "hello-3d-stereo"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-triangle"
 version = "0.1.0"
 dependencies = [
@@ -1662,6 +1685,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
+ "tokimu-core",
  "tokimu-input",
  "wasm-bindgen",
  "web-sys",

@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 console_error_panic_hook.workspace = true
 js-sys.workspace = true
+tokimu-core = { path = "../tokimu-core" }
 tokimu-input = { path = "../tokimu-input" }
 wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = [

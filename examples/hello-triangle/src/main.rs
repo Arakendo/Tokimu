@@ -3,11 +3,13 @@ mod output;
 use std::sync::Arc;
 use tokimu_core::World;
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawRenderableCommand,
-    InputState, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton,
-    NativeWindow, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderable, RenderableHandle, Renderer, WgpuBackend,
-    WindowConfig,
+    advance_field_sprint, run_window_with_app, Camera, CameraHandle, ClearCommand, Color,
+    DrawRenderableCommand, FieldSprintState as ToyState, FrameOutcome, InputState, Instance2d,
+    KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton, NativeWindow, Pipeline,
+    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderable, RenderableHandle, Renderer, WgpuBackend, WindowConfig,
+    FIELD_SPRINT_TARGET_POINTS,
+    axis,
 };
 
 use output::{Channel, OutputRouter};
@@ -20,7 +22,6 @@ const TRIANGLE_THIRD_MATERIAL: MaterialHandle = MaterialHandle(3);
 const TRIANGLE_FOURTH_MATERIAL: MaterialHandle = MaterialHandle(4);
 const QUAD_MATERIAL: MaterialHandle = MaterialHandle(5);
 const DIAMOND_MATERIAL: MaterialHandle = MaterialHandle(6);
-const TRIANGLE_PIPELINE: PipelineHandle = PipelineHandle(1);
 const TRIANGLE_RENDERABLE: RenderableHandle = RenderableHandle(1);
 const TRIANGLE_SECOND_RENDERABLE: RenderableHandle = RenderableHandle(2);
 const TRIANGLE_THIRD_RENDERABLE: RenderableHandle = RenderableHandle(3);
@@ -28,45 +29,6 @@ const TRIANGLE_FOURTH_RENDERABLE: RenderableHandle = RenderableHandle(4);
 const QUAD_RENDERABLE: RenderableHandle = RenderableHandle(5);
 const DIAMOND_RENDERABLE: RenderableHandle = RenderableHandle(6);
 const TRIANGLE_CAMERA: CameraHandle = CameraHandle(1);
-const TARGET_POINTS: [[f32; 2]; 6] = [
-    [-0.55, 0.40],
-    [0.55, 0.28],
-    [0.40, -0.42],
-    [-0.15, -0.48],
-    [-0.70, 0.02],
-    [0.10, 0.52],
-];
-
-#[derive(Clone, Debug)]
-struct ToyState {
-    motion_phase: f32,
-    player_position: [f32; 2],
-    target_position: [f32; 2],
-    target_index: usize,
-    score: u32,
-    collection_flash: f32,
-    paused: bool,
-    palette_mode: bool,
-    reverse_motion: bool,
-    accent: Color,
-}
-
-impl Default for ToyState {
-    fn default() -> Self {
-        Self {
-            motion_phase: 0.0,
-            player_position: [0.0, -0.65],
-            target_position: TARGET_POINTS[0],
-            target_index: 0,
-            score: 0,
-            collection_flash: 0.0,
-            paused: false,
-            palette_mode: false,
-            reverse_motion: false,
-            accent: Color::rgb(0.08, 0.18, 0.34),
-        }
-    }
-}
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -85,7 +47,6 @@ struct HelloTriangleApp {
     output: OutputRouter,
     world: World,
     camera: Camera,
-    camera_world_height: f32,
     window_size: [f32; 2],
     input: InputState,
     input_offset: [f32; 2],
@@ -95,6 +56,7 @@ struct HelloTriangleApp {
     mouse_hold_active: bool,
     logged_backend: bool,
     elapsed_seconds: f64,
+    pipeline: PipelineHandle,
 }
 
 impl Default for HelloTriangleApp {
@@ -105,7 +67,6 @@ impl Default for HelloTriangleApp {
             output: OutputRouter::default(),
             world: World::default(),
             camera: Camera::default(),
-            camera_world_height: 2.0,
             window_size: [1.0, 1.0],
             input: InputState::default(),
             input_offset: [0.0, 0.0],
@@ -115,6 +76,7 @@ impl Default for HelloTriangleApp {
             mouse_hold_active: false,
             logged_backend: false,
             elapsed_seconds: 0.0,
+            pipeline: PipelineHandle(0),
         }
     }
 }
@@ -125,7 +87,9 @@ impl HelloTriangleApp {
             output: OutputRouter::with_startup_policy(),
             ..Self::default()
         };
-        app.world.insert_resource(ToyState::default());
+        let mut state = ToyState::default();
+        state.target_position = FIELD_SPRINT_TARGET_POINTS[0];
+        app.world.insert_resource(state);
         app
     }
 }
@@ -141,10 +105,7 @@ impl PlatformEventHandler for HelloTriangleApp {
         renderer.upload_mesh(TRIANGLE_HANDLE, &Mesh::triangle());
         renderer.upload_mesh(QUAD_HANDLE, &Mesh::quad());
         renderer.upload_mesh(MeshHandle(3), &Mesh::diamond());
-        renderer.upload_pipeline(
-            TRIANGLE_PIPELINE,
-            &Pipeline::new("triangle-pipeline", PipelineKind::SolidColor2d),
-        )?;
+        self.pipeline = renderer.register_pipeline(&Pipeline::new("triangle-pipeline", PipelineKind::SolidColor2d))?;
         renderer.upload_material(
             TRIANGLE_MATERIAL,
             &Material::new("triangle-material", Color::rgb(0.96, 0.72, 0.28)),
@@ -171,33 +132,32 @@ impl PlatformEventHandler for HelloTriangleApp {
         )?;
         renderer.upload_renderable(
             TRIANGLE_RENDERABLE,
-            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_MATERIAL, TRIANGLE_PIPELINE),
+            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_MATERIAL, self.pipeline),
         );
         renderer.upload_renderable(
             TRIANGLE_SECOND_RENDERABLE,
-            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_SECOND_MATERIAL, TRIANGLE_PIPELINE),
+            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_SECOND_MATERIAL, self.pipeline),
         );
         renderer.upload_renderable(
             TRIANGLE_THIRD_RENDERABLE,
-            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_THIRD_MATERIAL, TRIANGLE_PIPELINE),
+            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_THIRD_MATERIAL, self.pipeline),
         );
         renderer.upload_renderable(
             TRIANGLE_FOURTH_RENDERABLE,
-            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_FOURTH_MATERIAL, TRIANGLE_PIPELINE),
+            Renderable::new(TRIANGLE_HANDLE, TRIANGLE_FOURTH_MATERIAL, self.pipeline),
         );
         renderer.upload_renderable(
             QUAD_RENDERABLE,
-            Renderable::new(QUAD_HANDLE, QUAD_MATERIAL, TRIANGLE_PIPELINE),
+            Renderable::new(QUAD_HANDLE, QUAD_MATERIAL, self.pipeline),
         );
         renderer.upload_renderable(
             DIAMOND_RENDERABLE,
-            Renderable::new(MeshHandle(3), DIAMOND_MATERIAL, TRIANGLE_PIPELINE),
+            Renderable::new(MeshHandle(3), DIAMOND_MATERIAL, self.pipeline),
         );
         self.camera
-            .set_orthographic_2d_with_height(
+            .set_perspective_3d(
                 size.width as f32,
                 size.height as f32,
-                self.camera_world_height,
             );
         renderer.upload_camera(TRIANGLE_CAMERA, self.camera);
         renderer.set_active_camera(TRIANGLE_CAMERA);
@@ -254,11 +214,7 @@ impl PlatformEventHandler for HelloTriangleApp {
             self.window_size = [width.max(1) as f32, height.max(1) as f32];
             if let Some(renderer) = self.renderer.as_mut() {
                 renderer.resize_surface(width, height);
-                self.camera.set_orthographic_2d_with_height(
-                    width as f32,
-                    height as f32,
-                    self.camera_world_height,
-                );
+                self.camera.set_perspective_3d(width as f32, height as f32);
                 renderer.upload_camera(TRIANGLE_CAMERA, self.camera);
             }
         }
@@ -266,16 +222,24 @@ impl PlatformEventHandler for HelloTriangleApp {
         Ok(())
     }
 
-    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<bool> {
+    fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         self.elapsed_seconds += delta_seconds;
-        self.step_toy(delta_seconds as f32);
+        let input = self.input.clone();
+        let mouse_hold_active = self.mouse_hold_active;
+        advance_field_sprint(
+            self.toy_state_mut(),
+            &input,
+            mouse_hold_active,
+            delta_seconds as f32,
+        );
         let state = self.toy_state().clone();
+        let round_complete = state.score >= FIELD_SPRINT_TARGET_POINTS.len() as u32;
         let player_rotation = self.player_rotation(&state);
         let collection_flash = state.collection_flash;
 
         let (stats, renderer_name, backend_api, adapter_name, device_kind) = {
             let Some(renderer) = self.renderer.as_mut() else {
-                return Ok(true);
+                return Ok(FrameOutcome::Continue);
             };
 
             renderer.begin_frame();
@@ -332,38 +296,61 @@ impl PlatformEventHandler for HelloTriangleApp {
                 .with_scale([diamond_scale, diamond_scale])
                 .with_rotation(-state.motion_phase * 0.9);
             renderer.submit(&[
-                RenderCommand::Clear(ClearCommand { color: state.accent }),
+                RenderCommand::Clear(ClearCommand {
+                    color: Color::rgba(
+                        state.accent_color()[0],
+                        state.accent_color()[1],
+                        state.accent_color()[2],
+                        state.accent_color()[3],
+                    ),
+                }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: TRIANGLE_RENDERABLE,
                     instance: left_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: TRIANGLE_SECOND_RENDERABLE,
                     instance: right_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: TRIANGLE_THIRD_RENDERABLE,
                     instance: third_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: TRIANGLE_FOURTH_RENDERABLE,
                     instance: fourth_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: QUAD_RENDERABLE,
                     instance: quad_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: TRIANGLE_RENDERABLE,
                     instance: player_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: QUAD_RENDERABLE,
                     instance: target_instance,
+                    camera: None,
+                    viewport: None,
                 }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: DIAMOND_RENDERABLE,
                     instance: diamond_instance,
+                    camera: None,
+                    viewport: None,
                 }),
             ]);
             let stats = renderer.present()?;
@@ -392,12 +379,22 @@ impl PlatformEventHandler for HelloTriangleApp {
                 stats.draw_calls,
             ),
         );
-
+        if round_complete {
+            self.output.emit_one_shot(
+                Channel::Lifecycle,
+                format!(
+                    "Tokimu Field Sprint complete after {} targets",
+                    state.score
+                ),
+            );
+            self.update_window_title();
+            return Ok(FrameOutcome::Exit);
+        }
         if !self.logged_backend {
             self.output.emit_one_shot(
                 Channel::Env,
                 format!(
-                    "Tokimu hello-triangle proof: renderer={} backend={} adapter={} device_type={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) clear={:?} draw_calls={}",
+                    "Tokimu Field Sprint proof: renderer={} backend={} adapter={} device_type={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) clear={:?} draw_calls={}",
                     renderer_name,
                     backend_api,
                     adapter_name,
@@ -407,14 +404,19 @@ impl PlatformEventHandler for HelloTriangleApp {
                     state.player_position[1],
                     state.target_position[0],
                     state.target_position[1],
-                    state.accent,
+                    Color::rgba(
+                        state.accent_color()[0],
+                        state.accent_color()[1],
+                        state.accent_color()[2],
+                        state.accent_color()[3],
+                    ),
                     stats.draw_calls
                 ),
             );
             self.logged_backend = true;
         }
 
-        Ok(true)
+        Ok(FrameOutcome::Continue)
     }
 }
 
@@ -426,7 +428,9 @@ impl HelloTriangleApp {
                 self.cursor_offset = [0.0, 0.0];
                 self.square_offset = [0.0, 0.0];
                 self.diamond_offset = [0.0, 0.0];
-                self.world.insert_resource(ToyState::default());
+                let mut state = ToyState::default();
+                state.target_position = FIELD_SPRINT_TARGET_POINTS[0];
+                self.world.insert_resource(state);
             }
             KeyCode::Escape => {}
             _ => {}
@@ -472,8 +476,14 @@ impl HelloTriangleApp {
             let palette_tag = if state.palette_mode { "alt" } else { "default" };
             let direction_tag = if state.reverse_motion { "reverse" } else { "forward" };
             let hold_tag = if self.mouse_hold_active { "drag" } else { "idle" };
+            let round_tag = if state.score >= FIELD_SPRINT_TARGET_POINTS.len() as u32 {
+                "complete"
+            } else {
+                "running"
+            };
             let title = format!(
-                "Tokimu Hello Triangle | mode={} motion={} palette={} direction={} hold={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) key=({:.2}, {:.2}) mouse=({:.2}, {:.2})",
+                "Tokimu Field Sprint | round={} mode={} motion={} palette={} direction={} hold={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) key=({:.2}, {:.2}) mouse=({:.2}, {:.2})",
+                round_tag,
                 activity_tag,
                 motion_tag,
                 palette_tag,
@@ -490,78 +500,6 @@ impl HelloTriangleApp {
                 self.cursor_offset[1]
             );
             window.set_title(&title);
-        }
-    }
-
-    fn step_toy(&mut self, delta_seconds: f32) {
-        let input = self.input.clone();
-        let mouse_hold_active = self.mouse_hold_active;
-        let state = self.toy_state_mut();
-
-        if state.paused {
-            return;
-        }
-
-        let motion_delta = delta_seconds * std::f32::consts::TAU * 0.25;
-        if state.reverse_motion {
-            state.motion_phase = (state.motion_phase - motion_delta).rem_euclid(std::f32::consts::TAU);
-        } else {
-            state.motion_phase = (state.motion_phase + motion_delta).rem_euclid(std::f32::consts::TAU);
-        }
-
-        state.accent = if state.palette_mode {
-            Color::rgb(
-                0.20 + state.motion_phase.cos() * 0.04,
-                0.10 + state.motion_phase.sin() * 0.03,
-                0.28 + state.motion_phase.cos() * 0.05,
-            )
-        } else {
-            Color::rgb(
-                0.08 + state.motion_phase.sin() * 0.03,
-                0.18 + state.motion_phase.cos() * 0.02,
-                0.34 + state.motion_phase.sin() * 0.04,
-            )
-        };
-
-        if mouse_hold_active {
-            state.accent = Color::rgb(
-                (state.accent.r + 0.10).min(1.0),
-                (state.accent.g + 0.08).min(1.0),
-                (state.accent.b + 0.12).min(1.0),
-            );
-        }
-
-        if state.collection_flash > 0.0 {
-            state.collection_flash = (state.collection_flash - delta_seconds * 1.8).max(0.0);
-        }
-
-        let horizontal = axis(
-            input.keyboard.is_pressed(KeyCode::KeyA)
-                || input.keyboard.is_pressed(KeyCode::ArrowLeft),
-            input.keyboard.is_pressed(KeyCode::KeyD)
-                || input.keyboard.is_pressed(KeyCode::ArrowRight),
-        );
-        let vertical = axis(
-            input.keyboard.is_pressed(KeyCode::KeyS)
-                || input.keyboard.is_pressed(KeyCode::ArrowDown),
-            input.keyboard.is_pressed(KeyCode::KeyW)
-                || input.keyboard.is_pressed(KeyCode::ArrowUp),
-        );
-        let speed = 0.85;
-
-        state.player_position[0] = (state.player_position[0] + horizontal * speed * delta_seconds)
-            .clamp(-0.82, 0.82);
-        state.player_position[1] = (state.player_position[1] + vertical * speed * delta_seconds)
-            .clamp(-0.70, 0.70);
-
-        let dx = state.player_position[0] - state.target_position[0];
-        let dy = state.player_position[1] - state.target_position[1];
-        let collected = dx * dx + dy * dy < 0.028;
-        if collected {
-            state.score += 1;
-            state.target_index = (state.target_index + 1) % TARGET_POINTS.len();
-            state.target_position = TARGET_POINTS[state.target_index];
-            state.collection_flash = 1.0;
         }
     }
 
@@ -596,13 +534,5 @@ impl HelloTriangleApp {
         self.world
             .resource_mut::<ToyState>()
             .expect("ToyState should be initialized")
-    }
-}
-
-fn axis(negative: bool, positive: bool) -> f32 {
-    match (negative, positive) {
-        (true, false) => -1.0,
-        (false, true) => 1.0,
-        _ => 0.0,
     }
 }

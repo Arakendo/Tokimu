@@ -1,6 +1,8 @@
 pub mod clock;
 pub mod input;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod openxr;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod native;
 pub mod wasm;
 pub mod window;

@@ -1,5 +1,6 @@
 use crate::PlatformResult;
 use std::sync::Arc;
+use tokimu_core::FrameOutcome;
 use tokimu_input::{InputEvent, KeyCode, MouseButton};
 use winit::window::Window;
 
@@ -10,8 +11,8 @@ pub trait PlatformEventHandler {
         Ok(())
     }
 
-    fn on_frame(&mut self, _delta_seconds: f64) -> PlatformResult<bool> {
-        Ok(true)
+    fn on_frame(&mut self, _delta_seconds: f64) -> PlatformResult<FrameOutcome> {
+        Ok(FrameOutcome::Continue)
     }
 }
 

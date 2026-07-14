@@ -513,6 +513,8 @@ with render abstractions rather than as special logic inside the simulation
 core. OpenXR is the most plausible first-class native integration target when
 Tokimu reaches that stage.
 
+The first OpenXR seam should stay small and explicit: a session config that selects the runtime target, a headset proof plan that names the stereo eye geometry, a capability contract that says whether the proof is supported, and a render bridge contract that defines what the runtime backend has to submit for each eye.
+
 Text/MUD support should arrive in the same spirit: a text adapter, command
 parser, and session surface coordinated with the same world and input model
 instead of a separate game loop or bespoke world representation.

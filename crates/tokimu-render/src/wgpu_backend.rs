@@ -1,7 +1,7 @@
 use crate::{
-    Camera, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
-    PipelineHandle, PipelineKind, RenderCommand, RenderStats, Renderable, RenderableHandle,
-    Renderer,
+    Camera, CameraHandle, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle,
+    Pipeline, PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderStats, Renderable,
+    RenderableHandle, Renderer,
 };
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -35,7 +35,8 @@ pub enum WgpuBackendError {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 struct GpuVertex {
-    position: [f32; 2],
+    position: [f32; 3],
+    normal: [f32; 3],
 }
 
 struct GpuMesh {
@@ -54,12 +55,16 @@ struct QueuedDraw {
     material: MaterialHandle,
     pipeline: PipelineHandle,
     instance: Instance2d,
+    camera: Option<CameraHandle>,
+    viewport: Option<crate::commands::ViewportRect>,
 }
 
 struct SurfaceState {
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     clear_color: Color,
+    depth_texture: wgpu::Texture,
+    depth_view: wgpu::TextureView,
     camera_bind_group_layout: wgpu::BindGroupLayout,
     material_bind_group_layout: wgpu::BindGroupLayout,
     instance_bind_group_layout: wgpu::BindGroupLayout,
@@ -80,12 +85,15 @@ struct GpuCameraUniform {
     view_projection: [[f32; 4]; 4],
 }
 
+const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+
 pub struct WgpuBackend {
     draw_calls: u32,
     queued_draws: Vec<QueuedDraw>,
     meshes: HashMap<MeshHandle, GpuMesh>,
     materials: HashMap<MaterialHandle, GpuMaterial>,
     pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
+    pipeline_registry: PipelineRegistry,
     renderables: HashMap<RenderableHandle, Renderable>,
     cameras: HashMap<crate::resources::CameraHandle, Camera>,
     active_camera: crate::resources::CameraHandle,
@@ -126,6 +134,7 @@ impl WgpuBackend {
             meshes: HashMap::new(),
             materials: HashMap::new(),
             pipelines: HashMap::new(),
+            pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
@@ -178,6 +187,7 @@ impl WgpuBackend {
         let camera_bind_group_layout = create_camera_bind_group_layout(&device);
         let material_bind_group_layout = create_material_bind_group_layout(&device);
         let instance_bind_group_layout = create_instance_bind_group_layout(&device);
+        let (depth_texture, depth_view) = create_depth_texture(&device, width, height);
         surface.configure(&device, &config);
 
         Ok(Self {
@@ -186,6 +196,7 @@ impl WgpuBackend {
             meshes: HashMap::new(),
             materials: HashMap::new(),
             pipelines: HashMap::new(),
+            pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
@@ -197,6 +208,8 @@ impl WgpuBackend {
                 surface,
                 config,
                 clear_color: Color::BLACK,
+                depth_texture,
+                depth_view,
                 camera_bind_group_layout,
                 material_bind_group_layout,
                 instance_bind_group_layout,
@@ -242,6 +255,9 @@ impl WgpuBackend {
 
         surface_state.config.width = width;
         surface_state.config.height = height;
+        let (depth_texture, depth_view) = create_depth_texture(&self._device, width, height);
+        surface_state.depth_texture = depth_texture;
+        surface_state.depth_view = depth_view;
         surface_state
             .surface
             .configure(&self._device, &surface_state.config);
@@ -252,7 +268,8 @@ impl WgpuBackend {
             .positions
             .iter()
             .copied()
-            .map(|position| GpuVertex { position })
+            .zip(mesh.normals.iter().copied())
+            .map(|(position, normal)| GpuVertex { position, normal })
             .collect();
         let vertex_buffer = self
             ._device
@@ -326,13 +343,31 @@ impl WgpuBackend {
             PipelineKind::SolidColor2d => create_solid_color_pipeline(
                 &self._device,
                 surface_state.config.format,
+                DEPTH_FORMAT,
                 &surface_state.material_bind_group_layout,
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
             ),
+            PipelineKind::LitColor3d => create_custom_pipeline(
+                &self._device,
+                surface_state.config.format,
+                DEPTH_FORMAT,
+                &surface_state.material_bind_group_layout,
+                &surface_state.instance_bind_group_layout,
+                &surface_state.camera_bind_group_layout,
+                &pipeline.label,
+                pipeline
+                    .shader_source
+                    .as_deref()
+                    .or_else(|| pipeline.kind.default_shader_source())
+                    .unwrap_or(Pipeline::default_2d_shader_source()),
+                &pipeline.vertex_entry_point,
+                &pipeline.fragment_entry_point,
+            ),
             PipelineKind::CustomWgsl2d => create_custom_pipeline(
                 &self._device,
                 surface_state.config.format,
+                DEPTH_FORMAT,
                 &surface_state.material_bind_group_layout,
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
@@ -347,8 +382,29 @@ impl WgpuBackend {
             ),
         };
 
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry.register_with_handle(handle, pipeline);
         self.pipelines.insert(handle, compiled);
         Ok(())
+    }
+
+    pub fn register_pipeline(&mut self, pipeline: &Pipeline) -> Result<PipelineHandle, WgpuBackendError> {
+        let handle = self.pipeline_registry.register(pipeline);
+        self.upload_pipeline(handle, pipeline)?;
+        Ok(handle)
+    }
+
+    pub fn pipeline_handle(&self, label: &str) -> Option<PipelineHandle> {
+        self.pipeline_registry.handle_for_label(label)
     }
 
     pub fn upload_renderable(&mut self, handle: RenderableHandle, renderable: Renderable) {
@@ -385,29 +441,6 @@ impl WgpuBackend {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("tokimu-clear-pass"),
             });
-        let camera = self
-            .cameras
-            .get(&self.active_camera)
-            .copied()
-            .unwrap_or_default();
-        let camera_uniform = GpuCameraUniform {
-            view_projection: (camera.projection * camera.view).to_cols_array_2d(),
-        };
-        let camera_buffer = self
-            ._device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("tokimu-camera-uniform-buffer"),
-                contents: bytemuck::bytes_of(&camera_uniform),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
-        let camera_bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("tokimu-camera-bind-group"),
-            layout: &surface_state.camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
         let mut instance_buffers = Vec::with_capacity(self.queued_draws.len());
         let mut instance_bind_groups = Vec::with_capacity(self.queued_draws.len());
 
@@ -454,7 +487,14 @@ impl WgpuBackend {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &surface_state.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
@@ -473,6 +513,33 @@ impl WgpuBackend {
                         .pipelines
                         .get(&draw.pipeline)
                         .ok_or(WgpuBackendError::MissingPipeline(draw.pipeline.0))?;
+                    let camera_handle = draw.camera.unwrap_or(self.active_camera);
+                    let camera = self
+                        .cameras
+                        .get(&camera_handle)
+                        .copied()
+                        .unwrap_or_default();
+                    let camera_uniform = GpuCameraUniform {
+                        view_projection: (camera.projection * camera.view).to_cols_array_2d(),
+                    };
+                    let camera_buffer = self
+                        ._device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("tokimu-camera-uniform-buffer"),
+                            contents: bytemuck::bytes_of(&camera_uniform),
+                            usage: wgpu::BufferUsages::UNIFORM,
+                        });
+                    let camera_bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("tokimu-camera-bind-group"),
+                        layout: &surface_state.camera_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: camera_buffer.as_entire_binding(),
+                        }],
+                    });
+                    if let Some(viewport) = draw.viewport {
+                        render_pass.set_viewport(viewport.x, viewport.y, viewport.width, viewport.height, 0.0, 1.0);
+                    }
                     render_pass.set_pipeline(pipeline);
                     render_pass.set_bind_group(2, &camera_bind_group, &[]);
                     render_pass.set_bind_group(0, &gpu_material.bind_group, &[]);
@@ -523,6 +590,8 @@ impl Renderer for WgpuBackend {
                 material: draw.material,
                 pipeline: draw.pipeline,
                 instance: draw.instance,
+                camera: draw.camera,
+                viewport: draw.viewport,
             }),
             RenderCommand::DrawRenderable(draw) => {
                 let renderable = self.renderables.get(&draw.renderable)?;
@@ -531,6 +600,8 @@ impl Renderer for WgpuBackend {
                     material: renderable.material,
                     pipeline: renderable.pipeline,
                     instance: draw.instance,
+                    camera: draw.camera,
+                    viewport: draw.viewport,
                 })
             }
         }));
@@ -553,6 +624,7 @@ impl Renderer for WgpuBackend {
 fn create_solid_color_pipeline(
     device: &wgpu::Device,
     surface_format: wgpu::TextureFormat,
+    depth_format: wgpu::TextureFormat,
     material_bind_group_layout: &wgpu::BindGroupLayout,
     instance_bind_group_layout: &wgpu::BindGroupLayout,
     camera_bind_group_layout: &wgpu::BindGroupLayout,
@@ -560,6 +632,7 @@ fn create_solid_color_pipeline(
     create_custom_pipeline(
         device,
         surface_format,
+        depth_format,
         material_bind_group_layout,
         instance_bind_group_layout,
         camera_bind_group_layout,
@@ -573,6 +646,7 @@ fn create_solid_color_pipeline(
 fn create_custom_pipeline(
     device: &wgpu::Device,
     surface_format: wgpu::TextureFormat,
+    depth_format: wgpu::TextureFormat,
     material_bind_group_layout: &wgpu::BindGroupLayout,
     instance_bind_group_layout: &wgpu::BindGroupLayout,
     camera_bind_group_layout: &wgpu::BindGroupLayout,
@@ -606,15 +680,25 @@ fn create_custom_pipeline(
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &[wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Float32x3,
                     offset: 0,
                     shader_location: 0,
+                }, wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<[f32; 3]>() as u64,
+                    shader_location: 1,
                 }],
             }],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: None,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: depth_format,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::LessEqual,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module: &shader,
@@ -629,6 +713,30 @@ fn create_custom_pipeline(
         multiview: None,
         cache: None,
     })
+}
+
+fn create_depth_texture(
+    device: &wgpu::Device,
+    width: u32,
+    height: u32,
+) -> (wgpu::Texture, wgpu::TextureView) {
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("tokimu-depth-texture"),
+        size: wgpu::Extent3d {
+            width: width.max(1),
+            height: height.max(1),
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: DEPTH_FORMAT,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    (texture, view)
 }
 
 fn create_instance_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
