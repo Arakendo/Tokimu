@@ -1331,7 +1331,9 @@ tokimu/
 │   │   ├── ADR-0001-engine-boundaries.md
 │   │   └── ADR-0002-conceptual-influence.md
 │   ├── wasm.md
-│   ├── other-ideas.md
+│   ├── archive/
+│   │   ├── other-ideas.md
+│   │   └── scripting-typescript.md
 │   └── roadmap.md
 │
 ├── crates/
