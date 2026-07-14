@@ -1,6 +1,7 @@
 mod output;
 
 use std::sync::Arc;
+use tokimu_core::World;
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawRenderableCommand,
     InputState, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton,
@@ -36,6 +37,37 @@ const TARGET_POINTS: [[f32; 2]; 6] = [
     [0.10, 0.52],
 ];
 
+#[derive(Clone, Debug)]
+struct ToyState {
+    motion_phase: f32,
+    player_position: [f32; 2],
+    target_position: [f32; 2],
+    target_index: usize,
+    score: u32,
+    collection_flash: f32,
+    paused: bool,
+    palette_mode: bool,
+    reverse_motion: bool,
+    accent: Color,
+}
+
+impl Default for ToyState {
+    fn default() -> Self {
+        Self {
+            motion_phase: 0.0,
+            player_position: [0.0, -0.65],
+            target_position: TARGET_POINTS[0],
+            target_index: 0,
+            score: 0,
+            collection_flash: 0.0,
+            paused: false,
+            palette_mode: false,
+            reverse_motion: false,
+            accent: Color::rgb(0.08, 0.18, 0.34),
+        }
+    }
+}
+
 fn main() -> PlatformResult<()> {
     run_window_with_app(
         WindowConfig {
@@ -51,24 +83,16 @@ struct HelloTriangleApp {
     renderer: Option<WgpuBackend>,
     window: Option<Arc<NativeWindow>>,
     output: OutputRouter,
+    world: World,
     camera: Camera,
     camera_world_height: f32,
     window_size: [f32; 2],
     input: InputState,
-    motion_phase: f32,
     input_offset: [f32; 2],
     cursor_offset: [f32; 2],
     square_offset: [f32; 2],
     diamond_offset: [f32; 2],
-    player_position: [f32; 2],
-    target_position: [f32; 2],
-    target_index: usize,
-    score: u32,
-    paused: bool,
-    palette_mode: bool,
-    reverse_motion: bool,
     mouse_hold_active: bool,
-    accent: Color,
     logged_backend: bool,
     elapsed_seconds: f64,
 }
@@ -79,24 +103,16 @@ impl Default for HelloTriangleApp {
             renderer: None,
             window: None,
             output: OutputRouter::default(),
+            world: World::default(),
             camera: Camera::default(),
             camera_world_height: 2.0,
             window_size: [1.0, 1.0],
             input: InputState::default(),
-            motion_phase: 0.0,
             input_offset: [0.0, 0.0],
             cursor_offset: [0.0, 0.0],
             square_offset: [0.0, 0.0],
             diamond_offset: [0.0, 0.0],
-            player_position: [0.0, -0.65],
-            target_position: TARGET_POINTS[0],
-            target_index: 0,
-            score: 0,
-            paused: false,
-            palette_mode: false,
-            reverse_motion: false,
             mouse_hold_active: false,
-            accent: Color::rgb(0.08, 0.18, 0.34),
             logged_backend: false,
             elapsed_seconds: 0.0,
         }
@@ -105,10 +121,12 @@ impl Default for HelloTriangleApp {
 
 impl HelloTriangleApp {
     fn new() -> Self {
-        Self {
+        let mut app = Self {
             output: OutputRouter::with_startup_policy(),
             ..Self::default()
-        }
+        };
+        app.world.insert_resource(ToyState::default());
+        app
     }
 }
 
@@ -195,13 +213,13 @@ impl PlatformEventHandler for HelloTriangleApp {
                 Channel::Lifecycle,
                 format!(
                     "shutdown summary score={} target_index={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) motion_phase={:.2}",
-                    self.score,
-                    self.target_index,
-                    self.player_position[0],
-                    self.player_position[1],
-                    self.target_position[0],
-                    self.target_position[1],
-                    self.motion_phase,
+                    self.toy_state().score,
+                    self.toy_state().target_index,
+                    self.toy_state().player_position[0],
+                    self.toy_state().player_position[1],
+                    self.toy_state().target_position[0],
+                    self.toy_state().target_position[1],
+                    self.toy_state().motion_phase,
                 ),
             );
             return Ok(());
@@ -251,100 +269,70 @@ impl PlatformEventHandler for HelloTriangleApp {
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<bool> {
         self.elapsed_seconds += delta_seconds;
         self.step_toy(delta_seconds as f32);
-        let player_rotation = self.player_rotation();
+        let state = self.toy_state().clone();
+        let player_rotation = self.player_rotation(&state);
+        let collection_flash = state.collection_flash;
 
         let (stats, renderer_name, backend_api, adapter_name, device_kind) = {
             let Some(renderer) = self.renderer.as_mut() else {
                 return Ok(true);
             };
 
-            if !self.paused {
-                let motion_delta = delta_seconds as f32 * std::f32::consts::TAU * 0.25;
-                if self.reverse_motion {
-                    self.motion_phase = (self.motion_phase - motion_delta)
-                        .rem_euclid(std::f32::consts::TAU);
-                } else {
-                    self.motion_phase = (self.motion_phase + motion_delta)
-                        .rem_euclid(std::f32::consts::TAU);
-                }
-            }
-
-            self.accent = if self.palette_mode {
-                Color::rgb(
-                    0.20 + self.motion_phase.cos() * 0.04,
-                    0.10 + self.motion_phase.sin() * 0.03,
-                    0.28 + self.motion_phase.cos() * 0.05,
-                )
-            } else if self.paused {
-                Color::rgb(0.06, 0.10, 0.20)
-            } else {
-                Color::rgb(
-                    0.08 + self.motion_phase.sin() * 0.03,
-                    0.18 + self.motion_phase.cos() * 0.02,
-                    0.34 + self.motion_phase.sin() * 0.04,
-                )
-            };
-
-            if self.mouse_hold_active {
-                self.accent = Color::rgb(
-                    (self.accent.r + 0.10).min(1.0),
-                    (self.accent.g + 0.08).min(1.0),
-                    (self.accent.b + 0.12).min(1.0),
-                );
-            }
-
             renderer.begin_frame();
             let hold_boost = if self.mouse_hold_active { 1.0 } else { 0.0 };
             let drag_pull_x = self.cursor_offset[0] * hold_boost * 0.35;
             let drag_pull_y = self.cursor_offset[1] * hold_boost * 0.35;
-            let left_wobble = self.motion_phase.sin() * (0.04 + hold_boost * 0.02);
-            let right_orbit_x = 0.35 + self.motion_phase.cos() * (0.12 + hold_boost * 0.05) + drag_pull_x;
-            let right_orbit_y = self.motion_phase.sin() * (0.08 + hold_boost * 0.04) + drag_pull_y;
-            let right_pulse_scale = 0.30 + self.motion_phase.sin() * (0.05 + hold_boost * 0.02);
-            let third_orbit_x = self.motion_phase.sin() * (0.18 + hold_boost * 0.04) + drag_pull_x * 0.5;
-            let third_orbit_y = -0.33 + self.motion_phase.cos() * (0.05 + hold_boost * 0.03) + drag_pull_y * 0.5;
-            let third_scale = 0.22 + self.motion_phase.cos() * (0.03 + hold_boost * 0.01);
-            let fourth_orbit_x = -self.motion_phase.cos() * (0.16 + hold_boost * 0.04) - drag_pull_x * 0.25;
-            let fourth_orbit_y = 0.30 + self.motion_phase.sin() * (0.06 + hold_boost * 0.03) + drag_pull_y * 0.25;
-            let fourth_scale = 0.18 + self.motion_phase.sin() * (0.02 + hold_boost * 0.01);
-            let quad_orbit_x = self.input_offset[0] + self.motion_phase.cos() * (0.22 + hold_boost * 0.05) + drag_pull_x * 0.75;
-            let quad_orbit_y = self.input_offset[1] + self.square_offset[1] + self.motion_phase.sin() * (0.03 + hold_boost * 0.02) + drag_pull_y * 0.75;
-            let quad_scale = 0.24 + self.motion_phase.cos() * (0.02 + hold_boost * 0.01);
-            let diamond_orbit_x = self.input_offset[0] + self.diamond_offset[0] + self.motion_phase.sin() * (0.16 + hold_boost * 0.04) + drag_pull_x;
-            let diamond_orbit_y = self.input_offset[1] + self.diamond_offset[1] + 0.18 + self.motion_phase.cos() * (0.07 + hold_boost * 0.03) + drag_pull_y;
-            let diamond_scale = 0.20 + self.motion_phase.sin() * (0.025 + hold_boost * 0.01);
+            let left_wobble = state.motion_phase.sin() * (0.04 + hold_boost * 0.02);
+            let right_orbit_x = 0.35 + state.motion_phase.cos() * (0.12 + hold_boost * 0.05) + drag_pull_x;
+            let right_orbit_y = state.motion_phase.sin() * (0.08 + hold_boost * 0.04) + drag_pull_y;
+            let right_pulse_scale = 0.30 + state.motion_phase.sin() * (0.05 + hold_boost * 0.02);
+            let third_orbit_x = state.motion_phase.sin() * (0.18 + hold_boost * 0.04) + drag_pull_x * 0.5;
+            let third_orbit_y = -0.33 + state.motion_phase.cos() * (0.05 + hold_boost * 0.03) + drag_pull_y * 0.5;
+            let third_scale = 0.22 + state.motion_phase.cos() * (0.03 + hold_boost * 0.01);
+            let fourth_orbit_x = -state.motion_phase.cos() * (0.16 + hold_boost * 0.04) - drag_pull_x * 0.25;
+            let fourth_orbit_y = 0.30 + state.motion_phase.sin() * (0.06 + hold_boost * 0.03) + drag_pull_y * 0.25;
+            let fourth_scale = 0.18 + state.motion_phase.sin() * (0.02 + hold_boost * 0.01);
+            let quad_orbit_x = self.input_offset[0] + state.motion_phase.cos() * (0.22 + hold_boost * 0.05) + drag_pull_x * 0.75;
+            let quad_orbit_y = self.input_offset[1] + self.square_offset[1] + state.motion_phase.sin() * (0.03 + hold_boost * 0.02) + drag_pull_y * 0.75;
+            let quad_scale = 0.24 + state.motion_phase.cos() * (0.02 + hold_boost * 0.01);
+            let diamond_orbit_x = self.input_offset[0] + self.diamond_offset[0] + state.motion_phase.sin() * (0.16 + hold_boost * 0.04) + drag_pull_x;
+            let diamond_orbit_y = self.input_offset[1] + self.diamond_offset[1] + 0.18 + state.motion_phase.cos() * (0.07 + hold_boost * 0.03) + drag_pull_y;
+            let diamond_scale = 0.20 + state.motion_phase.sin() * (0.025 + hold_boost * 0.01);
             let player_instance = Instance2d::identity()
-                .with_translation(self.player_position)
+                .with_translation(state.player_position)
                 .with_scale([0.20, 0.20])
                 .with_rotation(player_rotation);
             let target_instance = Instance2d::identity()
-                .with_translation(self.target_position)
-                .with_scale([0.12, 0.12])
-                .with_rotation(self.motion_phase * 0.5);
+                .with_translation(state.target_position)
+                .with_scale([
+                    0.12 + collection_flash * 0.04,
+                    0.12 + collection_flash * 0.04,
+                ])
+                .with_rotation(state.motion_phase * 0.5);
             let left_instance = Instance2d::translated(-0.35 + left_wobble, 0.0)
-                .with_rotation(-self.motion_phase * 0.5);
+                .with_rotation(-state.motion_phase * 0.5);
             let right_instance = Instance2d::identity()
                 .with_translation([right_orbit_x, right_orbit_y])
                 .with_scale([right_pulse_scale, right_pulse_scale])
-                .with_rotation(self.motion_phase);
+                .with_rotation(state.motion_phase);
             let third_instance = Instance2d::identity()
                 .with_translation([third_orbit_x, third_orbit_y])
                 .with_scale([third_scale, third_scale])
-                .with_rotation(self.motion_phase * 1.5);
+                .with_rotation(state.motion_phase * 1.5);
             let fourth_instance = Instance2d::identity()
                 .with_translation([fourth_orbit_x, fourth_orbit_y])
                 .with_scale([fourth_scale, fourth_scale])
-                .with_rotation(-self.motion_phase * 0.75);
+                .with_rotation(-state.motion_phase * 0.75);
             let quad_instance = Instance2d::identity()
                 .with_translation([quad_orbit_x, quad_orbit_y])
                 .with_scale([quad_scale, quad_scale])
-                .with_rotation(self.motion_phase * 0.35);
+                .with_rotation(state.motion_phase * 0.35);
             let diamond_instance = Instance2d::identity()
                 .with_translation([diamond_orbit_x, diamond_orbit_y])
                 .with_scale([diamond_scale, diamond_scale])
-                .with_rotation(-self.motion_phase * 0.9);
+                .with_rotation(-state.motion_phase * 0.9);
             renderer.submit(&[
-                RenderCommand::Clear(ClearCommand { color: self.accent }),
+                RenderCommand::Clear(ClearCommand { color: state.accent }),
                 RenderCommand::DrawRenderable(DrawRenderableCommand {
                     renderable: TRIANGLE_RENDERABLE,
                     instance: left_instance,
@@ -394,13 +382,13 @@ impl PlatformEventHandler for HelloTriangleApp {
             self.elapsed_seconds,
             format!(
                 "status score={} target_index={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) motion_phase={:.2} draw_calls={}",
-                self.score,
-                self.target_index,
-                self.player_position[0],
-                self.player_position[1],
-                self.target_position[0],
-                self.target_position[1],
-                self.motion_phase,
+                    state.score,
+                    state.target_index,
+                    state.player_position[0],
+                    state.player_position[1],
+                    state.target_position[0],
+                    state.target_position[1],
+                    state.motion_phase,
                 stats.draw_calls,
             ),
         );
@@ -414,12 +402,12 @@ impl PlatformEventHandler for HelloTriangleApp {
                     backend_api,
                     adapter_name,
                     device_kind,
-                    self.score,
-                    self.player_position[0],
-                    self.player_position[1],
-                    self.target_position[0],
-                    self.target_position[1],
-                    self.accent,
+                    state.score,
+                    state.player_position[0],
+                    state.player_position[1],
+                    state.target_position[0],
+                    state.target_position[1],
+                    state.accent,
                     stats.draw_calls
                 ),
             );
@@ -438,10 +426,7 @@ impl HelloTriangleApp {
                 self.cursor_offset = [0.0, 0.0];
                 self.square_offset = [0.0, 0.0];
                 self.diamond_offset = [0.0, 0.0];
-                self.player_position = [0.0, -0.65];
-                self.target_index = 0;
-                self.target_position = TARGET_POINTS[0];
-                self.score = 0;
+                self.world.insert_resource(ToyState::default());
             }
             KeyCode::Escape => {}
             _ => {}
@@ -462,16 +447,18 @@ impl HelloTriangleApp {
 
     fn handle_mouse_press(&mut self, button: MouseButton, pressed: bool) {
         if pressed {
+            let state = self.toy_state_mut();
             match button {
-                MouseButton::Left => self.paused = !self.paused,
-                MouseButton::Right => self.palette_mode = !self.palette_mode,
-                MouseButton::Middle => self.reverse_motion = !self.reverse_motion,
+                MouseButton::Left => state.paused = !state.paused,
+                MouseButton::Right => state.palette_mode = !state.palette_mode,
+                MouseButton::Middle => state.reverse_motion = !state.reverse_motion,
             }
         }
     }
 
     fn update_window_title(&self) {
         if let Some(window) = self.window.as_ref() {
+            let state = self.toy_state();
             let activity_tag = if self.input_offset == [0.0, 0.0]
                 && self.cursor_offset == [0.0, 0.0]
                 && self.square_offset == [0.0, 0.0]
@@ -481,9 +468,9 @@ impl HelloTriangleApp {
             } else {
                 "active"
             };
-            let motion_tag = if self.paused { "paused" } else { "moving" };
-            let palette_tag = if self.palette_mode { "alt" } else { "default" };
-            let direction_tag = if self.reverse_motion { "reverse" } else { "forward" };
+            let motion_tag = if state.paused { "paused" } else { "moving" };
+            let palette_tag = if state.palette_mode { "alt" } else { "default" };
+            let direction_tag = if state.reverse_motion { "reverse" } else { "forward" };
             let hold_tag = if self.mouse_hold_active { "drag" } else { "idle" };
             let title = format!(
                 "Tokimu Hello Triangle | mode={} motion={} palette={} direction={} hold={} score={} player=({:.2}, {:.2}) target=({:.2}, {:.2}) key=({:.2}, {:.2}) mouse=({:.2}, {:.2})",
@@ -492,11 +479,11 @@ impl HelloTriangleApp {
                 palette_tag,
                 direction_tag,
                 hold_tag,
-                self.score,
-                self.player_position[0],
-                self.player_position[1],
-                self.target_position[0],
-                self.target_position[1],
+                state.score,
+                state.player_position[0],
+                state.player_position[1],
+                state.target_position[0],
+                state.target_position[1],
                 self.input_offset[0],
                 self.input_offset[1],
                 self.cursor_offset[0],
@@ -507,40 +494,78 @@ impl HelloTriangleApp {
     }
 
     fn step_toy(&mut self, delta_seconds: f32) {
-        if self.paused {
+        let input = self.input.clone();
+        let mouse_hold_active = self.mouse_hold_active;
+        let state = self.toy_state_mut();
+
+        if state.paused {
             return;
         }
 
+        let motion_delta = delta_seconds * std::f32::consts::TAU * 0.25;
+        if state.reverse_motion {
+            state.motion_phase = (state.motion_phase - motion_delta).rem_euclid(std::f32::consts::TAU);
+        } else {
+            state.motion_phase = (state.motion_phase + motion_delta).rem_euclid(std::f32::consts::TAU);
+        }
+
+        state.accent = if state.palette_mode {
+            Color::rgb(
+                0.20 + state.motion_phase.cos() * 0.04,
+                0.10 + state.motion_phase.sin() * 0.03,
+                0.28 + state.motion_phase.cos() * 0.05,
+            )
+        } else {
+            Color::rgb(
+                0.08 + state.motion_phase.sin() * 0.03,
+                0.18 + state.motion_phase.cos() * 0.02,
+                0.34 + state.motion_phase.sin() * 0.04,
+            )
+        };
+
+        if mouse_hold_active {
+            state.accent = Color::rgb(
+                (state.accent.r + 0.10).min(1.0),
+                (state.accent.g + 0.08).min(1.0),
+                (state.accent.b + 0.12).min(1.0),
+            );
+        }
+
+        if state.collection_flash > 0.0 {
+            state.collection_flash = (state.collection_flash - delta_seconds * 1.8).max(0.0);
+        }
+
         let horizontal = axis(
-            self.input.keyboard.is_pressed(KeyCode::KeyA)
-                || self.input.keyboard.is_pressed(KeyCode::ArrowLeft),
-            self.input.keyboard.is_pressed(KeyCode::KeyD)
-                || self.input.keyboard.is_pressed(KeyCode::ArrowRight),
+            input.keyboard.is_pressed(KeyCode::KeyA)
+                || input.keyboard.is_pressed(KeyCode::ArrowLeft),
+            input.keyboard.is_pressed(KeyCode::KeyD)
+                || input.keyboard.is_pressed(KeyCode::ArrowRight),
         );
         let vertical = axis(
-            self.input.keyboard.is_pressed(KeyCode::KeyS)
-                || self.input.keyboard.is_pressed(KeyCode::ArrowDown),
-            self.input.keyboard.is_pressed(KeyCode::KeyW)
-                || self.input.keyboard.is_pressed(KeyCode::ArrowUp),
+            input.keyboard.is_pressed(KeyCode::KeyS)
+                || input.keyboard.is_pressed(KeyCode::ArrowDown),
+            input.keyboard.is_pressed(KeyCode::KeyW)
+                || input.keyboard.is_pressed(KeyCode::ArrowUp),
         );
         let speed = 0.85;
 
-        self.player_position[0] = (self.player_position[0] + horizontal * speed * delta_seconds)
+        state.player_position[0] = (state.player_position[0] + horizontal * speed * delta_seconds)
             .clamp(-0.82, 0.82);
-        self.player_position[1] = (self.player_position[1] + vertical * speed * delta_seconds)
+        state.player_position[1] = (state.player_position[1] + vertical * speed * delta_seconds)
             .clamp(-0.70, 0.70);
 
-        let dx = self.player_position[0] - self.target_position[0];
-        let dy = self.player_position[1] - self.target_position[1];
+        let dx = state.player_position[0] - state.target_position[0];
+        let dy = state.player_position[1] - state.target_position[1];
         let collected = dx * dx + dy * dy < 0.028;
         if collected {
-            self.score += 1;
-            self.target_index = (self.target_index + 1) % TARGET_POINTS.len();
-            self.target_position = TARGET_POINTS[self.target_index];
+            state.score += 1;
+            state.target_index = (state.target_index + 1) % TARGET_POINTS.len();
+            state.target_position = TARGET_POINTS[state.target_index];
+            state.collection_flash = 1.0;
         }
     }
 
-    fn player_rotation(&self) -> f32 {
+    fn player_rotation(&self, state: &ToyState) -> f32 {
         let horizontal = axis(
             self.input.keyboard.is_pressed(KeyCode::KeyA)
                 || self.input.keyboard.is_pressed(KeyCode::ArrowLeft),
@@ -555,10 +580,22 @@ impl HelloTriangleApp {
         );
 
         if horizontal == 0.0 && vertical == 0.0 {
-            self.motion_phase * 0.4
+            state.motion_phase * 0.4
         } else {
             vertical.atan2(horizontal) + std::f32::consts::FRAC_PI_2
         }
+    }
+
+    fn toy_state(&self) -> &ToyState {
+        self.world
+            .resource::<ToyState>()
+            .expect("ToyState should be initialized")
+    }
+
+    fn toy_state_mut(&mut self) -> &mut ToyState {
+        self.world
+            .resource_mut::<ToyState>()
+            .expect("ToyState should be initialized")
     }
 }
 
