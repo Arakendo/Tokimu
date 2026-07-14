@@ -4,11 +4,274 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Tokimu WASM Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1320;
+        --bg-panel: rgba(17, 22, 36, 0.84);
+        --bg-panel-strong: rgba(9, 12, 20, 0.9);
+        --text: #f4f7fb;
+        --muted: #a6b4cf;
+        --accent: #7de3ff;
+        --accent-strong: #ff9f1c;
+        --border: rgba(125, 227, 255, 0.18);
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(125, 227, 255, 0.18), transparent 32%),
+          radial-gradient(circle at 85% 15%, rgba(255, 159, 28, 0.16), transparent 24%),
+          linear-gradient(180deg, #0f1320 0%, #0b0f18 100%);
+      }
+
+      main {
+        width: min(1280px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 24px 0 32px;
+      }
+
+      .panel {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-strong) 100%);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      header {
+        padding: 20px 20px 8px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.6rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .lede {
+        margin: 10px 0 0;
+        max-width: 68ch;
+        color: var(--muted);
+        line-height: 1.45;
+        font-size: 0.98rem;
+      }
+
+      .status-bar {
+        margin: 14px 20px 0;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--accent);
+        font-size: 0.9rem;
+        line-height: 1.35;
+        min-height: 3rem;
+        position: sticky;
+        top: 12px;
+        z-index: 3;
+        backdrop-filter: blur(14px);
+      }
+
+      .status-label {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .status-value {
+        display: block;
+      }
+
+      .hud {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+        gap: 8px;
+        margin: 14px 20px 0;
+        padding: 14px 0 0;
+        background: transparent;
+        border-top: 1px solid rgba(125, 227, 255, 0.16);
+      }
+
+      .hud::before {
+        content: "LIVE HUD";
+        display: block;
+        margin: 0 0 6px;
+        color: var(--accent);
+        font-size: 0.68rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      .hud-card {
+        padding: 9px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .hud-card .label {
+        color: var(--muted);
+        font-size: 0.68rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .hud-card .value {
+        margin-top: 3px;
+        color: var(--text);
+        font-size: 0.88rem;
+        line-height: 1.25;
+        word-break: break-word;
+      }
+
+      .canvas-shell {
+        padding: 16px 20px 18px;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        height: auto;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #0b0f18;
+      }
+
+      .meta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        margin: 14px 20px 0;
+        padding-bottom: 8px;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 0.84rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+
+      .meta::-webkit-scrollbar {
+        display: none;
+      }
+
+      .chip {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(255, 255, 255, 0.03);
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      .chip strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      @media (max-width: 720px) {
+        .hud {
+          grid-template-columns: 1fr 1fr;
+          margin-left: 14px;
+          margin-right: 14px;
+        }
+
+        .meta {
+          flex-wrap: wrap;
+          overflow-x: visible;
+        }
+
+        .hud::before {
+          margin-left: 0;
+        }
+
+        main {
+          width: min(100vw - 20px, 1280px);
+          padding: 8px 0 14px;
+        }
+
+        header,
+        .status-bar,
+        .canvas-shell,
+        .meta {
+          padding-left: 14px;
+          padding-right: 14px;
+          margin-left: 0;
+          margin-right: 0;
+        }
+
+        header {
+          padding-top: 16px;
+        }
+      }
+    </style>
   </head>
   <body>
     <main>
-      <h1>Tokimu WASM Demo</h1>
-      <p>This placeholder marks the future browser demo entry point.</p>
+      <section class="panel">
+        <header>
+          <h1>Tokimu WASM Demo</h1>
+          <p class="lede">A Rust-owned browser loop with shared input state, live canvas rendering, and a minimal host shell.</p>
+        </header>
+        <section class="status-bar" aria-live="polite">
+          <span class="status-label">Status</span>
+          <span id="status" class="status-value">Loading Tokimu wasm bootstrap...</span>
+        </section>
+        <div class="canvas-shell">
+          <canvas id="tokimu-canvas" width="1280" height="720"></canvas>
+        </div>
+        <section class="hud" aria-label="Live demo metrics">
+          <div class="hud-card">
+            <div class="label">Frame</div>
+            <div id="hud-frame" class="value">Waiting</div>
+          </div>
+          <div class="hud-card">
+            <div class="label">Elapsed</div>
+            <div id="hud-elapsed" class="value">Waiting</div>
+          </div>
+          <div class="hud-card">
+            <div class="label">FPS</div>
+            <div id="hud-fps" class="value">Waiting</div>
+          </div>
+          <div class="hud-card">
+            <div class="label">Player</div>
+            <div id="hud-player" class="value">Waiting</div>
+          </div>
+          <div class="hud-card">
+            <div class="label">Cursor</div>
+            <div id="hud-cursor" class="value">Waiting</div>
+          </div>
+          <div class="hud-card">
+            <div class="label">Last</div>
+            <div id="hud-last-event" class="value">Waiting</div>
+          </div>
+        </section>
+        <div class="meta">
+          <span class="chip"><strong>Move</strong> WASD / arrows</span>
+          <span class="chip"><strong>Inspect</strong> mouse + cursor</span>
+          <span class="chip"><strong>Loop</strong> Rust-owned</span>
+        </div>
+      </section>
     </main>
+    <script type="module" src="./bootstrap.js?v=5"></script>
   </body>
 </html>

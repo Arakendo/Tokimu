@@ -45,8 +45,9 @@ owning simulation state.
 
 Goal: a small playable loop that also proves the shared core runs in a browser.
 
-- [ ] M5 WASM spike — core crates compile for WASM and a browser canvas clears
-  screen while reusing core/runtime concepts
+- [~] M5 WASM spike — the browser demo now runs through `tokimu-runtime::App`
+  and world resources while the canvas remains the presentation layer; the
+  shared-core/browser parity path is still being tightened up
 - [~] M6 first playable toy — `hello-triangle` carries a small collect-the-target
   loop over shared input and world state; still native-only and not yet a
   distinct world-corpus scenario
@@ -136,7 +137,8 @@ truth for intended architecture. Update this list as milestones land.
   event types exist; the native path creates a real `winit` window, translates
   keyboard/mouse/resize/close events, and exposes window-run helpers. WASM
   support is still a placeholder.
-- `tokimu-wasm`: placeholder `boot_message()` only.
+- `tokimu-wasm`: browser demo scaffold driven by `tokimu-runtime::App`, with a
+  Tokimu world resource holding scene state and the canvas acting as the view.
 
 ### Example Proofs
 
@@ -145,16 +147,17 @@ truth for intended architecture. Update this list as milestones land.
 - `hello-triangle` is the live proof for M4 and the current M6 seed. It opens a
   native window, brings up `wgpu`, draws multiple 2D shapes with explicit
   Tokimu-owned resources, and now includes a small collect-the-target loop.
-- `wasm-demo` remains a browser host placeholder.
+- `wasm-demo` is now a browser host loop scaffold that is driven from Rust and
+  responds to shared input, but it still needs real simulation/runtime content.
 
 ### Next Wiring Steps
 
-1. Extend M4 beyond the current uploaded-renderable proof by adding
+1. Tighten M5 by pushing more of the browser demo flow through reusable runtime
+  pieces instead of the one-off `wasm-demo` loop, while keeping the canvas as a
+  thin presentation adapter.
+2. Extend M4 beyond the current uploaded-renderable proof by adding
   generalized shader/pipeline management while keeping renderer ownership
   Tokimu-shaped rather than backend-shaped.
-2. Close the WASM side of M3 by adding `web-sys`/`wasm-bindgen` to
-  `tokimu-platform` and broadening event coverage so browser input follows the
-  same engine-facing model.
 3. Keep authoring and rule systems deferred; there is no `tokimu-rule` or
   authoring-frontend crate yet, and they should wait until the world/rule
   model has real callers.

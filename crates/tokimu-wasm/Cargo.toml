@@ -5,4 +5,25 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
+console_error_panic_hook.workspace = true
+tokimu-core = { path = "../tokimu-core" }
+tokimu-platform = { path = "../tokimu-platform" }
+tokimu-runtime = { path = "../tokimu-runtime" }
+tokimu-input = { path = "../tokimu-input" }
+wasm-bindgen.workspace = true
+web-sys = { workspace = true, features = [
+	"CanvasRenderingContext2d",
+	"Document",
+	"Element",
+	"EventTarget",
+	"HtmlCanvasElement",
+	"HtmlElement",
+	"KeyboardEvent",
+	"MouseEvent",
+	"Window",
+	"console",
+] }

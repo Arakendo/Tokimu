@@ -6,5 +6,18 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+console_error_panic_hook.workspace = true
+js-sys.workspace = true
 tokimu-input = { path = "../tokimu-input" }
+wasm-bindgen.workspace = true
+web-sys = { workspace = true, features = [
+	"Document",
+	"Element",
+	"EventTarget",
+	"HtmlCanvasElement",
+	"HtmlElement",
+	"KeyboardEvent",
+	"MouseEvent",
+	"Window",
+] }
 winit.workspace = true

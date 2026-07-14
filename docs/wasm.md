@@ -20,4 +20,12 @@ The first WASM spike should stay small and prove only the browser-facing seam:
 * the browser path does not hard-code assumptions that would block a future
 	VR/XR adapter or a different presentation host
 
-The current `tokimu-wasm` crate remains a placeholder until that spike is ready.
+The current `tokimu-wasm` crate now exposes a small browser bootstrap with an
+automatic `wasm_bindgen(start)` hook that installs Tokimu input bridging on a
+canvas, but it is still a narrow spike and not yet the full browser runtime
+path.
+
+The `examples/wasm-demo` page now loads that bootstrap from a browser host
+loop scaffold, and the loop itself is owned by Rust through `tokimu-wasm`, so
+the seam is exercised by an actual HTML entry point with shared input-driven
+canvas feedback even though the full runtime remains pending.
