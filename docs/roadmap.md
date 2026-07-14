@@ -13,6 +13,16 @@ concrete, buildable tasks. A milestone flips to `[x]` when its deliverables are
 done and exercised by an example or test; the prose above each list is context,
 not the task.
 
+Roadmap scope:
+
+- The roadmap answers what Tokimu should prove next, what "done" means for a
+  slice, what is blocked, and what is not yet being worked on.
+- The SDD remains the place for subsystem design, invariants, rationale, and
+  ownership boundaries.
+- The roadmap is permission to change direction when implementation reveals a
+  better boundary or a truer architectural risk. It is sequencing guidance, not
+  a contract.
+
 ## MVP Phase Tracker
 
 This groups the SDD milestones (M0–M12) into MVP phases for progress tracking.
@@ -119,10 +129,22 @@ Goal: make the world inspectable and author-facing content approachable.
 
 - [~] M9 inspector and rule frontends — inspection-first editor target, visual
   rule-graph direction, and TypeScript-first authoring direction documented
-  - Deliverables (inspector v0):
+  - Deliverables (inspector v0 — SDD 5.9 names six concrete surfaces):
     - [ ] Add a read-only world snapshot API the inspector can walk (entities,
       components, resources) without mutating state
     - [ ] Ship a text or console dump of that snapshot as the editor v0 proof
+    - [ ] Entity/world tree: list live entities and their relationship edges
+      from the snapshot
+    - [ ] Trait inspector: show one entity's component values by name
+    - [ ] Asset browser: list loaded `AssetId`/`AssetHandle<T>` entries and
+      their source
+    - [ ] System timing panel: surface `Schedule`/`Diagnostics` timing already
+      collected by the runtime, not a new profiler
+    - [ ] Signal log: print emitted rule/event signals in arrival order
+    - [ ] Relationship viewer: render the directional relationship edges
+      `World` already tracks
+    - [ ] All six stay text/console output for v0; a graphical `egui` shell is
+      out of scope until the console proof is solid
   - Deliverables (semantic rule model — prerequisite for any frontend):
     - [ ] Define a v0 rule as a named system-like transformation with declared
       inputs, outputs, and emitted signals (SDD 5.11)
@@ -266,30 +288,35 @@ lowers ahead of time into a Tokimu-owned semantic model, reusing the shared
 `tokimu-ts-frontend` host and diagnostics. Each is a phase-3 AOT frontend, not an
 embedded runtime, and none should exist before its engine-owned model has real
 Rust callers. WGSL, world state, and the rule model stay the engine-owned
-targets; TypeScript is always the frontend, never the runtime.
+targets. For these semantic-model surfaces TypeScript is a lowered frontend, not
+an interpreter; runtime-executed TypeScript, if any, is a separate tier covered
+under the TypeScript execution model below.
+
+These are future directions, not commitments. They should become deliverables
+only when a milestone has a concrete caller for them.
 
 Named in the SDD frontends layout (5.11–5.12):
 
-- [ ] `@tokimu/scenes` → scene model: declarative scene/prefab documents that
-  lower into the M8 scene-to-world compile path
-- [ ] `@tokimu/query` → query model: entity/component queries that lower into the
+- `@tokimu/scenes` → scene model: declarative scene/prefab documents that lower
+  into the M8 scene-to-world compile path
+- `@tokimu/query` → query model: entity/component queries that lower into the
   engine query surface instead of ad hoc iteration
-- [ ] `@tokimu/ui` → presentation model: screen-space HUD and world-space
-  interface bindings over shared world state, not a separate UI runtime
+- `@tokimu/ui` → presentation model: screen-space HUD and world-space interface
+  bindings over shared world state, not a separate UI runtime
 
 Further candidates grounded in the v0 primitives (`signal()`, `relation()`,
 `command()`) and existing crates:
 
-- [ ] `@tokimu/materials` → shader/material model: material definitions and bound
+- `@tokimu/materials` → shader/material model: material definitions and bound
   data that pair with `@tokimu/shaders` and lower to the same pipeline model
-- [ ] `@tokimu/commands` → command model: the M12 text/MUD command surface (look,
+- `@tokimu/commands` → command model: the M12 text/MUD command surface (look,
   list, step, emit, why) authored via the `command()` primitive
-- [ ] `@tokimu/signals` + `@tokimu/relations` → signal and relationship models:
+- `@tokimu/signals` + `@tokimu/relations` → signal and relationship models:
   `signal()` and `relation()` declarations lowering into engine events and
   relationship edges
-- [ ] `@tokimu/input` → action-map model: input action maps that lower into
+- `@tokimu/input` → action-map model: input action maps that lower into
   `tokimu-input` bindings rather than hand-wiring key codes
-- [ ] Visual rule graphs stay a frontend over the same rule model, interchangeable
+- Visual rule graphs stay a frontend over the same rule model, interchangeable
   with the TypeScript rule frontend rather than a separate runtime
 
 ### Cross-cutting considerations to keep visible
@@ -297,20 +324,216 @@ Further candidates grounded in the v0 primitives (`signal()`, `relation()`,
 These are not separate MVPs, but they will shape whether the authoring and 3D
 work lands cleanly.
 
-- [ ] Diagnostics: every asset, shader, scene, and TypeScript lowering path
-  should emit structured, actionable diagnostics rather than opaque failures
-- [ ] Frontend/model versioning: define how authored TS content and semantic
-  models version together so older content can still lower or fail clearly
-- [ ] Asset inspection/importers: keep room for an asset browser, importer
+- Diagnostics: every asset, shader, scene, and TypeScript lowering path should
+  emit structured, actionable diagnostics rather than opaque failures.
+- Frontend/model versioning: authored TS content and semantic models need a
+  versioning story so older content can still lower or fail clearly.
+- Asset inspection/importers: leave room for an asset browser, importer
   pipeline, and content metadata without making `tokimu-render` own asset
-  translation
-- [ ] Validation workflow: prove examples and frontends through runnable checks,
-  not docs alone; authored content should have a compile/check command
-- [ ] Hot reload / iteration loop: decide when scene, shader, or TS-authored
-  content should reload in-place versus requiring rebuild/restart
-- [ ] Packaging and distribution: define how authored scenes, rules, shaders,
-  and assets are bundled for native and WASM without coupling core crates to
-  npm or filesystem assumptions
+  translation.
+- Validation workflow: examples and frontends should prove themselves through
+  runnable checks, not docs alone; authored content should have a compile/check
+  command.
+- Hot reload / iteration loop: decide when scene, shader, or TS-authored
+  content reloads in place versus requiring rebuild/restart.
+- Packaging and distribution: define how authored scenes, rules, shaders, and
+  assets are bundled for native and WASM without coupling core crates to npm or
+  filesystem assumptions.
+
+## Rust Engine Capabilities Required for the TypeScript API
+
+TypeScript only ever lowers into engine-owned meaning, so before any `@tokimu/*`
+package can control a capability, the Rust engine must first expose that
+capability as: (a) addressable by a stable name or id, (b) describable as data,
+and (c) diagnosable when misused. Today most engine surfaces are compile-time
+Rust types and numeric handles — `MeshHandle(u64)`, a `Material` of just label +
+color, `Component`/`Event` as blanket marker traits — which a data-driven
+frontend cannot name or configure. These are the Rust-side features that unlock
+the TS API. Each one must land and gain a real Rust caller before the matching
+frontend package targets it (same rule-model-before-frontend ordering as M9).
+
+### Reflection and naming (foundation for every frontend)
+
+- [ ] Component/resource type registry: register component and resource types by
+  stable name with typed field get/set, so scene data and TS can address them
+  without Rust generics (today `Component`/`Resource` are marker traits with no
+  name or field access)
+- [ ] Name-addressable render resources: add a `name -> handle` registry over the
+  numeric `MeshHandle`/`MaterialHandle`/`PipelineHandle`/`TextureHandle`/
+  `CameraHandle` ids so authored content references resources by stable string id
+- [ ] One shared id/naming scheme across scenes, assets, rules, and render
+  resources so a frontend uses one addressing model, not five
+
+### Shaders and materials (backs `@tokimu/shaders`, `@tokimu/materials`)
+
+- [ ] Material parameter schema: extend `Material` beyond label + base color to a
+  set of typed, named parameters (floats, vec2/3/4, colors, texture slots) so a
+  material describes its bound data as data
+- [ ] Texture binding path: actually wire `TextureHandle` into material bind
+  groups + samplers (the handle type exists but is unused in draws today)
+- [ ] Shader module abstraction: replace the fixed `PipelineKind` enum + hardcoded
+  WGSL with a shader module + binding/uniform descriptor the engine can describe
+  and validate as data
+- [ ] Vertex layout descriptor: describe vertex inputs as data (currently the
+  pipeline hardcodes a single `vec2` position layout) so an authored shader can
+  declare its inputs and the engine can validate them against a mesh
+- [ ] These four are the engine substrate the `@tokimu/shaders` lowering targets;
+  WGSL stays the engine-owned target
+
+### Meshes and model loading (backs the GLB proof and 3D)
+
+- [ ] 3D vertex format: extend `Mesh` from `Vec<[f32; 2]>` to named attributes —
+  3D position, normal, UV, and optional vertex color
+- [ ] Indexed meshes: add index buffers (there are none today; required for the
+  cube and any GLB import)
+- [ ] Model importer: a GLB importer that produces engine-owned mesh/material/
+  texture resources, with the renderer staying format-agnostic (the GLB proof)
+- [ ] Defer skeletal data, morph targets, and animation channels until an example
+  needs them
+
+### World control (backs `@tokimu/scenes`, `@tokimu/query`)
+
+- [ ] Named spawn/despawn: spawn entities and set components by registered name
+  (depends on the reflection registry) so scene compile and TS share one path
+- [ ] Name-addressable query surface: expose the query surface by component
+  name/id, not only Rust generics, so `@tokimu/query` can lower into it
+- [ ] Named relationship API: create and traverse the existing relationship edges
+  by name so authored content can declare relations
+
+### Rules, signals, and commands (backs `@tokimu/rules`, `@tokimu/signals`, `@tokimu/commands`)
+
+- [ ] Engine-owned rule model: a rule with declared reads/writes/emitted signals
+  that schedules like a system (the M9 prerequisite)
+- [ ] Named signal/event bus: emit and subscribe to signals by name (today
+  `Event` is a marker trait with no dispatch), backing `signal()`
+- [ ] Command registry + dispatch: register named commands with typed arguments
+  and dispatch them, backing `command()` and the M12 text surface
+
+### Input and time (backs `@tokimu/input` and determinism)
+
+- [ ] Named action/axis registry: register input actions and axes by name so
+  `@tokimu/input` lowers into `tokimu-input` bindings instead of raw key codes
+- [ ] Authorable time/RNG resources: expose fixed timestep and a seeded RNG as
+  named resources authored content can configure, keeping determinism explicit
+
+### Cross-cutting engine substrate
+
+- [ ] Serialization/reflection so every registry above can round-trip as data
+  (ties directly to the M7 persistence and M8 scene deliverables)
+- [ ] Structured diagnostics on every registry lookup and lowering failure so
+  authors get actionable errors, not silent fallback
+- [ ] Stable ids/versioning on registries so authored content survives engine
+  changes and frontends interoperate through shared meaning (SDD Q25)
+
+## TypeScript Execution Model: Lowered Rules vs Runtime Actions
+
+Open design point: does *all* game logic need to lower into engine-owned models,
+or can some logic legitimately run in TypeScript at runtime? Honest answer: not
+everything needs to lower. A two-tier split is the likely right model, and the
+architecture already leaves room for it.
+
+**Tier 1 — lowered (deterministic simulation).** Rules, queries, scene data, and
+shaders — anything inside the fixed-timestep deterministic core — should lower
+ahead of time (SDD phase 3). Lowering is what preserves determinism, native/WASM
+parity, and the option of future lockstep networking. Running these in a JS
+runtime would put non-determinism into simulation truth.
+
+**Tier 2 — runtime actions (optional, SDD phase 4).** Higher-level game actions,
+quest and orchestration logic, UI event handlers, and glue that does not need
+cross-platform determinism could run in a JS/TS runtime at runtime. This is the
+SDD's phase 4 ("optional embedded JS host, only if real use cases justify it") —
+deferred, not forbidden. This is the layer your question is really about, and it
+is a legitimate place for real TypeScript logic rather than lowering.
+
+Invariant for either tier:
+
+- Both tiers touch the engine only through Tokimu-owned APIs (commands, queries,
+  signals, events); neither reads or mutates `World` state directly.
+- The engine owns world truth. A JS runtime must never become a hidden second
+  engine core or an alternate owner of simulation state.
+- Runtime-scripted actions stay outside the authoritative fixed-step simulation,
+  or are explicitly treated as non-authoritative, so determinism guarantees are
+  not silently broken.
+
+Practical decision rule:
+
+- If logic must be deterministic or replayable → lower it (tier 1).
+- If logic is orchestration or UX glue and iteration speed matters more than
+  determinism → a runtime tier is acceptable once a real use case justifies an
+  embedded host (tier 2).
+- Until that use case is concrete, prefer tier 1 and keep tier 2 as a documented
+  option, per the execution guardrails.
+
+Roadmap implications:
+
+- [ ] Keep the command/query/signal/event APIs (see the engine-capabilities
+  section) rich enough that a future runtime-actions host calls into them rather
+  than needing raw world access
+- [ ] Define the boundary between authoritative deterministic simulation and
+  non-authoritative scripted actions before adding any embedded JS host
+- [ ] Decide the embedded-host trigger: which concrete game-action use case would
+  justify phase 4 (SDD Q16, scripting threshold)
+- [ ] Pick the runtime host deliberately when the time comes (embedded JS engine
+  for browser parity vs a native JS runtime), rather than defaulting into one
+
+Net: a runtime TypeScript actions layer is not needed now, the architecture
+already leaves room for it, and the guardrail is that world truth stays in the
+engine regardless of where the logic runs.
+
+## Determinism and Validation (SDD 8, 16)
+
+Cross-cutting deliverables that keep the existing milestones honest rather than
+adding new scope.
+
+- [ ] Add a determinism test that ticks `FixedTimeStep` a fixed number of times
+  and asserts identical accumulated state across two runs
+- [ ] Add a seeded RNG resource (explicit seed, not `rand::thread_rng()`) and use
+  it anywhere the toy or `hello-3d` needs randomness
+- [ ] Add a test proving the renderer never mutates `World` state during
+  `begin_frame`/`submit`/`present` (SDD: rendering must not mutate simulation
+  state)
+- [ ] Extend the M1 headless frame test into a target-specific smoke check:
+  native opens/closes cleanly; WASM reaches a visible boot path with no
+  native-only code compiled in
+- [ ] Treat each new example as corpus-driven validation: it should prove one
+  world relation, transformation, or rule cleanly enough to read as a reusable
+  engine sentence, not just a demo
+
+## Deferred Crates
+
+These crates are intentionally not in the workspace yet. Listed here so
+"should we add crate X" has a written trigger condition instead of being
+decided ad hoc.
+
+- `tokimu-rule` — add only once M9's semantic rule model has a real caller (see
+  M9 deliverables).
+- `tokimu-ts-frontend` — add only after `tokimu-rule` exists and is exercised
+  by an example.
+- `tokimu-persistence` — add only after the M7 save/load trait seam is proven
+  by the round-trip test.
+- `tokimu-net` — add only after the M11 transport trait seam is proven by the
+  serialize round-trip test.
+- `tokimu-audio`, `tokimu-tools` — no current trigger; do not add until a
+  concrete example needs them.
+
+## Open Questions Tracker
+
+Active design questions from SDD section 17, narrowed to the ones the current
+work will actually force a decision on. Resolve these as part of the milestone
+listed, not as a separate documentation pass.
+
+- Renderer abstraction depth (SDD Q5) — resolve while building the M10
+  perspective camera and depth attachment.
+- Relationship representation (SDD Q6) — resolve if the M9 relationship viewer
+  or M8 scene compile step needs more than the existing edge model.
+- Asset lifecycle (SDD Q4) — resolve while building the GLB proof: is
+  synchronous loading still acceptable, or does WASM force async now.
+- Scene document format (SDD Q13) — resolve as part of the M7 serialization
+  format choice.
+- Replication unit (SDD Q20) — resolve as part of the M11 deliverable that
+  names the first replication unit.
+- VR/XR abstraction seam (SDD Q17) — resolve while building the M10 stereo
+  deliverables, once mono 3D is solid.
 
 ### Phase Status At A Glance
 
