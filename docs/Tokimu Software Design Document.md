@@ -4,7 +4,7 @@
 | ------------ | ------------------------------------------------- |
 | Status       | Draft                                             |
 | Version      | 0.2.0                                             |
-| Last updated | 2026-07-12                                        |
+| Last updated | 2026-07-14                                        |
 | Scope        | v0 architecture and initial milestones            |
 | Language     | Rust (edition 2021)                               |
 
@@ -658,9 +658,10 @@ its own crate boundary rather than leaking storage concerns into engine core
 crates.
 
 Scene and prefab data should start as plain declarative documents rather than a
-custom scripting language. Rust-friendly formats such as RON are a good early
-fit, with TOML, YAML, JSON5, or similar alternatives acceptable if they better
-serve the actual tool chain.
+custom scripting language. RON is the first chosen format for the persistence
+boundary, because it keeps the early save/load spike readable while still
+tracking Rust data shapes closely. TOML, YAML, JSON5, or similar alternatives
+remain acceptable only if they later prove better for the actual tool chain.
 
 Scene data should also be able to describe both 2D-oriented and 3D-oriented
 content without forking into unrelated document models. Tokimu can start with a
@@ -1583,6 +1584,7 @@ Acceptance criteria:
 * persistence crate boundary chosen
 * scene or project serialization spike proves the boundary
 * optional database integration, if any, stays outside core/runtime crates
+* first codec choice recorded as RON via the public Tokimu facade seam
 
 Acceptance criteria:
 
@@ -1596,6 +1598,10 @@ Acceptance criteria:
 * scene-to-world compilation path proven
 * state diff or history direction documented
 
+The first proof uses a minimal declarative scene document with entity
+positions, optional parent links, and a documented history record shape that
+names what changed, which system made the change, and why.
+
 Acceptance criteria:
 
 * The engine distinguishes declarative scene documents from runtime world state.
@@ -1604,6 +1610,8 @@ Acceptance criteria:
 * World diff/history is documented as an explicit future capability for replay,
   debugging, rollback, or inspection.
 * Provenance questions such as what changed, who changed it, and why are given
+  a concrete record shape in the engine-owned model.
+* A minimal scene document can compile into a `World` in a test.
   a concrete debug or inspection direction.
 * The scene model can describe both 2D-oriented and 3D-oriented content without
   splitting the engine into unrelated authoring paths too early.

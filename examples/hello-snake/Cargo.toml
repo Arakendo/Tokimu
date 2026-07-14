@@ -1,0 +1,9 @@
+[package]
+name = "hello-snake"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }

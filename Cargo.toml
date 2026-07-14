@@ -11,9 +11,13 @@ members = [
     "crates/tokimu-wasm",
     "examples/hello-window",
     "examples/hello-triangle",
-    "examples/hello-3d",
+    "examples/hello-3d-stereo",
     "examples/hello-3d-mono",
     "examples/hello-3d-openxr",
+    "examples/hello-snake",
+    "examples/hello-pacman",
+    "examples/hello-space-invaders",
+    "examples/hello-missile-command",
 ]
 
 [workspace.package]
@@ -24,6 +28,8 @@ version = "0.1.0"
 
 [workspace.dependencies]
 anyhow = "1"
+ron = "0.8"
+serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"

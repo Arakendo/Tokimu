@@ -103,23 +103,23 @@ build, with input, simulation, presentation, and rendering visibly separated.
 
 Goal: describe worlds as data and move them in and out of the runtime.
 
-- [~] M7 persistence boundary — engine-facing save/load model and crate boundary
+- [x] M7 persistence boundary — engine-facing save/load model and crate boundary
   now documented; scene/project documents remain distinct from runtime world
   state
   - Deliverables:
-    - [ ] Pick the first serialization format (RON is the leading candidate) and
+    - [x] Pick the first serialization format (RON is the leading candidate) and
       record the choice in the SDD
-    - [ ] Define the save/load trait seam that a future `tokimu-persistence`
+    - [x] Define the save/load trait seam that a future `tokimu-persistence`
       crate would implement, without adding the crate yet
-    - [ ] Round-trip one resource (e.g. the toy state) to a string and back in a
+    - [x] Round-trip one resource (e.g. the toy state) to a string and back in a
       test to prove the boundary shape
-- [~] M8 scene and history model — scene document shape, scene-to-world compile
+- [x] M8 scene and history model — scene document shape, scene-to-world compile
   path, and a provenance/timeline history direction
   - Deliverables:
-    - [ ] Define a minimal scene document struct (entities + components as data)
-    - [ ] Write a `compile_scene(&SceneDoc) -> World` translation step with a
+    - [x] Define a minimal scene document struct (entities + components as data)
+    - [x] Write a `compile_scene(&SceneDoc) -> World` translation step with a
       test that spawns the described entities
-    - [ ] Sketch the diff/history record shape (what changed, which system, why)
+    - [x] Sketch the diff/history record shape (what changed, which system, why)
       as a documented type, even if unused at first
 
 MVP 3 exit criteria: declarative scene documents compile into runtime world
@@ -267,7 +267,7 @@ loading independent of direct filesystem access.
 - [ ] Document the minimal author path: supply WGSL + a Tokimu pipeline
   descriptor, upload it by handle, and select it at draw time
 - [ ] Ship a small shared shader set: solid-color 2D, textured 2D, and a lit 3D
-  shader for the `hello-3d` cube
+  shader for the `hello-3d-mono` cube
 - [ ] Add a shader/pipeline registry so multiple named WGSL pipelines resolve by
   handle (shared with the M4 pipeline-registry deliverable)
 - [ ] Surface shader compile failures as explicit diagnostics rather than silent
@@ -506,7 +506,7 @@ adding new scope.
 - [ ] Add a determinism test that ticks `FixedTimeStep` a fixed number of times
   and asserts identical accumulated state across two runs
 - [ ] Add a seeded RNG resource (explicit seed, not `rand::thread_rng()`) and use
-  it anywhere the toy or `hello-3d` needs randomness
+  it anywhere the toy or `hello-3d-mono` needs randomness
 - [ ] Add a test proving the renderer never mutates `World` state during
   `begin_frame`/`submit`/`present` (SDD: rendering must not mutate simulation
   state)
@@ -615,6 +615,16 @@ truth for intended architecture. Update this list as milestones land.
   native window, brings up `wgpu`, draws multiple 2D shapes with explicit
   Tokimu-owned resources, and now includes a small collect-the-target loop with
   world-owned toy state.
+- `hello-snake` is the live proof for 2D grid movement and growth. Its unit
+  tests cover movement, pellet growth, wall collision, and reverse-turn
+  handling.
+- `hello-pacman` is the next 2D example. It will prove maze navigation with AI
+  agents and pathfinding-driven ghost movement over shared Tokimu state.
+- `hello-space-invaders` is the next 2D shooter example. It will prove wave-
+  based enemy movement and projectile collisions over shared Tokimu state.
+- `hello-missile-command` is the next 2D defense example. It will prove turret
+  aiming, interceptor firing, and falling missile interception over shared
+  Tokimu state.
 - `wasm-demo` is now a browser host loop scaffold that is driven from Rust and
   responds to shared input, but it still needs real simulation/runtime content.
 
@@ -685,6 +695,10 @@ Current priority order:
    - TypeScript comes after the scene/rule vocabulary has real Rust callers
    - TypeScript authors Tokimu-owned meaning rather than becoming a second
      engine core
+6. **AI agents / pathfinding**
+   - 2D enemy movement should stay on shared simulation state, not a separate
+     presentation loop
+   - the first proof should be `hello-pacman`
 
 ## Demo Completion Rules
 
