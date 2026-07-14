@@ -22,3 +22,6 @@ Thumbs.db
 
 # workbench for temp items
 .workbench/
+
+# Conversations
+/docs/conversations/
