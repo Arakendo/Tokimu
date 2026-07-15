@@ -35,7 +35,8 @@ authoring slices.
 * Examples: `hello-window`, `hello-triangle`, `hello-3d-mono`,
   `hello-3d-stereo`, `hello-rule-model`, `hello-3d-openxr`, `hello-snake`,
   `hello-pacman`, `hello-space-invaders`, `hello-missile-command`,
-  `hello-asteroids`
+  `hello-asteroids`, `hello-fps-web`, `hello-cad`, `hello-vector-draw`,
+  `hello-svg`, `hello-glb`, `hello-2d-physics`, `hello-ui`, `hello-shader`
 * Frontends: `frontends/` with `tokimu`, `@tokimu/rules`, and example packages
 
 See the [Software Design Document](docs/Tokimu%20Software%20Design%20Document.md)
@@ -56,6 +57,7 @@ for the full architecture, subsystem breakdown, and milestone plan.
 * [Tokimu Kernel Principles](docs/kernel-principles.md)
 * [Tokimu Semantic Kernel Map](docs/semantic-kernel-map.md)
 * [Tokimu Primitive Ledger](docs/primitive-ledger.md)
+* [Tokimu Example Philosophy](docs/example-philosophy.md)
 * [Tokimu Capability Backends](docs/capability-backends.md)
 * [Tokimu Future Workspace Layout](docs/future-workspace-layout.md)
 * [Tokimu Contribution Admission Guide](docs/contribution-admission-guide.md)

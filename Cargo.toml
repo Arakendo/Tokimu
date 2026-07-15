@@ -24,6 +24,14 @@ members = [
     "examples/hello-space-invaders",
     "examples/hello-missile-command",
     "examples/hello-asteroids",
+    "examples/hello-fps-web",
+    "examples/hello-cad",
+    "examples/hello-vector-draw",
+    "examples/hello-svg",
+    "examples/hello-glb",
+    "examples/hello-2d-physics",
+    "examples/hello-ui",
+    "examples/hello-shader",
 ]
 
 [workspace.package]

@@ -587,6 +587,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
+name = "hello-2d-physics"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-3d-mono"
 version = "0.1.0"
 dependencies = [
@@ -617,6 +625,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-cad"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
+name = "hello-fps-web"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "tokimu",
+ "tokimu-core",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "hello-glb"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-assets",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-missile-command"
 version = "0.1.0"
 dependencies = [
@@ -639,6 +675,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-shader"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-assets",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-snake"
 version = "0.1.0"
 dependencies = [
@@ -653,7 +698,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-svg"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-triangle"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
+name = "hello-ui"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+]
+
+[[package]]
+name = "hello-vector-draw"
 version = "0.1.0"
 dependencies = [
  "tokimu",

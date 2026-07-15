@@ -6,6 +6,8 @@
 *.rlib
 *.rmeta
 *.pdb
+node_modules/
+**/node_modules/
 
 # WebAssembly / wasm-pack
 /pkg/

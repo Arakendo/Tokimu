@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tokimu Hello FPS Web</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1220;
+        --panel: rgba(12, 18, 30, 0.84);
+        --panel-strong: rgba(6, 10, 18, 0.92);
+        --text: #f5f7fb;
+        --muted: #a5b1c8;
+        --accent: #8fe2ff;
+        --accent-strong: #ffc36a;
+        --border: rgba(143, 226, 255, 0.18);
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+      }
+
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(143, 226, 255, 0.16), transparent 30%),
+          radial-gradient(circle at 85% 18%, rgba(255, 195, 106, 0.14), transparent 24%),
+          linear-gradient(180deg, #0d1220 0%, #090d16 100%);
+      }
+
+      main {
+        width: min(1320px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 24px 0 32px;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: linear-gradient(180deg, var(--panel) 0%, var(--panel-strong) 100%);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      header { padding: 20px 20px 8px; }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+
+      .lede {
+        margin: 10px 0 0;
+        max-width: 72ch;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .status {
+        margin: 14px 20px 0;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--accent);
+        min-height: 3rem;
+        backdrop-filter: blur(14px);
+      }
+
+      .status small {
+        display: block;
+        color: var(--muted);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .hud {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+        margin: 14px 20px 0;
+        padding-top: 14px;
+        border-top: 1px solid rgba(143, 226, 255, 0.14);
+      }
+
+      .hud::before {
+        content: "MASTER HUD";
+        grid-column: 1 / -1;
+        color: var(--accent);
+        font-size: 0.68rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      .card {
+        padding: 10px 11px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .card .label {
+        color: var(--muted);
+        font-size: 0.68rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .card .value {
+        margin-top: 3px;
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .canvas-shell { padding: 16px 20px 18px; }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        height: auto;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #090d16;
+      }
+
+      .meta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin: 14px 20px 0;
+        padding-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .chip {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(255, 255, 255, 0.03);
+        white-space: nowrap;
+      }
+
+      .chip strong { color: var(--text); }
+
+      @media (max-width: 720px) {
+        main {
+          width: min(100vw - 20px, 1320px);
+          padding: 8px 0 14px;
+        }
+
+        header,
+        .status,
+        .canvas-shell,
+        .meta {
+          margin-left: 0;
+          margin-right: 0;
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+
+        .hud {
+          margin-left: 14px;
+          margin-right: 14px;
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <header>
+          <h1>Tokimu Hello FPS Web</h1>
+          <p class="lede">A Quake 2-inspired web shell for Tokimu: WASD movement, cursor look, projectile firing, and simple target hits in a browser-friendly frame.</p>
+        </header>
+        <section class="status" aria-live="polite">
+          <small>Status</small>
+          <div id="status">Loading Tokimu hello-fps-web bootstrap...</div>
+        </section>
+        <div class="canvas-shell">
+          <canvas id="tokimu-canvas" width="1280" height="720"></canvas>
+        </div>
+        <section class="hud" aria-label="Demo metrics">
+          <div class="card">
+            <div class="label">Frame</div>
+            <div id="hud-frame" class="value">Waiting</div>
+          </div>
+          <div class="card">
+            <div class="label">Elapsed</div>
+            <div id="hud-elapsed" class="value">Waiting</div>
+          </div>
+          <div class="card">
+            <div class="label">Player</div>
+            <div id="hud-player" class="value">Waiting</div>
+          </div>
+          <div class="card">
+            <div class="label">Score</div>
+            <div id="hud-score" class="value">Waiting</div>
+          </div>
+          <div class="card">
+            <div class="label">Wave</div>
+            <div id="hud-wave" class="value">Waiting</div>
+          </div>
+          <div class="card">
+            <div class="label">Targets</div>
+            <div id="hud-targets" class="value">Waiting</div>
+          </div>
+          <div class="card">
+            <div class="label">Projectiles</div>
+            <div id="hud-projectiles" class="value">Waiting</div>
+          </div>
+        </section>
+        <div class="meta">
+          <span class="chip"><strong>Move</strong> WASD</span>
+          <span class="chip"><strong>Look</strong> cursor</span>
+          <span class="chip"><strong>Fire</strong> left click</span>
+          <span class="chip"><strong>Host</strong> Rust-owned</span>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./bootstrap.js?v=1"></script>
+  </body>
+</html>

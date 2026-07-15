@@ -4,7 +4,7 @@
 | ------------ | ------------------------------------------------- |
 | Status       | Draft                                             |
 | Version      | 0.2.0                                             |
-| Last updated | 2026-07-14                                        |
+| Last updated | 2026-07-15                                        |
 | Scope        | v0 architecture and initial milestones            |
 | Language     | Rust (edition 2021)                               |
 
@@ -251,6 +251,9 @@ rule, signal, and input model.
 ## 4.1 World Corpus
 
 Tokimu should treat examples and scenarios as a world corpus.
+
+See [Example Philosophy](example-philosophy.md) for the short version of why
+Tokimu examples exist and how they should be chosen.
 
 Tonesu grows meaning through vocabulary, composition, and sentence corpus.
 Tokimu can grow behavior through components, composition, and simulation corpus.
@@ -1500,6 +1503,46 @@ tokimu/
 │   ├── hello-triangle/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs
+│   ├── hello-fps-web/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
+│   │   └── web/
+│   │       ├── index.html
+│   │       ├── package.json
+│   │       ├── tsconfig.json
+│   │       └── src/
+│   │           ├── main.ts
+│   │           ├── hud.ts
+│   │           └── protocol.ts
+│   ├── hello-cad/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
+│   ├── hello-vector-draw/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
+│   ├── hello-svg/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
+│   ├── hello-glb/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
+│   ├── hello-2d-physics/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
+├── hello-ui/
+│   ├── Cargo.toml
+│   ├── DESIGN.md
+│   └── src/main.rs
+│   ├── hello-shader/
+│   │   ├── Cargo.toml
+│   │   ├── DESIGN.md
+│   │   └── src/main.rs
 │   └── wasm-demo/
 │       ├── index.html
 │       └── package.json
@@ -1580,7 +1623,8 @@ members = [
     "crates/tokimu-input",
     "crates/tokimu-wasm",
     "examples/hello-window",
-    "examples/hello-triangle"
+    "examples/hello-triangle",
+    "examples/hello-ui"
 ]
 
 [workspace.package]
