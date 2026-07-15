@@ -63,7 +63,11 @@ impl TokimuTsFrontendHost {
         Self
     }
 
-    pub fn plan_rules(&self, package: &TsAuthoringPackage, rules: &[RuleDefinition]) -> TsLoweringPlan {
+    pub fn plan_rules(
+        &self,
+        package: &TsAuthoringPackage,
+        rules: &[RuleDefinition],
+    ) -> TsLoweringPlan {
         let mut lowered = Vec::new();
         let mut runtime_only = Vec::new();
         let mut diagnostics = Vec::new();
@@ -117,7 +121,11 @@ impl TokimuTsFrontendHost {
             match parse_rule_declaration(&source[rule_start..]) {
                 Ok((rule, consumed, blocked_constructs, supported_constructs)) => {
                     recognized_calls.extend(supported_constructs.iter().cloned());
-                    recognized_constructs.extend(supported_constructs.into_iter().map(|call| call.label().to_string()));
+                    recognized_constructs.extend(
+                        supported_constructs
+                            .into_iter()
+                            .map(|call| call.label().to_string()),
+                    );
 
                     if !blocked_constructs.is_empty() {
                         diagnostics.push(TsLoweringDiagnostic {
@@ -168,9 +176,18 @@ impl TokimuTsFrontendHost {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_rule_declaration(
     source: &str,
-) -> Result<(RuleDefinition, usize, Vec<&'static str>, Vec<TsRecognizedApiCall>), String> {
+) -> Result<
+    (
+        RuleDefinition,
+        usize,
+        Vec<&'static str>,
+        Vec<TsRecognizedApiCall>,
+    ),
+    String,
+> {
     let after_rule = source
         .strip_prefix("rule(")
         .ok_or_else(|| "expected `rule(`".to_string())?;
@@ -187,7 +204,8 @@ fn parse_rule_declaration(
         .parse_braced_object()
         .map_err(|error| format!("rule `{}`: {}", name, error))?;
 
-    let execution = parse_execution_mode(object_body).map_err(|error| format!("rule `{}`: {}", name, error))?;
+    let execution =
+        parse_execution_mode(object_body).map_err(|error| format!("rule `{}`: {}", name, error))?;
     let inputs = parse_string_array_field(object_body, "inputs");
     let outputs = parse_string_array_field(object_body, "outputs");
     let signals = parse_string_array_field(object_body, "signals");
@@ -264,7 +282,9 @@ fn collect_supported_constructs(object_body: &str) -> Vec<TsRecognizedApiCall> {
         }
     }
 
-    if has_deterministic_loop(object_body) && !recognized.contains(&TsRecognizedApiCall::DeterministicLoop) {
+    if has_deterministic_loop(object_body)
+        && !recognized.contains(&TsRecognizedApiCall::DeterministicLoop)
+    {
         recognized.push(TsRecognizedApiCall::DeterministicLoop);
     }
 
@@ -282,9 +302,11 @@ fn has_deterministic_loop(object_body: &str) -> bool {
 }
 
 fn has_arithmetic(object_body: &str) -> bool {
-    [" += ", " -= ", " *= ", " /= ", " + ", " - ", " * ", " / ", "%="]
-        .iter()
-        .any(|needle| object_body.contains(needle))
+    [
+        " += ", " -= ", " *= ", " /= ", " + ", " - ", " * ", " / ", "%=",
+    ]
+    .iter()
+    .any(|needle| object_body.contains(needle))
 }
 
 fn parse_quoted_string(source: &str) -> Option<String> {
@@ -358,7 +380,10 @@ struct TokenParser<'a> {
 
 impl<'a> TokenParser<'a> {
     fn new(source: &'a str) -> Self {
-        Self { source, consumed: 0 }
+        Self {
+            source,
+            consumed: 0,
+        }
     }
 
     fn consumed_bytes(&self) -> usize {
@@ -600,16 +625,42 @@ mod tests {
         assert!(plan.diagnostics.is_empty());
         assert!(plan.recognized_calls.contains(&TsRecognizedApiCall::Query));
         assert!(plan.recognized_calls.contains(&TsRecognizedApiCall::Signal));
-        assert!(plan.recognized_calls.contains(&TsRecognizedApiCall::Relation));
-        assert!(plan.recognized_calls.contains(&TsRecognizedApiCall::Command));
-        assert!(plan.recognized_calls.contains(&TsRecognizedApiCall::DeterministicLoop));
-        assert!(plan.recognized_calls.contains(&TsRecognizedApiCall::Arithmetic));
-        assert!(plan.recognized_constructs.iter().any(|construct| construct == "query"));
-        assert!(plan.recognized_constructs.iter().any(|construct| construct == "signal"));
-        assert!(plan.recognized_constructs.iter().any(|construct| construct == "relation"));
-        assert!(plan.recognized_constructs.iter().any(|construct| construct == "command"));
-        assert!(plan.recognized_constructs.iter().any(|construct| construct == "deterministic-loops"));
-        assert!(plan.recognized_constructs.iter().any(|construct| construct == "arithmetic"));
+        assert!(plan
+            .recognized_calls
+            .contains(&TsRecognizedApiCall::Relation));
+        assert!(plan
+            .recognized_calls
+            .contains(&TsRecognizedApiCall::Command));
+        assert!(plan
+            .recognized_calls
+            .contains(&TsRecognizedApiCall::DeterministicLoop));
+        assert!(plan
+            .recognized_calls
+            .contains(&TsRecognizedApiCall::Arithmetic));
+        assert!(plan
+            .recognized_constructs
+            .iter()
+            .any(|construct| construct == "query"));
+        assert!(plan
+            .recognized_constructs
+            .iter()
+            .any(|construct| construct == "signal"));
+        assert!(plan
+            .recognized_constructs
+            .iter()
+            .any(|construct| construct == "relation"));
+        assert!(plan
+            .recognized_constructs
+            .iter()
+            .any(|construct| construct == "command"));
+        assert!(plan
+            .recognized_constructs
+            .iter()
+            .any(|construct| construct == "deterministic-loops"));
+        assert!(plan
+            .recognized_constructs
+            .iter()
+            .any(|construct| construct == "arithmetic"));
     }
 
     #[test]
@@ -619,7 +670,10 @@ mod tests {
         assert_eq!(TsRecognizedApiCall::Signal.label(), "signal");
         assert_eq!(TsRecognizedApiCall::Relation.label(), "relation");
         assert_eq!(TsRecognizedApiCall::Command.label(), "command");
-        assert_eq!(TsRecognizedApiCall::DeterministicLoop.label(), "deterministic-loops");
+        assert_eq!(
+            TsRecognizedApiCall::DeterministicLoop.label(),
+            "deterministic-loops"
+        );
         assert_eq!(TsRecognizedApiCall::Arithmetic.label(), "arithmetic");
     }
 
@@ -691,6 +745,9 @@ mod tests {
         assert_eq!(source_plan.lowered.len(), 1);
         assert!(source_plan.runtime_only.is_empty());
         assert!(source_plan.diagnostics.is_empty());
-        assert_eq!(source_plan.lowered[0], RuntimeSystemPlan::from_rule(&rust_rule));
+        assert_eq!(
+            source_plan.lowered[0],
+            RuntimeSystemPlan::from_rule(&rust_rule)
+        );
     }
 }

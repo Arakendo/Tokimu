@@ -52,12 +52,20 @@ impl fmt::Display for WorldSnapshot {
 
         writeln!(f, "components:")?;
         for component_type in &self.component_types {
-            writeln!(f, "  - {} ({})", component_type.type_name, component_type.count)?;
+            writeln!(
+                f,
+                "  - {} ({})",
+                component_type.type_name, component_type.count
+            )?;
         }
 
         writeln!(f, "resources:")?;
         for resource_type in &self.resource_types {
-            writeln!(f, "  - {} ({})", resource_type.type_name, resource_type.count)?;
+            writeln!(
+                f,
+                "  - {} ({})",
+                resource_type.type_name, resource_type.count
+            )?;
         }
 
         writeln!(f, "relationships:")?;
@@ -168,7 +176,8 @@ impl World {
     where
         T: Component,
     {
-        self.component_storage::<T>().and_then(|components| components.get(&entity))
+        self.component_storage::<T>()
+            .and_then(|components| components.get(&entity))
     }
 
     pub fn component_mut<T>(&mut self, entity: EntityId) -> Option<&mut T>
@@ -199,7 +208,12 @@ impl World {
         T: Component,
     {
         self.component_storage::<T>()
-            .map(|components| components.iter().map(|(&entity, component)| (entity, component)).collect())
+            .map(|components| {
+                components
+                    .iter()
+                    .map(|(&entity, component)| (entity, component))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -207,11 +221,12 @@ impl World {
     where
         T: Component + fmt::Debug,
     {
-        self.component::<T>(entity).map(|component| ComponentInspection {
-            entity,
-            component_name: type_name::<T>(),
-            value: format!("{:?}", component),
-        })
+        self.component::<T>(entity)
+            .map(|component| ComponentInspection {
+                entity,
+                component_name: type_name::<T>(),
+                value: format!("{:?}", component),
+            })
     }
 
     pub fn add_relationship<R>(&mut self, source: EntityId, target: EntityId) -> bool
@@ -353,7 +368,11 @@ impl World {
     {
         self.relationships
             .get(&TypeId::of::<R>())
-            .and_then(|storage| storage.values.downcast_ref::<HashMap<EntityId, Vec<EntityId>>>())
+            .and_then(|storage| {
+                storage
+                    .values
+                    .downcast_ref::<HashMap<EntityId, Vec<EntityId>>>()
+            })
     }
 }
 
@@ -401,15 +420,24 @@ mod tests {
         let mut world = World::default();
         let entity = world.spawn();
 
-        assert_eq!(world.insert_component(entity, Position { x: 1.0, y: 2.0 }), None);
-        assert_eq!(world.component::<Position>(entity), Some(&Position { x: 1.0, y: 2.0 }));
+        assert_eq!(
+            world.insert_component(entity, Position { x: 1.0, y: 2.0 }),
+            None
+        );
+        assert_eq!(
+            world.component::<Position>(entity),
+            Some(&Position { x: 1.0, y: 2.0 })
+        );
 
         if let Some(position) = world.component_mut::<Position>(entity) {
             position.x = 3.0;
             position.y = 4.0;
         }
 
-        assert_eq!(world.component::<Position>(entity), Some(&Position { x: 3.0, y: 4.0 }));
+        assert_eq!(
+            world.component::<Position>(entity),
+            Some(&Position { x: 3.0, y: 4.0 })
+        );
     }
 
     #[test]
@@ -465,7 +493,10 @@ mod tests {
 
         assert!(world.add_relationship::<ParentOf>(parent, child));
         assert!(!world.add_relationship::<ParentOf>(parent, child));
-        assert_eq!(world.relationships_from::<ParentOf>(parent), Some(&[child][..]));
+        assert_eq!(
+            world.relationships_from::<ParentOf>(parent),
+            Some(&[child][..])
+        );
         assert!(world.has_relationship::<ParentOf>(parent, child));
         assert_eq!(world.relationships_from::<ParentOf>(child), None);
     }
@@ -493,7 +524,9 @@ mod tests {
 
         world.insert_component(entity, Position { x: 9.0, y: 3.5 });
 
-        let inspection = world.inspect_component::<Position>(entity).expect("component should exist");
+        let inspection = world
+            .inspect_component::<Position>(entity)
+            .expect("component should exist");
 
         assert_eq!(inspection.entity, entity);
         assert_eq!(inspection.component_name, type_name::<Position>());
@@ -520,19 +553,31 @@ mod tests {
 
         let snapshot = world.snapshot();
 
-        assert_eq!(snapshot.entities, vec![EntitySnapshot { id: first }, EntitySnapshot { id: second }]);
-        assert_eq!(snapshot.component_types, vec![TypeSnapshot {
-            type_name: type_name::<Position>(),
-            count: 1,
-        }]);
-        assert_eq!(snapshot.resource_types, vec![TypeSnapshot {
-            type_name: type_name::<Score>(),
-            count: 1,
-        }]);
-        assert_eq!(snapshot.relationship_types, vec![RelationshipSnapshot {
-            type_name: type_name::<ParentOf>(),
-            edges: vec![(first, vec![second])],
-        }]);
+        assert_eq!(
+            snapshot.entities,
+            vec![EntitySnapshot { id: first }, EntitySnapshot { id: second }]
+        );
+        assert_eq!(
+            snapshot.component_types,
+            vec![TypeSnapshot {
+                type_name: type_name::<Position>(),
+                count: 1,
+            }]
+        );
+        assert_eq!(
+            snapshot.resource_types,
+            vec![TypeSnapshot {
+                type_name: type_name::<Score>(),
+                count: 1,
+            }]
+        );
+        assert_eq!(
+            snapshot.relationship_types,
+            vec![RelationshipSnapshot {
+                type_name: type_name::<ParentOf>(),
+                edges: vec![(first, vec![second])],
+            }]
+        );
         assert_eq!(
             format!("{snapshot}"),
             format!(

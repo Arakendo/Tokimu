@@ -21,8 +21,7 @@ impl DocumentCodec for RonDocumentCodec {
     where
         T: Serialize,
     {
-        ron::ser::to_string_pretty(document, ron::ser::PrettyConfig::default())
-            .map_err(Into::into)
+        ron::ser::to_string_pretty(document, ron::ser::PrettyConfig::default()).map_err(Into::into)
     }
 
     fn load<T>(&self, source: &str) -> PersistenceResult<T>

@@ -25,12 +25,7 @@ impl Camera {
         self.set_orthographic_2d_with_height(width, height, 2.0);
     }
 
-    pub fn set_orthographic_2d_with_height(
-        &mut self,
-        width: f32,
-        height: f32,
-        world_height: f32,
-    ) {
+    pub fn set_orthographic_2d_with_height(&mut self, width: f32, height: f32, world_height: f32) {
         let aspect_ratio = if height > 0.0 { width / height } else { 1.0 };
         let half_height = world_height * 0.5;
         let half_width = half_height * aspect_ratio;

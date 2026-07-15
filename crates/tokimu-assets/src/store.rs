@@ -75,14 +75,23 @@ mod tests {
         assert_eq!(first.id(), AssetId(0));
         assert_eq!(second.id(), AssetId(1));
         assert_eq!(inventory.entries.len(), 2);
-        assert_eq!(inventory.entries[0], AssetRecord {
-            id: AssetId(0),
-            source: Some("models/cube.glb".into()),
-        });
-        assert_eq!(inventory.entries[1], AssetRecord {
-            id: AssetId(1),
-            source: None,
-        });
-        assert_eq!(format!("{inventory}"), "asset browser\n  - 0 <- models/cube.glb\n  - 1 <- <unknown>\n");
+        assert_eq!(
+            inventory.entries[0],
+            AssetRecord {
+                id: AssetId(0),
+                source: Some("models/cube.glb".into()),
+            }
+        );
+        assert_eq!(
+            inventory.entries[1],
+            AssetRecord {
+                id: AssetId(1),
+                source: None,
+            }
+        );
+        assert_eq!(
+            format!("{inventory}"),
+            "asset browser\n  - 0 <- models/cube.glb\n  - 1 <- <unknown>\n"
+        );
     }
 }

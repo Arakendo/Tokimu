@@ -118,7 +118,11 @@ pub fn lower_scene_document(scene: &SceneDoc) -> RuntimeSystemPlan {
     if scene.entities.iter().any(|entity| entity.parent.is_some()) {
         writes.push("SceneParent".to_string());
     }
-    if scene.entities.iter().any(|entity| entity.position.is_some()) {
+    if scene
+        .entities
+        .iter()
+        .any(|entity| entity.position.is_some())
+    {
         writes.push("ScenePosition".to_string());
     }
     if scene.entities.len() > 1 {
@@ -148,12 +152,15 @@ mod tests {
 
         match rule.lower() {
             LoweringOutcome::Lowered(plan) => {
-                assert_eq!(plan, RuntimeSystemPlan {
-                    name: "enemy-step".into(),
-                    reads: vec!["Transform".into(), "Velocity".into()],
-                    writes: vec!["Transform".into()],
-                    emits: vec!["enemy-stepped".into()],
-                });
+                assert_eq!(
+                    plan,
+                    RuntimeSystemPlan {
+                        name: "enemy-step".into(),
+                        reads: vec!["Transform".into(), "Velocity".into()],
+                        writes: vec!["Transform".into()],
+                        emits: vec!["enemy-stepped".into()],
+                    }
+                );
             }
             LoweringOutcome::RuntimeOnly(_) => panic!("lowered rule should lower"),
         }

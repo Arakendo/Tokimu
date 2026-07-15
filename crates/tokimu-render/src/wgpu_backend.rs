@@ -1,6 +1,6 @@
 use crate::{
-    Camera, CameraHandle, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle,
-    Pipeline, PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderStats, Renderable,
+    Camera, CameraHandle, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
+    PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderStats, Renderable,
     RenderableHandle, Renderer,
 };
 use bytemuck::{Pod, Zeroable};
@@ -146,7 +146,11 @@ impl WgpuBackend {
         })
     }
 
-    async fn create_for_window<W>(window: Arc<W>, width: u32, height: u32) -> Result<Self, WgpuBackendError>
+    async fn create_for_window<W>(
+        window: Arc<W>,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, WgpuBackendError>
     where
         W: HasDisplayHandle + HasWindowHandle + Send + Sync + 'static,
     {
@@ -228,9 +232,7 @@ impl WgpuBackend {
             wgpu::Backend::Dx12 => "dx12",
             wgpu::Backend::Gl => "gl",
             wgpu::Backend::BrowserWebGpu => "browser-webgpu",
-            other => match other {
-                _ => "unknown",
-            },
+            _ => "unknown",
         }
     }
 
@@ -382,22 +384,36 @@ impl WgpuBackend {
             ),
         };
 
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
-        self.pipeline_registry.register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
+        self.pipeline_registry
+            .register_with_handle(handle, pipeline);
         self.pipelines.insert(handle, compiled);
         Ok(())
     }
 
-    pub fn register_pipeline(&mut self, pipeline: &Pipeline) -> Result<PipelineHandle, WgpuBackendError> {
+    pub fn register_pipeline(
+        &mut self,
+        pipeline: &Pipeline,
+    ) -> Result<PipelineHandle, WgpuBackendError> {
         let handle = self.pipeline_registry.register(pipeline);
         self.upload_pipeline(handle, pipeline)?;
         Ok(handle)
@@ -411,11 +427,7 @@ impl WgpuBackend {
         self.renderables.insert(handle, renderable);
     }
 
-    pub fn upload_camera(
-        &mut self,
-        handle: crate::resources::CameraHandle,
-        camera: Camera,
-    ) {
+    pub fn upload_camera(&mut self, handle: crate::resources::CameraHandle, camera: Camera) {
         self.cameras.insert(handle, camera);
     }
 
@@ -522,23 +534,31 @@ impl WgpuBackend {
                     let camera_uniform = GpuCameraUniform {
                         view_projection: (camera.projection * camera.view).to_cols_array_2d(),
                     };
-                    let camera_buffer = self
-                        ._device
-                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some("tokimu-camera-uniform-buffer"),
-                            contents: bytemuck::bytes_of(&camera_uniform),
-                            usage: wgpu::BufferUsages::UNIFORM,
+                    let camera_buffer =
+                        self._device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some("tokimu-camera-uniform-buffer"),
+                                contents: bytemuck::bytes_of(&camera_uniform),
+                                usage: wgpu::BufferUsages::UNIFORM,
+                            });
+                    let camera_bind_group =
+                        self._device.create_bind_group(&wgpu::BindGroupDescriptor {
+                            label: Some("tokimu-camera-bind-group"),
+                            layout: &surface_state.camera_bind_group_layout,
+                            entries: &[wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: camera_buffer.as_entire_binding(),
+                            }],
                         });
-                    let camera_bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("tokimu-camera-bind-group"),
-                        layout: &surface_state.camera_bind_group_layout,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: camera_buffer.as_entire_binding(),
-                        }],
-                    });
                     if let Some(viewport) = draw.viewport {
-                        render_pass.set_viewport(viewport.x, viewport.y, viewport.width, viewport.height, 0.0, 1.0);
+                        render_pass.set_viewport(
+                            viewport.x,
+                            viewport.y,
+                            viewport.width,
+                            viewport.height,
+                            0.0,
+                            1.0,
+                        );
                     }
                     render_pass.set_pipeline(pipeline);
                     render_pass.set_bind_group(2, &camera_bind_group, &[]);
@@ -583,33 +603,37 @@ impl Renderer for WgpuBackend {
             }
         }
 
-        self.queued_draws.extend(commands.iter().filter_map(|command| match command {
-            RenderCommand::Clear(_) => None,
-            RenderCommand::DrawMesh(draw) => Some(QueuedDraw {
-                mesh: draw.mesh,
-                material: draw.material,
-                pipeline: draw.pipeline,
-                instance: draw.instance,
-                camera: draw.camera,
-                viewport: draw.viewport,
-            }),
-            RenderCommand::DrawRenderable(draw) => {
-                let renderable = self.renderables.get(&draw.renderable)?;
-                Some(QueuedDraw {
-                    mesh: renderable.mesh,
-                    material: renderable.material,
-                    pipeline: renderable.pipeline,
+        self.queued_draws
+            .extend(commands.iter().filter_map(|command| match command {
+                RenderCommand::Clear(_) => None,
+                RenderCommand::DrawMesh(draw) => Some(QueuedDraw {
+                    mesh: draw.mesh,
+                    material: draw.material,
+                    pipeline: draw.pipeline,
                     instance: draw.instance,
                     camera: draw.camera,
                     viewport: draw.viewport,
-                })
-            }
-        }));
+                }),
+                RenderCommand::DrawRenderable(draw) => {
+                    let renderable = self.renderables.get(&draw.renderable)?;
+                    Some(QueuedDraw {
+                        mesh: renderable.mesh,
+                        material: renderable.material,
+                        pipeline: renderable.pipeline,
+                        instance: draw.instance,
+                        camera: draw.camera,
+                        viewport: draw.viewport,
+                    })
+                }
+            }));
 
         self.draw_calls += commands
             .iter()
             .filter(|command| {
-                matches!(command, RenderCommand::DrawMesh(_) | RenderCommand::DrawRenderable(_))
+                matches!(
+                    command,
+                    RenderCommand::DrawMesh(_) | RenderCommand::DrawRenderable(_)
+                )
             })
             .count() as u32;
     }
@@ -643,6 +667,7 @@ fn create_solid_color_pipeline(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_custom_pipeline(
     device: &wgpu::Device,
     surface_format: wgpu::TextureFormat,
@@ -679,15 +704,18 @@ fn create_custom_pipeline(
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &[wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                }, wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: std::mem::size_of::<[f32; 3]>() as u64,
-                    shader_location: 1,
-                }],
+                attributes: &[
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: std::mem::size_of::<[f32; 3]>() as u64,
+                        shader_location: 1,
+                    },
+                ],
             }],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },

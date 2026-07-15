@@ -36,7 +36,13 @@ mod tests {
         log.record("dialogue-opened");
         log.record("enemy-stepped");
 
-        assert_eq!(log.entries(), &["enemy-stepped", "dialogue-opened", "enemy-stepped"]);
-        assert_eq!(format!("{log}"), "signal log\n  0: enemy-stepped\n  1: dialogue-opened\n  2: enemy-stepped\n");
+        assert_eq!(
+            log.entries(),
+            &["enemy-stepped", "dialogue-opened", "enemy-stepped"]
+        );
+        assert_eq!(
+            format!("{log}"),
+            "signal log\n  0: enemy-stepped\n  1: dialogue-opened\n  2: enemy-stepped\n"
+        );
     }
 }

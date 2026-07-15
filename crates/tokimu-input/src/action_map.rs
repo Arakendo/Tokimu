@@ -19,7 +19,10 @@ pub struct ActionMap {
 
 impl ActionMap {
     pub fn bind(&mut self, action: impl Into<String>, binding: InputBinding) {
-        self.bindings.entry(action.into()).or_default().push(binding);
+        self.bindings
+            .entry(action.into())
+            .or_default()
+            .push(binding);
     }
 
     pub fn bindings(&self, action: &str) -> &[InputBinding] {

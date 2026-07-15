@@ -143,7 +143,8 @@ impl Pipeline {
     }
 
     pub fn custom_wgsl(label: impl Into<String>, shader_source: impl Into<String>) -> Self {
-        let (vertex_entry_point, fragment_entry_point) = PipelineKind::CustomWgsl2d.default_entry_points();
+        let (vertex_entry_point, fragment_entry_point) =
+            PipelineKind::CustomWgsl2d.default_entry_points();
 
         Self {
             label: label.into(),
@@ -207,9 +208,18 @@ mod tests {
 
     #[test]
     fn exposes_kind_defaults() {
-        assert_eq!(PipelineKind::SolidColor2d.default_entry_points(), ("vs_main", "fs_main"));
-        assert_eq!(PipelineKind::LitColor3d.default_entry_points(), ("vs_main", "fs_main"));
-        assert_eq!(PipelineKind::CustomWgsl2d.default_entry_points(), ("vs_main", "fs_main"));
+        assert_eq!(
+            PipelineKind::SolidColor2d.default_entry_points(),
+            ("vs_main", "fs_main")
+        );
+        assert_eq!(
+            PipelineKind::LitColor3d.default_entry_points(),
+            ("vs_main", "fs_main")
+        );
+        assert_eq!(
+            PipelineKind::CustomWgsl2d.default_entry_points(),
+            ("vs_main", "fs_main")
+        );
         assert!(PipelineKind::SolidColor2d.default_shader_source().is_some());
         assert!(PipelineKind::LitColor3d.default_shader_source().is_some());
         assert!(PipelineKind::CustomWgsl2d.default_shader_source().is_none());
@@ -231,7 +241,10 @@ mod tests {
 
         assert_eq!(pipeline.label, "solid");
         assert_eq!(pipeline.kind, PipelineKind::SolidColor2d);
-        assert_eq!(pipeline.shader_source.as_deref(), Some(default_2d_shader_source()));
+        assert_eq!(
+            pipeline.shader_source.as_deref(),
+            Some(default_2d_shader_source())
+        );
         assert_eq!(pipeline.vertex_entry_point, "vs_main");
         assert_eq!(pipeline.fragment_entry_point, "fs_main");
     }
@@ -242,7 +255,10 @@ mod tests {
 
         assert_eq!(pipeline.label, "lit");
         assert_eq!(pipeline.kind, PipelineKind::LitColor3d);
-        assert_eq!(pipeline.shader_source.as_deref(), Some(default_lit_3d_shader_source()));
+        assert_eq!(
+            pipeline.shader_source.as_deref(),
+            Some(default_lit_3d_shader_source())
+        );
         assert_eq!(pipeline.vertex_entry_point, "vs_main");
         assert_eq!(pipeline.fragment_entry_point, "fs_main");
     }

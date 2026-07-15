@@ -1,9 +1,9 @@
 pub mod clock;
 pub mod input;
 #[cfg(not(target_arch = "wasm32"))]
-pub mod openxr;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod native;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod openxr;
 pub mod wasm;
 pub mod window;
 
@@ -19,5 +19,5 @@ pub use native::run_window_with_app;
 pub use native::run_window_with_handler;
 #[cfg(not(target_arch = "wasm32"))]
 pub use native::NativeError;
-pub use winit::window::Window as NativeWindow;
 pub use window::WindowConfig;
+pub use winit::window::Window as NativeWindow;

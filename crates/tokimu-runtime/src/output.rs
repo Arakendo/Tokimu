@@ -22,14 +22,21 @@ impl<Channel> Default for RepeatCoalescer<Channel> {
 pub enum RepeatCoalescerUpdate {
     FirstMessage,
     Repeated,
-    Replaced { previous_message: String, repeat_count: usize },
+    Replaced {
+        previous_message: String,
+        repeat_count: usize,
+    },
 }
 
 impl<Channel> RepeatCoalescer<Channel>
 where
     Channel: Copy + Eq + Hash,
 {
-    pub fn record(&mut self, channel: Channel, message: impl Into<String>) -> RepeatCoalescerUpdate {
+    pub fn record(
+        &mut self,
+        channel: Channel,
+        message: impl Into<String>,
+    ) -> RepeatCoalescerUpdate {
         let message = message.into();
 
         match self.last_message.get(&channel) {
@@ -159,7 +166,8 @@ where
             .unwrap_or(true);
 
         if should_emit {
-            self.last_sampled_emit_seconds.insert(channel, elapsed_seconds);
+            self.last_sampled_emit_seconds
+                .insert(channel, elapsed_seconds);
             if self
                 .last_sampled_summary_seconds
                 .get(&channel)
@@ -259,7 +267,12 @@ where
         };
 
         if repeat_count > 0 {
-            println!("{} {} (repeated {}x)", channel.channel_tag(), message, repeat_count);
+            println!(
+                "{} {} (repeated {}x)",
+                channel.channel_tag(),
+                message,
+                repeat_count
+            );
         }
     }
 }
@@ -339,12 +352,24 @@ mod tests {
     fn records_first_repeat_and_replacement_counts() {
         let mut coalescer = RepeatCoalescer::default();
 
-        assert_eq!(coalescer.record("input", "move intent = (0.0, 0.0)"), RepeatCoalescerUpdate::FirstMessage);
-        assert_eq!(coalescer.record("input", "move intent = (0.0, 0.0)"), RepeatCoalescerUpdate::Repeated);
-        assert_eq!(coalescer.record("input", "move intent = (0.0, 0.0)"), RepeatCoalescerUpdate::Repeated);
+        assert_eq!(
+            coalescer.record("input", "move intent = (0.0, 0.0)"),
+            RepeatCoalescerUpdate::FirstMessage
+        );
+        assert_eq!(
+            coalescer.record("input", "move intent = (0.0, 0.0)"),
+            RepeatCoalescerUpdate::Repeated
+        );
+        assert_eq!(
+            coalescer.record("input", "move intent = (0.0, 0.0)"),
+            RepeatCoalescerUpdate::Repeated
+        );
 
         match coalescer.record("input", "move intent = (1.0, 0.0)") {
-            RepeatCoalescerUpdate::Replaced { previous_message, repeat_count } => {
+            RepeatCoalescerUpdate::Replaced {
+                previous_message,
+                repeat_count,
+            } => {
                 assert_eq!(previous_message, "move intent = (0.0, 0.0)");
                 assert_eq!(repeat_count, 2);
             }
@@ -359,8 +384,14 @@ mod tests {
         coalescer.record("frame", "frame dt=0.0167s");
         coalescer.record("frame", "frame dt=0.0167s");
 
-        assert_eq!(coalescer.flush("frame"), Some(("frame dt=0.0167s".to_string(), 1)));
-        assert_eq!(coalescer.flush("frame"), Some(("frame dt=0.0167s".to_string(), 0)));
+        assert_eq!(
+            coalescer.flush("frame"),
+            Some(("frame dt=0.0167s".to_string(), 1))
+        );
+        assert_eq!(
+            coalescer.flush("frame"),
+            Some(("frame dt=0.0167s".to_string(), 0))
+        );
     }
 
     #[test]
@@ -370,7 +401,10 @@ mod tests {
         coalescer.record("frame", "frame dt=0.0167s");
         coalescer.record("frame", "frame dt=0.0167s");
 
-        assert_eq!(coalescer.drain("frame"), Some(("frame dt=0.0167s".to_string(), 1)));
+        assert_eq!(
+            coalescer.drain("frame"),
+            Some(("frame dt=0.0167s".to_string(), 1))
+        );
         assert_eq!(coalescer.drain("frame"), None);
     }
 

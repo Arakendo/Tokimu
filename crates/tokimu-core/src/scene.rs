@@ -88,8 +88,14 @@ mod tests {
         let mut world = compile_scene(&scene);
 
         assert_eq!(world.spawn(), EntityId(2));
-        assert_eq!(world.component::<ScenePosition>(EntityId(0)), Some(&ScenePosition { x: 1.0, y: 2.0 }));
-        assert_eq!(world.component::<ScenePosition>(EntityId(1)), Some(&ScenePosition { x: 3.0, y: 4.0 }));
+        assert_eq!(
+            world.component::<ScenePosition>(EntityId(0)),
+            Some(&ScenePosition { x: 1.0, y: 2.0 })
+        );
+        assert_eq!(
+            world.component::<ScenePosition>(EntityId(1)),
+            Some(&ScenePosition { x: 3.0, y: 4.0 })
+        );
         assert!(world.has_relationship::<SceneParent>(EntityId(1), EntityId(0)));
         assert_eq!(
             world.query_relationships::<SceneParent>(EntityId(1)),

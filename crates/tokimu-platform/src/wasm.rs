@@ -91,10 +91,7 @@ fn attach_keyboard_listeners(
             if let Some(key) = map_key_code(&key_event.code()) {
                 emit_event(
                     &keydown_handler,
-                    PlatformInputEvent::KeyboardInput {
-                        key,
-                        pressed: true,
-                    },
+                    PlatformInputEvent::KeyboardInput { key, pressed: true },
                 );
             }
         }

@@ -1,4 +1,6 @@
-use crate::{plugin::Plugin, tick_fixed_updates, RunLoopDiagnostics, RunLoopSummary, RuntimeConfig};
+use crate::{
+    plugin::Plugin, tick_fixed_updates, RunLoopDiagnostics, RunLoopSummary, RuntimeConfig,
+};
 use tokimu_core::{Diagnostics, FrameOutcome, Schedule, System, SystemRegistry, World};
 use tokimu_input::{InputEvent, InputState};
 
@@ -85,7 +87,8 @@ impl App {
         set_name: &str,
     ) -> RunLoopSummary {
         let summary = self.tick(frame_delta_seconds);
-        self.systems.run_set(set_name, &self.schedule, &mut self.world);
+        self.systems
+            .run_set(set_name, &self.schedule, &mut self.world);
         summary
     }
 
@@ -108,11 +111,8 @@ impl App {
     {
         self.elapsed_seconds += frame_delta_seconds;
 
-        let summary = tick_fixed_updates(
-            self.config,
-            self.accumulator_seconds,
-            frame_delta_seconds,
-        );
+        let summary =
+            tick_fixed_updates(self.config, self.accumulator_seconds, frame_delta_seconds);
         self.accumulator_seconds = summary.accumulator_seconds;
         self.run_loop_diagnostics.record_frame(summary);
 
@@ -165,10 +165,8 @@ impl App {
         let mut last_summary = None;
 
         while let Some(frame_delta_seconds) = next_frame_delta_seconds() {
-            last_summary = Some(self.tick_with_fixed_updates(
-                frame_delta_seconds,
-                &mut on_fixed_update,
-            ));
+            last_summary =
+                Some(self.tick_with_fixed_updates(frame_delta_seconds, &mut on_fixed_update));
         }
 
         last_summary
@@ -235,13 +233,16 @@ mod tests {
         });
 
         assert_eq!(fixed_update_calls, 3);
-        assert_eq!(summary, Some(RunLoopSummary {
-            frame_delta_seconds: 0.5,
-            fixed_updates: 2,
-            requested_fixed_updates: 2,
-            hit_fixed_step_cap: false,
-            accumulator_seconds: 0.0,
-        }));
+        assert_eq!(
+            summary,
+            Some(RunLoopSummary {
+                frame_delta_seconds: 0.5,
+                fixed_updates: 2,
+                requested_fixed_updates: 2,
+                hit_fixed_step_cap: false,
+                accumulator_seconds: 0.0,
+            })
+        );
         assert_eq!(app.run_loop_diagnostics().frame_count(), 2);
     }
 
@@ -276,18 +277,24 @@ mod tests {
 
         let mut frame_deltas = [0.25, 0.25, 0.5].into_iter();
         let mut fixed_update_calls = 0;
-        let summary = app.run_until(|| frame_deltas.next(), |_| {
-            fixed_update_calls += 1;
-        });
+        let summary = app.run_until(
+            || frame_deltas.next(),
+            |_| {
+                fixed_update_calls += 1;
+            },
+        );
 
         assert_eq!(fixed_update_calls, 4);
-        assert_eq!(summary, Some(RunLoopSummary {
-            frame_delta_seconds: 0.5,
-            fixed_updates: 2,
-            requested_fixed_updates: 2,
-            hit_fixed_step_cap: false,
-            accumulator_seconds: 0.0,
-        }));
+        assert_eq!(
+            summary,
+            Some(RunLoopSummary {
+                frame_delta_seconds: 0.5,
+                fixed_updates: 2,
+                requested_fixed_updates: 2,
+                hit_fixed_step_cap: false,
+                accumulator_seconds: 0.0,
+            })
+        );
         assert_eq!(app.run_loop_diagnostics().frame_count(), 3);
     }
 
@@ -362,11 +369,26 @@ mod tests {
         assert_eq!(log.borrow().as_slice(), ["startup", "update", "render"]);
         assert_eq!(app.systems.len(), 3);
         assert!(!app.systems.is_empty());
-        assert_eq!(app.registered_system_count_in_phase(tokimu_core::Phase::Startup), 1);
-        assert_eq!(app.registered_system_count_in_phase(tokimu_core::Phase::Update), 1);
-        assert_eq!(app.registered_system_count_in_phase(tokimu_core::Phase::Render), 1);
-        assert_eq!(app.remove_registered_systems_in_phase(tokimu_core::Phase::Update), 1);
-        assert_eq!(app.registered_system_count_in_phase(tokimu_core::Phase::Update), 0);
+        assert_eq!(
+            app.registered_system_count_in_phase(tokimu_core::Phase::Startup),
+            1
+        );
+        assert_eq!(
+            app.registered_system_count_in_phase(tokimu_core::Phase::Update),
+            1
+        );
+        assert_eq!(
+            app.registered_system_count_in_phase(tokimu_core::Phase::Render),
+            1
+        );
+        assert_eq!(
+            app.remove_registered_systems_in_phase(tokimu_core::Phase::Update),
+            1
+        );
+        assert_eq!(
+            app.registered_system_count_in_phase(tokimu_core::Phase::Update),
+            0
+        );
         assert_eq!(app.systems.len(), 2);
     }
 

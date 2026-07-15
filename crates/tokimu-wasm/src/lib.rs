@@ -11,7 +11,9 @@ use tokimu_input::{InputState, KeyCode, MouseButton};
 use tokimu_platform::{wasm::install_browser_input_bridge, WindowConfig};
 
 #[cfg(target_arch = "wasm32")]
-use tokimu_runtime::{advance_field_sprint, App, FieldSprintState, Plugin, RunLoopSummary, FIELD_SPRINT_TARGET_POINTS};
+use tokimu_runtime::{
+    advance_field_sprint, App, FieldSprintState, Plugin, RunLoopSummary, FIELD_SPRINT_TARGET_POINTS,
+};
 
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
@@ -22,7 +24,9 @@ use std::rc::Rc;
 use wasm_bindgen::{closure::Closure, JsCast};
 
 #[cfg(target_arch = "wasm32")]
-use web_sys::{window, CanvasRenderingContext2d, Document, Element, HtmlCanvasElement, HtmlElement, Window};
+use web_sys::{
+    window, CanvasRenderingContext2d, Document, Element, HtmlCanvasElement, HtmlElement, Window,
+};
 
 pub fn boot_message() -> &'static str {
     "Tokimu WASM runtime app ready"
@@ -107,8 +111,7 @@ fn ensure_canvas(document: &Document, config: &WindowConfig) -> Result<HtmlCanva
     let body = document
         .body()
         .ok_or_else(|| JsValue::from_str("browser document has no body"))?;
-    body.append_child(&canvas)
-        .map_err(JsValue::from)?;
+    body.append_child(&canvas).map_err(JsValue::from)?;
 
     Ok(canvas)
 }
@@ -210,7 +213,10 @@ fn start_browser_loop(
         }
     }) as Box<dyn FnMut(f64)>));
 
-    status.set_text_content(Some(&format!("{} | starting runtime app...", boot_message())));
+    status.set_text_content(Some(&format!(
+        "{} | starting runtime app...",
+        boot_message()
+    )));
     hud.set_frame(0);
     hud.set_elapsed(0.0);
     hud.set_fps(0.0);
@@ -366,9 +372,18 @@ fn advance_browser_scene(world: &mut World, elapsed_seconds: f64, fixed_step_sec
         return;
     };
 
-    advance_field_sprint(&mut scene.sprint, &input, input.mouse.is_pressed(MouseButton::Left), fixed_step_seconds as f32);
-    scene.player_position[0] = ((scene.sprint.player_position[0] as f64 + 1.0) * 0.5 * viewport.width).clamp(10.0, viewport.width - 10.0);
-    scene.player_position[1] = ((1.0 - (scene.sprint.player_position[1] as f64 + 1.0) * 0.5) * viewport.height).clamp(10.0, viewport.height - 10.0);
+    advance_field_sprint(
+        &mut scene.sprint,
+        &input,
+        input.mouse.is_pressed(MouseButton::Left),
+        fixed_step_seconds as f32,
+    );
+    scene.player_position[0] =
+        ((scene.sprint.player_position[0] as f64 + 1.0) * 0.5 * viewport.width)
+            .clamp(10.0, viewport.width - 10.0);
+    scene.player_position[1] = ((1.0 - (scene.sprint.player_position[1] as f64 + 1.0) * 0.5)
+        * viewport.height)
+        .clamp(10.0, viewport.height - 10.0);
     scene.cursor_position = [input.mouse.x as f64, input.mouse.y as f64];
     scene.sprint.palette_mode = input.mouse.is_pressed(MouseButton::Right);
     scene.sprint.reverse_motion = input.mouse.is_pressed(MouseButton::Middle);
@@ -437,7 +452,12 @@ fn draw_frame(
     summary: &BrowserFrameSummary,
 ) {
     let background = 0.15 + summary.palette_lift * 0.2;
-    context.set_fill_style_str(&format!("rgb({:.0}, {:.0}, {:.0})", background * 255.0, background * 255.0, (background + 0.08) * 255.0));
+    context.set_fill_style_str(&format!(
+        "rgb({:.0}, {:.0}, {:.0})",
+        background * 255.0,
+        background * 255.0,
+        (background + 0.08) * 255.0
+    ));
     context.fill_rect(0.0, 0.0, canvas.width() as f64, canvas.height() as f64);
 
     context.set_fill_style_str("rgba(255, 255, 255, 0.04)");
@@ -446,9 +466,19 @@ fn draw_frame(
     let vignette_alpha = 0.10 + summary.palette_lift * 0.06;
     context.set_fill_style_str(&format!("rgba(9, 12, 20, {:.3})", vignette_alpha));
     context.fill_rect(0.0, 0.0, canvas.width() as f64, 22.0);
-    context.fill_rect(0.0, canvas.height() as f64 - 22.0, canvas.width() as f64, 22.0);
+    context.fill_rect(
+        0.0,
+        canvas.height() as f64 - 22.0,
+        canvas.width() as f64,
+        22.0,
+    );
     context.fill_rect(0.0, 0.0, 22.0, canvas.height() as f64);
-    context.fill_rect(canvas.width() as f64 - 22.0, 0.0, 22.0, canvas.height() as f64);
+    context.fill_rect(
+        canvas.width() as f64 - 22.0,
+        0.0,
+        22.0,
+        canvas.height() as f64,
+    );
 
     context.set_stroke_style_str("rgba(125, 227, 255, 0.14)");
     context.set_line_width(2.0);
@@ -473,7 +503,12 @@ fn draw_frame(
 
     context.set_stroke_style_str("rgba(244, 247, 251, 0.05)");
     context.set_line_width(1.0);
-    context.stroke_rect(12.0, 12.0, canvas.width() as f64 - 24.0, canvas.height() as f64 - 24.0);
+    context.stroke_rect(
+        12.0,
+        12.0,
+        canvas.width() as f64 - 24.0,
+        canvas.height() as f64 - 24.0,
+    );
 
     context.set_fill_style_str("rgba(9, 12, 20, 0.30)");
     context.fill_rect(18.0, 18.0, 244.0, 48.0);
@@ -482,7 +517,12 @@ fn draw_frame(
     context.set_fill_style_str("rgba(255, 95, 95, 0.14)");
     context.fill_rect(222.0, 26.0, 40.0, 14.0);
     context.set_fill_style_str(&format!("rgba(255, 95, 95, {:.3})", 0.55 + pulse * 0.35));
-    context.fill_rect(227.0 + pulse * 0.5, 29.0 + pulse * 0.2, 7.0 + pulse * 1.5, 7.0 + pulse * 1.5);
+    context.fill_rect(
+        227.0 + pulse * 0.5,
+        29.0 + pulse * 0.2,
+        7.0 + pulse * 1.5,
+        7.0 + pulse * 1.5,
+    );
     context.set_fill_style_str("#ff5f5f");
     context.fill_rect(227.0, 29.0, 7.0, 7.0);
 
@@ -490,7 +530,8 @@ fn draw_frame(
     context.set_fill_style_str("rgba(125, 227, 255, 0.06)");
     context.fill_rect(0.0, sweep_y, canvas.width() as f64, 9.0);
 
-    let diagonal_offset = (elapsed_seconds * 120.0) % (canvas.width() as f64 + canvas.height() as f64);
+    let diagonal_offset =
+        (elapsed_seconds * 120.0) % (canvas.width() as f64 + canvas.height() as f64);
     context.set_stroke_style_str("rgba(125, 227, 255, 0.08)");
     context.set_line_width(2.0);
     context.begin_path();
@@ -529,7 +570,13 @@ fn draw_frame(
     let connector_mid_y = summary.player_y + (summary.cursor_y - summary.player_y) * 0.5;
     context.set_fill_style_str(&format!("rgba(125, 227, 255, {:.3})", 0.14 + pulse * 0.18));
     context.begin_path();
-    let _ = context.arc(connector_mid_x, connector_mid_y, 2.5 + pulse * 1.5, 0.0, std::f64::consts::TAU);
+    let _ = context.arc(
+        connector_mid_x,
+        connector_mid_y,
+        2.5 + pulse * 1.5,
+        0.0,
+        std::f64::consts::TAU,
+    );
     context.fill();
 
     let connector_distance = ((summary.cursor_x - summary.player_x).powi(2)
@@ -539,11 +586,17 @@ fn draw_frame(
     context.set_fill_style_str("rgba(9, 12, 20, 0.6)");
     context.fill_rect(connector_mid_x + 8.0, connector_mid_y + 4.0, 44.0, 16.0);
     context.set_fill_style_str(&format!("rgba(244, 247, 251, {:.3})", 0.55 + pulse * 0.2));
-    let _ = context.fill_text(&format!("{:.0}px", connector_distance), connector_mid_x + 11.0, connector_mid_y + 16.0);
+    let _ = context.fill_text(
+        &format!("{:.0}px", connector_distance),
+        connector_mid_x + 11.0,
+        connector_mid_y + 16.0,
+    );
 
     let connector_dx = summary.cursor_x - summary.player_x;
     let connector_dy = summary.cursor_y - summary.player_y;
-    let connector_length = (connector_dx * connector_dx + connector_dy * connector_dy).sqrt().max(1.0);
+    let connector_length = (connector_dx * connector_dx + connector_dy * connector_dy)
+        .sqrt()
+        .max(1.0);
     let arrow_scale = 10.0 / connector_length;
     let arrow_base_x = summary.cursor_x - connector_dx * arrow_scale;
     let arrow_base_y = summary.cursor_y - connector_dy * arrow_scale;
@@ -552,8 +605,14 @@ fn draw_frame(
     context.set_fill_style_str("rgba(125, 227, 255, 0.28)");
     context.begin_path();
     context.move_to(summary.cursor_x, summary.cursor_y);
-    context.line_to(arrow_base_x + perpendicular_x, arrow_base_y + perpendicular_y);
-    context.line_to(arrow_base_x - perpendicular_x, arrow_base_y - perpendicular_y);
+    context.line_to(
+        arrow_base_x + perpendicular_x,
+        arrow_base_y + perpendicular_y,
+    );
+    context.line_to(
+        arrow_base_x - perpendicular_x,
+        arrow_base_y - perpendicular_y,
+    );
     context.close_path();
     context.fill();
 
@@ -571,7 +630,13 @@ fn draw_frame(
     let player_ring = 16.0 + pulse * 10.0;
     context.set_stroke_style_str("rgba(255, 159, 28, 0.28)");
     context.begin_path();
-    let _ = context.arc(summary.player_x, summary.player_y, player_ring, 0.0, std::f64::consts::TAU);
+    let _ = context.arc(
+        summary.player_x,
+        summary.player_y,
+        player_ring,
+        0.0,
+        std::f64::consts::TAU,
+    );
     context.stroke();
 
     let orbit_angle = elapsed_seconds * 1.4;
@@ -583,7 +648,13 @@ fn draw_frame(
     context.fill_rect(orbit_x - 2.0, orbit_y - 2.0, 4.0, 4.0);
 
     context.set_fill_style_str("rgba(255, 159, 28, 0.08)");
-    draw_soft_glow(context, summary.player_x, summary.player_y, player_ring + 14.0, 3);
+    draw_soft_glow(
+        context,
+        summary.player_x,
+        summary.player_y,
+        player_ring + 14.0,
+        3,
+    );
 
     context.set_fill_style_str("#ff9f1c");
     context.fill_rect(summary.player_x - 10.0, summary.player_y - 10.0, 20.0, 20.0);
@@ -596,11 +667,23 @@ fn draw_frame(
     let cursor_ring = 8.0 + (1.0 - pulse) * 6.0;
     context.set_stroke_style_str("rgba(255, 95, 95, 0.22)");
     context.begin_path();
-    let _ = context.arc(summary.cursor_x, summary.cursor_y, cursor_ring, 0.0, std::f64::consts::TAU);
+    let _ = context.arc(
+        summary.cursor_x,
+        summary.cursor_y,
+        cursor_ring,
+        0.0,
+        std::f64::consts::TAU,
+    );
     context.stroke();
 
     context.set_fill_style_str("rgba(255, 95, 95, 0.06)");
-    draw_soft_glow(context, summary.cursor_x, summary.cursor_y, cursor_ring + 10.0 + pulse * 2.0, 2);
+    draw_soft_glow(
+        context,
+        summary.cursor_x,
+        summary.cursor_y,
+        cursor_ring + 10.0 + pulse * 2.0,
+        2,
+    );
 
     context.set_fill_style_str("#ff5f5f");
     context.fill_rect(summary.cursor_x - 3.0, summary.cursor_y - 3.0, 6.0, 6.0);
@@ -609,11 +692,7 @@ fn draw_frame(
     context.set_fill_style_str("rgba(255, 182, 182, 0.9)");
     let _ = context.fill_text("C", summary.cursor_x + 10.0, summary.cursor_y - 10.0);
     context.set_fill_style_str("#f5f7fb");
-    let fixed_step_suffix = if summary.hit_fixed_step_cap {
-        " !"
-    } else {
-        ""
-    };
+    let fixed_step_suffix = if summary.hit_fixed_step_cap { " !" } else { "" };
     context.set_font("16px monospace");
     let _ = context.fill_text("Tokimu live scene", 28.0, 40.0);
     context.set_fill_style_str("rgba(244, 247, 251, 0.68)");
@@ -653,13 +732,7 @@ fn draw_grid(context: &CanvasRenderingContext2d, canvas: &HtmlCanvasElement, spa
 }
 
 #[cfg(target_arch = "wasm32")]
-fn draw_soft_glow(
-    context: &CanvasRenderingContext2d,
-    x: f64,
-    y: f64,
-    radius: f64,
-    layers: u32,
-) {
+fn draw_soft_glow(context: &CanvasRenderingContext2d, x: f64, y: f64, radius: f64, layers: u32) {
     for layer in 0..layers {
         let layer_ratio = 1.0 - layer as f64 / layers as f64;
         let layer_radius = radius * layer_ratio;

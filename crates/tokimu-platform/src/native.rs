@@ -1,9 +1,9 @@
 use crate::{PlatformEventHandler, PlatformInputEvent, PlatformResult, WindowConfig};
-use tokimu_core::FrameOutcome;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokimu_core::FrameOutcome;
 use tokimu_input::{KeyCode, MouseButton};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -109,7 +109,9 @@ where
     F: PlatformEventHandler,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + DEFAULT_FRAME_INTERVAL));
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            Instant::now() + DEFAULT_FRAME_INTERVAL,
+        ));
 
         if self.window.is_none() {
             let window = event_loop
@@ -169,31 +171,43 @@ where
                 event_loop.exit();
             }
             WindowEvent::Resized(size) => {
-                self.emit(event_loop, PlatformInputEvent::Resized {
-                    width: size.width,
-                    height: size.height,
-                });
+                self.emit(
+                    event_loop,
+                    PlatformInputEvent::Resized {
+                        width: size.width,
+                        height: size.height,
+                    },
+                );
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if let Some(key) = map_key_code(event.physical_key) {
-                    self.emit(event_loop, PlatformInputEvent::KeyboardInput {
-                        key,
-                        pressed: event.state == ElementState::Pressed,
-                    });
+                    self.emit(
+                        event_loop,
+                        PlatformInputEvent::KeyboardInput {
+                            key,
+                            pressed: event.state == ElementState::Pressed,
+                        },
+                    );
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                self.emit(event_loop, PlatformInputEvent::CursorMoved {
-                    x: position.x as f32,
-                    y: position.y as f32,
-                });
+                self.emit(
+                    event_loop,
+                    PlatformInputEvent::CursorMoved {
+                        x: position.x as f32,
+                        y: position.y as f32,
+                    },
+                );
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 if let Some(button) = map_mouse_button(button) {
-                    self.emit(event_loop, PlatformInputEvent::MouseInput {
-                        button,
-                        pressed: state == ElementState::Pressed,
-                    });
+                    self.emit(
+                        event_loop,
+                        PlatformInputEvent::MouseInput {
+                            button,
+                            pressed: state == ElementState::Pressed,
+                        },
+                    );
                 }
             }
             _ => {}

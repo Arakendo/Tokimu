@@ -329,5 +329,4 @@ mod tests {
             &[Phase::Render, Phase::Update, Phase::Shutdown]
         );
     }
-
 }

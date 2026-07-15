@@ -182,7 +182,9 @@ pub fn create_openxr_session(config: OpenXrSessionConfig) -> Box<dyn OpenXrSessi
     }
 }
 
-pub fn create_openxr_session_for_readiness(readiness: OpenXrSessionReadiness) -> Box<dyn OpenXrSession> {
+pub fn create_openxr_session_for_readiness(
+    readiness: OpenXrSessionReadiness,
+) -> Box<dyn OpenXrSession> {
     let backend = OpenXrSessionBackend::from_config(readiness.proof_plan.session_config);
 
     match backend {
@@ -191,7 +193,9 @@ pub fn create_openxr_session_for_readiness(readiness: OpenXrSessionReadiness) ->
     }
 }
 
-pub fn create_openxr_session_from_readiness(readiness: OpenXrSessionReadiness) -> Box<dyn OpenXrSession> {
+pub fn create_openxr_session_from_readiness(
+    readiness: OpenXrSessionReadiness,
+) -> Box<dyn OpenXrSession> {
     create_openxr_session_for_readiness(readiness)
 }
 
@@ -245,7 +249,10 @@ mod tests {
     fn maps_quest_pro_steamvr_configs_to_the_expected_backend() {
         let config = OpenXrSessionConfig::quest_pro_via_steamvr("Tokimu");
 
-        assert_eq!(OpenXrSessionBackend::from_config(config), OpenXrSessionBackend::QuestProViaSteamVr);
+        assert_eq!(
+            OpenXrSessionBackend::from_config(config),
+            OpenXrSessionBackend::QuestProViaSteamVr
+        );
     }
 
     #[test]
@@ -282,7 +289,10 @@ mod tests {
     fn constructs_first_headset_proof_plan() {
         let plan = OpenXrHeadsetProofPlan::quest_pro_via_steamvr("Tokimu");
 
-        assert_eq!(plan.session_config.preferred_runtime, OpenXrRuntimeTarget::SteamVr);
+        assert_eq!(
+            plan.session_config.preferred_runtime,
+            OpenXrRuntimeTarget::SteamVr
+        );
         assert_eq!(plan.frame_data.left_eye.width, 1832);
         assert_eq!(plan.frame_data.right_eye.height, 1920);
         assert!(plan.frame_data.left_eye.eye_offset_meters < 0.0);
@@ -331,7 +341,10 @@ mod tests {
         };
         let unsupported = OpenXrSessionCapabilities::unavailable();
 
-        assert_eq!(readiness.proof_plan.session_config.preferred_runtime, OpenXrRuntimeTarget::SteamVr);
+        assert_eq!(
+            readiness.proof_plan.session_config.preferred_runtime,
+            OpenXrRuntimeTarget::SteamVr
+        );
         assert_eq!(readiness.bridge_contract.left_eye.width, 1832);
         assert!(readiness.is_ready(supported));
         assert!(!readiness.is_ready(unsupported));

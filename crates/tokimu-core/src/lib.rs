@@ -3,13 +3,13 @@ pub mod diagnostics;
 pub mod entity;
 pub mod event;
 pub mod math;
-pub mod scene;
 pub mod relation;
 pub mod resource;
-pub mod signal_log;
+pub mod scene;
 pub mod schedule;
-pub mod time;
+pub mod signal_log;
 pub mod system;
+pub mod time;
 pub mod world;
 
 pub use component::Component;
@@ -18,11 +18,14 @@ pub use entity::EntityId;
 pub use event::Event;
 pub use relation::Relation;
 pub use resource::Resource;
+pub use scene::{
+    compile_scene, SceneChange, SceneDoc, SceneEntityDoc, SceneHistoryRecord, SceneParent,
+    ScenePosition,
+};
 pub use schedule::{Phase, Schedule};
-pub use scene::{compile_scene, SceneChange, SceneDoc, SceneEntityDoc, SceneHistoryRecord, SceneParent, ScenePosition};
 pub use signal_log::SignalLog;
-pub use time::{FixedTimeStep, TimeStepPolicy};
 pub use system::{RegisteredSystem, System, SystemRegistry};
+pub use time::{FixedTimeStep, TimeStepPolicy};
 pub use world::World;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -20,7 +20,9 @@ impl RunLoopDiagnostics {
         }
 
         self.last_frame_delta_seconds = summary.frame_delta_seconds;
-        self.max_frame_delta_seconds = self.max_frame_delta_seconds.max(summary.frame_delta_seconds);
+        self.max_frame_delta_seconds = self
+            .max_frame_delta_seconds
+            .max(summary.frame_delta_seconds);
         self.last_summary = Some(summary);
     }
 
@@ -51,13 +53,20 @@ impl RunLoopDiagnostics {
 
 impl fmt::Display for RunLoopDiagnostics {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "run loop timing")?
-        ;
+        writeln!(f, "run loop timing")?;
         writeln!(f, "  frame count: {}", self.frame_count)?;
         writeln!(f, "  total fixed updates: {}", self.total_fixed_updates)?;
         writeln!(f, "  fixed step cap hits: {}", self.fixed_step_cap_hits)?;
-        writeln!(f, "  last frame delta seconds: {:.4}", self.last_frame_delta_seconds)?;
-        writeln!(f, "  max frame delta seconds: {:.4}", self.max_frame_delta_seconds)?;
+        writeln!(
+            f,
+            "  last frame delta seconds: {:.4}",
+            self.last_frame_delta_seconds
+        )?;
+        writeln!(
+            f,
+            "  max frame delta seconds: {:.4}",
+            self.max_frame_delta_seconds
+        )?;
         if let Some(summary) = self.last_summary {
             writeln!(f, "  last summary: {:?}", summary)?;
         }

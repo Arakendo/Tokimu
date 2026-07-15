@@ -81,7 +81,8 @@ impl SystemRegistry {
     }
 
     pub fn register_in_set(&mut self, set_name: impl Into<String>, system: impl System + 'static) {
-        self.systems.push(RegisteredSystem::new_in_set(Box::new(system), set_name));
+        self.systems
+            .push(RegisteredSystem::new_in_set(Box::new(system), set_name));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -114,7 +115,8 @@ impl SystemRegistry {
 
     pub fn remove_in_set(&mut self, set_name: &str) -> usize {
         let before = self.systems.len();
-        self.systems.retain(|system| system.set_name() != Some(set_name));
+        self.systems
+            .retain(|system| system.set_name() != Some(set_name));
         before - self.systems.len()
     }
 
@@ -165,7 +167,8 @@ impl SystemRegistry {
                 .push(index);
         }
 
-        let mut indegree: HashMap<usize, usize> = system_indices.iter().map(|&index| (index, 0)).collect();
+        let mut indegree: HashMap<usize, usize> =
+            system_indices.iter().map(|&index| (index, 0)).collect();
         let mut dependents: HashMap<usize, Vec<usize>> = HashMap::new();
 
         for &index in &system_indices {
