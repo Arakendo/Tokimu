@@ -1404,6 +1404,7 @@ tokimu/
 │   ├── kernel-principles.md
 │   ├── semantic-kernel-map.md
 │   ├── architectural-maxims.md
+│   ├── primitive-ledger.md
 │   ├── future-workspace-layout.md
 │   ├── contribution-admission-guide.md
 │   ├── ADR/

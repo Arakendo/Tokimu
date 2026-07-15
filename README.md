@@ -1,73 +1,64 @@
 # Tokimu
 
-Tokimu is a Rust-native real-time simulation and rendering engine intended for
-games, interactive tools, technical simulations, and eventually WebAssembly
+Tokimu is a Rust-native real-time simulation and rendering engine for games,
+interactive tools, technical simulations, and eventually WebAssembly
 deployment.
 
-It is not merely a "game engine" in the mechanical sense — it is a
+It is not merely a game engine in the mechanical sense. It is a
 state-processing runtime: it accepts input, rules, assets, and time, then
 produces updated world state and rendered output.
 
-## Naming Note
+## Naming Conventions
 
-Tokimu is a peer project to Tosumu, and both names descend from the same
-conlang tradition represented by the Tonesu project.
+Tokimu uses ownership-first crate naming.
 
-Tonesu is explicitly designed around compositional meaning and epistemic
-honesty: it cares not only about what is claimed, but about what kind of claim
-is being made and what structural boundaries make that claim valid. Those ideas
-had a stronger direct influence on Tosumu, but they matter here as well.
+* `tokimu-<role>` for first-party engine crates such as `tokimu-core`,
+  `tokimu-runtime`, `tokimu-render`, `tokimu-platform`, `tokimu-assets`,
+  `tokimu-input`, `tokimu-rule`, `tokimu-ts-frontend`, and `tokimu-wasm`
+* `tokimu-<domain>` for Tokimu-owned optional capability crates, once earned
+* `tokimu-<domain>-<backend>` for concrete backend adapters behind those
+  capabilities
+* `@tokimu/*` for TypeScript authoring packages under `frontends/`
 
-In Tokimu, that influence shows up as engineering preference rather than
-terminology: clear simulation truth, explicit subsystem boundaries, visible
-diagnostics, and caution about letting tooling or persistence layers silently
-overclaim ownership of runtime state.
+That naming follows the broader architectural rule: names should reveal who
+owns the meaning, not which library happened to be convenient.
 
-## Related Projects
+## Current Workspace
 
-Tokimu sits alongside two related projects:
+The workspace is past scaffolding and already includes the current engine and
+authoring slices.
 
-* **Tosumu** — a peer Rust project focused on storage and database design,
-  where these philosophical influences are applied more directly to integrity,
-  explicit state claims, and persistence boundaries.
-* **Tonesu** — the broader conlang project from which the naming lineage comes.
-  Tonesu emphasizes compositional meaning, explicit structural relations, and
-  epistemic honesty.
+* Core/runtime: `tokimu-core`, `tokimu-runtime`, `tokimu-rule`, `tokimu`
+* Foundational services: `tokimu-render`, `tokimu-platform`, `tokimu-assets`,
+  `tokimu-input`
+* Authoring/runtime bridges: `tokimu-ts-frontend`, `tokimu-wasm`
+* Examples: `hello-window`, `hello-triangle`, `hello-3d-mono`,
+  `hello-3d-stereo`, `hello-rule-model`, `hello-3d-openxr`, `hello-snake`,
+  `hello-pacman`, `hello-space-invaders`, `hello-missile-command`,
+  `hello-asteroids`
+* Frontends: `frontends/` with `tokimu`, `@tokimu/rules`, and example packages
 
-Tokimu does not adopt Tonesu terminology as an API surface. It borrows the
-design pressure toward clearer truth boundaries and more honest system claims.
-
-## Status
-
-The workspace has moved beyond scaffolding: the core crates, platform seam,
-renderer proof, and two native examples are all runnable, with
-`hello-triangle` now carrying a small playable loop as well. See the
-[Software Design Document](docs/Tokimu%20Software%20Design%20Document.md) for the
-full architecture, subsystem breakdown, and milestone plan.
+See the [Software Design Document](docs/Tokimu%20Software%20Design%20Document.md)
+for the full architecture, subsystem breakdown, and milestone plan.
 
 ## Goals
 
-- Rust-native engine architecture
-- Deterministic simulation core where practical
-- Modular subsystems with clean boundaries
-- ECS-friendly world model
-- Desktop-first development, with planned WebAssembly export
-- Minimal early scope with room for later expansion
+* Rust-native engine architecture
+* Deterministic simulation core where practical
+* Modular subsystems with clear ownership boundaries
+* ECS-friendly world model
+* Desktop-first development, with planned WebAssembly export
+* Minimal early scope with room for later expansion
 
-## Planned workspace layout
+## Related Docs
 
-```text
-crates/
-  tokimu           # public facade crate
-  tokimu-core      # engine-neutral world/ECS/time/math
-  tokimu-runtime   # app loop, scheduling, plugins
-  tokimu-render    # rendering abstraction (wgpu)
-  tokimu-platform  # windowing, input, timing (winit / wasm)
-  tokimu-assets    # asset ids, handles, loaders
-  tokimu-input     # normalized input state and action mapping
-  tokimu-wasm      # WebAssembly entry point
-examples/          # hello-window, hello-triangle, wasm-demo
-```
+* [Tokimu Architectural Maxims](docs/architectural-maxims.md)
+* [Tokimu Kernel Principles](docs/kernel-principles.md)
+* [Tokimu Semantic Kernel Map](docs/semantic-kernel-map.md)
+* [Tokimu Primitive Ledger](docs/primitive-ledger.md)
+* [Tokimu Capability Backends](docs/capability-backends.md)
+* [Tokimu Future Workspace Layout](docs/future-workspace-layout.md)
+* [Tokimu Contribution Admission Guide](docs/contribution-admission-guide.md)
 
 ## License
 
