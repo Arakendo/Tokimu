@@ -1008,13 +1008,23 @@ capability crate and optional backend adapters. `docs/capability-backends.md`
 defines the detailed mechanism; this SDD and ADR-0003 define the architectural
 boundary.
 
-Two side documents carry the supporting discipline and should be treated as
-normative guidance for boundary decisions: `docs/kernel-principles.md` (the small
-trusted core, explicit authority, handles over raw ownership, revocable scoped
-capabilities) and `docs/semantic-kernel-map.md` (the primitive admission test,
-the critical-distinctions table, and the tiered kernel/capability/backend
-primitive sets). Use them to decide whether a concept is kernel-native,
-capability-owned, or a backend detail before adding it.
+The supporting side documents now divide into four roles and should be treated
+as normative guidance when architectural boundaries are in question:
+
+* `docs/architectural-maxims.md` records the short, memorable principles that
+  guide judgment across the rest of the architecture.
+* `docs/kernel-principles.md` defines the small trusted core, explicit
+  authority, handles over raw ownership, and revocable scoped capabilities.
+* `docs/semantic-kernel-map.md` defines the primitive admission test, the
+  critical-distinctions table, and the tiered kernel/capability/backend
+  primitive sets.
+* `docs/capability-backends.md`, `docs/future-workspace-layout.md`, and
+  `docs/contribution-admission-guide.md` describe how optional domains are
+  implemented, where owned meaning should live in the workspace, and how new
+  architectural additions are admitted or retired over time.
+
+Use this set to decide whether a concept is kernel-native,
+capability-owned, a backend detail, or not yet earned at all.
 
 ## 6. Engine Loop
 
@@ -1380,6 +1390,10 @@ tracing-wasm
 
 ## 11. Project Skeleton
 
+This section records the current or near-term factual workspace shape. It is
+not, by itself, a mandate to reorganize the repository immediately around every
+future architectural category.
+
 ```text
 tokimu/
 ├── Cargo.toml
@@ -1389,6 +1403,9 @@ tokimu/
 │   ├── capability-backends.md
 │   ├── kernel-principles.md
 │   ├── semantic-kernel-map.md
+│   ├── architectural-maxims.md
+│   ├── future-workspace-layout.md
+│   ├── contribution-admission-guide.md
 │   ├── ADR/
 │   │   ├── ADR-0001-engine-boundaries.md
 │   │   ├── ADR-0002-conceptual-influence.md
@@ -1501,6 +1518,25 @@ concrete use case earns it, then add one backend adapter only when that same
 use case proves a specific external library is worth supporting. Do not grow
 those responsibilities directly into `tokimu-core` or `tokimu-runtime`.
 
+The folder/crate rework described in `future-workspace-layout.md` is therefore
+planned guidance, not a claim that folders such as `adapters/` already exist or
+should be created before the first real capability/backend pair earns them.
+Tokimu should adopt that future taxonomy incrementally as concrete needs land,
+not for aesthetic symmetry alone.
+
+Taken together, the side documents now serve different but complementary roles:
+the SDD defines Tokimu's intended architecture, `architectural-maxims.md`
+records short guiding principles, `kernel-principles.md` and
+`semantic-kernel-map.md` define what belongs in the trusted core,
+`capability-backends.md` defines optional-domain implementation boundaries,
+`future-workspace-layout.md` defines where owned meaning should live in the
+workspace, and `contribution-admission-guide.md` defines how architecture is
+allowed to evolve. They should reinforce one another rather than compete.
+
+See [future-workspace-layout.md](future-workspace-layout.md) for the recommended
+crate taxonomy, naming rules, and target future tree once the first capability
+and backend adapter crates are earned.
+
 The authoring-frontend crates implied by sections 5.11 and 5.12 now exist in
 first-draft form. The engine-owned `tokimu-rule` crate anchors the semantic
 model, the Rust `tokimu-ts-frontend` crate owns recognition/validation/lowering,
@@ -1508,8 +1544,8 @@ and the separate `frontends/` workspace holds the TypeScript authoring packages.
 See [Tokimu TypeScript Design Document.md](Tokimu%20TypeScript%20Design%20Document.md)
 for the full frontend design.
 
-Current / near-term layout (illustrative shape, still expected to grow only as
-examples earn it):
+Current / near-term frontend layout (illustrative shape, still expected to grow
+only as examples earn it):
 
 ```text
 crates/
