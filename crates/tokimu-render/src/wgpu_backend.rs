@@ -4,11 +4,17 @@ use crate::{
     RenderableHandle, Renderer,
 };
 use bytemuck::{Pod, Zeroable};
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlCanvasElement;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use wgpu::util::DeviceExt;
+#[cfg(target_arch = "wasm32")]
+use raw_window_handle::{WebCanvasWindowHandle, WebDisplayHandle};
+#[cfg(target_arch = "wasm32")]
+use wgpu::SurfaceTargetUnsafe;
 
 #[derive(Debug, Error)]
 pub enum WgpuBackendError {
@@ -109,11 +115,21 @@ impl WgpuBackend {
         pollster::block_on(Self::create())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn for_window<W>(window: Arc<W>, width: u32, height: u32) -> Result<Self, WgpuBackendError>
     where
         W: HasDisplayHandle + HasWindowHandle + Send + Sync + 'static,
     {
         pollster::block_on(Self::create_for_window(window, width, height))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub async fn for_window(
+        canvas: HtmlCanvasElement,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, WgpuBackendError> {
+        Self::create_for_canvas(canvas, width, height).await
     }
 
     async fn create() -> Result<Self, WgpuBackendError> {
@@ -157,6 +173,87 @@ impl WgpuBackend {
         let instance = wgpu::Instance::default();
         let surface = instance
             .create_surface(window)
+            .map_err(|error| WgpuBackendError::SurfaceCreation(error.to_string()))?;
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: Some(&surface),
+                ..Default::default()
+            })
+            .await
+            .ok_or(WgpuBackendError::AdapterRequest)?;
+        let adapter_info = adapter.get_info();
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor::default(), None)
+            .await
+            .map_err(|error| WgpuBackendError::DeviceRequest(error.to_string()))?;
+        let capabilities = surface.get_capabilities(&adapter);
+        let format = capabilities
+            .formats
+            .iter()
+            .copied()
+            .find(wgpu::TextureFormat::is_srgb)
+            .or_else(|| capabilities.formats.first().copied())
+            .ok_or(WgpuBackendError::SurfaceFormatUnavailable)?;
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            width: width.max(1),
+            height: height.max(1),
+            present_mode: capabilities.present_modes[0],
+            alpha_mode: capabilities.alpha_modes[0],
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+        let camera_bind_group_layout = create_camera_bind_group_layout(&device);
+        let material_bind_group_layout = create_material_bind_group_layout(&device);
+        let instance_bind_group_layout = create_instance_bind_group_layout(&device);
+        let (depth_texture, depth_view) = create_depth_texture(&device, width, height);
+        surface.configure(&device, &config);
+
+        Ok(Self {
+            draw_calls: 0,
+            queued_draws: Vec::new(),
+            meshes: HashMap::new(),
+            materials: HashMap::new(),
+            pipelines: HashMap::new(),
+            pipeline_registry: PipelineRegistry::new(),
+            renderables: HashMap::new(),
+            cameras: HashMap::new(),
+            active_camera: crate::resources::CameraHandle::default(),
+            _instance: instance,
+            _device: device,
+            _queue: queue,
+            adapter_info,
+            surface_state: Some(SurfaceState {
+                surface,
+                config,
+                clear_color: Color::BLACK,
+                depth_texture,
+                depth_view,
+                camera_bind_group_layout,
+                material_bind_group_layout,
+                instance_bind_group_layout,
+            }),
+        })
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    async fn create_for_canvas(
+        canvas: HtmlCanvasElement,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, WgpuBackendError> {
+        let instance = wgpu::Instance::default();
+        let value: &wasm_bindgen::JsValue = &canvas;
+        let obj = std::ptr::NonNull::from(value).cast();
+        let raw_window_handle = WebCanvasWindowHandle::new(obj).into();
+        let raw_display_handle = WebDisplayHandle::new().into();
+        let surface = unsafe {
+            instance.create_surface_unsafe(SurfaceTargetUnsafe::RawHandle {
+                raw_display_handle,
+                raw_window_handle,
+            })
+        }
             .map_err(|error| WgpuBackendError::SurfaceCreation(error.to_string()))?;
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {

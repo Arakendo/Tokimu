@@ -100,6 +100,19 @@ features:
 4. level chunks, item pickups, or door triggers
 5. browser polish for a real hosted web build
 
+## Local Web Hosting
+
+Run the browser shell through the example's local server, not directly from
+`file://`.
+
+- `npm start` in `examples/hello-fps-web/web` builds the TypeScript bundle,
+	starts the Rust example, and serves the shell on `http://127.0.0.1:4173`
+- the Rust process writes live frame snapshots to `web/live-frame.json`
+- the browser shell polls that file and switches from the demo preview to the
+	Rust feed as soon as the first snapshot arrives
+- opening `index.html` directly from disk will fail for module loading because
+	the browser treats `file://` as an isolated origin
+
 ## Architectural Assertions
 
 This example demonstrates:

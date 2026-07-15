@@ -48,7 +48,7 @@ where
     );
 
     attach_keyboard_listeners(&window, event_handler.clone())?;
-    attach_mouse_listeners(&canvas, event_handler.clone())?;
+    attach_mouse_listeners(&document, &canvas, event_handler.clone())?;
     attach_resize_listener(&window, &canvas, event_handler.clone())?;
 
     Ok(())
@@ -85,9 +85,15 @@ fn attach_keyboard_listeners(
     window: &Window,
     event_handler: Rc<RefCell<impl FnMut(PlatformInputEvent) + 'static>>,
 ) -> PlatformResult<()> {
+    let document_for_escape = window
+        .document()
+        .ok_or_else(|| boxed_error("browser document is not available"))?;
     let keydown_handler = event_handler.clone();
     let keydown = Closure::wrap(Box::new(move |event: web_sys::Event| {
         if let Ok(key_event) = event.dyn_into::<KeyboardEvent>() {
+            if key_event.code() == "Escape" && document_for_escape.pointer_lock_element().is_some() {
+                document_for_escape.exit_pointer_lock();
+            }
             if let Some(key) = map_key_code(&key_event.code()) {
                 emit_event(
                     &keydown_handler,
@@ -125,26 +131,42 @@ fn attach_keyboard_listeners(
 
 #[cfg(target_arch = "wasm32")]
 fn attach_mouse_listeners(
+    document: &Document,
     canvas: &HtmlCanvasElement,
     event_handler: Rc<RefCell<impl FnMut(PlatformInputEvent) + 'static>>,
 ) -> PlatformResult<()> {
     let move_handler = event_handler.clone();
+    let document_for_move = document.clone();
     let cursor_moved = Closure::wrap(Box::new(move |event: web_sys::Event| {
         if let Ok(mouse_event) = event.dyn_into::<MouseEvent>() {
-            emit_event(
-                &move_handler,
-                PlatformInputEvent::CursorMoved {
-                    x: mouse_event.offset_x() as f32,
-                    y: mouse_event.offset_y() as f32,
-                },
-            );
+            if document_for_move.pointer_lock_element().is_some() {
+                emit_event(
+                    &move_handler,
+                    PlatformInputEvent::MouseMotion {
+                        delta_x: mouse_event.movement_x() as f32,
+                        delta_y: mouse_event.movement_y() as f32,
+                    },
+                );
+            } else {
+                emit_event(
+                    &move_handler,
+                    PlatformInputEvent::CursorMoved {
+                        x: mouse_event.offset_x() as f32,
+                        y: mouse_event.offset_y() as f32,
+                    },
+                );
+            }
         }
     }) as Box<dyn FnMut(web_sys::Event)>);
 
     let button_handler = event_handler;
+    let canvas_for_button = canvas.clone();
     let mouse_button = Closure::wrap(Box::new(move |event: web_sys::Event| {
         if let Ok(mouse_event) = event.dyn_into::<MouseEvent>() {
             if let Some(button) = map_mouse_button(mouse_event.button()) {
+                if mouse_event.type_() == "mousedown" && mouse_event.button() == 0 {
+                    let _ = canvas_for_button.request_pointer_lock();
+                }
                 emit_event(
                     &button_handler,
                     PlatformInputEvent::MouseInput {
@@ -165,8 +187,25 @@ fn attach_mouse_listeners(
     canvas
         .add_event_listener_with_callback("mouseup", mouse_button.as_ref().unchecked_ref())
         .map_err(|error| boxed_error(format!("{:?}", error)))?;
+
+    let document_for_lock_state = document.clone();
+    let canvas_for_lock_state = canvas.clone();
+    let pointer_lock_change = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+        let locked = document_for_lock_state.pointer_lock_element().is_some();
+        let _ = canvas_for_lock_state
+            .style()
+            .set_property("cursor", if locked { "none" } else { "default" });
+    }) as Box<dyn FnMut(web_sys::Event)>);
+
+    document
+        .add_event_listener_with_callback("pointerlockchange", pointer_lock_change.as_ref().unchecked_ref())
+        .map_err(|error| boxed_error(format!("{:?}", error)))?;
+
+    let _ = canvas.style().set_property("cursor", "default");
+
     cursor_moved.forget();
     mouse_button.forget();
+    pointer_lock_change.forget();
     Ok(())
 }
 

@@ -12,3 +12,7 @@ raw-window-handle = "0.6"
 thiserror.workspace = true
 wgpu.workspace = true
 tokimu-core = { path = "../tokimu-core" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+web-sys = { workspace = true, features = ["HtmlCanvasElement"] }

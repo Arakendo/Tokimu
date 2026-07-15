@@ -3,10 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "start": "echo Tokimu hello-fps-web web shell placeholder",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.2"
+    "start": "node serve.mjs"
   }
 }
