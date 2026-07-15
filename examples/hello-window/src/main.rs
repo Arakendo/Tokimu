@@ -2,8 +2,11 @@ mod output;
 
 use output::{Channel, OutputRouter};
 use std::sync::Arc;
-use tokimu::{run_window_with_app, App, KeyCode, NativeWindow, PlatformEventHandler, PlatformInputEvent, PlatformResult, WindowConfig};
 use tokimu::FrameOutcome;
+use tokimu::{
+    run_window_with_app, App, KeyCode, NativeWindow, PlatformEventHandler, PlatformInputEvent,
+    PlatformResult, WindowConfig,
+};
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(WindowConfig::default(), HelloWindowApp::new())
@@ -24,7 +27,8 @@ struct HelloWindowApp {
 impl PlatformEventHandler for HelloWindowApp {
     fn on_native_window_created(&mut self, window: Arc<NativeWindow>) -> PlatformResult<()> {
         self.window = Some(window);
-        self.output.emit_one_shot(Channel::Lifecycle, "hello-window native window created");
+        self.output
+            .emit_one_shot(Channel::Lifecycle, "hello-window native window created");
         self.update_window_title();
         Ok(())
     }
@@ -33,13 +37,16 @@ impl PlatformEventHandler for HelloWindowApp {
         if let PlatformInputEvent::CloseRequested = event {
             let diagnostics = self.app.run_loop_diagnostics();
             self.output.flush();
-            self.output.emit_one_shot(Channel::Lifecycle, format!(
-                "shutdown summary frames={} fixed_updates={} cap_hits={} elapsed={:.2}s",
-                diagnostics.frame_count(),
-                diagnostics.total_fixed_updates(),
-                diagnostics.fixed_step_cap_hits(),
-                self.app.elapsed_seconds(),
-            ));
+            self.output.emit_one_shot(
+                Channel::Lifecycle,
+                format!(
+                    "shutdown summary frames={} fixed_updates={} cap_hits={} elapsed={:.2}s",
+                    diagnostics.frame_count(),
+                    diagnostics.total_fixed_updates(),
+                    diagnostics.fixed_step_cap_hits(),
+                    self.app.elapsed_seconds(),
+                ),
+            );
             return Ok(());
         }
 

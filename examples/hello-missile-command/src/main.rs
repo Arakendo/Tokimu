@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, MouseButton,
-    NativeWindow, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler,
-    PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, MouseButton, NativeWindow, Pipeline,
+    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 
 const TILE_MESH: MeshHandle = MeshHandle(1);
@@ -91,7 +91,9 @@ impl HelloMissileCommandApp {
 
         if let Some(window) = self.window.as_ref() {
             let status = match self.game.state {
-                GameState::Playing => "A/D swap home sites, move the cursor to aim, left click to fire",
+                GameState::Playing => {
+                    "A/D swap home sites, move the cursor to aim, left click to fire"
+                }
                 GameState::Won => "city defended - left click to restart",
                 GameState::Lost => "defenses breached - left click to restart",
             };
@@ -145,7 +147,12 @@ impl HelloMissileCommandApp {
 
         for city in &self.game.cities {
             if !city.destroyed {
-                commands.push(draw_tile(city.position, CITY_MATERIAL, [CITY_SCALE, CITY_SCALE], self.pipeline));
+                commands.push(draw_tile(
+                    city.position,
+                    CITY_MATERIAL,
+                    [CITY_SCALE, CITY_SCALE],
+                    self.pipeline,
+                ));
             }
         }
 
@@ -155,7 +162,12 @@ impl HelloMissileCommandApp {
             } else {
                 HOME_MATERIAL
             };
-            commands.push(draw_tile(*home, material, [TURRET_SCALE, TURRET_SCALE], self.pipeline));
+            commands.push(draw_tile(
+                *home,
+                material,
+                [TURRET_SCALE, TURRET_SCALE],
+                self.pipeline,
+            ));
         }
 
         commands.push(draw_world_tile(
@@ -167,16 +179,36 @@ impl HelloMissileCommandApp {
 
         for missile in &self.game.missiles {
             for trail in &missile.trail {
-                commands.push(draw_world_tile(*trail, MISSILE_TRAIL_MATERIAL, [TRAIL_SCALE, TRAIL_SCALE], self.pipeline));
+                commands.push(draw_world_tile(
+                    *trail,
+                    MISSILE_TRAIL_MATERIAL,
+                    [TRAIL_SCALE, TRAIL_SCALE],
+                    self.pipeline,
+                ));
             }
-            commands.push(draw_world_tile(missile.position, MISSILE_MATERIAL, [MISSILE_SCALE, MISSILE_SCALE], self.pipeline));
+            commands.push(draw_world_tile(
+                missile.position,
+                MISSILE_MATERIAL,
+                [MISSILE_SCALE, MISSILE_SCALE],
+                self.pipeline,
+            ));
         }
 
         for interceptor in &self.game.interceptors {
             for trail in &interceptor.trail {
-                commands.push(draw_world_tile(*trail, INTERCEPTOR_TRAIL_MATERIAL, [TRAIL_SCALE, TRAIL_SCALE], self.pipeline));
+                commands.push(draw_world_tile(
+                    *trail,
+                    INTERCEPTOR_TRAIL_MATERIAL,
+                    [TRAIL_SCALE, TRAIL_SCALE],
+                    self.pipeline,
+                ));
             }
-            commands.push(draw_world_tile(interceptor.position, INTERCEPTOR_MATERIAL, [INTERCEPTOR_SCALE, INTERCEPTOR_SCALE], self.pipeline));
+            commands.push(draw_world_tile(
+                interceptor.position,
+                INTERCEPTOR_MATERIAL,
+                [INTERCEPTOR_SCALE, INTERCEPTOR_SCALE],
+                self.pipeline,
+            ));
         }
 
         for explosion in &self.game.explosions {
@@ -187,10 +219,20 @@ impl HelloMissileCommandApp {
                 self.pipeline,
             ));
             for cell in explosion_cells(explosion.center, explosion.radius) {
-                commands.push(draw_tile(cell, EXPLOSION_RING_MATERIAL, [EXPLOSION_RING_SCALE, EXPLOSION_RING_SCALE], self.pipeline));
+                commands.push(draw_tile(
+                    cell,
+                    EXPLOSION_RING_MATERIAL,
+                    [EXPLOSION_RING_SCALE, EXPLOSION_RING_SCALE],
+                    self.pipeline,
+                ));
             }
             for cell in explosion_cells(explosion.center, (explosion.radius * 0.6).max(0.5)) {
-                commands.push(draw_tile(cell, EXPLOSION_CORE_MATERIAL, [EXPLOSION_CORE_SCALE, EXPLOSION_CORE_SCALE], self.pipeline));
+                commands.push(draw_tile(
+                    cell,
+                    EXPLOSION_CORE_MATERIAL,
+                    [EXPLOSION_CORE_SCALE, EXPLOSION_CORE_SCALE],
+                    self.pipeline,
+                ));
             }
         }
 
@@ -243,15 +285,24 @@ impl PlatformEventHandler for HelloMissileCommandApp {
         )?;
         renderer.upload_material(
             INTERCEPTOR_TRAIL_MATERIAL,
-            &Material::new("missile-interceptor-trail", Color::rgba(0.98, 0.88, 0.42, 0.40)),
+            &Material::new(
+                "missile-interceptor-trail",
+                Color::rgba(0.98, 0.88, 0.42, 0.40),
+            ),
         )?;
         renderer.upload_material(
             EXPLOSION_CORE_MATERIAL,
-            &Material::new("missile-explosion-core", Color::rgba(0.98, 0.90, 0.42, 0.92)),
+            &Material::new(
+                "missile-explosion-core",
+                Color::rgba(0.98, 0.90, 0.42, 0.92),
+            ),
         )?;
         renderer.upload_material(
             EXPLOSION_RING_MATERIAL,
-            &Material::new("missile-explosion-ring", Color::rgba(0.98, 0.72, 0.36, 0.45)),
+            &Material::new(
+                "missile-explosion-ring",
+                Color::rgba(0.98, 0.72, 0.36, 0.45),
+            ),
         )?;
         renderer.upload_material(
             EXPLOSION_MATERIAL,
@@ -467,10 +518,7 @@ struct MissileCommandGame {
 impl MissileCommandGame {
     fn new() -> Self {
         let mut game = Self {
-            home_positions: [
-                (HOME_COLUMNS[0], PLAYER_Y),
-                (HOME_COLUMNS[1], PLAYER_Y),
-            ],
+            home_positions: [(HOME_COLUMNS[0], PLAYER_Y), (HOME_COLUMNS[1], PLAYER_Y)],
             selected_home_index: 0,
             cursor_target: (0.0, 0.0),
             missiles: Vec::new(),
@@ -509,7 +557,8 @@ impl MissileCommandGame {
 
     fn select_home(&mut self, delta: i32) {
         if self.state == GameState::Playing {
-            let next = (self.selected_home_index as i32 + delta).rem_euclid(self.home_positions.len() as i32);
+            let next = (self.selected_home_index as i32 + delta)
+                .rem_euclid(self.home_positions.len() as i32);
             self.selected_home_index = next as usize;
         }
     }
@@ -610,7 +659,8 @@ impl MissileCommandGame {
         for explosion in &mut self.explosions {
             explosion.radius = (explosion.radius + 0.6).min(explosion.max_radius);
         }
-        self.explosions.retain(|explosion| explosion.radius < explosion.max_radius);
+        self.explosions
+            .retain(|explosion| explosion.radius < explosion.max_radius);
     }
 
     fn resolve_collisions(&mut self) {
@@ -628,8 +678,8 @@ impl MissileCommandGame {
         for target in detonations {
             self.explosions.push(Explosion {
                 center: target,
-                    radius: 0.3,
-                    max_radius: 3.0,
+                radius: 0.3,
+                max_radius: 3.0,
             });
         }
 
@@ -653,15 +703,11 @@ impl MissileCommandGame {
                     radius: 0.3,
                     max_radius: 2.6,
                 });
-            } else if let Some(city) = self
-                .cities
-                .iter_mut()
-                .find(|city| {
-                    !city.destroyed
-                        && (cell_to_world(city.position).0 - missile_world.0).abs() <= 0.6
-                        && (cell_to_world(city.position).1 - missile_world.1).abs() <= 0.8
-                })
-            {
+            } else if let Some(city) = self.cities.iter_mut().find(|city| {
+                !city.destroyed
+                    && (cell_to_world(city.position).0 - missile_world.0).abs() <= 0.6
+                    && (cell_to_world(city.position).1 - missile_world.1).abs() <= 0.8
+            }) {
                 city.destroyed = true;
             } else if reached_target {
                 self.state = GameState::Lost;

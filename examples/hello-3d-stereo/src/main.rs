@@ -62,7 +62,8 @@ impl PlatformEventHandler for Hello3dApp {
             CUBE_MATERIAL,
             &Material::new("cube-material", Color::rgb(0.92, 0.72, 0.26)),
         )?;
-        self.pipeline = renderer.register_pipeline(&Pipeline::new("cube-pipeline", PipelineKind::LitColor3d))?;
+        self.pipeline = renderer
+            .register_pipeline(&Pipeline::new("cube-pipeline", PipelineKind::LitColor3d))?;
         self.renderer = Some(renderer);
         Ok(())
     }
@@ -105,9 +106,11 @@ impl PlatformEventHandler for Hello3dApp {
         let left_eye = center_eye - right * eye_separation;
         let right_eye = center_eye + right * eye_separation;
 
-        let mut left_camera = Camera::perspective_3d(self.window_size[0] * 0.5, self.window_size[1]);
+        let mut left_camera =
+            Camera::perspective_3d(self.window_size[0] * 0.5, self.window_size[1]);
         left_camera.view = Mat4::look_at_rh(left_eye, Vec3::ZERO, Vec3::Y);
-        let mut right_camera = Camera::perspective_3d(self.window_size[0] * 0.5, self.window_size[1]);
+        let mut right_camera =
+            Camera::perspective_3d(self.window_size[0] * 0.5, self.window_size[1]);
         right_camera.view = Mat4::look_at_rh(right_eye, Vec3::ZERO, Vec3::Y);
         renderer.upload_camera(LEFT_EYE_CAMERA, left_camera);
         renderer.upload_camera(RIGHT_EYE_CAMERA, right_camera);
@@ -153,19 +156,21 @@ fn spin_cube(seconds: f32) -> Mesh {
     let yaw = seconds * 0.7;
     let pitch = seconds * 0.45;
     let roll = seconds * 0.25;
-    let transform = Mat4::from_rotation_y(yaw)
-        * Mat4::from_rotation_x(pitch)
-        * Mat4::from_rotation_z(roll);
-    let normal_transform = Mat4::from_rotation_y(yaw)
-        * Mat4::from_rotation_x(pitch)
-        * Mat4::from_rotation_z(roll);
+    let transform =
+        Mat4::from_rotation_y(yaw) * Mat4::from_rotation_x(pitch) * Mat4::from_rotation_z(roll);
+    let normal_transform =
+        Mat4::from_rotation_y(yaw) * Mat4::from_rotation_x(pitch) * Mat4::from_rotation_z(roll);
     let base_cube = Mesh::cube();
 
     Mesh::new(
         base_cube
             .positions
             .into_iter()
-            .map(|position| transform.transform_point3(Vec3::from_array(position)).to_array())
+            .map(|position| {
+                transform
+                    .transform_point3(Vec3::from_array(position))
+                    .to_array()
+            })
             .collect(),
         base_cube
             .normals

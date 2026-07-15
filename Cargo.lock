@@ -610,6 +610,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-asteroids"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+]
+
+[[package]]
 name = "hello-missile-command"
 version = "0.1.0"
 dependencies = [

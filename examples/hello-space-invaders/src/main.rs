@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle,
-    NativeWindow, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler,
-    PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
+    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 
 const TILE_MESH: MeshHandle = MeshHandle(1);
@@ -119,11 +119,21 @@ impl HelloSpaceInvadersApp {
         ));
 
         for invader in &self.game.invaders {
-            commands.push(draw_tile(*invader, INVADER_MATERIAL, [INVADER_SCALE, INVADER_SCALE], self.pipeline));
+            commands.push(draw_tile(
+                *invader,
+                INVADER_MATERIAL,
+                [INVADER_SCALE, INVADER_SCALE],
+                self.pipeline,
+            ));
         }
 
         for bullet in &self.game.bullets {
-            commands.push(draw_tile(*bullet, BULLET_MATERIAL, [BULLET_SCALE, BULLET_SCALE], self.pipeline));
+            commands.push(draw_tile(
+                *bullet,
+                BULLET_MATERIAL,
+                [BULLET_SCALE, BULLET_SCALE],
+                self.pipeline,
+            ));
         }
 
         commands.push(draw_tile(
@@ -318,7 +328,8 @@ impl SpaceInvadersGame {
 
         for row in 0..INVADER_ROWS {
             for column in 0..INVADER_COLUMNS {
-                self.invaders.push((INVADER_START_X + column * 2, INVADER_START_Y + row * 2));
+                self.invaders
+                    .push((INVADER_START_X + column * 2, INVADER_START_Y + row * 2));
             }
         }
     }
@@ -361,7 +372,7 @@ impl SpaceInvadersGame {
     fn step_once(&mut self) {
         self.move_bullets();
         self.invader_step_count += 1;
-        if self.invader_step_count % INVADER_MOVE_INTERVAL == 0 {
+        if self.invader_step_count.is_multiple_of(INVADER_MOVE_INTERVAL) {
             self.move_invaders();
         }
         self.resolve_bullet_hits();
@@ -380,10 +391,13 @@ impl SpaceInvadersGame {
     }
 
     fn move_invaders(&mut self) {
-        let edge_hit = self.invaders.iter().any(|(x, _)| match self.invader_direction {
-            InvaderDirection::Right => *x >= GRID_WIDTH - 2,
-            InvaderDirection::Left => *x <= 1,
-        });
+        let edge_hit = self
+            .invaders
+            .iter()
+            .any(|(x, _)| match self.invader_direction {
+                InvaderDirection::Right => *x >= GRID_WIDTH - 2,
+                InvaderDirection::Left => *x <= 1,
+            });
 
         if edge_hit {
             for invader in &mut self.invaders {
@@ -412,7 +426,11 @@ impl SpaceInvadersGame {
     }
 
     fn check_player_contact(&mut self) {
-        if self.invaders.iter().any(|invader| *invader == self.player || invader.1 >= self.player.1) {
+        if self
+            .invaders
+            .iter()
+            .any(|invader| *invader == self.player || invader.1 >= self.player.1)
+        {
             self.state = GameState::Lost;
         }
     }

@@ -23,6 +23,7 @@ members = [
     "examples/hello-pacman",
     "examples/hello-space-invaders",
     "examples/hello-missile-command",
+    "examples/hello-asteroids",
 ]
 
 [workspace.package]

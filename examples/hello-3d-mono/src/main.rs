@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow,
-    Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
 use tokimu_core::math::{Mat4, Vec3};
 
@@ -61,7 +61,8 @@ impl PlatformEventHandler for Hello3dMonoApp {
             CUBE_MATERIAL,
             &Material::new("cube-material", Color::rgb(0.92, 0.72, 0.26)),
         )?;
-        self.pipeline = renderer.register_pipeline(&Pipeline::new("cube-pipeline", PipelineKind::LitColor3d))?;
+        self.pipeline = renderer
+            .register_pipeline(&Pipeline::new("cube-pipeline", PipelineKind::LitColor3d))?;
         self.renderer = Some(renderer);
         Ok(())
     }
@@ -126,19 +127,21 @@ fn spin_cube(seconds: f32) -> Mesh {
     let yaw = seconds * 0.7;
     let pitch = seconds * 0.45;
     let roll = seconds * 0.25;
-    let transform = Mat4::from_rotation_y(yaw)
-        * Mat4::from_rotation_x(pitch)
-        * Mat4::from_rotation_z(roll);
-    let normal_transform = Mat4::from_rotation_y(yaw)
-        * Mat4::from_rotation_x(pitch)
-        * Mat4::from_rotation_z(roll);
+    let transform =
+        Mat4::from_rotation_y(yaw) * Mat4::from_rotation_x(pitch) * Mat4::from_rotation_z(roll);
+    let normal_transform =
+        Mat4::from_rotation_y(yaw) * Mat4::from_rotation_x(pitch) * Mat4::from_rotation_z(roll);
     let base_cube = Mesh::cube();
 
     Mesh::new(
         base_cube
             .positions
             .into_iter()
-            .map(|position| transform.transform_point3(Vec3::from_array(position)).to_array())
+            .map(|position| {
+                transform
+                    .transform_point3(Vec3::from_array(position))
+                    .to_array()
+            })
             .collect(),
         base_cube
             .normals

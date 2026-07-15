@@ -161,8 +161,14 @@ mod tests {
 
     #[test]
     fn parses_verbosity_values_case_insensitively() {
-        assert_eq!(OutputVerbosity::parse("quiet"), Some(OutputVerbosity::Quiet));
-        assert_eq!(OutputVerbosity::parse("VERBOSE"), Some(OutputVerbosity::Verbose));
+        assert_eq!(
+            OutputVerbosity::parse("quiet"),
+            Some(OutputVerbosity::Quiet)
+        );
+        assert_eq!(
+            OutputVerbosity::parse("VERBOSE"),
+            Some(OutputVerbosity::Verbose)
+        );
         assert_eq!(OutputVerbosity::parse("unknown"), None);
     }
 }

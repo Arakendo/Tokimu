@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d,
-    KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig, run_window_with_app,
+    RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 
 const BOARD_MESH: MeshHandle = MeshHandle(1);
@@ -112,11 +112,7 @@ impl HelloSnakeApp {
                 mesh: BOARD_MESH,
                 material: BOARD_MATERIAL,
                 pipeline: self.pipeline,
-                instance: Instance2d::new(
-                    [0.0, 0.0],
-                    [GRID_WIDTH as f32, GRID_HEIGHT as f32],
-                    0.0,
-                ),
+                instance: Instance2d::new([0.0, 0.0], [GRID_WIDTH as f32, GRID_HEIGHT as f32], 0.0),
                 camera: Some(CAMERA_HANDLE),
                 viewport: None,
             }),
@@ -179,10 +175,8 @@ impl PlatformEventHandler for HelloSnakeApp {
             FOOD_MATERIAL,
             &Material::new("snake-food", Color::rgb(0.96, 0.34, 0.36)),
         )?;
-        self.pipeline = renderer.register_pipeline(&Pipeline::new(
-            "snake-pipeline",
-            PipelineKind::SolidColor2d,
-        ))?;
+        self.pipeline = renderer
+            .register_pipeline(&Pipeline::new("snake-pipeline", PipelineKind::SolidColor2d))?;
         self.renderer = Some(renderer);
         self.update_camera();
         self.update_window_title();
@@ -419,7 +413,11 @@ mod tests {
     #[test]
     fn stops_on_wall_collision() {
         let mut game = SnakeGame::with_seed(2);
-        game.snake = vec![(GRID_WIDTH - 1, 4), (GRID_WIDTH - 2, 4), (GRID_WIDTH - 3, 4)];
+        game.snake = vec![
+            (GRID_WIDTH - 1, 4),
+            (GRID_WIDTH - 2, 4),
+            (GRID_WIDTH - 3, 4),
+        ];
         game.direction = Direction::Right;
         game.queued_direction = Direction::Right;
 

@@ -33,5 +33,8 @@ fn main() {
     println!("lowered rule:\n{lowered_plan}");
     println!("runtime rule: {:?}", runtime_rule.lower());
     println!("scene projection:\n{scene_plan}");
-    println!("scene and rule share a runtime-system plan: {}", lowered_plan == scene_plan);
+    println!(
+        "scene and rule share a runtime-system plan: {}",
+        lowered_plan == scene_plan
+    );
 }

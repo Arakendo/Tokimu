@@ -4,10 +4,10 @@ use std::{
 };
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle,
-    NativeWindow, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler,
-    PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
+    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 
 const TILE_MESH: MeshHandle = MeshHandle(1);
@@ -115,14 +115,24 @@ impl HelloPacmanApp {
         }
 
         for &pellet in &self.game.level.pellets {
-            commands.push(draw_tile(pellet, PELLET_MATERIAL, PELLET_SCALE, self.pipeline));
+            commands.push(draw_tile(
+                pellet,
+                PELLET_MATERIAL,
+                PELLET_SCALE,
+                self.pipeline,
+            ));
         }
 
         for &ghost in &self.game.ghosts {
             commands.push(draw_tile(ghost, GHOST_MATERIAL, GHOST_SCALE, self.pipeline));
         }
 
-        commands.push(draw_tile(self.game.player, PLAYER_MATERIAL, PLAYER_SCALE, self.pipeline));
+        commands.push(draw_tile(
+            self.game.player,
+            PLAYER_MATERIAL,
+            PLAYER_SCALE,
+            self.pipeline,
+        ));
 
         renderer.begin_frame();
         renderer.submit(&commands);
@@ -174,9 +184,15 @@ impl PlatformEventHandler for HelloPacmanApp {
             if pressed {
                 match key {
                     KeyCode::ArrowUp | KeyCode::KeyW => self.game.queue_direction(Direction::Up),
-                    KeyCode::ArrowDown | KeyCode::KeyS => self.game.queue_direction(Direction::Down),
-                    KeyCode::ArrowLeft | KeyCode::KeyA => self.game.queue_direction(Direction::Left),
-                    KeyCode::ArrowRight | KeyCode::KeyD => self.game.queue_direction(Direction::Right),
+                    KeyCode::ArrowDown | KeyCode::KeyS => {
+                        self.game.queue_direction(Direction::Down)
+                    }
+                    KeyCode::ArrowLeft | KeyCode::KeyA => {
+                        self.game.queue_direction(Direction::Left)
+                    }
+                    KeyCode::ArrowRight | KeyCode::KeyD => {
+                        self.game.queue_direction(Direction::Right)
+                    }
                     KeyCode::Space => {
                         if self.game.state != GameState::Playing {
                             self.game.reset();
@@ -206,7 +222,12 @@ impl PlatformEventHandler for HelloPacmanApp {
     }
 }
 
-fn draw_tile(cell: (i32, i32), material: MaterialHandle, scale: f32, pipeline: PipelineHandle) -> RenderCommand {
+fn draw_tile(
+    cell: (i32, i32),
+    material: MaterialHandle,
+    scale: f32,
+    pipeline: PipelineHandle,
+) -> RenderCommand {
     RenderCommand::DrawMesh(DrawMeshCommand {
         mesh: TILE_MESH,
         material,
@@ -404,13 +425,13 @@ impl PacmanGame {
             self.score += 1;
         }
 
-        if self.ghosts.iter().any(|ghost| *ghost == self.player) {
+        if self.ghosts.contains(&self.player) {
             self.state = GameState::Lost;
             return;
         }
 
         self.ghost_update_count += 1;
-        if self.ghost_update_count % GHOST_TURN_INTERVAL == 0 {
+        if self.ghost_update_count.is_multiple_of(GHOST_TURN_INTERVAL) {
             self.scatter_phase = (self.scatter_phase + 1) % SCATTER_TARGETS.len();
         }
 
@@ -448,11 +469,7 @@ fn in_bounds(cell: (i32, i32)) -> bool {
     cell.0 >= 0 && cell.0 < GRID_WIDTH && cell.1 >= 0 && cell.1 < GRID_HEIGHT
 }
 
-fn next_step_toward(
-    start: (i32, i32),
-    goal: (i32, i32),
-    level: &Level,
-) -> Option<(i32, i32)> {
+fn next_step_toward(start: (i32, i32), goal: (i32, i32), level: &Level) -> Option<(i32, i32)> {
     if start == goal {
         return Some(start);
     }

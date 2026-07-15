@@ -1,16 +1,15 @@
 mod output;
 
 use std::sync::Arc;
-use tokimu_core::World;
 use tokimu::{
-    advance_field_sprint, run_window_with_app, Camera, CameraHandle, ClearCommand, Color,
+    advance_field_sprint, axis, run_window_with_app, Camera, CameraHandle, ClearCommand, Color,
     DrawRenderableCommand, FieldSprintState as ToyState, FrameOutcome, InputState, Instance2d,
     KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton, NativeWindow, Pipeline,
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
     RenderCommand, Renderable, RenderableHandle, Renderer, WgpuBackend, WindowConfig,
     FIELD_SPRINT_TARGET_POINTS,
-    axis,
 };
+use tokimu_core::World;
 
 use output::{Channel, OutputRouter};
 
@@ -105,7 +104,10 @@ impl PlatformEventHandler for HelloTriangleApp {
         renderer.upload_mesh(TRIANGLE_HANDLE, &Mesh::triangle());
         renderer.upload_mesh(QUAD_HANDLE, &Mesh::quad());
         renderer.upload_mesh(MeshHandle(3), &Mesh::diamond());
-        self.pipeline = renderer.register_pipeline(&Pipeline::new("triangle-pipeline", PipelineKind::SolidColor2d))?;
+        self.pipeline = renderer.register_pipeline(&Pipeline::new(
+            "triangle-pipeline",
+            PipelineKind::SolidColor2d,
+        ))?;
         renderer.upload_material(
             TRIANGLE_MATERIAL,
             &Material::new("triangle-material", Color::rgb(0.96, 0.72, 0.28)),
@@ -155,10 +157,7 @@ impl PlatformEventHandler for HelloTriangleApp {
             Renderable::new(MeshHandle(3), DIAMOND_MATERIAL, self.pipeline),
         );
         self.camera
-            .set_perspective_3d(
-                size.width as f32,
-                size.height as f32,
-            );
+            .set_perspective_3d(size.width as f32, size.height as f32);
         renderer.upload_camera(TRIANGLE_CAMERA, self.camera);
         renderer.set_active_camera(TRIANGLE_CAMERA);
         self.renderer = Some(renderer);
@@ -247,20 +246,37 @@ impl PlatformEventHandler for HelloTriangleApp {
             let drag_pull_x = self.cursor_offset[0] * hold_boost * 0.35;
             let drag_pull_y = self.cursor_offset[1] * hold_boost * 0.35;
             let left_wobble = state.motion_phase.sin() * (0.04 + hold_boost * 0.02);
-            let right_orbit_x = 0.35 + state.motion_phase.cos() * (0.12 + hold_boost * 0.05) + drag_pull_x;
+            let right_orbit_x =
+                0.35 + state.motion_phase.cos() * (0.12 + hold_boost * 0.05) + drag_pull_x;
             let right_orbit_y = state.motion_phase.sin() * (0.08 + hold_boost * 0.04) + drag_pull_y;
             let right_pulse_scale = 0.30 + state.motion_phase.sin() * (0.05 + hold_boost * 0.02);
-            let third_orbit_x = state.motion_phase.sin() * (0.18 + hold_boost * 0.04) + drag_pull_x * 0.5;
-            let third_orbit_y = -0.33 + state.motion_phase.cos() * (0.05 + hold_boost * 0.03) + drag_pull_y * 0.5;
+            let third_orbit_x =
+                state.motion_phase.sin() * (0.18 + hold_boost * 0.04) + drag_pull_x * 0.5;
+            let third_orbit_y =
+                -0.33 + state.motion_phase.cos() * (0.05 + hold_boost * 0.03) + drag_pull_y * 0.5;
             let third_scale = 0.22 + state.motion_phase.cos() * (0.03 + hold_boost * 0.01);
-            let fourth_orbit_x = -state.motion_phase.cos() * (0.16 + hold_boost * 0.04) - drag_pull_x * 0.25;
-            let fourth_orbit_y = 0.30 + state.motion_phase.sin() * (0.06 + hold_boost * 0.03) + drag_pull_y * 0.25;
+            let fourth_orbit_x =
+                -state.motion_phase.cos() * (0.16 + hold_boost * 0.04) - drag_pull_x * 0.25;
+            let fourth_orbit_y =
+                0.30 + state.motion_phase.sin() * (0.06 + hold_boost * 0.03) + drag_pull_y * 0.25;
             let fourth_scale = 0.18 + state.motion_phase.sin() * (0.02 + hold_boost * 0.01);
-            let quad_orbit_x = self.input_offset[0] + state.motion_phase.cos() * (0.22 + hold_boost * 0.05) + drag_pull_x * 0.75;
-            let quad_orbit_y = self.input_offset[1] + self.square_offset[1] + state.motion_phase.sin() * (0.03 + hold_boost * 0.02) + drag_pull_y * 0.75;
+            let quad_orbit_x = self.input_offset[0]
+                + state.motion_phase.cos() * (0.22 + hold_boost * 0.05)
+                + drag_pull_x * 0.75;
+            let quad_orbit_y = self.input_offset[1]
+                + self.square_offset[1]
+                + state.motion_phase.sin() * (0.03 + hold_boost * 0.02)
+                + drag_pull_y * 0.75;
             let quad_scale = 0.24 + state.motion_phase.cos() * (0.02 + hold_boost * 0.01);
-            let diamond_orbit_x = self.input_offset[0] + self.diamond_offset[0] + state.motion_phase.sin() * (0.16 + hold_boost * 0.04) + drag_pull_x;
-            let diamond_orbit_y = self.input_offset[1] + self.diamond_offset[1] + 0.18 + state.motion_phase.cos() * (0.07 + hold_boost * 0.03) + drag_pull_y;
+            let diamond_orbit_x = self.input_offset[0]
+                + self.diamond_offset[0]
+                + state.motion_phase.sin() * (0.16 + hold_boost * 0.04)
+                + drag_pull_x;
+            let diamond_orbit_y = self.input_offset[1]
+                + self.diamond_offset[1]
+                + 0.18
+                + state.motion_phase.cos() * (0.07 + hold_boost * 0.03)
+                + drag_pull_y;
             let diamond_scale = 0.20 + state.motion_phase.sin() * (0.025 + hold_boost * 0.01);
             let player_instance = Instance2d::identity()
                 .with_translation(state.player_position)
@@ -382,10 +398,7 @@ impl PlatformEventHandler for HelloTriangleApp {
         if round_complete {
             self.output.emit_one_shot(
                 Channel::Lifecycle,
-                format!(
-                    "Tokimu Field Sprint complete after {} targets",
-                    state.score
-                ),
+                format!("Tokimu Field Sprint complete after {} targets", state.score),
             );
             self.update_window_title();
             return Ok(FrameOutcome::Exit);
@@ -445,8 +458,14 @@ impl HelloTriangleApp {
             ((x / width) - 0.5) * (0.6 + hold_boost * 0.25),
             -((y / height) - 0.5) * (0.4 + hold_boost * 0.18),
         ];
-        self.square_offset = [self.cursor_offset[0] * (1.0 + hold_boost * 0.25), self.cursor_offset[1] * 0.5];
-        self.diamond_offset = [self.cursor_offset[0] * 0.5, self.cursor_offset[1] * (1.0 + hold_boost * 0.3)];
+        self.square_offset = [
+            self.cursor_offset[0] * (1.0 + hold_boost * 0.25),
+            self.cursor_offset[1] * 0.5,
+        ];
+        self.diamond_offset = [
+            self.cursor_offset[0] * 0.5,
+            self.cursor_offset[1] * (1.0 + hold_boost * 0.3),
+        ];
     }
 
     fn handle_mouse_press(&mut self, button: MouseButton, pressed: bool) {
@@ -474,8 +493,16 @@ impl HelloTriangleApp {
             };
             let motion_tag = if state.paused { "paused" } else { "moving" };
             let palette_tag = if state.palette_mode { "alt" } else { "default" };
-            let direction_tag = if state.reverse_motion { "reverse" } else { "forward" };
-            let hold_tag = if self.mouse_hold_active { "drag" } else { "idle" };
+            let direction_tag = if state.reverse_motion {
+                "reverse"
+            } else {
+                "forward"
+            };
+            let hold_tag = if self.mouse_hold_active {
+                "drag"
+            } else {
+                "idle"
+            };
             let round_tag = if state.score >= FIELD_SPRINT_TARGET_POINTS.len() as u32 {
                 "complete"
             } else {
