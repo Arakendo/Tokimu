@@ -6,6 +6,8 @@ Short-term focus:
 2. Keep the browser-parity proof documented and stable while transport work
   lands
 3. Keep OpenXR shelved until explicitly reopened
+4. Keep capability-backend work at the seam-testing level until one earned
+  capability crate and one concrete backend proof are justified
 
 The main planning detail remains in the software design document.
 
@@ -140,7 +142,7 @@ Goal: make the world inspectable and author-facing content approachable.
     - [x] Ship a text or console dump of that snapshot as the editor v0 proof
     - [x] Entity/world tree: list live entities and their relationship edges
       from the snapshot
-    - [x] Trait inspector: show one entity's component values by name
+    - [x] Trait/component inspector: show one entity's component values by name
     - [x] Asset browser: list loaded `AssetId`/`AssetHandle<T>` entries and
       their source
     - [x] System timing panel: surface `Schedule`/`Diagnostics` timing already
@@ -397,7 +399,9 @@ work lands cleanly.
   translation.
 - Validation workflow: examples and frontends should prove themselves through
   runnable checks, not docs alone; authored content should have a compile/check
-  command.
+  command. Boundary documents are not self-proving: when a new core term,
+  capability seam, or frontend lowering rule is introduced, add at least one
+  test or example that exercises the distinction being claimed.
 - Hot reload / iteration loop: decide when scene, shader, or TS-authored
   content reloads in place versus requiring rebuild/restart.
 - Packaging and distribution: define how authored scenes, rules, shaders, and
@@ -562,12 +566,38 @@ adding new scope.
 - [ ] Add a test proving the renderer never mutates `World` state during
   `begin_frame`/`submit`/`present` (SDD: rendering must not mutate simulation
   state)
+- [ ] Add a handle-lifecycle test that proves stale handles fail
+  deterministically and do not alias newly allocated resources after reuse
 - [ ] Extend the M1 headless frame test into a target-specific smoke check:
   native opens/closes cleanly; WASM reaches a visible boot path with no
   native-only code compiled in
 - [ ] Treat each new example as corpus-driven validation: it should prove one
   world relation, transformation, or rule cleanly enough to read as a reusable
   engine sentence, not just a demo
+
+## Capability Backends And Backend Testing
+
+Cross-cutting deliverables driven by ADR-0003 and
+`docs/capability-backends.md`. These are mechanism proofs, not permission to
+integrate a dependency zoo.
+
+- [ ] Prove one application-owned capability registry in tests with two fake
+  providers and deterministic resolution for the same request/target pair
+- [ ] Prove provider selection is target-aware (native vs WASM) and reported as
+  an explicit diagnostic rather than a hidden default
+- [ ] When the first real capability crate is added, pair it with exactly one
+  backend adapter and one end-to-end example or test before adding a second
+  backend
+- [ ] In that first capability proof, distinguish a disposable/stateless path
+  from any long-lived provider/session path so the lifecycle model is exercised
+  early
+- [ ] Keep backend-specific extensions Tokimu-owned: prove the first backend
+  adapter returns engine-owned types rather than leaking raw foreign-library
+  objects across the boundary
+- [ ] Before promoting any new kernel-native term or adding the first real
+  capability crate in a domain, record its Includes/Excludes and one rejected
+  decomposition, then back that claim with at least one example or test that
+  shows why the concept belongs in core/capability rather than a backend detail
 
 ## Deferred Crates
 
@@ -577,8 +607,15 @@ decided ad hoc.
 
 - `tokimu-persistence` — add only after the M7 save/load trait seam is proven
   by the round-trip test.
+- `tokimu-geometry` — add only after a concrete authored geometry use case
+  needs Tokimu-owned `Profile`/`Solid` semantics and one backend proof/test is
+  chosen.
+- `tokimu-physics` — add only after one example needs engine-owned collision or
+  query semantics beyond transforms, bounds, and simple overlap helpers.
 - `tokimu-net` — add only after the M11 transport trait seam is proven by the
   serialize round-trip test.
+- `tokimu-script-host` — add only after a runtime-hosted execution path is
+  justified beyond the existing `tokimu-ts-frontend` lowering/validation seam.
 - `tokimu-audio`, `tokimu-tools` — no current trigger; do not add until a
   concrete example needs them.
 

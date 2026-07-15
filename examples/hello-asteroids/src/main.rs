@@ -22,7 +22,6 @@ const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 
 const WORLD_WIDTH: f32 = 20.0;
 const WORLD_HEIGHT: f32 = 20.0;
-const SHIP_ROTATION_SPEED: f32 = 3.0; // radians per second
 const SHIP_THRUST: f32 = 5.0; // units per second squared
 const SHIP_MAX_SPEED: f32 = 8.0;
 const BULLET_SPEED: f32 = 12.0;
@@ -150,7 +149,7 @@ impl Ship {
             entity: Entity {
                 pos: Vec2::new(0.0, 0.0),
                 vel: Vec2::new(0.0, 0.0),
-                angle: -std::f32::consts::FRAC_PI_2, // pointing up
+                angle: 0.0,
             },
             lives: 3,
             invulnerable_until: 2.0,
@@ -160,7 +159,7 @@ impl Ship {
     fn respawn(&mut self) {
         self.entity.pos = Vec2::new(0.0, 0.0);
         self.entity.vel = Vec2::new(0.0, 0.0);
-        self.entity.angle = -std::f32::consts::FRAC_PI_2;
+        self.entity.angle = 0.0;
         self.invulnerable_until = 2.0;
     }
 }
@@ -178,10 +177,11 @@ struct AsteroidsGame {
     score: u32,
     state: GameState,
     time_since_last_spawn: f32,
-    input_rotate_left: bool,
-    input_rotate_right: bool,
-    input_thrust: bool,
-    input_fire: bool,
+    input_thrust_forward: bool,
+    input_thrust_backward: bool,
+    input_strafe_left: bool,
+    input_strafe_right: bool,
+    cursor_target: Option<Vec2>,
     fire_cooldown: f32,
     rng: SimpleRng,
 }
@@ -195,10 +195,11 @@ impl AsteroidsGame {
             score: 0,
             state: GameState::Playing,
             time_since_last_spawn: 0.0,
-            input_rotate_left: false,
-            input_rotate_right: false,
-            input_thrust: false,
-            input_fire: false,
+            input_thrust_forward: false,
+            input_thrust_backward: false,
+            input_strafe_left: false,
+            input_strafe_right: false,
+            cursor_target: None,
             fire_cooldown: 0.0,
             rng: SimpleRng::new(),
         };
@@ -277,18 +278,28 @@ impl AsteroidsGame {
             return;
         }
 
-        // Rotation
-        if self.input_rotate_left {
-            self.ship.entity.angle -= SHIP_ROTATION_SPEED * dt;
-        }
-        if self.input_rotate_right {
-            self.ship.entity.angle += SHIP_ROTATION_SPEED * dt;
+        if let Some(cursor_target) = self.cursor_target {
+            let aim_delta = Vec2::new(
+                cursor_target.x - self.ship.entity.pos.x,
+                cursor_target.y - self.ship.entity.pos.y,
+            );
+            if aim_delta.length() > 0.001 {
+                self.ship.entity.angle = aim_delta.y.atan2(aim_delta.x) - std::f32::consts::FRAC_PI_2;
+            }
         }
 
-        // Thrust
-        if self.input_thrust {
-            let forward = Vec2::new(self.ship.entity.angle.cos(), self.ship.entity.angle.sin());
-            self.ship.entity.vel = self.ship.entity.vel.add(forward.scale(SHIP_THRUST * dt));
+        let forward = self.ship_forward_vector();
+        let right = Vec2::new(forward.y, -forward.x);
+        let thrust_forward = if self.input_thrust_forward { 1.0 } else { 0.0 };
+        let thrust_backward = if self.input_thrust_backward { 1.0 } else { 0.0 };
+        let strafe_right = if self.input_strafe_right { 1.0 } else { 0.0 };
+        let strafe_left = if self.input_strafe_left { 1.0 } else { 0.0 };
+        let thrust = forward
+            .scale(thrust_forward - thrust_backward)
+            .add(right.scale(strafe_right - strafe_left));
+
+        if thrust.length() > 0.0 {
+            self.ship.entity.vel = self.ship.entity.vel.add(thrust.scale(SHIP_THRUST * dt));
 
             // Clamp max speed
             if self.ship.entity.vel.length() > SHIP_MAX_SPEED {
@@ -309,23 +320,18 @@ impl AsteroidsGame {
         if self.fire_cooldown > 0.0 {
             self.fire_cooldown -= dt;
         }
-
-        // Fire
-        if self.input_fire && self.fire_cooldown <= 0.0 {
-            self.fire_bullet();
-            self.fire_cooldown = 0.25;
-        }
     }
 
     fn fire_bullet(&mut self) {
         let ship_pos = self.ship.entity.pos;
         let ship_angle = self.ship.entity.angle;
+        let forward = self.ship_forward_vector();
 
         // Bullet spawns at the tip of the ship
-        let tip_offset = Vec2::new(ship_angle.cos(), ship_angle.sin()).scale(0.6);
+        let tip_offset = forward.scale(0.6);
         let bullet_pos = ship_pos.add(tip_offset);
 
-        let bullet_vel = Vec2::new(ship_angle.cos(), ship_angle.sin()).scale(BULLET_SPEED);
+        let bullet_vel = forward.scale(BULLET_SPEED);
 
         self.bullets.push(Bullet {
             entity: Entity {
@@ -335,6 +341,20 @@ impl AsteroidsGame {
             },
             lifetime: BULLET_LIFETIME,
         });
+    }
+
+    fn try_fire_bullet(&mut self) {
+        if self.state == GameState::Playing && self.fire_cooldown <= 0.0 {
+            self.fire_bullet();
+            self.fire_cooldown = 0.25;
+        }
+    }
+
+    fn ship_forward_vector(&self) -> Vec2 {
+        Vec2::new(
+            -self.ship.entity.angle.sin(),
+            self.ship.entity.angle.cos(),
+        )
     }
 
     fn update_bullets(&mut self, dt: f32) {
@@ -536,20 +556,24 @@ impl AsteroidsGame {
         *self = AsteroidsGame::new();
     }
 
-    fn set_input_rotate_left(&mut self, pressed: bool) {
-        self.input_rotate_left = pressed;
+    fn set_cursor_target(&mut self, cursor_target: Option<Vec2>) {
+        self.cursor_target = cursor_target;
     }
 
-    fn set_input_rotate_right(&mut self, pressed: bool) {
-        self.input_rotate_right = pressed;
+    fn set_input_thrust_forward(&mut self, pressed: bool) {
+        self.input_thrust_forward = pressed;
     }
 
-    fn set_input_thrust(&mut self, pressed: bool) {
-        self.input_thrust = pressed;
+    fn set_input_thrust_backward(&mut self, pressed: bool) {
+        self.input_thrust_backward = pressed;
     }
 
-    fn set_input_fire(&mut self, pressed: bool) {
-        self.input_fire = pressed;
+    fn set_input_strafe_left(&mut self, pressed: bool) {
+        self.input_strafe_left = pressed;
+    }
+
+    fn set_input_strafe_right(&mut self, pressed: bool) {
+        self.input_strafe_right = pressed;
     }
 }
 
@@ -616,7 +640,7 @@ impl HelloAsteroidsApp {
                 GameState::GameOver => "game over - press R or Space to restart".to_string(),
             };
             window.set_title(&format!(
-                "Tokimu Hello Asteroids | {} | use arrows/WASD to rotate/thrust, space to fire",
+                "Tokimu Hello Asteroids | {} | use WASD to move, mouse to aim, left click to fire",
                 status,
             ));
         }
@@ -641,7 +665,7 @@ impl HelloAsteroidsApp {
 
         let mut commands = Vec::new();
         commands.push(RenderCommand::Clear(ClearCommand {
-            color: Color::rgb(0.02, 0.02, 0.04),
+            color: Color::rgb(0.07, 0.08, 0.12),
         }));
 
         // Render asteroids
@@ -657,7 +681,7 @@ impl HelloAsteroidsApp {
 
         // Render bullets
         for bullet in &self.game.bullets {
-            let scale = [0.15, 0.15];
+            let scale = [0.24, 0.24];
             commands.push(draw_entity(
                 bullet.entity,
                 BULLET_MATERIAL,
@@ -706,23 +730,37 @@ impl PlatformEventHandler for HelloAsteroidsApp {
             &Mesh::uniform_normal(ship_positions, [0.0, 0.0, 1.0]),
         );
 
-        // Create asteroid mesh (irregular polygon)
-        let asteroid_positions: Vec<[f32; 3]> = vec![
-            [0.8, 0.0, 0.0],
-            [0.5, 0.5, 0.0],
-            [0.0, 0.6, 0.0],
-            [-0.6, 0.4, 0.0],
-            [-0.7, -0.1, 0.0],
-            [-0.3, -0.7, 0.0],
-            [0.4, -0.6, 0.0],
+        // Create asteroid mesh as a triangle fan so the final wraparound is explicit.
+        let asteroid_outline = [
+            [0.82, 0.10],
+            [0.72, 0.43],
+            [0.45, 0.72],
+            [0.10, 0.84],
+            [-0.24, 0.80],
+            [-0.56, 0.60],
+            [-0.82, 0.18],
+            [-0.76, -0.18],
+            [-0.62, -0.56],
+            [-0.18, -0.84],
+            [0.18, -0.78],
+            [0.60, -0.62],
+            [0.84, -0.18],
         ];
+        let asteroid_positions = triangle_fan_2d(&asteroid_outline);
         renderer.upload_mesh(
             ASTEROID_MESH,
             &Mesh::uniform_normal(asteroid_positions, [0.0, 0.0, 1.0]),
         );
 
-        // Create bullet mesh (small line)
-        let bullet_positions: Vec<[f32; 3]> = vec![[0.0, 0.5, 0.0], [0.0, -0.5, 0.0]];
+        // Create bullet mesh as a tiny diamond so it stays visible at small scales.
+        let bullet_positions: Vec<[f32; 3]> = vec![
+            [0.0, 0.35, 0.0],
+            [-0.22, 0.0, 0.0],
+            [0.0, -0.35, 0.0],
+            [0.0, 0.35, 0.0],
+            [0.0, -0.35, 0.0],
+            [0.22, 0.0, 0.0],
+        ];
         renderer.upload_mesh(
             BULLET_MESH,
             &Mesh::uniform_normal(bullet_positions, [0.0, 0.0, 1.0]),
@@ -730,27 +768,27 @@ impl PlatformEventHandler for HelloAsteroidsApp {
 
         renderer.upload_material(
             BACKGROUND_MATERIAL,
-            &Material::new("asteroids-background", Color::rgb(0.02, 0.02, 0.04)),
+            &Material::new("asteroids-background", Color::rgb(0.07, 0.08, 0.12)),
         )?;
         renderer.upload_material(
             SHIP_MATERIAL,
-            &Material::new("asteroids-ship", Color::rgb(0.6, 0.85, 1.0)),
+            &Material::new("asteroids-ship", Color::rgb(0.86, 0.94, 1.0)),
         )?;
         renderer.upload_material(
             ASTEROID_LARGE_MATERIAL,
-            &Material::new("asteroid-large", Color::rgb(0.7, 0.7, 0.75)),
+            &Material::new("asteroid-large", Color::rgb(0.88, 0.88, 0.94)),
         )?;
         renderer.upload_material(
             ASTEROID_MEDIUM_MATERIAL,
-            &Material::new("asteroid-medium", Color::rgb(0.8, 0.75, 0.65)),
+            &Material::new("asteroid-medium", Color::rgb(0.76, 0.84, 0.98)),
         )?;
         renderer.upload_material(
             ASTEROID_SMALL_MATERIAL,
-            &Material::new("asteroid-small", Color::rgb(0.85, 0.8, 0.7)),
+            &Material::new("asteroid-small", Color::rgb(0.98, 0.84, 0.56)),
         )?;
         renderer.upload_material(
             BULLET_MATERIAL,
-            &Material::new("asteroids-bullet", Color::rgb(1.0, 0.9, 0.6)),
+            &Material::new("asteroids-bullet", Color::rgb(1.0, 0.98, 0.72)),
         )?;
 
         self.pipeline = renderer.register_pipeline(&Pipeline::new(
@@ -770,25 +808,36 @@ impl PlatformEventHandler for HelloAsteroidsApp {
             return Ok(());
         }
 
+        if let PlatformInputEvent::CursorMoved { x, y } = event {
+            self.game
+                .set_cursor_target(Some(self.cursor_to_world_position(x, y)));
+            self.update_window_title();
+        }
+
+        if let PlatformInputEvent::MouseInput { button, pressed } = event {
+            if button == tokimu::MouseButton::Left && pressed {
+                self.game.try_fire_bullet();
+                self.update_window_title();
+            }
+        }
+
         if let PlatformInputEvent::KeyboardInput { key, pressed } = event {
             match key {
-                KeyCode::ArrowLeft | KeyCode::KeyA => self.game.set_input_rotate_left(pressed),
-                KeyCode::ArrowRight | KeyCode::KeyD => self.game.set_input_rotate_right(pressed),
-                KeyCode::ArrowUp | KeyCode::KeyW => self.game.set_input_thrust(pressed),
+                KeyCode::KeyW | KeyCode::ArrowUp => self.game.set_input_thrust_forward(pressed),
+                KeyCode::KeyS | KeyCode::ArrowDown => self.game.set_input_thrust_backward(pressed),
+                KeyCode::KeyA | KeyCode::ArrowLeft => self.game.set_input_strafe_left(pressed),
+                KeyCode::KeyD | KeyCode::ArrowRight => self.game.set_input_strafe_right(pressed),
                 KeyCode::Space => {
-                    if self.game.state == GameState::GameOver {
+                    if pressed && self.game.state == GameState::GameOver {
                         self.game.reset();
-                    } else {
-                        self.game.set_input_fire(pressed);
                     }
                 }
 
-                KeyCode::Escape => {}
-                _ => {}
-            }
-
-            if matches!(key, KeyCode::Escape) && pressed {
-                self.closing = true;
+                KeyCode::Escape => {
+                    if pressed {
+                        self.closing = true;
+                    }
+                }
             }
 
             self.update_window_title();
@@ -816,6 +865,21 @@ impl PlatformEventHandler for HelloAsteroidsApp {
     }
 }
 
+impl HelloAsteroidsApp {
+    fn cursor_to_world_position(&self, cursor_x: f32, cursor_y: f32) -> Vec2 {
+        let safe_width = self.window_size[0].max(1.0);
+        let safe_height = self.window_size[1].max(1.0);
+        let world_height = WORLD_HEIGHT + 4.0;
+        let world_width = world_height * (safe_width / safe_height);
+        let normalized_x = (cursor_x / safe_width).clamp(0.0, 1.0);
+        let normalized_y = (cursor_y / safe_height).clamp(0.0, 1.0);
+        Vec2::new(
+            (normalized_x - 0.5) * world_width,
+            (0.5 - normalized_y) * world_height,
+        )
+    }
+}
+
 fn draw_entity(
     entity: Entity,
     material: MaterialHandle,
@@ -840,6 +904,23 @@ fn draw_entity(
         camera: Some(CAMERA_HANDLE),
         viewport: None,
     })
+}
+
+fn triangle_fan_2d(points: &[[f32; 2]]) -> Vec<[f32; 3]> {
+    assert!(points.len() >= 3);
+
+    let center = [0.0, 0.0, 0.0];
+    let mut vertices = Vec::with_capacity(points.len() * 3);
+
+    for index in 0..points.len() {
+        let next = (index + 1) % points.len();
+
+        vertices.push(center);
+        vertices.push([points[index][0], points[index][1], 0.0]);
+        vertices.push([points[next][0], points[next][1], 0.0]);
+    }
+
+    vertices
 }
 
 fn entity_instance(entity: Entity, scale: [f32; 2]) -> Instance2d {
@@ -880,5 +961,49 @@ mod tests {
         let outcome = app.on_frame(0.016).expect("frame should succeed");
 
         assert_eq!(outcome, FrameOutcome::Exit);
+    }
+
+    #[test]
+    fn cursor_target_turns_the_ship_toward_the_mouse() {
+        let mut game = AsteroidsGame::new();
+        game.set_cursor_target(Some(Vec2::new(10.0, 0.0)));
+
+        game.advance(0.0);
+
+        assert!((game.ship.entity.angle + std::f32::consts::FRAC_PI_2).abs() < 0.001);
+    }
+
+    #[test]
+    fn wasd_thrust_applies_momentum_in_the_facing_frame() {
+        let mut game = AsteroidsGame::new();
+        game.ship.entity.angle = 0.0;
+        game.set_input_thrust_forward(true);
+
+        game.advance(1.0);
+
+        assert!(game.ship.entity.vel.y > 0.0);
+        assert!(game.ship.entity.pos.y > 0.0);
+    }
+
+    #[test]
+    fn triangle_fan_wraps_back_to_the_first_point() {
+        let fan = triangle_fan_2d(&[[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]]);
+
+        assert_eq!(fan.len(), 9);
+        assert_eq!(fan[0], [0.0, 0.0, 0.0]);
+        assert_eq!(fan[1], [1.0, 0.0, 0.0]);
+        assert_eq!(fan[2], [0.0, 1.0, 0.0]);
+        assert_eq!(fan[6], [0.0, 0.0, 0.0]);
+        assert_eq!(fan[7], [-1.0, 0.0, 0.0]);
+        assert_eq!(fan[8], [1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn left_click_fires_a_bullet_when_ready() {
+        let mut game = AsteroidsGame::new();
+
+        game.try_fire_bullet();
+
+        assert_eq!(game.bullets.len(), 1);
     }
 }

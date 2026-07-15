@@ -23,6 +23,16 @@ If this document and the SDD ever disagree about a boundary, the SDD wins and
 this document is wrong until corrected. This document may go into more detail
 about the TypeScript surface than the SDD, but it may not contradict it.
 
+Terminology follows the SDD's semantic-vs-runtime split:
+
+- **Trait** names an authored or inspectable semantic property in the shared
+  model vocabulary.
+- **Component** names the runtime/storage unit the Rust engine currently uses.
+
+When this document discusses author-facing meaning, prefer `Trait`; when it
+discusses current engine APIs, storage, query execution, or reflection work,
+`Component` may still be the accurate term.
+
 ## 1. Purpose
 
 Tokimu is a Rust-native engine. This document defines how developers who build
@@ -524,7 +534,8 @@ That single variable is where scripting systems start breeding hidden world stat
 in the walls. The governing rule:
 
 > Ephemeral runtime-local state is allowed, but any state that affects durable
-> simulation behavior must live in Tokimu-owned resources or components.
+> simulation behavior must live in Tokimu-owned resources or runtime
+> components.
 
 Concretely:
 
@@ -533,8 +544,8 @@ Concretely:
   be reset on reload.
 * **Durable simulation** state (anything that changes what the world *is*, or
   that must survive save/load, replay, hot reload, or scene changes) must be a
-  Tokimu-owned resource or component, reachable through the shared vocabulary and
-  inspectable by tooling.
+  Tokimu-owned resource or runtime component, reachable through the shared
+  vocabulary and inspectable by tooling.
 
 This preserves the convenience of closures without pretending closures are a
 persistence model. If a runtime script needs durable state, that is a signal to

@@ -145,6 +145,10 @@ domain-specific applications become the visible products.
   command, signal, relation, and time, while leaving genre- or domain-specific
   vocabularies such as health, quests, dialogue, or traffic to higher-level
   engines built on top.
+21. Keep heavy optional domains out of the kernel. Native Tokimu should own
+  universal engine meaning; Tokimu capability crates should own optional domain
+  meaning; concrete backends should own specialized execution behind those
+  capability boundaries.
 
 ### 3.1.1 AI Implementation Principles
 
@@ -296,15 +300,23 @@ Trait      — property attached to entity
 Relation   — connection between entities
 State      — current truth
 Rule       — transformation logic
-Signal     — notification of change
+Command    — intentional request for mutation or privileged action
+Event      — temporal occurrence / fact that happened
+Signal     — delivered notification of an event, state, or requested attention
 Time       — ordered progression
-Resource   — external knowledge/data
-View       — observation of state
+Resource   — world- or runtime-owned state not attached to an entity
+View       — presentation projection of authoritative state
 ```
 
 This vocabulary supports games, simulations, workflow models, AI worlds, and
 digital-twin style systems without forcing Tokimu to commit to one genre's noun
 set too early.
+
+The important part is not only the list, but the maintained distinctions
+between neighbors. In particular: command is not signal, event is not relation,
+resource is not capability, and view is not world state. See
+`docs/semantic-kernel-map.md` for the current critical-distinctions table and
+primitive-admission discipline.
 
 In code, `Component` is the implementation term and `Trait` is the semantic
 design term. If Tokimu uses both words, `Component` should name the storage or
@@ -951,11 +963,58 @@ The crate graph should stay intentionally narrow:
 * `tokimu-platform` adapts OS or browser events into engine-facing abstractions; it should not absorb simulation logic.
 * `tokimu-net`, if added, should depend on engine-facing world, command, and replication shapes rather than making core types depend on socket or protocol libraries.
 * `tokimu-persistence`, if added, depends on stable engine-facing data formats or translation APIs; engine crates should not depend on it.
+* Optional domain capabilities such as geometry, persistence, physics, script hosting, networking, or audio should land first as dedicated Tokimu-owned capability crates rather than as new responsibilities in `tokimu-core` or `tokimu-runtime`.
+* Concrete backend adapters such as OCCT, Manifold, SQLite, IndexedDB, QuickJS, or Boa should depend on those capability crates and keep foreign library objects out of engine-owned and author-facing APIs.
 * Editor tooling, visual rule graphs, and future scripting frontends should depend on Tokimu-owned world and rule abstractions, not become parallel runtimes.
 * If Tokimu grows TypeScript frontends, the shared TypeScript compiler integration, diagnostics, execution-manifest handling, and lowering infrastructure should live in frontend-facing crates rather than leaking into core engine crates.
 * Independent authoring frontends should share infrastructure where useful, but each frontend should own its own API surface and semantic lowering rules rather than expanding into one monolithic "Tokimu understands TypeScript" compiler.
 * The TTSDD is the authority on TypeScript authoring-surface details; the SDD remains the authority on the engine-owned semantic model and the dependency rules that constrain every frontend.
 * The facade crate `tokimu` may re-export internal crates, but internal crates should avoid depending on the facade.
+
+### 5.13 Capability Ownership Boundary
+
+ADR-0003 records the ownership rule for optional heavy capabilities:
+
+Brief summary:
+
+* Native Tokimu owns universal engine meaning.
+* Capability crates own optional Tokimu-defined domain meaning.
+* Backend adapter crates own specialized execution behind Tokimu-owned contracts.
+
+Ownership layers:
+
+* **Layer 1 — Native Tokimu** owns universal engine meaning: world/entity/component/resource
+  state, relationships, schedules and time, commands/signals/events,
+  diagnostics, input, asset identity, platform abstraction, presentation
+  abstraction, reflection/serialization primitives, stable names/ids, and the
+  capability discovery/resolution contracts.
+* **Layer 2 — Capability crates** own optional Tokimu-defined domain meaning outside
+  `tokimu-core` and `tokimu-runtime`. Examples include future crates such as
+  `tokimu-geometry`, `tokimu-persistence`, `tokimu-physics`,
+  `tokimu-script-host`, `tokimu-net`, or `tokimu-audio`.
+* **Layer 3 — Backend adapter crates** own specialized execution by integrating concrete
+  external libraries behind Tokimu-owned provider contracts.
+
+This SDD should treat that split as structural, not advisory. Tokimu should not
+promote a concept into core merely because many applications may need it. A
+database transaction, STEP export path, rigid-body solver, NURBS surface,
+navmesh agent, or embedded scripting VM may become an official Tokimu
+capability, but it does not become a core engine primitive by default.
+
+The practical test is: concepts that express shared engine meaning and that most
+applications need belong in the kernel; concepts that only some application
+classes need and that are best served by competing heavy libraries belong in a
+capability crate and optional backend adapters. `docs/capability-backends.md`
+defines the detailed mechanism; this SDD and ADR-0003 define the architectural
+boundary.
+
+Two side documents carry the supporting discipline and should be treated as
+normative guidance for boundary decisions: `docs/kernel-principles.md` (the small
+trusted core, explicit authority, handles over raw ownership, revocable scoped
+capabilities) and `docs/semantic-kernel-map.md` (the primitive admission test,
+the critical-distinctions table, and the tiered kernel/capability/backend
+primitive sets). Use them to decide whether a concept is kernel-native,
+capability-owned, or a backend detail before adding it.
 
 ## 6. Engine Loop
 
@@ -1327,9 +1386,13 @@ tokimu/
 ├── README.md
 ├── docs/
 │   ├── Tokimu Software Design Document.md
+│   ├── capability-backends.md
+│   ├── kernel-principles.md
+│   ├── semantic-kernel-map.md
 │   ├── ADR/
 │   │   ├── ADR-0001-engine-boundaries.md
-│   │   └── ADR-0002-conceptual-influence.md
+│   │   ├── ADR-0002-conceptual-influence.md
+│   │   └── ADR-0003-capability-ownership-boundary.md
 │   ├── wasm.md
 │   ├── archive/
 │   │   ├── other-ideas.md
@@ -1431,6 +1494,12 @@ tokimu/
 the initial workspace skeleton. `tokimu-persistence` is also intentionally
 omitted at this stage. These crates should be added only once a concrete example
 or tool flow proves the need.
+
+More generally, future optional domain crates should follow the capability
+boundary recorded in ADR-0003: first add a Tokimu-owned capability crate when a
+concrete use case earns it, then add one backend adapter only when that same
+use case proves a specific external library is worth supporting. Do not grow
+those responsibilities directly into `tokimu-core` or `tokimu-runtime`.
 
 The authoring-frontend crates implied by sections 5.11 and 5.12 now exist in
 first-draft form. The engine-owned `tokimu-rule` crate anchors the semantic
