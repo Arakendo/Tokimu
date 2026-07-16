@@ -4,15 +4,15 @@ use crate::{
     RenderableHandle, Renderer,
 };
 use bytemuck::{Pod, Zeroable};
-#[cfg(target_arch = "wasm32")]
-use web_sys::HtmlCanvasElement;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+#[cfg(target_arch = "wasm32")]
+use raw_window_handle::{WebCanvasWindowHandle, WebDisplayHandle};
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
-use wgpu::util::DeviceExt;
 #[cfg(target_arch = "wasm32")]
-use raw_window_handle::{WebCanvasWindowHandle, WebDisplayHandle};
+use web_sys::HtmlCanvasElement;
+use wgpu::util::DeviceExt;
 #[cfg(target_arch = "wasm32")]
 use wgpu::SurfaceTargetUnsafe;
 
@@ -254,7 +254,7 @@ impl WgpuBackend {
                 raw_window_handle,
             })
         }
-            .map_err(|error| WgpuBackendError::SurfaceCreation(error.to_string()))?;
+        .map_err(|error| WgpuBackendError::SurfaceCreation(error.to_string()))?;
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 compatible_surface: Some(&surface),

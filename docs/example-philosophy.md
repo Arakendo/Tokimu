@@ -52,6 +52,17 @@ Tokimu examples tend to fall into two broad families:
 
 Both families are useful. They simply prove different seams.
 
+Representation examples can also split by semantic responsibility. In the UI
+corpus, that usually means:
+
+- Foundations: text, appearance, and surface meaning
+- Controls: button, panel, card, toolbar
+- Systems: layout, state, input, scroll, animation, inspector
+- Composition: inspector, dashboard, framework, and other end-to-end proofs
+
+Those are not hard architectural tiers. They are a reminder that examples are
+allowed to test verbs, not just nouns.
+
 ## Vocabulary
 
 Useful phrases for example design:

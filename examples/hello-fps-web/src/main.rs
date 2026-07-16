@@ -14,23 +14,23 @@ use tokimu::run_window_with_app;
 use tokimu::NativeWindow;
 
 #[cfg(target_arch = "wasm32")]
-use std::{cell::RefCell, rc::Rc};
-#[cfg(target_arch = "wasm32")]
 use js_sys::{Function, Object, Reflect};
 #[cfg(target_arch = "wasm32")]
-use web_sys::{CustomEvent, CustomEventInit};
+use std::{cell::RefCell, rc::Rc};
+#[cfg(target_arch = "wasm32")]
+use tokimu::wasm::install_browser_input_bridge;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 #[cfg(target_arch = "wasm32")]
 use web_sys::{window, Document, HtmlCanvasElement, HtmlElement, Window};
 #[cfg(target_arch = "wasm32")]
-use tokimu::wasm::install_browser_input_bridge;
+use web_sys::{CustomEvent, CustomEventInit};
 
 const FLOOR_MESH: MeshHandle = MeshHandle(1);
 const FLOOR_MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -134,10 +134,8 @@ impl HelloFpsWebApp {
             PROJECTILE_MATERIAL,
             &Material::new("fps-projectile", Color::rgb(0.96, 0.84, 0.40)),
         )?;
-        self.pipeline = renderer.register_pipeline(&Pipeline::new(
-            "fps-pipeline",
-            PipelineKind::LitColor3d,
-        ))?;
+        self.pipeline =
+            renderer.register_pipeline(&Pipeline::new("fps-pipeline", PipelineKind::LitColor3d))?;
         self.renderer = Some(renderer);
         self.update_camera_title();
         Ok(())
@@ -214,7 +212,11 @@ impl HelloFpsWebApp {
                     score: self.score,
                     wave: self.wave + 1,
                     targets: self.targets.iter().filter(|target| target.active).count() as u32,
-                    projectiles: self.projectiles.iter().filter(|projectile| projectile.active).count() as u32,
+                    projectiles: self
+                        .projectiles
+                        .iter()
+                        .filter(|projectile| projectile.active)
+                        .count() as u32,
                     status: if self.fire_requested {
                         "fire requested".to_string()
                     } else {
@@ -246,7 +248,10 @@ impl HelloFpsWebApp {
                 self.score,
                 self.wave + 1,
                 self.targets.iter().filter(|target| target.active).count() as u32,
-                self.projectiles.iter().filter(|projectile| projectile.active).count() as u32,
+                self.projectiles
+                    .iter()
+                    .filter(|projectile| projectile.active)
+                    .count() as u32,
                 if self.fire_requested {
                     "fire requested"
                 } else {
@@ -254,7 +259,9 @@ impl HelloFpsWebApp {
                 },
             );
 
-            if let Ok(value) = Reflect::get(&window, &JsValue::from_str("tokimuHelloFpsWebPushFrame")) {
+            if let Ok(value) =
+                Reflect::get(&window, &JsValue::from_str("tokimuHelloFpsWebPushFrame"))
+            {
                 if let Some(function) = value.dyn_ref::<Function>() {
                     let _ = function.call1(&JsValue::from(window.clone()), &snapshot);
                 }
@@ -262,7 +269,9 @@ impl HelloFpsWebApp {
 
             let mut event_init = CustomEventInit::new();
             event_init.detail(&snapshot);
-            if let Ok(event) = CustomEvent::new_with_event_init_dict("tokimu:fps-frame", &event_init) {
+            if let Ok(event) =
+                CustomEvent::new_with_event_init_dict("tokimu:fps-frame", &event_init)
+            {
                 let _ = window.dispatch_event(&event);
             }
         }
@@ -276,15 +285,21 @@ impl HelloFpsWebApp {
         let width = self.window_size[0].max(1.0);
         let height = self.window_size[1].max(1.0);
         self.look_yaw = (0.5 - cursor_x.clamp(0.0, width) / width) * std::f32::consts::TAU * 0.65;
-        self.look_pitch = ((0.5 - cursor_y.clamp(0.0, height) / height) * std::f32::consts::PI * 0.55)
-            .clamp(-0.7, 0.7);
+        self.look_pitch =
+            ((0.5 - cursor_y.clamp(0.0, height) / height) * std::f32::consts::PI * 0.55)
+                .clamp(-0.7, 0.7);
         self.yaw = self.look_yaw;
         self.pitch = self.look_pitch;
     }
 
     fn camera_forward(&self) -> Vec3 {
         let (yaw, pitch) = self.cursor_look();
-        Vec3::new(yaw.sin() * pitch.cos(), pitch.sin(), yaw.cos() * pitch.cos()).normalize_or_zero()
+        Vec3::new(
+            yaw.sin() * pitch.cos(),
+            pitch.sin(),
+            yaw.cos() * pitch.cos(),
+        )
+        .normalize_or_zero()
     }
 
     fn movement_vectors(&self) -> (Vec3, Vec3) {
@@ -387,7 +402,10 @@ impl HelloFpsWebApp {
 
         for target in &self.targets {
             if target.active {
-                renderer.upload_mesh(target.mesh, &cube_mesh(target.position, Vec3::splat(0.85), target.rotation));
+                renderer.upload_mesh(
+                    target.mesh,
+                    &cube_mesh(target.position, Vec3::splat(0.85), target.rotation),
+                );
             }
         }
 
@@ -533,25 +551,23 @@ fn boot_browser_fps_web() -> Result<(), JsValue> {
     let app_for_loop = app.clone();
 
     spawn_local(async move {
-        match WgpuBackend::for_window(
-            canvas_for_renderer,
-            canvas.width(),
-            canvas.height(),
-        )
-        .await
-        {
+        match WgpuBackend::for_window(canvas_for_renderer, canvas.width(), canvas.height()).await {
             Ok(renderer) => {
                 if let Err(error) = app_for_loop.borrow_mut().initialize_renderer(renderer) {
-                    hud_for_loop.set_status(&format!("Tokimu FPS Web | renderer init failed: {error}"));
+                    hud_for_loop
+                        .set_status(&format!("Tokimu FPS Web | renderer init failed: {error}"));
                     return;
                 }
 
-                if let Err(error) = start_browser_loop(window_for_loop, hud_for_loop, app_for_loop) {
-                    hud_for_error.set_status(&format!("Tokimu FPS Web | browser loop failed: {error:?}"));
+                if let Err(error) = start_browser_loop(window_for_loop, hud_for_loop, app_for_loop)
+                {
+                    hud_for_error
+                        .set_status(&format!("Tokimu FPS Web | browser loop failed: {error:?}"));
                 }
             }
             Err(error) => {
-                hud_for_error.set_status(&format!("Tokimu FPS Web | renderer init failed: {error}"));
+                hud_for_error
+                    .set_status(&format!("Tokimu FPS Web | renderer init failed: {error}"));
             }
         }
     });
@@ -618,7 +634,9 @@ fn start_browser_loop(
     hud.set_targets(8);
     hud.set_projectiles(0);
 
-    hud.set_status("Tokimu Hello FPS Web | browser 3D running | click canvas to lock mouse | Esc releases");
+    hud.set_status(
+        "Tokimu Hello FPS Web | browser 3D running | click canvas to lock mouse | Esc releases",
+    );
 
     if let Some(callback) = animation_frame.borrow().as_ref() {
         window
@@ -705,7 +723,12 @@ impl BrowserHud {
         self.set_score(app.score);
         self.set_wave(app.wave + 1);
         self.set_targets(app.targets.iter().filter(|target| target.active).count() as u32);
-        self.set_projectiles(app.projectiles.iter().filter(|projectile| projectile.active).count() as u32);
+        self.set_projectiles(
+            app.projectiles
+                .iter()
+                .filter(|projectile| projectile.active)
+                .count() as u32,
+        );
     }
 }
 
@@ -816,11 +839,7 @@ fn spawn_targets(wave: u32) -> Vec<TargetSlot> {
         .map(|index| {
             let angle = index as f32 / TARGET_SLOT_COUNT as f32 * std::f32::consts::TAU
                 + wave as f32 * 0.25;
-            let position = Vec3::new(
-                angle.cos() * radius,
-                0.85,
-                z_bias + angle.sin() * radius,
-            );
+            let position = Vec3::new(angle.cos() * radius, 0.85, z_bias + angle.sin() * radius);
             TargetSlot {
                 mesh: target_mesh_handle(index),
                 position,

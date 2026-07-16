@@ -3,10 +3,13 @@
 ## Purpose
 
 `hello-cad` is Tokimu's mesh-editing example. It exists to demonstrate
-Tokimu-owned mesh semantics through simple procedural editing. It starts from a
-cube, mutates the geometry over time, and layers in a few small animated
-companion objects so the scene feels like a lightweight modeling and inspection
-loop rather than a pure rendering demo.
+Tokimu-owned mesh semantics through direct vertex editing. It starts from a
+cube, keeps the scene simple, and leaves room for manual selection, movement,
+and user-authored animation instead of baking motion into the mesh itself.
+
+The example now also consumes the shared example-side `ui-tools` crate for its
+toolbar layout, button hit testing, and cursor-to-world conversion so the UI
+plumbing stays reusable across future demo projects.
 
 The example is intentionally not a full CAD kernel or parametric modeling
 system. It should stay focused on Tokimu-owned mesh data, simple procedural
@@ -15,31 +18,33 @@ editing, and visual feedback that makes shape changes easy to read.
 ## What It Proves
 
 - Tokimu can load and render a cube mesh
-- The mesh can be mutated over time before upload
-- Animated companion items can share the same scene
+- Vertices can be selected and moved as part of manual editing workflows
+- User-authored animations can be layered on top of the scene later
 - The renderer seam can handle repeated mesh replacement without owning shape
   truth
 - The example can stay small while still feeling like a modeling workflow
 
 ## Scene Shape
 
-The first version should use a simple inspection-style layout:
+The scene is now deliberately closer to Blender's default startup feel:
 
-- a main cube that deforms or "breathes" over time
-- a floor or pedestal so the object has spatial context
-- one or two companion items, such as a tool marker or reference block
-- a camera angle that keeps the mutation legible
+- one editable cube as the primary object
+- a clean camera angle that reads like a basic modeling viewport
+- minimal extra chrome so the object stays the focus
 
-## Mesh Mutation Approach
+The current goal is to keep the scene simple enough that edits are obvious,
+while still feeling like a modeling workspace instead of a toy render demo.
+
+## Mesh Editing Approach
 
 Tokimu already exposes `Mesh` as a lightweight vertex-and-normal container. For
-this example, the world loop should rebuild the visible mesh each frame from a
-stable base cube, then apply a small deformation story before upload: chamfer
-one edge, bulge one face, and then return to the original cube.
+this example, the world loop should rebuild the visible mesh from a stable base
+cube and then apply direct edits from user interaction before upload.
 
-That gives the example a CAD-like feel without pretending to be a solid
-modeling engine. The shape is still Tokimu-owned mesh data, not a backend CAD
-kernel object.
+That keeps the example focused on vertex-level manipulation without pretending
+to be a full CAD kernel. The shape is still Tokimu-owned mesh data, not a
+backend CAD object, and animation should come from explicit authored systems
+instead of hidden per-frame deformation.
 
 ## Architecture Boundaries
 
@@ -48,8 +53,8 @@ This example must stay inside the engine boundaries defined in
 
 - `tokimu-core` owns simulation truth
 - rendering must not mutate simulation state
-- the example may animate and replace meshes, but it does not own a hidden
-  scene graph outside the app loop
+- the example may replace meshes, but it does not own a hidden scene graph
+  outside the app loop
 - if CAD-style semantics grow later, they should enter through Tokimu-owned
   capability or content layers, not by leaking backend objects into the app
 
@@ -60,13 +65,13 @@ shape change obvious, not to build a busy editor UI.
 
 ## Next Steps After MVP
 
-Once the basic cube mutation works, useful follow-ons include:
+Once basic vertex selection and movement work, useful follow-ons include:
 
-1. animated part insertion or removal
-2. a second mesh family for panels, brackets, or tool heads
-3. simple selection or inspection hints
+1. a transform gizmo or handle overlay for the cube
+2. a property sidebar or inspection panel for the selected mesh
+3. scene-tree or hierarchy navigation if more objects return later
 4. import-from-bytes experiments for mesh data
-5. eventual comparison with a more formal CAD capability if Tokimu earns one
+5. authored animation tracks layered over edited geometry
 
 ## Architectural Assertions
 
@@ -75,7 +80,7 @@ This example demonstrates:
 - Mesh ownership remains inside Tokimu.
 - Rendering consumes mesh data but does not mutate it.
 - World state remains authoritative.
-- Geometry mutation occurs before renderer upload.
+- Geometry edits occur before renderer upload.
 
 ## References
 

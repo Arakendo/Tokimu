@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow,
-    Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
 use tokimu_assets::AssetStore;
 use tokimu_core::math::{Mat4, Vec3};
@@ -79,7 +79,11 @@ impl HelloGlbApp {
 
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
         let orbit = seconds * 0.28;
-        let eye = Vec3::new(orbit.cos() * 4.75, 1.8 + orbit.sin() * 0.15, orbit.sin() * 4.75);
+        let eye = Vec3::new(
+            orbit.cos() * 4.75,
+            1.8 + orbit.sin() * 0.15,
+            orbit.sin() * 4.75,
+        );
         camera.view = Mat4::look_at_rh(eye, Vec3::new(0.0, 0.35, 0.0), Vec3::Y);
         renderer.upload_camera(CAMERA_HANDLE, camera);
 
@@ -117,7 +121,8 @@ impl PlatformEventHandler for HelloGlbApp {
         self.window_size = [size.width.max(1) as f32, size.height.max(1) as f32];
         self.window = Some(window.clone());
 
-        self.assets.allocate_with_source::<Mesh, _>("models/cube.glb");
+        self.assets
+            .allocate_with_source::<Mesh, _>("models/cube.glb");
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_material(
@@ -128,10 +133,8 @@ impl PlatformEventHandler for HelloGlbApp {
             FLOOR_MATERIAL,
             &Material::new("glb-floor", Color::rgb(0.08, 0.10, 0.13)),
         )?;
-        self.pipeline = renderer.register_pipeline(&Pipeline::new(
-            "glb-pipeline",
-            PipelineKind::LitColor3d,
-        ))?;
+        self.pipeline =
+            renderer.register_pipeline(&Pipeline::new("glb-pipeline", PipelineKind::LitColor3d))?;
         self.renderer = Some(renderer);
         self.update_window_title();
         Ok(())
@@ -163,7 +166,11 @@ fn build_model_mesh(seconds: f32) -> Mesh {
     let twist = seconds * 0.18;
     let transform = Mat4::from_rotation_y(twist)
         * Mat4::from_rotation_x((seconds * 0.7).sin() * 0.15)
-        * Mat4::from_scale(Vec3::new(1.0 + wobble * 0.5, 1.0 + wobble, 1.0 + wobble * 0.25))
+        * Mat4::from_scale(Vec3::new(
+            1.0 + wobble * 0.5,
+            1.0 + wobble,
+            1.0 + wobble * 0.25,
+        ))
         * Mat4::from_translation(Vec3::new(0.0, 0.35, 0.0));
     let normal_transform = transform.inverse().transpose();
     let base = Mesh::cube();

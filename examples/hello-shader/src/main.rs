@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer,
-    WgpuBackend, WindowConfig,
+    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend,
+    WindowConfig,
 };
 use tokimu_assets::{AssetHandle, AssetStore};
 use tokimu_core::math::{Mat4, Vec3};
@@ -151,7 +151,8 @@ impl HelloShaderApp {
         renderer.upload_mesh(TRIANGLE_MESH, &Mesh::triangle());
         renderer.upload_mesh(DIAMOND_MESH, &Mesh::diamond());
 
-        let mut camera = Camera::orthographic_2d_with_height(self.window_size[0], self.window_size[1], 4.0);
+        let mut camera =
+            Camera::orthographic_2d_with_height(self.window_size[0], self.window_size[1], 4.0);
         camera.view = Mat4::from_translation(Vec3::new(0.0, 0.0, 0.0));
         renderer.upload_camera(CAMERA_HANDLE, camera);
         renderer.set_active_camera(CAMERA_HANDLE);

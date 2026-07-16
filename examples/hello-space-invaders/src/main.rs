@@ -372,7 +372,10 @@ impl SpaceInvadersGame {
     fn step_once(&mut self) {
         self.move_bullets();
         self.invader_step_count += 1;
-        if self.invader_step_count.is_multiple_of(INVADER_MOVE_INTERVAL) {
+        if self
+            .invader_step_count
+            .is_multiple_of(INVADER_MOVE_INTERVAL)
+        {
             self.move_invaders();
         }
         self.resolve_bullet_hits();

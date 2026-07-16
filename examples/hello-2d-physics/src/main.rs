@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow,
-    Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
+    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 
 const BOARD_MESH: MeshHandle = MeshHandle(1);
@@ -241,7 +241,12 @@ impl PlatformEventHandler for Hello2dPhysicsApp {
     }
 }
 
-fn draw_board_segment(center: [f32; 2], scale: [f32; 2], material: MaterialHandle, pipeline: PipelineHandle) -> RenderCommand {
+fn draw_board_segment(
+    center: [f32; 2],
+    scale: [f32; 2],
+    material: MaterialHandle,
+    pipeline: PipelineHandle,
+) -> RenderCommand {
     RenderCommand::DrawMesh(DrawMeshCommand {
         mesh: BOARD_MESH,
         material,
@@ -329,7 +334,9 @@ struct Bin {
 
 impl Bin {
     fn instance(&self) -> Instance2d {
-        Instance2d::identity().with_translation([self.center_x, FLOOR_Y - 0.2]).with_scale([self.width, 0.28])
+        Instance2d::identity()
+            .with_translation([self.center_x, FLOOR_Y - 0.2])
+            .with_scale([self.width, 0.28])
     }
 }
 
@@ -400,7 +407,6 @@ impl MarbleBoard {
             resolve_walls(marble);
             resolve_pegs(marble, &pegs);
             resolve_floor(marble, bin_count);
-
         }
 
         self.update_bins();
@@ -416,7 +422,10 @@ impl MarbleBoard {
 
     fn update_bins(&mut self) {
         for (index, bin) in self.bins.iter_mut().enumerate() {
-            bin.is_highlighted = self.marbles.iter().any(|marble| marble.settled && marble.bin_index == index);
+            bin.is_highlighted = self
+                .marbles
+                .iter()
+                .any(|marble| marble.settled && marble.bin_index == index);
         }
 
         self.score = self
@@ -488,7 +497,11 @@ fn build_pegs() -> Vec<Peg> {
 
     for row in 0..PEG_ROWS {
         let y = start_y - row as f32 * row_spacing;
-        let offset = if row % 2 == 0 { 0.0 } else { column_spacing * 0.5 };
+        let offset = if row % 2 == 0 {
+            0.0
+        } else {
+            column_spacing * 0.5
+        };
         for column in 0..PEG_COUNT_PER_ROW {
             let x = -((PEG_COUNT_PER_ROW - 1) as f32 * column_spacing * 0.5)
                 + column as f32 * column_spacing

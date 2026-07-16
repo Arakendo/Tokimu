@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d,
-    Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
-    Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d, Material,
+    MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle, PipelineKind,
+    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend,
+    WindowConfig,
 };
 
 const STROKE_MESH: MeshHandle = MeshHandle(1);
@@ -129,7 +129,11 @@ impl HelloVectorDrawApp {
             let node = Instance2d::identity()
                 .with_translation(*point)
                 .with_scale([0.07, 0.07])
-                .with_rotation(if index == active_segment { seconds * 0.7 } else { 0.0 });
+                .with_rotation(if index == active_segment {
+                    seconds * 0.7
+                } else {
+                    0.0
+                });
             commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                 mesh: NODE_MESH,
                 material: if index == active_segment {
@@ -145,14 +149,12 @@ impl HelloVectorDrawApp {
         }
 
         let (pen_start, pen_end) = VECTOR_SEGMENTS[active_segment];
-        let pen = stroke_instance(
-            VECTOR_POINTS[pen_start],
-            VECTOR_POINTS[pen_end],
-            0.10,
-        )
-        .with_scale([0.12, 0.12])
-        .with_rotation(segment_angle(VECTOR_POINTS[pen_start], VECTOR_POINTS[pen_end])
-            + std::f32::consts::FRAC_PI_2);
+        let pen = stroke_instance(VECTOR_POINTS[pen_start], VECTOR_POINTS[pen_end], 0.10)
+            .with_scale([0.12, 0.12])
+            .with_rotation(
+                segment_angle(VECTOR_POINTS[pen_start], VECTOR_POINTS[pen_end])
+                    + std::f32::consts::FRAC_PI_2,
+            );
         commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
             mesh: PEN_MESH,
             material: PEN_MATERIAL,

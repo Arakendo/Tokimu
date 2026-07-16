@@ -222,14 +222,10 @@ impl AsteroidsGame {
             } else {
                 WORLD_WIDTH * 0.5
             };
-            let y = self
-                .rng
-                .next_float(-WORLD_HEIGHT * 0.5, WORLD_HEIGHT * 0.5);
+            let y = self.rng.next_float(-WORLD_HEIGHT * 0.5, WORLD_HEIGHT * 0.5);
             (x, y)
         } else {
-            let x = self
-                .rng
-                .next_float(-WORLD_WIDTH * 0.5, WORLD_WIDTH * 0.5);
+            let x = self.rng.next_float(-WORLD_WIDTH * 0.5, WORLD_WIDTH * 0.5);
             let y = if self.rng.next_bool() {
                 -WORLD_HEIGHT * 0.5
             } else {
@@ -284,7 +280,8 @@ impl AsteroidsGame {
                 cursor_target.y - self.ship.entity.pos.y,
             );
             if aim_delta.length() > 0.001 {
-                self.ship.entity.angle = aim_delta.y.atan2(aim_delta.x) - std::f32::consts::FRAC_PI_2;
+                self.ship.entity.angle =
+                    aim_delta.y.atan2(aim_delta.x) - std::f32::consts::FRAC_PI_2;
             }
         }
 
@@ -351,10 +348,7 @@ impl AsteroidsGame {
     }
 
     fn ship_forward_vector(&self) -> Vec2 {
-        Vec2::new(
-            -self.ship.entity.angle.sin(),
-            self.ship.entity.angle.cos(),
-        )
+        Vec2::new(-self.ship.entity.angle.sin(), self.ship.entity.angle.cos())
     }
 
     fn update_bullets(&mut self, dt: f32) {

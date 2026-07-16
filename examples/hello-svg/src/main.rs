@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tokimu::{
-    run_window_with_app, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d,
-    Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
-    Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d, Material,
+    MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle, PipelineKind,
+    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend,
+    WindowConfig,
 };
 
 const FRAME_MESH: MeshHandle = MeshHandle(1);
@@ -66,10 +66,7 @@ impl HelloSvgApp {
 
     fn update_window_title(&self, progress: f32) {
         if let Some(window) = self.window.as_ref() {
-            window.set_title(&format!(
-                "Tokimu Hello SVG | path progress={:.2}",
-                progress
-            ));
+            window.set_title(&format!("Tokimu Hello SVG | path progress={:.2}", progress));
         }
     }
 
@@ -85,8 +82,8 @@ impl HelloSvgApp {
         renderer.upload_mesh(FILL_MESH, &Mesh::triangle());
 
         let progress = svg_progress(seconds);
-        let active_segment = ((progress * PATH_SEGMENTS.len() as f32).floor() as usize)
-            .min(PATH_SEGMENTS.len() - 1);
+        let active_segment =
+            ((progress * PATH_SEGMENTS.len() as f32).floor() as usize).min(PATH_SEGMENTS.len() - 1);
 
         renderer.begin_frame();
         let mut commands = vec![RenderCommand::Clear(ClearCommand {
@@ -107,7 +104,15 @@ impl HelloSvgApp {
         for (index, &(start_index, end_index)) in PATH_SEGMENTS.iter().enumerate() {
             let start = PATH_POINTS[start_index];
             let end = PATH_POINTS[end_index];
-            let stroke = stroke_instance(start, end, if index == active_segment { 0.075 } else { 0.044 });
+            let stroke = stroke_instance(
+                start,
+                end,
+                if index == active_segment {
+                    0.075
+                } else {
+                    0.044
+                },
+            );
             commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                 mesh: STROKE_MESH,
                 material: if index <= active_segment {

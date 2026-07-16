@@ -91,7 +91,8 @@ fn attach_keyboard_listeners(
     let keydown_handler = event_handler.clone();
     let keydown = Closure::wrap(Box::new(move |event: web_sys::Event| {
         if let Ok(key_event) = event.dyn_into::<KeyboardEvent>() {
-            if key_event.code() == "Escape" && document_for_escape.pointer_lock_element().is_some() {
+            if key_event.code() == "Escape" && document_for_escape.pointer_lock_element().is_some()
+            {
                 document_for_escape.exit_pointer_lock();
             }
             if let Some(key) = map_key_code(&key_event.code()) {
@@ -198,7 +199,10 @@ fn attach_mouse_listeners(
     }) as Box<dyn FnMut(web_sys::Event)>);
 
     document
-        .add_event_listener_with_callback("pointerlockchange", pointer_lock_change.as_ref().unchecked_ref())
+        .add_event_listener_with_callback(
+            "pointerlockchange",
+            pointer_lock_change.as_ref().unchecked_ref(),
+        )
         .map_err(|error| boxed_error(format!("{:?}", error)))?;
 
     let _ = canvas.style().set_property("cursor", "default");
@@ -259,10 +263,15 @@ fn map_key_code(code: &str) -> Option<KeyCode> {
     match code {
         "Escape" => Some(KeyCode::Escape),
         "Space" => Some(KeyCode::Space),
+        "KeyE" => Some(KeyCode::KeyE),
         "KeyA" => Some(KeyCode::KeyA),
         "KeyD" => Some(KeyCode::KeyD),
         "KeyS" => Some(KeyCode::KeyS),
         "KeyW" => Some(KeyCode::KeyW),
+        "KeyQ" => Some(KeyCode::KeyQ),
+        "KeyR" => Some(KeyCode::KeyR),
+        "KeyX" => Some(KeyCode::KeyX),
+        "KeyZ" => Some(KeyCode::KeyZ),
         "ArrowLeft" => Some(KeyCode::ArrowLeft),
         "ArrowRight" => Some(KeyCode::ArrowRight),
         "ArrowUp" => Some(KeyCode::ArrowUp),
