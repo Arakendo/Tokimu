@@ -1,0 +1,10 @@
+[package]
+name = "hello-ui-panel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokimu = { path = "../../../crates/tokimu", features = ["platform", "render"] }
+ui-tools = { path = "../../lib-example/ui-tools" }
