@@ -7,12 +7,14 @@ use tokimu::{
     PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
-    window_to_world, UiButtonId, UiButtonSpec, UiCard, UiCardRole, UiControlRole, UiDrawer,
-    UiInteractionState, UiRect, UiRegion, UiRegionKind, UiSurfaceCommand, UiSurfaceRole, UiTheme,
+    layout_bitmap_text, window_to_world, UiButtonId, UiButtonSpec, UiCard, UiCardRole, UiControlRole, UiDrawer,
+    UiInteractionState, UiRect, UiRegion, UiRegionKind, UiSurfaceCommand, UiSurfaceRole,
+    UiTextAlign, UiTextRole, UiTextSpec, UiTheme,
     UiWorkspaceLayout,
 };
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
+const GLYPH_MESH: MeshHandle = MeshHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 
 const BACKDROP_MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -21,6 +23,7 @@ const PANEL_MATERIAL: MaterialHandle = MaterialHandle(3);
 const CARD_MATERIAL: MaterialHandle = MaterialHandle(4);
 const ACTIVE_MATERIAL: MaterialHandle = MaterialHandle(5);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(6);
+const TEXT_MATERIAL: MaterialHandle = MaterialHandle(7);
 
 #[derive(Clone, Copy)]
 struct AssetProfile {
@@ -33,19 +36,19 @@ struct AssetProfile {
 const ASSETS: [AssetProfile; 3] = [
     AssetProfile {
         name: "Sketch",
-        summary: "UNSAVED CHANGES",
+        summary: "UNSAVED",
         role: UiCardRole::Browser,
         accent: UiSurfaceRole::Card,
     },
     AssetProfile {
         name: "Mesh",
-        summary: "DIRTY / REQUIRES REVIEW",
+        summary: "REVIEW",
         role: UiCardRole::Editor,
         accent: UiSurfaceRole::Selected,
     },
     AssetProfile {
         name: "Telemetry",
-        summary: "LIVE / OBSERVED",
+        summary: "LIVE",
         role: UiCardRole::Preview,
         accent: UiSurfaceRole::Accent,
     },
@@ -81,6 +84,7 @@ struct HelloUiStateApp {
     cached_pinned: bool,
     cached_revision: u64,
     cached_surfaces: Vec<UiSurfaceCommand>,
+    cached_text: Vec<RenderCommand>,
 }
 
 impl Default for HelloUiStateApp {
@@ -104,6 +108,7 @@ impl Default for HelloUiStateApp {
             cached_pinned: false,
             cached_revision: u64::MAX,
             cached_surfaces: Vec::new(),
+            cached_text: Vec::new(),
         }
     }
 }
@@ -265,6 +270,7 @@ impl HelloUiStateApp {
 
         let layout = self.layout();
         self.cached_surfaces.clear();
+        self.cached_text.clear();
 
         let mut text = Vec::new();
         {
@@ -291,19 +297,15 @@ impl HelloUiStateApp {
             drawer.surface(&toolbar);
 
             let mut sidebar = layout.sidebar;
-            sidebar.role = if self.selected_asset == 0 {
-                UiSurfaceRole::Selected
-            } else {
-                UiSurfaceRole::Region
-            };
+            // Keep the region's elevation stable; selection is shown by the
+            // accent strip rather than changing the whole sidebar surface.
+            sidebar.role = UiSurfaceRole::Panel;
             drawer.surface(&sidebar);
 
             let mut canvas = layout.canvas;
-            canvas.role = if self.selected_asset == 1 {
-                UiSurfaceRole::Panel
-            } else {
-                UiSurfaceRole::Region
-            };
+            // The work area is always a panel. Asset selection should not
+            // make its shadow appear or disappear.
+            canvas.role = UiSurfaceRole::Panel;
             drawer.surface(&canvas);
 
             let mut inspector = layout.inspector;
@@ -372,14 +374,13 @@ impl HelloUiStateApp {
             }
 
             for (index, card) in layout.cards.iter().enumerate() {
-                let profile = ASSETS[index];
                 let mut asset_card = *card;
                 asset_card.role = if index == self.selected_asset {
-                    UiCardRole::Inspector
+                    UiCardRole::Selected
                 } else if Some(index) == self.hovered_asset {
                     UiCardRole::Preview
                 } else {
-                    profile.role
+                    UiCardRole::Browser
                 };
                 drawer.card(&asset_card);
             }
@@ -398,12 +399,49 @@ impl HelloUiStateApp {
             drawer.card(&inspector_card);
         }
 
+        for (text_value, rect, role) in [
+            ("STATE", layout.header.rect, UiTextRole::Heading),
+            ("SELECTION", layout.sidebar.rect, UiTextRole::Caption),
+            ("STATUS", layout.status_bar.rect, UiTextRole::Caption),
+        ] {
+            let spec = UiTextSpec::new(text_value, rect, role)
+                .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
+            text.push(ui_tools::UiTextCommand {
+                style: self.theme.text(role),
+                spec,
+            });
+        }
+
+        for command in &mut text {
+            if command.spec.rect.size[1] < 0.16 {
+                command.style.height = command
+                    .style
+                    .height
+                    .min((command.spec.rect.size[1] * 0.78).max(0.020));
+            }
+        }
+
         self.cached_window_size = self.window_size;
         self.cached_selected_asset = self.selected_asset;
         self.cached_hovered_asset = self.hovered_asset;
         self.cached_hovered_button = self.hovered_button;
         self.cached_pinned = self.pinned;
         self.cached_revision = self.revision;
+
+        self.cached_text.extend(text.into_iter().flat_map(|command| {
+            layout_bitmap_text(&command.spec, command.style.height)
+                .into_iter()
+                .map(|quad| {
+                    RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: GLYPH_MESH,
+                        material: TEXT_MATERIAL,
+                        pipeline: self.pipeline,
+                        instance: Instance2d::new(quad.center, quad.size, 0.0),
+                        camera: Some(CAMERA_HANDLE),
+                        viewport: None,
+                    })
+                })
+        }));
     }
 }
 
@@ -415,6 +453,7 @@ impl PlatformEventHandler for HelloUiStateApp {
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(REGION_MESH, &Mesh::quad());
+        renderer.upload_mesh(GLYPH_MESH, &Mesh::quad());
         renderer.upload_material(
             BACKDROP_MATERIAL,
             &Material::new("ui-state-backdrop", Color::rgb(0.05, 0.06, 0.08)),
@@ -438,6 +477,10 @@ impl PlatformEventHandler for HelloUiStateApp {
         renderer.upload_material(
             MUTED_MATERIAL,
             &Material::new("ui-state-muted", Color::rgb(0.10, 0.12, 0.14)),
+        )?;
+        renderer.upload_material(
+            TEXT_MATERIAL,
+            &Material::new("ui-state-text", Color::rgb(0.90, 0.93, 0.98)),
         )?;
         self.pipeline = renderer.register_pipeline(&Pipeline::new(
             "hello-ui-state-pipeline",
@@ -519,6 +562,9 @@ impl PlatformEventHandler for HelloUiStateApp {
 
         for command in &self.cached_surfaces {
             Self::draw_surface_command(renderer, self.pipeline, command);
+        }
+        for command in &self.cached_text {
+            renderer.submit(&[*command]);
         }
 
         let _ = renderer.present()?;

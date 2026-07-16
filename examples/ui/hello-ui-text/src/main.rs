@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{UiRect, UiTextAlign, UiTextRole, UiTextSpec, UiTheme};
+use ui_tools::{layout_bitmap_text, UiRect, UiTextAlign, UiTextRole, UiTextSpec, UiTheme};
 
 const GLYPH_MESH: MeshHandle = MeshHandle(1);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
@@ -64,98 +64,24 @@ impl HelloUiTextApp {
     }
 
     fn build_text_commands(
-        text: &str,
-        position: [f32; 2],
-        anchor: UiTextAlign,
+        spec: &UiTextSpec,
         height: f32,
         material: MaterialHandle,
         pipeline: PipelineHandle,
     ) -> Vec<RenderCommand> {
-        let cell = (height / 9.0).max(0.0025);
-        let width = Self::measure_text_width(text, cell);
-        let start_x = match anchor {
-            UiTextAlign::Start => position[0],
-            UiTextAlign::Center => position[0] - width * 0.5,
-            UiTextAlign::End => position[0] - width,
-        };
-        let top_y = position[1] + height * 0.5 - cell * 0.9;
-        let mut x_cursor = start_x;
-        let mut commands = Vec::new();
-
-        for ch in text.chars() {
-            if ch == ' ' {
-                x_cursor += cell * 3.2;
-                continue;
-            }
-
-            for (row_index, row_bits) in Self::glyph_rows(ch).into_iter().enumerate() {
-                for column in 0..5 {
-                    let mask = 1 << (4 - column);
-                    if row_bits & mask == 0 {
-                        continue;
-                    }
-
-                    let center_x = x_cursor + column as f32 * cell;
-                    let center_y = top_y - row_index as f32 * cell;
-                    commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                        mesh: GLYPH_MESH,
-                        material,
-                        pipeline,
-                        instance: Instance2d::new(
-                            [center_x, center_y],
-                            [cell * 0.74, cell * 0.74],
-                            0.0,
-                        ),
-                        camera: Some(CAMERA_HANDLE),
-                        viewport: None,
-                    }));
-                }
-            }
-
-            x_cursor += cell * 5.2;
-        }
-
-        commands
-    }
-
-    fn measure_text_width(text: &str, cell: f32) -> f32 {
-        text.chars().fold(0.0, |width, ch| {
-            width + if ch == ' ' { cell * 3.2 } else { cell * 5.2 }
-        })
-    }
-
-    fn glyph_rows(ch: char) -> [u8; 7] {
-        match ch.to_ascii_uppercase() {
-            'A' => [0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
-            'B' => [0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110],
-            'C' => [0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111],
-            'D' => [0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110],
-            'E' => [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111],
-            'F' => [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000],
-            'G' => [0b01111, 0b10000, 0b10000, 0b10011, 0b10001, 0b10001, 0b01111],
-            'H' => [0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
-            'I' => [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111],
-            'J' => [0b00001, 0b00001, 0b00001, 0b00001, 0b10001, 0b10001, 0b01110],
-            'K' => [0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001],
-            'L' => [0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111],
-            'M' => [0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001],
-            'N' => [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001],
-            'O' => [0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110],
-            'P' => [0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000],
-            'Q' => [0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101],
-            'R' => [0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001],
-            'S' => [0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110],
-            'T' => [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100],
-            'U' => [0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110],
-            'V' => [0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b01010, 0b00100],
-            'W' => [0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b11011, 0b10001],
-            'X' => [0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b01010, 0b10001],
-            'Y' => [0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100],
-            'Z' => [0b11111, 0b00010, 0b00100, 0b00100, 0b01000, 0b10000, 0b11111],
-            '+' => [0b00100, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00100],
-            '?' => [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100],
-            _ => [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100],
-        }
+        layout_bitmap_text(spec, height)
+            .into_iter()
+            .map(|quad| {
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: GLYPH_MESH,
+                    material,
+                    pipeline,
+                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                    camera: Some(CAMERA_HANDLE),
+                    viewport: None,
+                })
+            })
+            .collect()
     }
 }
 
@@ -218,26 +144,80 @@ impl PlatformEventHandler for HelloUiTextApp {
             color: Color::rgb(0.05, 0.06, 0.08),
         })]);
 
-        let title = UiTextSpec::new("TEXT", UiRect::new([0.0, 0.36], [0.92, 0.12]), UiTextRole::Title)
-            .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
-        let body = UiTextSpec::new("ALIGNMENT / SCALE / ROLE", UiRect::new([0.0, 0.08], [0.92, 0.10]), UiTextRole::Body)
-            .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
-        let left = UiTextSpec::new("START", UiRect::new([-0.45, -0.20], [0.36, 0.08]), UiTextRole::Caption)
-            .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
-        let right = UiTextSpec::new("END", UiRect::new([0.45, -0.20], [0.36, 0.08]), UiTextRole::Caption)
-            .with_alignment(UiTextAlign::End, UiTextAlign::Center);
+        let title = UiTextSpec::new(
+            "TEXT",
+            UiRect::new([0.0, 0.39], [0.92, 0.10]),
+            UiTextRole::Title,
+        )
+        .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
+        let subtitle = UiTextSpec::new(
+            "TEXT ROLE CORPUS",
+            UiRect::new([0.0, 0.29], [0.92, 0.07]),
+            UiTextRole::Caption,
+        )
+        .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
+        let heading = UiTextSpec::new(
+            "ROLE SCALE",
+            UiRect::new([-0.45, 0.19], [0.36, 0.07]),
+            UiTextRole::Heading,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        let body = UiTextSpec::new(
+            "BODY TEXT",
+            UiRect::new([-0.45, 0.10], [0.36, 0.07]),
+            UiTextRole::Body,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        let caption = UiTextSpec::new(
+            "CAPTION",
+            UiRect::new([-0.45, 0.01], [0.36, 0.07]),
+            UiTextRole::Caption,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        let status = UiTextSpec::new(
+            "STATUS READY",
+            UiRect::new([-0.45, -0.08], [0.36, 0.07]),
+            UiTextRole::Status,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        let alignment = UiTextSpec::new(
+            "ALIGNMENT",
+            UiRect::new([0.45, 0.19], [0.36, 0.07]),
+            UiTextRole::Heading,
+        )
+        .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
+        let left = UiTextSpec::new(
+            "START",
+            UiRect::new([0.45, 0.10], [0.36, 0.07]),
+            UiTextRole::Caption,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        let center = UiTextSpec::new(
+            "CENTER",
+            UiRect::new([0.45, 0.01], [0.36, 0.07]),
+            UiTextRole::Caption,
+        )
+        .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
+        let right = UiTextSpec::new(
+            "END",
+            UiRect::new([0.45, -0.08], [0.36, 0.07]),
+            UiTextRole::Caption,
+        )
+        .with_alignment(UiTextAlign::End, UiTextAlign::Center);
+        let clipped = UiTextSpec::new(
+            "CLIPPED TEXT SAMPLE",
+            UiRect::new([0.0, -0.29], [0.46, 0.07]),
+            UiTextRole::Status,
+        )
+        .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
 
-        for spec in [title, body, left, right] {
+        for spec in [
+            title, subtitle, heading, body, caption, status, alignment, left, center, right,
+            clipped,
+        ] {
             let style = self.theme.text(spec.role);
             let material = Self::material_for_role(spec.role);
-            let commands = Self::build_text_commands(
-                spec.text.as_str(),
-                spec.rect.center,
-                spec.align_x,
-                style.height,
-                material,
-                self.pipeline,
-            );
+            let commands = Self::build_text_commands(&spec, style.height, material, self.pipeline);
             renderer.submit(&commands);
         }
 

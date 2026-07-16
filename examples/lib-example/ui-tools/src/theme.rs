@@ -1,5 +1,5 @@
 use crate::{
-    layout::UiCardRole,
+    region::UiCardRole,
     text::{UiTextAlign, UiTextOverflow, UiTextRole},
     UiInteractionState, UiRadius, UiSpacing, UiSurfaceRole,
 };
@@ -199,6 +199,12 @@ impl UiTheme {
         };
 
         let mut style = self.surface(base_role);
+        if matches!(role, UiControlRole::Quiet)
+            && matches!(state, UiInteractionState::Idle)
+        {
+            style.border_width = self.borders.hairline;
+            style.border_role = Some(UiSurfaceRole::Overlay);
+        }
         match state {
             UiInteractionState::Idle => {}
             UiInteractionState::Hovered => {
@@ -232,6 +238,7 @@ impl UiTheme {
             UiCardRole::Browser => self.surface(UiSurfaceRole::Card),
             UiCardRole::Editor => self.surface(UiSurfaceRole::Raised),
             UiCardRole::Preview => self.surface(UiSurfaceRole::Accent),
+            UiCardRole::Selected => self.surface(UiSurfaceRole::Selected),
             UiCardRole::Inspector => self.surface(UiSurfaceRole::Panel),
             UiCardRole::Status => self.surface(UiSurfaceRole::Overlay),
         }
@@ -243,42 +250,42 @@ impl UiTheme {
                 role,
                 align: UiTextAlign::Start,
                 overflow: UiTextOverflow::Clip,
-                height: 0.048,
+                height: 0.056,
                 opacity: 1.0,
             },
             UiTextRole::Heading => UiTextStyle {
                 role,
                 align: UiTextAlign::Center,
                 overflow: UiTextOverflow::Clip,
-                height: 0.036,
+                height: 0.043,
                 opacity: 1.0,
             },
             UiTextRole::Body => UiTextStyle {
                 role,
                 align: UiTextAlign::Start,
                 overflow: UiTextOverflow::Clip,
-                height: 0.028,
+                height: 0.034,
                 opacity: 0.92,
             },
             UiTextRole::Caption => UiTextStyle {
                 role,
                 align: UiTextAlign::Center,
                 overflow: UiTextOverflow::Clip,
-                height: 0.024,
+                height: 0.029,
                 opacity: 0.85,
             },
             UiTextRole::Button => UiTextStyle {
                 role,
                 align: UiTextAlign::Center,
                 overflow: UiTextOverflow::Clip,
-                height: 0.030,
+                height: 0.036,
                 opacity: 1.0,
             },
             UiTextRole::Chip | UiTextRole::Status => UiTextStyle {
                 role,
                 align: UiTextAlign::Center,
                 overflow: UiTextOverflow::Clip,
-                height: 0.022,
+                height: 0.027,
                 opacity: 0.88,
             },
         }

@@ -9,6 +9,11 @@ Rather than testing buttons or windows, this example isolates text as its own
 semantic concern. It establishes how text is described, measured, aligned,
 and translated into renderer commands.
 
+The example now also sits alongside the shared reference corpora in the repo:
+font assets live under `third-party/fonts/`, and icon assets live under
+`third-party/glyph-providers/`. That keeps text semantics separate from the
+actual data sources they may resolve through.
+
 The goal is to discover the minimal semantic vocabulary required for text
 across every future UI element.
 
@@ -136,6 +141,7 @@ pub struct UiTextSpec {
     pub text: String,
     pub rect: UiRect,
     pub role: UiTextRole,
+    pub direction: UiTextDirection,
     pub align_x: UiTextAlign,
     pub align_y: UiTextAlign,
     pub overflow: UiTextOverflow,
@@ -160,6 +166,8 @@ Future versions may add:
 - Internationalization
 - Unicode shaping
 - Text direction (LTR / RTL)
+- Font fallback across the shared font corpora
+- Provider-backed font selection
 - RTL support
 - Text selection
 - Caret rendering
@@ -202,3 +210,5 @@ The example succeeds when:
 - Layout decisions occur before renderer submission.
 - Renderer APIs remain free of UI semantics.
 - Text direction is a semantic switch rather than a font-path concern.
+- Font and icon corpora remain external reference data, not baked into the text
+    semantic contract.

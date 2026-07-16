@@ -6,9 +6,13 @@ use tokimu::{
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{window_to_world, UiButton, UiButtonId, UiControlRole, UiInteractionState, UiRect, UiTheme};
+use ui_tools::{
+    layout_bitmap_text, window_to_world, UiButton, UiButtonId, UiControlRole,
+    UiInteractionState, UiRect, UiTextRole, UiTextSpec, UiTheme,
+};
 
 const PANEL_MESH: MeshHandle = MeshHandle(1);
+const GLYPH_MESH: MeshHandle = MeshHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 
 const BACKDROP_MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -18,6 +22,7 @@ const BUTTON_MATERIAL: MaterialHandle = MaterialHandle(4);
 const BUTTON_HOVER_MATERIAL: MaterialHandle = MaterialHandle(5);
 const BUTTON_SELECTED_MATERIAL: MaterialHandle = MaterialHandle(6);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(7);
+const TEXT_MATERIAL: MaterialHandle = MaterialHandle(8);
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -52,9 +57,9 @@ impl Default for HelloUiToolbarApp {
             active_button: None,
             cursor_position: [0.0, 0.0],
             buttons: [
-                UiButton::new(UiButtonId(0), "", UiRect::new([-0.3, 0.55], [0.28, 0.11])),
-                UiButton::new(UiButtonId(1), "", UiRect::new([0.0, 0.55], [0.28, 0.11])),
-                UiButton::new(UiButtonId(2), "", UiRect::new([0.3, 0.55], [0.28, 0.11])),
+                UiButton::new(UiButtonId(0), "OPEN", UiRect::new([-0.3, 0.03], [0.28, 0.11])),
+                UiButton::new(UiButtonId(1), "EDIT", UiRect::new([0.0, 0.03], [0.28, 0.11])),
+                UiButton::new(UiButtonId(2), "SAVE", UiRect::new([0.3, 0.03], [0.28, 0.11])),
             ],
         }
     }
@@ -123,20 +128,59 @@ impl HelloUiToolbarApp {
         if let Some(border_role) = style.border_role {
             let border = style.border_width.min(rect.size[0] * 0.22).min(rect.size[1] * 0.22);
             if border > 0.0 {
-                let border_rect = UiRect::new(
-                    [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
-                    [rect.size[0], border],
-                );
-                renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
-                    mesh: PANEL_MESH,
-                    material: Self::material_for_role(border_role),
-                    pipeline,
-                    instance: Instance2d::new(border_rect.center, border_rect.size, 0.0),
-                    camera: Some(CAMERA_HANDLE),
-                    viewport: None,
-                })]);
+                let edges = [
+                    UiRect::new(
+                        [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                        [rect.size[0], border],
+                    ),
+                    UiRect::new(
+                        [rect.center[0], rect.center[1] - rect.size[1] * 0.5 + border * 0.5],
+                        [rect.size[0], border],
+                    ),
+                    UiRect::new(
+                        [rect.center[0] - rect.size[0] * 0.5 + border * 0.5, rect.center[1]],
+                        [border, rect.size[1]],
+                    ),
+                    UiRect::new(
+                        [rect.center[0] + rect.size[0] * 0.5 - border * 0.5, rect.center[1]],
+                        [border, rect.size[1]],
+                    ),
+                ];
+                for edge in edges {
+                    renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: PANEL_MESH,
+                        material: Self::material_for_role(border_role),
+                        pipeline,
+                        instance: Instance2d::new(edge.center, edge.size, 0.0),
+                        camera: Some(CAMERA_HANDLE),
+                        viewport: None,
+                    })]);
+                }
             }
         }
+    }
+
+    fn draw_button_text(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        theme: &UiTheme,
+        button: &UiButton,
+    ) {
+        let spec = UiTextSpec::new(button.label, button.rect, UiTextRole::Button);
+        let commands = layout_bitmap_text(&spec, theme.text(UiTextRole::Button).height)
+            .into_iter()
+            .map(|quad| {
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: GLYPH_MESH,
+                    material: TEXT_MATERIAL,
+                    pipeline,
+                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                    camera: Some(CAMERA_HANDLE),
+                    viewport: None,
+                })
+            })
+            .collect::<Vec<_>>();
+        renderer.submit(&commands);
     }
 }
 
@@ -147,6 +191,7 @@ impl PlatformEventHandler for HelloUiToolbarApp {
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(PANEL_MESH, &Mesh::quad());
+        renderer.upload_mesh(GLYPH_MESH, &Mesh::quad());
         renderer.upload_material(
             BACKDROP_MATERIAL,
             &Material::new("ui-backdrop", Color::rgb(0.05, 0.06, 0.08)),
@@ -174,6 +219,10 @@ impl PlatformEventHandler for HelloUiToolbarApp {
         renderer.upload_material(
             MUTED_MATERIAL,
             &Material::new("ui-muted", Color::rgb(0.11, 0.13, 0.16)),
+        )?;
+        renderer.upload_material(
+            TEXT_MATERIAL,
+            &Material::new("ui-text", Color::rgb(0.92, 0.95, 0.99)),
         )?;
         self.pipeline = renderer.register_pipeline(&Pipeline::new(
             "hello-ui-toolbar-pipeline",
@@ -237,7 +286,7 @@ impl PlatformEventHandler for HelloUiToolbarApp {
             color: Color::rgb(0.05, 0.06, 0.08),
         })]);
 
-        let rail = UiRect::new([0.0, 0.58], [0.98, 0.18]);
+        let rail = UiRect::new([0.0, 0.03], [0.98, 0.18]);
         Self::draw_button(
             renderer,
             self.pipeline,
@@ -261,6 +310,7 @@ impl PlatformEventHandler for HelloUiToolbarApp {
                 _ => UiControlRole::Quiet,
             };
             Self::draw_button(renderer, self.pipeline, &self.theme, button, state, role);
+            Self::draw_button_text(renderer, self.pipeline, &self.theme, button);
         }
 
         let _ = renderer.present()?;

@@ -1,7 +1,8 @@
 mod controls;
 mod draw;
 mod geometry;
-mod layout;
+mod presets;
+mod region;
 mod text;
 mod theme;
 
@@ -11,13 +12,16 @@ pub use controls::{
 };
 pub use draw::{UiDrawer, UiSurfaceCommand, UiTextCommand};
 pub use geometry::{window_to_world, UiInsets, UiRect};
-pub use layout::UiCardRole;
-pub use layout::{
+pub use presets::{UiToolbarLayout, UiWorkspaceLayout};
+pub use region::UiCardRole;
+pub use region::{
     UiCard, UiInspector, UiPanel, UiRadius, UiRegion, UiRegionKind, UiSidebar, UiSpacing,
-    UiStatusBar, UiSurfaceRole, UiTabStrip, UiToolbar, UiToolbarLayout, UiWorkspace,
-    UiWorkspaceLayout,
+    UiStatusBar, UiSurfaceRole, UiTabStrip, UiToolbar, UiWorkspace,
 };
-pub use text::{UiTextAlign, UiTextDirection, UiTextOverflow, UiTextRole, UiTextSpec};
+pub use text::{
+    bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad, UiTextAlign,
+    UiTextDirection, UiTextOverflow, UiTextRole, UiTextSpec,
+};
 pub use theme::{
     UiBorderScale, UiControlRole, UiElevation, UiRadiusScale, UiSpacingScale, UiSurfaceStyle,
     UiTextStyle, UiTheme,
@@ -83,7 +87,8 @@ mod tests {
 
         assert_eq!(surfaces.len(), 1);
         assert_eq!(text.len(), 1);
-        assert_eq!(surfaces[0].style.role, UiSurfaceRole::Accent);
-        assert_eq!(text[0].text, "edit");
+        assert_eq!(surfaces[0].style.role, UiSurfaceRole::Panel);
+        assert_eq!(surfaces[0].style.border_role, Some(UiSurfaceRole::Accent));
+        assert_eq!(text[0].spec.text, "edit");
     }
 }

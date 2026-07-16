@@ -1,4 +1,4 @@
-use crate::{layout::UiCardRole, UiRect};
+use crate::{region::UiCardRole, UiRect};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiInteractionState {

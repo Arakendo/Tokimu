@@ -1,5 +1,5 @@
 use crate::{
-    layout::{UiCard, UiRegion},
+    region::{UiCard, UiRegion},
     text::{UiTextAlign, UiTextOverflow, UiTextRole, UiTextSpec},
     UiButton, UiInteractionState, UiLabel, UiRect, UiStateChip,
 };
@@ -86,11 +86,33 @@ impl<'a> UiDrawer<'a> {
         self.surface(&card.footer);
 
         self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(card.title, card.header.rect, UiTextRole::Heading),
+            spec: UiTextSpec::new(
+                card.title,
+                // Keep the visual header band narrow, but give glyphs enough
+                // vertical bounds to avoid clipping bitmap rows.
+                UiRect::new(
+                    card.header.rect.center,
+                    [
+                        card.header.rect.size[0] - card.padding.value() * 2.0,
+                        card.region.rect.size[1] * 0.34,
+                    ],
+                ),
+                UiTextRole::Heading,
+            ),
             style: self.theme.text(UiTextRole::Heading),
         });
         self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(card.body, card.body_region.rect, UiTextRole::Body)
+            spec: UiTextSpec::new(
+                card.body,
+                UiRect::new(
+                    card.body_region.rect.center,
+                    [
+                        card.body_region.rect.size[0] - card.padding.value() * 2.0,
+                        card.region.rect.size[1] * 0.34,
+                    ],
+                ),
+                UiTextRole::Body,
+            )
                 .with_alignment(UiTextAlign::Start, UiTextAlign::Center),
             style: self.theme.text(UiTextRole::Body),
         });
@@ -108,7 +130,12 @@ impl<'a> UiDrawer<'a> {
         self.surface(region);
     }
 
-    pub fn button_strip(&mut self, button: &UiButton, state: UiInteractionState, role: UiControlRole) {
+    pub fn button_strip(
+        &mut self,
+        button: &UiButton,
+        state: UiInteractionState,
+        role: UiControlRole,
+    ) {
         self.button(button, state, role);
     }
 }

@@ -6,9 +6,13 @@ use tokimu::{
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{UiRect, UiSurfaceCommand, UiSurfaceRole, UiTheme};
+use ui_tools::{
+    layout_bitmap_text, UiCard, UiCardRole, UiDrawer, UiRect, UiSurfaceCommand, UiSurfaceRole,
+    UiTheme,
+};
 
 const PANEL_MESH: MeshHandle = MeshHandle(1);
+const GLYPH_MESH: MeshHandle = MeshHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 
 const BACKDROP_MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -16,6 +20,7 @@ const PANEL_MATERIAL: MaterialHandle = MaterialHandle(2);
 const SHELL_MATERIAL: MaterialHandle = MaterialHandle(3);
 const ACCENT_MATERIAL: MaterialHandle = MaterialHandle(4);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(5);
+const TEXT_MATERIAL: MaterialHandle = MaterialHandle(6);
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -56,7 +61,7 @@ impl HelloUiCardApp {
             UiSurfaceRole::Background => BACKDROP_MATERIAL,
             UiSurfaceRole::Panel => PANEL_MATERIAL,
             UiSurfaceRole::Card => SHELL_MATERIAL,
-            UiSurfaceRole::Raised => ACCENT_MATERIAL,
+            UiSurfaceRole::Raised => PANEL_MATERIAL,
             UiSurfaceRole::Selected => ACCENT_MATERIAL,
             UiSurfaceRole::Accent => ACCENT_MATERIAL,
             UiSurfaceRole::Overlay => MUTED_MATERIAL,
@@ -80,7 +85,7 @@ impl HelloUiCardApp {
             );
             renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
                 mesh: PANEL_MESH,
-                material: MUTED_MATERIAL,
+                material: BACKDROP_MATERIAL,
                 pipeline,
                 instance: Instance2d::new(shadow_rect.center, shadow_rect.size, 0.0),
                 camera: Some(CAMERA_HANDLE),
@@ -120,6 +125,27 @@ impl HelloUiCardApp {
             }
         }
     }
+
+    fn draw_text_command(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        command: &ui_tools::UiTextCommand,
+    ) {
+        let commands = layout_bitmap_text(&command.spec, command.style.height)
+            .into_iter()
+            .map(|quad| {
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: GLYPH_MESH,
+                    material: TEXT_MATERIAL,
+                    pipeline,
+                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                    camera: Some(CAMERA_HANDLE),
+                    viewport: None,
+                })
+            })
+            .collect::<Vec<_>>();
+        renderer.submit(&commands);
+    }
 }
 
 impl PlatformEventHandler for HelloUiCardApp {
@@ -129,6 +155,7 @@ impl PlatformEventHandler for HelloUiCardApp {
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(PANEL_MESH, &Mesh::quad());
+        renderer.upload_mesh(GLYPH_MESH, &Mesh::quad());
         renderer.upload_material(
             BACKDROP_MATERIAL,
             &Material::new("ui-backdrop", Color::rgb(0.06, 0.07, 0.10)),
@@ -148,6 +175,10 @@ impl PlatformEventHandler for HelloUiCardApp {
         renderer.upload_material(
             MUTED_MATERIAL,
             &Material::new("ui-muted", Color::rgb(0.12, 0.14, 0.17)),
+        )?;
+        renderer.upload_material(
+            TEXT_MATERIAL,
+            &Material::new("ui-text", Color::rgb(0.90, 0.93, 0.98)),
         )?;
         self.pipeline = renderer.register_pipeline(&Pipeline::new(
             "hello-ui-card-pipeline",
@@ -181,30 +212,23 @@ impl PlatformEventHandler for HelloUiCardApp {
             color: Color::rgb(0.05, 0.06, 0.09),
         })]);
 
-        let card = UiRect::new([0.0, 0.06], [0.92, 0.56]);
-        let header = UiRect::new([0.0, 0.26], [0.80, 0.10]);
-        let body = UiRect::new([0.0, 0.04], [0.80, 0.20]);
-        let footer = UiRect::new([0.0, -0.18], [0.80, 0.08]);
-
-        for command in [
-            UiSurfaceCommand {
-                rect: card,
-                style: self.theme.surface(UiSurfaceRole::Card),
-            },
-            UiSurfaceCommand {
-                rect: header,
-                style: self.theme.surface(UiSurfaceRole::Raised),
-            },
-            UiSurfaceCommand {
-                rect: body,
-                style: self.theme.surface(UiSurfaceRole::Panel),
-            },
-            UiSurfaceCommand {
-                rect: footer,
-                style: self.theme.surface(UiSurfaceRole::Overlay),
-            },
-        ] {
+        let card = UiCard::new(
+            UiCardRole::Preview,
+            "PREVIEW",
+            "CARD CONTENT",
+            ui_tools::UiRegion::card(UiRect::new([0.0, 0.06], [0.72, 0.50])),
+        );
+        let mut surfaces = Vec::new();
+        let mut text = Vec::new();
+        {
+            let mut drawer = UiDrawer::new(&mut surfaces, &mut text, &self.theme);
+            drawer.card(&card);
+        }
+        for command in surfaces {
             Self::draw_surface_command(renderer, self.pipeline, &command);
+        }
+        for command in text {
+            Self::draw_text_command(renderer, self.pipeline, &command);
         }
 
         let _ = renderer.present()?;

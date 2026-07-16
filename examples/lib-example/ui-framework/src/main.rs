@@ -7,8 +7,8 @@ use tokimu::{
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
-    window_to_world, UiButtonId, UiButtonSpec, UiControlRole, UiDrawer, UiRect, UiSurfaceCommand,
-    UiSurfaceRole, UiTextRole, UiTheme, UiWorkspaceLayout,
+    layout_bitmap_text, window_to_world, UiButtonId, UiButtonSpec, UiControlRole, UiDrawer, UiRect,
+    UiSurfaceCommand, UiSurfaceRole, UiTextRole, UiTheme, UiWorkspaceLayout,
 };
 
 const PANEL_MESH: MeshHandle = MeshHandle(1);
@@ -89,9 +89,21 @@ impl UiFrameworkApp {
                 UiButtonSpec::new(UiButtonId(2), "RESET"),
             ],
             [
-                ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Browser, "Button", "SELECT / DESELECT"),
-                ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Browser, "Button", "SELECT / DESELECT"),
-                ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Browser, "Button", "SELECT / DESELECT"),
+                ui_tools::UiCardSpec::new(
+                    ui_tools::UiCardRole::Browser,
+                    "Button",
+                    "SELECT / DESELECT",
+                ),
+                ui_tools::UiCardSpec::new(
+                    ui_tools::UiCardRole::Browser,
+                    "Button",
+                    "SELECT / DESELECT",
+                ),
+                ui_tools::UiCardSpec::new(
+                    ui_tools::UiCardRole::Browser,
+                    "Button",
+                    "SELECT / DESELECT",
+                ),
             ],
         )
     }
@@ -140,16 +152,15 @@ impl UiFrameworkApp {
         }
 
         self.cached_button_surfaces.extend(surfaces.into_iter());
-        self.cached_button_text.extend(text_commands.into_iter().flat_map(|command| {
-            Self::build_text_commands(
-                command.spec.text.as_str(),
-                command.spec.rect.center,
-                command.spec.align_x,
-                self.theme.text(command.style.role).height,
-                Self::material_for_text_role(command.style.role),
-                self.pipeline,
-            )
-        }));
+        self.cached_button_text
+            .extend(text_commands.into_iter().flat_map(|command| {
+                Self::build_text_commands(
+                    &command.spec,
+                    self.theme.text(command.style.role).height,
+                    Self::material_for_text_role(command.style.role),
+                    self.pipeline,
+                )
+            }));
 
         self.cached_window_size = self.window_size;
         self.cached_hovered_button = self.hovered_button;
@@ -241,156 +252,24 @@ impl UiFrameworkApp {
     }
 
     fn build_text_commands(
-        text: &str,
-        position: [f32; 2],
-        anchor: ui_tools::UiTextAlign,
+        spec: &ui_tools::UiTextSpec,
         height: f32,
         material: MaterialHandle,
         pipeline: PipelineHandle,
     ) -> Vec<RenderCommand> {
-        let cell = (height / 9.0).max(0.0025);
-        let width = Self::measure_text_width(text, cell);
-        let start_x = match anchor {
-            ui_tools::UiTextAlign::Start => position[0],
-            ui_tools::UiTextAlign::Center => position[0] - width * 0.5,
-            ui_tools::UiTextAlign::End => position[0] - width,
-        };
-        let top_y = position[1] + height * 0.5 - cell * 0.9;
-        let mut x_cursor = start_x;
-        let mut commands = Vec::new();
-
-        for ch in text.chars() {
-            if ch == ' ' {
-                x_cursor += cell * 3.2;
-                continue;
-            }
-
-            for (row_index, row_bits) in Self::glyph_rows(ch).into_iter().enumerate() {
-                for column in 0..5 {
-                    let mask = 1 << (4 - column);
-                    if row_bits & mask == 0 {
-                        continue;
-                    }
-
-                    let center_x = x_cursor + column as f32 * cell;
-                    let center_y = top_y - row_index as f32 * cell;
-                    commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                        mesh: BUTTON_MESH,
-                        material,
-                        pipeline,
-                        instance: Instance2d::new(
-                            [center_x, center_y],
-                            [cell * 0.74, cell * 0.74],
-                            0.0,
-                        ),
-                        camera: Some(CAMERA_HANDLE),
-                        viewport: None,
-                    }));
-                }
-            }
-
-            x_cursor += cell * 5.2;
-        }
-
-        commands
-    }
-
-    fn measure_text_width(text: &str, cell: f32) -> f32 {
-        text.chars().fold(0.0, |width, ch| {
-            width + if ch == ' ' { cell * 3.2 } else { cell * 5.2 }
-        })
-    }
-
-    fn glyph_rows(ch: char) -> [u8; 7] {
-        match ch.to_ascii_uppercase() {
-            'A' => [
-                0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
-            ],
-            'B' => [
-                0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110,
-            ],
-            'C' => [
-                0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111,
-            ],
-            'D' => [
-                0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110,
-            ],
-            'E' => [
-                0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111,
-            ],
-            'F' => [
-                0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000,
-            ],
-            'G' => [
-                0b01111, 0b10000, 0b10000, 0b10011, 0b10001, 0b10001, 0b01111,
-            ],
-            'H' => [
-                0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
-            ],
-            'I' => [
-                0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111,
-            ],
-            'J' => [
-                0b00001, 0b00001, 0b00001, 0b00001, 0b10001, 0b10001, 0b01110,
-            ],
-            'K' => [
-                0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001,
-            ],
-            'L' => [
-                0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111,
-            ],
-            'M' => [
-                0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001,
-            ],
-            'N' => [
-                0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001,
-            ],
-            'O' => [
-                0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
-            ],
-            'P' => [
-                0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000,
-            ],
-            'Q' => [
-                0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101,
-            ],
-            'R' => [
-                0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001,
-            ],
-            'S' => [
-                0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110,
-            ],
-            'T' => [
-                0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100,
-            ],
-            'U' => [
-                0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
-            ],
-            'V' => [
-                0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b01010, 0b00100,
-            ],
-            'W' => [
-                0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b11011, 0b10001,
-            ],
-            'X' => [
-                0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b01010, 0b10001,
-            ],
-            'Y' => [
-                0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100,
-            ],
-            'Z' => [
-                0b11111, 0b00010, 0b00100, 0b00100, 0b01000, 0b10000, 0b11111,
-            ],
-            '+' => [
-                0b00100, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00100,
-            ],
-            '?' => [
-                0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100,
-            ],
-            _ => [
-                0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100,
-            ],
-        }
+        layout_bitmap_text(spec, height)
+            .into_iter()
+            .map(|quad| {
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: BUTTON_MESH,
+                    material,
+                    pipeline,
+                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                    camera: Some(CAMERA_HANDLE),
+                    viewport: None,
+                })
+            })
+            .collect()
     }
 
     fn update_window_title(&self) {

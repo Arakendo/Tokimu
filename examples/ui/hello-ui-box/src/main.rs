@@ -6,9 +6,13 @@ use tokimu::{
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{UiLabel, UiLabelAnchor, UiRect, UiRegion, UiSurfaceCommand, UiSurfaceRole, UiTextRole, UiTheme};
+use ui_tools::{
+    layout_bitmap_text, UiLabel, UiLabelAnchor, UiRect, UiRegion, UiSurfaceCommand,
+    UiSurfaceRole, UiTextRole, UiTheme,
+};
 
 const BOX_MESH: MeshHandle = MeshHandle(1);
+const GLYPH_MESH: MeshHandle = MeshHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 
 const BACKDROP_MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -16,6 +20,7 @@ const FRAME_MATERIAL: MaterialHandle = MaterialHandle(2);
 const INNER_MATERIAL: MaterialHandle = MaterialHandle(3);
 const ACCENT_MATERIAL: MaterialHandle = MaterialHandle(4);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(5);
+const TEXT_MATERIAL: MaterialHandle = MaterialHandle(6);
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -89,6 +94,22 @@ impl HelloUiBoxApp {
             })]);
         }
 
+        if let Some(border_role) = command.style.border_role {
+            let border_width = command.style.border_width;
+            let border_rect = UiRect::new(
+                rect.center,
+                [rect.size[0] + border_width * 2.0, rect.size[1] + border_width * 2.0],
+            );
+            renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: BOX_MESH,
+                material: Self::material_for_role(border_role),
+                pipeline,
+                instance: Instance2d::new(border_rect.center, border_rect.size, 0.0),
+                camera: Some(CAMERA_HANDLE),
+                viewport: None,
+            })]);
+        }
+
         renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
             mesh: BOX_MESH,
             material: Self::material_for_role(command.style.role),
@@ -97,6 +118,27 @@ impl HelloUiBoxApp {
             camera: Some(CAMERA_HANDLE),
             viewport: None,
         })]);
+    }
+
+    fn draw_text_command(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        command: &ui_tools::UiTextCommand,
+    ) {
+        let commands = layout_bitmap_text(&command.spec, command.style.height)
+            .into_iter()
+            .map(|quad| {
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: GLYPH_MESH,
+                    material: TEXT_MATERIAL,
+                    pipeline,
+                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                    camera: Some(CAMERA_HANDLE),
+                    viewport: None,
+                })
+            })
+            .collect::<Vec<_>>();
+        renderer.submit(&commands);
     }
 }
 
@@ -107,6 +149,7 @@ impl PlatformEventHandler for HelloUiBoxApp {
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(BOX_MESH, &Mesh::quad());
+        renderer.upload_mesh(GLYPH_MESH, &Mesh::quad());
         renderer.upload_material(
             BACKDROP_MATERIAL,
             &Material::new("ui-box-backdrop", Color::rgb(0.05, 0.06, 0.09)),
@@ -126,6 +169,10 @@ impl PlatformEventHandler for HelloUiBoxApp {
         renderer.upload_material(
             MUTED_MATERIAL,
             &Material::new("ui-box-muted", Color::rgb(0.10, 0.12, 0.15)),
+        )?;
+        renderer.upload_material(
+            TEXT_MATERIAL,
+            &Material::new("ui-box-text", Color::rgb(0.86, 0.89, 0.95)),
         )?;
         self.pipeline = renderer.register_pipeline(&Pipeline::new(
             "hello-ui-box-pipeline",
@@ -161,7 +208,7 @@ impl PlatformEventHandler for HelloUiBoxApp {
 
         let outer = UiRegion::new(
             ui_tools::UiRegionKind::Panel,
-            UiSurfaceRole::Region,
+            UiSurfaceRole::Panel,
             UiRect::new([0.0, 0.02], [0.88, 0.60]),
         );
         let inner = UiRegion::new(
@@ -174,8 +221,8 @@ impl PlatformEventHandler for HelloUiBoxApp {
             UiSurfaceRole::Raised,
             UiRect::new([0.0, 0.26], [0.66, 0.08]),
         );
-        let label = UiLabel::new("BOX", UiLabelAnchor::Center, [0.0, 0.28]);
-        let subtitle = UiLabel::new("BOUNDS / NESTING / SCALE", UiLabelAnchor::Center, [0.0, -0.22]);
+        let label = UiLabel::new("BOX", UiLabelAnchor::Center, [0.0, 0.26]);
+        let subtitle = UiLabel::new("BOUNDS NESTING SCALE", UiLabelAnchor::Center, [0.0, -0.245]);
 
         let mut surfaces = Vec::new();
         let mut text = Vec::new();
@@ -190,6 +237,9 @@ impl PlatformEventHandler for HelloUiBoxApp {
 
         for command in surfaces {
             Self::draw_surface_command(renderer, self.pipeline, &command);
+        }
+        for command in text {
+            Self::draw_text_command(renderer, self.pipeline, &command);
         }
 
         let _ = renderer.present()?;
