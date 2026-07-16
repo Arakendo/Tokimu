@@ -6,7 +6,8 @@
 visual content semantics.
 
 The example should draw its icon vocabulary from the Lucide submodule in
-`third-party/lucide` so icon shape does not become a Tokimu-specific invention.
+`third-party/glyph-providers/lucide` so icon shape does not become a
+Tokimu-specific invention.
 
 Lucide is the reference corpus, not the final icon system. The semantic API
 should stay provider-aware and name-based rather than path-based:

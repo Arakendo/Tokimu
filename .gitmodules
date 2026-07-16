@@ -1,3 +1,12 @@
-[submodule "third-party/lucide"]
-	path = third-party/lucide
+[submodule "third-party/glyph-providers/lucide"]
+	path = third-party/glyph-providers/lucide
 	url = https://github.com/lucide-icons/lucide
+[submodule "third-party/fonts/inter"]
+	path = third-party/fonts/inter
+	url = https://github.com/rsms/inter
+[submodule "third-party/fonts/jetbrains-mono"]
+	path = third-party/fonts/jetbrains-mono
+	url = https://github.com/jetbrains/jetbrainsmono
+[submodule "third-party/fonts/noto"]
+	path = third-party/fonts/noto
+	url = https://github.com/notofonts/noto-fonts

@@ -32,6 +32,7 @@ members = [
     "examples/hello-2d-physics",
     "examples/ui/hello-ui",
     "examples/ui/hello-ui-button",
+    "examples/ui/hello-ui-box",
     "examples/ui/hello-ui-card",
     "examples/ui/hello-ui-toolbar",
     "examples/ui/hello-ui-panel",

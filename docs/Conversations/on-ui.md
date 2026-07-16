@@ -9,6 +9,7 @@ If I map them out:
 | `hello-ui-text`    | How is meaning communicated?              |
 | `hello-ui-button`  | How do users invoke actions?              |
 | `hello-ui-panel`   | How are regions contained?                |
+| `hello-ui-box`     | How are boundaries framed?                |
 | `hello-ui-card`    | How is information grouped?               |
 | `hello-ui-toolbar` | How are commands organized?               |
 | `hello-ui-theme`   | How is appearance separated from meaning? |
@@ -26,6 +27,11 @@ Fonts look like the same kind of seam, but with a slightly different split:
 So the application should ask for body text or a monospace label, not for a
 file path. A provider can resolve that through system fonts, Google Fonts,
 embedded fonts, or project assets.
+
+The repo now reflects that idea structurally too: `third-party/glyph-providers/`
+holds icon corpora like Lucide, while `third-party/fonts/` holds font corpora
+such as Inter, JetBrains Mono, and Noto. Those are reference assets, not engine
+implementation details.
 
 That suggests a future `hello-ui-fonts` corpus slice for font loading, family
 resolution, fallback, scaling, and text-role mapping. It would validate the
@@ -162,7 +168,7 @@ Semantic transitions.
 
 This one is more important than it sounds.
 
-Lucide now lives in `third-party/lucide` as a git submodule and should be the
+Lucide now lives in `third-party/glyph-providers/lucide` as a git submodule and should be the
 default shared icon reference for examples instead of inventing new glyphs.
 
 Treat Lucide as the reference corpus for icon semantics, not as the only icon

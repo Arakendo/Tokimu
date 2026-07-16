@@ -26,6 +26,88 @@ Roadmap scope:
   better boundary or a truer architectural risk. It is sequencing guidance, not
   a contract.
 
+## Corpus Testing
+
+Tokimu uses examples and external data sets as evidence, not decoration.
+
+There are two different corpus modes in the repo:
+
+- **Architectural corpus tests** ask whether the current abstraction can express
+  real meaning. The `hello-*` examples, especially the UI corpus, live here.
+- **Data corpus tests** ask whether an implementation survives real-world input.
+  These are parser, loader, and renderer stress tests rather than architectural
+  boundary proofs.
+
+The two serve different purposes:
+
+```text
+Architectural Corpus
+
+Can this abstraction express reality?
+
+↓
+
+Data Corpus
+
+Can this implementation survive reality?
+```
+
+### Reference corpora
+
+Tokimu should treat third-party assets as reference corpora, pinned by git
+submodule, not as loose files mixed into the engine tree.
+
+Current corpus layout direction:
+
+```text
+third-party/
+  glyph-providers/
+    lucide/
+  fonts/
+    inter/
+    jetbrains-mono/
+    noto/
+  models/
+    gltf-sample-models/
+  svg/
+    w3c-samples/
+```
+
+These are not implementation dependencies in the package-manager sense. They
+are evidence corpora: stable, external, and useful for validating Tokimu-owned
+semantics and parsers.
+
+### Corpus-driven validation targets
+
+- SVG parsing should be validated against a broad path corpus, not only against
+  hand-authored demos.
+- Icon rendering should use Lucide as the reference corpus so SVG geometry,
+  stroke consistency, and scaling behavior get real pressure.
+- Text rendering should use font corpora such as Inter, JetBrains Mono, and
+  Noto as reference material for family selection, fallback, shaping, and RTL /
+  LTR direction handling.
+- Model import should use glTF Sample Models as a canonical external corpus.
+
+### A suggested SVG stress test
+
+One useful data-corpus proof would be `hello-svg-icons`:
+
+- enumerate a real icon corpus,
+- parse every SVG path,
+- triangulate the result,
+- render it,
+- and compare statistics or visible regressions.
+
+The point is not to benchmark raw speed. The point is to make parser and
+renderer regressions obvious against a workload that Tokimu did not author for
+itself.
+
+### Practical rule
+
+If a corpus is proving architecture, keep it in `examples/`.
+If a corpus is proving implementation resilience, keep it under `third-party/`
+and treat it as a pinned reference set.
+
 ## MVP Phase Tracker
 
 This groups the SDD milestones (M0–M12) into MVP phases for progress tracking.
