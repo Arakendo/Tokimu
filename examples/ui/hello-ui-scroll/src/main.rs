@@ -22,6 +22,10 @@ const ACTIVE_MATERIAL: MaterialHandle = MaterialHandle(5);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(6);
 
 const ITEM_COUNT: usize = 10;
+const ITEM_SPACING: f32 = 0.22;
+const CARD_HEIGHT: f32 = 0.18;
+const CONTENT_TOP_PADDING: f32 = 0.16;
+const CONTENT_BOTTOM_PADDING: f32 = 0.06;
 
 #[derive(Clone, Copy)]
 struct ScrollItem {
@@ -149,7 +153,7 @@ impl HelloUiScrollApp {
     }
 
     fn viewport_rect(&self) -> (UiRect, ViewportRect) {
-        let px = ViewportRect { x: self.window_size[0] * 0.18, y: self.window_size[1] * 0.16, width: self.window_size[0] * 0.64, height: self.window_size[1] * 0.66 };
+        let px = ViewportRect { x: self.window_size[0] * 0.18, y: self.window_size[1] * 0.22, width: self.window_size[0] * 0.64, height: self.window_size[1] * 0.56 };
         let world = UiRect::new(
             self.screen_to_world(px.x + px.width * 0.5, px.y + px.height * 0.5),
             [
@@ -166,7 +170,11 @@ impl HelloUiScrollApp {
 
     fn sync_scroll_view(&mut self, viewport: UiRect) {
         self.scroll.set_viewport(viewport);
-        self.scroll.set_content_extent(0.22 * ITEMS.len() as f32);
+        let content_extent = CONTENT_TOP_PADDING
+            + CARD_HEIGHT
+            + ITEM_SPACING * (ITEMS.len().saturating_sub(1)) as f32
+            + CONTENT_BOTTOM_PADDING;
+        self.scroll.set_content_extent(content_extent);
         self.rebuild_scroll_target();
     }
 
@@ -213,12 +221,12 @@ impl PlatformEventHandler for HelloUiScrollApp {
                 let layout = self.viewport_rect();
                 self.sync_scroll_view(layout.0);
                 let point = self.screen_to_world(x, y);
-                let content_top = layout.0.center[1] + layout.0.size[1] * 0.5 - 0.16;
+                let content_top = layout.0.center[1] + layout.0.size[1] * 0.5 - CONTENT_TOP_PADDING;
                 self.hovered_index = ITEMS.iter().enumerate().find_map(|(index, _)| {
-                    let item_y = content_top - index as f32 * 0.22;
+                    let item_y = content_top - index as f32 * ITEM_SPACING;
                     let content_rect = UiRect::new(
                         [layout.0.center[0], item_y],
-                        [layout.0.size[0] * 0.90, 0.18],
+                        [layout.0.size[0] * 0.90, CARD_HEIGHT],
                     );
                     self.scroll.hit_test(content_rect, point).then_some(index)
                 });
@@ -252,8 +260,14 @@ impl PlatformEventHandler for HelloUiScrollApp {
         };
         let thumb_y = viewport_px.y
             + (viewport_px.height - thumb_height) * scroll_ratio;
-        let thumb_center = self.screen_to_world(viewport_px.x + viewport_px.width + 18.0, thumb_y + thumb_height * 0.5);
+        let scrollbar_x = viewport_px.x + viewport_px.width + 18.0;
+        let thumb_center = self.screen_to_world(scrollbar_x, thumb_y + thumb_height * 0.5);
+        let rail_center = self.screen_to_world(scrollbar_x, viewport_px.y + viewport_px.height * 0.5);
         let thumb_size = [0.08, (thumb_height / height) * 2.0];
+        let track_center = UiRect::new(
+            [rail_center[0], rail_center[1]],
+            [0.06, viewport_world.size[1]],
+        );
 
         let Some(renderer) = self.renderer.as_mut() else { return Ok(FrameOutcome::Continue); };
 
@@ -268,18 +282,23 @@ impl PlatformEventHandler for HelloUiScrollApp {
         {
             let theme = UiTheme::default();
             let mut drawer = UiDrawer::new(&mut global_surfaces, &mut global_text, &theme);
-            drawer.surface(&UiRegion::panel(UiRect::new([0.0, 0.62], [viewport_world.size[0] * 1.08, 0.14])));
-            drawer.surface(&UiRegion::panel(UiRect::new([0.0, -0.72], [viewport_world.size[0] * 1.08, 0.10])));
+            drawer.surface(&UiRegion::panel(UiRect::new(
+                [0.0, viewport_world.center[1] + viewport_world.size[1] * 0.5 + 0.09],
+                [viewport_world.size[0] * 1.08, 0.14],
+            )));
+            drawer.surface(&UiRegion::panel(UiRect::new(
+                [0.0, viewport_world.center[1] - viewport_world.size[1] * 0.5 - 0.09],
+                [viewport_world.size[0] * 1.08, 0.10],
+            )));
             drawer.surface(&UiRegion::panel(viewport_world));
         }
 
         let mut content_drawer = UiDrawer::new(&mut content_surfaces, &mut content_text, &self.theme);
-        let content_top = viewport_world.center[1] + viewport_world.size[1] * 0.5 - 0.16;
-        let item_spacing = 0.22;
+        let content_top = viewport_world.center[1] + viewport_world.size[1] * 0.5 - CONTENT_TOP_PADDING;
         for (index, item) in ITEMS.iter().enumerate() {
             let content_rect = UiRect::new(
-                [viewport_world.center[0], content_top - index as f32 * item_spacing],
-                [viewport_world.size[0] * 0.90, 0.18],
+            [viewport_world.center[0], content_top - index as f32 * ITEM_SPACING],
+            [viewport_world.size[0] * 0.90, CARD_HEIGHT],
             );
             if self.scroll.visible_rect(content_rect).is_none() {
                 continue;
@@ -296,15 +315,23 @@ impl PlatformEventHandler for HelloUiScrollApp {
             content_drawer.card(&card);
         }
 
-        for command in global_surfaces {
-            Self::draw_surface(renderer, self.pipeline, &command, None);
-        }
+        let viewport_panel = global_surfaces
+            .pop()
+            .expect("scroll viewport panel is always emitted");
+        Self::draw_surface(renderer, self.pipeline, &viewport_panel, None);
         for command in content_surfaces {
             Self::draw_surface(renderer, self.pipeline, &command, Some(viewport_px));
         }
 
-        let thumb = UiSurfaceCommand { rect: UiRect::new([viewport_world.center[0] + viewport_world.size[0] * 0.52, viewport_world.center[1]], [0.06, viewport_world.size[1] * 0.74]), style: self.theme.surface(UiSurfaceRole::Overlay) };
-        Self::draw_surface(renderer, self.pipeline, &thumb, Some(viewport_px));
+        for command in global_surfaces {
+            Self::draw_surface(renderer, self.pipeline, &command, None);
+        }
+
+        let track = UiSurfaceCommand {
+            rect: track_center,
+            style: self.theme.surface(UiSurfaceRole::Overlay),
+        };
+        Self::draw_surface(renderer, self.pipeline, &track, None);
         let thumb_rect = DrawMeshCommand { mesh: REGION_MESH, material: ACTIVE_MATERIAL, pipeline: self.pipeline, instance: Instance2d::new(thumb_center, thumb_size, 0.0), camera: Some(CAMERA_HANDLE), viewport: None };
         renderer.submit(&[RenderCommand::DrawMesh(thumb_rect)]);
 

@@ -648,13 +648,18 @@ impl WgpuBackend {
                             }],
                         });
                     if let Some(viewport) = draw.viewport {
-                        render_pass.set_viewport(
-                            viewport.x,
-                            viewport.y,
-                            viewport.width,
-                            viewport.height,
-                            0.0,
-                            1.0,
+                        render_pass.set_scissor_rect(
+                            viewport.x.max(0.0) as u32,
+                            viewport.y.max(0.0) as u32,
+                            viewport.width.max(0.0) as u32,
+                            viewport.height.max(0.0) as u32,
+                        );
+                    } else {
+                        render_pass.set_scissor_rect(
+                            0,
+                            0,
+                            surface_state.config.width,
+                            surface_state.config.height,
                         );
                     }
                     render_pass.set_pipeline(pipeline);
