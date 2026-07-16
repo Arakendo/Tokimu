@@ -216,7 +216,7 @@ impl PlatformEventHandler for HelloUiLayoutApp {
             color: Color::rgb(0.05, 0.06, 0.08),
         })]);
 
-        let layout = UiWorkspaceLayout::new(
+        let layout = UiWorkspaceLayout::new_with_theme(
             self.window_size,
             [
                 ui_tools::UiButtonSpec::new(ui_tools::UiButtonId(0), "HEADER"),
@@ -228,6 +228,7 @@ impl PlatformEventHandler for HelloUiLayoutApp {
                 ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Editor, "Canvas", "MAIN CONTENT AREA"),
                 ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Inspector, "Inspector", "PROPERTIES + STATE"),
             ],
+            &self.theme,
         );
 
         let mut surfaces = Vec::new();

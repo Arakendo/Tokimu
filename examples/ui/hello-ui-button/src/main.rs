@@ -65,7 +65,7 @@ impl HelloUiButtonApp {
 
     fn button(&self) -> UiButton {
         let spec = UiButtonSpec::new(UiButtonId(0), "PRESS ME");
-        UiButton::new(spec.id, spec.label, UiRect::new([0.0, 0.0], [0.34, 0.12]))
+        UiButton::from_intrinsic(spec.id, spec.label, [0.0, 0.0], &self.theme)
     }
 
     fn state(&self) -> UiInteractionState {

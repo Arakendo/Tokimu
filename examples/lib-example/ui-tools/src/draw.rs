@@ -22,6 +22,7 @@ pub struct UiDrawer<'a> {
     pub surfaces: &'a mut Vec<UiSurfaceCommand>,
     pub text: &'a mut Vec<UiTextCommand>,
     pub theme: &'a UiTheme,
+    clip: Option<UiRect>,
 }
 
 impl<'a> UiDrawer<'a> {
@@ -34,46 +35,66 @@ impl<'a> UiDrawer<'a> {
             surfaces,
             text,
             theme,
+            clip: None,
         }
     }
 
+    pub fn set_clip(&mut self, clip: Option<UiRect>) {
+        self.clip = clip;
+    }
+
+    fn clipped_rect(&self, rect: UiRect) -> Option<UiRect> {
+        self.clip.map_or(Some(rect), |clip| rect.intersection(clip))
+    }
+
     pub fn surface(&mut self, region: &UiRegion) {
-        self.surfaces.push(UiSurfaceCommand {
-            rect: region.rect,
-            style: self.theme.surface(region.role),
-        });
+        if let Some(rect) = self.clipped_rect(region.rect) {
+            self.surfaces.push(UiSurfaceCommand {
+                rect,
+                style: self.theme.surface(region.role),
+            });
+        }
     }
 
     pub fn label(&mut self, label: &UiLabel, role: UiTextRole) {
-        self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(
+        let spec = UiTextSpec::new(
                 label.text,
                 UiRect::new([label.position[0], label.position[1]], [0.0, 0.0]),
                 role,
             )
             .with_alignment(label.anchor.into(), UiTextAlign::Center)
-            .with_overflow(UiTextOverflow::Clip),
-            style: self.theme.text(role),
-        });
+            .with_overflow(UiTextOverflow::Clip);
+        if let Some(rect) = self.clipped_rect(spec.rect) {
+            self.text.push(UiTextCommand {
+                spec: UiTextSpec { rect, ..spec },
+                style: self.theme.text(role),
+            });
+        }
     }
 
     pub fn chip(&mut self, chip: &UiStateChip, role: UiTextRole) {
         self.surface(&chip.region());
-        self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(chip.label, chip.rect, role),
-            style: self.theme.text(role),
-        });
+        let spec = UiTextSpec::new(chip.label, chip.rect, role);
+        if let Some(rect) = self.clipped_rect(spec.rect) {
+            self.text.push(UiTextCommand {
+                spec: UiTextSpec { rect, ..spec },
+                style: self.theme.text(role),
+            });
+        }
     }
 
     pub fn button(&mut self, button: &UiButton, state: UiInteractionState, role: UiControlRole) {
-        self.surfaces.push(UiSurfaceCommand {
-            rect: button.rect,
-            style: self.theme.control(role, state),
-        });
-        self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(button.label, button.rect, UiTextRole::Button),
-            style: self.theme.text(UiTextRole::Button),
-        });
+        if let Some(rect) = self.clipped_rect(button.rect) {
+            self.surfaces.push(UiSurfaceCommand {
+                rect,
+                style: self.theme.control(role, state),
+            });
+            let spec = UiTextSpec::new(button.label, rect, UiTextRole::Button);
+            self.text.push(UiTextCommand {
+                spec,
+                style: self.theme.text(UiTextRole::Button),
+            });
+        }
     }
 
     pub fn card(&mut self, card: &UiCard) {

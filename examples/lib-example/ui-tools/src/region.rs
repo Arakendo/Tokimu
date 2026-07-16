@@ -1,4 +1,7 @@
-use crate::{UiInsets, UiRect};
+use crate::{
+    measure_bitmap_text_width, UiInsets, UiMeasurable, UiMeasureContext, UiRect, UiTextRole,
+    UiTheme,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiSurfaceRole {
@@ -152,6 +155,40 @@ pub struct UiCard {
 }
 
 impl UiCard {
+    pub fn from_intrinsic(
+        role: UiCardRole,
+        title: &'static str,
+        body: &'static str,
+        center: [f32; 2],
+        theme: &UiTheme,
+    ) -> Self {
+        let size = Self::intrinsic_size_for(title, body, theme);
+        Self::new(role, title, body, UiRegion::card(UiRect::new(center, size)))
+    }
+
+    pub fn intrinsic_size(&self, theme: &UiTheme) -> [f32; 2] {
+        Self::intrinsic_size_for(self.title, self.body, theme)
+    }
+
+    pub fn measure(&self, context: &UiMeasureContext<'_>) -> [f32; 2] {
+        context
+            .constraints
+            .constrain(self.intrinsic_size(context.theme))
+    }
+
+    fn intrinsic_size_for(title: &str, body: &str, theme: &UiTheme) -> [f32; 2] {
+        let title_style = theme.text(UiTextRole::Heading);
+        let body_style = theme.text(UiTextRole::Body);
+        let padding = UiSpacing::Medium.value() * 2.0;
+        let gap = theme.spacing.sm.value();
+        let title_width = measure_bitmap_text_width(title, title_style.height);
+        let body_width = measure_bitmap_text_width(body, body_style.height);
+        [
+            title_width.max(body_width) + padding,
+            title_style.height + body_style.height + gap + padding,
+        ]
+    }
+
     pub fn new(
         role: UiCardRole,
         title: &'static str,
@@ -201,6 +238,12 @@ impl UiCard {
             padding,
             surface_role: UiSurfaceRole::Card,
         }
+    }
+}
+
+impl UiMeasurable for UiCard {
+    fn measure(&self, context: &UiMeasureContext<'_>) -> [f32; 2] {
+        UiCard::measure(self, context)
     }
 }
 

@@ -7,8 +7,9 @@ use tokimu::{
     PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
-    layout_bitmap_text, window_to_world, UiButtonId, UiButtonSpec, UiCard, UiCardRole, UiControlRole, UiDrawer,
-    UiInteractionState, UiRect, UiRegion, UiRegionKind, UiSurfaceCommand, UiSurfaceRole,
+    layout_bitmap_text, window_to_world, UiActionId, UiActivationKey, UiButtonId, UiButtonSpec,
+    UiCard, UiCardRole, UiControlRole, UiDrawer, UiEvent, UiInteractionState, UiRect, UiRegion,
+    UiRegionKind, UiSurfaceCommand, UiSurfaceRole,
     UiTextAlign, UiTextRole, UiTextSpec, UiTheme,
     UiWorkspaceLayout,
 };
@@ -24,6 +25,10 @@ const CARD_MATERIAL: MaterialHandle = MaterialHandle(4);
 const ACTIVE_MATERIAL: MaterialHandle = MaterialHandle(5);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(6);
 const TEXT_MATERIAL: MaterialHandle = MaterialHandle(7);
+
+const PREVIOUS_ASSET: UiActionId = UiActionId(1);
+const TOGGLE_PINNED: UiActionId = UiActionId(2);
+const NEXT_ASSET: UiActionId = UiActionId(3);
 
 #[derive(Clone, Copy)]
 struct AssetProfile {
@@ -74,6 +79,7 @@ struct HelloUiStateApp {
     selected_asset: usize,
     hovered_asset: Option<usize>,
     hovered_button: Option<usize>,
+    focused_button: UiButtonId,
     pinned: bool,
     revision: u64,
     cursor_position: [f32; 2],
@@ -98,6 +104,7 @@ impl Default for HelloUiStateApp {
             selected_asset: 0,
             hovered_asset: None,
             hovered_button: None,
+            focused_button: UiButtonId(1),
             pinned: false,
             revision: 0,
             cursor_position: [0.0, 0.0],
@@ -122,9 +129,9 @@ impl HelloUiStateApp {
         UiWorkspaceLayout::new(
             self.window_size,
             [
-                UiButtonSpec::new(UiButtonId(0), "PREV"),
-                UiButtonSpec::new(UiButtonId(1), "PIN"),
-                UiButtonSpec::new(UiButtonId(2), "NEXT"),
+                UiButtonSpec::new(UiButtonId(0), "PREV").with_action(PREVIOUS_ASSET),
+                UiButtonSpec::new(UiButtonId(1), "PIN").with_action(TOGGLE_PINNED),
+                UiButtonSpec::new(UiButtonId(2), "NEXT").with_action(NEXT_ASSET),
             ],
             [
                 ui_tools::UiCardSpec::new(ASSETS[0].role, ASSETS[0].name, ASSETS[0].summary),
@@ -358,7 +365,9 @@ impl HelloUiStateApp {
             drawer.surface(&indicator);
 
             for (index, button) in layout.buttons.iter().enumerate() {
-                let state = if Some(index) == self.hovered_button {
+                let state = if button.id == self.focused_button {
+                    UiInteractionState::Focused
+                } else if Some(index) == self.hovered_button {
                     UiInteractionState::Hovered
                 } else if index == 1 && self.pinned {
                     UiInteractionState::Selected
@@ -508,11 +517,15 @@ impl PlatformEventHandler for HelloUiStateApp {
         } = event
         {
             let layout = self.layout();
-            if let Some(index) = self.hovered_button_index(&layout) {
-                match index {
-                    0 => self.select_previous(),
-                    1 => self.toggle_pin(),
-                    _ => self.select_next(),
+            if let Some(event) = layout.event_at(self.cursor_world(), true) {
+                if let Some(button) = layout.button_at(self.cursor_world()) {
+                    self.focused_button = button;
+                }
+                match event {
+                    UiEvent::Activated(PREVIOUS_ASSET) => self.select_previous(),
+                    UiEvent::Activated(TOGGLE_PINNED) => self.toggle_pin(),
+                    UiEvent::Activated(NEXT_ASSET) => self.select_next(),
+                    UiEvent::Activated(_) => {}
                 }
             } else if let Some(index) = self.hovered_asset_index(&layout) {
                 self.select_asset(index);
@@ -524,11 +537,28 @@ impl PlatformEventHandler for HelloUiStateApp {
 
         if let PlatformInputEvent::KeyboardInput { key, pressed } = event {
             if pressed {
-                match key {
-                    KeyCode::ArrowLeft => self.select_previous(),
-                    KeyCode::ArrowRight => self.select_next(),
-                    KeyCode::Space => self.toggle_pin(),
-                    _ => {}
+                let layout = self.layout();
+                let activation_key = match key {
+                    KeyCode::Space => Some(UiActivationKey::Space),
+                    _ => None,
+                };
+                if let Some(activation_key) = activation_key {
+                    if let Some(UiEvent::Activated(action)) =
+                        layout.focused_event(self.focused_button, activation_key, true)
+                    {
+                        match action {
+                            PREVIOUS_ASSET => self.select_previous(),
+                            TOGGLE_PINNED => self.toggle_pin(),
+                            NEXT_ASSET => self.select_next(),
+                            _ => {}
+                        }
+                    }
+                } else {
+                    match key {
+                        KeyCode::ArrowLeft => self.select_previous(),
+                        KeyCode::ArrowRight => self.select_next(),
+                        _ => {}
+                    }
                 }
                 self.update_window_title();
             }

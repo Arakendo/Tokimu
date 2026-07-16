@@ -6,7 +6,10 @@ use tokimu::{
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
     RenderCommand, Renderer, ViewportRect, WgpuBackend, WindowConfig,
 };
-use ui_tools::{UiCard, UiCardRole, UiDrawer, UiRect, UiRegion, UiSurfaceCommand, UiSurfaceRole, UiTheme};
+use ui_tools::{
+    UiCard, UiCardRole, UiDrawer, UiRect, UiRegion, UiSurfaceCommand, UiSurfaceRole, UiTheme,
+    UiVerticalScroll,
+};
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
@@ -52,7 +55,7 @@ struct HelloUiScrollApp {
     window_size: [f32; 2],
     pipeline: PipelineHandle,
     theme: UiTheme,
-    scroll_offset: f32,
+    scroll: UiVerticalScroll,
     target_offset: f32,
     selected_index: usize,
     hovered_index: Option<usize>,
@@ -65,7 +68,7 @@ impl Default for HelloUiScrollApp {
             window_size: [1.0, 1.0],
             pipeline: PipelineHandle(0),
             theme: UiTheme::default(),
-            scroll_offset: 0.0,
+            scroll: UiVerticalScroll::new(UiRect::new([0.0, 0.0], [1.0, 1.0]), 2.2),
             target_offset: 0.0,
             selected_index: 0,
             hovered_index: None,
@@ -158,7 +161,13 @@ impl HelloUiScrollApp {
     }
 
     fn rebuild_scroll_target(&mut self) {
-        self.target_offset = self.target_offset.clamp(-1.0, 1.0);
+        self.target_offset = self.target_offset.clamp(0.0, self.scroll.max_offset());
+    }
+
+    fn sync_scroll_view(&mut self, viewport: UiRect) {
+        self.scroll.set_viewport(viewport);
+        self.scroll.set_content_extent(0.22 * ITEMS.len() as f32);
+        self.rebuild_scroll_target();
     }
 
     fn surface_role_for_item(role: UiCardRole) -> UiSurfaceRole {
@@ -168,6 +177,7 @@ impl HelloUiScrollApp {
             UiCardRole::Preview => UiSurfaceRole::Accent,
             UiCardRole::Inspector => UiSurfaceRole::Panel,
             UiCardRole::Status => UiSurfaceRole::Overlay,
+            UiCardRole::Selected => UiSurfaceRole::Selected,
         }
     }
 }
@@ -192,8 +202,8 @@ impl PlatformEventHandler for HelloUiScrollApp {
     fn on_platform_event(&mut self, event: PlatformInputEvent) -> PlatformResult<()> {
         match event {
             PlatformInputEvent::KeyboardInput { key, pressed: true } => match key {
-                KeyCode::ArrowUp => self.target_offset += 0.22,
-                KeyCode::ArrowDown => self.target_offset -= 0.22,
+                KeyCode::ArrowUp => self.target_offset -= 0.22,
+                KeyCode::ArrowDown => self.target_offset += 0.22,
                 KeyCode::ArrowLeft => self.selected_index = self.selected_index.saturating_sub(1),
                 KeyCode::ArrowRight => self.selected_index = (self.selected_index + 1) % ITEMS.len(),
                 KeyCode::Space => self.target_offset = 0.0,
@@ -201,12 +211,16 @@ impl PlatformEventHandler for HelloUiScrollApp {
             },
             PlatformInputEvent::CursorMoved { x, y } => {
                 let layout = self.viewport_rect();
+                self.sync_scroll_view(layout.0);
                 let point = self.screen_to_world(x, y);
                 let content_top = layout.0.center[1] + layout.0.size[1] * 0.5 - 0.16;
                 self.hovered_index = ITEMS.iter().enumerate().find_map(|(index, _)| {
-                    let item_y = content_top - index as f32 * 0.22 + self.scroll_offset;
-                    let rect = UiRect::new([layout.0.center[0], item_y], [layout.0.size[0] * 0.90, 0.18]);
-                    rect.contains(point).then_some(index)
+                    let item_y = content_top - index as f32 * 0.22;
+                    let content_rect = UiRect::new(
+                        [layout.0.center[0], item_y],
+                        [layout.0.size[0] * 0.90, 0.18],
+                    );
+                    self.scroll.hit_test(content_rect, point).then_some(index)
                 });
             }
             PlatformInputEvent::MouseInput { button: MouseButton::Left, pressed: true } => {
@@ -224,11 +238,20 @@ impl PlatformEventHandler for HelloUiScrollApp {
 
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         let step = (delta_seconds as f32 * 8.0).min(1.0);
-        self.scroll_offset += (self.target_offset - self.scroll_offset) * step;
         let (viewport_world, viewport_px) = self.viewport_rect();
+        self.sync_scroll_view(viewport_world);
+        let offset = self.scroll.offset();
+        self.scroll
+            .set_offset(offset + (self.target_offset - offset) * step);
         let height = self.window_size[1].max(1.0);
         let thumb_height = viewport_px.height * 0.24;
-        let thumb_y = viewport_px.y + (viewport_px.height - thumb_height) * ((self.scroll_offset + 1.0) * 0.5);
+        let scroll_ratio = if self.scroll.max_offset() > 0.0 {
+            self.scroll.offset() / self.scroll.max_offset()
+        } else {
+            0.0
+        };
+        let thumb_y = viewport_px.y
+            + (viewport_px.height - thumb_height) * scroll_ratio;
         let thumb_center = self.screen_to_world(viewport_px.x + viewport_px.width + 18.0, thumb_y + thumb_height * 0.5);
         let thumb_size = [0.08, (thumb_height / height) * 2.0];
 
@@ -254,8 +277,14 @@ impl PlatformEventHandler for HelloUiScrollApp {
         let content_top = viewport_world.center[1] + viewport_world.size[1] * 0.5 - 0.16;
         let item_spacing = 0.22;
         for (index, item) in ITEMS.iter().enumerate() {
-            let y = content_top - index as f32 * item_spacing + self.scroll_offset;
-            let rect = UiRect::new([viewport_world.center[0], y], [viewport_world.size[0] * 0.90, 0.18]);
+            let content_rect = UiRect::new(
+                [viewport_world.center[0], content_top - index as f32 * item_spacing],
+                [viewport_world.size[0] * 0.90, 0.18],
+            );
+            if self.scroll.visible_rect(content_rect).is_none() {
+                continue;
+            }
+            let rect = self.scroll.content_rect(content_rect);
             let mut card = UiCard::new(item.role, item.label, item.body, UiRegion::card(rect));
             card.surface_role = if index == self.selected_index {
                 UiSurfaceRole::Selected

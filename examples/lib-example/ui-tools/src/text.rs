@@ -1,4 +1,6 @@
-use crate::{UiLabelAnchor, UiRect};
+use crate::{
+    UiDiagnostic, UiDiagnosticKind, UiDiagnosticSeverity, UiLabelAnchor, UiRect,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiTextDirection {
@@ -77,6 +79,13 @@ impl UiTextSpec {
         self
     }
 
+    pub fn diagnostic(&self) -> Option<UiDiagnostic> {
+        (self.overflow == UiTextOverflow::Ellipsis).then_some(UiDiagnostic {
+            severity: UiDiagnosticSeverity::Warning,
+            kind: UiDiagnosticKind::UnsupportedTextOverflow { role: self.role },
+        })
+    }
+
     pub fn centered_bounds(&self) -> [f32; 2] {
         self.rect.center
     }
@@ -84,56 +93,125 @@ impl UiTextSpec {
 
 pub fn layout_bitmap_text(spec: &UiTextSpec, height: f32) -> Vec<UiGlyphQuad> {
     let cell = bitmap_cell(height);
-    let width = measure_bitmap_text_width(&spec.text, height);
-    let ink_width = bitmap_ink_width(&spec.text, cell, width);
     let glyph_height = bitmap_glyph_height(height);
     let rect = spec.rect;
-    let start_x = match spec.align_x {
-        UiTextAlign::Start => rect.center[0] - rect.size[0] * 0.5 + cell * 0.5,
-        UiTextAlign::Center => rect.center[0] - ink_width * 0.5 + cell * 0.5,
-        UiTextAlign::End => rect.center[0] + rect.size[0] * 0.5 - ink_width + cell * 0.5,
-    };
-    let top_y = match spec.align_y {
-        UiTextAlign::Start => rect.center[1] + rect.size[1] * 0.5 - cell * 0.5,
-        UiTextAlign::Center => rect.center[1] + glyph_height * 0.5 - cell * 0.5,
-        UiTextAlign::End => rect.center[1] - rect.size[1] * 0.5 + glyph_height - cell * 0.5,
-    };
-    let mut x_cursor = start_x;
     let mut quads = Vec::new();
+    let lines = text_lines(spec, height);
+    let line_height = cell * 9.0;
+    let block_height = glyph_height + line_height * lines.len().saturating_sub(1) as f32;
+    let first_line_top = match spec.align_y {
+        UiTextAlign::Start => rect.center[1] + rect.size[1] * 0.5,
+        UiTextAlign::Center => rect.center[1] + block_height * 0.5,
+        UiTextAlign::End => rect.center[1] - rect.size[1] * 0.5 + block_height,
+    };
 
-    for ch in spec.text.chars() {
-        if ch == ' ' {
-            x_cursor += bitmap_space_advance(cell);
-            continue;
-        }
+    for (line_index, line) in lines.iter().enumerate() {
+        let width = measure_bitmap_text_width(line, height);
+        let ink_width = bitmap_ink_width(line, cell, width);
+        let align_x = physical_alignment(spec.align_x, spec.direction);
+        let start_x = match align_x {
+            UiTextAlign::Start => rect.center[0] - rect.size[0] * 0.5 + cell * 0.5,
+            UiTextAlign::Center => rect.center[0] - ink_width * 0.5 + cell * 0.5,
+            UiTextAlign::End => rect.center[0] + rect.size[0] * 0.5 - ink_width + cell * 0.5,
+        };
+        let top_y = first_line_top - line_index as f32 * line_height - cell * 0.5;
+        let mut x_cursor = start_x;
 
-        for (row_index, row_bits) in bitmap_glyph_rows(ch).into_iter().enumerate() {
-            for column in 0..5 {
-                let mask = 1 << (4 - column);
-                if row_bits & mask == 0 {
-                    continue;
-                }
+        let characters: Box<dyn Iterator<Item = char>> = match spec.direction {
+            UiTextDirection::Ltr => Box::new(line.chars()),
+            UiTextDirection::Rtl => Box::new(line.chars().rev()),
+        };
+        for ch in characters {
+            if ch == ' ' {
+                x_cursor += bitmap_space_advance(cell);
+                continue;
+            }
 
-                let center = [
-                    x_cursor + column as f32 * cell,
-                    top_y - row_index as f32 * cell,
-                ];
-                let quad = UiGlyphQuad {
-                    center,
-                    // Keep adjacent bitmap cells visually connected at this scale.
-                    size: [cell, cell],
-                };
+            for (row_index, row_bits) in bitmap_glyph_rows(ch).into_iter().enumerate() {
+                for column in 0..5 {
+                    let mask = 1 << (4 - column);
+                    if row_bits & mask == 0 {
+                        continue;
+                    }
 
-                if should_emit_quad(spec, quad) {
-                    quads.push(quad);
+                    let center = [
+                        x_cursor + column as f32 * cell,
+                        top_y - row_index as f32 * cell,
+                    ];
+                    let quad = UiGlyphQuad {
+                        center,
+                        // Keep adjacent bitmap cells visually connected at this scale.
+                        size: [cell, cell],
+                    };
+
+                    if should_emit_quad(spec, quad) {
+                        quads.push(quad);
+                    }
                 }
             }
-        }
 
-        x_cursor += bitmap_glyph_advance(cell);
+            x_cursor += bitmap_glyph_advance(cell);
+        }
     }
 
     quads
+}
+
+fn physical_alignment(align: UiTextAlign, direction: UiTextDirection) -> UiTextAlign {
+    match (align, direction) {
+        (UiTextAlign::Start, UiTextDirection::Rtl) => UiTextAlign::End,
+        (UiTextAlign::End, UiTextDirection::Rtl) => UiTextAlign::Start,
+        _ => align,
+    }
+}
+
+fn text_lines(spec: &UiTextSpec, height: f32) -> Vec<String> {
+    if spec.overflow != UiTextOverflow::Wrap || spec.rect.size[0] <= 0.0 {
+        return spec.text.lines().map(str::to_owned).collect();
+    }
+
+    let max_width = spec.rect.size[0];
+    let mut lines = Vec::new();
+    for paragraph in spec.text.lines() {
+        let mut current = String::new();
+        for word in paragraph.split_whitespace() {
+            let candidate = if current.is_empty() {
+                word.to_owned()
+            } else {
+                format!("{current} {word}")
+            };
+            if !current.is_empty() && measure_bitmap_text_width(&candidate, height) > max_width {
+                lines.push(std::mem::take(&mut current));
+            }
+
+            if measure_bitmap_text_width(word, height) <= max_width {
+                if current.is_empty() {
+                    current = word.to_owned();
+                } else {
+                    current.push(' ');
+                    current.push_str(word);
+                }
+            } else {
+                for ch in word.chars() {
+                    let character = ch.to_string();
+                    if !current.is_empty()
+                        && measure_bitmap_text_width(&format!("{current}{character}"), height)
+                            > max_width
+                    {
+                        lines.push(std::mem::take(&mut current));
+                    }
+                    current.push(ch);
+                }
+            }
+        }
+        if !current.is_empty() || paragraph.is_empty() {
+            lines.push(current);
+        }
+    }
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+    lines
 }
 
 pub fn measure_bitmap_text_width(text: &str, height: f32) -> f32 {
@@ -340,6 +418,26 @@ mod tests {
     }
 
     #[test]
+    fn ellipsis_overflow_produces_an_unsupported_mode_diagnostic() {
+        let spec = UiTextSpec::new(
+            "A LONG LABEL",
+            UiRect::new([0.0, 0.0], [0.12, 0.08]),
+            UiTextRole::Button,
+        )
+        .with_overflow(UiTextOverflow::Ellipsis);
+
+        assert_eq!(
+            spec.diagnostic(),
+            Some(UiDiagnostic {
+                severity: UiDiagnosticSeverity::Warning,
+                kind: UiDiagnosticKind::UnsupportedTextOverflow {
+                    role: UiTextRole::Button,
+                },
+            })
+        );
+    }
+
+    #[test]
     fn bitmap_layout_keeps_start_aligned_glyphs_inside_bounds() {
         let spec = UiTextSpec::new("A", UiRect::new([0.0, 0.0], [0.12, 0.12]), UiTextRole::Body)
             .with_alignment(UiTextAlign::Start, UiTextAlign::Start)
@@ -353,5 +451,65 @@ mod tests {
             left >= spec.rect.center[0] - spec.rect.size[0] * 0.5
                 && top <= spec.rect.center[1] + spec.rect.size[1] * 0.5
         }));
+    }
+
+    #[test]
+    fn bitmap_layout_wraps_words_into_multiple_lines() {
+        let spec = UiTextSpec::new(
+            "BUILD SETTINGS",
+            UiRect::new([0.0, 0.0], [0.16, 0.4]),
+            UiTextRole::Body,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Start)
+        .with_overflow(UiTextOverflow::Wrap);
+        let quads = layout_bitmap_text(&spec, 0.06);
+        let distinct_rows = quads
+            .iter()
+            .map(|quad| (quad.center[1] * 1000.0).round() as i32)
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert!(distinct_rows.len() > 7);
+        assert!(quads.iter().all(|quad| {
+            quad.center[0] >= spec.rect.center[0] - spec.rect.size[0] * 0.5
+                && quad.center[0] <= spec.rect.center[0] + spec.rect.size[0] * 0.5
+        }));
+    }
+
+    #[test]
+    fn bitmap_layout_honors_explicit_newlines() {
+        let spec = UiTextSpec::new(
+            "A\nB",
+            UiRect::new([0.0, 0.0], [0.2, 0.4]),
+            UiTextRole::Body,
+        )
+        .with_overflow(UiTextOverflow::Wrap);
+        let quads = layout_bitmap_text(&spec, 0.06);
+        let rows = quads
+            .iter()
+            .map(|quad| (quad.center[1] * 1000.0).round() as i32)
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert!(rows.len() > 7);
+    }
+
+    #[test]
+    fn bitmap_layout_resolves_start_alignment_by_text_direction() {
+        let ltr = UiTextSpec::new("AB", UiRect::new([0.0, 0.0], [0.4, 0.2]), UiTextRole::Body)
+            .with_alignment(UiTextAlign::Start, UiTextAlign::Center)
+            .with_direction(UiTextDirection::Ltr);
+        let rtl = ltr.clone().with_direction(UiTextDirection::Rtl);
+        let ltr_quads = layout_bitmap_text(&ltr, 0.06);
+        let rtl_quads = layout_bitmap_text(&rtl, 0.06);
+        let ltr_min = ltr_quads
+            .iter()
+            .map(|quad| quad.center[0] - quad.size[0] * 0.5)
+            .fold(f32::INFINITY, f32::min);
+        let rtl_max = rtl_quads
+            .iter()
+            .map(|quad| quad.center[0] + quad.size[0] * 0.5)
+            .fold(f32::NEG_INFINITY, f32::max);
+
+        assert!(ltr_min < -0.15);
+        assert!(rtl_max > 0.15);
     }
 }

@@ -56,11 +56,7 @@ impl Default for HelloUiToolbarApp {
             hovered_button: None,
             active_button: None,
             cursor_position: [0.0, 0.0],
-            buttons: [
-                UiButton::new(UiButtonId(0), "OPEN", UiRect::new([-0.3, 0.03], [0.28, 0.11])),
-                UiButton::new(UiButtonId(1), "EDIT", UiRect::new([0.0, 0.03], [0.28, 0.11])),
-                UiButton::new(UiButtonId(2), "SAVE", UiRect::new([0.3, 0.03], [0.28, 0.11])),
-            ],
+            buttons: Self::buttons_for_theme(&UiTheme::default()),
         }
     }
 }
@@ -72,6 +68,27 @@ impl HelloUiToolbarApp {
 
     fn cursor_world(&self) -> [f32; 2] {
         window_to_world(self.window_size, self.cursor_position)
+    }
+
+    fn buttons_for_theme(theme: &UiTheme) -> [UiButton; 3] {
+        let mut buttons = [
+            UiButton::from_intrinsic(UiButtonId(0), "OPEN", [0.0, 0.03], theme),
+            UiButton::from_intrinsic(UiButtonId(1), "EDIT", [0.0, 0.03], theme),
+            UiButton::from_intrinsic(UiButtonId(2), "SAVE", [0.0, 0.03], theme),
+        ];
+        let gap = theme.spacing.sm.value();
+        let total_width = buttons
+            .iter()
+            .map(|button| button.rect.size[0])
+            .sum::<f32>()
+            + gap * (buttons.len() - 1) as f32;
+        let mut cursor = -total_width * 0.5;
+        for button in &mut buttons {
+            cursor += button.rect.size[0] * 0.5;
+            button.rect.center[0] = cursor;
+            cursor += button.rect.size[0] * 0.5 + gap;
+        }
+        buttons
     }
 
     fn material_for_role(role: ui_tools::UiSurfaceRole) -> MaterialHandle {
