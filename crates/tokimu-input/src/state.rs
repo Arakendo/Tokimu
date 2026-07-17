@@ -19,6 +19,7 @@ impl InputState {
                     self.keyboard.release(key);
                 }
             }
+            InputEvent::TextInput(_) => {}
             InputEvent::CursorMoved { x, y } => self.mouse.move_to(x, y),
             InputEvent::MouseInput { button, pressed } => {
                 if pressed {

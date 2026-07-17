@@ -41,6 +41,7 @@ members = [
     "examples/ui/hello-ui-layout",
     "examples/ui/hello-ui-state",
     "examples/ui/hello-ui-input",
+    "examples/ui/hello-ui-textinput",
     "examples/ui/hello-ui-inspector",
     "examples/ui/hello-ui-scroll",
     "examples/ui/hello-ui-animation",

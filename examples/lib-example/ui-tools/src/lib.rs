@@ -6,15 +6,17 @@ mod presets;
 mod region;
 mod scroll;
 mod text;
+mod text_input;
 mod theme;
 
 pub use controls::{
     UiActionId, UiActivationKey, UiButton, UiButtonId, UiButtonSpec, UiCardSpec, UiDiagnostic,
-    UiDiagnosticKind, UiDiagnosticSeverity, UiEvent, UiFocusDirection, UiInteractionState,
+    UiDiagnosticKind, UiDiagnosticSeverity, UiEvent, UiFocusDirection, UiFocusState,
+    UiInteractionState,
     UiLabel, UiLabelAnchor, UiLabelSpec, UiStateChip,
 };
 pub use draw::{UiDrawer, UiSurfaceCommand, UiTextCommand};
-pub use geometry::{window_to_world, UiInsets, UiRect};
+pub use geometry::{window_to_world, UiHitRegion, UiInsets, UiRect};
 pub use layout::{
     UiConstraints, UiCrossAxisAlignment, UiHorizontalStack, UiLayoutResult, UiMainAxisAllocation,
     UiMeasurable, UiMeasureContext, UiSizePolicy, UiVerticalStack,
@@ -30,6 +32,7 @@ pub use text::{
     bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad, UiTextAlign,
     UiTextDirection, UiTextOverflow, UiTextRole, UiTextSpec,
 };
+pub use text_input::{UiTextInputOperation, UiTextInputState};
 pub use theme::{
     UiBorderScale, UiControlRole, UiElevation, UiRadiusScale, UiSpacingScale, UiSurfaceStyle,
     UiTextStyle, UiTheme,
@@ -114,6 +117,15 @@ mod tests {
         );
 
         assert_eq!(button.measure(&context), [0.12, 0.08]);
+    }
+
+    #[test]
+    fn malformed_constraints_are_normalized() {
+        let constraints = UiConstraints::new([0.8, 0.6], [0.2, 0.1]);
+
+        assert_eq!(constraints.min, [0.2, 0.1]);
+        assert_eq!(constraints.max, [0.8, 0.6]);
+        assert_eq!(constraints.constrain([0.0, 1.0]), [0.2, 0.6]);
     }
 
     #[test]
@@ -360,6 +372,31 @@ mod tests {
             layout.next_focus(Some(UiButtonId(2)), UiFocusDirection::Forward),
             Some(UiButtonId(0))
         );
+    }
+
+    #[test]
+    fn focus_state_wraps_and_activates_only_actionable_controls() {
+        let buttons = vec![
+            UiButton::new(UiButtonId(0), "ONE", UiRect::new([-0.2, 0.0], [0.2, 0.1]))
+                .with_action(UiActionId(10)),
+            UiButton::new(UiButtonId(1), "DISABLED", UiRect::new([0.0, 0.0], [0.2, 0.1]))
+                .with_action(UiActionId(11))
+                .with_enabled(false),
+            UiButton::new(UiButtonId(2), "TWO", UiRect::new([0.2, 0.0], [0.2, 0.1]))
+                .with_action(UiActionId(12)),
+        ];
+        let mut focus = UiFocusState::new();
+
+        focus.move_focus(&buttons, UiFocusDirection::Forward);
+        assert_eq!(focus.focused(), Some(UiButtonId(0)));
+        focus.move_focus(&buttons, UiFocusDirection::Forward);
+        assert_eq!(focus.focused(), Some(UiButtonId(2)));
+        assert_eq!(
+            focus.activate(&buttons, UiActivationKey::Enter, true),
+            Some(UiEvent::Activated(UiActionId(12)))
+        );
+        focus.move_focus(&buttons, UiFocusDirection::Forward);
+        assert_eq!(focus.focused(), Some(UiButtonId(0)));
     }
 
     #[test]

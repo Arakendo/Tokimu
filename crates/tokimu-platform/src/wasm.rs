@@ -95,6 +95,12 @@ fn attach_keyboard_listeners(
             {
                 document_for_escape.exit_pointer_lock();
             }
+            if !key_event.ctrl_key() && !key_event.meta_key() && !key_event.alt_key() {
+                let text = key_event.key();
+                if text.chars().count() == 1 {
+                    emit_event(&keydown_handler, PlatformInputEvent::TextInput(text));
+                }
+            }
             if let Some(key) = map_key_code(&key_event.code()) {
                 emit_event(
                     &keydown_handler,
@@ -263,6 +269,9 @@ fn map_key_code(code: &str) -> Option<KeyCode> {
     match code {
         "Escape" => Some(KeyCode::Escape),
         "Space" => Some(KeyCode::Space),
+        "Enter" => Some(KeyCode::Enter),
+        "Backspace" => Some(KeyCode::Backspace),
+        "Delete" => Some(KeyCode::Delete),
         "KeyE" => Some(KeyCode::KeyE),
         "KeyA" => Some(KeyCode::KeyA),
         "KeyD" => Some(KeyCode::KeyD),

@@ -26,26 +26,28 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PlatformInputEvent {
     CloseRequested,
     Resized { width: u32, height: u32 },
     KeyboardInput { key: KeyCode, pressed: bool },
+    TextInput(String),
     CursorMoved { x: f32, y: f32 },
     MouseMotion { delta_x: f32, delta_y: f32 },
     MouseInput { button: MouseButton, pressed: bool },
 }
 
 impl PlatformInputEvent {
-    pub fn as_input_event(self) -> Option<InputEvent> {
+    pub fn as_input_event(&self) -> Option<InputEvent> {
         match self {
             Self::KeyboardInput { key, pressed } => {
-                Some(InputEvent::KeyboardInput { key, pressed })
+                Some(InputEvent::KeyboardInput { key: *key, pressed: *pressed })
             }
-            Self::CursorMoved { x, y } => Some(InputEvent::CursorMoved { x, y }),
+            Self::TextInput(text) => Some(InputEvent::TextInput(text.clone())),
+            Self::CursorMoved { x, y } => Some(InputEvent::CursorMoved { x: *x, y: *y }),
             Self::MouseMotion { .. } => None,
             Self::MouseInput { button, pressed } => {
-                Some(InputEvent::MouseInput { button, pressed })
+                Some(InputEvent::MouseInput { button: *button, pressed: *pressed })
             }
             Self::CloseRequested | Self::Resized { .. } => None,
         }

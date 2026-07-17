@@ -7,9 +7,9 @@ use tokimu_core::FrameOutcome;
 use tokimu_input::{KeyCode, MouseButton};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, WindowEvent};
+use winit::event::{ElementState, Ime, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::PhysicalKey;
+use winit::keyboard::{Key, NamedKey, PhysicalKey};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 #[derive(Debug)]
@@ -180,6 +180,16 @@ where
                 );
             }
             WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed {
+                    if let Key::Character(text) = &event.logical_key {
+                        if !text.is_empty() {
+                            self.emit(event_loop, PlatformInputEvent::TextInput(text.to_string()));
+                        }
+                    }
+                    if event.logical_key == Key::Named(NamedKey::Space) {
+                        self.emit(event_loop, PlatformInputEvent::TextInput(" ".to_owned()));
+                    }
+                }
                 if let Some(key) = map_key_code(event.physical_key) {
                     self.emit(
                         event_loop,
@@ -190,6 +200,7 @@ where
                     );
                 }
             }
+            WindowEvent::Ime(Ime::Commit(_)) => {}
             WindowEvent::CursorMoved { position, .. } => {
                 self.emit(
                     event_loop,
@@ -219,6 +230,9 @@ fn map_key_code(key: PhysicalKey) -> Option<KeyCode> {
     match key {
         PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => Some(KeyCode::Escape),
         PhysicalKey::Code(winit::keyboard::KeyCode::Space) => Some(KeyCode::Space),
+        PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => Some(KeyCode::Enter),
+        PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => Some(KeyCode::Backspace),
+        PhysicalKey::Code(winit::keyboard::KeyCode::Delete) => Some(KeyCode::Delete),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => Some(KeyCode::KeyE),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => Some(KeyCode::KeyA),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => Some(KeyCode::KeyD),

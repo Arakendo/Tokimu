@@ -839,6 +839,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-ui-textinput"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-input",
+ "ui-tools",
+]
+
+[[package]]
 name = "hello-ui-theme"
 version = "0.1.0"
 dependencies = [

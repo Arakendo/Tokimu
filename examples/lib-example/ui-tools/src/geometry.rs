@@ -61,6 +61,39 @@ impl UiRect {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiHitRegion {
+    pub rect: UiRect,
+    pub clip: Option<UiRect>,
+}
+
+impl UiHitRegion {
+    pub const fn new(rect: UiRect) -> Self {
+        Self { rect, clip: None }
+    }
+
+    pub fn with_clip(mut self, clip: UiRect) -> Self {
+        self.clip = Some(match self.clip {
+            Some(existing) => match existing.intersection(clip) {
+                Some(intersection) => intersection,
+                None => UiRect::new([0.0, 0.0], [0.0, 0.0]),
+            },
+            None => clip,
+        });
+        self
+    }
+
+    pub fn visible_rect(&self) -> Option<UiRect> {
+        self.clip
+            .map_or(Some(self.rect), |clip| self.rect.intersection(clip))
+    }
+
+    pub fn contains(&self, point: [f32; 2]) -> bool {
+        self.visible_rect()
+            .is_some_and(|visible| visible.contains(point))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UiInsets {
     pub top: f32,
     pub right: f32,
@@ -138,5 +171,15 @@ mod tests {
             rect.intersection(UiRect::new([3.0, 0.0], [1.0, 1.0])),
             None
         );
+    }
+
+    #[test]
+    fn hit_regions_require_points_to_be_inside_the_clip() {
+        let region = UiHitRegion::new(UiRect::new([0.0, 0.0], [2.0, 2.0]))
+            .with_clip(UiRect::new([0.5, 0.0], [1.0, 0.8]));
+
+        assert!(region.contains([0.5, 0.0]));
+        assert!(!region.contains([-0.5, 0.0]));
+        assert!(!region.contains([0.5, 0.5]));
     }
 }

@@ -98,16 +98,17 @@ impl<'a> UiDrawer<'a> {
     }
 
     pub fn card(&mut self, card: &UiCard) {
-        self.surfaces.push(UiSurfaceCommand {
-            rect: card.region.rect,
-            style: self.theme.card(card.role),
-        });
+        if let Some(rect) = self.clipped_rect(card.region.rect) {
+            self.surfaces.push(UiSurfaceCommand {
+                rect,
+                style: self.theme.card(card.role),
+            });
+        }
         self.surface(&card.header);
         self.surface(&card.body_region);
         self.surface(&card.footer);
 
-        self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(
+        let title = UiTextSpec::new(
                 card.title,
                 // Keep the visual header band narrow, but give glyphs enough
                 // vertical bounds to avoid clipping bitmap rows.
@@ -119,11 +120,15 @@ impl<'a> UiDrawer<'a> {
                     ],
                 ),
                 UiTextRole::Heading,
-            ),
-            style: self.theme.text(UiTextRole::Heading),
-        });
-        self.text.push(UiTextCommand {
-            spec: UiTextSpec::new(
+            );
+        if let Some(rect) = self.clipped_rect(title.rect) {
+            self.text.push(UiTextCommand {
+                spec: UiTextSpec { rect, ..title },
+                style: self.theme.text(UiTextRole::Heading),
+            });
+        }
+
+        let body = UiTextSpec::new(
                 card.body,
                 UiRect::new(
                     card.body_region.rect.center,
@@ -134,9 +139,13 @@ impl<'a> UiDrawer<'a> {
                 ),
                 UiTextRole::Body,
             )
-                .with_alignment(UiTextAlign::Start, UiTextAlign::Center),
-            style: self.theme.text(UiTextRole::Body),
-        });
+                .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        if let Some(rect) = self.clipped_rect(body.rect) {
+            self.text.push(UiTextCommand {
+                spec: UiTextSpec { rect, ..body },
+                style: self.theme.text(UiTextRole::Body),
+            });
+        }
     }
 
     pub fn workspace(&mut self, region: &UiRegion) {

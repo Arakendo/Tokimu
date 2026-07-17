@@ -4,6 +4,9 @@ use std::collections::BTreeSet;
 pub enum KeyCode {
     Escape,
     Space,
+    Enter,
+    Backspace,
+    Delete,
     KeyE,
     KeyA,
     KeyD,

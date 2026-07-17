@@ -676,17 +676,15 @@ DuplicateActionId(action)
 ZeroSizeControl(id)
 FocusableWithoutAction(id)
 MissingControlLabel(id)
-UnsupportedTextOverflow { role }
 ```
 
 These warnings catch ambiguous hit testing, focus restoration, and action
 dispatch before those ambiguities become user-visible behavior. A zero-size
 control warning catches a resolved control that cannot be rendered, hit-tested,
 or focused. The semantic completeness warnings catch controls that are enabled
-but cannot produce an action, or that have no accessible label. Text specs also
-warn when `Ellipsis` is requested but the active text implementation cannot
-provide it. Other useful future diagnostics include unconstrained growth and
-children placed outside an active interactive clip.
+but cannot produce an action, or that have no accessible label. Other useful
+future diagnostics include unconstrained growth and children placed outside an
+active interactive clip.
 
 Diagnostic collection is deterministic and does not print or mutate
 application state. The application or host decides whether a warning appears
@@ -994,6 +992,13 @@ traversal must skip disabled or non-actionable controls and wrap predictably at
 the ends. Applications may choose when to request traversal, but should not
 need to reconstruct the presentation's control order.
 
+The current corpus implementation provides button activation helpers, stable
+control/action identifiers, ordered focus helpers for toolbar layouts, and a
+small UiFocusState value for focused control identity and keyboard activation.
+It does not yet provide a general presentation-tree focus router or an
+accessibility adapter. Those remain design targets to be proved by
+hello-ui-input and later corpus work.
+
 ## 31. Coordinate Systems and Scaling
 
 Presentation crosses explicit coordinate-system boundaries:
@@ -1070,6 +1075,11 @@ higher-level presentation adapters until real callers justify them.
 motion, item visibility, hover hit testing, and scrollbar position. The example
 still owns its keyboard mapping and visual scrollbar policy, which keeps the
 shared model focused on scroll geometry rather than platform input.
+
+The shared geometry layer now provides UiHitRegion, which intersects a target
+rectangle with its active clip before hit testing. This is the primitive for
+nested clip-aware routing; a complete presentation-tree event router remains
+an open implementation step.
 
 ## 33. Presentation Model and Widget Model
 

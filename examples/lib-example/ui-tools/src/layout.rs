@@ -44,7 +44,10 @@ impl UiSizePolicy {
 
 impl UiConstraints {
     pub const fn new(min: [f32; 2], max: [f32; 2]) -> Self {
-        Self { min, max }
+        Self {
+            min: [min[0].min(max[0]), min[1].min(max[1])],
+            max: [min[0].max(max[0]), min[1].max(max[1])],
+        }
     }
 
     pub const fn unbounded() -> Self {

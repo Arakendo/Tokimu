@@ -7,7 +7,10 @@ use tokimu::{
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use tokimu_input::{InputState, KeyCode};
-use ui_tools::{UiRect, UiSurfaceRole};
+use ui_tools::{
+    UiActivationKey, UiActionId, UiButton, UiButtonId, UiEvent, UiFocusDirection, UiFocusState,
+    UiRect, UiSurfaceRole,
+};
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
@@ -18,31 +21,6 @@ const PANEL_MATERIAL: MaterialHandle = MaterialHandle(3);
 const CARD_MATERIAL: MaterialHandle = MaterialHandle(4);
 const ACTIVE_MATERIAL: MaterialHandle = MaterialHandle(5);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(6);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum FocusTarget {
-    Mouse,
-    Keyboard,
-    Capture,
-}
-
-impl FocusTarget {
-    fn next(self) -> Self {
-        match self {
-            Self::Mouse => Self::Keyboard,
-            Self::Keyboard => Self::Capture,
-            Self::Capture => Self::Mouse,
-        }
-    }
-
-    fn prev(self) -> Self {
-        match self {
-            Self::Mouse => Self::Capture,
-            Self::Keyboard => Self::Mouse,
-            Self::Capture => Self::Keyboard,
-        }
-    }
-}
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -61,8 +39,8 @@ struct HelloUiInputApp {
     window_size: [f32; 2],
     pipeline: PipelineHandle,
     input: InputState,
-    focus: FocusTarget,
-    hovered: Option<FocusTarget>,
+    focus: UiFocusState,
+    hovered: Option<UiButtonId>,
     captured: bool,
 }
 
@@ -74,7 +52,7 @@ impl Default for HelloUiInputApp {
             window_size: [1.0, 1.0],
             pipeline: PipelineHandle(0),
             input: InputState::default(),
-            focus: FocusTarget::Mouse,
+            focus: UiFocusState::new(),
             hovered: None,
             captured: false,
         }
@@ -145,17 +123,20 @@ impl HelloUiInputApp {
         ]
     }
 
-    fn focus_at_point(&self, point: [f32; 2]) -> Option<FocusTarget> {
+    fn buttons(&self) -> [UiButton; 3] {
         let rects = self.focus_rects();
-        if rects[0].contains(point) {
-            Some(FocusTarget::Mouse)
-        } else if rects[1].contains(point) {
-            Some(FocusTarget::Keyboard)
-        } else if rects[2].contains(point) {
-            Some(FocusTarget::Capture)
-        } else {
-            None
-        }
+        [
+            UiButton::new(UiButtonId(0), "MOUSE", rects[0]).with_action(UiActionId(1)),
+            UiButton::new(UiButtonId(1), "KEYBOARD", rects[1]).with_action(UiActionId(2)),
+            UiButton::new(UiButtonId(2), "CAPTURE", rects[2]).with_action(UiActionId(3)),
+        ]
+    }
+
+    fn focus_at_point(&self, point: [f32; 2]) -> Option<UiButtonId> {
+        self.buttons()
+            .into_iter()
+            .find(|button| button.contains(point))
+            .map(|button| button.id)
     }
 
     fn cursor_world(&self) -> [f32; 2] {
@@ -176,7 +157,7 @@ impl HelloUiInputApp {
         if let Some(window) = self.window.as_ref() {
             window.set_title(&format!(
                 "Tokimu Hello UI Input | focus={:?} | hovered={:?} | mouse={} | left={} | right={} | capture={}",
-                self.focus,
+                self.focus.focused(),
                 self.hovered,
                 if self.input.mouse.is_pressed(MouseButton::Left) { "down" } else { "up" },
                 if self.input.keyboard.is_pressed(KeyCode::ArrowLeft) { "down" } else { "up" },
@@ -203,13 +184,14 @@ impl HelloUiInputApp {
             color: Color::rgb(0.05, 0.06, 0.08),
         })]);
 
-        Self::draw_region(renderer, self.pipeline, columns[0], UiSurfaceRole::Panel, self.focus == FocusTarget::Mouse);
-        Self::draw_region(renderer, self.pipeline, columns[1], UiSurfaceRole::Card, self.focus == FocusTarget::Keyboard);
-        Self::draw_region(renderer, self.pipeline, columns[2], UiSurfaceRole::Toolbar, self.focus == FocusTarget::Capture);
+        let focused = self.focus.focused();
+        Self::draw_region(renderer, self.pipeline, columns[0], UiSurfaceRole::Panel, focused == Some(UiButtonId(0)));
+        Self::draw_region(renderer, self.pipeline, columns[1], UiSurfaceRole::Card, focused == Some(UiButtonId(1)));
+        Self::draw_region(renderer, self.pipeline, columns[2], UiSurfaceRole::Toolbar, focused == Some(UiButtonId(2)));
 
-        Self::draw_region(renderer, self.pipeline, focus_rects[0], UiSurfaceRole::Region, self.focus == FocusTarget::Mouse || self.hovered == Some(FocusTarget::Mouse));
-        Self::draw_region(renderer, self.pipeline, focus_rects[1], UiSurfaceRole::Region, self.focus == FocusTarget::Keyboard || self.hovered == Some(FocusTarget::Keyboard));
-        Self::draw_region(renderer, self.pipeline, focus_rects[2], UiSurfaceRole::Region, self.focus == FocusTarget::Capture || self.hovered == Some(FocusTarget::Capture));
+        Self::draw_region(renderer, self.pipeline, focus_rects[0], UiSurfaceRole::Region, focused == Some(UiButtonId(0)) || self.hovered == Some(UiButtonId(0)));
+        Self::draw_region(renderer, self.pipeline, focus_rects[1], UiSurfaceRole::Region, focused == Some(UiButtonId(1)) || self.hovered == Some(UiButtonId(1)));
+        Self::draw_region(renderer, self.pipeline, focus_rects[2], UiSurfaceRole::Region, focused == Some(UiButtonId(2)) || self.hovered == Some(UiButtonId(2)));
 
         let _ = renderer.present()?;
         self.update_title();
@@ -272,15 +254,31 @@ impl PlatformEventHandler for HelloUiInputApp {
                 button: MouseButton::Left,
                 pressed: true,
             } => {
-                self.captured = !self.captured;
-                if let Some(focus) = self.hovered {
-                    self.focus = focus;
+                if let Some(focused) = self.hovered {
+                    self.focus.set_focus(Some(focused));
+                    if let Some(UiEvent::Activated(UiActionId(3))) = self
+                        .focus
+                        .activate(&self.buttons(), UiActivationKey::Enter, true)
+                    {
+                        self.captured = !self.captured;
+                    }
                 }
             }
             PlatformInputEvent::KeyboardInput { key, pressed: true } => match key {
-                KeyCode::ArrowLeft => self.focus = self.focus.prev(),
-                KeyCode::ArrowRight => self.focus = self.focus.next(),
-                KeyCode::Space => self.captured = !self.captured,
+                KeyCode::ArrowLeft => self
+                    .focus
+                    .move_focus(&self.buttons(), UiFocusDirection::Backward),
+                KeyCode::ArrowRight => self
+                    .focus
+                    .move_focus(&self.buttons(), UiFocusDirection::Forward),
+                KeyCode::Space => {
+                    if let Some(UiEvent::Activated(UiActionId(3))) = self
+                        .focus
+                        .activate(&self.buttons(), UiActivationKey::Enter, true)
+                    {
+                        self.captured = !self.captured;
+                    }
+                }
                 _ => {}
             },
             PlatformInputEvent::Resized { width, height } => {

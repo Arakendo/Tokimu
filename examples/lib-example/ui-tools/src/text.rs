@@ -1,6 +1,4 @@
-use crate::{
-    UiDiagnostic, UiDiagnosticKind, UiDiagnosticSeverity, UiLabelAnchor, UiRect,
-};
+use crate::{UiLabelAnchor, UiRect};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiTextDirection {
@@ -77,13 +75,6 @@ impl UiTextSpec {
     pub fn with_overflow(mut self, overflow: UiTextOverflow) -> Self {
         self.overflow = overflow;
         self
-    }
-
-    pub fn diagnostic(&self) -> Option<UiDiagnostic> {
-        (self.overflow == UiTextOverflow::Ellipsis).then_some(UiDiagnostic {
-            severity: UiDiagnosticSeverity::Warning,
-            kind: UiDiagnosticKind::UnsupportedTextOverflow { role: self.role },
-        })
     }
 
     pub fn centered_bounds(&self) -> [f32; 2] {
@@ -166,6 +157,14 @@ fn physical_alignment(align: UiTextAlign, direction: UiTextDirection) -> UiTextA
 }
 
 fn text_lines(spec: &UiTextSpec, height: f32) -> Vec<String> {
+    if spec.overflow == UiTextOverflow::Ellipsis && spec.rect.size[0] > 0.0 {
+        return spec
+            .text
+            .lines()
+            .map(|line| truncate_with_ellipsis(line, height, spec.rect.size[0]))
+            .collect();
+    }
+
     if spec.overflow != UiTextOverflow::Wrap || spec.rect.size[0] <= 0.0 {
         return spec.text.lines().map(str::to_owned).collect();
     }
@@ -212,6 +211,25 @@ fn text_lines(spec: &UiTextSpec, height: f32) -> Vec<String> {
         lines.push(String::new());
     }
     lines
+}
+
+fn truncate_with_ellipsis(text: &str, height: f32, max_width: f32) -> String {
+    if measure_bitmap_text_width(text, height) <= max_width {
+        return text.to_owned();
+    }
+    let marker = "...";
+    if measure_bitmap_text_width(marker, height) > max_width {
+        return String::new();
+    }
+    let mut result = String::new();
+    for ch in text.chars() {
+        let candidate = format!("{result}{ch}{marker}");
+        if measure_bitmap_text_width(&candidate, height) > max_width {
+            break;
+        }
+        result.push(ch);
+    }
+    format!("{result}{marker}")
 }
 
 pub fn measure_bitmap_text_width(text: &str, height: f32) -> f32 {
@@ -343,6 +361,36 @@ fn bitmap_glyph_rows(ch: char) -> [u8; 7] {
         'Z' => [
             0b11111, 0b00010, 0b00100, 0b00100, 0b01000, 0b10000, 0b11111,
         ],
+        '0' => [
+            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+        ],
+        '1' => [
+            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ],
+        '2' => [
+            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+        ],
+        '3' => [
+            0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110,
+        ],
+        '4' => [
+            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+        ],
+        '5' => [
+            0b11111, 0b10000, 0b10000, 0b11110, 0b00001, 0b00001, 0b11110,
+        ],
+        '6' => [
+            0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+        ],
+        '7' => [
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+        ],
+        '8' => [
+            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+        ],
+        '9' => [
+            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b11100,
+        ],
         '+' => [
             0b00100, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00100,
         ],
@@ -418,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn ellipsis_overflow_produces_an_unsupported_mode_diagnostic() {
+    fn ellipsis_overflow_truncates_to_the_available_width() {
         let spec = UiTextSpec::new(
             "A LONG LABEL",
             UiRect::new([0.0, 0.0], [0.12, 0.08]),
@@ -426,15 +474,9 @@ mod tests {
         )
         .with_overflow(UiTextOverflow::Ellipsis);
 
-        assert_eq!(
-            spec.diagnostic(),
-            Some(UiDiagnostic {
-                severity: UiDiagnosticSeverity::Warning,
-                kind: UiDiagnosticKind::UnsupportedTextOverflow {
-                    role: UiTextRole::Button,
-                },
-            })
-        );
+        let glyphs = layout_bitmap_text(&spec, 0.03);
+        assert!(!glyphs.is_empty());
+        assert!(glyphs.iter().all(|glyph| spec.rect.contains(glyph.center)));
     }
 
     #[test]
