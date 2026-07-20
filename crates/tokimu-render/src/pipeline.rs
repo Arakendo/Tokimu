@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub enum PipelineKind {
     #[default]
     SolidColor2d,
+    Texture2d,
     LitColor3d,
     CustomWgsl2d,
 }
@@ -17,10 +18,34 @@ impl PipelineKind {
     pub fn default_shader_source(self) -> Option<&'static str> {
         match self {
             PipelineKind::SolidColor2d => Some(default_2d_shader_source()),
+            PipelineKind::Texture2d => Some(default_texture_2d_shader_source()),
             PipelineKind::LitColor3d => Some(default_lit_3d_shader_source()),
             PipelineKind::CustomWgsl2d => None,
         }
     }
+}
+
+pub fn default_texture_2d_shader_source() -> &'static str {
+    r#"
+@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(0) @binding(1) var material_texture: texture_2d<f32>;
+@group(0) @binding(2) var material_sampler: sampler;
+struct InstanceParams { translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, };
+@group(1) @binding(0) var<uniform> instance_params: InstanceParams;
+@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
+struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
+@vertex fn vs_main(@location(0) position: vec3<f32>) -> VertexOutput {
+    let scaled = position.xy * instance_params.scale;
+    let rotated = vec2<f32>((scaled.x * instance_params.rotation.y) - (scaled.y * instance_params.rotation.x), (scaled.x * instance_params.rotation.x) + (scaled.y * instance_params.rotation.y));
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(rotated.x + instance_params.translation.x, rotated.y + instance_params.translation.y, position.z, 1.0);
+    output.uv = vec2<f32>(position.x + 0.5, 0.5 - position.y);
+    return output;
+}
+@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    return textureSample(material_texture, material_sampler, uv) * material_color;
+}
+"#.trim()
 }
 
 pub fn default_2d_shader_source() -> &'static str {

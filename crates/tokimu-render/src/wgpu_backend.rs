@@ -1,7 +1,7 @@
 use crate::{
     Camera, CameraHandle, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
     PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderStats, Renderable,
-    RenderableHandle, Renderer,
+    RenderableHandle, Renderer, Texture, TextureHandle,
 };
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -36,6 +36,8 @@ pub enum WgpuBackendError {
     MissingPipeline(u64),
     #[error("renderable handle {0} has not been uploaded")]
     MissingRenderable(u64),
+    #[error("texture handle {0} has not been uploaded")]
+    MissingTexture(u64),
 }
 
 #[repr(C)]
@@ -53,6 +55,14 @@ struct GpuMesh {
 struct GpuMaterial {
     _uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    _fallback_texture: Option<wgpu::Texture>,
+    _fallback_view: Option<Arc<wgpu::TextureView>>,
+    _fallback_sampler: Option<Arc<wgpu::Sampler>>,
+}
+
+struct GpuTexture {
+    _texture: wgpu::Texture,
+    _view: Arc<wgpu::TextureView>,
 }
 
 #[derive(Clone, Copy)]
@@ -101,6 +111,7 @@ pub struct WgpuBackend {
     pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
     pipeline_registry: PipelineRegistry,
     renderables: HashMap<RenderableHandle, Renderable>,
+    textures: HashMap<TextureHandle, GpuTexture>,
     cameras: HashMap<crate::resources::CameraHandle, Camera>,
     active_camera: crate::resources::CameraHandle,
     _instance: wgpu::Instance,
@@ -152,6 +163,7 @@ impl WgpuBackend {
             pipelines: HashMap::new(),
             pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
+            textures: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
             _instance: instance,
@@ -218,6 +230,7 @@ impl WgpuBackend {
             pipelines: HashMap::new(),
             pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
+            textures: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
             _instance: instance,
@@ -299,6 +312,7 @@ impl WgpuBackend {
             pipelines: HashMap::new(),
             pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
+            textures: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
             _instance: instance,
@@ -387,6 +401,28 @@ impl WgpuBackend {
         );
     }
 
+    /// Uploads an RGBA8 image for future texture-backed pipelines.
+    pub fn upload_texture(&mut self, handle: TextureHandle, texture: &Texture) {
+        let gpu_texture = self._device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("tokimu-texture"),
+            size: wgpu::Extent3d { width: texture.width, height: texture.height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        self._queue.write_texture(
+            wgpu::ImageCopyTexture { texture: &gpu_texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            &texture.rgba8,
+            wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(4 * texture.width), rows_per_image: Some(texture.height) },
+            wgpu::Extent3d { width: texture.width, height: texture.height, depth_or_array_layers: 1 },
+        );
+        let view = Arc::new(gpu_texture.create_view(&wgpu::TextureViewDescriptor::default()));
+        self.textures.insert(handle, GpuTexture { _texture: gpu_texture, _view: view });
+    }
+
     pub fn upload_material(
         &mut self,
         handle: MaterialHandle,
@@ -409,20 +445,59 @@ impl WgpuBackend {
                 contents: bytemuck::cast_slice(&uniform),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
+        let (fallback_texture, fallback_view, fallback_sampler, texture_view, sampler) =
+            if let Some(texture_handle) = material.texture {
+                if let Some(texture) = self.textures.get(&texture_handle) {
+                    (None, None, None, Arc::clone(&texture._view), Arc::new(self._device.create_sampler(&wgpu::SamplerDescriptor::default())))
+                } else {
+                    return Err(WgpuBackendError::MissingTexture(texture_handle.0));
+                }
+            } else {
+                let texture = self._device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("tokimu-material-fallback-texture"),
+                    size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                    mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    view_formats: &[],
+                });
+                self._queue.write_texture(
+                    wgpu::ImageCopyTexture { texture: &texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                    &[255, 255, 255, 255],
+                    wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
+                    wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                );
+                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let sampler = self._device.create_sampler(&wgpu::SamplerDescriptor::default());
+                let view = Arc::new(view);
+                let sampler = Arc::new(sampler);
+                (Some(texture), Some(Arc::clone(&view)), Some(Arc::clone(&sampler)), view, sampler)
+            };
         let bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("tokimu-material-bind-group"),
             layout: &surface_state.material_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(&sampler),
             }],
         });
 
         self.materials.insert(
             handle,
             GpuMaterial {
-                _uniform_buffer: uniform_buffer,
-                bind_group,
+            _uniform_buffer: uniform_buffer,
+            bind_group,
+            _fallback_texture: fallback_texture,
+            _fallback_view: fallback_view,
+            _fallback_sampler: fallback_sampler,
             },
         );
 
@@ -447,6 +522,19 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
             ),
+            PipelineKind::Texture2d => create_custom_pipeline(
+                &self._device,
+                surface_state.config.format,
+                DEPTH_FORMAT,
+                &surface_state.material_bind_group_layout,
+                &surface_state.instance_bind_group_layout,
+                &surface_state.camera_bind_group_layout,
+                &pipeline.label,
+                pipeline.shader_source.as_deref().or_else(|| pipeline.kind.default_shader_source()).unwrap(),
+                &pipeline.vertex_entry_point,
+                &pipeline.fragment_entry_point,
+                false,
+            ),
             PipelineKind::LitColor3d => create_custom_pipeline(
                 &self._device,
                 surface_state.config.format,
@@ -462,6 +550,7 @@ impl WgpuBackend {
                     .unwrap_or(Pipeline::default_2d_shader_source()),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
+                true,
             ),
             PipelineKind::CustomWgsl2d => create_custom_pipeline(
                 &self._device,
@@ -478,6 +567,7 @@ impl WgpuBackend {
                     .unwrap_or(Pipeline::default_2d_shader_source()),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
+                false,
             ),
         };
 
@@ -766,6 +856,7 @@ fn create_solid_color_pipeline(
         PipelineKind::SolidColor2d.default_shader_source().unwrap(),
         "vs_main",
         "fs_main",
+        false,
     )
 }
 
@@ -781,6 +872,7 @@ fn create_custom_pipeline(
     shader_source: &str,
     vertex_entry_point: &str,
     fragment_entry_point: &str,
+    depth_write_enabled: bool,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(pipeline_label),
@@ -824,7 +916,11 @@ fn create_custom_pipeline(
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: Some(wgpu::DepthStencilState {
             format: depth_format,
-            depth_write_enabled: true,
+            // Custom 2D pipelines are painter-ordered. Disabling depth writes
+            // avoids Z-fighting between coplanar SVG stroke segments and their
+            // round joins, while preserving the depth test for the shared
+            // render target.
+            depth_write_enabled,
             depth_compare: wgpu::CompareFunction::LessEqual,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
@@ -836,7 +932,7 @@ fn create_custom_pipeline(
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
                 format: surface_format,
-                blend: Some(wgpu::BlendState::REPLACE),
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
         }),
@@ -912,6 +1008,16 @@ fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },
+            count: None,
+        }, wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false },
+            count: None,
+        }, wgpu::BindGroupLayoutEntry {
+            binding: 2,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
             count: None,
         }],
     })

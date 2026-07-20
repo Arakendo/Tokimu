@@ -1,9 +1,11 @@
 use crate::Color;
+use crate::TextureHandle;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Material {
     pub label: String,
     pub base_color: Color,
+    pub texture: Option<TextureHandle>,
 }
 
 impl Material {
@@ -11,7 +13,13 @@ impl Material {
         Self {
             label: label.into(),
             base_color,
+            texture: None,
         }
+    }
+
+    pub fn with_texture(mut self, texture: TextureHandle) -> Self {
+        self.texture = Some(texture);
+        self
     }
 }
 

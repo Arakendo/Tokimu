@@ -774,6 +774,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-ui-font"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "ui-tools",
+]
+
+[[package]]
+name = "hello-ui-font2"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "ui-tools",
+]
+
+[[package]]
+name = "hello-ui-glyph-corpus"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "ui-tools",
+]
+
+[[package]]
 name = "hello-ui-icons"
 version = "0.1.0"
 dependencies = [
@@ -800,6 +824,21 @@ dependencies = [
 
 [[package]]
 name = "hello-ui-layout"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "ui-tools",
+]
+
+[[package]]
+name = "hello-ui-lucide"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+]
+
+[[package]]
+name = "hello-ui-lucide2"
 version = "0.1.0"
 dependencies = [
  "tokimu",
@@ -2105,6 +2144,9 @@ dependencies = [
 [[package]]
 name = "ui-tools"
 version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+]
 
 [[package]]
 name = "unicode-ident"

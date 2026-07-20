@@ -4,7 +4,9 @@ mod geometry;
 mod layout;
 mod presets;
 mod region;
+mod raster;
 mod scroll;
+mod svg;
 mod text;
 mod text_input;
 mod theme;
@@ -28,6 +30,8 @@ pub use region::{
     UiStatusBar, UiSurfaceRole, UiTabStrip, UiToolbar, UiWorkspace,
 };
 pub use scroll::UiVerticalScroll;
+pub use raster::{UiFontRasterizer, UiRasterGlyph, UiRasterText, UiRasterTextBitmap, UiRasterTextGlyph};
+pub use svg::{flatten_path, parse_path, stroke_paths, tokenize_path, SvgPathCommand, SvgToken};
 pub use text::{
     bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad, UiTextAlign,
     UiTextDirection, UiTextOverflow, UiTextRole, UiTextSpec,
