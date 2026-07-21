@@ -199,9 +199,7 @@ impl UiTheme {
         };
 
         let mut style = self.surface(base_role);
-        if matches!(role, UiControlRole::Quiet)
-            && matches!(state, UiInteractionState::Idle)
-        {
+        if matches!(role, UiControlRole::Quiet) && matches!(state, UiInteractionState::Idle) {
             style.border_width = self.borders.hairline;
             style.border_role = Some(UiSurfaceRole::Overlay);
         }

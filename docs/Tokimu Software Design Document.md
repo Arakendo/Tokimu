@@ -1997,6 +1997,10 @@ Acceptance criteria:
 Tokimu should treat tests and runnable examples as part of the architecture, not
 as after-the-fact polish.
 
+`docs/testing-strategy.md` defines the operational test layout, ownership rules,
+golden-fixture policy, execution tiers, and workspace-harness direction for the
+validation layers below.
+
 Required validation layers:
 
 * Unit tests in each crate for local data structures such as entity IDs,

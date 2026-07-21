@@ -53,6 +53,8 @@ members = [
     "examples/ui/hello-ui-lucide",
     "examples/ui/hello-ui-lucide2",
     "examples/ui/hello-ui-dashboard",
+    "examples/hello-file-io",
+    "examples/hello-save-image",
     "examples/hello-shader",
     "examples/lib-example/ui-tools",
     "examples/lib-example/ui-framework",

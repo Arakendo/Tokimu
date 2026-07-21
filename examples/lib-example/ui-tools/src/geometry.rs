@@ -19,14 +19,12 @@ impl UiRect {
     }
 
     pub fn intersection(self, other: Self) -> Option<Self> {
-        let left = (self.center[0] - self.size[0] * 0.5)
-            .max(other.center[0] - other.size[0] * 0.5);
-        let right = (self.center[0] + self.size[0] * 0.5)
-            .min(other.center[0] + other.size[0] * 0.5);
-        let bottom = (self.center[1] - self.size[1] * 0.5)
-            .max(other.center[1] - other.size[1] * 0.5);
-        let top = (self.center[1] + self.size[1] * 0.5)
-            .min(other.center[1] + other.size[1] * 0.5);
+        let left = (self.center[0] - self.size[0] * 0.5).max(other.center[0] - other.size[0] * 0.5);
+        let right =
+            (self.center[0] + self.size[0] * 0.5).min(other.center[0] + other.size[0] * 0.5);
+        let bottom =
+            (self.center[1] - self.size[1] * 0.5).max(other.center[1] - other.size[1] * 0.5);
+        let top = (self.center[1] + self.size[1] * 0.5).min(other.center[1] + other.size[1] * 0.5);
         if left >= right || bottom >= top {
             return None;
         }
@@ -167,10 +165,7 @@ mod tests {
             rect.intersection(clip),
             Some(UiRect::new([0.5, 0.0], [1.0, 0.8]))
         );
-        assert_eq!(
-            rect.intersection(UiRect::new([3.0, 0.0], [1.0, 1.0])),
-            None
-        );
+        assert_eq!(rect.intersection(UiRect::new([3.0, 0.0], [1.0, 1.0])), None);
     }
 
     #[test]

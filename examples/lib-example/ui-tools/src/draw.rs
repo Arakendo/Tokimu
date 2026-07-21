@@ -12,10 +12,20 @@ pub struct UiSurfaceCommand {
     pub style: UiSurfaceStyle,
 }
 
+/// Backend-neutral text draw request.
+///
+/// This contains semantic text and theme style only. Font rasterizers, glyph
+/// atlases, meshes, and GPU handles are intentionally resolved downstream.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiTextCommand {
     pub spec: UiTextSpec,
     pub style: UiTextStyle,
+}
+
+impl UiTextCommand {
+    pub fn new(spec: UiTextSpec, style: UiTextStyle) -> Self {
+        Self { spec, style }
+    }
 }
 
 pub struct UiDrawer<'a> {
@@ -58,12 +68,12 @@ impl<'a> UiDrawer<'a> {
 
     pub fn label(&mut self, label: &UiLabel, role: UiTextRole) {
         let spec = UiTextSpec::new(
-                label.text,
-                UiRect::new([label.position[0], label.position[1]], [0.0, 0.0]),
-                role,
-            )
-            .with_alignment(label.anchor.into(), UiTextAlign::Center)
-            .with_overflow(UiTextOverflow::Clip);
+            label.text,
+            UiRect::new([label.position[0], label.position[1]], [0.0, 0.0]),
+            role,
+        )
+        .with_alignment(label.anchor.into(), UiTextAlign::Center)
+        .with_overflow(UiTextOverflow::Clip);
         if let Some(rect) = self.clipped_rect(spec.rect) {
             self.text.push(UiTextCommand {
                 spec: UiTextSpec { rect, ..spec },
@@ -109,18 +119,18 @@ impl<'a> UiDrawer<'a> {
         self.surface(&card.footer);
 
         let title = UiTextSpec::new(
-                card.title,
-                // Keep the visual header band narrow, but give glyphs enough
-                // vertical bounds to avoid clipping bitmap rows.
-                UiRect::new(
-                    card.header.rect.center,
-                    [
-                        card.header.rect.size[0] - card.padding.value() * 2.0,
-                        card.region.rect.size[1] * 0.34,
-                    ],
-                ),
-                UiTextRole::Heading,
-            );
+            card.title,
+            // Keep the visual header band narrow, but give glyphs enough
+            // vertical bounds to avoid clipping bitmap rows.
+            UiRect::new(
+                card.header.rect.center,
+                [
+                    card.header.rect.size[0] - card.padding.value() * 2.0,
+                    card.region.rect.size[1] * 0.34,
+                ],
+            ),
+            UiTextRole::Heading,
+        );
         if let Some(rect) = self.clipped_rect(title.rect) {
             self.text.push(UiTextCommand {
                 spec: UiTextSpec { rect, ..title },
@@ -129,17 +139,17 @@ impl<'a> UiDrawer<'a> {
         }
 
         let body = UiTextSpec::new(
-                card.body,
-                UiRect::new(
-                    card.body_region.rect.center,
-                    [
-                        card.body_region.rect.size[0] - card.padding.value() * 2.0,
-                        card.region.rect.size[1] * 0.34,
-                    ],
-                ),
-                UiTextRole::Body,
-            )
-                .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+            card.body,
+            UiRect::new(
+                card.body_region.rect.center,
+                [
+                    card.body_region.rect.size[0] - card.padding.value() * 2.0,
+                    card.region.rect.size[1] * 0.34,
+                ],
+            ),
+            UiTextRole::Body,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
         if let Some(rect) = self.clipped_rect(body.rect) {
             self.text.push(UiTextCommand {
                 spec: UiTextSpec { rect, ..body },

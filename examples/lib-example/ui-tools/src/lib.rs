@@ -1,10 +1,13 @@
 mod controls;
+mod corpus;
 mod draw;
+mod font;
 mod geometry;
+mod icon;
 mod layout;
 mod presets;
-mod region;
 mod raster;
+mod region;
 mod scroll;
 mod svg;
 mod text;
@@ -14,27 +17,44 @@ mod theme;
 pub use controls::{
     UiActionId, UiActivationKey, UiButton, UiButtonId, UiButtonSpec, UiCardSpec, UiDiagnostic,
     UiDiagnosticKind, UiDiagnosticSeverity, UiEvent, UiFocusDirection, UiFocusState,
-    UiInteractionState,
-    UiLabel, UiLabelAnchor, UiLabelSpec, UiStateChip,
+    UiInteractionState, UiLabel, UiLabelAnchor, UiLabelSpec, UiStateChip,
+};
+pub use corpus::{
+    samples as text_corpus_samples, UiTextCorpusGroup, UiTextCorpusSample, TEXT_CORPUS,
+    TEXT_CORPUS_VERSION,
 };
 pub use draw::{UiDrawer, UiSurfaceCommand, UiTextCommand};
+pub use font::{UiFontFormat, UiFontHandle, UiFontIdentity, UiFontProviderId, UiFontSource};
 pub use geometry::{window_to_world, UiHitRegion, UiInsets, UiRect};
+pub use icon::{
+    UiIconDiagnostic, UiIconDiagnosticKind, UiIconHandle, UiIconId, UiIconMetrics,
+    UiIconProviderId, UiIconResolution, UiIconSpec, UiIconTint, UiIconVectorAsset,
+    UiIconVectorProvider,
+};
 pub use layout::{
     UiConstraints, UiCrossAxisAlignment, UiHorizontalStack, UiLayoutResult, UiMainAxisAllocation,
     UiMeasurable, UiMeasureContext, UiSizePolicy, UiVerticalStack,
 };
 pub use presets::{UiToolbarLayout, UiWorkspaceLayout};
+pub use raster::{
+    alpha_to_rgba8, UiFontRasterizer, UiRasterGlyph, UiRasterText, UiRasterTextBitmap,
+    UiRasterTextBlock, UiRasterTextGlyph, UiTextMetrics,
+};
 pub use region::UiCardRole;
 pub use region::{
     UiCard, UiInspector, UiPanel, UiRadius, UiRegion, UiRegionKind, UiSidebar, UiSpacing,
     UiStatusBar, UiSurfaceRole, UiTabStrip, UiToolbar, UiWorkspace,
 };
 pub use scroll::UiVerticalScroll;
-pub use raster::{UiFontRasterizer, UiRasterGlyph, UiRasterText, UiRasterTextBitmap, UiRasterTextGlyph};
-pub use svg::{flatten_path, parse_path, stroke_paths, tokenize_path, SvgPathCommand, SvgToken};
+pub use svg::{
+    flatten_path, parse_path, parse_svg_document_paths, stroke_paths, tokenize_path,
+    SvgPathCommand, SvgToken,
+};
 pub use text::{
-    bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad, UiTextAlign,
-    UiTextDirection, UiTextOverflow, UiTextRole, UiTextSpec,
+    bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad,
+    UiMissingGlyphPolicy, UiTextAlign, UiTextAlignmentBasis, UiTextDiagnostic,
+    UiTextDiagnosticKind, UiTextDirection, UiTextLayout, UiTextLayoutReport, UiTextLineLayout,
+    UiTextMeasure, UiTextMetricsProvider, UiTextOverflow, UiTextRole, UiTextSpec,
 };
 pub use text_input::{UiTextInputOperation, UiTextInputState};
 pub use theme::{
@@ -93,13 +113,7 @@ mod tests {
     #[test]
     fn intrinsic_card_width_follows_content_measurement() {
         let theme = UiTheme::default();
-        let short = UiCard::from_intrinsic(
-            UiCardRole::Editor,
-            "Title",
-            "Body",
-            [0.0, 0.0],
-            &theme,
-        );
+        let short = UiCard::from_intrinsic(UiCardRole::Editor, "Title", "Body", [0.0, 0.0], &theme);
         let long = UiCard::from_intrinsic(
             UiCardRole::Editor,
             "Title",
@@ -116,9 +130,8 @@ mod tests {
     fn measurement_applies_parent_constraints() {
         let theme = UiTheme::default();
         let button = UiButton::from_intrinsic(UiButtonId(0), "A LONG LABEL", [0.0, 0.0], &theme);
-        let context = UiMeasureContext::new(&theme, [0.12, 0.08]).with_constraints(
-            UiConstraints::new([0.06, 0.04], [0.12, 0.08]),
-        );
+        let context = UiMeasureContext::new(&theme, [0.12, 0.08])
+            .with_constraints(UiConstraints::new([0.06, 0.04], [0.12, 0.08]));
 
         assert_eq!(button.measure(&context), [0.12, 0.08]);
     }
@@ -343,8 +356,14 @@ mod tests {
         );
         let point = layout.buttons[0].rect.center;
 
-        assert_eq!(layout.event_at(point, true), Some(UiEvent::Activated(action)));
-        assert_eq!(layout.buttons[0].activation_event(point, true), Some(UiEvent::Activated(action)));
+        assert_eq!(
+            layout.event_at(point, true),
+            Some(UiEvent::Activated(action))
+        );
+        assert_eq!(
+            layout.buttons[0].activation_event(point, true),
+            Some(UiEvent::Activated(action))
+        );
         assert_eq!(
             layout.focused_event(UiButtonId(0), UiActivationKey::Enter, true),
             Some(UiEvent::Activated(action))
@@ -353,13 +372,22 @@ mod tests {
             layout.focused_event(UiButtonId(1), UiActivationKey::Space, true),
             Some(UiEvent::Activated(UiActionId(44)))
         );
-        assert_eq!(layout.focused_event(UiButtonId(0), UiActivationKey::Enter, false), None);
+        assert_eq!(
+            layout.focused_event(UiButtonId(0), UiActivationKey::Enter, false),
+            None
+        );
         assert_eq!(layout.buttons[0].activation_event(point, false), None);
         assert_eq!(layout.buttons[1].activation_event(point, true), None);
         let disabled_point = layout.buttons[2].rect.center;
         assert_eq!(layout.event_at(disabled_point, true), None);
-        assert_eq!(layout.focused_event(UiButtonId(2), UiActivationKey::Space, true), None);
-        assert_eq!(layout.next_focus(None, UiFocusDirection::Forward), Some(UiButtonId(0)));
+        assert_eq!(
+            layout.focused_event(UiButtonId(2), UiActivationKey::Space, true),
+            None
+        );
+        assert_eq!(
+            layout.next_focus(None, UiFocusDirection::Forward),
+            Some(UiButtonId(0))
+        );
         assert_eq!(
             layout.next_focus(Some(UiButtonId(0)), UiFocusDirection::Forward),
             Some(UiButtonId(1))
@@ -383,9 +411,13 @@ mod tests {
         let buttons = vec![
             UiButton::new(UiButtonId(0), "ONE", UiRect::new([-0.2, 0.0], [0.2, 0.1]))
                 .with_action(UiActionId(10)),
-            UiButton::new(UiButtonId(1), "DISABLED", UiRect::new([0.0, 0.0], [0.2, 0.1]))
-                .with_action(UiActionId(11))
-                .with_enabled(false),
+            UiButton::new(
+                UiButtonId(1),
+                "DISABLED",
+                UiRect::new([0.0, 0.0], [0.2, 0.1]),
+            )
+            .with_action(UiActionId(11))
+            .with_enabled(false),
             UiButton::new(UiButtonId(2), "TWO", UiRect::new([0.2, 0.0], [0.2, 0.1]))
                 .with_action(UiActionId(12)),
         ];
@@ -406,11 +438,7 @@ mod tests {
     #[test]
     fn clipped_button_text_produces_a_warning_diagnostic() {
         let theme = UiTheme::default();
-        let fitting = UiButton::new(
-            UiButtonId(0),
-            "OK",
-            UiRect::new([0.0, 0.0], [0.5, 0.2]),
-        );
+        let fitting = UiButton::new(UiButtonId(0), "OK", UiRect::new([0.0, 0.0], [0.5, 0.2]));
         let clipped = UiButton::new(
             UiButtonId(1),
             "COMPILE PROJECT",

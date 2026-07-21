@@ -10,9 +10,22 @@ toolbar, inspector, status rail, or card region *is*.
 
 The renderer still owns pixels. `ui-tools` owns intent.
 
-This crate is intentionally not an engine capability crate. It is a reusable
-example support library that can later justify a first-party `tokimu-ui`
-capability if the same semantic concepts keep proving useful across examples.
+This crate is currently the proving ground for first-party presentation
+capabilities. It is not `tokimu-core`, and it does not commit the engine to a
+specific font parser, icon library, rasterizer, atlas, or renderer backend.
+Stable concepts may graduate into first-party text and icon capabilities when
+they survive independent examples and headless tests.
+
+The architectural boundary is:
+
+```text
+application intent
+    -> ui-tools semantic contract
+    -> replaceable provider/backend
+    -> renderer or headless consumer
+```
+
+Applications communicate intent. Providers communicate implementation.
 
 ## Core Thesis
 
@@ -80,7 +93,7 @@ geometry from becoming the headline concept everywhere.
 
 - Provide a small semantic vocabulary for interface regions and controls
 - Keep geometry, hit-testing, and layout math reusable across examples
-- Support text-bearing layout contracts without owning text rendering
+- Support text-bearing layout contracts and reusable renderer-neutral text geometry
 - Make visual hierarchy explicit through named surface roles
 - Translate semantic controls into abstract draw commands through a local drawer
 - Keep spacing, radius, and elevation meaningful instead of numeric noise
@@ -90,7 +103,7 @@ geometry from becoming the headline concept everywhere.
 ## Non-Goals
 
 - Full retained-mode UI system
-- Text rendering implementation
+- Backend-specific GPU submission and window management
 - Complex widget trees with app-wide focus routing
 - Desktop-style styling systems with exhaustive theming knobs
 - Application shell ownership
@@ -264,7 +277,10 @@ four rectangles every time.
 
 ## Text Contracts
 
-`ui-tools` should own text geometry and placement intent, not glyph rendering.
+`ui-tools` should own text geometry and placement intent, not backend-specific
+glyph rendering. Its font and SVG helpers are renderer-neutral evidence
+services that may later become `tokimu-text`, `tokimu-font-*`, or `tokimu-icon`
+capabilities.
 
 Good concepts include:
 
@@ -282,8 +298,48 @@ These types should answer questions such as:
 - does it clip or wrap?
 - what region is it attached to?
 
-Renderer code can decide how glyphs are drawn. `ui-tools` should define the
-contract that says what the text means in the interface.
+Renderer code can decide how glyphs are submitted to the GPU. `ui-tools` may
+own renderer-neutral font rasterization, glyph layout, SVG parsing, path
+flattening, and stroke tessellation when those services are needed by several
+examples. It should not own a backend, window, or application shell.
+
+The public direction must remain provider-neutral:
+
+- font sources expose identity and metrics, not parser-native objects;
+- text layout exposes advances, baseline, visible bounds, and diagnostics;
+- icon identity does not require callers to know SVG or Lucide internals;
+- texture, atlas, mesh, and GPU upload remain renderer concerns;
+- measurement and layout should remain usable without a live renderer.
+
+The bitmap layout path currently serves as the headless proof of that
+requirement: it resolves text placement, alignment, clipping, and wrapping into
+stable geometry without a window, GPU, texture upload, or renderer state. A
+future provider-neutral text layout result may replace or generalize this path,
+but the headless property is part of the contract.
+
+The headless report consumes that same layout result used by renderer-facing
+example code. This keeps diagnostics, bounds inspection, and future report
+adapters from developing a second interpretation of text placement.
+
+## Renderer-Neutral Asset Services
+
+The glyph and Lucide corpus examples are intentionally consumers of shared
+services rather than private parsers. The reusable boundary currently includes:
+
+- `raster.rs` for font rasterization and glyph coverage
+- `text.rs` for baseline-aware glyph layout and text placement
+- `svg.rs` for path parsing, curve flattening, SVG primitive extraction, and
+  stroke tessellation
+
+These services produce geometry or draw-ready data. They do not decide which
+example is being rendered, where an icon is placed in a corpus grid, or which
+assets a test selects.
+
+The SVG contract is especially important: closed paths must remain closed,
+open paths must retain their true endpoints, and joins belong to connected
+path topology rather than to per-segment corrective geometry. Lucide assets are
+reference data used to pressure this contract, not a source of example-owned
+fallback shapes.
 
 ## Button Corpus
 
@@ -379,7 +435,8 @@ These are not implementation details. They are part of the interface grammar.
 
 ## Corpus Growth
 
-`ui-tools` should evolve from examples.
+`ui-tools` should evolve from examples and provide evidence for presentation
+capability admission.
 
 A helper is promoted only when:
 
@@ -389,7 +446,7 @@ A helper is promoted only when:
 - the concept is semantic rather than stylistic
 
 Examples pressure `ui-tools`.
-`ui-tools` pressures a future `tokimu-ui` candidate.
+`ui-tools` pressures future `tokimu-text` and `tokimu-icon` candidates.
 
 ## Current Folder Structure
 
@@ -401,7 +458,10 @@ ui-tools/
     ├── lib.rs
     ├── controls.rs
     ├── geometry.rs
-    └── layout.rs
+    ├── layout.rs
+    ├── raster.rs
+    ├── svg.rs
+    └── text.rs
 ```
 
 ## Suggested Internal Structure
@@ -411,7 +471,9 @@ Keep the implementation small and role-based:
 - `geometry.rs` for rectangles, anchors, margins, and bounds math
 - `controls.rs` for buttons, chips, labels, and interaction state
 - `layout.rs` for regions, toolbars, sidebars, cards, and framing helpers
-- future `text.rs` for label placement and text-box contracts if needed
+- `text.rs` for baseline-aware text layout and text-box contracts
+- `raster.rs` for backend-neutral glyph coverage generation
+- `svg.rs` for shared SVG/path geometry services
 - future `state.rs` only if examples need shared lightweight interaction state
 
 ## Success Criteria
@@ -447,7 +509,7 @@ Many examples
 
 ↓
 
-tokimu-ui candidate
+tokimu-text / tokimu-icon candidates
 
 ↓
 

@@ -24,11 +24,69 @@ pub enum UiTextAlign {
     End,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UiTextAlignmentBasis {
+    /// Align using the logical advance box, including trailing spacing.
+    Advance,
+    /// Align using the visible bitmap ink, excluding trailing spacing.
+    VisibleInk,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiTextOverflow {
     Clip,
     Ellipsis,
     Wrap,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum UiTextDiagnosticKind {
+    MissingGlyph { character: char },
+    ProviderUnavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UiTextDiagnostic {
+    pub kind: UiTextDiagnosticKind,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UiMissingGlyphPolicy {
+    Replace(char),
+    Skip,
+    Report,
+}
+
+/// Provider-neutral measurements for one laid-out text request.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UiTextMeasure {
+    pub advance: f32,
+    pub ascent: f32,
+    pub descent: f32,
+    pub line_gap: f32,
+    pub visible_bounds: Option<UiRect>,
+    pub diagnostics: Vec<UiTextDiagnostic>,
+}
+
+/// A provider can expose metrics without loading a rasterizer or renderer.
+pub trait UiTextMetricsProvider {
+    fn measure(&self, text: &str) -> Result<UiTextMeasure, UiTextDiagnostic>;
+}
+
+/// The placement contract for one logical line.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiTextLineLayout {
+    pub text: String,
+    pub origin: [f32; 2],
+    pub advance: f32,
+    pub baseline: f32,
+}
+
+/// Provider-neutral result consumed by native, headless, or diagnostic clients.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiTextLayout {
+    pub measure: UiTextMeasure,
+    pub lines: Vec<UiTextLineLayout>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,13 +97,29 @@ pub struct UiTextSpec {
     pub direction: UiTextDirection,
     pub align_x: UiTextAlign,
     pub align_y: UiTextAlign,
+    pub alignment_basis: UiTextAlignmentBasis,
     pub overflow: UiTextOverflow,
+    pub missing_glyph: UiMissingGlyphPolicy,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UiGlyphQuad {
     pub center: [f32; 2],
     pub size: [f32; 2],
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiTextLayoutReport {
+    pub text: String,
+    pub line_count: usize,
+    pub glyph_count: usize,
+    pub visible_bounds: Option<UiRect>,
+}
+
+impl UiTextLayout {
+    pub fn line_count(&self) -> usize {
+        self.lines.len()
+    }
 }
 
 impl UiTextSpec {
@@ -57,7 +131,9 @@ impl UiTextSpec {
             direction: UiTextDirection::Ltr,
             align_x: UiTextAlign::Center,
             align_y: UiTextAlign::Center,
+            alignment_basis: UiTextAlignmentBasis::VisibleInk,
             overflow: UiTextOverflow::Clip,
+            missing_glyph: UiMissingGlyphPolicy::Replace('?'),
         }
     }
 
@@ -72,13 +148,107 @@ impl UiTextSpec {
         self
     }
 
+    pub fn with_alignment_basis(mut self, basis: UiTextAlignmentBasis) -> Self {
+        self.alignment_basis = basis;
+        self
+    }
+
     pub fn with_overflow(mut self, overflow: UiTextOverflow) -> Self {
         self.overflow = overflow;
         self
     }
 
+    pub fn with_missing_glyph_policy(mut self, policy: UiMissingGlyphPolicy) -> Self {
+        self.missing_glyph = policy;
+        self
+    }
+
     pub fn centered_bounds(&self) -> [f32; 2] {
         self.rect.center
+    }
+
+    pub fn headless_report(&self, height: f32) -> UiTextLayoutReport {
+        let quads = layout_bitmap_text(self, height);
+        let visible_bounds = quads.first().map(|_| {
+            let (min_x, max_x, min_y, max_y) = quads.iter().fold(
+                (
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                ),
+                |(min_x, max_x, min_y, max_y), quad| {
+                    let half_width = quad.size[0] * 0.5;
+                    let half_height = quad.size[1] * 0.5;
+                    (
+                        min_x.min(quad.center[0] - half_width),
+                        max_x.max(quad.center[0] + half_width),
+                        min_y.min(quad.center[1] - half_height),
+                        max_y.max(quad.center[1] + half_height),
+                    )
+                },
+            );
+            UiRect::new(
+                [(min_x + max_x) * 0.5, (min_y + max_y) * 0.5],
+                [max_x - min_x, max_y - min_y],
+            )
+        });
+
+        UiTextLayoutReport {
+            text: self.text.clone(),
+            line_count: self.text.lines().count(),
+            glyph_count: quads.len(),
+            visible_bounds,
+        }
+    }
+
+    /// Produces the provider-neutral line contract for the bitmap proof path.
+    pub fn bitmap_layout(&self, height: f32) -> UiTextLayout {
+        let lines = text_lines(self, height);
+        let line_height = bitmap_cell(height) * 9.0;
+        let measure = UiTextMeasure {
+            advance: lines
+                .iter()
+                .map(|line| measure_bitmap_text_width(line, height))
+                .fold(0.0, f32::max),
+            ascent: bitmap_glyph_height(height),
+            descent: 0.0,
+            line_gap: line_height - bitmap_glyph_height(height),
+            visible_bounds: None,
+            diagnostics: Vec::new(),
+        };
+        let block_height = measure.ascent + line_height * lines.len().saturating_sub(1) as f32;
+        let first_baseline = match self.align_y {
+            UiTextAlign::Start => self.rect.center[1] + self.rect.size[1] * 0.5 - measure.ascent,
+            UiTextAlign::Center => self.rect.center[1] + block_height * 0.5 - measure.ascent,
+            UiTextAlign::End => {
+                self.rect.center[1] - self.rect.size[1] * 0.5 + block_height - measure.ascent
+            }
+        };
+        let align = physical_alignment(self.align_x, self.direction);
+        let layouts = lines
+            .into_iter()
+            .enumerate()
+            .map(|(index, text)| {
+                let advance = measure_bitmap_text_width(&text, height);
+                let origin_x = match align {
+                    UiTextAlign::Start => self.rect.center[0] - self.rect.size[0] * 0.5,
+                    UiTextAlign::Center => self.rect.center[0] - advance * 0.5,
+                    UiTextAlign::End => self.rect.center[0] + self.rect.size[0] * 0.5 - advance,
+                };
+                UiTextLineLayout {
+                    text,
+                    origin: [origin_x, first_baseline - index as f32 * line_height],
+                    advance,
+                    baseline: first_baseline - index as f32 * line_height,
+                }
+            })
+            .collect();
+
+        UiTextLayout {
+            measure,
+            lines: layouts,
+        }
     }
 }
 
@@ -98,12 +268,15 @@ pub fn layout_bitmap_text(spec: &UiTextSpec, height: f32) -> Vec<UiGlyphQuad> {
 
     for (line_index, line) in lines.iter().enumerate() {
         let width = measure_bitmap_text_width(line, height);
-        let ink_width = bitmap_ink_width(line, cell, width);
+        let alignment_width = match spec.alignment_basis {
+            UiTextAlignmentBasis::Advance => width,
+            UiTextAlignmentBasis::VisibleInk => bitmap_ink_width(line, cell, width),
+        };
         let align_x = physical_alignment(spec.align_x, spec.direction);
         let start_x = match align_x {
             UiTextAlign::Start => rect.center[0] - rect.size[0] * 0.5 + cell * 0.5,
-            UiTextAlign::Center => rect.center[0] - ink_width * 0.5 + cell * 0.5,
-            UiTextAlign::End => rect.center[0] + rect.size[0] * 0.5 - ink_width + cell * 0.5,
+            UiTextAlign::Center => rect.center[0] - alignment_width * 0.5 + cell * 0.5,
+            UiTextAlign::End => rect.center[0] + rect.size[0] * 0.5 - alignment_width + cell * 0.5,
         };
         let top_y = first_line_top - line_index as f32 * line_height - cell * 0.5;
         let mut x_cursor = start_x;
@@ -451,6 +624,22 @@ mod tests {
     }
 
     #[test]
+    fn bitmap_layout_can_align_end_using_advance_width() {
+        let spec = UiTextSpec::new("AA", UiRect::new([0.0, 0.0], [0.4, 0.2]), UiTextRole::Body)
+            .with_alignment(UiTextAlign::End, UiTextAlign::Center)
+            .with_alignment_basis(UiTextAlignmentBasis::Advance);
+        let quads = layout_bitmap_text(&spec, 0.09);
+        let max_x = quads
+            .iter()
+            .map(|quad| quad.center[0] + quad.size[0] * 0.5)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let right = spec.rect.center[0] + spec.rect.size[0] * 0.5;
+        let cell = bitmap_cell(0.09);
+
+        assert!((right - max_x - cell * 0.5).abs() < 0.01);
+    }
+
+    #[test]
     fn bitmap_layout_clips_to_nonzero_rect() {
         let spec = UiTextSpec::new(
             "AAAAAA",
@@ -553,5 +742,88 @@ mod tests {
 
         assert!(ltr_min < -0.15);
         assert!(rtl_max > 0.15);
+    }
+
+    #[test]
+    fn headless_layout_produces_stable_bounds_without_renderer_state() {
+        let spec = UiTextSpec::new(
+            "HEADLESS TEXT\nSECOND LINE",
+            UiRect::new([0.0, 0.0], [0.7, 0.4]),
+            UiTextRole::Body,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Start)
+        .with_overflow(UiTextOverflow::Wrap);
+
+        let first = layout_bitmap_text(&spec, 0.05);
+        let second = layout_bitmap_text(&spec, 0.05);
+
+        assert!(!first.is_empty());
+        assert_eq!(first, second);
+        assert!(first.iter().all(|quad| spec.rect.contains(quad.center)));
+    }
+
+    #[test]
+    fn headless_report_describes_the_same_layout_consumed_by_rendering() {
+        let spec = UiTextSpec::new(
+            "REPORT\nREADY",
+            UiRect::new([0.0, 0.0], [0.5, 0.3]),
+            UiTextRole::Status,
+        )
+        .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
+        let report = spec.headless_report(0.05);
+        let rendered = layout_bitmap_text(&spec, 0.05);
+
+        assert_eq!(report.text, "REPORT\nREADY");
+        assert_eq!(report.line_count, 2);
+        assert_eq!(report.glyph_count, rendered.len());
+        assert!(report.visible_bounds.is_some());
+    }
+
+    #[test]
+    fn bitmap_layout_handles_empty_spaces_and_punctuation_deterministically() {
+        let bounds = UiRect::new([0.0, 0.0], [0.5, 0.2]);
+        let empty = layout_bitmap_text(&UiTextSpec::new("", bounds, UiTextRole::Body), 0.05);
+        let spaces = layout_bitmap_text(&UiTextSpec::new("   ", bounds, UiTextRole::Body), 0.05);
+        let punctuation =
+            layout_bitmap_text(&UiTextSpec::new("!?.,", bounds, UiTextRole::Body), 0.05);
+
+        assert!(empty.is_empty());
+        assert!(spaces.is_empty());
+        assert!(!punctuation.is_empty());
+        assert_eq!(
+            empty,
+            layout_bitmap_text(&UiTextSpec::new("", bounds, UiTextRole::Body), 0.05)
+        );
+    }
+
+    #[test]
+    fn bitmap_layout_keeps_zero_ink_unknown_text_on_a_stable_policy() {
+        let spec = UiTextSpec::new(
+            "\u{1f600}",
+            UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            UiTextRole::Body,
+        )
+        .with_missing_glyph_policy(UiMissingGlyphPolicy::Report);
+
+        let first = layout_bitmap_text(&spec, 0.05);
+        let second = layout_bitmap_text(&spec, 0.05);
+
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn bitmap_layout_exposes_provider_neutral_lines_and_baselines() {
+        let spec = UiTextSpec::new(
+            "FIRST\nSECOND",
+            UiRect::new([0.0, 0.0], [0.6, 0.4]),
+            UiTextRole::Body,
+        )
+        .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
+        let layout = spec.bitmap_layout(0.05);
+
+        assert_eq!(layout.line_count(), 2);
+        assert!(layout.lines[0].advance > 0.0);
+        assert!(layout.lines[0].baseline > layout.lines[1].baseline);
+        assert_eq!(layout.lines[0].origin[0], layout.lines[1].origin[0]);
     }
 }

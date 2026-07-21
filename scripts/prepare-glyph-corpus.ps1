@@ -76,6 +76,28 @@ Emoji: ^_^ [ok] (fallback coverage depends on the selected font)
 '@
 Set-Content -LiteralPath (Join-Path $outputRoot "text-fixture.txt") -Value $textFixture -Encoding utf8
 
+$referenceNames = @{
+    inter = @("Inter[opsz,wght].ttf", "Inter-Regular.ttf")
+    jetbrains_mono = @("JetBrainsMono-Regular.otf", "JetBrainsMono-Regular.ttf")
+    noto = @("NotoSans-VF.ttf", "NotoSans-Regular.ttf")
+}
+$referenceFixtures = [ordered]@{}
+foreach ($name in @("inter", "jetbrains_mono", "noto")) {
+    $candidates = @(Get-ChildItem -LiteralPath (Join-Path $fontsRoot $name) -Recurse -File |
+        Where-Object { $_.Name -in $referenceNames[$name] } |
+        Sort-Object FullName)
+    if ($candidates.Count -eq 0) {
+        Write-Warning "No preferred reference font found for '$name'."
+        continue
+    }
+    $reference = $candidates[0]
+    $relative = $reference.FullName.Substring($outputRoot.Length).TrimStart([char]92, [char]47)
+    $referenceFixtures[$name] = [ordered]@{
+        path = $relative.Replace([char]92, [char]47)
+        sha256 = (Get-FileHash -LiteralPath $reference.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+}
+
 $manifest = [ordered]@{
     generated_at = [DateTime]::UtcNow.ToString("o")
     purpose = "Tokimu glyph and text rendering reference corpus"
@@ -86,6 +108,7 @@ $manifest = [ordered]@{
         fonts = $fontFiles.Count
     }
     fixtures = @("text-fixture.txt")
+    reference_fonts = $referenceFixtures
 }
 
 foreach ($name in $providers.Keys) {

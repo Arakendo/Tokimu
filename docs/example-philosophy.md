@@ -95,6 +95,7 @@ Implementation teaches.
 
 ## References
 
+- [Example Corpus Directory Guide](../examples/README.md)
 - [Tokimu Architectural Maxims](architectural-maxims.md)
 - [Tokimu Kernel Principles](kernel-principles.md)
 - [Tokimu Semantic Kernel Map](semantic-kernel-map.md)

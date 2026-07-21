@@ -9,11 +9,13 @@ independent content to expose renderer and layout weaknesses.
 
 ## Pages
 
-- `FONT SAMPLES`: representative UI, code, and document font labels.
+- `FONT SAMPLES`: representative prepared TTF samples rasterized through
+  `ui-tools::UiFontRasterizer`.
 - `ICON BATCH`: batches of Lucide-style symbol names and identifier shapes.
 - `UNICODE`: ASCII, punctuation, whitespace, digits, and multilingual samples.
 
-The first implementation uses the current bitmap text path and page/scroll
+The font page uses the shared rasterizer and baseline-aware metrics. The icon
+and Unicode pages continue to use the bitmap text path for labels and page
 navigation. Prepared assets live in the generated `target/glyph-corpus`
 directory and are intentionally not copied into the repository.
 
@@ -32,7 +34,8 @@ directory and are intentionally not copied into the repository.
 
 ## Non-Goals
 
-- Font rasterization or font selection implementation.
+- Font selection policy or rasterizer implementation; those belong to
+  `ui-tools`.
 - SVG parsing or icon triangulation.
 - A general asset browser.
 - Full text shaping, bidi, or IME support.

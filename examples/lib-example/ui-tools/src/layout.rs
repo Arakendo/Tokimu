@@ -194,8 +194,7 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
                 size[0] += extra_width;
             }
         } else if total_width > rect.size[0] && total_width > 0.0 {
-            let scale = (rect.size[0]
-                - effective_gap * child_sizes.len().saturating_sub(1) as f32)
+            let scale = (rect.size[0] - effective_gap * child_sizes.len().saturating_sub(1) as f32)
                 .max(0.0)
                 / child_sizes.iter().map(|size| size[0]).sum::<f32>().max(1.0);
             for size in &mut child_sizes {
@@ -214,11 +213,13 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
                     _ => size[1].min(rect.size[1]),
                 };
                 let child_center_y = match self.cross_axis_alignment {
-                    UiCrossAxisAlignment::Start =>
-                        rect.center[1] + (rect.size[1] - child_height) * 0.5,
+                    UiCrossAxisAlignment::Start => {
+                        rect.center[1] + (rect.size[1] - child_height) * 0.5
+                    }
                     UiCrossAxisAlignment::Center | UiCrossAxisAlignment::Fill => rect.center[1],
-                    UiCrossAxisAlignment::End =>
-                        rect.center[1] - (rect.size[1] - child_height) * 0.5,
+                    UiCrossAxisAlignment::End => {
+                        rect.center[1] - (rect.size[1] - child_height) * 0.5
+                    }
                 };
                 let child_rect = UiRect::new(
                     [cursor + size[0] * 0.5, child_center_y],
@@ -305,8 +306,7 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
                 size[1] += extra_height;
             }
         } else if total_height > rect.size[1] && total_height > 0.0 {
-            let scale = (rect.size[1]
-                - effective_gap * child_sizes.len().saturating_sub(1) as f32)
+            let scale = (rect.size[1] - effective_gap * child_sizes.len().saturating_sub(1) as f32)
                 .max(0.0)
                 / child_sizes.iter().map(|size| size[1]).sum::<f32>().max(1.0);
             for size in &mut child_sizes {
@@ -325,11 +325,13 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
                     _ => size[0].min(rect.size[0]),
                 };
                 let child_center_x = match self.cross_axis_alignment {
-                    UiCrossAxisAlignment::Start =>
-                        rect.center[0] - (rect.size[0] - child_width) * 0.5,
+                    UiCrossAxisAlignment::Start => {
+                        rect.center[0] - (rect.size[0] - child_width) * 0.5
+                    }
                     UiCrossAxisAlignment::Center | UiCrossAxisAlignment::Fill => rect.center[0],
-                    UiCrossAxisAlignment::End =>
-                        rect.center[0] + (rect.size[0] - child_width) * 0.5,
+                    UiCrossAxisAlignment::End => {
+                        rect.center[0] + (rect.size[0] - child_width) * 0.5
+                    }
                 };
                 let child_rect = UiRect::new(
                     [child_center_x, cursor - size[1] * 0.5],

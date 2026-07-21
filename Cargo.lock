@@ -634,6 +634,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-file-io"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "ui-tools",
+]
+
+[[package]]
 name = "hello-fps-web"
 version = "0.1.0"
 dependencies = [
@@ -677,6 +685,13 @@ version = "0.1.0"
 dependencies = [
  "tokimu-core",
  "tokimu-rule",
+]
+
+[[package]]
+name = "hello-save-image"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
 ]
 
 [[package]]
@@ -835,6 +850,7 @@ name = "hello-ui-lucide"
 version = "0.1.0"
 dependencies = [
  "tokimu",
+ "ui-tools",
 ]
 
 [[package]]

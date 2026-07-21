@@ -24,17 +24,26 @@ pub struct UiFontRasterizer {
     font: FontArc,
 }
 
+pub fn alpha_to_rgba8(alpha: &[u8], color: [u8; 3]) -> Vec<u8> {
+    alpha
+        .iter()
+        .flat_map(|coverage| [color[0], color[1], color[2], *coverage])
+        .collect()
+}
+
 impl UiFontRasterizer {
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, ab_glyph::InvalidFont> {
-        Ok(Self { font: FontArc::try_from_vec(bytes)? })
+        Ok(Self {
+            font: FontArc::try_from_vec(bytes)?,
+        })
     }
 
     pub fn rasterize(&self, character: char, pixels: f32) -> UiRasterGlyph {
         let scaled = self.font.as_scaled(PxScale::from(pixels));
-        let glyph = self.font.glyph_id(character).with_scale_and_position(
-            PxScale::from(pixels),
-            point(0.0, 0.0),
-        );
+        let glyph = self
+            .font
+            .glyph_id(character)
+            .with_scale_and_position(PxScale::from(pixels), point(0.0, 0.0));
         let advance = scaled.h_advance(glyph.id);
         let mut width = 0;
         let mut height = 0;
@@ -83,15 +92,30 @@ impl UiFontRasterizer {
 
     /// Layout glyphs on one shared baseline using font advances.
     pub fn layout(&self, text: &str, pixels: f32) -> UiRasterText {
+        self.layout_with_tracking(text, pixels, 0.0)
+    }
+
+    /// Layout glyphs with explicit tracking added between adjacent glyphs.
+    /// Tracking is presentation policy; it never changes provider advances.
+    pub fn layout_with_tracking(&self, text: &str, pixels: f32, tracking: f32) -> UiRasterText {
         let scaled = self.font.as_scaled(PxScale::from(pixels));
         let mut pen_x = 0.0;
         let mut glyphs = Vec::new();
-        for character in text.chars() {
+        let characters = text.chars().collect::<Vec<_>>();
+        for (index, character) in characters.iter().copied().enumerate() {
             let glyph = self.rasterize(character, pixels);
             glyphs.push(UiRasterTextGlyph { glyph, pen_x });
             pen_x += scaled.h_advance(self.font.glyph_id(character));
+            if index + 1 < characters.len() {
+                pen_x += tracking;
+            }
         }
-        UiRasterText { glyphs, width: pen_x, ascent: scaled.ascent(), descent: scaled.descent() }
+        UiRasterText {
+            glyphs,
+            width: pen_x,
+            ascent: scaled.ascent(),
+            descent: scaled.descent(),
+        }
     }
 
     /// Rasterizes a complete line into one baseline-aligned bitmap.
@@ -122,13 +146,28 @@ impl UiFontRasterizer {
                     let source = (y * glyph.width as i32 + x) as usize;
                     let target_x = x0 + x;
                     let target_y = y0 + y;
-                    if target_x < 0 || target_y < 0 || target_x >= width as i32 || target_y >= height as i32 { continue; }
+                    if target_x < 0
+                        || target_y < 0
+                        || target_x >= width as i32
+                        || target_y >= height as i32
+                    {
+                        continue;
+                    }
                     let target = (target_y as u32 * width + target_x as u32) as usize;
                     alpha[target] = alpha[target].max(glyph.alpha[source]);
                 }
             }
         }
-        UiRasterTextBitmap { width, height, top: origin_y, baseline: 0.0, alpha }
+        UiRasterTextBitmap {
+            width,
+            height,
+            left: origin_x,
+            top: origin_y,
+            baseline: 0.0,
+            ascent: layout.ascent,
+            descent: layout.descent,
+            alpha,
+        }
     }
 }
 
@@ -147,10 +186,78 @@ pub struct UiRasterText {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct UiRasterTextBlock {
+    pub lines: Vec<UiRasterText>,
+    pub baselines: Vec<f32>,
+    pub line_gap: f32,
+    pub width: f32,
+}
+
+impl UiFontRasterizer {
+    /// Layouts independent lines with explicit leading between baselines.
+    pub fn layout_lines(&self, lines: &[&str], pixels: f32, line_gap: f32) -> UiRasterTextBlock {
+        let layouts = lines
+            .iter()
+            .map(|line| self.layout(line, pixels))
+            .collect::<Vec<_>>();
+        let line_height = layouts
+            .first()
+            .map(|line| line.ascent - line.descent + line_gap)
+            .unwrap_or(line_gap);
+        let baselines = (0..layouts.len())
+            .map(|index| -(index as f32 * line_height))
+            .collect::<Vec<_>>();
+        let width = layouts.iter().map(|line| line.width).fold(0.0, f32::max);
+
+        UiRasterTextBlock {
+            lines: layouts,
+            baselines,
+            line_gap,
+            width,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiTextMetrics {
+    pub width: f32,
+    pub ascent: f32,
+    pub descent: f32,
+    pub line_gap: f32,
+}
+
+impl UiRasterText {
+    pub fn metrics(&self) -> UiTextMetrics {
+        UiTextMetrics {
+            width: self.width,
+            ascent: self.ascent,
+            descent: self.descent,
+            // Single-line rasterization has no provider-independent leading yet.
+            line_gap: 0.0,
+        }
+    }
+}
+
+impl UiRasterTextBitmap {
+    pub fn metrics(&self) -> UiTextMetrics {
+        UiTextMetrics {
+            width: self.width as f32,
+            ascent: self.ascent,
+            descent: self.descent,
+            line_gap: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiRasterTextBitmap {
     pub width: u32,
     pub height: u32,
+    /// Pixel-space visible-ink origin relative to the baseline.
+    pub left: f32,
     pub top: f32,
+    pub ascent: f32,
+    pub descent: f32,
     pub baseline: f32,
     pub alpha: Vec<u8>,
 }
@@ -161,13 +268,99 @@ mod tests {
 
     #[test]
     fn rasterized_glyph_has_coverage_and_advance() {
-        let bytes = std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter[opsz,wght].ttf")
-            .or_else(|_| std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter-Regular.ttf"));
-        let Ok(bytes) = bytes else { return; };
+        let bytes =
+            std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter[opsz,wght].ttf")
+                .or_else(|_| {
+                    std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter-Regular.ttf")
+                });
+        let Ok(bytes) = bytes else {
+            return;
+        };
         let rasterizer = UiFontRasterizer::from_bytes(bytes).unwrap();
         let glyph = rasterizer.rasterize('A', 32.0);
         assert!(glyph.advance > 0.0);
         assert!(glyph.alpha.iter().any(|coverage| *coverage > 0));
         assert!(glyph.alpha.iter().any(|coverage| *coverage == 0));
+    }
+
+    #[test]
+    fn rasterized_text_reports_visible_ink_metrics() {
+        let bytes =
+            std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter[opsz,wght].ttf")
+                .or_else(|_| {
+                    std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter-Regular.ttf")
+                });
+        let Ok(bytes) = bytes else {
+            return;
+        };
+        let rasterizer = UiFontRasterizer::from_bytes(bytes).unwrap();
+        let text = rasterizer.rasterize_text("Ag", 32.0);
+
+        assert!(text.width > 0);
+        assert!(text.height > 0);
+        assert!(text.ascent > 0.0);
+        assert!(text.descent < 0.0);
+        assert!(text.left <= 0.0);
+        assert!(text.top < text.ascent);
+        assert_eq!(text.baseline, 0.0);
+
+        let metrics = text.metrics();
+        assert_eq!(metrics.width, text.width as f32);
+        assert_eq!(metrics.line_gap, 0.0);
+    }
+
+    #[test]
+    fn tracking_changes_placement_without_changing_glyph_metrics() {
+        let bytes =
+            std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter[opsz,wght].ttf")
+                .or_else(|_| {
+                    std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter-Regular.ttf")
+                });
+        let Ok(bytes) = bytes else {
+            return;
+        };
+        let rasterizer = UiFontRasterizer::from_bytes(bytes).unwrap();
+        let normal = rasterizer.layout("AA", 32.0);
+        let tracked = rasterizer.layout_with_tracking("AA", 32.0, 3.0);
+
+        assert!(tracked.width > normal.width);
+        assert_eq!(
+            tracked.glyphs[0].glyph.advance,
+            normal.glyphs[0].glyph.advance
+        );
+        assert_eq!(
+            tracked.glyphs[1].glyph.advance,
+            normal.glyphs[1].glyph.advance
+        );
+    }
+
+    #[test]
+    fn multiline_layout_preserves_explicit_leading() {
+        let bytes =
+            std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter[opsz,wght].ttf")
+                .or_else(|_| {
+                    std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter-Regular.ttf")
+                });
+        let Ok(bytes) = bytes else {
+            return;
+        };
+        let rasterizer = UiFontRasterizer::from_bytes(bytes).unwrap();
+        let block = rasterizer.layout_lines(&["A", "g"], 32.0, 4.0);
+
+        assert_eq!(block.lines.len(), 2);
+        assert_eq!(block.line_gap, 4.0);
+        assert!(block.baselines[0] > block.baselines[1]);
+        assert!(block.width > 0.0);
+    }
+
+    #[test]
+    fn checked_in_noto_fixture_is_loadable_without_prepared_corpus() {
+        let bytes = include_bytes!("../fixtures/NotoSans-Regular.otf").to_vec();
+        let rasterizer = UiFontRasterizer::from_bytes(bytes).expect("checked-in OTF fixture");
+        let bitmap = rasterizer.rasterize_text("Noto 0123", 24.0);
+
+        assert!(bitmap.width > 0);
+        assert!(bitmap.height > 0);
+        assert!(!bitmap.alpha.is_empty());
     }
 }

@@ -1,24 +1,12 @@
-use std::{fs, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use tokimu::{run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer, Texture, TextureHandle, WgpuBackend, WindowConfig};
-use ui_tools::UiFontRasterizer;
+use ui_tools::{
+    alpha_to_rgba8, UiFontFormat, UiFontRasterizer, UiFontSource, TEXT_CORPUS,
+};
 
 const QUAD: MeshHandle = MeshHandle(1);
 const CAMERA: CameraHandle = CameraHandle(1);
 const GLYPH_SIZE: f32 = 48.0;
-const GLYPHS: &[char] = &[
-    'A', 'B', 'C', 'D', 'E', 'F',
-    'G', 'H', 'I', 'J', 'K', 'L',
-    'M', 'N', 'O', 'P', 'Q', 'R',
-    'S', 'T', 'U', 'V', 'W', 'X',
-    'Y', 'Z', 'a', 'b', 'c', 'd',
-    'e', 'f', 'g', 'h', 'i', 'j',
-    'k', 'l', 'm', 'n', 'o', 'p',
-    'q', 'r', 's', 't', 'u', 'v',
-    'w', 'x', 'y', 'z', '0', '1',
-    '2', '3', '4', '5', '6', '7',
-    '8', '9',
-];
-
 fn main() -> PlatformResult<()> { run_window_with_app(WindowConfig { title: "Tokimu Hello UI Font | TTF / OTF Glyph Corpus".into(), width: 900, height: 600 }, App::default()) }
 
 #[derive(Default)]
@@ -26,50 +14,47 @@ struct App { renderer: Option<WgpuBackend>, size: [f32; 2], pipeline: PipelineHa
 
 struct GlyphDraw { material: MaterialHandle, center: [f32; 2], scale: [f32; 2] }
 
-fn first_font(extension: &str) -> Option<Vec<u8>> {
-    let provider = if extension == "otf" { "noto" } else { "inter" };
-    let mut roots = vec![PathBuf::from(format!("target/glyph-corpus/fonts/{provider}"))];
-    if let Ok(current_dir) = std::env::current_dir() {
-            roots.extend(current_dir.ancestors().map(|path| path.join(format!("target/glyph-corpus/fonts/{provider}"))));
-    }
-    if let Ok(executable) = std::env::current_exe() {
-        roots.extend(executable.ancestors().map(|path| path.join(format!("target/glyph-corpus/fonts/{provider}"))));
-    }
-    for root in roots {
-        let mut pending = vec![root];
-        while let Some(path) = pending.pop() {
-            let Ok(entries) = fs::read_dir(path) else { continue; };
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() { pending.push(path); }
-                else if path.extension().is_some_and(|ext| ext == extension) {
-                    if let Ok(bytes) = fs::read(path) { return Some(bytes); }
-                }
-            }
-        }
-    }
-    None
-}
-
 impl PlatformEventHandler for App {
     fn on_native_window_created(&mut self, window: Arc<NativeWindow>) -> PlatformResult<()> {
         let size = window.inner_size();
         self.size = [size.width.max(1) as f32, size.height.max(1) as f32];
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(QUAD, &Mesh::quad());
-        let ttf = first_font("ttf").ok_or_else(|| "run prepare-glyph-corpus.ps1 first (no TTF found)".to_string())?;
-        let otf = first_font("otf").ok_or_else(|| "run prepare-glyph-corpus.ps1 first (no OTF found)".to_string())?;
+        let ttf = UiFontSource::from_prepared_corpus("inter", UiFontFormat::Ttf).map_err(|error| error.to_string())?;
+        let otf = UiFontSource::from_prepared_corpus("noto", UiFontFormat::Otf).map_err(|error| error.to_string())?;
         self.pipeline = renderer.register_pipeline(&Pipeline::new("font-texture", PipelineKind::Texture2d))?;
-        let ttf = UiFontRasterizer::from_bytes(ttf).map_err(|error| error.to_string())?;
-        let otf = UiFontRasterizer::from_bytes(otf).map_err(|error| error.to_string())?;
-        fn rgba(glyph: &ui_tools::UiRasterGlyph) -> Vec<u8> { glyph.alpha.iter().flat_map(|alpha| [255, 255, 255, *alpha]).collect() }
+        let ttf = UiFontRasterizer::from_bytes(ttf.bytes).map_err(|error| error.to_string())?;
+        let otf = UiFontRasterizer::from_bytes(otf.bytes).map_err(|error| error.to_string())?;
+        let glyphs = TEXT_CORPUS
+            .iter()
+            .find(|sample| sample.id == "uppercase")
+            .map(|sample| sample.text)
+            .unwrap_or("")
+            .chars()
+            .chain(
+                TEXT_CORPUS
+                    .iter()
+                    .find(|sample| sample.id == "lowercase")
+                    .map(|sample| sample.text)
+                    .unwrap_or("")
+                    .chars(),
+            )
+            .chain(
+                TEXT_CORPUS
+                    .iter()
+                    .find(|sample| sample.id == "digits")
+                    .map(|sample| sample.text)
+                    .unwrap_or("")
+                    .chars(),
+            )
+            .collect::<Vec<_>>();
         for (font_index, font) in [ttf, otf].into_iter().enumerate() {
-            for (glyph_index, character) in GLYPHS.iter().copied().enumerate() {
+            for (glyph_index, character) in glyphs.iter().copied().enumerate() {
                 let glyph = font.rasterize(character, GLYPH_SIZE);
-                let texture = TextureHandle(100 + (font_index * GLYPHS.len() + glyph_index) as u64);
-                let material = MaterialHandle(100 + (font_index * GLYPHS.len() + glyph_index) as u64);
+                let texture = TextureHandle(100 + (font_index * glyphs.len() + glyph_index) as u64);
+                let material = MaterialHandle(100 + (font_index * glyphs.len() + glyph_index) as u64);
                 if glyph.width == 0 || glyph.height == 0 { continue; }
-                renderer.upload_texture(texture, &Texture::rgba8(glyph.width, glyph.height, rgba(&glyph)));
+                renderer.upload_texture(texture, &Texture::rgba8(glyph.width, glyph.height, alpha_to_rgba8(&glyph.alpha, [255, 255, 255])));
                 let color = if font_index == 0 { Color::rgb(0.92, 0.94, 0.98) } else { Color::rgb(0.45, 0.68, 0.92) };
                 renderer.upload_material(material, &Material::new("font-glyph", color).with_texture(texture))?;
                 let column = glyph_index % 6;

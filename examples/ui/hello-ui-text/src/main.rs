@@ -6,7 +6,9 @@ use tokimu::{
     PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
     Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{layout_bitmap_text, UiRect, UiTextAlign, UiTextRole, UiTextSpec, UiTheme};
+use ui_tools::{
+    layout_bitmap_text, UiRect, UiTextAlign, UiTextRole, UiTextSpec, UiTheme, TEXT_CORPUS,
+};
 
 const GLYPH_MESH: MeshHandle = MeshHandle(1);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
@@ -16,6 +18,14 @@ const TITLE_MATERIAL: MaterialHandle = MaterialHandle(2);
 const BODY_MATERIAL: MaterialHandle = MaterialHandle(3);
 const CAPTION_MATERIAL: MaterialHandle = MaterialHandle(4);
 const MUTED_MATERIAL: MaterialHandle = MaterialHandle(5);
+
+fn corpus_text(id: &str) -> &'static str {
+    TEXT_CORPUS
+        .iter()
+        .find(|sample| sample.id == id)
+        .unwrap_or_else(|| panic!("missing text corpus sample: {id}"))
+        .text
+}
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -145,13 +155,13 @@ impl PlatformEventHandler for HelloUiTextApp {
         })]);
 
         let title = UiTextSpec::new(
-            "TEXT",
+            corpus_text("title"),
             UiRect::new([0.0, 0.39], [0.92, 0.10]),
             UiTextRole::Title,
         )
         .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
         let subtitle = UiTextSpec::new(
-            "TEXT ROLE CORPUS",
+            corpus_text("subtitle"),
             UiRect::new([0.0, 0.29], [0.92, 0.07]),
             UiTextRole::Caption,
         )
@@ -163,19 +173,19 @@ impl PlatformEventHandler for HelloUiTextApp {
         )
         .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
         let body = UiTextSpec::new(
-            "BODY TEXT",
+            corpus_text("body"),
             UiRect::new([-0.45, 0.10], [0.36, 0.07]),
             UiTextRole::Body,
         )
         .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
         let caption = UiTextSpec::new(
-            "CAPTION",
+            corpus_text("caption"),
             UiRect::new([-0.45, 0.01], [0.36, 0.07]),
             UiTextRole::Caption,
         )
         .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
         let status = UiTextSpec::new(
-            "STATUS READY",
+            corpus_text("status"),
             UiRect::new([-0.45, -0.08], [0.36, 0.07]),
             UiTextRole::Status,
         )
@@ -187,25 +197,25 @@ impl PlatformEventHandler for HelloUiTextApp {
         )
         .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
         let left = UiTextSpec::new(
-            "START",
+            corpus_text("start"),
             UiRect::new([0.45, 0.10], [0.36, 0.07]),
             UiTextRole::Caption,
         )
         .with_alignment(UiTextAlign::Start, UiTextAlign::Center);
         let center = UiTextSpec::new(
-            "CENTER",
+            corpus_text("center"),
             UiRect::new([0.45, 0.01], [0.36, 0.07]),
             UiTextRole::Caption,
         )
         .with_alignment(UiTextAlign::Center, UiTextAlign::Center);
         let right = UiTextSpec::new(
-            "END",
+            corpus_text("end"),
             UiRect::new([0.45, -0.08], [0.36, 0.07]),
             UiTextRole::Caption,
         )
         .with_alignment(UiTextAlign::End, UiTextAlign::Center);
         let clipped = UiTextSpec::new(
-            "CLIPPED TEXT SAMPLE",
+            corpus_text("clipped"),
             UiRect::new([0.0, -0.29], [0.46, 0.07]),
             UiTextRole::Status,
         )

@@ -57,15 +57,44 @@ pub fn parse_path(data: &str) -> Result<Vec<SvgPathCommand>, String> {
         let relative = active.is_ascii_lowercase();
         let upper = active.to_ascii_uppercase();
         let command_value = match upper {
-            'M' => SvgPathCommand::MoveTo { relative, x: values[0], y: values[1] },
-            'L' => SvgPathCommand::LineTo { relative, x: values[0], y: values[1] },
-            'H' => SvgPathCommand::HorizontalTo { relative, x: values[0] },
-            'V' => SvgPathCommand::VerticalTo { relative, y: values[0] },
-            'C' => SvgPathCommand::CubicTo { relative, values: values.try_into().unwrap() },
-            'S' => SvgPathCommand::SmoothCubicTo { relative, values: values.try_into().unwrap() },
-            'Q' => SvgPathCommand::QuadraticTo { relative, values: values.try_into().unwrap() },
-            'T' => SvgPathCommand::SmoothQuadraticTo { relative, values: values.try_into().unwrap() },
-            'A' => SvgPathCommand::ArcTo { relative, values: values.try_into().unwrap() },
+            'M' => SvgPathCommand::MoveTo {
+                relative,
+                x: values[0],
+                y: values[1],
+            },
+            'L' => SvgPathCommand::LineTo {
+                relative,
+                x: values[0],
+                y: values[1],
+            },
+            'H' => SvgPathCommand::HorizontalTo {
+                relative,
+                x: values[0],
+            },
+            'V' => SvgPathCommand::VerticalTo {
+                relative,
+                y: values[0],
+            },
+            'C' => SvgPathCommand::CubicTo {
+                relative,
+                values: values.try_into().unwrap(),
+            },
+            'S' => SvgPathCommand::SmoothCubicTo {
+                relative,
+                values: values.try_into().unwrap(),
+            },
+            'Q' => SvgPathCommand::QuadraticTo {
+                relative,
+                values: values.try_into().unwrap(),
+            },
+            'T' => SvgPathCommand::SmoothQuadraticTo {
+                relative,
+                values: values.try_into().unwrap(),
+            },
+            'A' => SvgPathCommand::ArcTo {
+                relative,
+                values: values.try_into().unwrap(),
+            },
             _ => unreachable!(),
         };
         result.push(command_value);
@@ -87,7 +116,9 @@ pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec
     for command in commands {
         match command {
             SvgPathCommand::MoveTo { relative, x, y } => {
-                if points.len() > 1 { paths.push(std::mem::take(&mut points)); }
+                if points.len() > 1 {
+                    paths.push(std::mem::take(&mut points));
+                }
                 current = point(*relative, current, *x, *y);
                 start = current;
                 points.push(current);
@@ -138,14 +169,18 @@ pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec
                 last_cubic_control = None;
             }
             SvgPathCommand::ClosePath => {
-                if current != start { points.push(start); }
+                if current != start {
+                    points.push(start);
+                }
                 current = start;
                 last_cubic_control = None;
                 last_quadratic_control = None;
             }
             SvgPathCommand::SmoothCubicTo { relative, values } => {
                 let p0 = current;
-                let p1 = last_cubic_control.map(|control| [2.0 * p0[0] - control[0], 2.0 * p0[1] - control[1]]).unwrap_or(p0);
+                let p1 = last_cubic_control
+                    .map(|control| [2.0 * p0[0] - control[0], 2.0 * p0[1] - control[1]])
+                    .unwrap_or(p0);
                 let p2 = point(*relative, p0, values[0], values[1]);
                 let p3 = point(*relative, p0, values[2], values[3]);
                 for index in 1..=steps {
@@ -158,7 +193,9 @@ pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec
             }
             SvgPathCommand::SmoothQuadraticTo { relative, values } => {
                 let p0 = current;
-                let p1 = last_quadratic_control.map(|control| [2.0 * p0[0] - control[0], 2.0 * p0[1] - control[1]]).unwrap_or(p0);
+                let p1 = last_quadratic_control
+                    .map(|control| [2.0 * p0[0] - control[0], 2.0 * p0[1] - control[1]])
+                    .unwrap_or(p0);
                 let p2 = point(*relative, p0, values[0], values[1]);
                 for index in 1..=steps {
                     let t = index as f32 / steps as f32;
@@ -170,7 +207,16 @@ pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec
             }
             SvgPathCommand::ArcTo { relative, values } => {
                 let end = point(*relative, current, values[5], values[6]);
-                let arc = arc_points(current, end, values[0], values[1], values[2], values[3] != 0.0, values[4] != 0.0, steps);
+                let arc = arc_points(
+                    current,
+                    end,
+                    values[0],
+                    values[1],
+                    values[2],
+                    values[3] != 0.0,
+                    values[4] != 0.0,
+                    steps,
+                );
                 points.extend(arc.into_iter().skip(1));
                 current = end;
                 last_cubic_control = None;
@@ -178,26 +224,213 @@ pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec
             }
         }
     }
-    if points.len() > 1 { paths.push(points); }
+    if points.len() > 1 {
+        paths.push(points);
+    }
     paths
+}
+
+/// Extracts SVG geometry into normalized, flattened polylines.
+///
+/// This intentionally supports the small geometry vocabulary used by Lucide
+/// and similar icon providers. Document loading remains the caller's concern;
+/// this function owns interpretation and coordinate normalization.
+pub fn parse_svg_document_paths(
+    svg: &str,
+    subdivisions: usize,
+    view_box: [f32; 4],
+) -> Result<Vec<Vec<[f32; 2]>>, String> {
+    let [view_x, view_y, view_width, view_height] = view_box;
+    if view_width <= 0.0 || view_height <= 0.0 {
+        return Err("SVG viewBox must have positive dimensions".into());
+    }
+    let normalize = |point: [f32; 2]| {
+        [
+            (point[0] - view_x) / view_width - 0.5,
+            0.5 - (point[1] - view_y) / view_height,
+        ]
+    };
+    let mut paths = Vec::new();
+
+    for data in svg
+        .split("d=\"")
+        .skip(1)
+        .filter_map(|value| value.split('\"').next())
+    {
+        let commands = parse_path(data)?;
+        paths.extend(
+            flatten_path(&commands, subdivisions)
+                .into_iter()
+                .filter(|path| path.len() > 1)
+                .map(|path| path.into_iter().map(normalize).collect()),
+        );
+    }
+
+    for element in ["circle", "rect", "line", "polyline", "polygon"] {
+        let mut remainder = svg;
+        while let Some(start) = remainder.find(&format!("<{element}")) {
+            remainder = &remainder[start..];
+            let Some(end) = remainder.find('>') else {
+                break;
+            };
+            let tag = &remainder[..=end];
+            let path = match element {
+                "circle" => {
+                    let (Some(cx), Some(cy), Some(radius)) = (
+                        svg_attribute(tag, "cx"),
+                        svg_attribute(tag, "cy"),
+                        svg_attribute(tag, "r"),
+                    ) else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    Some(
+                        (0..=subdivisions.max(16))
+                            .map(|index| {
+                                let angle = index as f32 * std::f32::consts::TAU
+                                    / subdivisions.max(16) as f32;
+                                normalize([cx + radius * angle.cos(), cy + radius * angle.sin()])
+                            })
+                            .collect(),
+                    )
+                }
+                "line" => {
+                    let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
+                        svg_attribute(tag, "x1"),
+                        svg_attribute(tag, "y1"),
+                        svg_attribute(tag, "x2"),
+                        svg_attribute(tag, "y2"),
+                    ) else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    Some(vec![normalize([x1, y1]), normalize([x2, y2])])
+                }
+                "polyline" | "polygon" => {
+                    let Some(values) = svg_attribute_text(tag, "points") else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    let numbers = values
+                        .split(|character: char| {
+                            character == ',' || character.is_ascii_whitespace()
+                        })
+                        .filter(|value| !value.is_empty())
+                        .filter_map(|value| value.parse::<f32>().ok())
+                        .collect::<Vec<_>>();
+                    let mut points = numbers
+                        .chunks_exact(2)
+                        .map(|pair| normalize([pair[0], pair[1]]))
+                        .collect::<Vec<_>>();
+                    if element == "polygon" && points.first() != points.last() {
+                        if let Some(first) = points.first().copied() {
+                            points.push(first);
+                        }
+                    }
+                    Some(points)
+                }
+                "rect" => {
+                    let (Some(x), Some(y), Some(width), Some(height)) = (
+                        svg_attribute(tag, "x"),
+                        svg_attribute(tag, "y"),
+                        svg_attribute(tag, "width"),
+                        svg_attribute(tag, "height"),
+                    ) else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    let rx = svg_attribute(tag, "rx").unwrap_or(0.0).min(width * 0.5);
+                    let ry = svg_attribute(tag, "ry").unwrap_or(rx).min(height * 0.5);
+                    Some(
+                        svg_rectangle(x, y, width, height, rx, ry)
+                            .into_iter()
+                            .map(normalize)
+                            .collect(),
+                    )
+                }
+                _ => None,
+            };
+            if let Some(path) = path.filter(|path: &Vec<[f32; 2]>| path.len() > 1) {
+                paths.push(path);
+            }
+            remainder = &remainder[end + 1..];
+        }
+    }
+    Ok(paths)
+}
+
+fn svg_attribute(tag: &str, name: &str) -> Option<f32> {
+    let prefix = format!("{name}=\"");
+    let start = tag.find(&prefix)? + prefix.len();
+    let end = tag[start..].find('\"')? + start;
+    tag[start..end].parse().ok()
+}
+
+fn svg_attribute_text(tag: &str, name: &str) -> Option<String> {
+    let prefix = format!("{name}=\"");
+    let start = tag.find(&prefix)? + prefix.len();
+    let end = tag[start..].find('\"')? + start;
+    Some(tag[start..end].to_owned())
+}
+
+fn svg_rectangle(x: f32, y: f32, width: f32, height: f32, rx: f32, ry: f32) -> Vec<[f32; 2]> {
+    if rx <= f32::EPSILON || ry <= f32::EPSILON {
+        return vec![
+            [x, y],
+            [x + width, y],
+            [x + width, y + height],
+            [x, y + height],
+            [x, y],
+        ];
+    }
+    let mut points = Vec::with_capacity(20);
+    for (center_x, center_y, start) in [
+        (x + rx, y + ry, std::f32::consts::PI),
+        (x + width - rx, y + ry, -std::f32::consts::FRAC_PI_2),
+        (x + width - rx, y + height - ry, 0.0),
+        (x + rx, y + height - ry, std::f32::consts::FRAC_PI_2),
+    ] {
+        for step in 0..=4 {
+            let angle = start + step as f32 * std::f32::consts::FRAC_PI_2 / 4.0;
+            points.push([center_x + rx * angle.cos(), center_y + ry * angle.sin()]);
+        }
+    }
+    if let Some(first) = points.first().copied() {
+        points.push(first);
+    }
+    points
 }
 
 /// Converts flattened SVG centerlines into a triangle-list stroke mesh.
 /// `width` is the half-width in the caller's coordinate system.
 pub fn stroke_paths(paths: &[Vec<[f32; 2]>], width: f32) -> Vec<[f32; 3]> {
-    paths.iter().flat_map(|path| stroke_polyline(path, width)).collect()
+    paths
+        .iter()
+        .flat_map(|path| stroke_polyline(path, width))
+        .collect()
 }
 
 fn stroke_polyline(points: &[[f32; 2]], width: f32) -> Vec<[f32; 3]> {
-    if points.len() < 2 { return Vec::new(); }
+    if points.len() < 2 {
+        return Vec::new();
+    }
     let closed = points.first() == points.last();
-    let count = if closed { points.len() - 1 } else { points.len() };
-    if count < 2 { return Vec::new(); }
+    let count = if closed {
+        points.len() - 1
+    } else {
+        points.len()
+    };
+    if count < 2 {
+        return Vec::new();
+    }
     if !closed && count == 2 {
         let dx = points[1][0] - points[0][0];
         let dy = points[1][1] - points[0][1];
         if (dx * dx + dy * dy).sqrt() < width * 2.0 {
-            let center = [(points[0][0] + points[1][0]) * 0.5, (points[0][1] + points[1][1]) * 0.5];
+            let center = [
+                (points[0][0] + points[1][0]) * 0.5,
+                (points[0][1] + points[1][1]) * 0.5,
+            ];
             let mut dot = Vec::new();
             add_round_cap(&mut dot, center, width);
             return dot;
@@ -206,16 +439,43 @@ fn stroke_polyline(points: &[[f32; 2]], width: f32) -> Vec<[f32; 3]> {
     let mut offsets = Vec::with_capacity(count);
     for index in 0..count {
         let point = points[index];
-        let previous = if index == 0 { if closed { points[count - 1] } else { points[1] } } else { points[index - 1] };
-        let next = if index + 1 == count { if closed { points[0] } else { points[count - 2] } } else { points[index + 1] };
+        let previous = if index == 0 {
+            if closed {
+                points[count - 1]
+            } else {
+                points[1]
+            }
+        } else {
+            points[index - 1]
+        };
+        let next = if index + 1 == count {
+            if closed {
+                points[0]
+            } else {
+                points[count - 2]
+            }
+        } else {
+            points[index + 1]
+        };
         let incoming = normalize([point[0] - previous[0], point[1] - previous[1]]);
         let outgoing = normalize([next[0] - point[0], next[1] - point[1]]);
         let incoming_normal = perp(incoming);
         let outgoing_normal = perp(outgoing);
-        let offset = if !closed && index == 0 { scale(outgoing_normal, width) } else if !closed && index + 1 == count { scale(incoming_normal, width) } else {
-            let sum = normalize([incoming_normal[0] + outgoing_normal[0], incoming_normal[1] + outgoing_normal[1]]);
+        let offset = if !closed && index == 0 {
+            scale(outgoing_normal, width)
+        } else if !closed && index + 1 == count {
+            scale(incoming_normal, width)
+        } else {
+            let sum = normalize([
+                incoming_normal[0] + outgoing_normal[0],
+                incoming_normal[1] + outgoing_normal[1],
+            ]);
             let denominator = sum[0] * outgoing_normal[0] + sum[1] * outgoing_normal[1];
-            if denominator.abs() < 0.25 { scale(outgoing_normal, width) } else { scale(sum, (width / denominator).clamp(-width * 4.0, width * 4.0)) }
+            if denominator.abs() < 0.25 {
+                scale(outgoing_normal, width)
+            } else {
+                scale(sum, (width / denominator).clamp(-width * 4.0, width * 4.0))
+            }
         };
         offsets.push(offset);
     }
@@ -223,10 +483,26 @@ fn stroke_polyline(points: &[[f32; 2]], width: f32) -> Vec<[f32; 3]> {
     let segments = if closed { count } else { count - 1 };
     for index in 0..segments {
         let next = (index + 1) % count;
-        let left_a = [points[index][0] + offsets[index][0], points[index][1] + offsets[index][1], 0.0];
-        let right_a = [points[index][0] - offsets[index][0], points[index][1] - offsets[index][1], 0.0];
-        let left_b = [points[next][0] + offsets[next][0], points[next][1] + offsets[next][1], 0.0];
-        let right_b = [points[next][0] - offsets[next][0], points[next][1] - offsets[next][1], 0.0];
+        let left_a = [
+            points[index][0] + offsets[index][0],
+            points[index][1] + offsets[index][1],
+            0.0,
+        ];
+        let right_a = [
+            points[index][0] - offsets[index][0],
+            points[index][1] - offsets[index][1],
+            0.0,
+        ];
+        let left_b = [
+            points[next][0] + offsets[next][0],
+            points[next][1] + offsets[next][1],
+            0.0,
+        ];
+        let right_b = [
+            points[next][0] - offsets[next][0],
+            points[next][1] - offsets[next][1],
+            0.0,
+        ];
         positions.extend([left_a, right_a, left_b, right_a, right_b, left_b]);
     }
     if !closed {
@@ -238,12 +514,20 @@ fn stroke_polyline(points: &[[f32; 2]], width: f32) -> Vec<[f32; 3]> {
 
 fn normalize(vector: [f32; 2]) -> [f32; 2] {
     let length = (vector[0] * vector[0] + vector[1] * vector[1]).sqrt();
-    if length <= f32::EPSILON { [0.0, 0.0] } else { [vector[0] / length, vector[1] / length] }
+    if length <= f32::EPSILON {
+        [0.0, 0.0]
+    } else {
+        [vector[0] / length, vector[1] / length]
+    }
 }
 
-fn scale(vector: [f32; 2], amount: f32) -> [f32; 2] { [vector[0] * amount, vector[1] * amount] }
+fn scale(vector: [f32; 2], amount: f32) -> [f32; 2] {
+    [vector[0] * amount, vector[1] * amount]
+}
 
-fn perp(vector: [f32; 2]) -> [f32; 2] { [-vector[1], vector[0]] }
+fn perp(vector: [f32; 2]) -> [f32; 2] {
+    [-vector[1], vector[0]]
+}
 
 fn add_round_cap(positions: &mut Vec<[f32; 3]>, point: [f32; 2], width: f32) {
     // Keep caps coplanar with the stroke strip. A separate depth offset can
@@ -254,34 +538,63 @@ fn add_round_cap(positions: &mut Vec<[f32; 3]>, point: [f32; 2], width: f32) {
         let b = (index + 1) as f32 * std::f32::consts::TAU / 12.0;
         positions.extend([
             [point[0], point[1], JOIN_Z],
-            [point[0] + a.cos() * width, point[1] + a.sin() * width, JOIN_Z],
-            [point[0] + b.cos() * width, point[1] + b.sin() * width, JOIN_Z],
+            [
+                point[0] + a.cos() * width,
+                point[1] + a.sin() * width,
+                JOIN_Z,
+            ],
+            [
+                point[0] + b.cos() * width,
+                point[1] + b.sin() * width,
+                JOIN_Z,
+            ],
         ]);
     }
 }
 
 fn point(relative: bool, current: [f32; 2], x: f32, y: f32) -> [f32; 2] {
-    if relative { [current[0] + x, current[1] + y] } else { [x, y] }
+    if relative {
+        [current[0] + x, current[1] + y]
+    } else {
+        [x, y]
+    }
 }
 
 fn cubic(a: [f32; 2], b: [f32; 2], c: [f32; 2], d: [f32; 2], t: f32) -> [f32; 2] {
     let u = 1.0 - t;
     [
-        u.powi(3) * a[0] + 3.0 * u.powi(2) * t * b[0] + 3.0 * u * t.powi(2) * c[0] + t.powi(3) * d[0],
-        u.powi(3) * a[1] + 3.0 * u.powi(2) * t * b[1] + 3.0 * u * t.powi(2) * c[1] + t.powi(3) * d[1],
+        u.powi(3) * a[0]
+            + 3.0 * u.powi(2) * t * b[0]
+            + 3.0 * u * t.powi(2) * c[0]
+            + t.powi(3) * d[0],
+        u.powi(3) * a[1]
+            + 3.0 * u.powi(2) * t * b[1]
+            + 3.0 * u * t.powi(2) * c[1]
+            + t.powi(3) * d[1],
     ]
 }
 
 fn quadratic(a: [f32; 2], b: [f32; 2], c: [f32; 2], t: f32) -> [f32; 2] {
     let u = 1.0 - t;
-    [u * u * a[0] + 2.0 * u * t * b[0] + t * t * c[0], u * u * a[1] + 2.0 * u * t * b[1] + t * t * c[1]]
+    [
+        u * u * a[0] + 2.0 * u * t * b[0] + t * t * c[0],
+        u * u * a[1] + 2.0 * u * t * b[1] + t * t * c[1],
+    ]
 }
 
 fn arc_points(
-    start: [f32; 2], end: [f32; 2], rx: f32, ry: f32, rotation: f32,
-    large_arc: bool, sweep: bool, steps: usize,
+    start: [f32; 2],
+    end: [f32; 2],
+    rx: f32,
+    ry: f32,
+    rotation: f32,
+    large_arc: bool,
+    sweep: bool,
+    steps: usize,
 ) -> Vec<[f32; 2]> {
-    if start == end || rx == 0.0 || ry == 0.0 { return vec![start, end]; }
+    if start == end || rx == 0.0 || ry == 0.0 {
+        return vec![start, end];
+    }
     let phi = rotation.to_radians();
     let (sin_phi, cos_phi) = phi.sin_cos();
     let mut rx = rx.abs();
@@ -290,7 +603,9 @@ fn arc_points(
     let dy = (start[1] - end[1]) * 0.5;
     let x1p = cos_phi * dx + sin_phi * dy;
     let y1p = -sin_phi * dx + cos_phi * dy;
-    let radii_scale = (x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry)).sqrt().max(1.0);
+    let radii_scale = (x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry))
+        .sqrt()
+        .max(1.0);
     rx *= radii_scale;
     ry *= radii_scale;
     let numerator = (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p).max(0.0);
@@ -303,7 +618,7 @@ fn arc_points(
         cos_phi * cxp - sin_phi * cyp + (start[0] + end[0]) * 0.5,
         sin_phi * cxp + cos_phi * cyp + (start[1] + end[1]) * 0.5,
     ];
-    let vector = |x: f32, y: f32| [ (x - cxp) / rx, (y - cyp) / ry ];
+    let vector = |x: f32, y: f32| [(x - cxp) / rx, (y - cyp) / ry];
     let u = vector(x1p, y1p);
     let v = vector(-x1p, -y1p);
     let angle = |a: [f32; 2], b: [f32; 2]| {
@@ -315,13 +630,24 @@ fn arc_points(
     };
     let start_angle = angle([1.0, 0.0], u);
     let mut delta = angle(u, v);
-    if !sweep && delta > 0.0 { delta -= std::f32::consts::TAU; }
-    if sweep && delta < 0.0 { delta += std::f32::consts::TAU; }
-    let mut points: Vec<_> = (0..=steps).map(|index| {
-        let t = start_angle + delta * index as f32 / steps as f32;
-        [center[0] + rx * cos_phi * t.cos() - ry * sin_phi * t.sin(), center[1] + rx * sin_phi * t.cos() + ry * cos_phi * t.sin()]
-    }).collect();
-    if let Some(last) = points.last_mut() { *last = end; }
+    if !sweep && delta > 0.0 {
+        delta -= std::f32::consts::TAU;
+    }
+    if sweep && delta < 0.0 {
+        delta += std::f32::consts::TAU;
+    }
+    let mut points: Vec<_> = (0..=steps)
+        .map(|index| {
+            let t = start_angle + delta * index as f32 / steps as f32;
+            [
+                center[0] + rx * cos_phi * t.cos() - ry * sin_phi * t.sin(),
+                center[1] + rx * sin_phi * t.cos() + ry * cos_phi * t.sin(),
+            ]
+        })
+        .collect();
+    if let Some(last) = points.last_mut() {
+        *last = end;
+    }
     points
 }
 
@@ -340,7 +666,11 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
         if character.is_ascii_alphabetic() {
             flush(&mut tokens, &mut number);
             tokens.push(SvgToken::Command(character));
-        } else if character == '.' && number.contains('.') && !number.contains('e') && !number.contains('E') {
+        } else if character == '.'
+            && number.contains('.')
+            && !number.contains('e')
+            && !number.contains('E')
+        {
             flush(&mut tokens, &mut number);
             number.push(character);
         } else if character.is_ascii_digit() || matches!(character, '.' | 'e' | 'E') {
@@ -358,16 +688,24 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
 
 #[cfg(test)]
 mod tests {
-    use super::{flatten_path, parse_path, stroke_paths, tokenize_path, SvgPathCommand, SvgToken};
+    use super::{
+        flatten_path, parse_path, parse_svg_document_paths, stroke_paths, tokenize_path,
+        SvgPathCommand, SvgToken,
+    };
 
     #[test]
     fn preserves_compact_signed_numbers() {
         assert_eq!(
             tokenize_path("M20 6 9 17l-5-5"),
             vec![
-                SvgToken::Command('M'), SvgToken::Number(20.0), SvgToken::Number(6.0),
-                SvgToken::Number(9.0), SvgToken::Number(17.0), SvgToken::Command('l'),
-                SvgToken::Number(-5.0), SvgToken::Number(-5.0),
+                SvgToken::Command('M'),
+                SvgToken::Number(20.0),
+                SvgToken::Number(6.0),
+                SvgToken::Number(9.0),
+                SvgToken::Number(17.0),
+                SvgToken::Command('l'),
+                SvgToken::Number(-5.0),
+                SvgToken::Number(-5.0),
             ]
         );
     }
@@ -415,19 +753,39 @@ mod tests {
         }
         let mesh = super::stroke_paths(&paths, 1.0 / 32.0);
         assert!(!mesh.is_empty());
-        assert!(mesh.iter().all(|vertex| vertex.iter().all(|value| value.is_finite())));
+        assert!(mesh
+            .iter()
+            .all(|vertex| vertex.iter().all(|value| value.is_finite())));
     }
 
     #[test]
     fn lucide_astroid_arc_geometry_stays_inside_viewbox() {
         let data = "M12.983 21.186a1 1 0 0 1-1.966 0 10 10 0 0 0-8.203-8.203 1 1 0 0 1 0-1.966 10 10 0 0 0 8.203-8.203 1 1 0 0 1 1.966 0 10 10 0 0 0 8.203 8.203 1 1 0 0 1 0 1.966 10 10 0 0 0-8.203 8.203";
         let commands = parse_path(data).expect("astroid path should parse");
-        let points = flatten_path(&commands, 12).into_iter().next().expect("astroid path should flatten");
-        let min_x = points.iter().map(|point| point[0]).fold(f32::INFINITY, f32::min);
-        let max_x = points.iter().map(|point| point[0]).fold(f32::NEG_INFINITY, f32::max);
-        let min_y = points.iter().map(|point| point[1]).fold(f32::INFINITY, f32::min);
-        let max_y = points.iter().map(|point| point[1]).fold(f32::NEG_INFINITY, f32::max);
-        assert!(min_x >= -0.01 && max_x <= 24.01 && min_y >= -0.01 && max_y <= 24.01, "bounds x={min_x}..{max_x}, y={min_y}..{max_y}");
+        let points = flatten_path(&commands, 12)
+            .into_iter()
+            .next()
+            .expect("astroid path should flatten");
+        let min_x = points
+            .iter()
+            .map(|point| point[0])
+            .fold(f32::INFINITY, f32::min);
+        let max_x = points
+            .iter()
+            .map(|point| point[0])
+            .fold(f32::NEG_INFINITY, f32::max);
+        let min_y = points
+            .iter()
+            .map(|point| point[1])
+            .fold(f32::INFINITY, f32::min);
+        let max_y = points
+            .iter()
+            .map(|point| point[1])
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            min_x >= -0.01 && max_x <= 24.01 && min_y >= -0.01 && max_y <= 24.01,
+            "bounds x={min_x}..{max_x}, y={min_y}..{max_y}"
+        );
     }
 
     #[test]
@@ -437,5 +795,21 @@ mod tests {
         let mesh = stroke_paths(&paths, 1.0 / 32.0);
         assert!(!mesh.is_empty());
         assert!(mesh.iter().all(|vertex| vertex[2] == 0.0));
+    }
+
+    #[test]
+    fn extracts_svg_primitives_and_normalizes_viewbox() {
+        let svg = r#"<svg viewBox="0 0 24 24">
+            <path d="M0 0h24v24H0z" />
+            <circle cx="12" cy="12" r="4" />
+            <line x1="2" y1="3" x2="6" y2="7" />
+            <rect x="4" y="5" width="6" height="8" rx="1" />
+        </svg>"#;
+        let paths = parse_svg_document_paths(svg, 8, [0.0, 0.0, 24.0, 24.0]).unwrap();
+        assert!(paths.len() >= 4);
+        assert!(paths.iter().all(|path| path.len() > 1));
+        assert!(paths.iter().flatten().all(|point| {
+            (-0.51..=0.51).contains(&point[0]) && (-0.51..=0.51).contains(&point[1])
+        }));
     }
 }

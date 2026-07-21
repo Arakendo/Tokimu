@@ -1,8 +1,8 @@
 use crate::{
     region::{UiCard, UiInspector, UiRegion, UiSidebar, UiStatusBar, UiToolbar},
-    UiButton, UiButtonId, UiButtonSpec, UiCardSpec, UiHorizontalStack, UiLabel, UiLabelAnchor,
-    UiActivationKey, UiDiagnostic, UiDiagnosticKind, UiDiagnosticSeverity, UiEvent,
-    UiFocusDirection, UiMeasureContext, UiRect, UiStateChip, UiTheme,
+    UiActivationKey, UiButton, UiButtonId, UiButtonSpec, UiCardSpec, UiDiagnostic,
+    UiDiagnosticKind, UiDiagnosticSeverity, UiEvent, UiFocusDirection, UiHorizontalStack, UiLabel,
+    UiLabelAnchor, UiMeasureContext, UiRect, UiStateChip, UiTheme,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -211,7 +211,8 @@ impl UiWorkspaceLayout {
             return None;
         }
 
-        let current_index = current.and_then(|id| focusable.iter().position(|candidate| *candidate == id));
+        let current_index =
+            current.and_then(|id| focusable.iter().position(|candidate| *candidate == id));
         let next_index = match (current_index, direction) {
             (Some(index), UiFocusDirection::Forward) => (index + 1) % focusable.len(),
             (Some(index), UiFocusDirection::Backward) => {

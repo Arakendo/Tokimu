@@ -5,7 +5,7 @@
 | Status     | Draft — governance / review guide |
 | Title      | "Contribution Admission Guide" (kept) — a checklist for admitting new concepts, crates, capabilities, adapters, and frontends |
 | Scope      | A repeatable review process for deciding whether a proposed addition belongs in the kernel, a foundational service, a capability crate, a backend adapter, or an authoring frontend. |
-| Relates to | `docs/Tokimu Software Design Document.md`, `docs/kernel-principles.md`, `docs/semantic-kernel-map.md`, `docs/capability-backends.md`, `docs/future-workspace-layout.md`, ADR-0003 |
+| Relates to | `docs/Tokimu Software Design Document.md`, `docs/kernel-principles.md`, `docs/semantic-kernel-map.md`, `docs/capability-backends.md`, `docs/future-workspace-layout.md`, `docs/Architectural Reviews/README.md`, ADR-0003 |
 
 ## 1. Purpose
 
@@ -20,6 +20,11 @@ where.
 
 The goal is to make the next architectural decision more correct, not merely
 more consistent.
+
+Durable reviews use an Architectural Review Record under
+`docs/Architectural Reviews/`. Review records preserve evidence, findings,
+disposition, and reopening triggers. ADRs remain the record of accepted binding
+decisions.
 
 ## 2. The Review Question
 
@@ -295,7 +300,27 @@ Questions to answer:
 The goal is not churn. The goal is to let Tokimu shed concepts that were once
 useful but are no longer architecturally necessary.
 
-## 13. Minimal PR Template
+## 13. Architectural Review Records
+
+Open an Architectural Review Record when admission evidence needs durable
+analysis before a binding decision is justified. This includes proposed kernel
+or foundational admission, unclear ownership, new capability boundaries,
+repeated corpus friction, and reconsideration of an accepted ADR.
+
+The review record answers:
+
+- what question was reviewed;
+- what evidence triggered it;
+- what ownership and dependency findings resulted;
+- whether the proposal is accepted, incubating, deferred, rejected, or requires
+  no architectural change;
+- what corpus pressure would justify reopening it.
+
+An accepted review that changes architecture must produce or revise an ADR. A
+deferred or rejected review remains valuable without becoming policy. See
+`docs/Architectural Reviews/README.md` and its `TEMPLATE.md`.
+
+## 14. Minimal PR Template
 
 For changes with architectural weight, the author should be able to answer this
 briefly:
