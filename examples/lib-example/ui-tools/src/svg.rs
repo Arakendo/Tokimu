@@ -36,10 +36,10 @@ pub struct SvgVectorRecord {
 }
 
 impl SvgVectorRecord {
-    fn new(path: crate::VectorPath, tag: &str) -> Self {
-        let fill = svg_paint_value(tag, "fill").is_none_or(|value| value != "none");
-        let stroke = svg_paint_value(tag, "stroke").is_some_and(|value| value != "none");
-        let fill_rule = match svg_paint_value(tag, "fill-rule").as_deref() {
+    fn from_attributes(path: crate::VectorPath, attributes: &[XmlAttribute]) -> Self {
+        let fill = svg_attribute_value(attributes, "fill").is_none_or(|value| value != "none");
+        let stroke = svg_attribute_value(attributes, "stroke").is_some_and(|value| value != "none");
+        let fill_rule = match svg_attribute_value(attributes, "fill-rule") {
             Some("evenodd") => SvgFillRule::EvenOdd,
             _ => SvgFillRule::NonZero,
         };
@@ -50,6 +50,61 @@ impl SvgVectorRecord {
             fill_rule,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+struct SvgElement {
+    local_name: String,
+    attributes: Vec<XmlAttribute>,
+    source_offset: usize,
+}
+
+fn svg_document_elements(svg: &str) -> Result<Vec<SvgElement>, String> {
+    let events = parse_xml_events(XmlSourceId::new(0), svg, XmlOptions::default())
+        .map_err(|error| format!("SVG XML syntax error at {:?}: {error}", error.span))?;
+    let mut elements = Vec::new();
+    for event in &events {
+        if let XmlEvent::StartElement {
+            name,
+            attributes,
+            span,
+            ..
+        } = event
+        {
+            elements.push(SvgElement {
+                local_name: name.local_name.clone(),
+                attributes: attributes.clone(),
+                source_offset: span.start,
+            });
+        }
+    }
+    Ok(elements)
+}
+
+fn svg_attribute_value<'a>(attributes: &'a [XmlAttribute], name: &str) -> Option<&'a str> {
+    if let Some(attribute) = attributes.iter().find(|attribute| {
+        attribute.name.namespace_uri.is_none() && attribute.name.local_name == name
+    }) {
+        return Some(attribute.value.trim());
+    }
+    let style = attributes
+        .iter()
+        .find(|attribute| {
+            attribute.name.namespace_uri.is_none() && attribute.name.local_name == "style"
+        })?
+        .value
+        .as_str();
+    style.split(';').find_map(|declaration| {
+        let (property, value) = declaration.split_once(':')?;
+        property
+            .trim()
+            .eq_ignore_ascii_case(name)
+            .then(|| value.trim())
+    })
+}
+
+fn svg_number_attribute(attributes: &[XmlAttribute], name: &str) -> Option<f32> {
+    svg_attribute_value(attributes, name)?.parse().ok()
 }
 
 pub fn parse_path(data: &str) -> Result<Vec<SvgPathCommand>, String> {
@@ -303,7 +358,7 @@ fn parse_svg_document_paths(
     while let Some(start) = find_svg_element_start(remainder, "path") {
         remainder = &remainder[start..];
         let Some(end) = svg_tag_end(remainder) else {
-            break;
+            return Err("unterminated SVG path element".into());
         };
         let tag = &remainder[..=end];
         if let Some(data) = svg_attribute_text(tag, "d") {
@@ -441,149 +496,129 @@ pub fn parse_svg_document_vector_records(
     };
     let mut paths = Vec::<(usize, SvgVectorRecord)>::new();
 
-    // Read `d` only from actual path tags. Splitting the whole document on
-    // `d="` also matches the suffix of `id="` and can feed metadata into the
-    // path parser as if it were SVG geometry.
-    let mut remainder = svg;
-    while let Some(start) = find_svg_element_start(remainder, "path") {
-        let source_offset = svg.len() - remainder.len() + start;
-        remainder = &remainder[start..];
-        let Some(end) = svg_tag_end(remainder) else {
-            break;
-        };
-        let tag = &remainder[..=end];
-        if let Some(data) = svg_attribute_text(tag, "d") {
-            let commands = parse_path(&data)?;
-            let contours = flatten_path(&commands, subdivisions)
-                .into_iter()
-                .filter(|points| points.len() > 1)
-                .map(|points| {
-                    let mut points = points.into_iter().map(normalize).collect::<Vec<_>>();
-                    let closed = points.len() > 1 && points.first() == points.last();
-                    if closed {
-                        points.pop();
-                    }
-                    crate::VectorContour::new(points, closed)
-                })
-                .collect::<Vec<_>>();
-            if !contours.is_empty() {
-                paths.push((
-                    source_offset,
-                    SvgVectorRecord::new(crate::VectorPath::new(contours), tag),
-                ));
-            }
-        }
-        remainder = &remainder[end + 1..];
-    }
-
-    for element in ["circle", "rect", "line", "polyline", "polygon"] {
-        let mut remainder = svg;
-        while let Some(start) = find_svg_element_start(remainder, element) {
-            let source_offset = svg.len() - remainder.len() + start;
-            remainder = &remainder[start..];
-            let Some(end) = svg_tag_end(remainder) else {
-                break;
-            };
-            let tag = &remainder[..=end];
-            let points = match element {
-                "circle" => {
-                    let (Some(cx), Some(cy), Some(radius)) = (
-                        svg_attribute(tag, "cx"),
-                        svg_attribute(tag, "cy"),
-                        svg_attribute(tag, "r"),
-                    ) else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    if radius < 0.0 {
-                        return Err("SVG circle radius must not be negative".into());
-                    }
-                    Some(
-                        (0..=subdivisions.max(16))
-                            .map(|index| {
-                                let angle = index as f32 * std::f32::consts::TAU
-                                    / subdivisions.max(16) as f32;
-                                normalize([cx + radius * angle.cos(), cy + radius * angle.sin()])
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                }
-                "line" => {
-                    let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
-                        svg_attribute(tag, "x1"),
-                        svg_attribute(tag, "y1"),
-                        svg_attribute(tag, "x2"),
-                        svg_attribute(tag, "y2"),
-                    ) else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    Some(vec![normalize([x1, y1]), normalize([x2, y2])])
-                }
-                "polyline" | "polygon" => {
-                    let Some(values) = svg_attribute_text(tag, "points") else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    let numbers = parse_svg_point_numbers(&values, element)?;
-                    let mut points = numbers
-                        .chunks_exact(2)
-                        .map(|pair| normalize([pair[0], pair[1]]))
-                        .collect::<Vec<_>>();
-                    if element == "polygon" && points.first() != points.last() {
-                        if let Some(first) = points.first().copied() {
-                            points.push(first);
-                        }
-                    }
-                    Some(points)
-                }
-                "rect" => {
-                    let (Some(x), Some(y), Some(width), Some(height)) = (
-                        svg_attribute(tag, "x"),
-                        svg_attribute(tag, "y"),
-                        svg_attribute(tag, "width"),
-                        svg_attribute(tag, "height"),
-                    ) else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    if width < 0.0 || height < 0.0 {
-                        return Err("SVG rectangle width and height must not be negative".into());
-                    }
-                    let raw_rx = svg_attribute(tag, "rx");
-                    let raw_ry = svg_attribute(tag, "ry");
-                    if raw_rx.is_some_and(|value| value < 0.0)
-                        || raw_ry.is_some_and(|value| value < 0.0)
-                    {
-                        return Err("SVG rectangle corner radii must not be negative".into());
-                    }
-                    let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
-                    let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
-                    Some(
-                        svg_rectangle(x, y, width, height, rx, ry)
-                            .into_iter()
-                            .map(normalize)
-                            .collect(),
-                    )
-                }
-                _ => None,
-            };
-            if let Some(points) = points.filter(|points: &Vec<[f32; 2]>| points.len() > 1) {
-                let closed = matches!(element, "circle" | "rect" | "polygon");
-                let points = if closed {
-                    points[..points.len() - 1].to_vec()
-                } else {
-                    points
+    for element in svg_document_elements(svg)? {
+        let attributes = &element.attributes;
+        let points = match element.local_name.as_str() {
+            "path" => {
+                let Some(data) = svg_attribute_value(attributes, "d") else {
+                    continue;
                 };
-                paths.push((
-                    source_offset,
-                    SvgVectorRecord::new(
-                        crate::VectorPath::new(vec![crate::VectorContour::new(points, closed)]),
-                        tag,
-                    ),
-                ));
+                let commands = parse_path(data)?;
+                let contours = flatten_path(&commands, subdivisions)
+                    .into_iter()
+                    .filter(|points| points.len() > 1)
+                    .map(|points| {
+                        let mut points = points.into_iter().map(normalize).collect::<Vec<_>>();
+                        let closed = points.len() > 1 && points.first() == points.last();
+                        if closed {
+                            points.pop();
+                        }
+                        crate::VectorContour::new(points, closed)
+                    })
+                    .collect::<Vec<_>>();
+                if !contours.is_empty() {
+                    paths.push((
+                        element.source_offset,
+                        SvgVectorRecord::from_attributes(
+                            crate::VectorPath::new(contours),
+                            attributes,
+                        ),
+                    ));
+                }
+                continue;
             }
-            remainder = &remainder[end + 1..];
+            "circle" => {
+                let (Some(cx), Some(cy), Some(radius)) = (
+                    svg_number_attribute(attributes, "cx"),
+                    svg_number_attribute(attributes, "cy"),
+                    svg_number_attribute(attributes, "r"),
+                ) else {
+                    continue;
+                };
+                if radius < 0.0 {
+                    return Err("SVG circle radius must not be negative".into());
+                }
+                Some(
+                    (0..=subdivisions.max(16))
+                        .map(|index| {
+                            let angle =
+                                index as f32 * std::f32::consts::TAU / subdivisions.max(16) as f32;
+                            normalize([cx + radius * angle.cos(), cy + radius * angle.sin()])
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            }
+            "line" => {
+                let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
+                    svg_number_attribute(attributes, "x1"),
+                    svg_number_attribute(attributes, "y1"),
+                    svg_number_attribute(attributes, "x2"),
+                    svg_number_attribute(attributes, "y2"),
+                ) else {
+                    continue;
+                };
+                Some(vec![normalize([x1, y1]), normalize([x2, y2])])
+            }
+            "polyline" | "polygon" => {
+                let Some(values) = svg_attribute_value(attributes, "points") else {
+                    continue;
+                };
+                let numbers = parse_svg_point_numbers(values, &element.local_name)?;
+                let mut points = numbers
+                    .chunks_exact(2)
+                    .map(|pair| normalize([pair[0], pair[1]]))
+                    .collect::<Vec<_>>();
+                if element.local_name == "polygon" && points.first() != points.last() {
+                    if let Some(first) = points.first().copied() {
+                        points.push(first);
+                    }
+                }
+                Some(points)
+            }
+            "rect" => {
+                let (Some(x), Some(y), Some(width), Some(height)) = (
+                    svg_number_attribute(attributes, "x"),
+                    svg_number_attribute(attributes, "y"),
+                    svg_number_attribute(attributes, "width"),
+                    svg_number_attribute(attributes, "height"),
+                ) else {
+                    continue;
+                };
+                if width < 0.0 || height < 0.0 {
+                    return Err("SVG rectangle width and height must not be negative".into());
+                }
+                let raw_rx = svg_number_attribute(attributes, "rx");
+                let raw_ry = svg_number_attribute(attributes, "ry");
+                if raw_rx.is_some_and(|value| value < 0.0)
+                    || raw_ry.is_some_and(|value| value < 0.0)
+                {
+                    return Err("SVG rectangle corner radii must not be negative".into());
+                }
+                let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
+                let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
+                Some(
+                    svg_rectangle(x, y, width, height, rx, ry)
+                        .into_iter()
+                        .map(normalize)
+                        .collect(),
+                )
+            }
+            _ => continue,
+        };
+        if let Some(points) = points.filter(|points: &Vec<[f32; 2]>| points.len() > 1) {
+            let closed = matches!(element.local_name.as_str(), "circle" | "rect" | "polygon");
+            let points = if closed {
+                points[..points.len() - 1].to_vec()
+            } else {
+                points
+            };
+            paths.push((
+                element.source_offset,
+                SvgVectorRecord::from_attributes(
+                    crate::VectorPath::new(vec![crate::VectorContour::new(points, closed)]),
+                    attributes,
+                ),
+            ));
         }
     }
 
@@ -651,12 +686,14 @@ fn parse_svg_point_numbers(values: &str, element: &str) -> Result<Vec<f32>, Stri
     Ok(numbers)
 }
 
+#[cfg(test)]
 fn svg_attribute(tag: &str, name: &str) -> Option<f32> {
     let (start, quote) = svg_attribute_value_start(tag, name)?;
     let end = tag[start..].find(quote)? + start;
     tag[start..end].parse().ok()
 }
 
+#[cfg(test)]
 fn find_svg_element_start(svg: &str, name: &str) -> Option<usize> {
     let needle = format!("<{name}");
     let mut offset = 0;
@@ -688,6 +725,7 @@ fn find_svg_element_start(svg: &str, name: &str) -> Option<usize> {
     None
 }
 
+#[cfg(test)]
 fn svg_tag_end(svg: &str) -> Option<usize> {
     let mut quote = None;
     for (index, character) in svg.char_indices() {
@@ -701,23 +739,14 @@ fn svg_tag_end(svg: &str) -> Option<usize> {
     None
 }
 
+#[cfg(test)]
 fn svg_attribute_text(tag: &str, name: &str) -> Option<String> {
     let (start, quote) = svg_attribute_value_start(tag, name)?;
     let end = tag[start..].find(quote)? + start;
     Some(tag[start..end].to_owned())
 }
 
-fn svg_paint_value(tag: &str, name: &str) -> Option<String> {
-    if let Some(value) = svg_attribute_text(tag, name) {
-        return Some(value.trim().to_ascii_lowercase());
-    }
-    let style = svg_attribute_text(tag, "style")?;
-    style.split(';').find_map(|declaration| {
-        let (property, value) = declaration.split_once(':')?;
-        (property.trim().eq_ignore_ascii_case(name)).then(|| value.trim().to_ascii_lowercase())
-    })
-}
-
+#[cfg(test)]
 fn svg_attribute_value_start(tag: &str, name: &str) -> Option<(usize, char)> {
     let mut offset = 0;
     while let Some(found) = tag[offset..].find(name) {
@@ -1205,6 +1234,44 @@ mod tests {
     }
 
     #[test]
+    fn document_adapters_reject_unterminated_path_elements() {
+        let svg = r#"<svg><path d="M0 0 L24 0"#;
+
+        let legacy_error = parse_svg_document_paths(svg, 8, [0.0, 0.0, 24.0, 24.0])
+            .expect_err("legacy adapter must reject truncated path markup");
+        assert!(legacy_error.contains("unterminated SVG path element"));
+
+        let vector_error = parse_svg_document_vector_paths(svg, 8, [0.0, 0.0, 24.0, 24.0])
+            .expect_err("vector adapter must reject truncated path markup");
+        assert!(vector_error.contains("SVG XML syntax error"));
+    }
+
+    #[test]
+    fn vector_document_adapter_rejects_unterminated_primitive_elements() {
+        let error = parse_svg_document_vector_paths(
+            r#"<svg><rect x="0" y="0" width="24""#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("vector adapter must reject truncated primitive markup");
+
+        assert!(error.contains("SVG XML syntax error"));
+    }
+
+    #[test]
+    fn vector_document_adapter_stops_at_the_xml_profile_boundary() {
+        let error = parse_svg_document_vector_paths(
+            r#"<!DOCTYPE svg SYSTEM "external.dtd"><svg><path d="M0 0 L24 0"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("disabled XML DTD processing must stop before SVG interpretation");
+
+        assert!(error.contains("UnsupportedDocumentType"));
+        assert!(error.contains("DOCTYPE declarations"));
+    }
+
+    #[test]
     fn vector_document_adapter_accepts_whitespace_around_attribute_equals() {
         let records = parse_svg_document_vector_records(
             r#"<svg><path d = "M0 0 L24 0 L24 24 Z" fill = "none" stroke = "black"/></svg>"#,
@@ -1476,3 +1543,4 @@ mod tests {
         }));
     }
 }
+use xml_tools::{parse_xml_events, XmlAttribute, XmlEvent, XmlOptions, XmlSourceId};

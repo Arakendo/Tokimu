@@ -58,6 +58,7 @@ members = [
     "examples/hello-save-image",
     "examples/lib-example/screenshot",
     "examples/lib-example/presentation-geometry-corpus",
+    "examples/lib-example/xml-tools",
     "tests",
     "examples/hello-shader",
     "examples/lib-example/ui-tools",

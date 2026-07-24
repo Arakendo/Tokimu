@@ -1,0 +1,36 @@
+schema = 1
+selection = "v1"
+suite = "W3C XML Conformance Test Suite 20130923"
+source_root = "../upstream/xmlconf"
+
+[[case]]
+id = "eduni-errata-2e-e57"
+path = "eduni/errata-2e/E57.xml"
+classification = "Accepted"
+capabilities = ["utf-8", "empty-elements", "xml-prefix", "namespace-expanded-attributes"]
+reason = "Exercises a no-DTD empty element with the predefined xml prefix and a namespace-resolved attribute."
+expected = "parse"
+
+[[case]]
+id = "xmltest-not-wf-sa-039"
+path = "xmltest/not-wf/sa/039.xml"
+classification = "Rejected"
+capabilities = ["well-formedness", "matching-end-tags"]
+reason = "Exercises an explicitly malformed end tag without requiring DTD processing."
+expected_diagnostic_code = "ParserSyntax"
+
+[[case]]
+id = "eduni-errata-2e-e61"
+path = "eduni/errata-2e/E61.xml"
+classification = "UnsupportedByProfile"
+capabilities = ["encoding-declaration", "source-bytes"]
+reason = "The fixture is UTF-16. The initial XML profile accepts UTF-8 source bytes only and must diagnose the boundary before parser adaptation."
+expected_diagnostic_code = "UnsupportedEncoding"
+
+[[case]]
+id = "eduni-namespaces-1-0-013"
+path = "eduni/namespaces/1.0/013.xml"
+classification = "Rejected"
+capabilities = ["namespace-qname-validation"]
+reason = "Exercises a malformed QName with multiple colons. This is admitted as a future namespace-diagnostic case until the parser adapter maps its failure consistently."
+expected = "deferred-smoke"

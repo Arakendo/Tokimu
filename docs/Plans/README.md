@@ -13,6 +13,7 @@ than silently treating the plan as authority.
 - [Font Outlines Through Vector Presentation](font-outline-vector-presentation.md)
 - [Presentation Geometry Corpus Harness](presentation-geometry-corpus-harness.md)
 - [Native Execution and Multithreading](native-execution-and-multithreading.md)
+- [XML Tools Incubation Library](xml-tools.md)
 
 ## Plan Requirements
 

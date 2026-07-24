@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "source": {
+    "suite": "W3C XML Conformance Test Suite",
+    "release": "20130923",
+    "index_url": "https://www.w3.org/XML/Test/",
+    "archive_url": "https://www.w3.org/XML/Test/xmlts20130923.tar.gz",
+    "archive_name": "xmlts20130923.tar.gz",
+    "retrieved_utc": "2026-07-23",
+    "sha256": "9B61DB9F5DBFFA545F4B8D78422167083A8568C59BD1129F94138F936CF6FC1F"
+  },
+  "layout": {
+    "archive": "xmlts20130923.tar.gz",
+    "verbatim_upstream": "upstream/xmlconf",
+    "selection": "selected/selection-v1.toml"
+  },
+  "selection_policy": "Selected cases are referenced in place, classified against Tokimu's declared XML profile, and do not imply full XML conformance.",
+  "validation_boundary": "Parser events and structured diagnostics are authoritative. Pixel or renderer output is outside this fixture suite."
+}
