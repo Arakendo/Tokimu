@@ -12,10 +12,12 @@ use std::{
     path::{Path, PathBuf},
 };
 use ui_tools::{
-    lower_surface_to_vector, tessellate_general_fill_with_rule, SvgFillRule, UiFontFormat,
-    UiFontRasterizer, UiFontSource, UiGlyphVectorOptions, UiRect, UiSurfaceCommand, UiSurfaceRole,
-    UiTheme, VectorContour, VectorFillRule, VectorPath,
+    lower_surface_to_vector, parse_svg_document_vector_records_from_xml_events,
+    tessellate_general_fill_with_rule, SvgFillRule, SvgVectorRecord, SvgViewportSource,
+    UiFontFormat, UiFontRasterizer, UiFontSource, UiGlyphVectorOptions, UiRect, UiSurfaceCommand,
+    UiSurfaceRole, UiTheme, VectorContour, VectorFillRule, VectorPath,
 };
+use xml_tools::{parse_xml_events, XmlDocument, XmlDocumentId, XmlEvent, XmlOptions, XmlSourceId};
 
 const GLYPH_CASES: [GlyphCase; 4] = [
     GlyphCase::new("glyph/inter/K", 'K'),
@@ -41,7 +43,13 @@ const SVG_CASES: [SvgCase; 1] = [SvgCase::new(
     "Lucide archive SVG",
 )];
 
-const W3C_SVG_CASES: [W3cSvgCase; 2] = [
+const SYNTHETIC_SVG_CASES: [SyntheticSvgCase; 1] = [SyntheticSvgCase::new(
+    "svg/synthetic/prefixed-namespace",
+    "prefixed SVG namespace with a foreign local-name collision",
+    r#"<s:svg xmlns:s="http://www.w3.org/2000/svg" xmlns:foreign="urn:tokimu:foreign" viewBox="0 0 24 24"><foreign:path d="M 0 0 H 24 V 24 H 0 Z"/><s:path d="M 2 2 H 22 V 22 H 2 Z"/></s:svg>"#,
+)];
+
+const W3C_SVG_CASES: [W3cSvgCase; 4] = [
     W3cSvgCase::new(
         "svg/w3c/painting-fill-03-t",
         "painting-fill-03-t.svg",
@@ -52,11 +60,21 @@ const W3C_SVG_CASES: [W3cSvgCase; 2] = [
         "paths-data-16-t.svg",
         "W3C implicit line-to and relative path fixture",
     ),
+    W3cSvgCase::expected_unsupported_profile(
+        "svg/w3c/struct-group-01-t",
+        "struct-group-01-t.svg",
+        "W3C nested group and inherited-presentation fixture with unadmitted defs/text",
+    ),
+    W3cSvgCase::expected_unsupported_profile(
+        "svg/w3c/coords-trans-02-t",
+        "coords-trans-02-t.svg",
+        "W3C transform composition fixture with unadmitted defs/text",
+    ),
 ];
 
 const UI_CASES: [UiCase; 1] = [UiCase::new("ui/panel-surface", "default panel surface")];
 
-const ALL_CASES: [CorpusCase; 11] = [
+const ALL_CASES: [CorpusCase; 16] = [
     CorpusCase::Glyph(GLYPH_CASES[0]),
     CorpusCase::Glyph(GLYPH_CASES[1]),
     CorpusCase::Glyph(GLYPH_CASES[2]),
@@ -67,6 +85,11 @@ const ALL_CASES: [CorpusCase; 11] = [
     CorpusCase::Synthetic(SYNTHETIC_CASES[3]),
     CorpusCase::Synthetic(SYNTHETIC_CASES[4]),
     CorpusCase::Svg(SVG_CASES[0]),
+    CorpusCase::SyntheticSvg(SYNTHETIC_SVG_CASES[0]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[0]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[1]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[2]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[3]),
     CorpusCase::Ui(UI_CASES[0]),
 ];
 
@@ -96,11 +119,33 @@ pub struct SvgCase {
     pub description: &'static str,
 }
 
+/// A deliberately small, self-contained SVG document used to exercise an SVG
+/// semantic boundary without inheriting unrelated third-party fixture scope.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SyntheticSvgCase {
+    pub id: &'static str,
+    pub description: &'static str,
+    pub source: &'static str,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct W3cSvgCase {
     pub id: &'static str,
     pub file_name: &'static str,
     pub description: &'static str,
+    pub expectation: W3cSvgExpectation,
+}
+
+/// The expected result for a deliberately admitted W3C source fixture.
+///
+/// W3C files often cover one desired behavior while also carrying unrelated
+/// SVG features such as embedded fonts or text. Those fixtures remain useful
+/// provenance and XML-stage evidence, but must not masquerade as structural
+/// SVG passes until the full source fits the admitted profile.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum W3cSvgExpectation {
+    StructuralPass,
+    UnsupportedProfile,
 }
 
 impl W3cSvgCase {
@@ -109,6 +154,20 @@ impl W3cSvgCase {
             id,
             file_name,
             description,
+            expectation: W3cSvgExpectation::StructuralPass,
+        }
+    }
+
+    pub const fn expected_unsupported_profile(
+        id: &'static str,
+        file_name: &'static str,
+        description: &'static str,
+    ) -> Self {
+        Self {
+            id,
+            file_name,
+            description,
+            expectation: W3cSvgExpectation::UnsupportedProfile,
         }
     }
 }
@@ -119,6 +178,16 @@ impl SvgCase {
             id,
             file_name,
             description,
+        }
+    }
+}
+
+impl SyntheticSvgCase {
+    pub const fn new(id: &'static str, description: &'static str, source: &'static str) -> Self {
+        Self {
+            id,
+            description,
+            source,
         }
     }
 }
@@ -158,6 +227,7 @@ pub enum CorpusCase {
     Glyph(GlyphCase),
     Synthetic(SyntheticCase),
     Svg(SvgCase),
+    SyntheticSvg(SyntheticSvgCase),
     W3cSvg(W3cSvgCase),
     Ui(UiCase),
 }
@@ -168,6 +238,7 @@ impl CorpusCase {
             Self::Glyph(case) => case.id,
             Self::Synthetic(case) => case.id,
             Self::Svg(case) => case.id,
+            Self::SyntheticSvg(case) => case.id,
             Self::W3cSvg(case) => case.id,
             Self::Ui(case) => case.id,
         }
@@ -176,7 +247,8 @@ impl CorpusCase {
     pub const fn selected_stages(self) -> &'static [CorpusStage] {
         match self {
             Self::Glyph(_) => &GLYPH_STAGES,
-            Self::Synthetic(_) | Self::Svg(_) | Self::W3cSvg(_) | Self::Ui(_) => &PATH_STAGES,
+            Self::Svg(_) | Self::SyntheticSvg(_) | Self::W3cSvg(_) => &SVG_STAGES,
+            Self::Synthetic(_) | Self::Ui(_) => &PATH_STAGES,
         }
     }
 }
@@ -184,6 +256,7 @@ impl CorpusCase {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CorpusStage {
     Source,
+    Xml,
     Outline,
     Vector,
     Mesh,
@@ -196,13 +269,26 @@ const GLYPH_STAGES: [CorpusStage; 4] = [
     CorpusStage::Mesh,
 ];
 const PATH_STAGES: [CorpusStage; 3] = [CorpusStage::Source, CorpusStage::Vector, CorpusStage::Mesh];
+const SVG_STAGES: [CorpusStage; 4] = [
+    CorpusStage::Source,
+    CorpusStage::Xml,
+    CorpusStage::Vector,
+    CorpusStage::Mesh,
+];
 
 impl CorpusStage {
-    pub const ALL: [Self; 4] = [Self::Source, Self::Outline, Self::Vector, Self::Mesh];
+    pub const ALL: [Self; 5] = [
+        Self::Source,
+        Self::Xml,
+        Self::Outline,
+        Self::Vector,
+        Self::Mesh,
+    ];
 
     pub const fn name(self) -> &'static str {
         match self {
             Self::Source => "source",
+            Self::Xml => "xml",
             Self::Outline => "outline",
             Self::Vector => "vector",
             Self::Mesh => "mesh",
@@ -284,6 +370,31 @@ pub struct OutlineArtifact {
     pub character: char,
     pub units_per_em: f32,
     pub contours: Vec<OutlineContourArtifact>,
+}
+
+/// Parser-neutral evidence recorded before SVG semantics lower XML elements
+/// into vector paths. The corpus deliberately stores counts and document
+/// structure, not quick-xml implementation types.
+#[derive(Clone, Debug, Serialize)]
+pub struct XmlArtifact {
+    pub metadata: ArtifactEnvelope,
+    pub event_count: usize,
+    pub start_elements: usize,
+    pub end_elements: usize,
+    pub text_nodes: usize,
+    pub comments: usize,
+    pub processing_instructions: usize,
+    pub document_roots: usize,
+    pub has_document_element: bool,
+}
+
+/// Structural evidence for an SVG fixture that is valid XML but intentionally
+/// outside the currently admitted SVG semantic profile.
+#[derive(Clone, Debug, Serialize)]
+pub struct SvgProfileExclusionArtifact {
+    pub metadata: ArtifactEnvelope,
+    pub expectation: String,
+    pub diagnostic: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -421,6 +532,10 @@ pub fn svg_cases() -> &'static [SvgCase] {
     &SVG_CASES
 }
 
+pub fn synthetic_svg_cases() -> &'static [SyntheticSvgCase] {
+    &SYNTHETIC_SVG_CASES
+}
+
 pub fn w3c_svg_cases() -> &'static [W3cSvgCase] {
     &W3C_SVG_CASES
 }
@@ -452,6 +567,7 @@ pub fn run_case(case: CorpusCase) -> CaseReport {
         CorpusCase::Glyph(case) => run_glyph_case(case),
         CorpusCase::Synthetic(case) => run_synthetic_case(case),
         CorpusCase::Svg(case) => run_svg_case(case),
+        CorpusCase::SyntheticSvg(case) => run_synthetic_svg_case(case),
         CorpusCase::W3cSvg(case) => run_w3c_svg_case(case),
         CorpusCase::Ui(case) => run_ui_case(case),
     }
@@ -493,10 +609,10 @@ pub fn bless_case(case: CorpusCase) -> Result<PathBuf, String> {
     }
     let generated_root = match case {
         CorpusCase::Glyph(glyph) => Some(write_glyph_artifacts(glyph)?),
-        CorpusCase::Synthetic(_)
-        | CorpusCase::Svg(_)
-        | CorpusCase::W3cSvg(_)
-        | CorpusCase::Ui(_) => None,
+        CorpusCase::Svg(svg) => Some(write_svg_artifacts(svg)?),
+        CorpusCase::SyntheticSvg(svg) => Some(write_synthetic_svg_artifacts(svg)?),
+        CorpusCase::W3cSvg(w3c) => Some(write_w3c_artifacts(w3c)?),
+        CorpusCase::Synthetic(_) | CorpusCase::Ui(_) => None,
     };
     let path = golden_snapshot_path(&report.id);
     if let Some(parent) = path.parent() {
@@ -507,15 +623,20 @@ pub fn bless_case(case: CorpusCase) -> Result<PathBuf, String> {
         .map_err(|error| format!("serialize golden snapshot: {error}"))?;
     fs::write(&path, format!("{json}\n"))
         .map_err(|error| format!("write golden snapshot: {error}"))?;
-    if let Some(root) = generated_root {
+    if let Some(root) = generated_root
+        .as_ref()
+        .filter(|root| root.join("mesh-fingerprint.json").is_file())
+    {
         let source = root.join("mesh-fingerprint.json");
         let target = golden_mesh_fingerprint_path(&report.id);
         fs::copy(&source, &target)
             .map_err(|error| format!("write golden mesh fingerprint: {error}"))?;
-        let source = root.join("image-fingerprint.json");
-        let target = golden_image_fingerprint_path(&report.id);
-        fs::copy(&source, &target)
-            .map_err(|error| format!("write golden image fingerprint: {error}"))?;
+        if matches!(case, CorpusCase::Glyph(_)) {
+            let source = root.join("image-fingerprint.json");
+            let target = golden_image_fingerprint_path(&report.id);
+            fs::copy(&source, &target)
+                .map_err(|error| format!("write golden image fingerprint: {error}"))?;
+        }
     }
     Ok(path)
 }
@@ -542,8 +663,17 @@ pub fn compare_case(case: CorpusCase) -> Result<(), String> {
             golden_diff(&expected, &actual)
         ));
     }
-    if let CorpusCase::Glyph(glyph) = case {
-        let root = write_glyph_artifacts(glyph)?;
+    let generated_root = match case {
+        CorpusCase::Glyph(glyph) => Some(write_glyph_artifacts(glyph)?),
+        CorpusCase::Svg(svg) => Some(write_svg_artifacts(svg)?),
+        CorpusCase::SyntheticSvg(svg) => Some(write_synthetic_svg_artifacts(svg)?),
+        CorpusCase::W3cSvg(w3c) => Some(write_w3c_artifacts(w3c)?),
+        CorpusCase::Synthetic(_) | CorpusCase::Ui(_) => None,
+    };
+    if let Some(root) = generated_root
+        .as_ref()
+        .filter(|root| root.join("mesh-fingerprint.json").is_file())
+    {
         let mesh_path = golden_mesh_fingerprint_path(&report.id);
         let expected_mesh = fs::read_to_string(&mesh_path)
             .map_err(|error| format!("read golden {}: {error}", mesh_path.display()))?;
@@ -556,6 +686,11 @@ pub fn compare_case(case: CorpusCase) -> Result<(), String> {
                 golden_diff(&expected_mesh, &actual_mesh)
             ));
         }
+    }
+    if matches!(case, CorpusCase::Glyph(_)) {
+        let root = generated_root
+            .as_ref()
+            .expect("glyph cases always generate diagnostic artifacts");
         let image_path = golden_image_fingerprint_path(&report.id);
         let expected_image = fs::read_to_string(&image_path)
             .map_err(|error| format!("read golden {}: {error}", image_path.display()))?;
@@ -768,8 +903,28 @@ pub fn run_svg_case(case: SvgCase) -> CaseReport {
             return report;
         }
     };
-    let paths = match ui_tools::parse_svg_document_vector_paths(&svg, 12, [0.0, 0.0, 24.0, 24.0]) {
-        Ok(paths) if !paths.is_empty() => paths,
+    let xml = match inspect_xml_stage(&svg, XmlSourceId::new(1)) {
+        Ok(xml) => {
+            report.stages.push(StageReport {
+                stage: CorpusStage::Xml,
+                status: StageStatus::Ready,
+                summary: xml.evidence.summary(),
+            });
+            xml
+        }
+        Err(message) => {
+            report.stages.push(failed_stage(CorpusStage::Xml, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+    };
+    debug_assert!(xml.evidence.has_document_element);
+    let records = match parse_svg_document_vector_records_from_xml_events(
+        &xml.events,
+        12,
+        SvgViewportSource::Caller([0.0, 0.0, 24.0, 24.0]),
+    ) {
+        Ok(records) if !records.is_empty() => records,
         Ok(_) => {
             let message = "SVG parser produced no vector paths".to_owned();
             report
@@ -787,6 +942,10 @@ pub fn run_svg_case(case: SvgCase) -> CaseReport {
             return report;
         }
     };
+    let paths = records
+        .iter()
+        .map(|record| record.path.clone())
+        .collect::<Vec<_>>();
     let contour_count = paths.iter().map(|path| path.contours.len()).sum::<usize>();
     let point_count = paths
         .iter()
@@ -812,9 +971,13 @@ pub fn run_svg_case(case: SvgCase) -> CaseReport {
 
     let mut triangles = Vec::new();
     let mut fill_paths = 0;
-    for path in &paths {
-        if path.contours.iter().all(|contour| contour.closed) {
-            match tessellate_general_fill_with_rule(path, VectorFillRule::EvenOdd) {
+    for record in &records {
+        if record.fill && record.path.contours.iter().all(|contour| contour.closed) {
+            let fill_rule = match record.fill_rule {
+                SvgFillRule::NonZero => VectorFillRule::NonZero,
+                SvgFillRule::EvenOdd => VectorFillRule::EvenOdd,
+            };
+            match tessellate_general_fill_with_rule(&record.path, fill_rule) {
                 Ok(mut path_triangles) => {
                     triangles.append(&mut path_triangles);
                     fill_paths += 1;
@@ -849,6 +1012,117 @@ pub fn run_svg_case(case: SvgCase) -> CaseReport {
                 format_mesh_summary(&validation)
             ),
         });
+    }
+    report
+}
+
+/// Runs a compact inline SVG document through XML, SVG semantic lowering, and
+/// structural fill tessellation. These fixtures make namespace/profile
+/// behavior observable without importing unrelated provider assets.
+pub fn run_synthetic_svg_case(case: SyntheticSvgCase) -> CaseReport {
+    let mut report = CaseReport {
+        id: case.id.to_owned(),
+        producer: "svg/synthetic".to_owned(),
+        selected_stages: CorpusCase::SyntheticSvg(case).selected_stages().to_vec(),
+        stages: vec![StageReport {
+            stage: CorpusStage::Source,
+            status: StageStatus::Ready,
+            summary: format!("inline fixture bytes={}", case.source.len()),
+        }],
+        diagnostics: Vec::new(),
+    };
+    let xml = match inspect_xml_stage(case.source, XmlSourceId::new(3)) {
+        Ok(xml) => {
+            report.stages.push(StageReport {
+                stage: CorpusStage::Xml,
+                status: StageStatus::Ready,
+                summary: xml.evidence.summary(),
+            });
+            xml
+        }
+        Err(message) => {
+            report.stages.push(failed_stage(CorpusStage::Xml, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+    };
+    let records = match parse_svg_document_vector_records_from_xml_events(
+        &xml.events,
+        12,
+        SvgViewportSource::Caller([0.0, 0.0, 24.0, 24.0]),
+    ) {
+        Ok(records) if records.len() == 1 => records,
+        Ok(records) => {
+            let message = format!(
+                "namespace fixture expected exactly one SVG path after ignoring foreign geometry, found {}",
+                records.len()
+            );
+            report
+                .stages
+                .push(failed_stage(CorpusStage::Vector, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+        Err(error) => {
+            let message = format!("synthetic SVG vector conversion failed: {error}");
+            report
+                .stages
+                .push(failed_stage(CorpusStage::Vector, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+    };
+    let paths = records
+        .iter()
+        .map(|record| record.path.clone())
+        .collect::<Vec<_>>();
+    report.stages.push(StageReport {
+        stage: CorpusStage::Vector,
+        status: StageStatus::Ready,
+        summary: format!(
+            "{} paths=1 contours={} points={}",
+            case.description,
+            paths[0].contours.len(),
+            paths[0]
+                .contours
+                .iter()
+                .map(|contour| contour.points.len())
+                .sum::<usize>()
+        ),
+    });
+    let triangles = match tessellate_general_fill_with_rule(
+        &paths[0],
+        match records[0].fill_rule {
+            SvgFillRule::NonZero => VectorFillRule::NonZero,
+            SvgFillRule::EvenOdd => VectorFillRule::EvenOdd,
+        },
+    ) {
+        Ok(triangles) => triangles,
+        Err(error) => {
+            let message = format!("synthetic SVG fill tessellation failed: {error}");
+            report
+                .stages
+                .push(failed_stage(CorpusStage::Mesh, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+    };
+    let validation = validate_mesh(&triangles);
+    if validation.finite && validation.complete_triangles && validation.triangle_count > 0 {
+        report.stages.push(StageReport {
+            stage: CorpusStage::Mesh,
+            status: StageStatus::Ready,
+            summary: format_mesh_summary(&validation),
+        });
+    } else {
+        let message = format!(
+            "synthetic SVG mesh validation failed: {}",
+            format_mesh_summary(&validation)
+        );
+        report
+            .stages
+            .push(failed_stage(CorpusStage::Mesh, &message));
+        report.diagnostics.push(message);
     }
     report
 }
@@ -897,26 +1171,68 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
             return report;
         }
     };
-    let records =
-        match ui_tools::parse_svg_document_vector_records(&svg, 12, [0.0, 0.0, 480.0, 360.0]) {
-            Ok(records) if !records.is_empty() => records,
-            Ok(_) => {
-                let message = "W3C SVG parser produced no vector paths".to_owned();
+    let xml = match inspect_xml_stage(&svg, XmlSourceId::new(2)) {
+        Ok(xml) => {
+            report.stages.push(StageReport {
+                stage: CorpusStage::Xml,
+                status: StageStatus::Ready,
+                summary: xml.evidence.summary(),
+            });
+            xml
+        }
+        Err(message) => {
+            report.stages.push(failed_stage(CorpusStage::Xml, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+    };
+    debug_assert!(xml.evidence.has_document_element);
+    let records = match parse_svg_document_vector_records_from_xml_events(
+        &xml.events,
+        12,
+        SvgViewportSource::Caller([0.0, 0.0, 480.0, 360.0]),
+    ) {
+        Ok(records) if !records.is_empty() => {
+            if case.expectation == W3cSvgExpectation::UnsupportedProfile {
+                let message = "W3C SVG fixture was expected to stop at the admitted SVG profile, but it lowered successfully; review the selected-fixture expectation";
                 report
                     .stages
-                    .push(failed_stage(CorpusStage::Vector, &message));
-                report.diagnostics.push(message);
+                    .push(failed_stage(CorpusStage::Vector, message));
+                report.diagnostics.push(message.to_owned());
                 return report;
             }
-            Err(error) => {
-                let message = format!("W3C SVG vector conversion failed: {error}");
-                report
-                    .stages
-                    .push(failed_stage(CorpusStage::Vector, &message));
-                report.diagnostics.push(message);
+            records
+        }
+        Ok(_) => {
+            let message = "W3C SVG parser produced no vector paths".to_owned();
+            report
+                .stages
+                .push(failed_stage(CorpusStage::Vector, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+        Err(error) => {
+            if case.expectation == W3cSvgExpectation::UnsupportedProfile {
+                report.stages.push(StageReport {
+                    stage: CorpusStage::Vector,
+                    status: StageStatus::ExpectedFailure,
+                    summary: format!("expected SVG-profile exclusion: {}", error),
+                });
+                report.stages.push(StageReport {
+                    stage: CorpusStage::Mesh,
+                    status: StageStatus::ExpectedFailure,
+                    summary: "not attempted after expected SVG-profile exclusion".to_owned(),
+                });
                 return report;
             }
-        };
+            let message = format!("W3C SVG vector conversion failed: {error}");
+            report
+                .stages
+                .push(failed_stage(CorpusStage::Vector, &message));
+            report.diagnostics.push(message);
+            return report;
+        }
+    };
     let paths = records
         .iter()
         .map(|record| record.path.clone())
@@ -1661,42 +1977,216 @@ pub fn write_glyph_artifacts(case: GlyphCase) -> Result<PathBuf, String> {
     Ok(root)
 }
 
+/// Writes structural artifacts for a prepared Lucide SVG case.
+pub fn write_svg_artifacts(case: SvgCase) -> Result<PathBuf, String> {
+    let corpus_root = find_lucide_corpus_root()
+        .ok_or_else(|| "Lucide corpus not found; run prepare-lucide-sample.ps1".to_owned())?;
+    let source_path = corpus_root.join(case.file_name);
+    let source = fs::read_to_string(&source_path)
+        .map_err(|error| format!("read Lucide source {}: {error}", source_path.display()))?;
+    let xml = inspect_xml_stage(&source, XmlSourceId::new(1))
+        .map_err(|error| format!("Lucide XML inspection failed: {error}"))?;
+    let records = parse_svg_document_vector_records_from_xml_events(
+        &xml.events,
+        12,
+        SvgViewportSource::Caller([0.0, 0.0, 24.0, 24.0]),
+    )
+    .map_err(|error| format!("Lucide vector conversion failed: {error}"))?;
+    write_svg_record_artifacts(
+        case.id,
+        "svg/lucide",
+        format!("Lucide/{}", case.file_name),
+        source,
+        xml,
+        records,
+    )
+}
+
+/// Writes structural artifacts for an inline SVG semantic fixture.
+pub fn write_synthetic_svg_artifacts(case: SyntheticSvgCase) -> Result<PathBuf, String> {
+    let source = case.source.to_owned();
+    let xml = inspect_xml_stage(&source, XmlSourceId::new(3))
+        .map_err(|error| format!("synthetic SVG XML inspection failed: {error}"))?;
+    let records = parse_svg_document_vector_records_from_xml_events(
+        &xml.events,
+        12,
+        SvgViewportSource::Caller([0.0, 0.0, 24.0, 24.0]),
+    )
+    .map_err(|error| format!("synthetic SVG vector conversion failed: {error}"))?;
+    write_svg_record_artifacts(
+        case.id,
+        "svg/synthetic",
+        "inline namespace fixture".to_owned(),
+        source,
+        xml,
+        records,
+    )
+}
+
 /// Writes structural artifacts for one admitted W3C SVG case. This deliberately
-/// stops at source, vector, and CPU mesh evidence; it does not invoke the W3C
-/// browser harness or capture a backend framebuffer.
+/// stops at source, XML, vector, and CPU mesh evidence; it does not invoke the
+/// W3C browser harness or capture a backend framebuffer.
 pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
     let fixture_root = find_w3c_fixture_root()
         .ok_or_else(|| "W3C SVG fixture not found; run verify-w3c-svg-fixtures.ps1".to_owned())?;
     let source_path = fixture_root.join("upstream/svg").join(case.file_name);
     let source = fs::read_to_string(&source_path)
         .map_err(|error| format!("read W3C source {}: {error}", source_path.display()))?;
-    let paths = ui_tools::parse_svg_document_vector_paths(&source, 12, [0.0, 0.0, 480.0, 360.0])
-        .map_err(|error| format!("W3C vector conversion failed: {error}"))?;
+    let xml = inspect_xml_stage(&source, XmlSourceId::new(2))
+        .map_err(|error| format!("W3C XML inspection failed: {error}"))?;
+    let records = match parse_svg_document_vector_records_from_xml_events(
+        &xml.events,
+        12,
+        SvgViewportSource::Caller([0.0, 0.0, 480.0, 360.0]),
+    ) {
+        Ok(records) => records,
+        Err(error) if case.expectation == W3cSvgExpectation::UnsupportedProfile => {
+            return write_svg_profile_exclusion_artifacts(
+                case.id,
+                "svg/w3c",
+                format!("W3C SVG 1.1 2nd Edition/{}", case.file_name),
+                source,
+                &xml.evidence,
+                error.to_string(),
+            );
+        }
+        Err(error) => return Err(format!("W3C vector conversion failed: {error}")),
+    };
+    if case.expectation == W3cSvgExpectation::UnsupportedProfile {
+        return Err(
+            "W3C SVG fixture unexpectedly lowered despite an unsupported-profile expectation"
+                .to_owned(),
+        );
+    }
+    write_svg_record_artifacts(
+        case.id,
+        "svg/w3c",
+        format!("W3C SVG 1.1 2nd Edition/{}", case.file_name),
+        source,
+        xml,
+        records,
+    )
+}
+
+/// Writes the durable source/XML evidence for a deliberately excluded SVG
+/// fixture. No vector or mesh artifact is invented, because those stages were
+/// not reached by the admitted profile.
+fn write_svg_profile_exclusion_artifacts(
+    case_id: &str,
+    producer: &str,
+    source_label: String,
+    source: String,
+    xml: &XmlStageEvidence,
+    diagnostic: String,
+) -> Result<PathBuf, String> {
+    let root = PathBuf::from("target/presentation-geometry-corpus").join(case_id);
+    fs::create_dir_all(&root).map_err(|error| format!("create artifact directory: {error}"))?;
+    let input_hash = format!("fnv1a64:{:016x}", fnv1a64(source.as_bytes(), '\0'));
+    let algorithms = ArtifactAlgorithms {
+        flatten: "not-run:SVG-profile-exclusion".to_owned(),
+        tessellator: "not-run:SVG-profile-exclusion".to_owned(),
+        fill_rule: "not-run:SVG-profile-exclusion".to_owned(),
+    };
+    let envelope = |artifact: &str| ArtifactEnvelope {
+        schema: 1,
+        artifact: artifact.to_owned(),
+        producer: producer.to_owned(),
+        case_id: case_id.to_owned(),
+        input_hash: input_hash.clone(),
+        source: source_label.clone(),
+        algorithms: algorithms.clone(),
+    };
+    let xml_artifact = XmlArtifact {
+        metadata: envelope("xml"),
+        event_count: xml.event_count,
+        start_elements: xml.start_elements,
+        end_elements: xml.end_elements,
+        text_nodes: xml.text_nodes,
+        comments: xml.comments,
+        processing_instructions: xml.processing_instructions,
+        document_roots: xml.document_roots,
+        has_document_element: xml.has_document_element,
+    };
+    let profile_artifact = SvgProfileExclusionArtifact {
+        metadata: envelope("svg-profile-exclusion"),
+        expectation: "unsupported-profile".to_owned(),
+        diagnostic,
+    };
+    let graph_artifact = GraphArtifact {
+        metadata: envelope("graph"),
+        nodes: [
+            ("source", "ready", "source.svg"),
+            ("xml", "ready", "xml.json"),
+            ("vector", "expected-failure", "svg-profile-exclusion.json"),
+            ("mesh", "expected-failure", "not-produced"),
+        ]
+        .into_iter()
+        .map(|(stage, status, artifact)| GraphNode {
+            id: format!("{case_id}/{stage}"),
+            stage: stage.to_owned(),
+            status: status.to_owned(),
+            artifact: artifact.to_owned(),
+        })
+        .collect(),
+        edges: [("source", "xml"), ("xml", "vector"), ("vector", "mesh")]
+            .into_iter()
+            .map(|(from, to)| GraphEdge {
+                from: format!("{case_id}/{from}"),
+                to: format!("{case_id}/{to}"),
+            })
+            .collect(),
+    };
+    write_json(&root.join("xml.json"), &xml_artifact)?;
+    write_json(&root.join("svg-profile-exclusion.json"), &profile_artifact)?;
+    write_json(&root.join("graph.json"), &graph_artifact)?;
+    fs::write(root.join("source.svg"), source)
+        .map_err(|error| format!("write source.svg: {error}"))?;
+    Ok(root)
+}
+
+/// Captures SVG XML, vector, and fill-mesh evidence from the same record-aware
+/// semantic lowering used by the corpus runner. This keeps artifact evidence
+/// from silently substituting a different fill rule than the reported case.
+fn write_svg_record_artifacts(
+    case_id: &str,
+    producer: &str,
+    source_label: String,
+    source: String,
+    xml: XmlStageInspection,
+    records: Vec<SvgVectorRecord>,
+) -> Result<PathBuf, String> {
+    let paths = records
+        .iter()
+        .map(|record| record.path.clone())
+        .collect::<Vec<_>>();
     let mut triangles = Vec::new();
-    for path in &paths {
-        if path.contours.iter().all(|contour| contour.closed) {
-            let mut path_triangles =
-                tessellate_general_fill_with_rule(path, VectorFillRule::EvenOdd)
-                    .map_err(|error| format!("W3C mesh tessellation failed: {error}"))?;
+    for record in &records {
+        if record.fill && record.path.contours.iter().all(|contour| contour.closed) {
+            let fill_rule = match record.fill_rule {
+                SvgFillRule::NonZero => VectorFillRule::NonZero,
+                SvgFillRule::EvenOdd => VectorFillRule::EvenOdd,
+            };
+            let mut path_triangles = tessellate_general_fill_with_rule(&record.path, fill_rule)
+                .map_err(|error| format!("SVG mesh tessellation failed: {error}"))?;
             triangles.append(&mut path_triangles);
         }
     }
 
-    let root = PathBuf::from("target/presentation-geometry-corpus").join(case.id);
+    let root = PathBuf::from("target/presentation-geometry-corpus").join(case_id);
     fs::create_dir_all(&root).map_err(|error| format!("create artifact directory: {error}"))?;
     let input_hash = format!("fnv1a64:{:016x}", fnv1a64(source.as_bytes(), '\0'));
     let algorithms = ArtifactAlgorithms {
         flatten: "svg-path-flatten-v1:subdivisions=12".to_owned(),
         tessellator: "ui-tools-general-fill".to_owned(),
-        fill_rule: "even-odd".to_owned(),
+        fill_rule: "per-record SVG fill-rule".to_owned(),
     };
     let envelope = |artifact: &str| ArtifactEnvelope {
         schema: 1,
         artifact: artifact.to_owned(),
-        producer: "svg/w3c".to_owned(),
-        case_id: case.id.to_owned(),
+        producer: producer.to_owned(),
+        case_id: case_id.to_owned(),
         input_hash: input_hash.clone(),
-        source: format!("W3C SVG 1.1 2nd Edition/{}", case.file_name),
+        source: source_label.clone(),
         algorithms: algorithms.clone(),
     };
     let vector_artifact = VectorArtifact {
@@ -1718,6 +2208,17 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
             .collect(),
         intersections: paths.iter().flat_map(segment_intersections).collect(),
     };
+    let xml_artifact = XmlArtifact {
+        metadata: envelope("xml"),
+        event_count: xml.evidence.event_count,
+        start_elements: xml.evidence.start_elements,
+        end_elements: xml.evidence.end_elements,
+        text_nodes: xml.evidence.text_nodes,
+        comments: xml.evidence.comments,
+        processing_instructions: xml.evidence.processing_instructions,
+        document_roots: xml.evidence.document_roots,
+        has_document_element: xml.evidence.has_document_element,
+    };
     let mesh_artifact = MeshArtifact {
         metadata: envelope("mesh"),
         bounds: bounds_of_points(&triangles),
@@ -1734,14 +2235,15 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
     };
     let graph_artifact = GraphArtifact {
         metadata: envelope("graph"),
-        nodes: ["source", "vector", "mesh"]
+        nodes: ["source", "xml", "vector", "mesh"]
             .into_iter()
             .map(|stage| GraphNode {
-                id: format!("{}/{}", case.id, stage),
+                id: format!("{case_id}/{stage}"),
                 stage: stage.to_owned(),
                 status: "ready".to_owned(),
                 artifact: match stage {
                     "source" => "source.svg",
+                    "xml" => "xml.json",
                     "vector" => "vector.json",
                     "mesh" => "mesh.json",
                     _ => unreachable!(),
@@ -1749,28 +2251,29 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
                 .to_owned(),
             })
             .collect(),
-        edges: [("source", "vector"), ("vector", "mesh")]
+        edges: [("source", "xml"), ("xml", "vector"), ("vector", "mesh")]
             .into_iter()
             .map(|(from, to)| GraphEdge {
-                from: format!("{}/{}", case.id, from),
-                to: format!("{}/{}", case.id, to),
+                from: format!("{case_id}/{from}"),
+                to: format!("{case_id}/{to}"),
             })
             .collect(),
     };
 
+    write_json(&root.join("xml.json"), &xml_artifact)?;
     write_json(&root.join("vector.json"), &vector_artifact)?;
     write_json(&root.join("mesh.json"), &mesh_artifact)?;
     write_json(&root.join("mesh-fingerprint.json"), &mesh_fingerprint)?;
     write_json(&root.join("graph.json"), &graph_artifact)?;
     fs::write(root.join("source.svg"), source)
-        .map_err(|error| format!("write W3C source artifact: {error}"))?;
+        .map_err(|error| format!("write SVG source artifact: {error}"))?;
     fs::write(
         root.join("contours.svg"),
         paths.iter().map(contours_svg).collect::<String>(),
     )
-    .map_err(|error| format!("write W3C contour artifact: {error}"))?;
+    .map_err(|error| format!("write SVG contour artifact: {error}"))?;
     fs::write(root.join("mesh.svg"), mesh_svg(&mesh_artifact.triangles))
-        .map_err(|error| format!("write W3C mesh artifact: {error}"))?;
+        .map_err(|error| format!("write SVG mesh artifact: {error}"))?;
     Ok(root)
 }
 
@@ -2111,6 +2614,71 @@ fn failed_stage(stage: CorpusStage, message: &str) -> StageReport {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct XmlStageEvidence {
+    event_count: usize,
+    start_elements: usize,
+    end_elements: usize,
+    text_nodes: usize,
+    comments: usize,
+    processing_instructions: usize,
+    document_roots: usize,
+    has_document_element: bool,
+}
+
+/// One parser-neutral XML event stream feeds both XML evidence and SVG lowering.
+struct XmlStageInspection {
+    evidence: XmlStageEvidence,
+    events: Vec<XmlEvent>,
+}
+
+impl XmlStageEvidence {
+    fn summary(self) -> String {
+        format!(
+            "events={} elements={}/{} text={} comments={} processing_instructions={} roots={} document_element={}",
+            self.event_count,
+            self.start_elements,
+            self.end_elements,
+            self.text_nodes,
+            self.comments,
+            self.processing_instructions,
+            self.document_roots,
+            self.has_document_element,
+        )
+    }
+}
+
+/// Parses and retains a document independently of SVG semantics so the corpus
+/// can localize failures at the XML boundary before vector lowering begins.
+fn inspect_xml_stage(source: &str, source_id: XmlSourceId) -> Result<XmlStageInspection, String> {
+    let events = parse_xml_events(source_id, source, XmlOptions::default())
+        .map_err(|error| format!("XML parse failed: {error}"))?;
+    let document =
+        XmlDocument::from_events(XmlDocumentId::new(source_id.value()), source_id, &events)
+            .map_err(|error| format!("XML document construction failed: {error}"))?;
+
+    let mut evidence = XmlStageEvidence {
+        event_count: events.len(),
+        start_elements: 0,
+        end_elements: 0,
+        text_nodes: 0,
+        comments: 0,
+        processing_instructions: 0,
+        document_roots: document.roots().len(),
+        has_document_element: document.document_element().is_some(),
+    };
+    for event in &events {
+        match event {
+            XmlEvent::StartElement { .. } => evidence.start_elements += 1,
+            XmlEvent::EndElement { .. } => evidence.end_elements += 1,
+            XmlEvent::Text { .. } => evidence.text_nodes += 1,
+            XmlEvent::Comment { .. } => evidence.comments += 1,
+            XmlEvent::ProcessingInstruction { .. } => evidence.processing_instructions += 1,
+        }
+    }
+    Ok(XmlStageInspection { evidence, events })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2120,7 +2688,7 @@ mod tests {
         assert_eq!(glyph_cases()[0], GlyphCase::new("glyph/inter/K", 'K'));
         assert_eq!(
             CorpusStage::ALL.map(CorpusStage::name),
-            ["source", "outline", "vector", "mesh"]
+            ["source", "xml", "outline", "vector", "mesh"]
         );
     }
 
@@ -2202,6 +2770,39 @@ mod tests {
     }
 
     #[test]
+    fn synthetic_svg_namespace_case_ignores_foreign_local_name_collisions() {
+        let case = synthetic_svg_cases()[0];
+        let report = run_synthetic_svg_case(case);
+        assert!(report.passed(), "{report:#?}");
+        assert_eq!(report.producer, "svg/synthetic");
+        assert_eq!(report.stages[2].stage, CorpusStage::Vector);
+        assert_eq!(report.stages[2].status, StageStatus::Ready);
+        assert!(all_cases().contains(&CorpusCase::SyntheticSvg(case)));
+    }
+
+    #[test]
+    fn admitted_w3c_cases_are_registered_for_golden_comparison() {
+        assert_eq!(w3c_svg_cases().len(), 4);
+        for case in w3c_svg_cases() {
+            let corpus_case = CorpusCase::W3cSvg(*case);
+            assert!(all_cases().contains(&corpus_case));
+            assert_eq!(find_case(case.id), Some(corpus_case));
+        }
+    }
+
+    #[test]
+    fn w3c_profile_exclusions_are_explicitly_classified() {
+        assert_eq!(
+            w3c_svg_cases()[2].expectation,
+            W3cSvgExpectation::UnsupportedProfile
+        );
+        assert_eq!(
+            w3c_svg_cases()[3].expectation,
+            W3cSvgExpectation::UnsupportedProfile
+        );
+    }
+
+    #[test]
     fn ui_cases_have_stable_ids() {
         assert_eq!(ui_cases().len(), 1);
         assert_eq!(
@@ -2218,7 +2819,33 @@ mod tests {
         );
         assert_eq!(
             CorpusCase::Svg(svg_cases()[0]).selected_stages(),
-            &PATH_STAGES
+            &SVG_STAGES
         );
+        assert_eq!(
+            CorpusCase::SyntheticSvg(synthetic_svg_cases()[0]).selected_stages(),
+            &SVG_STAGES
+        );
+        assert_eq!(
+            CorpusCase::W3cSvg(w3c_svg_cases()[0]).selected_stages(),
+            &SVG_STAGES
+        );
+    }
+
+    #[test]
+    fn xml_stage_retains_parser_neutral_document_evidence() {
+        let inspection = inspect_xml_stage(
+            "<?xml version=\"1.0\"?><svg><!-- note --><path d=\"M 0 0\"/></svg>",
+            XmlSourceId::new(77),
+        )
+        .expect("valid XML should produce stage evidence");
+        assert_eq!(inspection.evidence.start_elements, 2);
+        assert_eq!(inspection.evidence.end_elements, 2);
+        assert_eq!(inspection.evidence.comments, 1);
+        // XML declarations are handled by the parser profile, rather than
+        // retained as ordinary processing-instruction document nodes.
+        assert_eq!(inspection.evidence.processing_instructions, 0);
+        assert_eq!(inspection.evidence.document_roots, 1);
+        assert!(inspection.evidence.has_document_element);
+        assert_eq!(inspection.events.len(), inspection.evidence.event_count);
     }
 }

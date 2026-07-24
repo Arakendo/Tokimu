@@ -810,9 +810,12 @@ Current evidence:
   reviewed case registry;
 - generation is capped at 1000 cases per invocation to keep local diagnostics
   bounded;
-- The pinned W3C fixture now supplies two admitted source/vector/mesh cases;
-  the remaining manifest entries stay selection candidates until their SVG
-  semantics and topology are independently supported.
+- The pinned W3C fixture supplies two admitted source/vector/mesh cases plus
+  two explicitly classified profile exclusions for group inheritance and
+  transform composition. The exclusions preserve source/XML artifacts without
+  implying support for their unrelated `defs` and text content; remaining
+  manifest entries stay selection candidates until their SVG semantics and
+  topology are independently supported.
 - Optional differential rendering remains open because it adds dependency
   cost and is not needed to localize the current structural failures.
 - the prepared Lucide external subset now records provider revision, source
@@ -834,6 +837,15 @@ Current W3C evidence:
 
 - `svg/w3c/painting-fill-03-t` reaches source, vector, and mesh stages;
 - `svg/w3c/paths-data-16-t` reaches source, vector, and mesh stages;
+- `svg/w3c/struct-group-01-t` records source/XML evidence and an expected
+  SVG-profile exclusion at `defs`, preserving its group/inheritance provenance
+  without counting it as a structural pass;
+- `svg/w3c/coords-trans-02-t` records source/XML evidence and an expected
+  SVG-profile exclusion at `defs`, preserving its transform provenance without
+  counting it as a structural pass;
+- `svg/synthetic/prefixed-namespace` proves the parser-neutral XML/SVG
+  boundary ignores a foreign local-name collision while lowering a prefixed SVG
+  path through vector and mesh stages;
 - SVG records now preserve importer-owned `fill` and `stroke` intent while the
   shared `VectorPath` contract remains paint-neutral;
 - the W3C runner sends only closed records marked for fill into the shared

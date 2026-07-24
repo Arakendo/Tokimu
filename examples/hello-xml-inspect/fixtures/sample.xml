@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A compact inspection fixture with namespaces and mixed retained nodes. -->
+<catalog xmlns="urn:tokimu:catalog" xmlns:meta="urn:tokimu:meta" version="1">
+  <?tokimu mode="inspect"?>
+  <item meta:id="alpha" enabled="true">First item</item>
+  <item meta:id="beta"><![CDATA[Second <item>]]></item>
+</catalog>

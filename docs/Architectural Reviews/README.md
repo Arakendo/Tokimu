@@ -154,3 +154,5 @@ across unrelated decisions.
   — Incubating
 - [AR-0002: Native Execution and Multithreading Ownership](AR-0002-native-execution-and-multithreading.md)
   — Accepted; resulted in ADR-0006
+- [AR-0003: XML Document Boundary](AR-0003-xml-document-boundary.md)
+  — Incubating

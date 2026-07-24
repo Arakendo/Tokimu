@@ -342,6 +342,17 @@ path topology rather than to per-segment corrective geometry. Lucide assets are
 reference data used to pressure this contract, not a source of example-owned
 fallback shapes.
 
+The XML-to-SVG boundary is deliberately profile-based. `xml-tools` owns
+well-formed XML, decoded attributes, expanded names, spans, and event order;
+`svg.rs` owns SVG namespace policy, path grammar, the admitted presentation
+state, transforms, and viewport interpretation. The initial SVG profile admits
+only `svg` and `g` containers plus `path`, `circle`, `line`, `polyline`,
+`polygon`, and `rect` geometry. Text, `defs`/`use`, clipping, paint servers,
+filters, masks, animation, scripting, and external resources are diagnosed as
+unadmitted SVG semantics rather than silently treated as supported. Parsed XML
+events may feed SVG lowering directly so corpus `xml.json` evidence and SVG
+records share source identity without duplicating syntax parsing.
+
 ## Button Corpus
 
 The button example should be treated as a corpus test for the whole UI stack.

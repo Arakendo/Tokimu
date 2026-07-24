@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c",
+    "case_id": "svg/w3c/painting-fill-03-t",
+    "input_hash": "fnv1a64:1d1faa5f3b6b8432",
+    "source": "W3C SVG 1.1 2nd Edition/painting-fill-03-t.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.4375,
+      -0.15277779
+    ],
+    [
+      0.4270833,
+      0.2916667
+    ]
+  ],
+  "triangle_count": 24,
+  "degenerate_triangles": 10,
+  "total_area": 0.08223624,
+  "canonical_triangle_hash": "fnv1a64:c3730ea1c49f0cce"
+}

@@ -89,3 +89,15 @@ id = "painting-fill-03-t.svg"
 capability = ["fill-rule", "even-odd", "non-zero", "multiple-contours"]
 reason = "Provides direct contrasting even-odd and non-zero fill-rule geometry."
 expected = "structural-pass"
+
+[[case]]
+id = "struct-group-01-t.svg"
+capability = ["nested-groups", "presentation-inheritance", "transform"]
+reason = "Provides W3C provenance for group nesting, inherited fill, and nested rotation; its defs and text remain outside the initial SVG profile."
+expected = "unsupported-profile"
+
+[[case]]
+id = "coords-trans-02-t.svg"
+capability = ["transform", "nested-transform", "translation", "rotation"]
+reason = "Provides W3C provenance for transform composition; its defs and text remain outside the initial SVG profile."
+expected = "unsupported-profile"

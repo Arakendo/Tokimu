@@ -13,7 +13,8 @@ The runner currently covers four producer groups:
 
 - synthetic topology probes;
 - prepared Inter font outline regressions;
-- a prepared Lucide SVG source fixture.
+- a prepared Lucide SVG source fixture;
+- two admitted W3C SVG source fixtures;
 - semantic UI surface lowering.
 
 The font cases are:
@@ -26,6 +27,11 @@ The font cases are:
 The SVG case is:
 
 - `svg/lucide/archive`
+
+The admitted W3C SVG cases are:
+
+- `svg/w3c/painting-fill-03-t`
+- `svg/w3c/paths-data-16-t`
 
 The UI case is:
 
@@ -45,7 +51,7 @@ For SVG, the outline stage is omitted because SVG is already the path
 producer:
 
 ```text
-source -> vector -> mesh
+source -> xml -> vector -> mesh
 ```
 
 The UI case also starts at source semantics and observes the public lowering
@@ -55,8 +61,10 @@ The first divergent stage is the owning diagnostic boundary. A valid vector
 result with open paths that do not reach the fill mesh is therefore an explicit
 capability boundary, not a silently accepted rendering result.
 
-The report is structural evidence. Glyph cases also emit normalized diagnostic
-artifacts and CPU image evidence; SVG and UI artifact serialization remains
+The report is structural evidence. Glyph cases emit normalized diagnostic
+artifacts and CPU image evidence. SVG and W3C cases emit parser-neutral XML,
+vector, mesh, and mesh-fingerprint artifacts from the same record-aware SVG
+lowering used by their report path. UI artifact serialization remains
 producer-specific work for a later slice.
 
 The geometry corpus runner is the only workspace producer of the shared
@@ -92,11 +100,13 @@ remain distinct on case-insensitive filesystems. Normal runs do not compare or
 mutate golden expectations. The `*-all` commands apply the same behavior to
 every registered case; only `bless-all` mutates fixtures.
 
-Glyph cases additionally emit a normalized `mesh-fingerprint.json`. The
-fingerprint records mesh bounds and validation metrics plus an order-independent
-triangle hash, while the raw `mesh.json`, SVG, and CPU image remain available
-for detailed diagnostics. This keeps reviewed evidence sensitive to geometry
-changes without making tessellator emission order part of the early contract.
+Glyph, Lucide, and admitted W3C SVG cases emit a normalized
+`mesh-fingerprint.json`. The fingerprint records mesh bounds and validation
+metrics plus an order-independent triangle hash, while raw XML/vector/mesh
+artifacts remain available for detailed diagnostics. This keeps reviewed
+evidence sensitive to geometry changes without making tessellator emission
+order part of the early contract. SVG mesh artifacts honor each record's fill
+and fill-rule metadata rather than applying a corpus-only fallback rule.
 
 Glyph cases also emit `image-fingerprint.json` for the deterministic CPU RGBA8
 source buffer. Reviewed comparisons use its dimensions, source-buffer identity,

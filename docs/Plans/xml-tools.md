@@ -5,24 +5,31 @@
 Implementation in progress. Slice 0 has an initial local fixture baseline and
 Slice 1 has established the incubating crate, parser-neutral diagnostic core,
 and bounded input contract. The first consumer remains the SVG corpus/import
-path. XML parsing, document modeling, XSD, and XPath are separate graduation
-steps rather than one up-front standards implementation.
+path. XML parsing, document modeling, XPath, XSLT, and XSD are separate
+graduation steps rather than one up-front standards implementation.
 
 ### Current Progress
 
 - Initial XML fixture baseline recorded under `tests/fixtures/xml/`.
 - `examples/lib-example/xml-tools` builds without rendering, platform,
-  filesystem, browser, SVG, or parser dependencies.
+  filesystem, browser, SVG, or Tokimu engine dependencies. Its selected parser
+  dependency remains private behind parser-neutral `xml-tools` types.
 - Source IDs, half-open spans, options, safe resource limits, and stable
   diagnostic categories/codes are implemented and tested.
 - Parser-neutral bounded events now cover elements, attributes, comments,
   processing instructions, CDATA/text, predefined and numeric references, and
-  namespace-expanded identities. The immutable document model and SVG
-  migration remain open slices.
+  namespace-expanded identities. The immutable document model retains those
+  events as source-ordered nodes with document-local handles. The SVG importer
+  now consumes the parser-neutral event path directly for semantic lowering and
+  corpus artifact evidence.
 - `quick-xml 0.39.4` is the selected first parser adapter: its pure-Rust,
   streaming namespace-aware reader is kept private behind `xml-tools` types.
-  Source-span mapping, strict UTF-8 handling, and explicit unsupported-feature
-  diagnostics are now exercised by Slice 2 fixtures and focused tests.
+  Source-span mapping, strict UTF-8 handling, element-name and resource-limit
+  enforcement, and explicit unsupported-feature diagnostics are now exercised
+  by Slice 2 fixtures and focused tests. Unterminated and mismatched elements
+  are rejected at the parser-neutral event boundary rather than reaching a
+  later consumer. Matching-end validation is deliberately adapter-owned so
+  diagnostics retain the opening element span independent of parser behavior.
 - The W3C XML 2013-09-23 archive is vendored intact under
   `third-party/fixtures/w3c-xml-20130923/`. Its first selection is recorded
   in `selected/selection-v1.toml` with accepted, rejected, deferred, and
@@ -40,8 +47,8 @@ examples/lib-example/xml-tools/
 
 The library will provide a deterministic, bounded, native/WASM-compatible XML
 ingestion boundary that can replace the current SVG importer's hand-written tag
-scanning. It may later grow XSD and XPath support when concrete consumers earn
-those modules.
+scanning. It may later grow XPath, XSLT, and XSD support when concrete
+consumers earn those modules.
 
 The primary architectural claim is:
 
@@ -82,12 +89,13 @@ automatically make it a stable Tokimu capability.
 
 ## Motivation And Current Evidence
 
-The current SVG adapter in `examples/lib-example/ui-tools/src/svg.rs` scans text
-for element starts, tracks comments, searches for tag endings outside quotes,
-and extracts attribute text directly.
+The original bounded Lucide proof used text scanning inside the SVG adapter for
+element starts, comments, quoted tag endings, and attribute extraction. That
+transitional scanner has now been removed. `svg.rs` consumes parser-neutral
+`XmlEvent` values from `xml-tools`; XML owns syntax while the SVG importer owns
+its namespace/profile, presentation, transform, viewport, and path semantics.
 
-That implementation was appropriate for a bounded Lucide proof, but the W3C SVG
-corpus now creates pressure for a real XML boundary:
+The W3C SVG corpus established the pressure for that real XML boundary:
 
 - source order must remain stable;
 - malformed structure needs precise diagnostics;
@@ -101,7 +109,7 @@ corpus now creates pressure for a real XML boundary:
 
 The evidence supports an XML ingestion library and an XML stage in the SVG
 corpus. It does not yet support a first-party engine crate, a complete XSD
-processor, a complete XPath implementation, or a general web DOM.
+processor, complete XPath or XSLT implementations, or a general web DOM.
 
 ## Architectural Position
 
@@ -131,6 +139,7 @@ Consumers own:
 - SVG elements, paint, transforms, inheritance, and references;
 - XSD schema meaning and validation profiles;
 - XPath query semantics and supported language profiles;
+- XSLT stylesheet, transformation, output, and supported language profiles;
 - conversion from XML diagnostics into broader Tokimu diagnostics;
 - document loading, URLs, asset identity, and external-resource policy.
 
@@ -152,10 +161,11 @@ parser implementation
         v
 examples/lib-example/xml-tools
         |
-        +--------------------+
-        |                    |
-        v                    v
-SVG importer        future XSD/XPath modules
+        +--------------------+--------------------+
+        |                    |                    |
+        v                    v                    v
+SVG importer        future XPath/XSLT       future XSD
+                    modules                 module
         |
         v
 presentation/vector pipeline
@@ -278,8 +288,8 @@ Design constraints:
 - public nodes do not retain self-referential Rust borrows that make storage or
   WASM integration fragile.
 
-Do not add placeholder schema, XPath, mutation, visitor, serialization, or async
-traits before a slice requires them.
+Do not add placeholder schema, XPath, XSLT, mutation, visitor, serialization,
+or async traits before a slice requires them.
 
 ## Parser Implementation Policy
 
@@ -326,8 +336,8 @@ encoding
 internal-adapter
 ```
 
-Parser diagnostics must remain distinct from later SVG, XSD, XPath, vector, and
-mesh diagnostics.
+Parser diagnostics must remain distinct from later SVG, XSD, XPath, XSLT,
+vector, and mesh diagnostics.
 
 ## Corpus Layout
 
@@ -356,8 +366,9 @@ Generated artifacts belong under `target/`, not beside fixtures.
 
 ## External Standards Corpus Strategy
 
-The source discussion in `docs/Conversations/xml corpus.md` identifies one
-standards corpus for each planned layer:
+The source discussion in `docs/Conversations/xml corpus.md` identifies the XML,
+XPath, and XSD corpus foundations. XSLT adds a fourth independently admitted
+transformation corpus:
 
 ```text
 W3C XML Conformance Test Suite
@@ -366,16 +377,23 @@ W3C XML Conformance Test Suite
 XML parser, events, namespaces, and diagnostics
         |
         v
-W3C QT3 curated XPath subset
+immutable document model
         |
-        v
-immutable document and query behavior
+        +----> W3C QT3 curated XPath subset
+        |              |
+        |              v
+        |      query behavior
+        |              |
+        |              v
+        |      curated XSLT standards/reference subset
+        |              |
+        |              v
+        |      stylesheet compilation and transformation
         |
-        v
-W3C XML Schema curated subset
-        |
-        v
-schema compilation and instance validation
+        +----> W3C XML Schema curated subset
+                       |
+                       v
+              schema compilation and validation
 ```
 
 These upstream suites are evidence sources, not dependencies that Tokimu must
@@ -417,7 +435,8 @@ success.
 
 This is the first external suite to integrate. It must stabilize namespaces,
 expanded names, document order, character references, malformed-input
-diagnostics, and profile classification before XPath or XSD suites are admitted.
+diagnostics, and profile classification before XPath, XSLT, or XSD suites are
+admitted.
 
 ### W3C QT3 XPath Suite
 
@@ -450,6 +469,49 @@ Initially exclude cases requiring:
 
 The selection manifest must state the supported XPath version or subset and the
 QT3 dependencies accepted by the runner.
+
+### XSLT Standards Corpus
+
+Open an external XSLT corpus only after a transformation consumer and bounded
+XPath profile exist. Before vendoring, identify and verify a standards-derived
+or reference suite for the chosen XSLT version, including its provenance,
+license, expected-result format, and ability to select cases by feature.
+
+A bounded XSLT 1.0-style profile is the first candidate for web-facing
+interoperability, but the version is not accepted until a consumer and corpus
+selection make that choice explicit.
+
+Initial candidate groups:
+
+```text
+xslt/
+    template-match/
+    apply-templates/
+    literal-result-elements/
+    value-of/
+    for-each/
+    if-and-choose/
+    attributes/
+    namespaces/
+    xml-output/
+    text-output/
+```
+
+Initially defer:
+
+- `document()`, collections, and external URI access;
+- extension elements and extension functions;
+- script execution or host-language callbacks;
+- multiple result documents;
+- schema-aware processing;
+- streaming transformations;
+- packages, dynamic evaluation, and implementation-specific extensions;
+- HTML recovery or browser DOM mutation as transformation semantics.
+
+Every selected case must identify the stylesheet, source document, parameters,
+expected principal result, namespace/output normalization policy, and supported
+feature dependencies. Unsupported cases are classified
+`UnsupportedByProfile`, not counted as transformation failures.
 
 ### W3C XML Schema Suite
 
@@ -502,6 +564,11 @@ third-party/fixtures/
         selection-v1.toml
         provenance.json
         LICENSES/
+    w3c-xslt/
+        upstream/
+        selection-v1.toml
+        provenance.json
+        LICENSES/
     w3c-xsd/
         upstream/
         selection-v1.toml
@@ -547,25 +614,29 @@ claimed profile.
 
 ### Slice 0: Fix The Boundary And Baseline
 
-- Select the first SVG fixtures that currently exercise manual tag scanning.
-- Record current `SvgVectorRecord`, vector, mesh, and diagnostic outputs.
-- Identify XML failures separately from SVG semantic limitations.
-- Decide whether the first API is event-only or needs a minimal immutable
-  document for nested SVG state.
-- Evaluate candidate parser implementations against the initial standards
+Deliverables:
+
+- [x] Select the first SVG fixtures that exercise manual tag scanning.
+- [ ] Record current `SvgVectorRecord`, vector, mesh, and diagnostic outputs as
+  reviewed comparison artifacts.
+- [x] Identify XML failures separately from SVG semantic limitations.
+- [x] Decide the initial event API and whether retained traversal needs a
+  minimal immutable document.
+- [x] Evaluate candidate parser implementations against the initial standards
   profile.
-- Define the three-way external-case classification:
-  `Accepted`, `Rejected`, and `UnsupportedByProfile`.
-- Prepare the acquisition/provenance record and first deliberately small
-  selection manifest for the W3C XML suite.
+- [x] Define the three-way external-case classification: `Accepted`,
+  `Rejected`, and `UnsupportedByProfile`.
+- [x] Prepare the acquisition/provenance record and first deliberately small
+  W3C XML selection manifest.
 
-Acceptance:
+Acceptance criteria:
 
-- at least one well-formed, malformed, namespace, comment, and character-
-  reference case has a written expected result;
-- current SVG outputs are reproducible;
-- parser selection records capabilities and gaps without leaking into the
-  proposed public API.
+- [x] At least one well-formed, malformed, namespace, comment, and character-
+  reference case has a written expected result.
+- [x] Current SVG structural and diagnostic outputs are captured as
+  reproducible reviewed evidence.
+- [x] Parser selection records capabilities and gaps without leaking backend
+  types into the proposed public API.
 
 Progress: initial well-formed, malformed, namespace, character-reference,
 limit, and SVG-comment fixtures are recorded in `tests/fixtures/xml/`. Parser
@@ -577,44 +648,58 @@ matrix now live under `third-party/fixtures/w3c-xml-20130923/`. The default
 smoke test exercises the accepted/rejected/unsupported classification without
 claiming full-suite conformance. `scripts/verify-w3c-xml-fixtures.ps1`
 validates a locally retained archive checksum and the selected upstream paths
-without network access. Current SVG artifact comparison remains open.
+without network access. The admitted Lucide and W3C SVG cases now have explicit
+reviewed report snapshots and deterministic mesh fingerprints; SVG artifacts
+also preserve the XML stage that precedes semantic lowering.
 
 ### Slice 1: Create The Library And Diagnostic Core
 
-- Create `examples/lib-example/xml-tools` as a Rust library.
-- Add it explicitly to the workspace.
-- Add `DESIGN.md` describing its primary proof and incubation status.
-- Implement source IDs, spans, options, limits, and structured diagnostics.
-- Add native unit tests and a WASM compilation check.
+Deliverables:
 
-Acceptance:
+- [x] Create `examples/lib-example/xml-tools` as a Rust library.
+- [x] Add it explicitly to the workspace.
+- [x] Add `DESIGN.md` describing its primary proof and incubation status.
+- [x] Implement source IDs, spans, options, limits, and structured diagnostics.
+- [x] Add native unit tests.
+- [x] Add and run a WASM compilation check.
 
-- the crate builds without rendering, platform, filesystem, or browser
-  dependencies;
-- invalid options and limit violations are diagnostic;
-- no public parser-backend types exist.
+Acceptance criteria:
 
-Progress: complete. `xml-tools` is a zero-dependency workspace member with
-opaque source IDs, half-open source spans, validated `XmlLimits`,
-`XmlOptions`, `XmlDiagnostic`, and pre-parse input-size validation. Native unit
-tests cover defaults, invalid limits, source-scoped limit failures, and spans.
+- [x] The crate builds without rendering, platform, filesystem, or browser
+  dependencies.
+- [x] Invalid options and limit violations produce structured diagnostics.
+- [x] No public parser-backend types exist.
+
+Progress: complete. `xml-tools` has no Tokimu engine, rendering, platform,
+filesystem, or browser dependencies; its selected parser remains a private
+adapter. The crate owns opaque source IDs, half-open source spans, validated
+`XmlLimits`, `XmlOptions`, `XmlDiagnostic`, and pre-parse input-size
+validation. Native unit tests cover defaults, invalid limits, source-scoped
+limit failures, and spans.
 
 ### Slice 2: Add Bounded XML Events
 
-- Adapt the selected parser into namespace-aware `XmlEvent` values.
-- Preserve deterministic source order and original spans.
-- Decode the admitted character-reference profile.
-- Diagnose malformed nesting, attributes, namespace declarations, truncated
-  input, and unsupported declarations.
-- Enforce depth, node/event, attribute, and decoded-text limits.
+Deliverables:
 
-Acceptance:
+- [x] Adapt the selected parser into namespace-aware `XmlEvent` values.
+- [x] Preserve deterministic source order and original spans.
+- [x] Decode the admitted character-reference profile.
+- [x] Diagnose malformed nesting, attributes, namespace declarations,
+  truncated input, and unsupported declarations.
+- [x] Enforce depth, node/event, element-name, attribute,
+  attribute-value, and decoded-text limits.
+- [x] Keep matching-end validation at the parser-neutral boundary with the
+  opening element available as related diagnostic context.
 
-- the initial XML corpus passes on native;
-- the same accepted sources compile and execute through the same Rust path on
-  WASM where the test harness permits;
-- malformed and resource-limit cases fail with stable diagnostic categories;
-- external resources are never resolved.
+Acceptance criteria:
+
+- [x] The initial XML corpus passes on native.
+- [x] The same Rust parser path compiles for `wasm32-unknown-unknown`.
+- [ ] Accepted sources execute through the same Rust path on WASM when a test
+  harness is available.
+- [x] Malformed and resource-limit cases fail with stable diagnostic
+  categories and source spans.
+- [x] DTD processing and external resource resolution remain disabled.
 
 Progress: native implementation complete for the first bounded profile.
 `xml-tools` exposes only owned parser-neutral events, expanded names,
@@ -623,90 +708,189 @@ well-formed order, namespaced elements and attributes, allowed character
 references, malformed nesting, disabled DTD processing, unsupported encodings,
 depth limits, and W3C source bytes. `parse_xml_bytes` diagnoses non-UTF-8
 inputs before parser adaptation, allowing external UTF-16 cases to remain
-explicitly unsupported rather than being silently transcoded. WASM execution
-and broader malformed/limit coverage remain part of hardening rather than
-silently claimed complete.
+explicitly unsupported rather than being silently transcoded. Focused tests
+also cover element-name, attribute, value, decoded-text, node, nesting,
+unbound-prefix, truncated-input, and related-span mismatched-end boundaries.
+WASM execution and broader hostile-input coverage remain part of hardening
+rather than silently claimed complete.
 
 ### Slice 3: Add The Minimal Immutable Document
 
-- Introduce an arena-backed immutable document only if the SVG importer or first
-  XPath/XSD consumer needs retained traversal.
-- Preserve parent/child relationships, attributes, namespaces, source spans,
-  and document order.
-- Provide narrow traversal methods rather than a browser-shaped mutable DOM.
-- Keep event parsing usable for streaming consumers.
+Deliverables:
 
-Acceptance:
+- [x] Introduce an arena-backed immutable document for retained traversal.
+- [x] Preserve parent/child relationships, attributes, namespaces, source
+  spans, and document order.
+- [x] Provide narrow traversal methods rather than a browser-shaped mutable
+  DOM.
+- [x] Keep event parsing independently usable by streaming consumers.
 
-- document construction respects the same resource limits;
-- traversal order is deterministic;
-- namespace scope and expanded-name comparison are tested;
-- node handles cannot cross documents undiagnosed.
+Acceptance criteria:
+
+- [x] Document construction through the parse boundary respects the same
+  resource limits as event parsing.
+- [x] Traversal order is deterministic.
+- [x] Namespace expansion and expanded-name retention are tested.
+- [x] Node handles from another document are rejected.
+- [x] Accepted standards-derived cases can retain a document element.
+
+Progress: complete for the first retained traversal contract. `XmlDocument`
+builds immutable nodes from parser-neutral events, preserving source order,
+parent/child relationships, attributes, expanded names, and spans. Consumers
+provide an opaque `XmlDocumentId`; every `XmlNodeId` carries that identity and
+is rejected by another document's traversal methods. Top-level whitespace,
+comments, and processing instructions remain visible through `roots()` for
+inspection, while `document_element()` supplies the first top-level element for
+ordinary importer traversal. The model intentionally provides no mutation,
+selector, schema, or SVG-specific API.
 
 ### Slice 4: Migrate SVG Document Syntax
 
-- Replace manual SVG tag, comment, quote, and attribute scanning with
-  `xml-tools`.
-- Keep SVG path-data tokenization and SVG semantic interpretation in the SVG
-  importer.
-- Maintain an explicit SVG state stack for inherited paint and transforms only
-  when corresponding corpus cases require it.
-- Preserve `SvgVectorRecord` source order and all existing structural outputs.
-- Add an XML stage to presentation-geometry corpus artifacts or stage graphs.
+Detailed implementation tracking:
+`.workbench/Todos/svg-xml-tools-pipeline.md`.
 
-Acceptance:
+Deliverables:
 
-- existing Lucide and admitted W3C SVG cases preserve intended vector/mesh
-  results;
-- comments and similarly named elements/attributes cannot be misread as
-  geometry;
-- XML errors stop at the XML stage with source spans;
-- unsupported SVG features remain SVG diagnostics rather than XML errors;
-- the old manual document scanner is removed after equivalent coverage passes.
+- [x] Route the public SVG document parser through `xml-tools` for tag,
+  comment, quote, attribute, and namespace handling.
+- [x] Keep SVG path-data tokenization and SVG semantic interpretation in the
+  SVG importer.
+- [ ] Add an explicit SVG state stack for inherited paint and transforms when
+  admitted corpus cases require it.
+- [x] Preserve focused `SvgVectorRecord` source order and structural outputs.
+- [x] Add an XML stage to presentation-geometry corpus artifacts or stage
+  graphs.
+- [x] Remove the legacy test-only manual document scanner after focused
+  replacement coverage is complete.
 
-Progress: started. The public `parse_svg_document_vector_records` path now
+Acceptance criteria:
+
+- [x] Existing Lucide and admitted W3C SVG cases have reviewed equivalence for
+  intended vector/mesh results.
+- [x] Comments and similarly named elements or attributes cannot be misread as
+  geometry.
+- [x] XML errors stop at the XML stage with source spans.
+- [x] Unsupported SVG semantics remain SVG diagnostics rather than XML errors.
+- [x] No manual SVG document-syntax scanner remains after focused equivalent
+  coverage passes.
+
+Progress: in progress. The public `parse_svg_document_vector_records` path now
 consumes owned `xml-tools` start-element events for source ordering, expanded
 names, attribute decoding, comments, quoted text, and malformed-markup
 diagnostics. SVG retains ownership of `d` parsing, primitive lowering,
 coordinate normalization, and paint interpretation. Existing focused SVG tests
 preserve record order and paint results; truncated markup now stops with an
-explicit XML-stage error. The legacy test-only scanner remains temporarily as
-an equivalence reference until the new path has equivalent corpus coverage and
-the old scanner can be removed deliberately.
+explicit XML-stage error. Focused primitive, quoted-attribute, malformed-input,
+and geometry-normalization tests now exercise the parser-neutral public path,
+so the test-only manual scanner and its duplicate tag/attribute logic have been
+removed. The presentation-geometry corpus
+now records SVG and admitted W3C SVG evidence as `source -> xml -> vector ->
+mesh`; W3C artifact output includes a parser-neutral `xml.json` summary and
+the same stage graph. The direct corpus dependency observes the XML boundary
+for diagnostics only and does not constitute a second semantic consumer or a
+promotion trigger. The registered Lucide archive case and both admitted W3C
+cases now compare explicit report snapshots plus deterministic mesh
+fingerprints. SVG artifact generation uses the same `SvgVectorRecord` fill and
+fill-rule semantics as normal execution, so the reviewed artifacts no longer
+substitute an even-odd-only corpus path. This is reviewed structural
+equivalence for the declared Tokimu SVG subset, not a claim of full W3C visual
+conformance.
 
 ### Slice 5: Harden And Compare
 
-- Add constrained malformed-input and limit stress cases.
-- Compare accepted events/document summaries with one independent XML
-  implementation or standards-derived corpus where licensing permits.
-- Run the selected W3C XML manifest and report accepted, rejected, unsupported,
-  and unexpected outcomes separately.
-- Keep a small smoke subset in normal workspace tests and the complete admitted
-  selection behind an explicit extended command.
-- Add fuzzing or seeded generation only after stable invariants exist.
-- Verify that normal corpus execution never rewrites reviewed expectations.
+Deliverables:
 
-Acceptance:
+- [x] Add constrained malformed-input and resource-limit stress cases.
+- [x] Compare accepted event and document behavior against a
+  standards-derived corpus.
+- [x] Run the selected W3C XML manifest and report accepted, rejected,
+  unsupported, deferred, and unexpected outcomes separately.
+- [x] Keep a small smoke subset in normal workspace tests and the complete
+  admitted selection behind an explicit extended command.
+- [x] Add bounded seeded generation after stable event/document invariants
+  exist.
+- [x] Detect drift between the reviewed selection manifest and its executable
+  runner.
+- [ ] Add an independent implementation comparison with inspectable summaries.
+- [x] Expand focused hostile-input coverage after the first bounded generated
+  tier.
 
-- parser panics and unbounded expansion are treated as failures;
-- differential disagreement produces inspectable evidence rather than silently
-  changing goldens;
-- native and WASM preserve the declared semantic profile.
+Acceptance criteria:
+
+- [x] Parser panics, excessive work, and unbounded expansion are covered as
+  explicit failures across the admitted hostile-input set.
+- [ ] Differential disagreement produces inspectable evidence rather than
+  silently changing reviewed expectations.
+- [x] Native execution and WASM compilation preserve the declared dependency
+  and parser profile.
+- [ ] The declared semantic profile is exercised at runtime on WASM.
+- [x] Normal smoke and selected runs do not rewrite reviewed expectations.
+
+Progress: the first explicit selected-manifest runner now lives in
+`examples/lib-example/xml-tools/tests/w3c_selection.rs`. It is intentionally
+ignored by the default test path and runs with:
+
+```text
+cargo test -p xml-tools --test w3c_selection -- --ignored --nocapture
+```
+
+The v1 report currently records one accepted case, one rejected case, one
+unsupported-by-profile UTF-16 case, and one deferred namespace-diagnostic
+case. Accepted cases are validated as both parser-neutral event streams and
+immutable documents. This preserves the reviewed manifest's distinctions
+instead of reducing the selection to a single pass/fail percentage.
+`xml-tools` also compiles for `wasm32-unknown-unknown`. A normal seeded tier
+generates 32 bounded, well-formed documents and verifies repeatable event order
+plus retained roots. Focused hostile-input tests now cover multiple/no document
+elements, non-whitespace outside the root, duplicate attributes, malformed
+comments, unsupported entity references, and disabled DTD payloads with stable
+source-scoped diagnostics. Broad fuzz-style hostile-input coverage and
+differential parser comparison remain open hardening work.
+
+The admitted hostile tier now also runs 64 deterministic malformed inputs
+through panic containment. It covers mismatched and truncated nesting, multiple
+roots, disabled DTD entity declarations, unsupported entity references, and
+trailing non-whitespace text. Every generated case must produce a
+non-continuable, source-scoped diagnostic rather than panic or silently parse.
+Existing explicit resource-limit tests remain the evidence for bounded input,
+depth, node, attribute, name, value, and decoded-text work; DTD rejection keeps
+entity expansion disabled in the initial profile. This is intentionally a
+bounded hostile corpus, not a claim of broad fuzzing or differential-parser
+coverage.
 
 ### Slice 6: Add A Second XML Consumer
 
-- Select a consumer independent of SVG, such as an XML-backed tool document,
-  interchange fixture, or inspection utility.
-- Reuse the existing event/document and diagnostic contracts.
-- Record which behavior is genuinely shared and which remains consumer-owned.
+Deliverables:
 
-Acceptance:
+- [x] Select and name a consumer independent of SVG, such as an XML-backed tool
+  document, interchange fixture, or inspection utility.
+- [x] Reuse the existing event/document and diagnostic contracts in that
+  consumer.
+- [x] Record which behavior is genuinely shared and which remains
+  consumer-owned.
+- [x] Open an Architectural Review after the second consumer has produced
+  implementation evidence.
 
-- shared XML types acquire no SVG-specific concepts;
-- the second consumer does not require filesystem, browser, or engine state in
-  the base library;
-- an Architectural Review evaluates whether `xml-tools` should remain
-  example-side or graduate.
+Acceptance criteria:
+
+- [x] Shared XML types acquire no SVG-specific concepts.
+- [x] The second consumer requires no filesystem, browser, rendering, or engine
+  state in the base library.
+- [x] The second consumer does not require parser-backend types to cross the
+  public boundary.
+- [x] Architectural Review records whether `xml-tools` remains example-side or
+  graduates and names the evidence supporting that disposition.
+
+Progress: `examples/hello-xml-inspect` is a base-example command-line
+inspection utility independent of SVG. It reads a checked-in fixture or an
+explicit application-owned file path, then consumes only `XmlDocument`,
+`XmlNodeKind`, expanded names, attributes, source spans, and `XmlDiagnostic`.
+It deliberately owns filesystem access and terminal formatting itself;
+`xml-tools` remains bounded parser/document/diagnostic infrastructure with no
+filesystem, browser, renderer, or engine dependency. The second consumer is
+evidence for review, not automatic promotion. `AR-0003-xml-document-boundary`
+records the resulting incubation disposition: two example-side consumers are
+enough to preserve the boundary, but not enough to extract a first-party crate.
 
 ## XSD Extension Track
 
@@ -769,6 +953,88 @@ When this track opens, pin the official W3C QT3 repository and filter cases by
 declared feature dependencies. Do not run or vendor the full XPath/XQuery suite
 as though it described Tokimu's bounded query profile.
 
+## XSLT Extension Track
+
+XSLT is not part of the initial XML parser, immutable document, or XPath
+surface. It is an executable document transformation language and therefore has
+stronger authority, resource, and determinism requirements than ordinary
+traversal.
+
+Open an XSLT slice when an asset pipeline, authoring tool, SVG/XML normalization
+step, report generator, or other concrete consumer needs declarative XML
+transformation. Before implementation, record:
+
+- the exact XSLT version or bounded profile;
+- the required XPath profile;
+- stylesheet compilation and caching expectations;
+- parameter and variable types;
+- template matching, priority, mode, and import-precedence behavior;
+- output methods and normalization rules;
+- result and diagnostic types;
+- extension-function policy;
+- external document and URI policy;
+- evaluation, recursion, and output budgets;
+- native/WASM equivalence expectations.
+
+The transformation boundary should be:
+
+```text
+immutable stylesheet document
+        +
+immutable source document
+        +
+explicit parameters and resource resolver
+        |
+        v
+compiled bounded transformation
+        |
+        v
+owned XML events/document or text result
+        +
+structured diagnostics
+```
+
+An XSLT transformation must not receive ambient filesystem, network, browser
+DOM, application state, or host-language execution authority. External
+resources, if ever admitted, use an explicit caller-supplied resolver with
+scoped authority, stable identity, cycle detection, and resource budgets.
+
+Initial limits should include:
+
+```text
+maximum stylesheet size and nodes
+maximum included/imported stylesheets
+maximum template applications
+maximum call/recursion depth
+maximum XPath evaluation work
+maximum variables and parameters
+maximum result nodes
+maximum result bytes
+maximum diagnostics retained
+maximum transformation time or cooperative work budget where supported
+```
+
+Suggested progression:
+
+1. compile literal result elements and basic template matches;
+2. reuse the admitted XPath subset for selection and value extraction;
+3. add `apply-templates`, built-in template behavior, and deterministic
+   document-order processing;
+4. add bounded variables, parameters, conditionals, and iteration required by
+   the first consumer;
+5. support XML and text principal-result output;
+6. add imports, includes, keys, multiple outputs, or HTML output only when
+   separate corpus evidence requires them;
+7. compare admitted transformations against a pinned standards/reference
+   corpus and independent implementation.
+
+Stylesheets may be useful in web-facing authoring and asset preparation, but
+they are not simulation rules and must not become an alternate runtime. Browser
+XSLT APIs may serve as differential references or optional adapters; they do
+not define canonical Tokimu semantics.
+
+Do not label a bounded transformation profile as general XSLT conformance.
+
 ## Extension Order
 
 Prefer this admission order:
@@ -780,15 +1046,20 @@ Prefer this admission order:
 2. QT3 XPath selection
        proves immutable document/query behavior
 
-3. W3C XSD selection
-       proves schema compilation and validation
+3a. Curated XSLT selection, when a transformation consumer exists
+        proves stylesheet compilation and bounded transformation
+
+3b. W3C XSD selection, when a schema consumer exists
+        proves schema compilation and validation
 ```
 
-XPath precedes XSD corpus work because it directly pressures document order,
-expanded names, traversal, and query results without first adding schema
-compilation. XSD 1.1 XPath-dependent features remain deferred. A concrete XSD
-consumer may justify a small XSD profile earlier, but that exception must not
-quietly require an unplanned XPath implementation.
+XPath precedes XSLT because template selection, expressions, and value
+extraction depend on an explicit query profile. XSLT and XSD then proceed as
+independent tracks according to consumer pressure. XPath also directly
+pressures document order, expanded names, traversal, and query results before
+schema compilation. XSD 1.1 XPath-dependent features remain deferred. A
+concrete XSD consumer may justify a small XSD profile earlier, but that
+exception must not quietly require an unplanned XPath implementation.
 
 ## Extension Admission Rule
 
@@ -818,13 +1089,17 @@ For implementation slices, prefer:
 - exact diagnostic categories and spans for malformed cases;
 - existing SVG vector/mesh fingerprints and reviewed artifacts;
 - limit and hostile-input tests;
+- exact XPath result order and XSLT principal-result comparisons when those
+  tracks open;
+- XSLT recursion, output, external-resource, and extension-function denial
+  tests;
 - differential results labeled as observational evidence until reviewed.
 
 ## Risks
 
 ### Reimplementing A Standards Stack
 
-Risk: XML, XSD, and XPath become an open-ended engine project.
+Risk: XML, XSD, XPath, and XSLT become an open-ended engine project.
 
 Mitigation: separate profiles and admission tracks; use an existing parser
 behind Tokimu-owned types; require a concrete consumer for every extension.
@@ -862,10 +1137,20 @@ Mitigation: XML owns syntax and structure; the SVG importer owns SVG meaning.
 
 ### Premature Stable DOM
 
-Risk: future XSD/XPath speculation produces a large mutable browser-shaped API.
+Risk: future XSD/XPath/XSLT speculation produces a large mutable browser-shaped
+API.
 
 Mitigation: start with bounded events and add the smallest immutable document
 needed by a real consumer.
+
+### XSLT Becomes Ambient Code Execution
+
+Risk: stylesheets gain filesystem, network, browser DOM, extension-function, or
+application-state authority and become an alternate runtime.
+
+Mitigation: transform immutable inputs into owned results under explicit
+budgets; disable ambient external access and host-language extensions; require
+an explicit scoped resolver for any later external resource support.
 
 ## Completion Criteria
 
@@ -880,7 +1165,8 @@ The initial XML phase is complete when:
 - admitted Lucide and W3C SVG cases preserve structural results;
 - corpus artifacts distinguish XML, SVG, vector, and mesh stages;
 - unsupported XML and SVG behavior is diagnosed at the correct boundary;
-- XSD and XPath remain separately scoped until named consumers earn them.
+- XSD, XPath, and XSLT remain separately scoped until named consumers earn
+  them.
 
 Promotion beyond example-side incubation requires:
 
@@ -899,6 +1185,7 @@ Promotion beyond example-side incubation requires:
 - `docs/Plans/presentation-geometry-corpus-harness.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
 - `docs/Conversations/xml corpus.md`
+- `.workbench/Todos/svg-xml-tools-pipeline.md`
 - `docs/testing-strategy.md`
 - `docs/example-philosophy.md`
 - `examples/README.md`

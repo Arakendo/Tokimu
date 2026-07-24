@@ -58,8 +58,11 @@ pub use region::{
 pub use scroll::UiVerticalScroll;
 pub use svg::{
     parse_path, parse_svg_document_convex_fill_meshes, parse_svg_document_vector_paths,
-    parse_svg_document_vector_records, tokenize_path, SvgFillRule, SvgPathCommand, SvgToken,
-    SvgVectorRecord,
+    parse_svg_document_vector_records, parse_svg_document_vector_records_from_xml_events,
+    parse_svg_document_vector_records_with_viewport,
+    parse_svg_document_vector_records_with_xml_options, tokenize_path, SvgFillRule,
+    SvgImportDiagnostic, SvgImportStage, SvgPathCommand, SvgToken, SvgVectorRecord,
+    SvgViewportSource,
 };
 pub use text::{
     bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad,

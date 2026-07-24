@@ -1,3 +1,87 @@
+use std::{error::Error, fmt};
+
+use xml_tools::{
+    parse_xml_events, XmlAttribute, XmlDiagnostic, XmlEvent, XmlOptions, XmlSourceId, XmlSpan,
+};
+
+/// The SVG pipeline boundary that produced an import diagnostic.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SvgImportStage {
+    Xml,
+    Svg,
+}
+
+/// Selects the coordinate bounds used to normalize SVG user-space geometry.
+///
+/// This importer intentionally resolves only `viewBox` coordinates. Physical
+/// viewport sizing (`width`, `height`, and `preserveAspectRatio`) remains an
+/// embedding/rendering decision outside this initial profile.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SvgViewportSource {
+    /// Keep the established embedding path: the caller owns normalization
+    /// bounds and the document's root `viewBox` is not interpreted.
+    Caller([f32; 4]),
+    /// Read and validate the root SVG element's `viewBox` attribute.
+    DocumentViewBox,
+}
+
+/// Structured SVG import failure that preserves XML diagnostics instead of
+/// reducing them to formatted strings at the importer boundary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SvgImportDiagnostic {
+    pub stage: SvgImportStage,
+    pub message: String,
+    pub span: Option<XmlSpan>,
+    pub related_span: Option<XmlSpan>,
+    pub can_continue: bool,
+    pub xml: Option<XmlDiagnostic>,
+}
+
+impl SvgImportDiagnostic {
+    fn svg(span: Option<XmlSpan>, message: impl Into<String>) -> Self {
+        Self {
+            stage: SvgImportStage::Svg,
+            message: message.into(),
+            span,
+            related_span: None,
+            can_continue: false,
+            xml: None,
+        }
+    }
+}
+
+impl From<XmlDiagnostic> for SvgImportDiagnostic {
+    fn from(diagnostic: XmlDiagnostic) -> Self {
+        Self {
+            stage: SvgImportStage::Xml,
+            message: diagnostic.message.clone(),
+            span: diagnostic.span,
+            related_span: diagnostic.related_span,
+            can_continue: diagnostic.can_continue,
+            xml: Some(diagnostic),
+        }
+    }
+}
+
+impl fmt::Display for SvgImportDiagnostic {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.xml {
+            Some(diagnostic) => write!(
+                formatter,
+                "SVG XML syntax error {:?}/{:?} at {:?}: {}",
+                diagnostic.category, diagnostic.code, self.span, self.message
+            ),
+            None => write!(
+                formatter,
+                "SVG semantic error at {:?}: {}",
+                self.span, self.message
+            ),
+        }
+    }
+}
+
+impl Error for SvgImportDiagnostic {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum SvgToken {
     Command(char),
@@ -33,67 +117,216 @@ pub struct SvgVectorRecord {
     pub fill: bool,
     pub stroke: bool,
     pub fill_rule: SvgFillRule,
+    pub source_span: XmlSpan,
 }
 
 impl SvgVectorRecord {
-    fn from_attributes(path: crate::VectorPath, attributes: &[XmlAttribute]) -> Self {
-        let fill = svg_attribute_value(attributes, "fill").is_none_or(|value| value != "none");
-        let stroke = svg_attribute_value(attributes, "stroke").is_some_and(|value| value != "none");
-        let fill_rule = match svg_attribute_value(attributes, "fill-rule") {
-            Some("evenodd") => SvgFillRule::EvenOdd,
-            _ => SvgFillRule::NonZero,
-        };
+    fn from_presentation(
+        path: crate::VectorPath,
+        presentation: SvgPresentationState,
+        source_span: XmlSpan,
+    ) -> Self {
         Self {
             path,
-            fill,
-            stroke,
-            fill_rule,
+            fill: presentation.fill,
+            stroke: presentation.stroke,
+            fill_rule: presentation.fill_rule,
+            source_span,
+        }
+    }
+}
+
+/// The limited inherited SVG presentation profile currently admitted by the
+/// importer. This is deliberately paint intent, not a CSS implementation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct SvgPresentationState {
+    fill: bool,
+    stroke: bool,
+    fill_rule: SvgFillRule,
+    transform: SvgAffine,
+}
+
+impl Default for SvgPresentationState {
+    fn default() -> Self {
+        Self {
+            fill: true,
+            stroke: false,
+            fill_rule: SvgFillRule::NonZero,
+            transform: SvgAffine::IDENTITY,
+        }
+    }
+}
+
+impl SvgPresentationState {
+    fn inherit_and_apply(self, attributes: &[XmlAttribute]) -> Result<Self, String> {
+        let mut next = self;
+        if let Some(value) = svg_attribute_value(attributes, "fill") {
+            if value != "inherit" {
+                next.fill = value != "none";
+            }
+        }
+        if let Some(value) = svg_attribute_value(attributes, "stroke") {
+            if value != "inherit" {
+                next.stroke = value != "none";
+            }
+        }
+        if let Some(value) = svg_attribute_value(attributes, "fill-rule") {
+            match value {
+                "inherit" => {}
+                "evenodd" => next.fill_rule = SvgFillRule::EvenOdd,
+                _ => next.fill_rule = SvgFillRule::NonZero,
+            }
+        }
+        if let Some(value) = svg_unqualified_attribute_value(attributes, "transform") {
+            if value != "inherit" {
+                next.transform = next.transform.compose(parse_svg_transform(value)?);
+            }
+        }
+        Ok(next)
+    }
+}
+
+/// A compact SVG affine transform in the standard `[a b c d e f]` form.
+/// It remains private to SVG lowering: `VectorPath` contains only final,
+/// provider-neutral coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct SvgAffine {
+    a: f32,
+    b: f32,
+    c: f32,
+    d: f32,
+    e: f32,
+    f: f32,
+}
+
+impl SvgAffine {
+    const IDENTITY: Self = Self {
+        a: 1.0,
+        b: 0.0,
+        c: 0.0,
+        d: 1.0,
+        e: 0.0,
+        f: 0.0,
+    };
+
+    fn apply(self, point: [f32; 2]) -> [f32; 2] {
+        [
+            self.a * point[0] + self.c * point[1] + self.e,
+            self.b * point[0] + self.d * point[1] + self.f,
+        ]
+    }
+
+    /// Extends this parent/list transform with a local SVG transform.
+    /// With column vectors, the resulting transform applies `local` first and
+    /// then this transform, matching nested SVG coordinate systems.
+    fn compose(self, local: Self) -> Self {
+        Self {
+            a: self.a * local.a + self.c * local.b,
+            b: self.b * local.a + self.d * local.b,
+            c: self.a * local.c + self.c * local.d,
+            d: self.b * local.c + self.d * local.d,
+            e: self.a * local.e + self.c * local.f + self.e,
+            f: self.b * local.e + self.d * local.f + self.f,
         }
     }
 }
 
 #[derive(Clone, Debug)]
 struct SvgElement {
-    local_name: String,
+    name: xml_tools::ExpandedName,
     attributes: Vec<XmlAttribute>,
-    source_offset: usize,
+    span: XmlSpan,
 }
 
-fn svg_document_elements(svg: &str) -> Result<Vec<SvgElement>, String> {
-    let events = parse_xml_events(XmlSourceId::new(0), svg, XmlOptions::default())
-        .map_err(|error| format!("SVG XML syntax error at {:?}: {error}", error.span))?;
-    let mut elements = Vec::new();
-    for event in &events {
-        if let XmlEvent::StartElement {
-            name,
-            attributes,
-            span,
-            ..
-        } = event
-        {
-            elements.push(SvgElement {
-                local_name: name.local_name.clone(),
+#[derive(Clone, Debug)]
+struct SvgSemanticFrame {
+    element: SvgElement,
+    presentation: SvgPresentationState,
+}
+
+#[derive(Clone, Debug)]
+enum SvgSemanticEvent {
+    Start(SvgElement),
+    End {
+        name: xml_tools::ExpandedName,
+        span: XmlSpan,
+    },
+}
+
+const SVG_NAMESPACE: &str = "http://www.w3.org/2000/svg";
+
+fn svg_semantic_events(events: &[XmlEvent]) -> Vec<SvgSemanticEvent> {
+    let mut semantic_events = Vec::new();
+    for event in events {
+        match event {
+            XmlEvent::StartElement {
+                name,
+                attributes,
+                span,
+                ..
+            } => semantic_events.push(SvgSemanticEvent::Start(SvgElement {
+                name: name.clone(),
                 attributes: attributes.clone(),
-                source_offset: span.start,
-            });
+                span: *span,
+            })),
+            XmlEvent::EndElement { name, span, .. } => {
+                semantic_events.push(SvgSemanticEvent::End {
+                    name: name.clone(),
+                    span: *span,
+                })
+            }
+            XmlEvent::Text { .. }
+            | XmlEvent::Comment { .. }
+            | XmlEvent::ProcessingInstruction { .. } => {}
         }
     }
-    Ok(elements)
+    semantic_events
+}
+
+fn is_svg_name(name: &xml_tools::ExpandedName) -> bool {
+    name.namespace_uri
+        .as_deref()
+        .is_none_or(|namespace| namespace == SVG_NAMESPACE)
+}
+
+fn is_svg_geometry_element(element: &SvgElement) -> bool {
+    is_svg_name(&element.name)
+        && matches!(
+            element.name.local_name.as_str(),
+            "path" | "circle" | "line" | "polyline" | "polygon" | "rect"
+        )
+}
+
+/// Features with established SVG meaning that need an explicit ownership and
+/// corpus admission decision before this importer may claim to support them.
+fn is_unadmitted_svg_feature(element: &SvgElement) -> bool {
+    is_svg_name(&element.name)
+        && matches!(
+            element.name.local_name.as_str(),
+            "text"
+                | "textPath"
+                | "tspan"
+                | "defs"
+                | "use"
+                | "clipPath"
+                | "mask"
+                | "linearGradient"
+                | "radialGradient"
+                | "pattern"
+                | "filter"
+                | "image"
+                | "animate"
+                | "animateMotion"
+                | "animateTransform"
+                | "script"
+        )
 }
 
 fn svg_attribute_value<'a>(attributes: &'a [XmlAttribute], name: &str) -> Option<&'a str> {
-    if let Some(attribute) = attributes.iter().find(|attribute| {
-        attribute.name.namespace_uri.is_none() && attribute.name.local_name == name
-    }) {
-        return Some(attribute.value.trim());
+    if let Some(value) = svg_unqualified_attribute_value(attributes, name) {
+        return Some(value);
     }
-    let style = attributes
-        .iter()
-        .find(|attribute| {
-            attribute.name.namespace_uri.is_none() && attribute.name.local_name == "style"
-        })?
-        .value
-        .as_str();
+    let style = svg_unqualified_attribute_value(attributes, "style")?;
     style.split(';').find_map(|declaration| {
         let (property, value) = declaration.split_once(':')?;
         property
@@ -103,8 +336,178 @@ fn svg_attribute_value<'a>(attributes: &'a [XmlAttribute], name: &str) -> Option
     })
 }
 
+fn svg_unqualified_attribute_value<'a>(
+    attributes: &'a [XmlAttribute],
+    name: &str,
+) -> Option<&'a str> {
+    attributes.iter().find_map(|attribute| {
+        (attribute.name.namespace_uri.is_none() && attribute.name.local_name == name)
+            .then(|| attribute.value.trim())
+    })
+}
+
+fn parse_svg_transform(value: &str) -> Result<SvgAffine, String> {
+    let mut remainder = value.trim();
+    let mut transform = SvgAffine::IDENTITY;
+
+    while !remainder.is_empty() {
+        let Some(open) = remainder.find('(') else {
+            return Err(format!("SVG transform is missing '(' in '{value}'"));
+        };
+        let name = remainder[..open].trim();
+        if name.is_empty()
+            || !name
+                .chars()
+                .all(|character| character.is_ascii_alphabetic())
+        {
+            return Err(format!(
+                "SVG transform has an invalid function name in '{value}'"
+            ));
+        }
+        let arguments_start = open + 1;
+        let Some(close_relative) = remainder[arguments_start..].find(')') else {
+            return Err(format!("SVG transform '{name}' is missing ')'"));
+        };
+        let arguments_end = arguments_start + close_relative;
+        let values = parse_svg_transform_numbers(&remainder[arguments_start..arguments_end], name)?;
+        let function = match name {
+            "matrix" => match values.as_slice() {
+                [a, b, c, d, e, f] => SvgAffine {
+                    a: *a,
+                    b: *b,
+                    c: *c,
+                    d: *d,
+                    e: *e,
+                    f: *f,
+                },
+                _ => return Err("SVG matrix transform requires six numbers".into()),
+            },
+            "translate" => match values.as_slice() {
+                [x] => SvgAffine {
+                    e: *x,
+                    ..SvgAffine::IDENTITY
+                },
+                [x, y] => SvgAffine {
+                    e: *x,
+                    f: *y,
+                    ..SvgAffine::IDENTITY
+                },
+                _ => return Err("SVG translate transform requires one or two numbers".into()),
+            },
+            "scale" => match values.as_slice() {
+                [value] => SvgAffine {
+                    a: *value,
+                    d: *value,
+                    ..SvgAffine::IDENTITY
+                },
+                [x, y] => SvgAffine {
+                    a: *x,
+                    d: *y,
+                    ..SvgAffine::IDENTITY
+                },
+                _ => return Err("SVG scale transform requires one or two numbers".into()),
+            },
+            "rotate" => match values.as_slice() {
+                [degrees] => svg_rotation(*degrees),
+                [degrees, center_x, center_y] => SvgAffine {
+                    e: *center_x,
+                    f: *center_y,
+                    ..SvgAffine::IDENTITY
+                }
+                .compose(svg_rotation(*degrees))
+                .compose(SvgAffine {
+                    e: -*center_x,
+                    f: -*center_y,
+                    ..SvgAffine::IDENTITY
+                }),
+                _ => return Err("SVG rotate transform requires one or three numbers".into()),
+            },
+            "skewX" | "skewY" => {
+                return Err(format!(
+                    "SVG transform '{name}' is outside the current importer profile"
+                ))
+            }
+            _ => return Err(format!("SVG transform '{name}' is unsupported")),
+        };
+        transform = transform.compose(function);
+        remainder = remainder[arguments_end + 1..].trim_start();
+    }
+
+    Ok(transform)
+}
+
+fn parse_svg_transform_numbers(value: &str, function: &str) -> Result<Vec<f32>, String> {
+    if !value.chars().all(|character| {
+        character.is_ascii_digit()
+            || character.is_ascii_whitespace()
+            || matches!(character, ',' | '.' | '+' | '-' | 'e' | 'E')
+    }) {
+        return Err(format!(
+            "SVG transform '{function}' contains unsupported arguments '{value}'"
+        ));
+    }
+    let values = tokenize_path(value)
+        .into_iter()
+        .map(|token| match token {
+            SvgToken::Number(value) if value.is_finite() => Ok(value),
+            SvgToken::Number(_) => Err(format!(
+                "SVG transform '{function}' contains a non-finite number"
+            )),
+            SvgToken::Command(_) => Err(format!(
+                "SVG transform '{function}' contains an invalid numeric argument"
+            )),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if values.is_empty() && !value.trim().is_empty() {
+        return Err(format!(
+            "SVG transform '{function}' contains invalid numbers"
+        ));
+    }
+    Ok(values)
+}
+
+fn svg_rotation(degrees: f32) -> SvgAffine {
+    let (sine, cosine) = degrees.to_radians().sin_cos();
+    SvgAffine {
+        a: cosine,
+        b: sine,
+        c: -sine,
+        d: cosine,
+        e: 0.0,
+        f: 0.0,
+    }
+}
+
 fn svg_number_attribute(attributes: &[XmlAttribute], name: &str) -> Option<f32> {
     svg_attribute_value(attributes, name)?.parse().ok()
+}
+
+fn validate_svg_view_box(view_box: [f32; 4]) -> Result<[f32; 4], String> {
+    let [_, _, width, height] = view_box;
+    if !view_box.iter().all(|value| value.is_finite()) || width <= 0.0 || height <= 0.0 {
+        return Err("SVG viewBox must contain finite values with positive dimensions".into());
+    }
+    Ok(view_box)
+}
+
+fn parse_svg_root_view_box(attributes: &[XmlAttribute]) -> Result<[f32; 4], String> {
+    let Some(value) = svg_unqualified_attribute_value(attributes, "viewBox") else {
+        return Err("SVG root requires a viewBox for the DocumentViewBox policy".into());
+    };
+    let values = parse_svg_transform_numbers(value, "viewBox")?;
+    let view_box = match values.as_slice() {
+        [x, y, width, height] => [*x, *y, *width, *height],
+        _ => return Err("SVG root viewBox requires exactly four numbers".into()),
+    };
+    validate_svg_view_box(view_box)
+}
+
+fn normalize_svg_point(point: [f32; 2], view_box: [f32; 4]) -> [f32; 2] {
+    let [view_x, view_y, view_width, view_height] = view_box;
+    [
+        (point[0] - view_x) / view_width - 0.5,
+        0.5 - (point[1] - view_y) / view_height,
+    ]
 }
 
 pub fn parse_path(data: &str) -> Result<Vec<SvgPathCommand>, String> {
@@ -331,184 +734,157 @@ fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec<[f3
     paths
 }
 
-/// Extracts SVG geometry into normalized, flattened polylines.
-///
-/// This intentionally supports the small geometry vocabulary used by Lucide
-/// and similar icon providers. Document loading remains the caller's concern;
-/// this function owns interpretation and coordinate normalization.
-#[cfg(test)]
-fn parse_svg_document_paths(
-    svg: &str,
-    subdivisions: usize,
-    view_box: [f32; 4],
-) -> Result<Vec<Vec<[f32; 2]>>, String> {
-    let [view_x, view_y, view_width, view_height] = view_box;
-    if view_width <= 0.0 || view_height <= 0.0 {
-        return Err("SVG viewBox must have positive dimensions".into());
-    }
-    let normalize = |point: [f32; 2]| {
-        [
-            (point[0] - view_x) / view_width - 0.5,
-            0.5 - (point[1] - view_y) / view_height,
-        ]
-    };
-    let mut paths = Vec::new();
-
-    let mut remainder = svg;
-    while let Some(start) = find_svg_element_start(remainder, "path") {
-        remainder = &remainder[start..];
-        let Some(end) = svg_tag_end(remainder) else {
-            return Err("unterminated SVG path element".into());
-        };
-        let tag = &remainder[..=end];
-        if let Some(data) = svg_attribute_text(tag, "d") {
-            let commands = parse_path(&data)?;
-            paths.extend(
-                flatten_path(&commands, subdivisions)
-                    .into_iter()
-                    .filter(|path| path.len() > 1)
-                    .map(|path| path.into_iter().map(normalize).collect()),
-            );
-        }
-        remainder = &remainder[end + 1..];
-    }
-
-    for element in ["circle", "rect", "line", "polyline", "polygon"] {
-        let mut remainder = svg;
-        while let Some(start) = remainder.find(&format!("<{element}")) {
-            remainder = &remainder[start..];
-            let Some(end) = remainder.find('>') else {
-                break;
-            };
-            let tag = &remainder[..=end];
-            let path = match element {
-                "circle" => {
-                    let (Some(cx), Some(cy), Some(radius)) = (
-                        svg_attribute(tag, "cx"),
-                        svg_attribute(tag, "cy"),
-                        svg_attribute(tag, "r"),
-                    ) else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    if radius < 0.0 {
-                        return Err("SVG circle radius must not be negative".into());
-                    }
-                    Some(
-                        (0..=subdivisions.max(16))
-                            .map(|index| {
-                                let angle = index as f32 * std::f32::consts::TAU
-                                    / subdivisions.max(16) as f32;
-                                normalize([cx + radius * angle.cos(), cy + radius * angle.sin()])
-                            })
-                            .collect(),
-                    )
-                }
-                "line" => {
-                    let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
-                        svg_attribute(tag, "x1"),
-                        svg_attribute(tag, "y1"),
-                        svg_attribute(tag, "x2"),
-                        svg_attribute(tag, "y2"),
-                    ) else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    Some(vec![normalize([x1, y1]), normalize([x2, y2])])
-                }
-                "polyline" | "polygon" => {
-                    let Some(values) = svg_attribute_text(tag, "points") else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    let numbers = parse_svg_point_numbers(&values, element)?;
-                    let mut points = numbers
-                        .chunks_exact(2)
-                        .map(|pair| normalize([pair[0], pair[1]]))
-                        .collect::<Vec<_>>();
-                    if element == "polygon" && points.first() != points.last() {
-                        if let Some(first) = points.first().copied() {
-                            points.push(first);
-                        }
-                    }
-                    Some(points)
-                }
-                "rect" => {
-                    let (Some(x), Some(y), Some(width), Some(height)) = (
-                        svg_attribute(tag, "x"),
-                        svg_attribute(tag, "y"),
-                        svg_attribute(tag, "width"),
-                        svg_attribute(tag, "height"),
-                    ) else {
-                        remainder = &remainder[end + 1..];
-                        continue;
-                    };
-                    if width < 0.0 || height < 0.0 {
-                        return Err("SVG rectangle width and height must not be negative".into());
-                    }
-                    let raw_rx = svg_attribute(tag, "rx");
-                    let raw_ry = svg_attribute(tag, "ry");
-                    if raw_rx.is_some_and(|value| value < 0.0)
-                        || raw_ry.is_some_and(|value| value < 0.0)
-                    {
-                        return Err("SVG rectangle corner radii must not be negative".into());
-                    }
-                    let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
-                    let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
-                    Some(
-                        svg_rectangle(x, y, width, height, rx, ry)
-                            .into_iter()
-                            .map(normalize)
-                            .collect(),
-                    )
-                }
-                _ => None,
-            };
-            if let Some(path) = path.filter(|path: &Vec<[f32; 2]>| path.len() > 1) {
-                paths.push(path);
-            }
-            remainder = &remainder[end + 1..];
-        }
-    }
-    Ok(paths)
-}
-
 /// Extracts SVG geometry into the shared provider-neutral path model.
 ///
 /// This is an intentionally small migration adapter over the existing parser:
 /// flattened contours retain explicit closure when the parser emitted a
 /// repeated endpoint. SVG styling and topology beyond that contract remain
 /// importer concerns.
-pub fn parse_svg_document_vector_records(
+/// Extracts SVG geometry while preserving XML- and SVG-stage diagnostics.
+///
+/// Callers that need an actionable boundary should use this form. The
+/// string-returning convenience API below delegates here so the normal parsing
+/// implementation remains singular.
+pub fn parse_svg_document_vector_records_with_xml_options(
     svg: &str,
     subdivisions: usize,
     view_box: [f32; 4],
-) -> Result<Vec<SvgVectorRecord>, String> {
-    let [view_x, view_y, view_width, view_height] = view_box;
-    if view_width <= 0.0 || view_height <= 0.0 {
-        return Err("SVG viewBox must have positive dimensions".into());
-    }
-    let normalize = |point: [f32; 2]| {
-        [
-            (point[0] - view_x) / view_width - 0.5,
-            0.5 - (point[1] - view_y) / view_height,
-        ]
+    xml_options: XmlOptions,
+) -> Result<Vec<SvgVectorRecord>, SvgImportDiagnostic> {
+    parse_svg_document_vector_records_with_viewport(
+        svg,
+        subdivisions,
+        SvgViewportSource::Caller(view_box),
+        xml_options,
+    )
+}
+
+/// Extracts SVG geometry with an explicit caller or root-document `viewBox`
+/// policy. Physical viewport sizing is intentionally outside this
+/// coordinate-only importer profile.
+pub fn parse_svg_document_vector_records_with_viewport(
+    svg: &str,
+    subdivisions: usize,
+    viewport_source: SvgViewportSource,
+    xml_options: XmlOptions,
+) -> Result<Vec<SvgVectorRecord>, SvgImportDiagnostic> {
+    let events = parse_xml_events(XmlSourceId::new(0), svg, xml_options)
+        .map_err(SvgImportDiagnostic::from)?;
+    parse_svg_document_vector_records_from_xml_events(&events, subdivisions, viewport_source)
+}
+
+/// Lowers an already-parsed XML event stream through the SVG semantic profile.
+///
+/// This lets corpus tooling retain XML-stage evidence and lower the exact same
+/// parse result without running a second XML parser. XML diagnostics remain
+/// the caller's responsibility because malformed input cannot produce events.
+/// The current profile admits only `svg` and `g` containers plus `path`,
+/// `circle`, `line`, `polyline`, `polygon`, and `rect` geometry. Known SVG
+/// features outside that profile diagnose explicitly rather than silently
+/// claiming browser-level SVG support.
+pub fn parse_svg_document_vector_records_from_xml_events(
+    xml_events: &[XmlEvent],
+    subdivisions: usize,
+    viewport_source: SvgViewportSource,
+) -> Result<Vec<SvgVectorRecord>, SvgImportDiagnostic> {
+    let mut resolved_view_box = match viewport_source {
+        SvgViewportSource::Caller(view_box) => Some(
+            validate_svg_view_box(view_box)
+                .map_err(|message| SvgImportDiagnostic::svg(None, message))?,
+        ),
+        SvgViewportSource::DocumentViewBox => None,
     };
     let mut paths = Vec::<(usize, SvgVectorRecord)>::new();
+    let mut element_stack = Vec::<SvgSemanticFrame>::new();
+    let mut saw_root = false;
 
-    for element in svg_document_elements(svg)? {
+    for event in svg_semantic_events(xml_events) {
+        let element = match event {
+            SvgSemanticEvent::Start(element) => {
+                if element_stack.is_empty() {
+                    saw_root = true;
+                    if element.name.local_name != "svg" || !is_svg_name(&element.name) {
+                        return Err(SvgImportDiagnostic::svg(
+                            Some(element.span),
+                            "SVG document root must be an unqualified or SVG-namespaced <svg> element",
+                        ));
+                    }
+                    if viewport_source == SvgViewportSource::DocumentViewBox {
+                        resolved_view_box =
+                            Some(parse_svg_root_view_box(&element.attributes).map_err(
+                                |message| SvgImportDiagnostic::svg(Some(element.span), message),
+                            )?);
+                    }
+                }
+                let inherited_presentation = element_stack
+                    .last()
+                    .map(|frame| frame.presentation)
+                    .unwrap_or_default();
+                let presentation = if is_svg_name(&element.name) {
+                    inherited_presentation
+                        .inherit_and_apply(&element.attributes)
+                        .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?
+                } else {
+                    inherited_presentation
+                };
+                let is_geometry = is_svg_geometry_element(&element);
+                if !is_geometry && is_unadmitted_svg_feature(&element) {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        format!(
+                            "SVG element '{}' is outside the admitted importer profile",
+                            element.name.local_name
+                        ),
+                    ));
+                }
+                element_stack.push(SvgSemanticFrame {
+                    element: element.clone(),
+                    presentation,
+                });
+                if !is_geometry {
+                    continue;
+                }
+                (element, presentation)
+            }
+            SvgSemanticEvent::End { name, span } => {
+                let Some(open) = element_stack.pop() else {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(span),
+                        "SVG semantic traversal encountered an end element without an open element",
+                    ));
+                };
+                if open.element.name != name {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(span),
+                        format!(
+                            "SVG semantic traversal closed '{}' while '{}' remained open",
+                            name.local_name, open.element.name.local_name
+                        ),
+                    ));
+                }
+                continue;
+            }
+        };
+        let (element, presentation) = element;
+        let view_box = resolved_view_box.expect("an admitted SVG root resolves a viewBox");
         let attributes = &element.attributes;
-        let points = match element.local_name.as_str() {
+        let points = match element.name.local_name.as_str() {
             "path" => {
                 let Some(data) = svg_attribute_value(attributes, "d") else {
                     continue;
                 };
-                let commands = parse_path(data)?;
+                let commands = parse_path(data)
+                    .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?;
                 let contours = flatten_path(&commands, subdivisions)
                     .into_iter()
                     .filter(|points| points.len() > 1)
                     .map(|points| {
-                        let mut points = points.into_iter().map(normalize).collect::<Vec<_>>();
+                        let mut points = points
+                            .into_iter()
+                            .map(|point| {
+                                normalize_svg_point(presentation.transform.apply(point), view_box)
+                            })
+                            .collect::<Vec<_>>();
                         let closed = points.len() > 1 && points.first() == points.last();
                         if closed {
                             points.pop();
@@ -518,10 +894,11 @@ pub fn parse_svg_document_vector_records(
                     .collect::<Vec<_>>();
                 if !contours.is_empty() {
                     paths.push((
-                        element.source_offset,
-                        SvgVectorRecord::from_attributes(
+                        element.span.start,
+                        SvgVectorRecord::from_presentation(
                             crate::VectorPath::new(contours),
-                            attributes,
+                            presentation,
+                            element.span,
                         ),
                     ));
                 }
@@ -536,14 +913,22 @@ pub fn parse_svg_document_vector_records(
                     continue;
                 };
                 if radius < 0.0 {
-                    return Err("SVG circle radius must not be negative".into());
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        "SVG circle radius must not be negative",
+                    ));
                 }
                 Some(
                     (0..=subdivisions.max(16))
                         .map(|index| {
                             let angle =
                                 index as f32 * std::f32::consts::TAU / subdivisions.max(16) as f32;
-                            normalize([cx + radius * angle.cos(), cy + radius * angle.sin()])
+                            normalize_svg_point(
+                                presentation
+                                    .transform
+                                    .apply([cx + radius * angle.cos(), cy + radius * angle.sin()]),
+                                view_box,
+                            )
                         })
                         .collect::<Vec<_>>(),
                 )
@@ -557,18 +942,27 @@ pub fn parse_svg_document_vector_records(
                 ) else {
                     continue;
                 };
-                Some(vec![normalize([x1, y1]), normalize([x2, y2])])
+                Some(vec![
+                    normalize_svg_point(presentation.transform.apply([x1, y1]), view_box),
+                    normalize_svg_point(presentation.transform.apply([x2, y2]), view_box),
+                ])
             }
             "polyline" | "polygon" => {
                 let Some(values) = svg_attribute_value(attributes, "points") else {
                     continue;
                 };
-                let numbers = parse_svg_point_numbers(values, &element.local_name)?;
+                let numbers = parse_svg_point_numbers(values, &element.name.local_name)
+                    .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?;
                 let mut points = numbers
                     .chunks_exact(2)
-                    .map(|pair| normalize([pair[0], pair[1]]))
+                    .map(|pair| {
+                        normalize_svg_point(
+                            presentation.transform.apply([pair[0], pair[1]]),
+                            view_box,
+                        )
+                    })
                     .collect::<Vec<_>>();
-                if element.local_name == "polygon" && points.first() != points.last() {
+                if element.name.local_name == "polygon" && points.first() != points.last() {
                     if let Some(first) = points.first().copied() {
                         points.push(first);
                     }
@@ -585,45 +979,88 @@ pub fn parse_svg_document_vector_records(
                     continue;
                 };
                 if width < 0.0 || height < 0.0 {
-                    return Err("SVG rectangle width and height must not be negative".into());
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        "SVG rectangle width and height must not be negative",
+                    ));
                 }
                 let raw_rx = svg_number_attribute(attributes, "rx");
                 let raw_ry = svg_number_attribute(attributes, "ry");
                 if raw_rx.is_some_and(|value| value < 0.0)
                     || raw_ry.is_some_and(|value| value < 0.0)
                 {
-                    return Err("SVG rectangle corner radii must not be negative".into());
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        "SVG rectangle corner radii must not be negative",
+                    ));
                 }
                 let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
                 let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
                 Some(
                     svg_rectangle(x, y, width, height, rx, ry)
                         .into_iter()
-                        .map(normalize)
+                        .map(|point| {
+                            normalize_svg_point(presentation.transform.apply(point), view_box)
+                        })
                         .collect(),
                 )
             }
-            _ => continue,
+            _ => unreachable!("only admitted SVG geometry reaches lowering"),
         };
         if let Some(points) = points.filter(|points: &Vec<[f32; 2]>| points.len() > 1) {
-            let closed = matches!(element.local_name.as_str(), "circle" | "rect" | "polygon");
+            let closed = matches!(
+                element.name.local_name.as_str(),
+                "circle" | "rect" | "polygon"
+            );
             let points = if closed {
                 points[..points.len() - 1].to_vec()
             } else {
                 points
             };
             paths.push((
-                element.source_offset,
-                SvgVectorRecord::from_attributes(
+                element.span.start,
+                SvgVectorRecord::from_presentation(
                     crate::VectorPath::new(vec![crate::VectorContour::new(points, closed)]),
-                    attributes,
+                    presentation,
+                    element.span,
                 ),
             ));
         }
     }
 
+    if !saw_root {
+        return Err(SvgImportDiagnostic::svg(
+            None,
+            "SVG document contains no root element",
+        ));
+    }
+    if !element_stack.is_empty() {
+        return Err(SvgImportDiagnostic::svg(
+            element_stack.last().map(|frame| frame.element.span),
+            "SVG semantic traversal ended with an open element",
+        ));
+    }
+
     paths.sort_by_key(|(source_offset, _)| *source_offset);
     Ok(paths.into_iter().map(|(_, record)| record).collect())
+}
+
+/// Extracts SVG geometry into the shared provider-neutral path model.
+///
+/// This convenience API retains the historic string error surface while the
+/// structured variant carries XML categories, codes, and source spans.
+pub fn parse_svg_document_vector_records(
+    svg: &str,
+    subdivisions: usize,
+    view_box: [f32; 4],
+) -> Result<Vec<SvgVectorRecord>, String> {
+    parse_svg_document_vector_records_with_xml_options(
+        svg,
+        subdivisions,
+        view_box,
+        XmlOptions::default(),
+    )
+    .map_err(|diagnostic| diagnostic.to_string())
 }
 
 /// Extracts SVG geometry while discarding SVG-specific paint metadata.
@@ -684,103 +1121,6 @@ fn parse_svg_point_numbers(values: &str, element: &str) -> Result<Vec<f32>, Stri
         ));
     }
     Ok(numbers)
-}
-
-#[cfg(test)]
-fn svg_attribute(tag: &str, name: &str) -> Option<f32> {
-    let (start, quote) = svg_attribute_value_start(tag, name)?;
-    let end = tag[start..].find(quote)? + start;
-    tag[start..end].parse().ok()
-}
-
-#[cfg(test)]
-fn find_svg_element_start(svg: &str, name: &str) -> Option<usize> {
-    let needle = format!("<{name}");
-    let mut offset = 0;
-    while let Some(found) = svg[offset..].find(&needle) {
-        let start = offset + found;
-        let comment_start = svg[..start].rfind("<!--");
-        let comment_end = svg[..start].rfind("-->");
-        let in_comment = match (comment_start, comment_end) {
-            (Some(comment_start), Some(comment_end)) => comment_start > comment_end,
-            (Some(_), None) => true,
-            _ => false,
-        };
-        if in_comment {
-            let Some(end) = svg[start..].find("-->") else {
-                return None;
-            };
-            offset = start + end + 3;
-            continue;
-        }
-        let after_name = start + needle.len();
-        let boundary = svg[after_name..].chars().next();
-        if boundary.is_some_and(|character| {
-            character.is_ascii_whitespace() || matches!(character, '>' | '/')
-        }) {
-            return Some(start);
-        }
-        offset = after_name;
-    }
-    None
-}
-
-#[cfg(test)]
-fn svg_tag_end(svg: &str) -> Option<usize> {
-    let mut quote = None;
-    for (index, character) in svg.char_indices() {
-        match (quote, character) {
-            (None, '\'' | '"') => quote = Some(character),
-            (Some(active), character) if active == character => quote = None,
-            (None, '>') => return Some(index),
-            _ => {}
-        }
-    }
-    None
-}
-
-#[cfg(test)]
-fn svg_attribute_text(tag: &str, name: &str) -> Option<String> {
-    let (start, quote) = svg_attribute_value_start(tag, name)?;
-    let end = tag[start..].find(quote)? + start;
-    Some(tag[start..end].to_owned())
-}
-
-#[cfg(test)]
-fn svg_attribute_value_start(tag: &str, name: &str) -> Option<(usize, char)> {
-    let mut offset = 0;
-    while let Some(found) = tag[offset..].find(name) {
-        let start = offset + found;
-        let is_attribute_boundary = start == 0
-            || tag[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|character| character.is_ascii_whitespace() || character == '<');
-        if is_attribute_boundary {
-            let mut cursor = start + name.len();
-            while let Some(character) = tag[cursor..].chars().next() {
-                if !character.is_ascii_whitespace() {
-                    break;
-                }
-                cursor += character.len_utf8();
-            }
-            if tag[cursor..].starts_with('=') {
-                cursor += 1;
-                while let Some(character) = tag[cursor..].chars().next() {
-                    if !character.is_ascii_whitespace() {
-                        break;
-                    }
-                    cursor += character.len_utf8();
-                }
-                let quote = tag[cursor..].chars().next()?;
-                if matches!(quote, '\'' | '"') {
-                    return Some((cursor + quote.len_utf8(), quote));
-                }
-            }
-        }
-        offset = start + name.len();
-    }
-    None
 }
 
 fn svg_rectangle(x: f32, y: f32, width: f32, height: f32, rx: f32, ry: f32) -> Vec<[f32; 2]> {
@@ -973,10 +1313,14 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
 #[cfg(test)]
 mod tests {
     use super::{
-        flatten_path, parse_path, parse_svg_document_convex_fill_meshes, parse_svg_document_paths,
-        parse_svg_document_vector_paths, parse_svg_document_vector_records, stroke_paths,
-        tokenize_path, SvgPathCommand, SvgToken,
+        flatten_path, parse_path, parse_svg_document_convex_fill_meshes,
+        parse_svg_document_vector_paths, parse_svg_document_vector_records,
+        parse_svg_document_vector_records_from_xml_events,
+        parse_svg_document_vector_records_with_viewport,
+        parse_svg_document_vector_records_with_xml_options, stroke_paths, tokenize_path,
+        SvgImportStage, SvgPathCommand, SvgToken, SvgViewportSource,
     };
+    use xml_tools::{parse_xml_events, XmlDiagnosticCode, XmlLimits, XmlOptions, XmlSourceId};
 
     #[test]
     fn preserves_compact_signed_numbers() {
@@ -1179,6 +1523,28 @@ mod tests {
     }
 
     #[test]
+    fn vector_document_adapter_consumes_decoded_attributes_and_ignores_processing_instructions() {
+        let records = parse_svg_document_vector_records_with_xml_options(
+            r#"<?xml version="1.0"?><svg><?corpus keep?><path d="M0&#x20;0&#x20;L24&#x20;0"/><?corpus keep?><line x1="0" y1="24" x2="24" y2="24"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect("XML-decoded SVG attributes must reach SVG lowering unchanged");
+
+        assert_eq!(records.len(), 2);
+        assert_eq!(
+            records[0].path.contours[0].points,
+            vec![[-0.5, 0.5], [0.5, 0.5]]
+        );
+        assert_eq!(
+            records[1].path.contours[0].points,
+            vec![[-0.5, -0.5], [0.5, -0.5]]
+        );
+        assert!(records[0].source_span.start < records[1].source_span.start);
+    }
+
+    #[test]
     fn vector_document_adapter_does_not_match_element_name_prefixes() {
         let paths = parse_svg_document_vector_paths(
             r#"<svg>
@@ -1220,30 +1586,155 @@ mod tests {
     }
 
     #[test]
-    fn legacy_document_adapter_accepts_single_quoted_path_data() {
-        let paths = parse_svg_document_paths(
+    fn vector_document_adapter_accepts_single_quoted_path_data() {
+        let paths = parse_svg_document_vector_paths(
             "<svg><path d='M0 0 L24 0 L24 24 Z' /></svg>",
             8,
             [0.0, 0.0, 24.0, 24.0],
         )
-        .expect("legacy path adapter should share quoted attribute handling");
+        .expect("vector adapter should accept single-quoted path data");
 
         assert_eq!(paths.len(), 1);
-        assert_eq!(paths[0].first().copied(), Some([-0.5, 0.5]));
-        assert_eq!(paths[0].last().copied(), Some([-0.5, 0.5]));
+        assert_eq!(paths[0].contours.len(), 1);
+        assert_eq!(
+            paths[0].contours[0].points.first().copied(),
+            Some([-0.5, 0.5])
+        );
+        assert!(paths[0].contours[0].closed);
     }
 
     #[test]
     fn document_adapters_reject_unterminated_path_elements() {
         let svg = r#"<svg><path d="M0 0 L24 0"#;
 
-        let legacy_error = parse_svg_document_paths(svg, 8, [0.0, 0.0, 24.0, 24.0])
-            .expect_err("legacy adapter must reject truncated path markup");
-        assert!(legacy_error.contains("unterminated SVG path element"));
-
         let vector_error = parse_svg_document_vector_paths(svg, 8, [0.0, 0.0, 24.0, 24.0])
             .expect_err("vector adapter must reject truncated path markup");
         assert!(vector_error.contains("SVG XML syntax error"));
+    }
+
+    #[test]
+    fn structured_svg_diagnostics_preserve_xml_and_svg_boundaries() {
+        let xml_error = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg><path d="M0 0""#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect_err("truncated XML must preserve its XML diagnostic");
+        assert_eq!(xml_error.stage, SvgImportStage::Xml);
+        assert_eq!(
+            xml_error.xml.as_ref().map(|diagnostic| diagnostic.code),
+            Some(XmlDiagnosticCode::ParserSyntax)
+        );
+        assert!(xml_error.span.is_some());
+
+        let limit_error = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg><path d="M0 0 L24 24"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions {
+                limits: XmlLimits {
+                    max_input_bytes: 8,
+                    ..XmlLimits::default()
+                },
+            },
+        )
+        .expect_err("XML resource limits must remain distinguishable");
+        assert_eq!(limit_error.stage, SvgImportStage::Xml);
+        assert_eq!(
+            limit_error.xml.as_ref().map(|diagnostic| diagnostic.code),
+            Some(XmlDiagnosticCode::InputTooLarge)
+        );
+
+        let namespace_error = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg><foreign:path/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect_err("unbound XML prefixes must stop before SVG interpretation");
+        assert_eq!(namespace_error.stage, SvgImportStage::Xml);
+        assert_eq!(
+            namespace_error
+                .xml
+                .as_ref()
+                .map(|diagnostic| diagnostic.code),
+            Some(XmlDiagnosticCode::UnboundPrefix)
+        );
+
+        let svg_error = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg><rect x="0" y="0" width="-1" height="1"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect_err("valid XML with unsupported SVG geometry must be an SVG diagnostic");
+        assert_eq!(svg_error.stage, SvgImportStage::Svg);
+        assert!(svg_error.xml.is_none());
+        assert!(svg_error.span.is_some());
+    }
+
+    #[test]
+    fn semantic_pass_has_explicit_root_and_namespace_policy() {
+        let prefixed = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg:svg xmlns:svg="http://www.w3.org/2000/svg"><svg:path d="M0 0 L24 0 L24 24 Z"/></svg:svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect("SVG-prefixed elements must be admitted through expanded names");
+        assert_eq!(prefixed.len(), 1);
+        assert_eq!(prefixed[0].source_span.source.value(), 0);
+
+        let default_namespaced = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L24 0 L24 24 Z"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect("default SVG namespaces must be admitted through expanded names");
+        assert_eq!(default_namespaced.len(), 1);
+
+        let foreign = parse_svg_document_vector_records_with_xml_options(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:other="urn:other"><other:path d="M0 0 L24 0 L24 24 Z"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect("foreign geometry names must not become SVG paths by local-name collision");
+        assert!(foreign.is_empty());
+
+        let invalid_root = parse_svg_document_vector_records_with_xml_options(
+            r#"<document><path d="M0 0 L24 0 L24 24 Z"/></document>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+            XmlOptions::default(),
+        )
+        .expect_err("a valid XML non-SVG document must be an SVG-stage diagnostic");
+        assert_eq!(invalid_root.stage, SvgImportStage::Svg);
+        assert!(invalid_root.xml.is_none());
+    }
+
+    #[test]
+    fn semantic_profile_diagnoses_unadmitted_svg_features() {
+        for element in [
+            r#"<text x="1" y="1">not admitted</text>"#,
+            r#"<defs><path id="shape" d="M0 0 L24 0"/></defs>"#,
+            r#"<clipPath id="clip"><rect width="24" height="24"/></clipPath>"#,
+        ] {
+            let diagnostic = parse_svg_document_vector_records_with_xml_options(
+                &format!("<svg>{element}</svg>"),
+                8,
+                [0.0, 0.0, 24.0, 24.0],
+                XmlOptions::default(),
+            )
+            .expect_err("unadmitted SVG features must not be silently accepted");
+            assert_eq!(diagnostic.stage, SvgImportStage::Svg);
+            assert!(diagnostic.span.is_some());
+            assert!(diagnostic
+                .message
+                .contains("outside the admitted importer profile"));
+        }
     }
 
     #[test]
@@ -1447,6 +1938,154 @@ mod tests {
     }
 
     #[test]
+    fn nested_svg_presentation_state_inherits_and_restores_for_siblings() {
+        let records = parse_svg_document_vector_records(
+            r#"<svg fill="none" stroke="black" fill-rule="evenodd">
+                <g fill="white" style="fill: none; stroke: none">
+                    <path d="M0 0 L24 0 L24 24 Z"/>
+                </g>
+                <path d="M1 1 L23 1 L23 23 Z"/>
+                <g fill="none" stroke="none" fill-rule="nonzero">
+                    <path d="M2 2 L22 2 L22 22 Z" fill="inherit"/>
+                </g>
+                <path d="M3 3 L21 3 L21 21 Z"/>
+            </svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("nested SVG presentation state should lower deterministically");
+
+        assert_eq!(records.len(), 4);
+
+        // Presentation attributes take precedence over an inline style in the
+        // initial profile, preserving the importer's established behavior.
+        assert!(records[0].fill);
+        assert!(!records[0].stroke);
+        assert_eq!(records[0].fill_rule, super::SvgFillRule::EvenOdd);
+
+        assert!(!records[1].fill && records[1].stroke);
+        assert_eq!(records[1].fill_rule, super::SvgFillRule::EvenOdd);
+
+        assert!(!records[2].fill && !records[2].stroke);
+        assert_eq!(records[2].fill_rule, super::SvgFillRule::NonZero);
+
+        assert!(!records[3].fill && records[3].stroke);
+        assert_eq!(records[3].fill_rule, super::SvgFillRule::EvenOdd);
+    }
+
+    #[test]
+    fn svg_transforms_compose_through_nested_state_before_normalization() {
+        let assert_point = |actual: [f32; 2], expected: [f32; 2]| {
+            assert!(
+                (actual[0] - expected[0]).abs() < 1.0e-5
+                    && (actual[1] - expected[1]).abs() < 1.0e-5,
+                "expected {expected:?}, received {actual:?}"
+            );
+        };
+        let records = parse_svg_document_vector_records(
+            r#"<svg>
+                <g transform="translate(10 20)">
+                    <path transform="scale(2)" d="M0 0 L10 0"/>
+                    <path transform="rotate(90 10 10)" d="M20 10 L20 20"/>
+                </g>
+            </svg>"#,
+            8,
+            [0.0, 0.0, 100.0, 100.0],
+        )
+        .expect("supported transforms should lower through the SVG state stack");
+
+        assert_eq!(records.len(), 2);
+        assert_point(records[0].path.contours[0].points[0], [-0.4, 0.3]);
+        assert_point(records[0].path.contours[0].points[1], [-0.2, 0.3]);
+        assert_point(records[1].path.contours[0].points[0], [-0.3, 0.1]);
+        assert_point(records[1].path.contours[0].points[1], [-0.4, 0.1]);
+
+        let listed = parse_svg_document_vector_records(
+            r#"<svg><path transform="translate(10) scale(2)" d="M10 0 L20 0"/></svg>"#,
+            8,
+            [0.0, 0.0, 100.0, 100.0],
+        )
+        .expect("transform lists should compose in SVG order");
+        assert_point(listed[0].path.contours[0].points[0], [-0.2, 0.5]);
+        assert_point(listed[0].path.contours[0].points[1], [0.0, 0.5]);
+    }
+
+    #[test]
+    fn unsupported_or_malformed_svg_transforms_are_svg_diagnostics() {
+        for transform in ["skewX(10)", "translate(nope)", "translate(10"] {
+            let diagnostic = parse_svg_document_vector_records_with_xml_options(
+                &format!(r#"<svg><path transform="{transform}" d="M0 0 L24 0"/></svg>"#),
+                8,
+                [0.0, 0.0, 24.0, 24.0],
+                XmlOptions::default(),
+            )
+            .expect_err("unsupported SVG transform syntax must remain visible");
+            assert_eq!(diagnostic.stage, SvgImportStage::Svg);
+            assert!(diagnostic.xml.is_none());
+            assert!(diagnostic.span.is_some());
+        }
+    }
+
+    #[test]
+    fn svg_viewport_policy_distinguishes_caller_bounds_from_root_view_box() {
+        let source = r#"<svg viewBox="10 20 20 10" width="200" height="100">
+            <line x1="10" y1="20" x2="30" y2="30"/>
+        </svg>"#;
+        let document = parse_svg_document_vector_records_with_viewport(
+            source,
+            8,
+            SvgViewportSource::DocumentViewBox,
+            XmlOptions::default(),
+        )
+        .expect("the document viewBox should provide coordinate normalization");
+        assert_eq!(document[0].path.contours[0].points[0], [-0.5, 0.5]);
+        assert_eq!(document[0].path.contours[0].points[1], [0.5, -0.5]);
+
+        let caller = parse_svg_document_vector_records_with_viewport(
+            source,
+            8,
+            SvgViewportSource::Caller([0.0, 0.0, 40.0, 40.0]),
+            XmlOptions::default(),
+        )
+        .expect("the caller viewport must remain an explicit alternate path");
+        assert_eq!(caller[0].path.contours[0].points[0], [-0.25, 0.0]);
+        assert_eq!(caller[0].path.contours[0].points[1], [0.25, -0.25]);
+
+        let missing = parse_svg_document_vector_records_with_viewport(
+            r#"<svg><line x1="0" y1="0" x2="1" y2="1"/></svg>"#,
+            8,
+            SvgViewportSource::DocumentViewBox,
+            XmlOptions::default(),
+        )
+        .expect_err("document viewBox mode must not invent a coordinate model");
+        assert_eq!(missing.stage, SvgImportStage::Svg);
+        assert!(missing.span.is_some());
+    }
+
+    #[test]
+    fn svg_lowering_reuses_an_existing_parser_neutral_event_stream() {
+        let source = r#"<svg><path d="M0 0 L24 0 L24 24 Z"/></svg>"#;
+        let events = parse_xml_events(XmlSourceId::new(77), source, XmlOptions::default())
+            .expect("fixture XML should parse once before SVG lowering");
+        let from_events = parse_svg_document_vector_records_from_xml_events(
+            &events,
+            8,
+            SvgViewportSource::Caller([0.0, 0.0, 24.0, 24.0]),
+        )
+        .expect("SVG lowering should consume existing parser-neutral events");
+        let from_source = parse_svg_document_vector_records(source, 8, [0.0, 0.0, 24.0, 24.0])
+            .expect("source convenience API should use the same semantic lowering");
+
+        assert_eq!(from_events.len(), from_source.len());
+        assert_eq!(from_events[0].path, from_source[0].path);
+        assert_eq!(from_events[0].fill, from_source[0].fill);
+        assert_eq!(from_events[0].stroke, from_source[0].stroke);
+        assert_eq!(from_events[0].fill_rule, from_source[0].fill_rule);
+        assert_eq!(from_events[0].source_span.source.value(), 77);
+        assert_eq!(from_source[0].source_span.source.value(), 0);
+    }
+
+    #[test]
     fn convex_fill_adapter_routes_supported_svg_geometry() {
         let svg = r#"<svg><rect x="0" y="0" width="12" height="12" /></svg>"#;
         let meshes = parse_svg_document_convex_fill_meshes(svg, 8, [0.0, 0.0, 12.0, 12.0])
@@ -1535,12 +2174,15 @@ mod tests {
             <line x1="2" y1="3" x2="6" y2="7" />
             <rect x="4" y="5" width="6" height="8" rx="1" />
         </svg>"#;
-        let paths = parse_svg_document_paths(svg, 8, [0.0, 0.0, 24.0, 24.0]).unwrap();
+        let paths = parse_svg_document_vector_paths(svg, 8, [0.0, 0.0, 24.0, 24.0]).unwrap();
         assert!(paths.len() >= 4);
-        assert!(paths.iter().all(|path| path.len() > 1));
-        assert!(paths.iter().flatten().all(|point| {
-            (-0.51..=0.51).contains(&point[0]) && (-0.51..=0.51).contains(&point[1])
-        }));
+        assert!(paths.iter().all(|path| !path.contours.is_empty()));
+        assert!(paths
+            .iter()
+            .flat_map(|path| &path.contours)
+            .flat_map(|contour| &contour.points)
+            .all(|point| {
+                (-0.51..=0.51).contains(&point[0]) && (-0.51..=0.51).contains(&point[1])
+            }));
     }
 }
-use xml_tools::{parse_xml_events, XmlAttribute, XmlEvent, XmlOptions, XmlSourceId};

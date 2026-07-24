@@ -55,6 +55,7 @@ members = [
     "examples/ui/hello-ui-lucide2",
     "examples/ui/hello-ui-dashboard",
     "examples/hello-file-io",
+    "examples/hello-xml-inspect",
     "examples/hello-save-image",
     "examples/lib-example/screenshot",
     "examples/lib-example/presentation-geometry-corpus",

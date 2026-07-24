@@ -140,6 +140,7 @@ pub enum XmlDiagnosticCode {
     NameLimitExceeded,
     AttributeValueLimitExceeded,
     DecodedTextLimitExceeded,
+    DocumentStructure,
 }
 
 /// Severity carried independently from category and code for future recovery.
@@ -282,6 +283,258 @@ pub enum XmlEvent {
     },
 }
 
+/// Opaque identity supplied by the consumer that retains an XML document.
+///
+/// Node handles carry this value so traversal cannot accidentally use a handle
+/// produced by another document.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct XmlDocumentId(u32);
+
+impl XmlDocumentId {
+    pub const fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub const fn value(self) -> u32 {
+        self.0
+    }
+}
+
+/// A document-local immutable node handle.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct XmlNodeId {
+    document: XmlDocumentId,
+    index: usize,
+}
+
+/// The parser-neutral content stored by an immutable XML document node.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum XmlNodeKind {
+    Element {
+        name: ExpandedName,
+        lexical_prefix: Option<String>,
+        attributes: Vec<XmlAttribute>,
+    },
+    Text {
+        text: String,
+    },
+    Comment {
+        text: String,
+    },
+    ProcessingInstruction {
+        target: String,
+        data: Option<String>,
+    },
+}
+
+#[derive(Clone, Debug)]
+struct XmlNodeRecord {
+    kind: XmlNodeKind,
+    parent: Option<XmlNodeId>,
+    children: Vec<XmlNodeId>,
+    span: XmlSpan,
+}
+
+/// An immutable XML document built from bounded parser-neutral events.
+///
+/// This is intentionally not a mutable browser DOM. It retains source order,
+/// parent/child relationships, attributes, expanded names, and source spans
+/// for importers that need traversal after streaming has completed.
+#[derive(Clone, Debug)]
+pub struct XmlDocument {
+    id: XmlDocumentId,
+    source: XmlSourceId,
+    nodes: Vec<XmlNodeRecord>,
+    roots: Vec<XmlNodeId>,
+}
+
+impl XmlDocument {
+    /// Builds a document from events produced by this crate's bounded parser.
+    ///
+    /// The adapter validates nesting again so direct event consumers receive a
+    /// diagnostic rather than a malformed retained tree if they supply an
+    /// invalid synthetic event sequence.
+    pub fn from_events(
+        id: XmlDocumentId,
+        source: XmlSourceId,
+        events: &[XmlEvent],
+    ) -> Result<Self, XmlDiagnostic> {
+        let mut document = Self {
+            id,
+            source,
+            nodes: Vec::new(),
+            roots: Vec::new(),
+        };
+        let mut open_elements = Vec::new();
+
+        for event in events {
+            let span = event_span(event);
+            if span.source != source {
+                return Err(document_error(
+                    source,
+                    span,
+                    "XML event source does not match the document source",
+                ));
+            }
+
+            match event {
+                XmlEvent::StartElement {
+                    name,
+                    lexical_prefix,
+                    attributes,
+                    ..
+                } => {
+                    let node = document.push_node(
+                        XmlNodeKind::Element {
+                            name: name.clone(),
+                            lexical_prefix: lexical_prefix.clone(),
+                            attributes: attributes.clone(),
+                        },
+                        span,
+                        open_elements.last().copied(),
+                    );
+                    open_elements.push(node);
+                }
+                XmlEvent::EndElement { name, .. } => {
+                    let Some(node) = open_elements.pop() else {
+                        return Err(document_error(
+                            source,
+                            span,
+                            format!("XML end element '{}' has no open element", name.local_name),
+                        ));
+                    };
+                    let XmlNodeKind::Element {
+                        name: open_name, ..
+                    } = &document.nodes[node.index].kind
+                    else {
+                        unreachable!("open-element stack only contains element nodes");
+                    };
+                    if open_name != name {
+                        let mut error = document_error(
+                            source,
+                            span,
+                            format!(
+                                "XML end element '{}' does not match open element '{}'",
+                                name.local_name, open_name.local_name
+                            ),
+                        );
+                        error.related_span = Some(document.nodes[node.index].span);
+                        return Err(error);
+                    }
+                    document.nodes[node.index].span.end = span.end;
+                }
+                XmlEvent::Text { text, .. } => {
+                    document.push_node(
+                        XmlNodeKind::Text { text: text.clone() },
+                        span,
+                        open_elements.last().copied(),
+                    );
+                }
+                XmlEvent::Comment { text, .. } => {
+                    document.push_node(
+                        XmlNodeKind::Comment { text: text.clone() },
+                        span,
+                        open_elements.last().copied(),
+                    );
+                }
+                XmlEvent::ProcessingInstruction { target, data, .. } => {
+                    document.push_node(
+                        XmlNodeKind::ProcessingInstruction {
+                            target: target.clone(),
+                            data: data.clone(),
+                        },
+                        span,
+                        open_elements.last().copied(),
+                    );
+                }
+            }
+        }
+
+        if let Some(node) = open_elements.last().copied() {
+            let XmlNodeKind::Element { name, .. } = &document.nodes[node.index].kind else {
+                unreachable!("open-element stack only contains element nodes");
+            };
+            let mut error = document_error(
+                source,
+                document.nodes[node.index].span,
+                format!("XML element '{}' was not closed", name.local_name),
+            );
+            error.related_span = Some(document.nodes[node.index].span);
+            return Err(error);
+        }
+
+        Ok(document)
+    }
+
+    pub const fn id(&self) -> XmlDocumentId {
+        self.id
+    }
+
+    pub const fn source(&self) -> XmlSourceId {
+        self.source
+    }
+
+    pub fn roots(&self) -> &[XmlNodeId] {
+        &self.roots
+    }
+
+    /// Returns the first top-level element while preserving top-level comments,
+    /// processing instructions, and whitespace in `roots()` for source-order
+    /// inspection.
+    pub fn document_element(&self) -> Option<XmlNodeId> {
+        self.roots
+            .iter()
+            .copied()
+            .find(|node| matches!(self.node_kind(*node), Some(XmlNodeKind::Element { .. })))
+    }
+
+    pub fn node_kind(&self, node: XmlNodeId) -> Option<&XmlNodeKind> {
+        self.node(node).map(|record| &record.kind)
+    }
+
+    pub fn node_span(&self, node: XmlNodeId) -> Option<XmlSpan> {
+        self.node(node).map(|record| record.span)
+    }
+
+    pub fn parent(&self, node: XmlNodeId) -> Option<XmlNodeId> {
+        self.node(node).and_then(|record| record.parent)
+    }
+
+    pub fn children(&self, node: XmlNodeId) -> Option<&[XmlNodeId]> {
+        self.node(node).map(|record| record.children.as_slice())
+    }
+
+    fn push_node(
+        &mut self,
+        kind: XmlNodeKind,
+        span: XmlSpan,
+        parent: Option<XmlNodeId>,
+    ) -> XmlNodeId {
+        let node = XmlNodeId {
+            document: self.id,
+            index: self.nodes.len(),
+        };
+        self.nodes.push(XmlNodeRecord {
+            kind,
+            parent,
+            children: Vec::new(),
+            span,
+        });
+        if let Some(parent) = parent {
+            self.nodes[parent.index].children.push(node);
+        } else {
+            self.roots.push(node);
+        }
+        node
+    }
+
+    fn node(&self, node: XmlNodeId) -> Option<&XmlNodeRecord> {
+        (node.document == self.id)
+            .then(|| self.nodes.get(node.index))
+            .flatten()
+    }
+}
+
 const XMLNS_NAMESPACE: &str = "http://www.w3.org/2000/xmlns/";
 
 /// Parses UTF-8 XML into a bounded, parser-neutral event sequence.
@@ -297,10 +550,15 @@ pub fn parse_xml_events(
     validate_xml_input(source, input.as_bytes(), options)?;
 
     let mut reader = NsReader::from_str(input);
+    // `xml-tools` owns matching-end diagnostics so callers receive the opening
+    // element span as structured context instead of a parser-specific error.
+    reader.config_mut().check_end_names = false;
     let mut events = Vec::new();
     let mut depth = 0usize;
+    let mut open_elements: Vec<(ExpandedName, XmlSpan)> = Vec::new();
     let mut decoded_text_bytes = 0usize;
     let mut pending_text: Option<(String, XmlSpan)> = None;
+    let mut document_elements = 0usize;
 
     loop {
         let start = reader.buffer_position() as usize;
@@ -322,6 +580,17 @@ pub fn parse_xml_events(
         match event {
             Event::Start(element) => {
                 flush_pending_text(&mut events, &mut pending_text, options.limits.max_nodes)?;
+                if depth == 0 {
+                    document_elements = document_elements.saturating_add(1);
+                    if document_elements > 1 {
+                        return Err(structure_error(
+                            source,
+                            span,
+                            None,
+                            "XML source contains more than one document element",
+                        ));
+                    }
+                }
                 depth = depth.checked_add(1).expect("XML depth cannot overflow usize");
                 if depth > options.limits.max_nesting_depth {
                     return Err(limit_error(
@@ -336,22 +605,48 @@ pub fn parse_xml_events(
                 }
                 let resolution = reader.resolver().resolve_element(element.name()).0;
                 let (name, lexical_prefix) = expanded_name(source, span, resolution, element.name().as_ref())?;
+                validate_name(
+                    source,
+                    span,
+                    &name,
+                    lexical_prefix.as_deref(),
+                    options.limits.max_name_bytes,
+                )?;
                 let attributes = parse_attributes(source, span, &reader, &element, options.limits)?;
                 push_event(
                     &mut events,
                     XmlEvent::StartElement {
-                        name,
+                        name: name.clone(),
                         lexical_prefix,
                         attributes,
                         span,
                     },
                     options.limits.max_nodes,
                 )?;
+                open_elements.push((name, span));
             }
             Event::Empty(element) => {
                 flush_pending_text(&mut events, &mut pending_text, options.limits.max_nodes)?;
+                if depth == 0 {
+                    document_elements = document_elements.saturating_add(1);
+                    if document_elements > 1 {
+                        return Err(structure_error(
+                            source,
+                            span,
+                            None,
+                            "XML source contains more than one document element",
+                        ));
+                    }
+                }
                 let resolution = reader.resolver().resolve_element(element.name()).0;
                 let (name, lexical_prefix) = expanded_name(source, span, resolution, element.name().as_ref())?;
+                validate_name(
+                    source,
+                    span,
+                    &name,
+                    lexical_prefix.as_deref(),
+                    options.limits.max_name_bytes,
+                )?;
                 let attributes = parse_attributes(source, span, &reader, &element, options.limits)?;
                 push_event(
                     &mut events,
@@ -377,6 +672,32 @@ pub fn parse_xml_events(
                 flush_pending_text(&mut events, &mut pending_text, options.limits.max_nodes)?;
                 let resolution = reader.resolver().resolve_element(element.name()).0;
                 let (name, lexical_prefix) = expanded_name(source, span, resolution, element.name().as_ref())?;
+                validate_name(
+                    source,
+                    span,
+                    &name,
+                    lexical_prefix.as_deref(),
+                    options.limits.max_name_bytes,
+                )?;
+                let Some((open_name, open_span)) = open_elements.pop() else {
+                    return Err(structure_error(
+                        source,
+                        span,
+                        None,
+                        format!("XML end element '{}' has no open element", name.local_name),
+                    ));
+                };
+                if open_name != name {
+                    return Err(structure_error(
+                        source,
+                        span,
+                        Some(open_span),
+                        format!(
+                            "XML end element '{}' does not match open element '{}'",
+                            name.local_name, open_name.local_name
+                        ),
+                    ));
+                }
                 push_event(
                     &mut events,
                     XmlEvent::EndElement {
@@ -388,20 +709,48 @@ pub fn parse_xml_events(
                 )?;
                 depth = depth.saturating_sub(1);
             }
-            Event::Text(text) => append_text(
-                &mut pending_text,
-                text.xml_content().map_err(|error| encoding_error(source, span, error))?.into_owned(),
-                span,
-                &mut decoded_text_bytes,
-                options.limits.max_decoded_text_bytes,
-            )?,
-            Event::CData(text) => append_text(
-                &mut pending_text,
-                text.xml_content().map_err(|error| encoding_error(source, span, error))?.into_owned(),
-                span,
-                &mut decoded_text_bytes,
-                options.limits.max_decoded_text_bytes,
-            )?,
+            Event::Text(text) => {
+                let text = text
+                    .xml_content()
+                    .map_err(|error| encoding_error(source, span, error))?
+                    .into_owned();
+                if depth == 0 && !text.trim().is_empty() {
+                    return Err(structure_error(
+                        source,
+                        span,
+                        None,
+                        "XML text outside the document element is not allowed",
+                    ));
+                }
+                append_text(
+                    &mut pending_text,
+                    text,
+                    span,
+                    &mut decoded_text_bytes,
+                    options.limits.max_decoded_text_bytes,
+                )?
+            }
+            Event::CData(text) => {
+                let text = text
+                    .xml_content()
+                    .map_err(|error| encoding_error(source, span, error))?
+                    .into_owned();
+                if depth == 0 && !text.trim().is_empty() {
+                    return Err(structure_error(
+                        source,
+                        span,
+                        None,
+                        "XML text outside the document element is not allowed",
+                    ));
+                }
+                append_text(
+                    &mut pending_text,
+                    text,
+                    span,
+                    &mut decoded_text_bytes,
+                    options.limits.max_decoded_text_bytes,
+                )?
+            }
             Event::GeneralRef(reference) => append_text(
                 &mut pending_text,
                 decode_reference(reference.as_ref()).ok_or_else(|| {
@@ -468,6 +817,22 @@ pub fn parse_xml_events(
             }
             Event::Eof => {
                 flush_pending_text(&mut events, &mut pending_text, options.limits.max_nodes)?;
+                if let Some((name, open_span)) = open_elements.last() {
+                    return Err(structure_error(
+                        source,
+                        XmlSpan::new(source, input.len(), input.len()),
+                        Some(*open_span),
+                        format!("XML input ended before element '{}' was closed", name.local_name),
+                    ));
+                }
+                if document_elements == 0 {
+                    return Err(structure_error(
+                        source,
+                        XmlSpan::new(source, input.len(), input.len()),
+                        None,
+                        "XML source contains no document element",
+                    ));
+                }
                 return Ok(events);
             }
         }
@@ -500,6 +865,28 @@ pub fn parse_xml_bytes(
         )
     })?;
     parse_xml_events(source, text, options)
+}
+
+/// Parses UTF-8 XML and retains the resulting immutable document.
+pub fn parse_xml_document(
+    id: XmlDocumentId,
+    source: XmlSourceId,
+    input: &str,
+    options: XmlOptions,
+) -> Result<XmlDocument, XmlDiagnostic> {
+    let events = parse_xml_events(source, input, options)?;
+    XmlDocument::from_events(id, source, &events)
+}
+
+/// Parses UTF-8 XML source bytes and retains the resulting immutable document.
+pub fn parse_xml_document_bytes(
+    id: XmlDocumentId,
+    source: XmlSourceId,
+    input: &[u8],
+    options: XmlOptions,
+) -> Result<XmlDocument, XmlDiagnostic> {
+    let events = parse_xml_bytes(source, input, options)?;
+    XmlDocument::from_events(id, source, &events)
 }
 
 fn parse_attributes(
@@ -758,6 +1145,23 @@ fn parser_error(
     )
 }
 
+fn structure_error(
+    source: XmlSourceId,
+    span: XmlSpan,
+    related_span: Option<XmlSpan>,
+    message: impl Into<String>,
+) -> XmlDiagnostic {
+    let mut diagnostic = XmlDiagnostic::at(
+        XmlDiagnosticCategory::Syntax,
+        XmlDiagnosticCode::ParserSyntax,
+        source,
+        span,
+        message,
+    );
+    diagnostic.related_span = related_span;
+    diagnostic
+}
+
 fn encoding_error(source: XmlSourceId, span: XmlSpan, error: impl fmt::Display) -> XmlDiagnostic {
     XmlDiagnostic::at(
         XmlDiagnosticCategory::Encoding,
@@ -783,11 +1187,24 @@ fn limit_error(
     )
 }
 
+fn document_error(source: XmlSourceId, span: XmlSpan, message: impl Into<String>) -> XmlDiagnostic {
+    XmlDiagnostic::at(
+        XmlDiagnosticCategory::WellFormedness,
+        XmlDiagnosticCode::DocumentStructure,
+        source,
+        span,
+        message,
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
     use super::{
-        parse_xml_bytes, parse_xml_events, validate_xml_input, XmlDiagnosticCategory,
-        XmlDiagnosticCode, XmlEvent, XmlLimits, XmlOptions, XmlSourceId, XmlSpan,
+        parse_xml_bytes, parse_xml_document, parse_xml_events, validate_xml_input,
+        XmlDiagnosticCategory, XmlDiagnosticCode, XmlDocument, XmlDocumentId, XmlEvent, XmlLimits,
+        XmlNodeKind, XmlOptions, XmlSourceId, XmlSpan,
     };
 
     #[test]
@@ -971,6 +1388,314 @@ mod tests {
     }
 
     #[test]
+    fn diagnoses_node_attribute_name_value_and_text_limits() {
+        let source = XmlSourceId::new(90);
+
+        let node_error = parse_xml_events(
+            source,
+            "<root><child/></root>",
+            XmlOptions {
+                limits: XmlLimits {
+                    max_nodes: 3,
+                    ..XmlLimits::default()
+                },
+            },
+        )
+        .expect_err("event count must respect the configured node limit");
+        assert_eq!(node_error.code, XmlDiagnosticCode::NodeLimitExceeded);
+
+        let attribute_error = parse_xml_events(
+            source,
+            "<root first=\"one\" second=\"two\"/>",
+            XmlOptions {
+                limits: XmlLimits {
+                    max_attributes_per_element: 1,
+                    ..XmlLimits::default()
+                },
+            },
+        )
+        .expect_err("attribute count must respect the configured limit");
+        assert_eq!(
+            attribute_error.code,
+            XmlDiagnosticCode::AttributeLimitExceeded
+        );
+
+        let name_error = parse_xml_events(
+            source,
+            "<long-name/>",
+            XmlOptions {
+                limits: XmlLimits {
+                    max_name_bytes: 4,
+                    ..XmlLimits::default()
+                },
+            },
+        )
+        .expect_err("element names must respect the configured limit");
+        assert_eq!(name_error.code, XmlDiagnosticCode::NameLimitExceeded);
+
+        let value_error = parse_xml_events(
+            source,
+            "<root label=\"too-long\"/>",
+            XmlOptions {
+                limits: XmlLimits {
+                    max_attribute_value_bytes: 3,
+                    ..XmlLimits::default()
+                },
+            },
+        )
+        .expect_err("attribute values must respect the configured limit");
+        assert_eq!(
+            value_error.code,
+            XmlDiagnosticCode::AttributeValueLimitExceeded
+        );
+
+        let text_error = parse_xml_events(
+            source,
+            "<root>text</root>",
+            XmlOptions {
+                limits: XmlLimits {
+                    max_decoded_text_bytes: 3,
+                    ..XmlLimits::default()
+                },
+            },
+        )
+        .expect_err("decoded text must respect the configured limit");
+        assert_eq!(text_error.code, XmlDiagnosticCode::DecodedTextLimitExceeded);
+    }
+
+    #[test]
+    fn diagnoses_unbound_prefixes_and_truncated_input_at_xml_boundary() {
+        let source = XmlSourceId::new(91);
+        let namespace_error = parse_xml_events(
+            source,
+            "<root><unknown:item/></root>",
+            XmlOptions::default(),
+        )
+        .expect_err("unbound prefixes must not become lexical-only identities");
+        assert_eq!(namespace_error.code, XmlDiagnosticCode::UnboundPrefix);
+        assert_eq!(namespace_error.category, XmlDiagnosticCategory::Namespace);
+
+        let syntax_error = parse_xml_events(source, "<root><child>", XmlOptions::default())
+            .expect_err("truncated XML must stop at the XML boundary");
+        assert_eq!(syntax_error.code, XmlDiagnosticCode::ParserSyntax);
+        assert_eq!(syntax_error.category, XmlDiagnosticCategory::Syntax);
+        assert_eq!(
+            syntax_error.related_span,
+            Some(XmlSpan::new(source, 6, 13)),
+            "the opening child element remains available as diagnostic context"
+        );
+
+        let mismatch_error = parse_xml_events(source, "<root></other>", XmlOptions::default())
+            .expect_err("mismatched end elements must stop at the XML boundary");
+        assert_eq!(mismatch_error.code, XmlDiagnosticCode::ParserSyntax);
+        assert_eq!(mismatch_error.category, XmlDiagnosticCategory::Syntax);
+        assert_eq!(
+            mismatch_error.related_span,
+            Some(XmlSpan::new(source, 0, 6)),
+            "the opening root element remains available as diagnostic context"
+        );
+    }
+
+    #[test]
+    fn rejects_hostile_document_structure_and_disabled_features() {
+        let source = XmlSourceId::new(92);
+        let cases = [
+            (
+                "multiple document elements",
+                "<first/><second/>",
+                XmlDiagnosticCode::ParserSyntax,
+            ),
+            (
+                "text after the document element",
+                "<root/>unexpected",
+                XmlDiagnosticCode::ParserSyntax,
+            ),
+            (
+                "comment-only input",
+                "<!-- no document element -->",
+                XmlDiagnosticCode::ParserSyntax,
+            ),
+            (
+                "duplicate attributes",
+                "<root id=\"first\" id=\"second\"/>",
+                XmlDiagnosticCode::ParserSyntax,
+            ),
+            (
+                "unterminated comment",
+                "<root><!-- unfinished</root>",
+                XmlDiagnosticCode::ParserSyntax,
+            ),
+            (
+                "unsupported entity reference",
+                "<root>&untrusted;</root>",
+                XmlDiagnosticCode::UnsupportedEntityReference,
+            ),
+            (
+                "disabled DTD entity declaration",
+                "<!DOCTYPE root [<!ENTITY untrusted \"payload\">]><root>&untrusted;</root>",
+                XmlDiagnosticCode::UnsupportedDocumentType,
+            ),
+        ];
+
+        for (name, input, expected_code) in cases {
+            let error = parse_xml_events(source, input, XmlOptions::default())
+                .expect_err(&format!("hostile case '{name}' must not parse"));
+            assert_eq!(error.code, expected_code, "hostile case '{name}'");
+            assert_eq!(error.source, Some(source), "hostile case '{name}'");
+            assert!(error.span.is_some(), "hostile case '{name}'");
+        }
+    }
+
+    #[test]
+    fn seeded_hostile_inputs_fail_without_panics_or_source_loss() {
+        for seed in 1..=64u32 {
+            let source = XmlSourceId::new(300 + seed);
+            let input = seeded_hostile_input(seed);
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                parse_xml_events(source, &input, XmlOptions::default())
+            }));
+            let parsed = result.unwrap_or_else(|_| {
+                panic!("hostile seed {seed} must produce a diagnostic instead of panicking")
+            });
+            let error = parsed.expect_err(&format!(
+                "hostile seed {seed} must not be accepted: {input:?}"
+            ));
+            assert_eq!(
+                error.source,
+                Some(source),
+                "hostile seed {seed} must retain source identity"
+            );
+            assert!(
+                error.span.is_some(),
+                "hostile seed {seed} must identify the failing source range"
+            );
+            assert!(!error.can_continue, "hostile seed {seed} must stop parsing");
+        }
+    }
+
+    #[test]
+    fn immutable_document_preserves_parent_child_order_and_spans() {
+        let source = XmlSourceId::new(10);
+        let input = include_str!("../../../../tests/fixtures/xml/well-formed/basic-elements.xml");
+        let document =
+            parse_xml_document(XmlDocumentId::new(1), source, input, XmlOptions::default())
+                .expect("well-formed fixture must retain an immutable document");
+
+        assert_eq!(document.id(), XmlDocumentId::new(1));
+        assert_eq!(document.source(), source);
+        let root = document
+            .document_element()
+            .expect("fixture supplies a document element");
+        let XmlNodeKind::Element {
+            name, attributes, ..
+        } = document
+            .node_kind(root)
+            .expect("root handle belongs to document")
+        else {
+            panic!("document root must be an element");
+        };
+        assert_eq!(name.local_name, "document");
+        assert_eq!(attributes[0].name.local_name, "id");
+
+        let children = document
+            .children(root)
+            .expect("root children are available");
+        assert_eq!(children.len(), 2);
+        let entry = children[0];
+        let empty = children[1];
+        assert_eq!(document.parent(entry), Some(root));
+        assert_eq!(document.parent(empty), Some(root));
+        assert!(matches!(
+            document.node_kind(entry),
+            Some(XmlNodeKind::Element { name, .. }) if name.local_name == "entry"
+        ));
+        assert!(matches!(
+            document.node_kind(empty),
+            Some(XmlNodeKind::Element { name, .. }) if name.local_name == "empty"
+        ));
+
+        let text = document
+            .children(entry)
+            .expect("entry children are available")[0];
+        assert!(matches!(
+            document.node_kind(text),
+            Some(XmlNodeKind::Text { text }) if text == "ready"
+        ));
+        let span = document.node_span(root).expect("root span is available");
+        assert_eq!(span.source, source);
+        assert!(input[span.start..span.end].starts_with("<document"));
+        assert!(input[span.start..span.end].ends_with("</document>"));
+    }
+
+    #[test]
+    fn immutable_document_preserves_expanded_names() {
+        let source = XmlSourceId::new(11);
+        let input = include_str!("../../../../tests/fixtures/xml/namespaces/prefixed-elements.xml");
+        let document =
+            parse_xml_document(XmlDocumentId::new(2), source, input, XmlOptions::default())
+                .expect("namespaced fixture must retain an immutable document");
+        let root = document
+            .document_element()
+            .expect("fixture supplies a document element");
+        let item = document.children(root).expect("root has one child")[0];
+        let XmlNodeKind::Element {
+            name, attributes, ..
+        } = document
+            .node_kind(item)
+            .expect("item handle belongs to document")
+        else {
+            panic!("fixture child must be an element");
+        };
+        assert_eq!(
+            name.namespace_uri.as_deref(),
+            Some("urn:tokimu:xml-fixture")
+        );
+        assert_eq!(name.local_name, "item");
+        assert_eq!(attributes[0].name.namespace_uri, name.namespace_uri);
+    }
+
+    #[test]
+    fn document_handles_are_rejected_by_other_documents() {
+        let source = XmlSourceId::new(12);
+        let first = parse_xml_document(
+            XmlDocumentId::new(3),
+            source,
+            "<first/>",
+            XmlOptions::default(),
+        )
+        .expect("first document must parse");
+        let second = parse_xml_document(
+            XmlDocumentId::new(4),
+            source,
+            "<second/>",
+            XmlOptions::default(),
+        )
+        .expect("second document must parse");
+        let first_root = first
+            .document_element()
+            .expect("first document supplies an element");
+        assert!(second.node_kind(first_root).is_none());
+        assert!(second.children(first_root).is_none());
+    }
+
+    #[test]
+    fn document_builder_diagnoses_invalid_synthetic_event_order() {
+        let source = XmlSourceId::new(13);
+        let events = vec![XmlEvent::EndElement {
+            name: super::ExpandedName {
+                namespace_uri: None,
+                local_name: "root".to_owned(),
+            },
+            lexical_prefix: None,
+            span: XmlSpan::new(source, 0, 7),
+        }];
+        let error = XmlDocument::from_events(XmlDocumentId::new(5), source, &events)
+            .expect_err("document builder must reject unmatched end elements");
+        assert_eq!(error.code, XmlDiagnosticCode::DocumentStructure);
+        assert_eq!(error.category, XmlDiagnosticCategory::WellFormedness);
+    }
+
+    #[test]
     fn w3c_smoke_selection_records_accepted_rejected_and_unsupported_cases() {
         let source = XmlSourceId::new(71);
         let accepted = include_str!(
@@ -1004,5 +1729,62 @@ mod tests {
         let error = parse_xml_bytes(source, non_utf8, XmlOptions::default())
             .expect_err("selected W3C UTF-16 case must remain explicitly unsupported");
         assert_eq!(error.code, XmlDiagnosticCode::UnsupportedEncoding);
+    }
+
+    #[test]
+    fn seeded_well_formed_documents_preserve_deterministic_events_and_roots() {
+        for seed in 1..=32u32 {
+            let input = seeded_document(seed);
+            let source = XmlSourceId::new(200 + seed);
+            let options = XmlOptions::default();
+            let first = parse_xml_events(source, &input, options)
+                .unwrap_or_else(|error| panic!("seed {seed} must remain well formed: {error}"));
+            let second = parse_xml_events(source, &input, options)
+                .unwrap_or_else(|error| panic!("seed {seed} must remain repeatable: {error}"));
+            assert_eq!(first, second, "seed {seed} must preserve event order");
+
+            let document =
+                parse_xml_document(XmlDocumentId::new(200 + seed), source, &input, options)
+                    .unwrap_or_else(|error| panic!("seed {seed} must retain a document: {error}"));
+            assert!(
+                document.document_element().is_some(),
+                "seed {seed} must retain one document element"
+            );
+        }
+    }
+
+    fn seeded_document(seed: u32) -> String {
+        let mut state = seed;
+        let mut document = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        append_seeded_element(&mut document, &mut state, 0);
+        document
+    }
+
+    fn seeded_hostile_input(seed: u32) -> String {
+        match seed % 6 {
+            0 => format!("<root{seed}><child></root{seed}>"),
+            1 => format!("<root{seed}><child>"),
+            2 => format!("<first{seed}/><second{seed}/>"),
+            3 => format!("<!DOCTYPE root{seed} [<!ENTITY entity{seed} \"payload\">]><root{seed}/>"),
+            4 => format!("<root{seed}>&entity{seed};</root{seed}>"),
+            _ => format!("<root{seed}/>trailing{seed}"),
+        }
+    }
+
+    fn append_seeded_element(output: &mut String, state: &mut u32, depth: usize) {
+        let id = next_seed(state) % 97;
+        output.push_str(&format!("<node{id} value=\"v{}\">", next_seed(state) % 53));
+        output.push_str(&format!("text{}", next_seed(state) % 101));
+
+        let child_count = if depth < 4 { next_seed(state) % 3 } else { 0 };
+        for _ in 0..child_count {
+            append_seeded_element(output, state, depth + 1);
+        }
+        output.push_str(&format!("</node{id}>"));
+    }
+
+    fn next_seed(state: &mut u32) -> u32 {
+        *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        *state
     }
 }

@@ -4,6 +4,7 @@
   "producer": "svg/lucide",
   "selected_stages": [
     "source",
+    "xml",
     "vector",
     "mesh"
   ],
@@ -12,6 +13,11 @@
       "stage": "source",
       "status": "ready",
       "summary": "file=archive.svg bytes=340 provider=lucide revision=f930bbe07c92f57244515d9810e9ecbfdafd4488 count=100"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=13 elements=4/4 text=5 comments=0 processing_instructions=0 roots=2 document_element=true"
     },
     {
       "stage": "vector",

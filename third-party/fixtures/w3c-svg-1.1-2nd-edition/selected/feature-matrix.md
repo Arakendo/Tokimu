@@ -17,6 +17,8 @@ complete W3C suite.
 | Multiple contours | supported | `paths-data-02`, `paths-data-04`, `paths-data-08`, `paths-data-09`, `painting-fill-03` |
 | Even-odd fill | selected | `painting-fill-03`; runner support to be verified |
 | Non-zero fill | selected | `painting-fill-03`; runner support to be verified |
+| Nested groups and presentation inheritance | focused support; W3C profile exclusion recorded | `struct-group-01` carries unadmitted `defs` and text alongside the relevant groups |
+| Transform composition | focused support; W3C profile exclusion recorded | `coords-trans-02` carries unadmitted `defs` and text alongside the relevant transforms |
 | Stroke geometry | planned | W3C stroke cases are preserved upstream but not admitted in v1 |
 | Clip paths | planned | Excluded from v1 |
 | Gradients | deferred | Excluded from v1 |

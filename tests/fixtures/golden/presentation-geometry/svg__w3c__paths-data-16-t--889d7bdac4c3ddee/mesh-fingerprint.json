@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c",
+    "case_id": "svg/w3c/paths-data-16-t",
+    "input_hash": "fnv1a64:95a3c001160d9247",
+    "source": "W3C SVG 1.1 2nd Edition/paths-data-16-t.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.41666666,
+      -0.111111104
+    ],
+    [
+      0.3541667,
+      0.16666666
+    ]
+  ],
+  "triangle_count": 4,
+  "degenerate_triangles": 0,
+  "total_area": 0.13888888,
+  "canonical_triangle_hash": "fnv1a64:463331a15aa16479"
+}
