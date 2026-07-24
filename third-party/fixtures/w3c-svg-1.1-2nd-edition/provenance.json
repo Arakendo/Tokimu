@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "source": {
+    "suite": "W3C SVG 1.1 2nd Edition",
+    "profile": "Full",
+    "index_url": "https://dev.w3.org/SVG/profiles/1.1F2/test/",
+    "archive_url": "https://dev.w3.org/SVG/profiles/1.1F2/test/archives/W3C_SVG_11_TestSuite.tar.gz",
+    "archive_name": "W3C_SVG_11_TestSuite.tar.gz",
+    "retrieved_utc": "2026-07-23",
+    "sha256": "429987dd7055c138f129c219afecff0a7010c25477475605a2a2b51865c46ab0"
+  },
+  "layout": {
+    "archive": "W3C_SVG_11_TestSuite.tar.gz",
+    "extracted_root": "upstream/",
+    "selection": "selected/selection-v1.toml",
+    "license_material": "LICENSES/"
+  },
+  "selection_rule": "Select only direct path-data and fill/topology cases whose geometry can be inspected structurally without adopting the W3C browser harness.",
+  "validation_boundary": {
+    "authoritative": "outline, vector, and mesh artifacts",
+    "complementary": "reference images",
+    "excluded_from_v1": [
+      "animation",
+      "DOM and scripting",
+      "CSS and presentation inheritance",
+      "text",
+      "external resources",
+      "filters",
+      "images"
+    ]
+  },
+  "notice": "The archive and upstream copyright material are preserved as received. Review LICENSES/ and the original archive before redistribution."
+}

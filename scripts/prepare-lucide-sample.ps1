@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\")).Path
 
 if (-not (Test-Path -LiteralPath $Source)) {
     throw "Lucide corpus not found. Run prepare-glyph-corpus.ps1 first."
@@ -37,5 +38,20 @@ $manifest = foreach ($file in $files) {
 $manifest | Set-Content -LiteralPath (Join-Path $Destination "manifest.tsv") -Encoding utf8
 $manifest | ForEach-Object { ($_ -split "`t")[0] } |
     Set-Content -LiteralPath (Join-Path $Destination "manifest.txt") -Encoding utf8
+$lucideRoot = Join-Path $repoRoot "third-party\glyph-providers\lucide"
+$revision = (& git -C $lucideRoot rev-parse HEAD 2>$null).Trim()
+if ([string]::IsNullOrWhiteSpace($revision)) {
+    throw "Unable to determine the Lucide provider revision at '$lucideRoot'."
+}
+$provenance = [ordered]@{
+    schema = 1
+    provider = "lucide"
+    revision = $revision
+    selection = "lexicographic SVG order, first Count files"
+    count = $files.Count
+    source = (Resolve-Path -LiteralPath $Source).Path
+}
+$provenance | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Destination "provenance.json") -Encoding utf8
 Write-Output "Prepared Lucide sample at $Destination"
 Write-Output "  Icons: $($files.Count)"
+Write-Output "  Revision: $revision"

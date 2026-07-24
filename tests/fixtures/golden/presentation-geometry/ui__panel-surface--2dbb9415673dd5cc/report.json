@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case_id": "ui/panel-surface",
+  "producer": "ui/surface",
+  "selected_stages": [
+    "source",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "default panel surface"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "layers=3 contours=3 points=96"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "triangles=90 vertices=270 finite=true complete=true degenerate=0 area=1.044112"
+    }
+  ],
+  "diagnostics": []
+}

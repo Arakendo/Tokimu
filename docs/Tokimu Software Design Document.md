@@ -962,6 +962,7 @@ The crate graph should stay intentionally narrow:
 * `tokimu-core` depends only on foundational libraries such as math, error, and diagnostics crates.
 * `tokimu-runtime` depends on `tokimu-core` and orchestrates schedules, plugins, and the app lifecycle.
 * `tokimu-runtime` may also depend on `tokimu-input` once the runtime needs to own a current engine-facing input snapshot; `tokimu-platform` should still remain the adapter from OS or browser events into that state.
+* Target-specific execution mechanisms implement Tokimu-owned contracts and are supplied at the application or facade composition root; `tokimu-runtime` must not depend on `tokimu-platform`.
 * `tokimu-input`, `tokimu-assets`, and `tokimu-render` may depend on `tokimu-core`, but not on each other unless a concrete use case justifies it.
 * `tokimu-platform` adapts OS or browser events into engine-facing abstractions; it should not absorb simulation logic.
 * `tokimu-net`, if added, should depend on engine-facing world, command, and replication shapes rather than making core types depend on socket or protocol libraries.
@@ -1029,6 +1030,12 @@ as normative guidance when architectural boundaries are in question:
 Use this set to decide whether a concept is kernel-native,
 capability-owned, a backend detail, or not yet earned at all.
 
+Corpus and decomposition requirements are the default admission path. ADR-0005
+permits documented provisional admission or permanent evidence substitution
+when existing architectural evidence is already sufficient. The exception must
+record missing evidence, substitute evidence, consequences, accountability, and
+reopening triggers; it cannot override an accepted ownership or dependency ADR.
+
 ## 6. Engine Loop
 
 Initial loop:
@@ -1093,6 +1100,37 @@ Early invariants:
 * HUD and interface presentation should observe or request state changes through
   explicit engine-facing inputs or signals rather than mutating world state as a
   hidden side effect.
+
+### 6.1 Native Execution Policy
+
+Tokimu natively owns execution policy and cross-domain coordination. This is
+distinct from putting operating-system threads in `tokimu-core`.
+
+Ownership follows ADR-0006:
+
+```text
+domain-owned deterministic work
+    -> Tokimu-owned dependency and commit semantics
+    -> tokimu-runtime coordination and global budgets
+    -> engine-owned mechanism contract
+         <- tokimu-platform implementation supplied at app/facade composition
+    -> validated result and ordered commit where required
+```
+
+Sequential execution is a first-class policy for deterministic tests, small
+workloads, and targets without worker support. Domains may expose independent
+work but should not create ambient private worker pools. Platform-native thread,
+worker, lock, or executor objects must not leak into engine-owned or domain
+semantic APIs.
+
+`tokimu-runtime` must not depend on `tokimu-platform`. The platform adapter
+implements an engine-owned mechanism contract and the application or facade
+composition root supplies it to runtime coordination.
+
+This ownership decision does not admit parallel mutation of `World`. The
+existing exclusive world-update path remains valid until a separate review
+proves a safe access model, dependency analysis, diagnostic behavior, and
+deterministic-enough commit policy.
 
 ## 7. ECS Model
 
@@ -2068,9 +2106,9 @@ These are active design questions, not silent deferrals:
 8. Database reuse. If Tokimu adopts parts of the local Database project, is the
   first use case scene persistence, project metadata, asset indexing, or tool
   cache data?
-9. Threading model. When should Tokimu introduce a job system, if at all,
-  instead of relying on a single-threaded runtime plus explicit background
-  loading?
+9. Execution API shape. Which first measured independent workload should earn
+  the smallest runtime coordination contract under ADR-0006, and what portion,
+  if any, belongs in the public API after a second consumer?
 10. Knowledge layer. How much semantic structure should the world expose for
    inspection and rules without collapsing into a database-shaped engine?
 11. History and diff model. Should replay, rollback, and timeline inspection be

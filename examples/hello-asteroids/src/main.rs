@@ -832,6 +832,7 @@ impl PlatformEventHandler for HelloAsteroidsApp {
                         self.closing = true;
                     }
                 }
+                _ => {}
             }
 
             self.update_window_title();

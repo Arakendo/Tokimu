@@ -6,4 +6,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+screenshot = { path = "../lib-example/screenshot" }
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }

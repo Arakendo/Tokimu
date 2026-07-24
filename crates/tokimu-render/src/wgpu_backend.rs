@@ -105,6 +105,8 @@ const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub struct WgpuBackend {
     draw_calls: u32,
+    mesh_uploads: u32,
+    mesh_replacements: u32,
     queued_draws: Vec<QueuedDraw>,
     meshes: HashMap<MeshHandle, GpuMesh>,
     materials: HashMap<MaterialHandle, GpuMaterial>,
@@ -157,6 +159,8 @@ impl WgpuBackend {
 
         Ok(Self {
             draw_calls: 0,
+            mesh_uploads: 0,
+            mesh_replacements: 0,
             queued_draws: Vec::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
@@ -224,6 +228,8 @@ impl WgpuBackend {
 
         Ok(Self {
             draw_calls: 0,
+            mesh_uploads: 0,
+            mesh_replacements: 0,
             queued_draws: Vec::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
@@ -306,6 +312,8 @@ impl WgpuBackend {
 
         Ok(Self {
             draw_calls: 0,
+            mesh_uploads: 0,
+            mesh_replacements: 0,
             queued_draws: Vec::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
@@ -377,6 +385,9 @@ impl WgpuBackend {
     }
 
     pub fn upload_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) {
+        if self.meshes.contains_key(&handle) {
+            self.mesh_replacements = self.mesh_replacements.saturating_add(1);
+        }
         let vertices: Vec<GpuVertex> = mesh
             .positions
             .iter()
@@ -399,13 +410,18 @@ impl WgpuBackend {
                 vertex_count: mesh.vertex_count(),
             },
         );
+        self.mesh_uploads = self.mesh_uploads.saturating_add(1);
     }
 
     /// Uploads an RGBA8 image for future texture-backed pipelines.
     pub fn upload_texture(&mut self, handle: TextureHandle, texture: &Texture) {
         let gpu_texture = self._device.create_texture(&wgpu::TextureDescriptor {
             label: Some("tokimu-texture"),
-            size: wgpu::Extent3d { width: texture.width, height: texture.height, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: texture.width,
+                height: texture.height,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -414,13 +430,32 @@ impl WgpuBackend {
             view_formats: &[],
         });
         self._queue.write_texture(
-            wgpu::ImageCopyTexture { texture: &gpu_texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            wgpu::ImageCopyTexture {
+                texture: &gpu_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
             &texture.rgba8,
-            wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(4 * texture.width), rows_per_image: Some(texture.height) },
-            wgpu::Extent3d { width: texture.width, height: texture.height, depth_or_array_layers: 1 },
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * texture.width),
+                rows_per_image: Some(texture.height),
+            },
+            wgpu::Extent3d {
+                width: texture.width,
+                height: texture.height,
+                depth_or_array_layers: 1,
+            },
         );
         let view = Arc::new(gpu_texture.create_view(&wgpu::TextureViewDescriptor::default()));
-        self.textures.insert(handle, GpuTexture { _texture: gpu_texture, _view: view });
+        self.textures.insert(
+            handle,
+            GpuTexture {
+                _texture: gpu_texture,
+                _view: view,
+            },
+        );
     }
 
     pub fn upload_material(
@@ -448,56 +483,94 @@ impl WgpuBackend {
         let (fallback_texture, fallback_view, fallback_sampler, texture_view, sampler) =
             if let Some(texture_handle) = material.texture {
                 if let Some(texture) = self.textures.get(&texture_handle) {
-                    (None, None, None, Arc::clone(&texture._view), Arc::new(self._device.create_sampler(&wgpu::SamplerDescriptor::default())))
+                    (
+                        None,
+                        None,
+                        None,
+                        Arc::clone(&texture._view),
+                        Arc::new(
+                            self._device
+                                .create_sampler(&wgpu::SamplerDescriptor::default()),
+                        ),
+                    )
                 } else {
                     return Err(WgpuBackendError::MissingTexture(texture_handle.0));
                 }
             } else {
                 let texture = self._device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("tokimu-material-fallback-texture"),
-                    size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
-                    mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+                    size: wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
                     usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                     view_formats: &[],
                 });
                 self._queue.write_texture(
-                    wgpu::ImageCopyTexture { texture: &texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                    wgpu::ImageCopyTexture {
+                        texture: &texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d::ZERO,
+                        aspect: wgpu::TextureAspect::All,
+                    },
                     &[255, 255, 255, 255],
-                    wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
-                    wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                    wgpu::ImageDataLayout {
+                        offset: 0,
+                        bytes_per_row: Some(4),
+                        rows_per_image: Some(1),
+                    },
+                    wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
                 );
                 let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-                let sampler = self._device.create_sampler(&wgpu::SamplerDescriptor::default());
+                let sampler = self
+                    ._device
+                    .create_sampler(&wgpu::SamplerDescriptor::default());
                 let view = Arc::new(view);
                 let sampler = Arc::new(sampler);
-                (Some(texture), Some(Arc::clone(&view)), Some(Arc::clone(&sampler)), view, sampler)
+                (
+                    Some(texture),
+                    Some(Arc::clone(&view)),
+                    Some(Arc::clone(&sampler)),
+                    view,
+                    sampler,
+                )
             };
         let bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("tokimu-material-bind-group"),
             layout: &surface_state.material_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::TextureView(&texture_view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: wgpu::BindingResource::Sampler(&sampler),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
         });
 
         self.materials.insert(
             handle,
             GpuMaterial {
-            _uniform_buffer: uniform_buffer,
-            bind_group,
-            _fallback_texture: fallback_texture,
-            _fallback_view: fallback_view,
-            _fallback_sampler: fallback_sampler,
+                _uniform_buffer: uniform_buffer,
+                bind_group,
+                _fallback_texture: fallback_texture,
+                _fallback_view: fallback_view,
+                _fallback_sampler: fallback_sampler,
             },
         );
 
@@ -530,7 +603,11 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
                 &pipeline.label,
-                pipeline.shader_source.as_deref().or_else(|| pipeline.kind.default_shader_source()).unwrap(),
+                pipeline
+                    .shader_source
+                    .as_deref()
+                    .or_else(|| pipeline.kind.default_shader_source())
+                    .unwrap(),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
                 false,
@@ -833,6 +910,8 @@ impl Renderer for WgpuBackend {
     fn end_frame(&mut self) -> RenderStats {
         RenderStats {
             draw_calls: self.draw_calls,
+            mesh_uploads: self.mesh_uploads,
+            mesh_replacements: self.mesh_replacements,
         }
     }
 }
@@ -1000,25 +1079,33 @@ fn create_camera_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayo
 fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("tokimu-material-bind-group-layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
             },
-            count: None,
-        }, wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false },
-            count: None,
-        }, wgpu::BindGroupLayoutEntry {
-            binding: 2,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-            count: None,
-        }],
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
     })
 }

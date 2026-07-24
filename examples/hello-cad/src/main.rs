@@ -7,7 +7,9 @@ use tokimu::{
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use tokimu_core::math::{Mat4, Vec3, Vec4};
-use ui_tools::{window_to_world, UiButtonId, UiButtonSpec, UiToolbarLayout};
+use ui_tools::{
+    window_to_world, UiButtonId, UiButtonSpec, UiCardRole, UiCardSpec, UiToolbarLayout,
+};
 
 const MODEL_MESH: MeshHandle = MeshHandle(1);
 const UI_MESH: MeshHandle = MeshHandle(2);
@@ -78,6 +80,11 @@ impl HelloCadApp {
                 UiButtonSpec::new(UiButtonId(0), "select"),
                 UiButtonSpec::new(UiButtonId(1), "deselect"),
                 UiButtonSpec::new(UiButtonId(2), "reset"),
+            ],
+            [
+                UiCardSpec::new(UiCardRole::Browser, "browser", "select"),
+                UiCardSpec::new(UiCardRole::Editor, "editor", "edit"),
+                UiCardSpec::new(UiCardRole::Preview, "preview", "inspect"),
             ],
         )
     }
@@ -209,7 +216,7 @@ impl HelloCadApp {
                 mesh: UI_MESH,
                 material: UI_HEADER_MATERIAL,
                 pipeline: self.ui_pipeline,
-                instance: Instance2d::new(layout.header.center, layout.header.size, 0.0),
+                instance: Instance2d::new(layout.header.rect.center, layout.header.rect.size, 0.0),
                 camera: Some(UI_CAMERA_HANDLE),
                 viewport: None,
             }),
@@ -217,7 +224,11 @@ impl HelloCadApp {
                 mesh: UI_MESH,
                 material: UI_BUTTON_MATERIAL,
                 pipeline: self.ui_pipeline,
-                instance: Instance2d::new(layout.toolbar.center, layout.toolbar.size, 0.0),
+                instance: Instance2d::new(
+                    layout.toolbar.rect.center,
+                    layout.toolbar.rect.size,
+                    0.0,
+                ),
                 camera: Some(UI_CAMERA_HANDLE),
                 viewport: None,
             }),
@@ -229,7 +240,11 @@ impl HelloCadApp {
                     UI_BUTTON_MATERIAL
                 },
                 pipeline: self.ui_pipeline,
-                instance: Instance2d::new(layout.status.center, layout.status.size, 0.0),
+                instance: Instance2d::new(
+                    layout.status_bar.rect.center,
+                    layout.status_bar.rect.size,
+                    0.0,
+                ),
                 camera: Some(UI_CAMERA_HANDLE),
                 viewport: None,
             }),

@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{UiRect, UiSurfaceCommand, UiSurfaceRole, UiTheme};
 
@@ -107,7 +107,10 @@ impl HelloUiThemeApp {
             if border > 0.0 {
                 let border_material = Self::material_for_role(border_role);
                 let top = UiRect::new(
-                    [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                    [
+                        rect.center[0],
+                        rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                    ],
                     [rect.size[0], border],
                 );
                 renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
@@ -183,12 +186,27 @@ impl PlatformEventHandler for HelloUiThemeApp {
         })]);
 
         let swatches = [
-            (UiSurfaceRole::Background, UiRect::new([-0.52, 0.34], [0.32, 0.18])),
-            (UiSurfaceRole::Panel, UiRect::new([-0.16, 0.34], [0.32, 0.18])),
+            (
+                UiSurfaceRole::Background,
+                UiRect::new([-0.52, 0.34], [0.32, 0.18]),
+            ),
+            (
+                UiSurfaceRole::Panel,
+                UiRect::new([-0.16, 0.34], [0.32, 0.18]),
+            ),
             (UiSurfaceRole::Card, UiRect::new([0.20, 0.34], [0.32, 0.18])),
-            (UiSurfaceRole::Raised, UiRect::new([-0.52, 0.02], [0.32, 0.18])),
-            (UiSurfaceRole::Selected, UiRect::new([-0.16, 0.02], [0.32, 0.18])),
-            (UiSurfaceRole::Accent, UiRect::new([0.20, 0.02], [0.32, 0.18])),
+            (
+                UiSurfaceRole::Raised,
+                UiRect::new([-0.52, 0.02], [0.32, 0.18]),
+            ),
+            (
+                UiSurfaceRole::Selected,
+                UiRect::new([-0.16, 0.02], [0.32, 0.18]),
+            ),
+            (
+                UiSurfaceRole::Accent,
+                UiRect::new([0.20, 0.02], [0.32, 0.18]),
+            ),
         ];
 
         for (role, rect) in swatches {
@@ -198,6 +216,7 @@ impl PlatformEventHandler for HelloUiThemeApp {
                 &UiSurfaceCommand {
                     rect,
                     style: self.theme.surface(role),
+                    clip: None,
                 },
             );
         }

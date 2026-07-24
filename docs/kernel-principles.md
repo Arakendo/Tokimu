@@ -172,6 +172,23 @@ maintainers. Budgets (section 14) should be enforced through this scheduler
 policy rather than as subsystem-local timers, so no service invents its own
 little police department.
 
+ADR-0006 makes the execution ownership boundary explicit:
+
+- the trusted kernel owns engine-neutral dependency, ordering, permitted
+  independence, deterministic commit, affinity, budget, and diagnostic
+  semantics only as concrete workloads require them;
+- `tokimu-runtime` owns application-wide coordination, dispatch, joining,
+  draining, and budget enforcement;
+- `tokimu-platform` owns native threads, browser workers, and other
+  target-specific execution mechanisms;
+- domains expose bounded deterministic work and do not create ambient private
+  pools as their public execution model.
+
+Sequential execution remains a first-class policy. Parallel completion may
+vary, while observable commit order must be defined wherever it affects engine
+semantics. This does not admit parallel `World` mutation or place a thread-pool
+dependency in `tokimu-core`.
+
 ## 7. Resource Lifetime Scopes
 
 Kernels obsess over lifetime because leaked resources become system problems.

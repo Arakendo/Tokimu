@@ -207,6 +207,7 @@ impl PlatformEventHandler for HelloSnakeApp {
                         }
                     }
                     KeyCode::Escape => {}
+                    _ => {}
                 }
                 self.update_window_title();
             }

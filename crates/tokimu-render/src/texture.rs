@@ -8,6 +8,10 @@ pub struct Texture {
 impl Texture {
     pub fn rgba8(width: u32, height: u32, rgba8: Vec<u8>) -> Self {
         assert_eq!(rgba8.len(), (width * height * 4) as usize);
-        Self { width, height, rgba8 }
+        Self {
+            width,
+            height,
+            rgba8,
+        }
     }
 }

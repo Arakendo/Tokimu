@@ -5,7 +5,7 @@
 | Status     | Draft — exploratory, grow-then-fold                                                               |
 | Title      | "Semantic Kernel Map" (kept) — covers primitives, distinctions, clusters, layers, and promotion  |
 | Scope      | A discipline for deciding what is a kernel-native concept vs a capability-owned one, and for keeping core vocabulary from drifting. A lens over existing architecture, not a new subsystem. |
-| Relates to | ADR-0001 Engine Boundaries, ADR-0003 Capability Ownership Boundary, `docs/kernel-principles.md`   |
+| Relates to | ADR-0001 Engine Boundaries, ADR-0003 Capability Ownership Boundary, ADR-0005 Admission Exceptions, `docs/kernel-principles.md` |
 | Relates to | `docs/capability-backends.md`, `docs/diagnostics-model.md`, SDD ownership model                   |
 | Source     | Adapted from the Tonesu language design method (`docs/Conversations/Tonesu/`)                      |
 
@@ -65,6 +65,16 @@ Concrete procedure before adding a native concept:
 - show that capability-level modeling produces repeated ambiguity or broken
   semantics, not just mild inconvenience;
 - write its Includes/Excludes before writing any code.
+
+These counts are deliberately conservative evidence heuristics, not a rule to
+manufacture applications after ownership is already clear. ADR-0005 permits
+provisional admission or permanent admission by evidence substitution when a
+maintainer records the missing normal evidence, the convincing cross-cutting
+evidence used instead, alternatives, consequences, and reopening triggers.
+
+That exception does not lower the semantic bar. It changes how sufficiency is
+demonstrated. It cannot override an accepted ownership or dependency ADR, and
+reviewer count does not substitute for architectural evidence.
 
 This mirrors how Tonesu admitted `zi` (mutual transformation): not because
 "interaction seems useful," but because static relation, directed causation, and
@@ -331,7 +341,8 @@ concepts surface from one domain first yet clearly affect everything; the rule
 must not tell a fundamental concept "ontology denied, please invent two more
 subsystems." A future `AuthorityScope`, for instance, might prove foundational
 before three capability crates exist. The bar is convincing cross-cutting
-evidence, not a mandatory headcount of capabilities.
+evidence, not a mandatory headcount of capabilities. ADR-0005 records the
+maintainer exception process for making that judgment durable.
 
 ## 10. Worked Verdicts
 
@@ -395,6 +406,8 @@ The recurring shape: "important" repeatedly tries to bully its way into
 
 - ADR-0001 Engine Boundaries — `docs/ADR/ADR-0001-engine-boundaries.md`
 - ADR-0003 Capability Ownership Boundary — `docs/ADR/ADR-0003-capability-ownership-boundary.md`
+- ADR-0005 Admission Evidence and Maintainer Exceptions —
+  `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
 - Kernel Principles — `docs/kernel-principles.md`
 - Capability Backends — `docs/capability-backends.md`
 - Diagnostics Model — `docs/diagnostics-model.md`

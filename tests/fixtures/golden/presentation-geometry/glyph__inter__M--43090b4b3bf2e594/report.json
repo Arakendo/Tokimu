@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "glyph/inter/M",
+  "producer": "font-outline/inter",
+  "selected_stages": [
+    "source",
+    "outline",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "provider=inter format=ttf file=InterVariable.ttf"
+    },
+    {
+      "stage": "outline",
+      "status": "ready",
+      "summary": "character='M' contours=1 units_per_em=2048"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "contours=1 points=41 finite=true"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "triangles=210 vertices=630 finite=true complete=true degenerate=0 area=0.248746"
+    }
+  ],
+  "diagnostics": []
+}

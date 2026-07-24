@@ -1,0 +1,9 @@
+[package]
+name = "tokimu-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+presentation-geometry-corpus = { path = "../examples/lib-example/presentation-geometry-corpus" }

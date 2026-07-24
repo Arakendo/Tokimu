@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case_id": "synthetic/self-intersection-bowtie",
+  "producer": "synthetic/topology",
+  "selected_stages": [
+    "source",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "self-intersecting bow-tie"
+    },
+    {
+      "stage": "vector",
+      "status": "expected-failure",
+      "summary": "expected unsupported topology: contours=1 points=4 finite=true intersections=1"
+    },
+    {
+      "stage": "mesh",
+      "status": "expected-failure",
+      "summary": "not attempted after expected vector-topology failure"
+    }
+  ],
+  "diagnostics": []
+}

@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{UiDrawer, UiRect, UiSurfaceCommand, UiTheme, UiWorkspaceLayout};
 use ui_tools::{layout_bitmap_text, UiTextRole, UiTextSpec};
+use ui_tools::{UiDrawer, UiRect, UiSurfaceCommand, UiTheme, UiWorkspaceLayout};
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
 const GLYPH_MESH: MeshHandle = MeshHandle(2);
@@ -110,7 +110,10 @@ impl HelloUiLayoutApp {
                 .min(rect.size[1] * 0.22);
             if border > 0.0 {
                 let border_rect = UiRect::new(
-                    [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                    [
+                        rect.center[0],
+                        rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                    ],
                     [rect.size[0], border],
                 );
                 renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
@@ -224,9 +227,21 @@ impl PlatformEventHandler for HelloUiLayoutApp {
                 ui_tools::UiButtonSpec::new(ui_tools::UiButtonId(2), "STATUS"),
             ],
             [
-                ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Browser, "Sidebar", "FILTERS + NAVIGATION"),
-                ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Editor, "Canvas", "MAIN CONTENT AREA"),
-                ui_tools::UiCardSpec::new(ui_tools::UiCardRole::Inspector, "Inspector", "PROPERTIES + STATE"),
+                ui_tools::UiCardSpec::new(
+                    ui_tools::UiCardRole::Browser,
+                    "Sidebar",
+                    "FILTERS + NAVIGATION",
+                ),
+                ui_tools::UiCardSpec::new(
+                    ui_tools::UiCardRole::Editor,
+                    "Canvas",
+                    "MAIN CONTENT AREA",
+                ),
+                ui_tools::UiCardSpec::new(
+                    ui_tools::UiCardRole::Inspector,
+                    "Inspector",
+                    "PROPERTIES + STATE",
+                ),
             ],
             &self.theme,
         );

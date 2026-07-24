@@ -1,19 +1,20 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, ViewportRect, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
-    layout_bitmap_text, UiLabel, UiLabelAnchor, UiRect, UiRegion, UiSurfaceCommand,
-    UiSurfaceRole, UiTextRole, UiTheme,
+    layout_bitmap_text, lower_surface_to_vector, tessellate_convex_fill, UiLabel, UiLabelAnchor,
+    UiRadius, UiRect, UiRegion, UiSurfaceCommand, UiSurfaceRole, UiSurfaceVectorLayerKind,
+    UiTextRole, UiTheme,
 };
 
-const BOX_MESH: MeshHandle = MeshHandle(1);
 const GLYPH_MESH: MeshHandle = MeshHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
+const SURFACE_MESH_BASE: u64 = 10;
 
 const BACKDROP_MATERIAL: MaterialHandle = MaterialHandle(1);
 const FRAME_MATERIAL: MaterialHandle = MaterialHandle(2);
@@ -38,6 +39,9 @@ struct HelloUiBoxApp {
     window_size: [f32; 2],
     pipeline: PipelineHandle,
     theme: UiTheme,
+    stats_reported: bool,
+    frame_count: u32,
+    surface_meshes: HashMap<MeshHandle, Mesh>,
 }
 
 impl Default for HelloUiBoxApp {
@@ -47,6 +51,9 @@ impl Default for HelloUiBoxApp {
             window_size: [1.0, 1.0],
             pipeline: PipelineHandle(0),
             theme: UiTheme::default(),
+            stats_reported: false,
+            frame_count: 0,
+            surface_meshes: HashMap::new(),
         }
     }
 }
@@ -70,54 +77,79 @@ impl HelloUiBoxApp {
         }
     }
 
-    fn draw_surface_command(
+    fn draw_surface_commands(
         renderer: &mut WgpuBackend,
         pipeline: PipelineHandle,
-        command: &UiSurfaceCommand,
+        commands: &[UiSurfaceCommand],
+        cached_meshes: &mut HashMap<MeshHandle, Mesh>,
+        window_size: [f32; 2],
     ) {
-        let rect = command.rect;
-        if matches!(
-            command.style.elevation,
-            ui_tools::UiElevation::Raised | ui_tools::UiElevation::Floating
-        ) {
-            let shadow_rect = UiRect::new(
-                [rect.center[0] + 0.01, rect.center[1] - 0.01],
-                [rect.size[0], rect.size[1]],
-            );
-            renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: BOX_MESH,
-                material: MUTED_MATERIAL,
-                pipeline,
-                instance: Instance2d::new(shadow_rect.center, shadow_rect.size, 0.0),
-                camera: Some(CAMERA_HANDLE),
-                viewport: None,
-            })]);
+        let mut batches: Vec<(
+            UiSurfaceVectorLayerKind,
+            UiSurfaceRole,
+            Option<ui_tools::UiPixelRect>,
+            Vec<[f32; 3]>,
+        )> = Vec::new();
+        for command in commands {
+            for layer in lower_surface_to_vector(command) {
+                let viewport = match layer.clip {
+                    Some(clip) => clip.to_pixel_rect(window_size),
+                    None => None,
+                };
+                if layer.clip.is_some() && viewport.is_none() {
+                    continue;
+                }
+                let Ok(positions) = tessellate_convex_fill(&layer.path) else {
+                    continue;
+                };
+                let batch = batches.iter_mut().find(|(kind, role, batch_viewport, _)| {
+                    *kind == layer.kind && *role == layer.role && *batch_viewport == viewport
+                });
+                if let Some((_, _, _, batch_positions)) = batch {
+                    batch_positions.extend(positions.into_iter().map(|[x, y]| [x, y, 0.0]));
+                } else {
+                    batches.push((
+                        layer.kind,
+                        layer.role,
+                        viewport,
+                        positions.into_iter().map(|[x, y]| [x, y, 0.0]).collect(),
+                    ));
+                }
+            }
         }
 
-        if let Some(border_role) = command.style.border_role {
-            let border_width = command.style.border_width;
-            let border_rect = UiRect::new(
-                rect.center,
-                [rect.size[0] + border_width * 2.0, rect.size[1] + border_width * 2.0],
-            );
+        batches.sort_by_key(|(kind, _, _, _)| match kind {
+            UiSurfaceVectorLayerKind::Shadow => 0,
+            UiSurfaceVectorLayerKind::Border => 1,
+            UiSurfaceVectorLayerKind::Fill => 2,
+        });
+        for (index, (kind, role, viewport, positions)) in batches.into_iter().enumerate() {
+            let mesh_handle = MeshHandle(SURFACE_MESH_BASE + index as u64);
+            let mesh = Mesh::uniform_normal(positions, [0.0, 0.0, 1.0]);
+            if cached_meshes.get(&mesh_handle) != Some(&mesh) {
+                renderer.upload_mesh(mesh_handle, &mesh);
+                cached_meshes.insert(mesh_handle, mesh);
+            }
+            let material = match kind {
+                UiSurfaceVectorLayerKind::Shadow => MUTED_MATERIAL,
+                UiSurfaceVectorLayerKind::Border | UiSurfaceVectorLayerKind::Fill => {
+                    Self::material_for_role(role)
+                }
+            };
             renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: BOX_MESH,
-                material: Self::material_for_role(border_role),
+                mesh: mesh_handle,
+                material,
                 pipeline,
-                instance: Instance2d::new(border_rect.center, border_rect.size, 0.0),
+                instance: Instance2d::new([0.0, 0.0], [1.0, 1.0], 0.0),
                 camera: Some(CAMERA_HANDLE),
-                viewport: None,
+                viewport: viewport.map(|rect| ViewportRect {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                }),
             })]);
         }
-
-        renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
-            mesh: BOX_MESH,
-            material: Self::material_for_role(command.style.role),
-            pipeline,
-            instance: Instance2d::new(rect.center, rect.size, 0.0),
-            camera: Some(CAMERA_HANDLE),
-            viewport: None,
-        })]);
     }
 
     fn draw_text_command(
@@ -148,7 +180,6 @@ impl PlatformEventHandler for HelloUiBoxApp {
         self.window_size = [size.width.max(1) as f32, size.height.max(1) as f32];
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
-        renderer.upload_mesh(BOX_MESH, &Mesh::quad());
         renderer.upload_mesh(GLYPH_MESH, &Mesh::quad());
         renderer.upload_material(
             BACKDROP_MATERIAL,
@@ -235,14 +266,43 @@ impl PlatformEventHandler for HelloUiBoxApp {
             drawer.label(&subtitle, UiTextRole::Caption);
         }
 
-        for command in surfaces {
-            Self::draw_surface_command(renderer, self.pipeline, &command);
+        // The outer frame is deliberately square; the nested frame remains
+        // rounded so the corpus compares both geometry variants directly.
+        if let Some(outer_command) = surfaces.first_mut() {
+            outer_command.style.radius = UiRadius::None;
         }
+
+        // Exercise semantic clip metadata and renderer scissor lowering with
+        // one intentionally partial nested surface.
+        if let Some(inner_command) = surfaces.get_mut(1) {
+            inner_command.clip = Some(UiRect::new([0.0, -0.02], [0.48, 0.26]));
+        }
+
+        Self::draw_surface_commands(
+            renderer,
+            self.pipeline,
+            &surfaces,
+            &mut self.surface_meshes,
+            self.window_size,
+        );
         for command in text {
             Self::draw_text_command(renderer, self.pipeline, &command);
         }
 
-        let _ = renderer.present()?;
+        let stats = renderer.present()?;
+        self.frame_count = self.frame_count.saturating_add(1);
+        if !self.stats_reported {
+            println!(
+                "hello-ui-box first-frame stats: draw_calls={}, cumulative_mesh_uploads={}, mesh_replacements={}",
+                stats.draw_calls, stats.mesh_uploads, stats.mesh_replacements
+            );
+            self.stats_reported = true;
+        } else if self.frame_count == 2 {
+            println!(
+                "hello-ui-box second-frame stats: draw_calls={}, cumulative_mesh_uploads={}, mesh_replacements={}",
+                stats.draw_calls, stats.mesh_uploads, stats.mesh_replacements
+            );
+        }
         Ok(FrameOutcome::Continue)
     }
 }

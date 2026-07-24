@@ -9,6 +9,7 @@
 | Trigger | Corpus pressure, dependency change, repeated friction, retirement, or other concrete cause |
 | Related ADRs | None |
 | Related evidence | Examples, tests, audits, design documents, or issues |
+| Admission exception | None, provisional admission, or permanent evidence substitution under ADR-0005 |
 
 ## Architectural Question
 
@@ -74,6 +75,15 @@ and doing nothing where they are genuine alternatives.
 Record what the evidence supports, what it does not support, and any remaining
 uncertainty.
 
+If ADR-0005 is used, also record:
+
+- normal evidence missing;
+- substitute evidence;
+- why mechanically completing the normal threshold adds little decision value;
+- accountable maintainer;
+- risks accepted;
+- reopening trigger.
+
 ## Disposition
 
 Choose one:
@@ -129,4 +139,3 @@ Append later cycles; do not replace earlier cycles.
 
 - `docs/contribution-admission-guide.md`
 - Relevant ADRs, design documents, examples, tests, and audits
-

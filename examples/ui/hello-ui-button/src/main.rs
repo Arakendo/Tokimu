@@ -101,15 +101,8 @@ impl HelloUiButtonApp {
             command.style.elevation,
             ui_tools::UiElevation::Raised | ui_tools::UiElevation::Floating
         ) {
-            let shadow = UiRect::new(
-                [rect.center[0] + 0.012, rect.center[1] - 0.012],
-                rect.size,
-            );
-            renderer.submit(&[Self::mesh_command(
-                shadow,
-                MUTED_MATERIAL,
-                pipeline,
-            )]);
+            let shadow = UiRect::new([rect.center[0] + 0.012, rect.center[1] - 0.012], rect.size);
+            renderer.submit(&[Self::mesh_command(shadow, MUTED_MATERIAL, pipeline)]);
         }
 
         if let Some(border_role) = command.style.border_role {
@@ -136,7 +129,11 @@ impl HelloUiButtonApp {
         )]);
     }
 
-    fn mesh_command(rect: UiRect, material: MaterialHandle, pipeline: PipelineHandle) -> RenderCommand {
+    fn mesh_command(
+        rect: UiRect,
+        material: MaterialHandle,
+        pipeline: PipelineHandle,
+    ) -> RenderCommand {
         RenderCommand::DrawMesh(DrawMeshCommand {
             mesh: BOX_MESH,
             material,
@@ -178,13 +175,29 @@ impl PlatformEventHandler for HelloUiButtonApp {
         renderer.upload_mesh(BOX_MESH, &Mesh::quad());
         renderer.upload_mesh(GLYPH_MESH, &Mesh::quad());
         for (handle, name, color) in [
-            (BACKDROP_MATERIAL, "button-backdrop", Color::rgb(0.05, 0.06, 0.09)),
+            (
+                BACKDROP_MATERIAL,
+                "button-backdrop",
+                Color::rgb(0.05, 0.06, 0.09),
+            ),
             (BUTTON_MATERIAL, "button-idle", Color::rgb(0.20, 0.24, 0.30)),
             (HOVER_MATERIAL, "button-hover", Color::rgb(0.29, 0.38, 0.50)),
-            (ACTIVE_MATERIAL, "button-active", Color::rgb(0.38, 0.62, 0.86)),
-            (BORDER_MATERIAL, "button-border", Color::rgb(0.12, 0.15, 0.20)),
+            (
+                ACTIVE_MATERIAL,
+                "button-active",
+                Color::rgb(0.38, 0.62, 0.86),
+            ),
+            (
+                BORDER_MATERIAL,
+                "button-border",
+                Color::rgb(0.12, 0.15, 0.20),
+            ),
             (TEXT_MATERIAL, "button-text", Color::rgb(0.94, 0.96, 1.0)),
-            (MUTED_MATERIAL, "button-shadow", Color::rgb(0.10, 0.12, 0.16)),
+            (
+                MUTED_MATERIAL,
+                "button-shadow",
+                Color::rgb(0.10, 0.12, 0.16),
+            ),
         ] {
             renderer.upload_material(handle, &Material::new(name, color))?;
         }
@@ -200,7 +213,9 @@ impl PlatformEventHandler for HelloUiButtonApp {
         match event {
             PlatformInputEvent::CursorMoved { x, y } => {
                 self.cursor_position = [x, y];
-                self.hovered = self.button().contains(window_to_world(self.window_size, self.cursor_position));
+                self.hovered = self
+                    .button()
+                    .contains(window_to_world(self.window_size, self.cursor_position));
             }
             PlatformInputEvent::MouseInput {
                 button: MouseButton::Left,

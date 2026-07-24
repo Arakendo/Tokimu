@@ -8,7 +8,7 @@ use tokimu::{
 };
 use tokimu_input::{InputState, KeyCode};
 use ui_tools::{
-    UiActivationKey, UiActionId, UiButton, UiButtonId, UiEvent, UiFocusDirection, UiFocusState,
+    UiActionId, UiActivationKey, UiButton, UiButtonId, UiEvent, UiFocusDirection, UiFocusState,
     UiRect, UiSurfaceRole,
 };
 
@@ -85,7 +85,11 @@ impl HelloUiInputApp {
         role: UiSurfaceRole,
         active: bool,
     ) {
-        let style_role = if active { UiSurfaceRole::Selected } else { role };
+        let style_role = if active {
+            UiSurfaceRole::Selected
+        } else {
+            role
+        };
         renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
             mesh: REGION_MESH,
             material: Self::material_for_role(style_role),
@@ -185,13 +189,49 @@ impl HelloUiInputApp {
         })]);
 
         let focused = self.focus.focused();
-        Self::draw_region(renderer, self.pipeline, columns[0], UiSurfaceRole::Panel, focused == Some(UiButtonId(0)));
-        Self::draw_region(renderer, self.pipeline, columns[1], UiSurfaceRole::Card, focused == Some(UiButtonId(1)));
-        Self::draw_region(renderer, self.pipeline, columns[2], UiSurfaceRole::Toolbar, focused == Some(UiButtonId(2)));
+        Self::draw_region(
+            renderer,
+            self.pipeline,
+            columns[0],
+            UiSurfaceRole::Panel,
+            focused == Some(UiButtonId(0)),
+        );
+        Self::draw_region(
+            renderer,
+            self.pipeline,
+            columns[1],
+            UiSurfaceRole::Card,
+            focused == Some(UiButtonId(1)),
+        );
+        Self::draw_region(
+            renderer,
+            self.pipeline,
+            columns[2],
+            UiSurfaceRole::Toolbar,
+            focused == Some(UiButtonId(2)),
+        );
 
-        Self::draw_region(renderer, self.pipeline, focus_rects[0], UiSurfaceRole::Region, focused == Some(UiButtonId(0)) || self.hovered == Some(UiButtonId(0)));
-        Self::draw_region(renderer, self.pipeline, focus_rects[1], UiSurfaceRole::Region, focused == Some(UiButtonId(1)) || self.hovered == Some(UiButtonId(1)));
-        Self::draw_region(renderer, self.pipeline, focus_rects[2], UiSurfaceRole::Region, focused == Some(UiButtonId(2)) || self.hovered == Some(UiButtonId(2)));
+        Self::draw_region(
+            renderer,
+            self.pipeline,
+            focus_rects[0],
+            UiSurfaceRole::Region,
+            focused == Some(UiButtonId(0)) || self.hovered == Some(UiButtonId(0)),
+        );
+        Self::draw_region(
+            renderer,
+            self.pipeline,
+            focus_rects[1],
+            UiSurfaceRole::Region,
+            focused == Some(UiButtonId(1)) || self.hovered == Some(UiButtonId(1)),
+        );
+        Self::draw_region(
+            renderer,
+            self.pipeline,
+            focus_rects[2],
+            UiSurfaceRole::Region,
+            focused == Some(UiButtonId(2)) || self.hovered == Some(UiButtonId(2)),
+        );
 
         let _ = renderer.present()?;
         self.update_title();
@@ -256,9 +296,9 @@ impl PlatformEventHandler for HelloUiInputApp {
             } => {
                 if let Some(focused) = self.hovered {
                     self.focus.set_focus(Some(focused));
-                    if let Some(UiEvent::Activated(UiActionId(3))) = self
-                        .focus
-                        .activate(&self.buttons(), UiActivationKey::Enter, true)
+                    if let Some(UiEvent::Activated(UiActionId(3))) =
+                        self.focus
+                            .activate(&self.buttons(), UiActivationKey::Enter, true)
                     {
                         self.captured = !self.captured;
                     }
@@ -272,9 +312,9 @@ impl PlatformEventHandler for HelloUiInputApp {
                     .focus
                     .move_focus(&self.buttons(), UiFocusDirection::Forward),
                 KeyCode::Space => {
-                    if let Some(UiEvent::Activated(UiActionId(3))) = self
-                        .focus
-                        .activate(&self.buttons(), UiActivationKey::Enter, true)
+                    if let Some(UiEvent::Activated(UiActionId(3))) =
+                        self.focus
+                            .activate(&self.buttons(), UiActivationKey::Enter, true)
                     {
                         self.captured = !self.captured;
                     }

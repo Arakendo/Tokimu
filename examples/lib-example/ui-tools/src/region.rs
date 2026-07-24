@@ -43,6 +43,7 @@ impl UiSpacing {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiRadius {
+    None,
     Small,
     Medium,
     Large,

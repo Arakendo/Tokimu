@@ -327,6 +327,7 @@ The glyph and Lucide corpus examples are intentionally consumers of shared
 services rather than private parsers. The reusable boundary currently includes:
 
 - `raster.rs` for font rasterization and glyph coverage
+- `font_outline.rs` for provider-neutral glyph outlines and font-to-vector lowering
 - `text.rs` for baseline-aware glyph layout and text placement
 - `svg.rs` for path parsing, curve flattening, SVG primitive extraction, and
   stroke tessellation

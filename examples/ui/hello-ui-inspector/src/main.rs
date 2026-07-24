@@ -45,12 +45,18 @@ impl InspectorField {
     ];
 
     fn next(self) -> Self {
-        let index = Self::ALL.iter().position(|field| *field == self).unwrap_or(0);
+        let index = Self::ALL
+            .iter()
+            .position(|field| *field == self)
+            .unwrap_or(0);
         Self::ALL[(index + 1) % Self::ALL.len()]
     }
 
     fn prev(self) -> Self {
-        let index = Self::ALL.iter().position(|field| *field == self).unwrap_or(0);
+        let index = Self::ALL
+            .iter()
+            .position(|field| *field == self)
+            .unwrap_or(0);
         Self::ALL[(index + Self::ALL.len() - 1) % Self::ALL.len()]
     }
 }
@@ -225,7 +231,11 @@ impl HelloUiInspectorApp {
         ]
     }
 
-    fn hovered_field_at_point(&self, layout: &UiWorkspaceLayout, point: [f32; 2]) -> Option<InspectorField> {
+    fn hovered_field_at_point(
+        &self,
+        layout: &UiWorkspaceLayout,
+        point: [f32; 2],
+    ) -> Option<InspectorField> {
         let rects = self.field_rects(layout);
         InspectorField::ALL
             .iter()
@@ -233,7 +243,11 @@ impl HelloUiInspectorApp {
             .find_map(|(index, field)| rects[index].contains(point).then_some(*field))
     }
 
-    fn hovered_object_at_point(&self, layout: &UiWorkspaceLayout, point: [f32; 2]) -> Option<usize> {
+    fn hovered_object_at_point(
+        &self,
+        layout: &UiWorkspaceLayout,
+        point: [f32; 2],
+    ) -> Option<usize> {
         layout
             .cards
             .iter()
@@ -296,7 +310,10 @@ impl HelloUiInspectorApp {
                 .min(rect.size[1] * 0.22);
             if border > 0.0 {
                 let border_rect = UiRect::new(
-                    [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                    [
+                        rect.center[0],
+                        rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                    ],
                     [rect.size[0], border],
                 );
                 renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
@@ -448,6 +465,7 @@ impl HelloUiInspectorApp {
             self.cached_surfaces.push(UiSurfaceCommand {
                 rect: field_region.rect,
                 style: self.theme.surface(field_region.role),
+                clip: None,
             });
         }
 

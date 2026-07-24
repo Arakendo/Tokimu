@@ -207,6 +207,7 @@ impl PlatformEventHandler for HelloSpaceInvadersApp {
                     }
                     KeyCode::ArrowUp | KeyCode::ArrowDown | KeyCode::KeyW | KeyCode::KeyS => {}
                     KeyCode::Escape => {}
+                    _ => {}
                 }
                 self.update_window_title();
             }

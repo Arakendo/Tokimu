@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case_id": "synthetic/multi-contour-hole",
+  "producer": "synthetic/topology",
+  "selected_stages": [
+    "source",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "multi-contour hole"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "contours=2 points=8 finite=true intersections=0"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "triangles=8 vertices=24 finite=true complete=true degenerate=0 area=0.750000"
+    }
+  ],
+  "diagnostics": []
+}

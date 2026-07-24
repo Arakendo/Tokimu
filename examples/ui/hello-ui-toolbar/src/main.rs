@@ -7,8 +7,8 @@ use tokimu::{
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
-    layout_bitmap_text, window_to_world, UiButton, UiButtonId, UiControlRole,
-    UiInteractionState, UiRect, UiTextRole, UiTextSpec, UiTheme,
+    layout_bitmap_text, window_to_world, UiButton, UiButtonId, UiControlRole, UiInteractionState,
+    UiRect, UiTextRole, UiTextSpec, UiTheme,
 };
 
 const PANEL_MESH: MeshHandle = MeshHandle(1);
@@ -143,23 +143,38 @@ impl HelloUiToolbarApp {
         })]);
 
         if let Some(border_role) = style.border_role {
-            let border = style.border_width.min(rect.size[0] * 0.22).min(rect.size[1] * 0.22);
+            let border = style
+                .border_width
+                .min(rect.size[0] * 0.22)
+                .min(rect.size[1] * 0.22);
             if border > 0.0 {
                 let edges = [
                     UiRect::new(
-                        [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                        [
+                            rect.center[0],
+                            rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                        ],
                         [rect.size[0], border],
                     ),
                     UiRect::new(
-                        [rect.center[0], rect.center[1] - rect.size[1] * 0.5 + border * 0.5],
+                        [
+                            rect.center[0],
+                            rect.center[1] - rect.size[1] * 0.5 + border * 0.5,
+                        ],
                         [rect.size[0], border],
                     ),
                     UiRect::new(
-                        [rect.center[0] - rect.size[0] * 0.5 + border * 0.5, rect.center[1]],
+                        [
+                            rect.center[0] - rect.size[0] * 0.5 + border * 0.5,
+                            rect.center[1],
+                        ],
                         [border, rect.size[1]],
                     ),
                     UiRect::new(
-                        [rect.center[0] + rect.size[0] * 0.5 - border * 0.5, rect.center[1]],
+                        [
+                            rect.center[0] + rect.size[0] * 0.5 - border * 0.5,
+                            rect.center[1],
+                        ],
                         [border, rect.size[1]],
                     ),
                 ];
@@ -266,17 +281,21 @@ impl PlatformEventHandler for HelloUiToolbarApp {
         } = event
         {
             let cursor = self.cursor_world();
-            self.active_button = self.buttons.iter().find_map(|button| {
-                if button.contains(cursor) {
-                    Some(if self.active_button == Some(button.id) {
-                        None
+            self.active_button = self
+                .buttons
+                .iter()
+                .find_map(|button| {
+                    if button.contains(cursor) {
+                        Some(if self.active_button == Some(button.id) {
+                            None
+                        } else {
+                            Some(button.id)
+                        })
                     } else {
-                        Some(button.id)
-                    })
-                } else {
-                    None
-                }
-            }).flatten();
+                        None
+                    }
+                })
+                .flatten();
         }
 
         if let PlatformInputEvent::Resized { width, height } = event {

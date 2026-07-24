@@ -47,6 +47,10 @@ authoring slices.
   `lib-example/ui-framework`
 * Frontends: `frontends/` with `tokimu`, `@tokimu/rules`, and example packages
 
+See the [documentation map](docs/README.md) for the distinction between
+current architecture, active plans, working notes, reviews, and archived
+material.
+
 See the [Software Design Document](docs/Tokimu%20Software%20Design%20Document.md)
 for the full architecture, subsystem breakdown, and milestone plan.
 

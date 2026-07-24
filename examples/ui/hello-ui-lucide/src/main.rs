@@ -1,12 +1,12 @@
 use std::{fs, path::PathBuf, sync::Arc};
 
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
-    FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{parse_svg_document_paths, stroke_paths};
+use ui_tools::{parse_svg_document_vector_paths, tessellate_path_strokes, VectorPath};
 
 const CAMERA: CameraHandle = CameraHandle(1);
 const MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -31,7 +31,7 @@ struct App {
     strokes: Vec<(MeshHandle, [f32; 2])>,
 }
 
-fn icon_paths(name: &str) -> Result<Vec<Vec<[f32; 2]>>, String> {
+fn icon_paths(name: &str) -> Result<Vec<VectorPath>, String> {
     let relative = format!("target/glyph-corpus/icons/icons/{name}.svg");
     let mut paths = vec![PathBuf::from(&relative)];
     if let Ok(dir) = std::env::current_dir() {
@@ -45,7 +45,7 @@ fn icon_paths(name: &str) -> Result<Vec<Vec<[f32; 2]>>, String> {
         .find(|path| path.is_file())
         .ok_or_else(|| "run prepare-glyph-corpus.ps1 first".to_string())?;
     let svg = fs::read_to_string(path).map_err(|error| error.to_string())?;
-    parse_svg_document_paths(&svg, 32, [0.0, 0.0, 24.0, 24.0])
+    parse_svg_document_vector_paths(&svg, 32, [0.0, 0.0, 24.0, 24.0])
 }
 
 impl PlatformEventHandler for App {
@@ -53,17 +53,22 @@ impl PlatformEventHandler for App {
         let size = window.inner_size();
         self.size = [size.width.max(1) as f32, size.height.max(1) as f32];
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
-        renderer.upload_material(MATERIAL, &Material::new("lucide", Color::rgb(0.45, 0.68, 0.92)))?;
+        renderer.upload_material(
+            MATERIAL,
+            &Material::new("lucide", Color::rgb(0.45, 0.68, 0.92)),
+        )?;
 
         for (icon_index, name) in ICONS.iter().enumerate() {
             let center_x = (icon_index as f32 - 2.0) * 0.62;
             let paths = icon_paths(name)?;
             let handle = MeshHandle(10 + icon_index as u64);
-            let mesh = Mesh::uniform_normal(stroke_paths(&paths, 0.025), [0.0, 0.0, 1.0]);
+            let mesh =
+                Mesh::uniform_normal(tessellate_path_strokes(&paths, 0.025), [0.0, 0.0, 1.0]);
             renderer.upload_mesh(handle, &mesh);
             self.strokes.push((handle, [center_x, 0.0]));
         }
-        self.pipeline = renderer.register_pipeline(&Pipeline::new("lucide", PipelineKind::SolidColor2d))?;
+        self.pipeline =
+            renderer.register_pipeline(&Pipeline::new("lucide", PipelineKind::SolidColor2d))?;
         self.renderer = Some(renderer);
         Ok(())
     }
@@ -90,14 +95,16 @@ impl PlatformEventHandler for App {
         let commands = self
             .strokes
             .iter()
-            .map(|(mesh, center)| RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: *mesh,
-                material: MATERIAL,
-                pipeline: self.pipeline,
-                instance: Instance2d::new(*center, [0.55, 0.55], 0.0),
-                camera: Some(CAMERA),
-                viewport: None,
-            }))
+            .map(|(mesh, center)| {
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: *mesh,
+                    material: MATERIAL,
+                    pipeline: self.pipeline,
+                    instance: Instance2d::new(*center, [0.55, 0.55], 0.0),
+                    camera: Some(CAMERA),
+                    viewport: None,
+                })
+            })
             .collect::<Vec<_>>();
         renderer.submit(&commands);
         let _ = renderer.present()?;

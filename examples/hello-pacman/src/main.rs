@@ -199,6 +199,7 @@ impl PlatformEventHandler for HelloPacmanApp {
                         }
                     }
                     KeyCode::Escape => {}
+                    _ => {}
                 }
                 self.update_window_title();
             }

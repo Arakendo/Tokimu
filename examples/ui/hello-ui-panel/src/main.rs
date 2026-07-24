@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
     layout_bitmap_text, UiButton, UiButtonId, UiControlRole, UiDrawer, UiLabel, UiLabelAnchor,
@@ -111,19 +111,31 @@ impl HelloUiPanelApp {
                 let border_material = Self::material_for_role(border_role);
                 let edges = [
                     UiRect::new(
-                        [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                        [
+                            rect.center[0],
+                            rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                        ],
                         [rect.size[0], border],
                     ),
                     UiRect::new(
-                        [rect.center[0], rect.center[1] - rect.size[1] * 0.5 + border * 0.5],
+                        [
+                            rect.center[0],
+                            rect.center[1] - rect.size[1] * 0.5 + border * 0.5,
+                        ],
                         [rect.size[0], border],
                     ),
                     UiRect::new(
-                        [rect.center[0] - rect.size[0] * 0.5 + border * 0.5, rect.center[1]],
+                        [
+                            rect.center[0] - rect.size[0] * 0.5 + border * 0.5,
+                            rect.center[1],
+                        ],
                         [border, rect.size[1]],
                     ),
                     UiRect::new(
-                        [rect.center[0] + rect.size[0] * 0.5 - border * 0.5, rect.center[1]],
+                        [
+                            rect.center[0] + rect.size[0] * 0.5 - border * 0.5,
+                            rect.center[1],
+                        ],
                         [border, rect.size[1]],
                     ),
                 ];
@@ -237,21 +249,28 @@ impl PlatformEventHandler for HelloUiPanelApp {
             UiSurfaceCommand {
                 rect: outer,
                 style: self.theme.surface(UiSurfaceRole::Raised),
+                clip: None,
             },
             UiSurfaceCommand {
                 rect: strip,
                 style: self.theme.surface(UiSurfaceRole::Accent),
+                clip: None,
             },
             UiSurfaceCommand {
                 rect: inner,
                 style: self.theme.surface(UiSurfaceRole::Panel),
+                clip: None,
             },
         ];
         let mut text = Vec::new();
         {
             let mut drawer = UiDrawer::new(&mut surfaces, &mut text, &self.theme);
             drawer.label(&title, UiTextRole::Title);
-            drawer.button(&button, ui_tools::UiInteractionState::Idle, UiControlRole::Primary);
+            drawer.button(
+                &button,
+                ui_tools::UiInteractionState::Idle,
+                UiControlRole::Primary,
+            );
         }
 
         for command in surfaces {

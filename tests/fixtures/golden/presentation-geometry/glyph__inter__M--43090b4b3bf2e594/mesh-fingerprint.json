@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "font-outline/inter",
+    "case_id": "glyph/inter/M",
+    "input_hash": "fnv1a64:2dc048e222fdeb78",
+    "source": "InterVariable.ttf",
+    "algorithms": {
+      "flatten": "ui-glyph-outline-flatten-v1:tolerance=0.0005",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "even-odd"
+    }
+  },
+  "bounds": [
+    [
+      0.087890625,
+      0.0
+    ],
+    [
+      0.8154297,
+      0.72753906
+    ]
+  ],
+  "triangle_count": 210,
+  "degenerate_triangles": 0,
+  "total_area": 0.24874552,
+  "canonical_triangle_hash": "fnv1a64:5a6e97c23aaf71a3"
+}

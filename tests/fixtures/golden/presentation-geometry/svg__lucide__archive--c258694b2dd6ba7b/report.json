@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case_id": "svg/lucide/archive",
+  "producer": "svg/lucide",
+  "selected_stages": [
+    "source",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=archive.svg bytes=340 provider=lucide revision=f930bbe07c92f57244515d9810e9ecbfdafd4488 count=100"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "Lucide archive SVG paths=3 contours=3 points=50 closed_contours=1"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "closed_paths=1 open_paths=2 triangles=18 vertices=54 finite=true complete=true degenerate=0 area=0.171982"
+    }
+  ],
+  "diagnostics": []
+}

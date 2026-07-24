@@ -18,6 +18,40 @@ pub enum SvgPathCommand {
     ClosePath,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SvgFillRule {
+    NonZero,
+    EvenOdd,
+}
+
+/// SVG element geometry plus the small amount of paint intent needed by an
+/// importer. This stays above `VectorPath`: fill/stroke are SVG semantics, not
+/// responsibilities of the provider-neutral geometry contract.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SvgVectorRecord {
+    pub path: crate::VectorPath,
+    pub fill: bool,
+    pub stroke: bool,
+    pub fill_rule: SvgFillRule,
+}
+
+impl SvgVectorRecord {
+    fn new(path: crate::VectorPath, tag: &str) -> Self {
+        let fill = svg_paint_value(tag, "fill").is_none_or(|value| value != "none");
+        let stroke = svg_paint_value(tag, "stroke").is_some_and(|value| value != "none");
+        let fill_rule = match svg_paint_value(tag, "fill-rule").as_deref() {
+            Some("evenodd") => SvgFillRule::EvenOdd,
+            _ => SvgFillRule::NonZero,
+        };
+        Self {
+            path,
+            fill,
+            stroke,
+            fill_rule,
+        }
+    }
+}
+
 pub fn parse_path(data: &str) -> Result<Vec<SvgPathCommand>, String> {
     let tokens = tokenize_path(data);
     let mut index = 0;
@@ -49,13 +83,25 @@ pub fn parse_path(data: &str) -> Result<Vec<SvgPathCommand>, String> {
             .map(|_| match tokens.get(index) {
                 Some(SvgToken::Number(value)) => {
                     index += 1;
-                    Ok(*value)
+                    if value.is_finite() {
+                        Ok(*value)
+                    } else {
+                        Err(format!(
+                            "non-finite {active} coordinate at token {}",
+                            index - 1
+                        ))
+                    }
                 }
                 _ => Err(format!("incomplete {active} command at token {index}")),
             })
             .collect::<Result<Vec<_>, _>>()?;
         let relative = active.is_ascii_lowercase();
         let upper = active.to_ascii_uppercase();
+        if upper == 'A'
+            && ((values[3] != 0.0 && values[3] != 1.0) || (values[4] != 0.0 && values[4] != 1.0))
+        {
+            return Err(format!("invalid {active} arc flag at token {index}"));
+        }
         let command_value = match upper {
             'M' => SvgPathCommand::MoveTo {
                 relative,
@@ -105,7 +151,7 @@ pub fn parse_path(data: &str) -> Result<Vec<SvgPathCommand>, String> {
     Ok(result)
 }
 
-pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec<[f32; 2]>> {
+fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec<[f32; 2]>> {
     let steps = subdivisions.max(2);
     let mut paths = Vec::new();
     let mut points = Vec::new();
@@ -235,7 +281,8 @@ pub fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> Vec<Vec
 /// This intentionally supports the small geometry vocabulary used by Lucide
 /// and similar icon providers. Document loading remains the caller's concern;
 /// this function owns interpretation and coordinate normalization.
-pub fn parse_svg_document_paths(
+#[cfg(test)]
+fn parse_svg_document_paths(
     svg: &str,
     subdivisions: usize,
     view_box: [f32; 4],
@@ -252,18 +299,23 @@ pub fn parse_svg_document_paths(
     };
     let mut paths = Vec::new();
 
-    for data in svg
-        .split("d=\"")
-        .skip(1)
-        .filter_map(|value| value.split('\"').next())
-    {
-        let commands = parse_path(data)?;
-        paths.extend(
-            flatten_path(&commands, subdivisions)
-                .into_iter()
-                .filter(|path| path.len() > 1)
-                .map(|path| path.into_iter().map(normalize).collect()),
-        );
+    let mut remainder = svg;
+    while let Some(start) = find_svg_element_start(remainder, "path") {
+        remainder = &remainder[start..];
+        let Some(end) = svg_tag_end(remainder) else {
+            break;
+        };
+        let tag = &remainder[..=end];
+        if let Some(data) = svg_attribute_text(tag, "d") {
+            let commands = parse_path(&data)?;
+            paths.extend(
+                flatten_path(&commands, subdivisions)
+                    .into_iter()
+                    .filter(|path| path.len() > 1)
+                    .map(|path| path.into_iter().map(normalize).collect()),
+            );
+        }
+        remainder = &remainder[end + 1..];
     }
 
     for element in ["circle", "rect", "line", "polyline", "polygon"] {
@@ -284,6 +336,9 @@ pub fn parse_svg_document_paths(
                         remainder = &remainder[end + 1..];
                         continue;
                     };
+                    if radius < 0.0 {
+                        return Err("SVG circle radius must not be negative".into());
+                    }
                     Some(
                         (0..=subdivisions.max(16))
                             .map(|index| {
@@ -311,13 +366,7 @@ pub fn parse_svg_document_paths(
                         remainder = &remainder[end + 1..];
                         continue;
                     };
-                    let numbers = values
-                        .split(|character: char| {
-                            character == ',' || character.is_ascii_whitespace()
-                        })
-                        .filter(|value| !value.is_empty())
-                        .filter_map(|value| value.parse::<f32>().ok())
-                        .collect::<Vec<_>>();
+                    let numbers = parse_svg_point_numbers(&values, element)?;
                     let mut points = numbers
                         .chunks_exact(2)
                         .map(|pair| normalize([pair[0], pair[1]]))
@@ -339,8 +388,18 @@ pub fn parse_svg_document_paths(
                         remainder = &remainder[end + 1..];
                         continue;
                     };
-                    let rx = svg_attribute(tag, "rx").unwrap_or(0.0).min(width * 0.5);
-                    let ry = svg_attribute(tag, "ry").unwrap_or(rx).min(height * 0.5);
+                    if width < 0.0 || height < 0.0 {
+                        return Err("SVG rectangle width and height must not be negative".into());
+                    }
+                    let raw_rx = svg_attribute(tag, "rx");
+                    let raw_ry = svg_attribute(tag, "ry");
+                    if raw_rx.is_some_and(|value| value < 0.0)
+                        || raw_ry.is_some_and(|value| value < 0.0)
+                    {
+                        return Err("SVG rectangle corner radii must not be negative".into());
+                    }
+                    let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
+                    let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
                     Some(
                         svg_rectangle(x, y, width, height, rx, ry)
                             .into_iter()
@@ -359,18 +418,340 @@ pub fn parse_svg_document_paths(
     Ok(paths)
 }
 
+/// Extracts SVG geometry into the shared provider-neutral path model.
+///
+/// This is an intentionally small migration adapter over the existing parser:
+/// flattened contours retain explicit closure when the parser emitted a
+/// repeated endpoint. SVG styling and topology beyond that contract remain
+/// importer concerns.
+pub fn parse_svg_document_vector_records(
+    svg: &str,
+    subdivisions: usize,
+    view_box: [f32; 4],
+) -> Result<Vec<SvgVectorRecord>, String> {
+    let [view_x, view_y, view_width, view_height] = view_box;
+    if view_width <= 0.0 || view_height <= 0.0 {
+        return Err("SVG viewBox must have positive dimensions".into());
+    }
+    let normalize = |point: [f32; 2]| {
+        [
+            (point[0] - view_x) / view_width - 0.5,
+            0.5 - (point[1] - view_y) / view_height,
+        ]
+    };
+    let mut paths = Vec::<(usize, SvgVectorRecord)>::new();
+
+    // Read `d` only from actual path tags. Splitting the whole document on
+    // `d="` also matches the suffix of `id="` and can feed metadata into the
+    // path parser as if it were SVG geometry.
+    let mut remainder = svg;
+    while let Some(start) = find_svg_element_start(remainder, "path") {
+        let source_offset = svg.len() - remainder.len() + start;
+        remainder = &remainder[start..];
+        let Some(end) = svg_tag_end(remainder) else {
+            break;
+        };
+        let tag = &remainder[..=end];
+        if let Some(data) = svg_attribute_text(tag, "d") {
+            let commands = parse_path(&data)?;
+            let contours = flatten_path(&commands, subdivisions)
+                .into_iter()
+                .filter(|points| points.len() > 1)
+                .map(|points| {
+                    let mut points = points.into_iter().map(normalize).collect::<Vec<_>>();
+                    let closed = points.len() > 1 && points.first() == points.last();
+                    if closed {
+                        points.pop();
+                    }
+                    crate::VectorContour::new(points, closed)
+                })
+                .collect::<Vec<_>>();
+            if !contours.is_empty() {
+                paths.push((
+                    source_offset,
+                    SvgVectorRecord::new(crate::VectorPath::new(contours), tag),
+                ));
+            }
+        }
+        remainder = &remainder[end + 1..];
+    }
+
+    for element in ["circle", "rect", "line", "polyline", "polygon"] {
+        let mut remainder = svg;
+        while let Some(start) = find_svg_element_start(remainder, element) {
+            let source_offset = svg.len() - remainder.len() + start;
+            remainder = &remainder[start..];
+            let Some(end) = svg_tag_end(remainder) else {
+                break;
+            };
+            let tag = &remainder[..=end];
+            let points = match element {
+                "circle" => {
+                    let (Some(cx), Some(cy), Some(radius)) = (
+                        svg_attribute(tag, "cx"),
+                        svg_attribute(tag, "cy"),
+                        svg_attribute(tag, "r"),
+                    ) else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    if radius < 0.0 {
+                        return Err("SVG circle radius must not be negative".into());
+                    }
+                    Some(
+                        (0..=subdivisions.max(16))
+                            .map(|index| {
+                                let angle = index as f32 * std::f32::consts::TAU
+                                    / subdivisions.max(16) as f32;
+                                normalize([cx + radius * angle.cos(), cy + radius * angle.sin()])
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                }
+                "line" => {
+                    let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
+                        svg_attribute(tag, "x1"),
+                        svg_attribute(tag, "y1"),
+                        svg_attribute(tag, "x2"),
+                        svg_attribute(tag, "y2"),
+                    ) else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    Some(vec![normalize([x1, y1]), normalize([x2, y2])])
+                }
+                "polyline" | "polygon" => {
+                    let Some(values) = svg_attribute_text(tag, "points") else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    let numbers = parse_svg_point_numbers(&values, element)?;
+                    let mut points = numbers
+                        .chunks_exact(2)
+                        .map(|pair| normalize([pair[0], pair[1]]))
+                        .collect::<Vec<_>>();
+                    if element == "polygon" && points.first() != points.last() {
+                        if let Some(first) = points.first().copied() {
+                            points.push(first);
+                        }
+                    }
+                    Some(points)
+                }
+                "rect" => {
+                    let (Some(x), Some(y), Some(width), Some(height)) = (
+                        svg_attribute(tag, "x"),
+                        svg_attribute(tag, "y"),
+                        svg_attribute(tag, "width"),
+                        svg_attribute(tag, "height"),
+                    ) else {
+                        remainder = &remainder[end + 1..];
+                        continue;
+                    };
+                    if width < 0.0 || height < 0.0 {
+                        return Err("SVG rectangle width and height must not be negative".into());
+                    }
+                    let raw_rx = svg_attribute(tag, "rx");
+                    let raw_ry = svg_attribute(tag, "ry");
+                    if raw_rx.is_some_and(|value| value < 0.0)
+                        || raw_ry.is_some_and(|value| value < 0.0)
+                    {
+                        return Err("SVG rectangle corner radii must not be negative".into());
+                    }
+                    let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
+                    let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
+                    Some(
+                        svg_rectangle(x, y, width, height, rx, ry)
+                            .into_iter()
+                            .map(normalize)
+                            .collect(),
+                    )
+                }
+                _ => None,
+            };
+            if let Some(points) = points.filter(|points: &Vec<[f32; 2]>| points.len() > 1) {
+                let closed = matches!(element, "circle" | "rect" | "polygon");
+                let points = if closed {
+                    points[..points.len() - 1].to_vec()
+                } else {
+                    points
+                };
+                paths.push((
+                    source_offset,
+                    SvgVectorRecord::new(
+                        crate::VectorPath::new(vec![crate::VectorContour::new(points, closed)]),
+                        tag,
+                    ),
+                ));
+            }
+            remainder = &remainder[end + 1..];
+        }
+    }
+
+    paths.sort_by_key(|(source_offset, _)| *source_offset);
+    Ok(paths.into_iter().map(|(_, record)| record).collect())
+}
+
+/// Extracts SVG geometry while discarding SVG-specific paint metadata.
+pub fn parse_svg_document_vector_paths(
+    svg: &str,
+    subdivisions: usize,
+    view_box: [f32; 4],
+) -> Result<Vec<crate::VectorPath>, String> {
+    Ok(
+        parse_svg_document_vector_records(svg, subdivisions, view_box)?
+            .into_iter()
+            .map(|record| record.path)
+            .collect(),
+    )
+}
+
+/// Parses SVG geometry and routes only convex single-contour paths through the
+/// bounded shared fill tessellator.
+///
+/// This is intentionally not a general SVG fill implementation. Unsupported
+/// topology is returned with the path index so callers can choose a fallback
+/// or report an importer diagnostic without silently dropping geometry.
+pub fn parse_svg_document_convex_fill_meshes(
+    svg: &str,
+    subdivisions: usize,
+    view_box: [f32; 4],
+) -> Result<Vec<Vec<[f32; 2]>>, String> {
+    parse_svg_document_vector_paths(svg, subdivisions, view_box)?
+        .into_iter()
+        .enumerate()
+        .map(|(index, path)| {
+            crate::validate_convex_fill(&path)
+                .map_err(|error| format!("SVG fill path {index} is unsupported: {error}"))?;
+            crate::tessellate_convex_fill(&path)
+        })
+        .collect()
+}
+
+fn parse_svg_point_numbers(values: &str, element: &str) -> Result<Vec<f32>, String> {
+    let numbers = values
+        .split(|character: char| character == ',' || character.is_ascii_whitespace())
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            let number = value.parse::<f32>().map_err(|_| {
+                format!("SVG {element} points attribute contains invalid number '{value}'")
+            })?;
+            if !number.is_finite() {
+                return Err(format!(
+                    "SVG {element} points attribute contains non-finite number '{value}'"
+                ));
+            }
+            Ok(number)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if numbers.len() % 2 != 0 {
+        return Err(format!(
+            "SVG {element} points attribute contains an unmatched coordinate"
+        ));
+    }
+    Ok(numbers)
+}
+
 fn svg_attribute(tag: &str, name: &str) -> Option<f32> {
-    let prefix = format!("{name}=\"");
-    let start = tag.find(&prefix)? + prefix.len();
-    let end = tag[start..].find('\"')? + start;
+    let (start, quote) = svg_attribute_value_start(tag, name)?;
+    let end = tag[start..].find(quote)? + start;
     tag[start..end].parse().ok()
 }
 
+fn find_svg_element_start(svg: &str, name: &str) -> Option<usize> {
+    let needle = format!("<{name}");
+    let mut offset = 0;
+    while let Some(found) = svg[offset..].find(&needle) {
+        let start = offset + found;
+        let comment_start = svg[..start].rfind("<!--");
+        let comment_end = svg[..start].rfind("-->");
+        let in_comment = match (comment_start, comment_end) {
+            (Some(comment_start), Some(comment_end)) => comment_start > comment_end,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        if in_comment {
+            let Some(end) = svg[start..].find("-->") else {
+                return None;
+            };
+            offset = start + end + 3;
+            continue;
+        }
+        let after_name = start + needle.len();
+        let boundary = svg[after_name..].chars().next();
+        if boundary.is_some_and(|character| {
+            character.is_ascii_whitespace() || matches!(character, '>' | '/')
+        }) {
+            return Some(start);
+        }
+        offset = after_name;
+    }
+    None
+}
+
+fn svg_tag_end(svg: &str) -> Option<usize> {
+    let mut quote = None;
+    for (index, character) in svg.char_indices() {
+        match (quote, character) {
+            (None, '\'' | '"') => quote = Some(character),
+            (Some(active), character) if active == character => quote = None,
+            (None, '>') => return Some(index),
+            _ => {}
+        }
+    }
+    None
+}
+
 fn svg_attribute_text(tag: &str, name: &str) -> Option<String> {
-    let prefix = format!("{name}=\"");
-    let start = tag.find(&prefix)? + prefix.len();
-    let end = tag[start..].find('\"')? + start;
+    let (start, quote) = svg_attribute_value_start(tag, name)?;
+    let end = tag[start..].find(quote)? + start;
     Some(tag[start..end].to_owned())
+}
+
+fn svg_paint_value(tag: &str, name: &str) -> Option<String> {
+    if let Some(value) = svg_attribute_text(tag, name) {
+        return Some(value.trim().to_ascii_lowercase());
+    }
+    let style = svg_attribute_text(tag, "style")?;
+    style.split(';').find_map(|declaration| {
+        let (property, value) = declaration.split_once(':')?;
+        (property.trim().eq_ignore_ascii_case(name)).then(|| value.trim().to_ascii_lowercase())
+    })
+}
+
+fn svg_attribute_value_start(tag: &str, name: &str) -> Option<(usize, char)> {
+    let mut offset = 0;
+    while let Some(found) = tag[offset..].find(name) {
+        let start = offset + found;
+        let is_attribute_boundary = start == 0
+            || tag[..start]
+                .chars()
+                .next_back()
+                .is_some_and(|character| character.is_ascii_whitespace() || character == '<');
+        if is_attribute_boundary {
+            let mut cursor = start + name.len();
+            while let Some(character) = tag[cursor..].chars().next() {
+                if !character.is_ascii_whitespace() {
+                    break;
+                }
+                cursor += character.len_utf8();
+            }
+            if tag[cursor..].starts_with('=') {
+                cursor += 1;
+                while let Some(character) = tag[cursor..].chars().next() {
+                    if !character.is_ascii_whitespace() {
+                        break;
+                    }
+                    cursor += character.len_utf8();
+                }
+                let quote = tag[cursor..].chars().next()?;
+                if matches!(quote, '\'' | '"') {
+                    return Some((cursor + quote.len_utf8(), quote));
+                }
+            }
+        }
+        offset = start + name.len();
+    }
+    None
 }
 
 fn svg_rectangle(x: f32, y: f32, width: f32, height: f32, rx: f32, ry: f32) -> Vec<[f32; 2]> {
@@ -401,155 +782,22 @@ fn svg_rectangle(x: f32, y: f32, width: f32, height: f32, rx: f32, ry: f32) -> V
     points
 }
 
-/// Converts flattened SVG centerlines into a triangle-list stroke mesh.
-/// `width` is the half-width in the caller's coordinate system.
-pub fn stroke_paths(paths: &[Vec<[f32; 2]>], width: f32) -> Vec<[f32; 3]> {
+/// Compatibility adapter from the legacy flattened SVG representation to the
+/// provider-neutral vector contour stroke tessellator.
+#[cfg(test)]
+fn stroke_paths(paths: &[Vec<[f32; 2]>], width: f32) -> Vec<[f32; 3]> {
     paths
         .iter()
-        .flat_map(|path| stroke_polyline(path, width))
+        .flat_map(|points| {
+            let closed = points.len() > 1 && points.first() == points.last();
+            let points = if closed && points.len() > 1 {
+                points[..points.len() - 1].to_vec()
+            } else {
+                points.clone()
+            };
+            crate::tessellate_stroke(&crate::VectorContour::new(points, closed), width)
+        })
         .collect()
-}
-
-fn stroke_polyline(points: &[[f32; 2]], width: f32) -> Vec<[f32; 3]> {
-    if points.len() < 2 {
-        return Vec::new();
-    }
-    let closed = points.first() == points.last();
-    let count = if closed {
-        points.len() - 1
-    } else {
-        points.len()
-    };
-    if count < 2 {
-        return Vec::new();
-    }
-    if !closed && count == 2 {
-        let dx = points[1][0] - points[0][0];
-        let dy = points[1][1] - points[0][1];
-        if (dx * dx + dy * dy).sqrt() < width * 2.0 {
-            let center = [
-                (points[0][0] + points[1][0]) * 0.5,
-                (points[0][1] + points[1][1]) * 0.5,
-            ];
-            let mut dot = Vec::new();
-            add_round_cap(&mut dot, center, width);
-            return dot;
-        }
-    }
-    let mut offsets = Vec::with_capacity(count);
-    for index in 0..count {
-        let point = points[index];
-        let previous = if index == 0 {
-            if closed {
-                points[count - 1]
-            } else {
-                points[1]
-            }
-        } else {
-            points[index - 1]
-        };
-        let next = if index + 1 == count {
-            if closed {
-                points[0]
-            } else {
-                points[count - 2]
-            }
-        } else {
-            points[index + 1]
-        };
-        let incoming = normalize([point[0] - previous[0], point[1] - previous[1]]);
-        let outgoing = normalize([next[0] - point[0], next[1] - point[1]]);
-        let incoming_normal = perp(incoming);
-        let outgoing_normal = perp(outgoing);
-        let offset = if !closed && index == 0 {
-            scale(outgoing_normal, width)
-        } else if !closed && index + 1 == count {
-            scale(incoming_normal, width)
-        } else {
-            let sum = normalize([
-                incoming_normal[0] + outgoing_normal[0],
-                incoming_normal[1] + outgoing_normal[1],
-            ]);
-            let denominator = sum[0] * outgoing_normal[0] + sum[1] * outgoing_normal[1];
-            if denominator.abs() < 0.25 {
-                scale(outgoing_normal, width)
-            } else {
-                scale(sum, (width / denominator).clamp(-width * 4.0, width * 4.0))
-            }
-        };
-        offsets.push(offset);
-    }
-    let mut positions = Vec::with_capacity(count * 12);
-    let segments = if closed { count } else { count - 1 };
-    for index in 0..segments {
-        let next = (index + 1) % count;
-        let left_a = [
-            points[index][0] + offsets[index][0],
-            points[index][1] + offsets[index][1],
-            0.0,
-        ];
-        let right_a = [
-            points[index][0] - offsets[index][0],
-            points[index][1] - offsets[index][1],
-            0.0,
-        ];
-        let left_b = [
-            points[next][0] + offsets[next][0],
-            points[next][1] + offsets[next][1],
-            0.0,
-        ];
-        let right_b = [
-            points[next][0] - offsets[next][0],
-            points[next][1] - offsets[next][1],
-            0.0,
-        ];
-        positions.extend([left_a, right_a, left_b, right_a, right_b, left_b]);
-    }
-    if !closed {
-        add_round_cap(&mut positions, points[0], width);
-        add_round_cap(&mut positions, points[count - 1], width);
-    }
-    positions
-}
-
-fn normalize(vector: [f32; 2]) -> [f32; 2] {
-    let length = (vector[0] * vector[0] + vector[1] * vector[1]).sqrt();
-    if length <= f32::EPSILON {
-        [0.0, 0.0]
-    } else {
-        [vector[0] / length, vector[1] / length]
-    }
-}
-
-fn scale(vector: [f32; 2], amount: f32) -> [f32; 2] {
-    [vector[0] * amount, vector[1] * amount]
-}
-
-fn perp(vector: [f32; 2]) -> [f32; 2] {
-    [-vector[1], vector[0]]
-}
-
-fn add_round_cap(positions: &mut Vec<[f32; 3]>, point: [f32; 2], width: f32) {
-    // Keep caps coplanar with the stroke strip. A separate depth offset can
-    // make tiny cap geometry disappear when the renderer depth-tests 2D work.
-    const JOIN_Z: f32 = 0.0;
-    for index in 0..12 {
-        let a = index as f32 * std::f32::consts::TAU / 12.0;
-        let b = (index + 1) as f32 * std::f32::consts::TAU / 12.0;
-        positions.extend([
-            [point[0], point[1], JOIN_Z],
-            [
-                point[0] + a.cos() * width,
-                point[1] + a.sin() * width,
-                JOIN_Z,
-            ],
-            [
-                point[0] + b.cos() * width,
-                point[1] + b.sin() * width,
-                JOIN_Z,
-            ],
-        ]);
-    }
 }
 
 fn point(relative: bool, current: [f32; 2], x: f32, y: f32) -> [f32; 2] {
@@ -663,7 +911,11 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
         }
     };
     for character in data.chars() {
-        if character.is_ascii_alphabetic() {
+        let exponent = matches!(character, 'e' | 'E')
+            && !number.is_empty()
+            && !number.contains('e')
+            && !number.contains('E');
+        if character.is_ascii_alphabetic() && !exponent {
             flush(&mut tokens, &mut number);
             tokens.push(SvgToken::Command(character));
         } else if character == '.'
@@ -674,6 +926,9 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
             flush(&mut tokens, &mut number);
             number.push(character);
         } else if character.is_ascii_digit() || matches!(character, '.' | 'e' | 'E') {
+            number.push(character);
+        } else if matches!(character, '-' | '+') && (number.ends_with('e') || number.ends_with('E'))
+        {
             number.push(character);
         } else if matches!(character, '-' | '+') {
             flush(&mut tokens, &mut number);
@@ -689,8 +944,9 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
 #[cfg(test)]
 mod tests {
     use super::{
-        flatten_path, parse_path, parse_svg_document_paths, stroke_paths, tokenize_path,
-        SvgPathCommand, SvgToken,
+        flatten_path, parse_path, parse_svg_document_convex_fill_meshes, parse_svg_document_paths,
+        parse_svg_document_vector_paths, parse_svg_document_vector_records, stroke_paths,
+        tokenize_path, SvgPathCommand, SvgToken,
     };
 
     #[test]
@@ -719,6 +975,76 @@ mod tests {
     }
 
     #[test]
+    fn parses_implicit_repeated_move_and_line_arguments() {
+        let commands = parse_path("M0 0 10 0 10 10 l5 0 0 5").unwrap();
+
+        assert!(matches!(commands[0], SvgPathCommand::MoveTo { .. }));
+        assert!(matches!(commands[1], SvgPathCommand::LineTo { .. }));
+        assert!(matches!(commands[2], SvgPathCommand::LineTo { .. }));
+        assert!(matches!(commands[3], SvgPathCommand::LineTo { .. }));
+        assert!(matches!(commands[4], SvgPathCommand::LineTo { .. }));
+    }
+
+    #[test]
+    fn tokenizes_scientific_notation_without_confusing_the_exponent_for_a_command() {
+        let commands = parse_path("M1e1 2E1 l-5e-1 .5").unwrap();
+
+        assert_eq!(commands.len(), 2);
+        assert!(matches!(
+            commands[0],
+            SvgPathCommand::MoveTo {
+                x: 10.0,
+                y: 20.0,
+                ..
+            }
+        ));
+        assert!(matches!(
+            commands[1],
+            SvgPathCommand::LineTo {
+                relative: true,
+                x: -0.5,
+                y: 0.5,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn flattening_resolves_relative_horizontal_and_vertical_commands() {
+        let commands = parse_path("M2 3 h8 v4 h-8 z").unwrap();
+        let paths = flatten_path(&commands, 8);
+
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].first().copied(), Some([2.0, 3.0]));
+        assert_eq!(paths[0].last().copied(), Some([2.0, 3.0]));
+        assert!(paths[0].contains(&[10.0, 3.0]));
+        assert!(paths[0].contains(&[10.0, 7.0]));
+    }
+
+    #[test]
+    fn flattening_keeps_closed_and_following_relative_subpaths_separate() {
+        let commands = parse_path("M10 10 l10 0 l0 10 z m5 5 l5 0").unwrap();
+        let paths = flatten_path(&commands, 8);
+
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[0].first(), paths[0].last());
+        assert_ne!(paths[1].first(), paths[1].last());
+        assert_eq!(paths[1].first().copied(), Some([15.0, 15.0]));
+    }
+
+    #[test]
+    fn smooth_quadratic_control_does_not_leak_across_a_new_subpath() {
+        let commands = parse_path("M0 0 Q10 10 20 0 T40 0 M0 20 T20 20").unwrap();
+        let paths = flatten_path(&commands, 8);
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths[0].iter().any(|point| point[1] > 0.0));
+        assert!(paths[1]
+            .iter()
+            .all(|point| (point[1] - 20.0).abs() < 1.0e-5));
+    }
+
+    #[test]
     fn flattens_cubic_and_closes_subpath() {
         let commands = parse_path("M0 0 C0 1 1 1 1 0 Z").unwrap();
         let paths = flatten_path(&commands, 8);
@@ -733,6 +1059,343 @@ mod tests {
         let paths = flatten_path(&commands, 8);
         assert!(paths[0].len() > 8);
         assert!((paths[0].last().unwrap()[0] - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn degenerate_arc_radii_reduce_to_a_line_without_non_finite_points() {
+        let commands = parse_path("M0 0 A0 9 45 0 1 12 8").unwrap();
+        let paths = flatten_path(&commands, 8);
+
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0], vec![[0.0, 0.0], [12.0, 8.0]]);
+    }
+
+    #[test]
+    fn rotated_arc_preserves_endpoints_and_finite_geometry() {
+        let commands = parse_path("M10 20 A18 7 37 1 0 70 55").unwrap();
+        let paths = flatten_path(&commands, 16);
+
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0]
+            .iter()
+            .all(|point| point[0].is_finite() && point[1].is_finite()));
+        assert_eq!(paths[0].first().copied(), Some([10.0, 20.0]));
+        assert_eq!(paths[0].last().copied(), Some([70.0, 55.0]));
+    }
+
+    #[test]
+    fn malformed_path_commands_return_diagnostics() {
+        assert!(parse_path("M0 0 L").is_err());
+        assert!(parse_path("M0 0 R10 10").is_err());
+        assert!(parse_path("0 0 L10 10").is_err());
+    }
+
+    #[test]
+    fn path_commands_reject_non_finite_numbers() {
+        let error = parse_path("M0 0 L1e39 1")
+            .expect_err("overflowing SVG path coordinates must be rejected");
+
+        assert!(error.contains("non-finite L coordinate"));
+    }
+
+    #[test]
+    fn arc_commands_reject_non_binary_flags() {
+        let error =
+            parse_path("M0 0 A4 4 0 2 0 8 8").expect_err("SVG arc flags must be binary values");
+
+        assert!(error.contains("invalid A arc flag"));
+    }
+
+    #[test]
+    fn vector_document_adapter_preserves_closed_contours() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg><path d="M0 0 L24 0 L24 24 Z"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .unwrap();
+
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].contours.len(), 1);
+        assert!(paths[0].contours[0].closed);
+    }
+
+    #[test]
+    fn vector_document_adapter_ignores_document_metadata() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg id="svg-root"><path id="path-01" d="M0 0 L24 0 L24 24 Z" /></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("metadata must not be parsed as path data");
+
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].contours[0].closed);
+    }
+
+    #[test]
+    fn vector_document_adapter_ignores_geometry_inside_comments() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg>
+                <!-- <path d="M0 0 L24 0 L24 24 Z"/><rect x="0" y="0" width="24" height="24"/> -->
+                <line x1="0" y1="0" x2="24" y2="24"/>
+            </svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("comments should not be treated as geometry");
+
+        assert_eq!(paths.len(), 1);
+        assert!(!paths[0].contours[0].closed);
+    }
+
+    #[test]
+    fn vector_document_adapter_does_not_match_element_name_prefixes() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg>
+                <pathology d="M0 0 L24 0 L24 24 Z"/>
+                <rectangle x="0" y="0" width="24" height="24"/>
+            </svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("unrelated element names should be ignored");
+
+        assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn vector_document_adapter_handles_gt_inside_quoted_attributes() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg><path data-label="a > b" d="M0 0 L24 0 L24 24 Z" /></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("quoted attribute text must not terminate the tag early");
+
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].contours[0].closed);
+    }
+
+    #[test]
+    fn vector_document_adapter_accepts_single_quoted_attributes() {
+        let paths = parse_svg_document_vector_paths(
+            "<svg><path d='M0 0 L24 0 L24 24 Z' /></svg>",
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("single-quoted SVG attributes should parse");
+
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].contours[0].closed);
+    }
+
+    #[test]
+    fn legacy_document_adapter_accepts_single_quoted_path_data() {
+        let paths = parse_svg_document_paths(
+            "<svg><path d='M0 0 L24 0 L24 24 Z' /></svg>",
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("legacy path adapter should share quoted attribute handling");
+
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].first().copied(), Some([-0.5, 0.5]));
+        assert_eq!(paths[0].last().copied(), Some([-0.5, 0.5]));
+    }
+
+    #[test]
+    fn vector_document_adapter_accepts_whitespace_around_attribute_equals() {
+        let records = parse_svg_document_vector_records(
+            r#"<svg><path d = "M0 0 L24 0 L24 24 Z" fill = "none" stroke = "black"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("whitespace around attribute equals should be accepted");
+
+        assert_eq!(records.len(), 1);
+        assert!(!records[0].fill);
+        assert!(records[0].stroke);
+        assert!(records[0].path.contours[0].closed);
+    }
+
+    #[test]
+    fn vector_document_adapter_preserves_open_and_multiple_contours() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg><path d="M0 0 L24 0 M0 24 L24 24"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .unwrap();
+
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].contours.len(), 2);
+        assert!(paths[0].contours.iter().all(|contour| !contour.closed));
+    }
+
+    #[test]
+    fn vector_document_adapter_handles_primitive_elements() {
+        let paths = parse_svg_document_vector_paths(
+            r#"<svg><circle cx="12" cy="12" r="4"/><rect x="2" y="3" width="5" height="6"/><line x1="0" y1="0" x2="24" y2="24"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .unwrap();
+
+        assert_eq!(paths.len(), 3);
+        assert!(paths[0].contours[0].closed);
+        assert!(paths[1].contours[0].closed);
+        assert!(!paths[2].contours[0].closed);
+    }
+
+    #[test]
+    fn primitive_elements_reject_negative_dimensions() {
+        let circle_error = parse_svg_document_vector_paths(
+            r#"<svg><circle cx="12" cy="12" r="-4"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("negative circle radii must be rejected");
+        assert!(circle_error.contains("circle radius"));
+
+        let rect_error = parse_svg_document_vector_paths(
+            r#"<svg><rect x="0" y="0" width="-4" height="8"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("negative rectangle dimensions must be rejected");
+        assert!(rect_error.contains("width and height"));
+
+        let radius_error = parse_svg_document_vector_records(
+            r#"<svg><rect x="0" y="0" width="8" height="8" rx="-1"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("negative rectangle radii must be rejected");
+        assert!(radius_error.contains("corner radii"));
+    }
+
+    #[test]
+    fn vector_document_adapter_preserves_mixed_element_order() {
+        let records = parse_svg_document_vector_records(
+            r#"<svg>
+                <rect x="0" y="0" width="4" height="4"/>
+                <path d="M8 0 L12 0 L12 4 Z"/>
+                <line x1="16" y1="0" x2="20" y2="4"/>
+            </svg>"#,
+            8,
+            [0.0, 0.0, 20.0, 4.0],
+        )
+        .expect("mixed SVG elements should preserve source order");
+
+        assert_eq!(records.len(), 3);
+        assert_eq!(records[0].path.contours[0].points[0], [-0.5, 0.5]);
+        let path_start = records[1].path.contours[0].points[0];
+        let line_start = records[2].path.contours[0].points[0];
+        assert!((path_start[0] + 0.1).abs() < 1.0e-6 && (path_start[1] - 0.5).abs() < 1.0e-6);
+        assert!((line_start[0] - 0.3).abs() < 1.0e-6 && (line_start[1] - 0.5).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn vector_document_adapter_rejects_unmatched_polyline_coordinates() {
+        let error = parse_svg_document_vector_paths(
+            r#"<svg><polyline points="0,0 12,12 24"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("an unmatched primitive coordinate must not be discarded");
+
+        assert!(error.contains("unmatched coordinate"));
+    }
+
+    #[test]
+    fn vector_document_adapter_rejects_invalid_polyline_numbers() {
+        let error = parse_svg_document_vector_paths(
+            r#"<svg><polyline points="0,0 nope,12"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("an invalid primitive coordinate must not be discarded");
+
+        assert!(error.contains("invalid number 'nope'"));
+    }
+
+    #[test]
+    fn vector_document_adapter_rejects_non_finite_polyline_numbers() {
+        let error = parse_svg_document_vector_paths(
+            r#"<svg><polyline points="0,0 NaN,12"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("non-finite primitive coordinates must not enter geometry");
+
+        assert!(error.contains("non-finite number 'NaN'"));
+    }
+
+    #[test]
+    fn vector_document_adapter_rejects_invalid_view_box_dimensions() {
+        let error = parse_svg_document_vector_paths(
+            r#"<svg><path d="M0 0 L1 1"/></svg>"#,
+            8,
+            [0.0, 0.0, 0.0, 24.0],
+        )
+        .expect_err("a zero-width viewBox cannot be normalized");
+
+        assert!(error.contains("positive dimensions"));
+    }
+
+    #[test]
+    fn vector_document_adapter_normalizes_negative_primitive_coordinates() {
+        let records = parse_svg_document_vector_records(
+            r#"<svg><line x1="-10" y1="-5" x2="10" y2="5"/></svg>"#,
+            8,
+            [-10.0, -5.0, 20.0, 10.0],
+        )
+        .expect("negative source coordinates should normalize");
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].path.contours[0].points[0], [-0.5, 0.5]);
+        assert_eq!(records[0].path.contours[0].points[1], [0.5, -0.5]);
+    }
+
+    #[test]
+    fn vector_records_preserve_fill_and_stroke_intent() {
+        let records = parse_svg_document_vector_records(
+            r#"<svg>
+                <path d="M0 0 L24 0 L24 24 Z" fill="none" stroke="black"/>
+                <path d="M1 1 L23 1 L23 23 Z" style="fill: none; stroke: black; fill-rule: evenodd"/>
+                <rect x="2" y="2" width="4" height="4"/>
+            </svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect("SVG paint metadata should parse");
+
+        assert_eq!(records.len(), 3);
+        assert!(!records[0].fill && records[0].stroke);
+        assert!(!records[1].fill && records[1].stroke);
+        assert_eq!(records[1].fill_rule, super::SvgFillRule::EvenOdd);
+        assert!(records[2].fill && !records[2].stroke);
+        assert_eq!(records[2].fill_rule, super::SvgFillRule::NonZero);
+    }
+
+    #[test]
+    fn convex_fill_adapter_routes_supported_svg_geometry() {
+        let svg = r#"<svg><rect x="0" y="0" width="12" height="12" /></svg>"#;
+        let meshes = parse_svg_document_convex_fill_meshes(svg, 8, [0.0, 0.0, 12.0, 12.0])
+            .expect("rectangle should use the shared convex fill tessellator");
+
+        assert_eq!(meshes.len(), 1);
+        assert_eq!(meshes[0].len(), 6);
+    }
+
+    #[test]
+    fn convex_fill_adapter_reports_unsupported_svg_topology() {
+        let svg = r#"<svg><path d="M 0 0 L 12 0 L 6 3 L 0 12 Z" /></svg>"#;
+        let error = parse_svg_document_convex_fill_meshes(svg, 8, [0.0, 0.0, 12.0, 12.0])
+            .expect_err("concave fill should be diagnosed");
+
+        assert!(error.contains("SVG fill path 0 is unsupported"));
     }
 
     #[test]

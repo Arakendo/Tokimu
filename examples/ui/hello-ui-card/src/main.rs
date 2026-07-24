@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
-    PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
     layout_bitmap_text, UiCard, UiCardRole, UiDrawer, UiRect, UiSurfaceCommand, UiSurfaceRole,
@@ -111,7 +111,10 @@ impl HelloUiCardApp {
             if border > 0.0 {
                 let border_material = Self::material_for_role(border_role);
                 let top = UiRect::new(
-                    [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                    [
+                        rect.center[0],
+                        rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                    ],
                     [rect.size[0], border],
                 );
                 renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {

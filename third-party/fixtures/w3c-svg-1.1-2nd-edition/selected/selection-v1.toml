@@ -1,0 +1,91 @@
+selection = "v1"
+suite = "W3C SVG 1.1 2nd Edition"
+source_root = "../upstream/svg"
+
+# These cases are source fixtures, not a full SVG conformance claim. The
+# initial runner should report unsupported semantics instead of silently
+# treating them as validated.
+
+[[case]]
+id = "paths-data-01-t.svg"
+capability = ["path-data", "cubic", "smooth-cubic", "relative-commands"]
+reason = "Exercises absolute and relative cubic commands and smooth cubic continuation."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-02-t.svg"
+capability = ["path-data", "quadratic", "smooth-quadratic", "close-path", "multiple-contours"]
+reason = "Exercises quadratic commands, relative quadratic commands, closure, and multiple contours."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-04-t.svg"
+capability = ["path-data", "line", "close-path", "multiple-contours"]
+reason = "Exercises absolute line commands and explicit closed triangular contours."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-05-t.svg"
+capability = ["path-data", "relative-commands", "line", "close-path", "multiple-contours"]
+reason = "Exercises relative line commands and repeated closed contours."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-06-t.svg"
+capability = ["path-data", "horizontal", "vertical", "close-path"]
+reason = "Exercises horizontal and vertical segments in a stepped closed path."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-07-t.svg"
+capability = ["path-data", "relative-horizontal", "relative-vertical", "close-path"]
+reason = "Exercises relative horizontal and vertical segments."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-08-t.svg"
+capability = ["path-data", "implicit-line", "close-path", "multiple-contours"]
+reason = "Exercises implicit line-to arguments after move-to commands."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-09-t.svg"
+capability = ["path-data", "relative-implicit-line", "close-path", "multiple-contours"]
+reason = "Exercises relative implicit line-to arguments and multiple contours."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-12-t.svg"
+capability = ["path-data", "arc", "relative-arc"]
+reason = "Exercises elliptical arc command parsing and relative arc coordinates."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-13-t.svg"
+capability = ["path-data", "arc", "large-arc", "sweep"]
+reason = "Exercises arc flag combinations and large-arc/sweep selection."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-14-t.svg"
+capability = ["path-data", "arc", "multiple-contours"]
+reason = "Exercises multiple arc contours in one path."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-15-t.svg"
+capability = ["path-data", "curve-continuity"]
+reason = "Exercises curve transitions that should remain observable in flattened output."
+expected = "structural-pass"
+
+[[case]]
+id = "paths-data-16-t.svg"
+capability = ["path-data", "mixed-segments", "close-path"]
+reason = "Exercises mixed line and curve segments in a closed contour."
+expected = "structural-pass"
+
+[[case]]
+id = "painting-fill-03-t.svg"
+capability = ["fill-rule", "even-odd", "non-zero", "multiple-contours"]
+reason = "Provides direct contrasting even-odd and non-zero fill-rule geometry."
+expected = "structural-pass"

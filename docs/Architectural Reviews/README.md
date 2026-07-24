@@ -106,6 +106,15 @@ Evidence should distinguish observation from guarantee. A screenshot may prove
 that one backend rendered correctly once; it does not prove a cross-backend
 rendering contract.
 
+When a review uses the ADR-0005 maintainer exception process, it must also name:
+
+- which normal evidence is missing;
+- which evidence is being substituted;
+- why mechanically gathering the missing evidence would add little decision
+  value;
+- who is accountable for the decision;
+- which observable result would reopen it.
+
 ## Dispositions
 
 A review should end with one of these outcomes:
@@ -141,5 +150,7 @@ across unrelated decisions.
 
 ## Index
 
-No architectural review records have been opened yet.
-
+- [AR-0001: Shared Vector Presentation Geometry](AR-0001-shared-vector-presentation-geometry.md)
+  — Incubating
+- [AR-0002: Native Execution and Multithreading Ownership](AR-0002-native-execution-and-multithreading.md)
+  — Accepted; resulted in ADR-0006

@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case_id": "synthetic/concave-notch",
+  "producer": "synthetic/topology",
+  "selected_stages": [
+    "source",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "concave notch"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "contours=1 points=6 finite=true intersections=0"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "triangles=4 vertices=12 finite=true complete=true degenerate=0 area=0.707500"
+    }
+  ],
+  "diagnostics": []
+}

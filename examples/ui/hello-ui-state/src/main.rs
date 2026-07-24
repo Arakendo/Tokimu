@@ -9,8 +9,7 @@ use tokimu::{
 use ui_tools::{
     layout_bitmap_text, window_to_world, UiActionId, UiActivationKey, UiButtonId, UiButtonSpec,
     UiCard, UiCardRole, UiControlRole, UiDrawer, UiEvent, UiInteractionState, UiRect, UiRegion,
-    UiRegionKind, UiSurfaceCommand, UiSurfaceRole,
-    UiTextAlign, UiTextRole, UiTextSpec, UiTheme,
+    UiRegionKind, UiSurfaceCommand, UiSurfaceRole, UiTextAlign, UiTextRole, UiTextSpec, UiTheme,
     UiWorkspaceLayout,
 };
 
@@ -184,7 +183,10 @@ impl HelloUiStateApp {
     }
 
     fn hovered_button_index(&self, layout: &UiWorkspaceLayout) -> Option<usize> {
-        layout.buttons.iter().position(|button| button.contains(self.cursor_world()))
+        layout
+            .buttons
+            .iter()
+            .position(|button| button.contains(self.cursor_world()))
     }
 
     fn hovered_asset_index(&self, layout: &UiWorkspaceLayout) -> Option<usize> {
@@ -249,7 +251,10 @@ impl HelloUiStateApp {
                 .min(rect.size[1] * 0.22);
             if border > 0.0 {
                 let border_rect = UiRect::new(
-                    [rect.center[0], rect.center[1] + rect.size[1] * 0.5 - border * 0.5],
+                    [
+                        rect.center[0],
+                        rect.center[1] + rect.size[1] * 0.5 - border * 0.5,
+                    ],
                     [rect.size[0], border],
                 );
                 renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
@@ -344,7 +349,10 @@ impl HelloUiStateApp {
                 UiRegionKind::Panel,
                 selected_profile.accent,
                 UiRect::new(
-                    [sidebar.rect.center[0], sidebar.rect.center[1] + sidebar.rect.size[1] * 0.28],
+                    [
+                        sidebar.rect.center[0],
+                        sidebar.rect.center[1] + sidebar.rect.size[1] * 0.28,
+                    ],
                     [sidebar.rect.size[0] * 0.70, 0.06],
                 ),
             );
@@ -437,20 +445,21 @@ impl HelloUiStateApp {
         self.cached_pinned = self.pinned;
         self.cached_revision = self.revision;
 
-        self.cached_text.extend(text.into_iter().flat_map(|command| {
-            layout_bitmap_text(&command.spec, command.style.height)
-                .into_iter()
-                .map(|quad| {
-                    RenderCommand::DrawMesh(DrawMeshCommand {
-                        mesh: GLYPH_MESH,
-                        material: TEXT_MATERIAL,
-                        pipeline: self.pipeline,
-                        instance: Instance2d::new(quad.center, quad.size, 0.0),
-                        camera: Some(CAMERA_HANDLE),
-                        viewport: None,
+        self.cached_text
+            .extend(text.into_iter().flat_map(|command| {
+                layout_bitmap_text(&command.spec, command.style.height)
+                    .into_iter()
+                    .map(|quad| {
+                        RenderCommand::DrawMesh(DrawMeshCommand {
+                            mesh: GLYPH_MESH,
+                            material: TEXT_MATERIAL,
+                            pipeline: self.pipeline,
+                            instance: Instance2d::new(quad.center, quad.size, 0.0),
+                            camera: Some(CAMERA_HANDLE),
+                            viewport: None,
+                        })
                     })
-                })
-        }));
+            }));
     }
 }
 

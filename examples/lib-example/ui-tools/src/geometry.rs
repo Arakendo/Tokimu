@@ -4,6 +4,19 @@ pub struct UiRect {
     pub size: [f32; 2],
 }
 
+/// A UI rectangle expressed in top-left-origin pixel coordinates.
+///
+/// This remains owned by `ui-tools` so semantic clipping does not depend on a
+/// particular renderer command type. A platform/renderer adapter can copy it
+/// into its native scissor representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiPixelRect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
 impl UiRect {
     pub fn new(center: [f32; 2], size: [f32; 2]) -> Self {
         Self { center, size }
@@ -55,6 +68,52 @@ impl UiRect {
             center: [center_x, center_y],
             size: [width, height],
         }
+    }
+
+    /// Converts the orthographic UI/world rectangle to a pixel-space clip.
+    ///
+    /// Tokimu's 2D camera uses a world height of two units, an upward-positive
+    /// y axis, and a top-left-origin pixel viewport. The result is clipped to
+    /// the viewport and is `None` when no visible pixels remain.
+    pub fn to_pixel_rect(self, viewport_size: [f32; 2]) -> Option<UiPixelRect> {
+        let [viewport_width, viewport_height] = viewport_size;
+        if !viewport_width.is_finite()
+            || !viewport_height.is_finite()
+            || viewport_width <= 0.0
+            || viewport_height <= 0.0
+            || !self
+                .center
+                .iter()
+                .chain(self.size.iter())
+                .all(|value| value.is_finite())
+            || self.size[0] <= 0.0
+            || self.size[1] <= 0.0
+        {
+            return None;
+        }
+
+        let half_world_width = viewport_width / viewport_height;
+        let left_world = (self.center[0] - self.size[0] * 0.5).max(-half_world_width);
+        let right_world = (self.center[0] + self.size[0] * 0.5).min(half_world_width);
+        let bottom_world = (self.center[1] - self.size[1] * 0.5).max(-1.0);
+        let top_world = (self.center[1] + self.size[1] * 0.5).min(1.0);
+        if left_world >= right_world || bottom_world >= top_world {
+            return None;
+        }
+
+        let x =
+            ((left_world + half_world_width) / (half_world_width * 2.0) * viewport_width).floor();
+        let right =
+            ((right_world + half_world_width) / (half_world_width * 2.0) * viewport_width).ceil();
+        let y = ((1.0 - top_world) * 0.5 * viewport_height).floor();
+        let bottom = ((1.0 - bottom_world) * 0.5 * viewport_height).ceil();
+
+        Some(UiPixelRect {
+            x,
+            y,
+            width: right - x,
+            height: bottom - y,
+        })
     }
 }
 
@@ -176,5 +235,47 @@ mod tests {
         assert!(region.contains([0.5, 0.0]));
         assert!(!region.contains([-0.5, 0.0]));
         assert!(!region.contains([0.5, 0.5]));
+    }
+
+    #[test]
+    fn world_rect_maps_to_top_left_pixel_rect() {
+        let rect = UiRect::new([0.0, 0.0], [1.0, 1.0]);
+
+        assert_eq!(
+            rect.to_pixel_rect([200.0, 100.0]),
+            Some(UiPixelRect {
+                x: 75.0,
+                y: 25.0,
+                width: 50.0,
+                height: 50.0,
+            })
+        );
+    }
+
+    #[test]
+    fn pixel_rect_clamps_to_the_visible_viewport() {
+        let rect = UiRect::new([0.0, 0.0], [10.0, 10.0]);
+
+        assert_eq!(
+            rect.to_pixel_rect([200.0, 100.0]),
+            Some(UiPixelRect {
+                x: 0.0,
+                y: 0.0,
+                width: 200.0,
+                height: 100.0,
+            })
+        );
+    }
+
+    #[test]
+    fn pixel_rect_rejects_empty_or_offscreen_rectangles() {
+        assert_eq!(
+            UiRect::new([0.0, 0.0], [0.0, 1.0]).to_pixel_rect([200.0, 100.0]),
+            None
+        );
+        assert_eq!(
+            UiRect::new([4.0, 0.0], [1.0, 1.0]).to_pixel_rect([200.0, 100.0]),
+            None
+        );
     }
 }

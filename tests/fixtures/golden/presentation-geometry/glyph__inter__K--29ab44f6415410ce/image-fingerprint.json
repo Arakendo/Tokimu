@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "image-fingerprint",
+    "producer": "font-outline/inter",
+    "case_id": "glyph/inter/K",
+    "input_hash": "fnv1a64:eda05114284056de",
+    "source": "InterVariable.ttf",
+    "algorithms": {
+      "flatten": "ui-glyph-outline-flatten-v1:tolerance=0.0005",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "even-odd"
+    }
+  },
+  "width": 256,
+  "height": 256,
+  "format": "rgba8",
+  "source_buffer": "mesh-cpu",
+  "pixel_hash": "fnv1a64:c6767584dd83358f"
+}

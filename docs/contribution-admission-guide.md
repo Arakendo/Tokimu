@@ -5,7 +5,7 @@
 | Status     | Draft — governance / review guide |
 | Title      | "Contribution Admission Guide" (kept) — a checklist for admitting new concepts, crates, capabilities, adapters, and frontends |
 | Scope      | A repeatable review process for deciding whether a proposed addition belongs in the kernel, a foundational service, a capability crate, a backend adapter, or an authoring frontend. |
-| Relates to | `docs/Tokimu Software Design Document.md`, `docs/kernel-principles.md`, `docs/semantic-kernel-map.md`, `docs/capability-backends.md`, `docs/future-workspace-layout.md`, `docs/Architectural Reviews/README.md`, ADR-0003 |
+| Relates to | `docs/Tokimu Software Design Document.md`, `docs/kernel-principles.md`, `docs/semantic-kernel-map.md`, `docs/capability-backends.md`, `docs/future-workspace-layout.md`, `docs/Architectural Reviews/README.md`, ADR-0003, ADR-0005 |
 
 ## 1. Purpose
 
@@ -169,6 +169,42 @@ Required evidence:
 3. at least one example or test showing why the concept must be kernel-native.
 
 See `docs/semantic-kernel-map.md` for the primitive-admission discipline.
+
+### 5.1 Evidence Sufficiency And Maintainer Exceptions
+
+The evidence requirements above are the normal admission path. They are not
+intended to force artificial examples after the ownership question is already
+supported by convincing cross-cutting evidence.
+
+First distinguish implementation from admission:
+
+- implementing or extending an already-admitted concept without changing its
+  meaning or ownership does not require a new admission review;
+- changing a concept's meaning, ownership tier, dependency direction, or public
+  stability does require admission review;
+- creating code in a native crate does not by itself make every helper or
+  function a new kernel semantic term.
+
+ADR-0005 defines two exceptional paths:
+
+- **provisional admission** permits reversible implementation while named
+  evidence remains missing;
+- **permanent admission by evidence substitution** permits a binding decision
+  when existing architectural evidence answers the ownership question without
+  mechanically satisfying every numerical corpus heuristic.
+
+Either path must record the missing normal evidence and the substitute evidence
+relied upon. A permanent exception must use an Architectural Review Record or
+ADR and must include decomposition, alternatives, consequences, and reopening
+triggers.
+
+An exception cannot override an accepted ADR, repair an invalid dependency
+direction, or turn implementation convenience into kernel meaning. Reviewer
+headcount is not evidence. The accountable maintainer owns the decision; tools
+or AI assistants may contribute recorded critical review but do not constitute
+a governance quorum.
+
+See ADR-0005 for the binding exception policy.
 
 ## 6. Foundational Service Admission
 
@@ -339,3 +375,13 @@ Backend-specific details kept out:
 
 If that template cannot be filled in clearly, the change likely needs another
 design pass before merge.
+
+For an admission exception, append:
+
+```text
+Normal evidence missing:
+Substitute evidence:
+Why mechanical completion adds little decision value:
+Reopening trigger:
+Accountable maintainer:
+```

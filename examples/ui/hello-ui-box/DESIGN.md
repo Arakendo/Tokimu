@@ -88,6 +88,7 @@ Example arrangements include:
 - Outer box
 - Nested inner box
 - Accent strip
+- Partially clipped nested box
 - Title label
 - Caption label
 
@@ -114,6 +115,7 @@ Box containing:
 - labels
 - empty space
 - another box
+- a rectangular clip boundary
 
 ## Non-Goals
 
@@ -180,11 +182,24 @@ These observations should feed back into:
 - Primitive Ledger
 - Future UI capability design
 
+## Implementation Observations
+
+- Shared lowering now owns shadow, border, fill, radius, and clip metadata;
+  the example only chooses semantic regions and submits the resulting batches.
+- Square and rounded geometry are distinct theme values. `UiRadius::None` is
+  required rather than treating a small radius as a square surface.
+- A partially clipped nested surface preserves its source path while the
+  renderer applies a pixel-space scissor.
+- Example-local mesh retention is sufficient for the current proof. A shared
+  retained cache needs a second consumer and an explicit invalidation contract
+  before admission.
+
 ## Success Criteria
 
 The example succeeds when:
 
 - A box reads as the smallest useful framed region.
 - Nested boxes remain understandable.
+- A nested box can be partially clipped without changing its source geometry.
 - The example does not collapse into panel semantics.
 - Future UI examples can reuse the same primitive framing idea.

@@ -2,6 +2,7 @@ mod controls;
 mod corpus;
 mod draw;
 mod font;
+mod font_outline;
 mod geometry;
 mod icon;
 mod layout;
@@ -13,6 +14,7 @@ mod svg;
 mod text;
 mod text_input;
 mod theme;
+mod vector;
 
 pub use controls::{
     UiActionId, UiActivationKey, UiButton, UiButtonId, UiButtonSpec, UiCardSpec, UiDiagnostic,
@@ -23,9 +25,17 @@ pub use corpus::{
     samples as text_corpus_samples, UiTextCorpusGroup, UiTextCorpusSample, TEXT_CORPUS,
     TEXT_CORPUS_VERSION,
 };
-pub use draw::{UiDrawer, UiSurfaceCommand, UiTextCommand};
+pub use draw::{
+    lower_surface_to_vector, UiDrawer, UiSurfaceCommand, UiSurfaceVectorLayer,
+    UiSurfaceVectorLayerKind, UiTextCommand,
+};
 pub use font::{UiFontFormat, UiFontHandle, UiFontIdentity, UiFontProviderId, UiFontSource};
-pub use geometry::{window_to_world, UiHitRegion, UiInsets, UiRect};
+pub use font_outline::{
+    UiGlyphContour, UiGlyphFillTopology, UiGlyphOutline, UiGlyphOutlineDiagnostic,
+    UiGlyphOutlineDiagnosticKind, UiGlyphOutlineSegment, UiGlyphVectorDiagnostic,
+    UiGlyphVectorDiagnosticKind, UiGlyphVectorOptions,
+};
+pub use geometry::{window_to_world, UiHitRegion, UiInsets, UiPixelRect, UiRect};
 pub use icon::{
     UiIconDiagnostic, UiIconDiagnosticKind, UiIconHandle, UiIconId, UiIconMetrics,
     UiIconProviderId, UiIconResolution, UiIconSpec, UiIconTint, UiIconVectorAsset,
@@ -47,8 +57,9 @@ pub use region::{
 };
 pub use scroll::UiVerticalScroll;
 pub use svg::{
-    flatten_path, parse_path, parse_svg_document_paths, stroke_paths, tokenize_path,
-    SvgPathCommand, SvgToken,
+    parse_path, parse_svg_document_convex_fill_meshes, parse_svg_document_vector_paths,
+    parse_svg_document_vector_records, tokenize_path, SvgFillRule, SvgPathCommand, SvgToken,
+    SvgVectorRecord,
 };
 pub use text::{
     bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad,
@@ -60,6 +71,11 @@ pub use text_input::{UiTextInputOperation, UiTextInputState};
 pub use theme::{
     UiBorderScale, UiControlRole, UiElevation, UiRadiusScale, UiSpacingScale, UiSurfaceStyle,
     UiTextStyle, UiTheme,
+};
+pub use vector::{
+    tessellate_convex_fill, tessellate_general_fill, tessellate_general_fill_with_rule,
+    tessellate_path_strokes, tessellate_stroke, validate_convex_fill, PathBuilder, VectorContour,
+    VectorFillRule, VectorPath,
 };
 
 #[cfg(test)]
@@ -528,8 +544,9 @@ mod tests {
             drawer.button(&button, UiInteractionState::Hovered, UiControlRole::Primary);
         }
 
-        assert_eq!(surfaces[0].rect, UiRect::new([0.25, 0.0], [0.5, 0.4]));
-        assert_eq!(text[0].spec.rect, surfaces[0].rect);
+        assert_eq!(surfaces[0].rect, button.rect);
+        assert_eq!(surfaces[0].clip, Some(UiRect::new([0.0, 0.0], [1.0, 1.0])));
+        assert_eq!(text[0].spec.rect, UiRect::new([0.25, 0.0], [0.5, 0.4]));
 
         {
             let mut drawer = UiDrawer::new(&mut surfaces, &mut text, &theme);
@@ -538,5 +555,153 @@ mod tests {
         }
         assert_eq!(surfaces.len(), 1);
         assert_eq!(text.len(), 1);
+    }
+
+    #[test]
+    fn surface_lowering_preserves_shadow_border_fill_order() {
+        let theme = UiTheme::default();
+        let command = UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style: theme.surface(UiSurfaceRole::Panel),
+            clip: None,
+        };
+
+        let layers = lower_surface_to_vector(&command);
+
+        assert_eq!(layers.len(), 3);
+        assert_eq!(layers[0].kind, UiSurfaceVectorLayerKind::Shadow);
+        assert_eq!(layers[1].kind, UiSurfaceVectorLayerKind::Border);
+        assert_eq!(layers[2].kind, UiSurfaceVectorLayerKind::Fill);
+        assert_eq!(layers[1].role, UiSurfaceRole::Overlay);
+        assert_eq!(layers[2].role, UiSurfaceRole::Panel);
+        assert!(layers.iter().all(|layer| layer.clip.is_none()));
+        assert!(layers.iter().all(|layer| layer.path.is_finite()));
+    }
+
+    #[test]
+    fn vector_lowering_preserves_rectangular_clip_metadata() {
+        let command = UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style: UiTheme::default().surface(UiSurfaceRole::Panel),
+            clip: Some(UiRect::new([0.0, 0.0], [0.2, 0.2])),
+        };
+
+        let layers = lower_surface_to_vector(&command);
+
+        assert!(layers.iter().all(|layer| layer.clip == command.clip));
+        assert!(layers.iter().all(|layer| layer.path.bounds().is_some()));
+    }
+
+    #[test]
+    fn vector_lowering_keeps_border_geometry_uniformly_outside_fill() {
+        let mut style = UiTheme::default().surface(UiSurfaceRole::Panel);
+        style.border_width = 0.01;
+        let command = UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style,
+            clip: None,
+        };
+
+        let layers = lower_surface_to_vector(&command);
+        let border_bounds = layers[1].path.bounds().unwrap();
+        let fill_bounds = layers[2].path.bounds().unwrap();
+
+        assert!((border_bounds.0[0] - fill_bounds.0[0] + 0.01).abs() < 1e-5);
+        assert!((border_bounds.1[0] - fill_bounds.1[0] - 0.01).abs() < 1e-5);
+        assert!((border_bounds.0[1] - fill_bounds.0[1] + 0.01).abs() < 1e-5);
+        assert!((border_bounds.1[1] - fill_bounds.1[1] - 0.01).abs() < 1e-5);
+    }
+
+    #[test]
+    fn vector_lowering_applies_shadow_offset_before_fill() {
+        let command = UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style: UiTheme::default().surface(UiSurfaceRole::Panel),
+            clip: None,
+        };
+
+        let layers = lower_surface_to_vector(&command);
+        let shadow_bounds = layers[0].path.bounds().unwrap();
+        let fill_bounds = layers[2].path.bounds().unwrap();
+
+        assert!((shadow_bounds.0[0] - fill_bounds.0[0] - 0.01).abs() < 1e-5);
+        assert!((shadow_bounds.0[1] - fill_bounds.0[1] + 0.01).abs() < 1e-5);
+        assert!((shadow_bounds.1[0] - fill_bounds.1[0] - 0.01).abs() < 1e-5);
+        assert!((shadow_bounds.1[1] - fill_bounds.1[1] + 0.01).abs() < 1e-5);
+    }
+
+    #[test]
+    fn vector_lowering_keeps_geometry_stable_when_roles_change() {
+        let first_style = UiTheme::default().surface(UiSurfaceRole::Panel);
+        let mut second_style = first_style;
+        second_style.role = UiSurfaceRole::Accent;
+        second_style.border_role = Some(UiSurfaceRole::Selected);
+
+        let first = lower_surface_to_vector(&UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style: first_style,
+            clip: None,
+        });
+        let second = lower_surface_to_vector(&UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style: second_style,
+            clip: None,
+        });
+
+        assert_eq!(
+            first.iter().map(|layer| &layer.path).collect::<Vec<_>>(),
+            second.iter().map(|layer| &layer.path).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn vector_lowering_changes_corner_geometry_without_changing_bounds() {
+        let small_style = UiTheme::default().surface(UiSurfaceRole::Panel);
+        let mut large_style = small_style;
+        large_style.radius = UiRadius::Large;
+
+        let rect = UiRect::new([0.0, 0.0], [0.4, 0.2]);
+        let small = lower_surface_to_vector(&UiSurfaceCommand {
+            rect,
+            style: small_style,
+            clip: None,
+        });
+        let large = lower_surface_to_vector(&UiSurfaceCommand {
+            rect,
+            style: large_style,
+            clip: None,
+        });
+
+        let small_bounds = small[2].path.bounds().unwrap();
+        let large_bounds = large[2].path.bounds().unwrap();
+        for (small_bound, large_bound) in small_bounds.0.into_iter().zip(large_bounds.0) {
+            assert!((small_bound - large_bound).abs() < 1e-5);
+        }
+        for (small_bound, large_bound) in small_bounds.1.into_iter().zip(large_bounds.1) {
+            assert!((small_bound - large_bound).abs() < 1e-5);
+        }
+        assert_ne!(small[2].path, large[2].path);
+    }
+
+    #[test]
+    fn default_theme_distinguishes_square_from_small_radius() {
+        let theme = UiTheme::default();
+
+        assert_eq!(theme.radii.none, UiRadius::None);
+        assert_ne!(theme.radii.none, theme.radii.sm);
+    }
+
+    #[test]
+    fn flat_surface_lowering_has_no_shadow_or_border() {
+        let command = UiSurfaceCommand {
+            rect: UiRect::new([0.0, 0.0], [0.4, 0.2]),
+            style: UiTheme::default().surface(UiSurfaceRole::Background),
+            clip: None,
+        };
+
+        let layers = lower_surface_to_vector(&command);
+
+        assert_eq!(layers.len(), 1);
+        assert_eq!(layers[0].kind, UiSurfaceVectorLayerKind::Fill);
     }
 }

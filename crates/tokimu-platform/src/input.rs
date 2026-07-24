@@ -40,15 +40,17 @@ pub enum PlatformInputEvent {
 impl PlatformInputEvent {
     pub fn as_input_event(&self) -> Option<InputEvent> {
         match self {
-            Self::KeyboardInput { key, pressed } => {
-                Some(InputEvent::KeyboardInput { key: *key, pressed: *pressed })
-            }
+            Self::KeyboardInput { key, pressed } => Some(InputEvent::KeyboardInput {
+                key: *key,
+                pressed: *pressed,
+            }),
             Self::TextInput(text) => Some(InputEvent::TextInput(text.clone())),
             Self::CursorMoved { x, y } => Some(InputEvent::CursorMoved { x: *x, y: *y }),
             Self::MouseMotion { .. } => None,
-            Self::MouseInput { button, pressed } => {
-                Some(InputEvent::MouseInput { button: *button, pressed: *pressed })
-            }
+            Self::MouseInput { button, pressed } => Some(InputEvent::MouseInput {
+                button: *button,
+                pressed: *pressed,
+            }),
             Self::CloseRequested | Self::Resized { .. } => None,
         }
     }

@@ -28,3 +28,8 @@ Thumbs.db
 
 # Conversations
 /docs/conversations/
+
+# Downloaded fixture archives and vendor tool libraries
+third-party/fixtures/**/*.tar.gz
+third-party/fixtures/**/*.jar
+third-party/fixtures/**/*.war

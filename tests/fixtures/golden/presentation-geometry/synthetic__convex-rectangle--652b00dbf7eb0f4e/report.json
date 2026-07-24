@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case_id": "synthetic/convex-rectangle",
+  "producer": "synthetic/topology",
+  "selected_stages": [
+    "source",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "convex rectangle"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "contours=1 points=4 finite=true intersections=0"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "triangles=2 vertices=6 finite=true complete=true degenerate=0 area=1.000000"
+    }
+  ],
+  "diagnostics": []
+}

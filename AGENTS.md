@@ -87,6 +87,13 @@ Tonesu projects.
   objects. Treat TTF/OTF/system fonts and Lucide as replaceable providers;
   preserve provider-neutral handles, measurement, layout, fallback, and
   diagnostics contracts.
+- `ADR-0005-admission-evidence-and-maintainer-exceptions.md` permits documented
+  provisional admission or permanent evidence substitution without weakening
+  accepted ownership and dependency boundaries.
+- `ADR-0006-native-execution-policy.md` makes execution policy and cross-domain
+  coordination native Tokimu concerns while keeping concrete thread, worker,
+  and executor mechanisms in runtime/platform adapters. It does not admit
+  parallel `World` mutation.
 
 ## AI Implementation Principles
 

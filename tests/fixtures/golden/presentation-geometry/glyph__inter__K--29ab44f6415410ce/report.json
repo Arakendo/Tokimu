@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "glyph/inter/K",
+  "producer": "font-outline/inter",
+  "selected_stages": [
+    "source",
+    "outline",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "provider=inter format=ttf file=InterVariable.ttf"
+    },
+    {
+      "stage": "outline",
+      "status": "ready",
+      "summary": "character='K' contours=3 units_per_em=2048"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "contours=3 points=23 finite=true"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "triangles=24 vertices=72 finite=true complete=true degenerate=0 area=0.147754"
+    }
+  ],
+  "diagnostics": []
+}

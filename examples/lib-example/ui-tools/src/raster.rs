@@ -21,7 +21,10 @@ pub struct UiRasterGlyph {
 }
 
 pub struct UiFontRasterizer {
-    font: FontArc,
+    pub(crate) font: FontArc,
+    // Outline adapters need the original provider bytes so they can preserve
+    // move/close commands that the rasterizer-oriented API intentionally hides.
+    pub(crate) font_bytes: Vec<u8>,
 }
 
 pub fn alpha_to_rgba8(alpha: &[u8], color: [u8; 3]) -> Vec<u8> {
@@ -34,7 +37,8 @@ pub fn alpha_to_rgba8(alpha: &[u8], color: [u8; 3]) -> Vec<u8> {
 impl UiFontRasterizer {
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, ab_glyph::InvalidFont> {
         Ok(Self {
-            font: FontArc::try_from_vec(bytes)?,
+            font: FontArc::try_from_vec(bytes.clone())?,
+            font_bytes: bytes,
         })
     }
 
@@ -332,6 +336,8 @@ mod tests {
             tracked.glyphs[1].glyph.advance,
             normal.glyphs[1].glyph.advance
         );
+        assert_eq!(tracked.glyphs[0].pen_x, normal.glyphs[0].pen_x);
+        assert_eq!(tracked.glyphs[1].pen_x, normal.glyphs[1].pen_x + 3.0);
     }
 
     #[test]

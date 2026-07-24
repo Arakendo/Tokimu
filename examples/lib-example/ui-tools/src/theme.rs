@@ -51,7 +51,7 @@ pub struct UiRadiusScale {
 impl Default for UiRadiusScale {
     fn default() -> Self {
         Self {
-            none: UiRadius::Small,
+            none: UiRadius::None,
             sm: UiRadius::Small,
             md: UiRadius::Medium,
             lg: UiRadius::Large,

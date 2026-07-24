@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf, sync::Arc};
 
+use screenshot::{write_bmp, write_manifest, Rgba8Image};
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
@@ -67,51 +68,47 @@ const SCENE: [Rect; 3] = [
 ];
 
 fn scene_pixels() -> Vec<u8> {
-    let mut pixels = vec![0; (SCENE_WIDTH * SCENE_HEIGHT * 3) as usize];
+    let mut pixels = vec![0; (SCENE_WIDTH * SCENE_HEIGHT * 4) as usize];
     for rect in SCENE {
         for y in rect.y..(rect.y + rect.height).min(SCENE_HEIGHT) {
             for x in rect.x..(rect.x + rect.width).min(SCENE_WIDTH) {
-                let index = ((y * SCENE_WIDTH + x) * 3) as usize;
-                pixels[index..index + 3].copy_from_slice(&rect.color);
+                let index = ((y * SCENE_WIDTH + x) * 4) as usize;
+                pixels[index..index + 4].copy_from_slice(&[
+                    rect.color[0],
+                    rect.color[1],
+                    rect.color[2],
+                    255,
+                ]);
             }
         }
     }
     pixels
 }
 
-fn write_bmp(path: &PathBuf, pixels: &[u8]) -> Result<(), String> {
-    let row_size = SCENE_WIDTH * 3;
-    let padding = (4 - row_size % 4) % 4;
-    let image_size = (row_size + padding) * SCENE_HEIGHT;
-    let file_size = 54 + image_size;
-    let mut bytes = Vec::with_capacity(file_size as usize);
-    bytes.extend_from_slice(b"BM");
-    bytes.extend_from_slice(&file_size.to_le_bytes());
-    bytes.extend_from_slice(&[0; 4]);
-    bytes.extend_from_slice(&54_u32.to_le_bytes());
-    bytes.extend_from_slice(&40_u32.to_le_bytes());
-    bytes.extend_from_slice(&SCENE_WIDTH.to_le_bytes());
-    bytes.extend_from_slice(&SCENE_HEIGHT.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&24_u16.to_le_bytes());
-    bytes.extend_from_slice(&[0; 4]);
-    bytes.extend_from_slice(&image_size.to_le_bytes());
-    bytes.extend_from_slice(&[0; 16]);
-    for y in (0..SCENE_HEIGHT).rev() {
-        for x in 0..SCENE_WIDTH {
-            let index = ((y * SCENE_WIDTH + x) * 3) as usize;
-            bytes.extend_from_slice(&[pixels[index + 2], pixels[index + 1], pixels[index]]);
-        }
-        bytes.extend(std::iter::repeat_n(0, padding as usize));
-    }
-    fs::write(path, bytes).map_err(|error| format!("write {}: {error}", path.display()))
-}
-
 fn save_scene() -> Result<PathBuf, String> {
     let path = PathBuf::from("target/hello-save-image/scene.bmp");
     fs::create_dir_all(path.parent().expect("scene has parent"))
         .map_err(|error| error.to_string())?;
-    write_bmp(&path, &scene_pixels())?;
+    let pixels = scene_pixels();
+    write_bmp(
+        &path,
+        Rgba8Image {
+            width: SCENE_WIDTH,
+            height: SCENE_HEIGHT,
+            pixels: &pixels,
+        },
+    )?;
+    write_manifest(
+        path.with_extension("txt"),
+        &[
+            ("example", "hello-save-image"),
+            ("format", "bmp"),
+            ("width", &SCENE_WIDTH.to_string()),
+            ("height", &SCENE_HEIGHT.to_string()),
+            ("buffer", "cpu-rgba8"),
+            ("gpu_readback", "false"),
+        ],
+    )?;
     Ok(path)
 }
 
