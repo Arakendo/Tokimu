@@ -490,6 +490,207 @@ upstream revision, source URL, license/provenance, and unsupported SVG features.
 Passing a selected W3C SVG case validates Tokimu's SVG adapter and vector path
 for that case. It does not claim full SVG conformance.
 
+#### Highest-Return Coverage Targets
+
+Expand W3C coverage by capability value rather than raw fixture count. Prefer
+features that unblock several upstream tests, exercise a shared ownership
+boundary, or validate geometry used by UI, icons, fonts, and ordinary SVG
+documents.
+
+##### Priority 1: Stroke Geometry
+
+Stroke support is the largest immediate gap. It unlocks line art, Lucide-style
+icons, open paths, and a large portion of otherwise structurally valid W3C
+fixtures.
+
+- [ ] Lower `line`, open `polyline`, and open `path` strokes through one shared
+      stroke-expansion implementation.
+- [ ] Validate `stroke-width`, `stroke-linecap`, `stroke-linejoin`, and
+      `stroke-miterlimit`.
+- [ ] Cover butt, round, and square caps plus miter, bevel, and round joins.
+- [ ] Preserve fill and stroke as independent operations when both are present.
+- [ ] Record the expanded stroke outline and mesh as structural artifacts.
+- [ ] Add `stroke-dasharray` and `stroke-dashoffset` only after solid strokes
+      are stable.
+
+High-value shapes and methods:
+
+- horizontal, vertical, and diagonal lines;
+- open polylines with acute and obtuse turns;
+- cubic and quadratic open paths;
+- arcs with each cap style;
+- closed polygons rendered with fill, stroke, and fill-plus-stroke;
+- the existing Lucide regressions as an independent stroke consumer.
+
+##### Priority 2: Document Coordinates And Transforms
+
+Correct document coordinates allow compact source fixtures and real assets to
+share the same geometry contract without example-specific scaling.
+
+- [ ] Admit root `viewBox` mapping.
+- [ ] Implement the common `preserveAspectRatio` meet modes before slice modes.
+- [ ] Apply transforms consistently to path and primitive elements.
+- [ ] Validate nested translate, scale, rotate, skew, and matrix composition.
+- [ ] Record source-space and transformed bounds separately.
+
+High-value shapes and methods:
+
+- non-zero `viewBox` origins;
+- wide and tall viewports;
+- nested group transforms around rectangles, circles, and paths;
+- rotation around an explicit center;
+- reflected geometry through negative scale;
+- the same source geometry under several viewport sizes.
+
+##### Priority 3: Presentation Attributes, Inheritance, And Reuse
+
+Many verbatim W3C fixtures currently stop at `defs` or surrounding document
+content even when their relevant geometry is already supported. A bounded
+presentation profile would unlock those fixtures without admitting a browser
+style system.
+
+- [ ] Define precedence for supported inline attributes and `style` entries.
+- [ ] Inherit `fill`, `stroke`, opacity, and stroke parameters through groups.
+- [ ] Treat `defs` as non-rendering storage.
+- [ ] Resolve local fragment references for a bounded `<use href="#...">`
+      profile.
+- [ ] Diagnose missing, duplicate, or cyclic references explicitly.
+- [ ] Keep external references and general CSS selectors outside the initial
+      profile.
+
+High-value shapes and methods:
+
+- one definition reused under multiple transforms;
+- nested groups overriding one inherited property at a time;
+- `fill="none"` with a visible stroke;
+- group opacity combined with element opacity;
+- geometry in `defs` that must not render until referenced.
+
+##### Priority 4: Clip Paths
+
+Clip paths pressure contour composition, transforms, fill rules, and ownership
+without requiring gradients, filters, or text.
+
+- [ ] Support a single local geometric `clipPath`.
+- [ ] Validate rectangular, circular, polygonal, and path clips.
+- [ ] Intersect clip geometry structurally before relying on pixel comparison.
+- [ ] Add transformed and nested clips after one-level clipping is stable.
+- [ ] Keep masks separate; alpha/luminance masks are paint operations rather
+      than ordinary geometric clipping.
+
+High-value shapes and methods:
+
+- a rectangle clipped by a circle;
+- a curve crossing a rectangular clip;
+- a concave polygon clipped by another polygon;
+- a clip with an internal hole;
+- a clip and target under different transforms.
+
+##### Priority 5: Basic Paint And Compositing Semantics
+
+Basic paint state makes visual evidence useful, but it should not pull gradients
+or renderer resources into the vector geometry contract.
+
+- [ ] Validate solid fill and stroke colors.
+- [ ] Validate `fill-opacity`, `stroke-opacity`, and element `opacity`.
+- [ ] Support `none` and a bounded `currentColor` inheritance path.
+- [ ] Record paint intent separately from tessellated geometry.
+- [ ] Evaluate linear gradients only after solid paint and inheritance are
+      stable.
+- [ ] Defer radial gradients, patterns, masks, filters, and blending until an
+      admitted renderer-facing paint contract exists.
+
+##### Explicitly Lower-Return For This Plan
+
+Do not prioritize these merely to increase the W3C pass count:
+
+- SVG text, font selection, and shaping, which belong to the text capability;
+- animation, timing, DOM mutation, events, and scripting;
+- filters, masks, blend modes, and color-management conformance;
+- external resources, network loading, and browser security behavior;
+- metadata, accessibility, and authoring elements that do not affect the
+  presentation-geometry boundary.
+
+They may receive separate plans or profile exclusions. Their absence must
+remain visible in reports.
+
+#### Edge-Case Backlog
+
+Add these after the corresponding ordinary feature has stable structural
+coverage. Each failure should reduce to one compact fixture and identify the
+first divergent stage.
+
+Path-data parsing:
+
+- adjacent signed values without separators, mixed commas and whitespace,
+  leading decimal points, scientific notation, and repeated argument groups;
+- incomplete commands, missing coordinates, invalid arc flags, and trailing
+  unmatched coordinates;
+- command changes immediately after `Z`, multiple subpaths, and implicit
+  line-to pairs after `M` or `m`;
+- very large, very small, and non-finite numeric input with bounded failure
+  diagnostics.
+
+Curves and arcs:
+
+- initial smooth quadratic/cubic commands without a previous control point;
+- reflection after line commands and after closing a subpath;
+- coincident arc endpoints, zero radii, negative radii, rotated ellipses, and
+  radii that require SVG normalization;
+- nearly flat curves, cusps, loops, and flattening tolerances near pixel scale.
+
+Primitive shapes:
+
+- omitted and zero-valued default coordinates;
+- zero and negative width, height, or radius behavior;
+- rounded-rectangle radius coupling and clamping;
+- odd polygon/polyline coordinate counts, repeated points, and one-point or
+  two-point inputs.
+
+Fill topology:
+
+- deeply nested holes under both even-odd and non-zero fill rules;
+- opposite and identical contour winding;
+- touching contours, shared vertices, coincident edges, repeated edges, and
+  zero-area contours;
+- self-intersection, bow ties, narrow slivers, and nearly coincident edges;
+- multiple disconnected filled components in one path.
+
+Transforms and viewports:
+
+- transform-order permutations and nested matrix composition;
+- rotate about an explicit center, skew near 90 degrees, singular matrices,
+  and near-singular scales;
+- negative scales that reverse winding;
+- zero-sized or invalid viewports, non-zero view-box origins, and
+  meet-versus-slice alignment combinations.
+
+Strokes:
+
+- zero-length segments under every cap style;
+- 180-degree reversals, repeated vertices, acute miters, and miter-limit
+  fallback;
+- closed-path seam joins and mixed straight/curve joins;
+- odd dash arrays, dash offsets, empty arrays, and dashes crossing a close
+  seam;
+- extremely thin and extremely wide strokes under transforms.
+
+Clipping and references:
+
+- empty clips, clips outside the target, clips with holes, and nested clips;
+- `objectBoundingBox` versus `userSpaceOnUse` once both are admitted;
+- missing IDs, duplicate IDs, reference cycles, and a `<use>` chain;
+- referenced content with inherited styles and independent transforms.
+
+Paint and inheritance:
+
+- attribute-versus-inline-style precedence;
+- inherited values overridden at several group depths;
+- multiplication of group, element, fill, and stroke opacity;
+- `none`, transparent colors, and `currentColor` through nested groups;
+- unsupported paint servers producing explicit profile diagnostics rather than
+  silent fallback.
+
 ### resvg/usvg Differential Reference
 
 Use `resvg` or `usvg` as an optional external reference renderer for selected
@@ -767,7 +968,7 @@ Implementation evidence:
 - `bless <case-id>` is the only command that writes a reviewed report fixture;
 - fixture directory keys include a stable case-ID hash so case-sensitive IDs
   such as `glyph/inter/K` and `glyph/inter/k` remain distinct on Windows;
-- current reviewed snapshots cover all eleven registered cases;
+- current reviewed snapshots cover all twenty-nine registered cases;
 - snapshots preserve stage selection, stage status, summaries, and diagnostics,
   while leaving raw mesh and image artifacts available for later specialized
   comparisons.
@@ -791,6 +992,10 @@ Validation:
 ### Slice 9: Evaluate External And Generated Corpora
 
 - [x] Select and pin a small W3C path/fill subset.
+- [x] Add a reduced filled-polygon fixture that reaches a finite, non-degenerate
+      mesh.
+- [x] Add a reduced open-polyline fixture that preserves vector evidence and
+      records the current no-fill mesh boundary.
 - [ ] Evaluate optional resvg differential rendering.
 - [x] Add constrained seeded generation and replay.
 - [x] Record generation count, seed, stage summaries, and failures in the CLI
@@ -810,12 +1015,12 @@ Current evidence:
   reviewed case registry;
 - generation is capped at 1000 cases per invocation to keep local diagnostics
   bounded;
-- The pinned W3C fixture supplies two admitted source/vector/mesh cases plus
-  two explicitly classified profile exclusions for group inheritance and
-  transform composition. The exclusions preserve source/XML artifacts without
-  implying support for their unrelated `defs` and text content; remaining
-  manifest entries stay selection candidates until their SVG semantics and
-  topology are independently supported.
+- The pinned W3C fixture supplies four explicitly classified profile exclusions
+  for fill-rule, path-data, group inheritance, and transform composition. The
+  exclusions preserve source/XML artifacts without implying support for their
+  unrelated `defs` and text content; focused importer tests and synthetic
+  fixtures retain structural path coverage until a complete external source
+  fits the admitted profile.
 - Optional differential rendering remains open because it adds dependency
   cost and is not needed to localize the current structural failures.
 - the prepared Lucide external subset now records provider revision, source
@@ -835,14 +1040,67 @@ Deferral decision:
 
 Current W3C evidence:
 
-- `svg/w3c/painting-fill-03-t` reaches source, vector, and mesh stages;
-- `svg/w3c/paths-data-16-t` reaches source, vector, and mesh stages;
+- `svg/w3c/painting-fill-03-t` records source/XML evidence and an expected
+  SVG-profile exclusion at `defs`, preserving its fill-rule provenance without
+  counting it as a structural pass;
+- `svg/w3c/paths-data-16-t` records source/XML evidence and an expected
+  SVG-profile exclusion at `defs`, preserving its implicit-path provenance
+  without counting it as a structural pass;
 - `svg/w3c/struct-group-01-t` records source/XML evidence and an expected
   SVG-profile exclusion at `defs`, preserving its group/inheritance provenance
   without counting it as a structural pass;
 - `svg/w3c/coords-trans-02-t` records source/XML evidence and an expected
   SVG-profile exclusion at `defs`, preserving its transform provenance without
   counting it as a structural pass;
+- `svg/w3c-derived/paths-data-16-geometry` retains the upstream implicit
+  line-to and relative-coordinate path data in an explicitly labeled reduced
+  fixture and reaches source, XML, vector, and mesh stages;
+- `svg/w3c-derived/painting-fill-03-geometry` retains the upstream even-odd
+  and non-zero fill-rule paths in an explicitly labeled reduced fixture and
+  reaches mesh; its current degenerate-triangle count remains fingerprinted as
+  topology evidence rather than being hidden by the corpus;
+- `svg/w3c-derived/paths-data-01-curves-geometry` retains closed cubic and
+  smooth-cubic paths in an explicitly labeled reduced fixture and reaches
+  mesh; its current degenerate-triangle count remains fingerprinted as curve
+  and tessellation evidence;
+- `svg/w3c-derived/paths-data-02-quadratics-geometry` retains closed
+  quadratic and smooth-quadratic paths in an explicitly labeled reduced
+  fixture and reaches a non-degenerate fill mesh;
+- `svg/w3c-derived/coords-trans-02-group-geometry` retains nested groups,
+  inherited fill, and translation/scale/rotation composition in an explicitly
+  labeled reduced fixture and reaches a non-degenerate fill mesh;
+- `svg/w3c-derived/paths-data-03-arcs-geometry` retains closed absolute and
+  relative elliptical-arc geometry from an upstream negative-test source;
+  it reaches mesh while preserving its current degenerate-triangle count as
+  diagnostic evidence rather than a conformance claim;
+- `svg/w3c-derived/shapes-polygon-01-geometry` retains two filled polygon
+  contours and reaches a finite, non-degenerate mesh;
+- `svg/w3c-derived/shapes-polyline-01-geometry` retains two open polyline
+  contours as vector evidence and records the expected no-fill mesh boundary;
+- `svg/w3c-derived/shapes-rect-01-geometry` exercises filled and rounded
+  rectangular primitives and reaches a finite fill mesh;
+- `svg/w3c-derived/shapes-circle-01-geometry` exercises filled circle
+  primitives and reaches a finite fill mesh;
+- `svg/w3c-derived/shapes-ellipse-01-geometry` exercises circular and
+  non-circular ellipse radii and reaches a finite fill mesh;
+- `svg/w3c-derived/shapes-line-01-geometry` preserves open line primitives as
+  vector evidence and records the expected no-fill mesh boundary;
+- `svg/w3c-derived/paths-data-04-geometry` exercises explicit `M`, `L`, and
+  `Z` commands with nested contours and reaches a finite fill mesh;
+- `svg/w3c-derived/paths-data-06-geometry` exercises absolute and relative
+  `H/V` and `h/v` commands and reaches a finite fill mesh;
+- `svg/w3c-derived/paths-data-08-geometry` exercises implicit line pairs after
+  `M` and nested fill contours and reaches a finite fill mesh;
+- `svg/w3c-derived/paths-data-13-geometry` exercises repeated arguments after
+  `H` and `V` and preserves the expected open-path/no-fill boundary;
+- `svg/w3c-derived/paths-data-14-geometry` exercises relative implicit line
+  pairs after `m` and nested relative subpaths and reaches a finite fill mesh;
+- `svg/w3c-derived/shapes-rect-02-geometry` exercises rounded-rectangle
+  `rx`/`ry` coupling when one radius is omitted and reaches a finite fill mesh;
+- the primitive expansion exposed that `ellipse` was implemented in the
+  lowering match but missing from the admitted SVG geometry-element profile;
+  the adapter now admits it explicitly and tests both valid geometry and
+  negative-radius diagnostics;
 - `svg/synthetic/prefixed-namespace` proves the parser-neutral XML/SVG
   boundary ignores a foreign local-name collision while lowering a prefixed SVG
   path through vector and mesh stages;
@@ -850,9 +1108,14 @@ Current W3C evidence:
   shared `VectorPath` contract remains paint-neutral;
 - the W3C runner sends only closed records marked for fill into the shared
   fill tessellator, leaving stroke-only geometry as explicit non-fill evidence;
-- both cases emit source, vector, mesh, fingerprint, contour, mesh-view, and
-  stage-graph artifacts under the corpus target directory;
-- `paths-data-02-t` remains a reduced fill-topology failure;
+- stroke-only Lucide cases follow the same boundary: source, XML, and vector
+  evidence are retained while the mesh stage records an expected limitation
+  rather than misclassifying absent fill geometry as a tessellation failure;
+- W3C profile exclusions emit source, XML, report, and stage-graph artifacts
+  only; stale vector, mesh, fingerprint, contour, and mesh-view artifacts are
+  cleared so an earlier structural run cannot be mistaken for current evidence;
+- full W3C `paths-data-01-t` and `paths-data-02-t` remain upstream provenance
+  fixtures until their broader documents fit the admitted SVG profile;
 - stroke-oriented cases remain vector-stage evidence until SVG paint and
   stroke-expansion semantics are represented explicitly.
 
@@ -877,13 +1140,14 @@ Validation:
 Current review result:
 
 - AR-0001 Cycle 11 records the current harness, golden, replay, image,
-  workspace-consumer, and W3C structural evidence;
+  workspace-consumer, and W3C source/XML exclusion evidence;
 - `tests` consumes the runner through its public API and exercises synthetic
   geometry cases without depending on prepared external assets;
 - vector remains incubating and no new first-party crate is admitted;
 - W3C/resvg differential coverage, a production consumer, and the decision
   whether the runner itself should graduate remain promotion-relevant gaps;
-  W3C structural evidence is no longer wholly deferred.
+  W3C structural evidence remains deferred until an upstream fixture fits the
+  admitted SVG profile or the profile deliberately expands.
 
 ## First Working Milestone
 
