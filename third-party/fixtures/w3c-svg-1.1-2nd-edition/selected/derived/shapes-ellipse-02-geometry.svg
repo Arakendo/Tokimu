@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived from upstream/svg/shapes-ellipse-02-t.svg. -->
+  <ellipse rx="100" ry="50" fill="#3978c7"/>
+  <ellipse cx="100" cy="100" rx="0" ry="50" fill="#35b878"/>
+  <ellipse cx="150" cy="100" rx="50" ry="0" fill="#7c4db3"/>
+  <ellipse cx="250" cy="250" rx="100" ry="50" fill="#d04a9b"/>
+</svg>

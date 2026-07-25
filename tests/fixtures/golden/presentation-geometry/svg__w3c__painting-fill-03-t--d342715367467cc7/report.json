@@ -12,7 +12,7 @@
     {
       "stage": "source",
       "status": "ready",
-      "summary": "file=painting-fill-03-t.svg bytes=3488 source=W3C SVG 1.1 2nd Edition"
+      "summary": "file=painting-fill-03-t.svg bytes=3488 source=W3C SVG 1.1 2nd Edition/painting-fill-03-t.svg"
     },
     {
       "stage": "xml",
@@ -21,13 +21,13 @@
     },
     {
       "stage": "vector",
-      "status": "ready",
-      "summary": "W3C even-odd and non-zero fill-rule fixture paths=3 contours=3 points=14 closed_contours=3"
+      "status": "expected-failure",
+      "summary": "expected SVG-profile exclusion: SVG semantic error at Some(XmlSpan { source: XmlSourceId(2), start: 1867, end: 1873 }): SVG element 'defs' is outside the admitted importer profile"
     },
     {
       "stage": "mesh",
-      "status": "ready",
-      "summary": "closed_paths=2 open_paths=1 triangles=24 vertices=72 finite=true complete=true degenerate=10 area=0.082236"
+      "status": "expected-failure",
+      "summary": "not attempted after expected SVG-profile exclusion"
     }
   ],
   "diagnostics": []

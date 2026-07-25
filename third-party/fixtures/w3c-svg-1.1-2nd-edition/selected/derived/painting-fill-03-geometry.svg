@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived from upstream/svg/painting-fill-03-t.svg. Retains only fill-rule geometry. -->
+  <path fill="lime" fill-rule="evenodd" d="M 110 75 l 50 160 l -130 -100 l 160 0 l -130 100 z"/>
+  <path fill="lime" fill-rule="nonzero" d="M 365 75 l 50 160 l -130 -100 l 160 0 l -130 100 z"/>
+</svg>

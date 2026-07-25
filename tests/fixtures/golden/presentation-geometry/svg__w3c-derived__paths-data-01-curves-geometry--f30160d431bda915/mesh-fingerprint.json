@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/paths-data-01-curves-geometry",
+    "input_hash": "fnv1a64:ac063ba41caddb58",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/paths-data-01-curves-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.48958334,
+      -0.22222221
+    ],
+    [
+      0.25,
+      0.055555552
+    ]
+  ],
+  "triangle_count": 72,
+  "degenerate_triangles": 3,
+  "total_area": 0.03722223,
+  "canonical_triangle_hash": "fnv1a64:833c875a0d3d68a2"
+}

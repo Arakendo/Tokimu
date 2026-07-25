@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280">
+  <!-- Derived from upstream/svg/shapes-circle-02-t.svg. -->
+  <circle r="40" fill="#3978c7"/>
+  <circle cx="120" cy="70" r="40" fill="#d04a9b"/>
+  <circle cx="240" r="40" fill="#7c4db3"/>
+  <circle cy="70" cx="360" r="40" fill="#4b9b72"/>
+  <circle cx="440" cy="70" r="0" fill="#c77939"/>
+</svg>

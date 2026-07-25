@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "svg/w3c-derived/shapes-rect-02-geometry",
+  "producer": "svg/w3c-derived",
+  "selected_stages": [
+    "source",
+    "xml",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=shapes-rect-02-geometry.svg bytes=352 source=W3C SVG 1.1 2nd Edition derived geometry/shapes-rect-02-geometry.svg"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=15 elements=4/4 text=6 comments=1 processing_instructions=0 roots=2 document_element=true"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "W3C-derived rectangle corner-radius coupling paths=3 contours=3 points=60 closed_contours=3"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "closed_paths=3 open_paths=0 triangles=54 vertices=162 finite=true complete=true degenerate=0 area=0.133458"
+    }
+  ],
+  "diagnostics": []
+}

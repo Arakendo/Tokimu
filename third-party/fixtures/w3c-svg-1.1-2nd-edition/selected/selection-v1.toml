@@ -56,8 +56,8 @@ expected = "structural-pass"
 
 [[case]]
 id = "paths-data-12-t.svg"
-capability = ["path-data", "arc", "relative-arc"]
-reason = "Exercises elliptical arc command parsing and relative arc coordinates."
+capability = ["path-data", "cubic", "smooth-cubic", "repeated-arguments"]
+reason = "Exercises repeated cubic coordinate sets and smooth-cubic continuation, including an initial S with no preceding C or S."
 expected = "structural-pass"
 
 [[case]]
@@ -81,14 +81,14 @@ expected = "structural-pass"
 [[case]]
 id = "paths-data-16-t.svg"
 capability = ["path-data", "mixed-segments", "close-path"]
-reason = "Exercises mixed line and curve segments in a closed contour."
-expected = "structural-pass"
+reason = "Provides path-data provenance, but the upstream fixture also carries unadmitted defs and text."
+expected = "unsupported-profile"
 
 [[case]]
 id = "painting-fill-03-t.svg"
 capability = ["fill-rule", "even-odd", "non-zero", "multiple-contours"]
-reason = "Provides direct contrasting even-odd and non-zero fill-rule geometry."
-expected = "structural-pass"
+reason = "Provides fill-rule provenance, but the upstream fixture also carries unadmitted defs and text."
+expected = "unsupported-profile"
 
 [[case]]
 id = "struct-group-01-t.svg"
@@ -101,3 +101,200 @@ id = "coords-trans-02-t.svg"
 capability = ["transform", "nested-transform", "translation", "rotation"]
 reason = "Provides W3C provenance for transform composition; its defs and text remain outside the initial SVG profile."
 expected = "unsupported-profile"
+
+[[derived_case]]
+id = "paths-data-16-geometry.svg"
+upstream = "paths-data-16-t.svg"
+capability = ["path-data", "implicit-line", "relative-commands", "close-path"]
+reason = "Retains the upstream path geometry while removing unrelated W3C metadata, defs, text, frame, and stroke styling."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "painting-fill-03-geometry.svg"
+upstream = "painting-fill-03-t.svg"
+capability = ["fill-rule", "even-odd", "non-zero", "self-intersection"]
+reason = "Retains the upstream fill-rule geometry while removing unrelated W3C metadata, defs, text, frame, and stroke styling."
+expected = "structural-pass-with-recorded-degenerates"
+
+[[derived_case]]
+id = "shapes-polygon-01-geometry.svg"
+upstream = "shapes-polygon-01-t.svg"
+capability = ["polygon", "closed-fill", "multiple-contours"]
+reason = "Retains filled polygon geometry while removing unrelated W3C metadata, stroke styling, and framing."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-polyline-01-geometry.svg"
+upstream = "shapes-polyline-01-t.svg"
+capability = ["polyline", "open-path", "stroke-intent"]
+reason = "Retains open polyline geometry as vector evidence; stroke expansion remains outside the current mesh scope."
+expected = "vector-pass-no-fill-mesh"
+
+[[derived_case]]
+id = "shapes-rect-01-geometry.svg"
+upstream = "shapes-rect-01-t.svg"
+capability = ["rect", "rounded-rect", "closed-fill"]
+reason = "Retains filled rectangular primitives while removing stroke styling, text, metadata, and framing."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-circle-01-geometry.svg"
+upstream = "shapes-circle-01-t.svg"
+capability = ["circle", "closed-fill"]
+reason = "Retains filled circle primitives as provider-neutral closed geometry."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-ellipse-01-geometry.svg"
+upstream = "shapes-ellipse-01-t.svg"
+capability = ["ellipse", "closed-fill"]
+reason = "Retains filled ellipse primitives, including circular and non-circular radii."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-line-01-geometry.svg"
+upstream = "shapes-line-01-t.svg"
+capability = ["line", "open-path", "stroke-intent"]
+reason = "Retains open line primitives as vector evidence; stroke expansion remains outside the current mesh scope."
+expected = "vector-pass-no-fill-mesh"
+
+[[derived_case]]
+id = "paths-data-04-geometry.svg"
+upstream = "paths-data-04-t.svg"
+capability = ["move-to", "line-to", "close-path", "multiple-contours", "fill-rule"]
+reason = "Retains explicit M/L/Z path commands and a nested contour without the upstream document metadata and stroke-only companion."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-05-geometry.svg"
+upstream = "paths-data-05-t.svg"
+capability = ["relative-move-to", "relative-line-to", "close-path", "multiple-contours", "even-odd"]
+reason = "Retains relative m/l/z triangular contours and their nested even-odd holes without the upstream document metadata, text, markers, and stroke-only companion."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-06-geometry.svg"
+upstream = "paths-data-06-t.svg"
+capability = ["horizontal-vertical-paths", "absolute-commands", "relative-commands", "close-path"]
+reason = "Retains absolute and relative H/V path commands without the upstream document metadata, text, and stroke-only companion."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-07-geometry.svg"
+upstream = "paths-data-07-t.svg"
+capability = ["relative-move-to", "relative-horizontal", "relative-vertical", "close-path"]
+reason = "Retains relative m/h/v/z stepped contours without the upstream document metadata, text, markers, and stroke-only companion."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-08-geometry.svg"
+upstream = "paths-data-08-t.svg"
+capability = ["implicit-line-to", "multiple-contours", "even-odd", "close-path"]
+reason = "Retains coordinate pairs implicitly treated as line commands after M, including nested contours."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-09-geometry.svg"
+upstream = "paths-data-09-t.svg"
+capability = ["relative-move-to", "relative-implicit-line-to", "multiple-contours", "even-odd", "close-path"]
+reason = "Retains coordinate pairs implicitly treated as relative line commands after m, including nested contours."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-13-geometry.svg"
+upstream = "paths-data-13-t.svg"
+capability = ["repeated-horizontal-arguments", "repeated-vertical-arguments", "open-path", "stroke-intent"]
+reason = "Retains repeated arguments after H and V as open vector evidence; stroke expansion remains outside the current mesh scope."
+expected = "vector-pass-no-fill-mesh"
+
+[[derived_case]]
+id = "paths-data-12-geometry.svg"
+upstream = "paths-data-12-t.svg"
+capability = ["cubic", "smooth-cubic", "repeated-arguments", "close-path"]
+reason = "Retains repeated cubic and smooth-cubic fill contours, including an initial smooth command, without the upstream document metadata, markers, and stroke-only presentation."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-14-geometry.svg"
+upstream = "paths-data-14-t.svg"
+capability = ["implicit-line-to", "relative-commands", "multiple-subpaths", "even-odd", "close-path"]
+reason = "Retains coordinate pairs implicitly treated as relative line commands after m, including nested relative subpaths."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-15-geometry.svg"
+upstream = "paths-data-15-t.svg"
+capability = ["quadratic", "smooth-quadratic", "repeated-arguments", "close-path"]
+reason = "Retains repeated quadratic and smooth-quadratic fill contours, including an initial smooth command, without the upstream document metadata, markers, and stroke-only presentation."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-rect-02-geometry.svg"
+upstream = "shapes-rect-02-t.svg"
+capability = ["rect", "rounded-rect", "radius-coupling", "closed-fill"]
+reason = "Exercises SVG rounded-rectangle behavior when only rx or only ry is provided."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-rect-03-geometry.svg"
+upstream = "shapes-rect-03-t.svg"
+capability = ["rect", "rounded-rect", "radius-clamping", "closed-fill"]
+reason = "Exercises rounded-rectangle radius clamping when radii exceed the rectangle dimensions."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-circle-02-geometry.svg"
+upstream = "shapes-circle-02-t.svg"
+capability = ["circle", "default-coordinates", "zero-radius"]
+reason = "Exercises default circle center coordinates and confirms that a zero-radius circle contributes no visible geometry."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-polygon-02-geometry.svg"
+upstream = "shapes-polygon-02-t.svg"
+capability = ["polygon", "concave-fill", "closed-fill"]
+reason = "Exercises filled concave and star-shaped polygons with multiple turns and narrow regions."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-ellipse-02-geometry.svg"
+upstream = "shapes-ellipse-02-t.svg"
+capability = ["ellipse", "default-coordinates", "non-circular-radii", "zero-radius"]
+reason = "Exercises omitted ellipse center coordinates, non-circular radii, and zero-radius ellipses that contribute no visible geometry."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-polygon-03-geometry.svg"
+upstream = "shapes-polygon-03-t.svg"
+capability = ["polygon", "polyline", "odd-coordinate-truncation"]
+reason = "Exercises W3C odd-coordinate handling by retaining valid coordinate pairs and ignoring an incomplete trailing value."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-01-curves-geometry.svg"
+upstream = "paths-data-01-t.svg"
+capability = ["path-data", "cubic", "smooth-cubic", "relative-commands", "close-path"]
+reason = "Retains closed cubic and smooth-cubic fill geometry while removing unrelated W3C metadata, defs, text, frame, and stroke styling."
+expected = "structural-pass-with-recorded-degenerates"
+
+[[derived_case]]
+id = "paths-data-02-quadratics-geometry.svg"
+upstream = "paths-data-02-t.svg"
+capability = ["path-data", "quadratic", "smooth-quadratic", "multiple-contours", "close-path"]
+reason = "Retains closed quadratic and smooth-quadratic fill geometry while removing unrelated W3C metadata, defs, text, frame, and stroke styling."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "coords-trans-02-group-geometry.svg"
+upstream = "coords-trans-02-t.svg"
+capability = ["nested-groups", "presentation-inheritance", "transform", "translation", "scale", "rotation", "rect"]
+reason = "Retains nested transforms, inherited fill, and primitive geometry while removing unrelated W3C metadata, defs, text, markers, and frame styling."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-03-arcs-geometry.svg"
+upstream = "paths-data-03-f.svg"
+upstream_classification = "negative-test"
+capability = ["path-data", "arc", "relative-arc", "even-odd", "close-path"]
+reason = "Retains closed arc geometry solely as a Tokimu parser, flattening, and fill-tessellation diagnostic probe; it is not a W3C conformance result."
+expected = "structural-pass-with-recorded-degenerates"

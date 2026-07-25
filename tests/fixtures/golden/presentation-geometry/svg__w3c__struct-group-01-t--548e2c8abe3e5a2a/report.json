@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "svg/w3c/struct-group-01-t",
+  "producer": "svg/w3c",
+  "selected_stages": [
+    "source",
+    "xml",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=struct-group-01-t.svg bytes=4231 source=W3C SVG 1.1 2nd Edition/struct-group-01-t.svg"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=126 elements=28/28 text=59 comments=11 processing_instructions=0 roots=2 document_element=true"
+    },
+    {
+      "stage": "vector",
+      "status": "expected-failure",
+      "summary": "expected SVG-profile exclusion: SVG semantic error at Some(XmlSpan { source: XmlSourceId(2), start: 2747, end: 2753 }): SVG element 'defs' is outside the admitted importer profile"
+    },
+    {
+      "stage": "mesh",
+      "status": "expected-failure",
+      "summary": "not attempted after expected SVG-profile exclusion"
+    }
+  ],
+  "diagnostics": []
+}

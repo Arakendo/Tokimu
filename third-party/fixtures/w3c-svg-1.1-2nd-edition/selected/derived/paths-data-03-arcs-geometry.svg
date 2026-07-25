@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!--
+    Derived from upstream/svg/paths-data-03-f.svg, an upstream negative test.
+    This is not a W3C conformance result. It retains closed arc geometry solely
+    as a Tokimu parser, flattening, and fill-tessellation diagnostic probe.
+  -->
+  <path fill="#00FF00" d="m 150 100 a 50 40 0 1 0 25 -70 z"/>
+  <path fill="#0067C0" fill-rule="evenodd" d="M 270 30 A 50 50 0 1 0 345 30 a 50 50 0 1 0 50 0 a 50 50 0 1 0 25 0 z"/>
+</svg>

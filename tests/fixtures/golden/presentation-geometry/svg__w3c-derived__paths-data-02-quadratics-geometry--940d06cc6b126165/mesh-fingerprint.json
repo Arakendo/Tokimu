@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/paths-data-02-quadratics-geometry",
+    "input_hash": "fnv1a64:92e8928f22617aca",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/paths-data-02-quadratics-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.1296007,
+      -0.105555534
+    ],
+    [
+      0.44947916,
+      0.4722222
+    ]
+  ],
+  "triangle_count": 58,
+  "degenerate_triangles": 0,
+  "total_area": 0.11158099,
+  "canonical_triangle_hash": "fnv1a64:32d8bc5107e5a7e6"
+}

@@ -2,10 +2,10 @@
   "metadata": {
     "schema": 1,
     "artifact": "mesh",
-    "producer": "svg/w3c",
-    "case_id": "svg/w3c/paths-data-16-t",
-    "input_hash": "fnv1a64:95a3c001160d9247",
-    "source": "W3C SVG 1.1 2nd Edition/paths-data-16-t.svg",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/paths-data-16-geometry",
+    "input_hash": "fnv1a64:4e09d283d31db456",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/paths-data-16-geometry.svg",
     "algorithms": {
       "flatten": "svg-path-flatten-v1:subdivisions=12",
       "tessellator": "ui-tools-general-fill",

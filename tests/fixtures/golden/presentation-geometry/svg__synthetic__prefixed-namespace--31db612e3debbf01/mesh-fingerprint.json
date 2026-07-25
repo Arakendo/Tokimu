@@ -2,10 +2,10 @@
   "metadata": {
     "schema": 1,
     "artifact": "mesh",
-    "producer": "svg/lucide",
-    "case_id": "svg/lucide/archive",
-    "input_hash": "fnv1a64:1e422816e1c08110",
-    "source": "Lucide/archive.svg",
+    "producer": "svg/synthetic",
+    "case_id": "svg/synthetic/prefixed-namespace",
+    "input_hash": "fnv1a64:b56fa048d4a03cee",
+    "source": "inline namespace fixture",
     "algorithms": {
       "flatten": "svg-path-flatten-v1:subdivisions=12",
       "tessellator": "ui-tools-general-fill",
@@ -15,15 +15,15 @@
   "bounds": [
     [
       -0.41666666,
-      0.16666666
+      -0.4166667
     ],
     [
       0.4166667,
-      0.375
+      0.41666666
     ]
   ],
-  "triangle_count": 18,
+  "triangle_count": 2,
   "degenerate_triangles": 0,
-  "total_area": 0.17198172,
-  "canonical_triangle_hash": "fnv1a64:f8933e23952c19ad"
+  "total_area": 0.69444454,
+  "canonical_triangle_hash": "fnv1a64:49bae4f55c7722e5"
 }

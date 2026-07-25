@@ -293,7 +293,7 @@ fn is_svg_geometry_element(element: &SvgElement) -> bool {
     is_svg_name(&element.name)
         && matches!(
             element.name.local_name.as_str(),
-            "path" | "circle" | "line" | "polyline" | "polygon" | "rect"
+            "path" | "circle" | "ellipse" | "line" | "polyline" | "polygon" | "rect"
         )
 }
 
@@ -905,33 +905,75 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 continue;
             }
             "circle" => {
-                let (Some(cx), Some(cy), Some(radius)) = (
-                    svg_number_attribute(attributes, "cx"),
-                    svg_number_attribute(attributes, "cy"),
-                    svg_number_attribute(attributes, "r"),
-                ) else {
+                let Some(radius) = svg_number_attribute(attributes, "r") else {
                     continue;
                 };
+                // SVG defaults omitted circle centers to the origin.
+                let cx = svg_number_attribute(attributes, "cx").unwrap_or(0.0);
+                let cy = svg_number_attribute(attributes, "cy").unwrap_or(0.0);
                 if radius < 0.0 {
                     return Err(SvgImportDiagnostic::svg(
                         Some(element.span),
                         "SVG circle radius must not be negative",
                     ));
                 }
-                Some(
-                    (0..=subdivisions.max(16))
-                        .map(|index| {
-                            let angle =
-                                index as f32 * std::f32::consts::TAU / subdivisions.max(16) as f32;
-                            normalize_svg_point(
-                                presentation
-                                    .transform
-                                    .apply([cx + radius * angle.cos(), cy + radius * angle.sin()]),
-                                view_box,
-                            )
-                        })
-                        .collect::<Vec<_>>(),
-                )
+                if radius <= f32::EPSILON {
+                    None
+                } else {
+                    Some(
+                        (0..=subdivisions.max(16))
+                            .map(|index| {
+                                let angle = index as f32
+                                    * std::f32::consts::TAU
+                                    / subdivisions.max(16) as f32;
+                                normalize_svg_point(
+                                    presentation.transform.apply([
+                                        cx + radius * angle.cos(),
+                                        cy + radius * angle.sin(),
+                                    ]),
+                                    view_box,
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                }
+            }
+            "ellipse" => {
+                let (Some(rx), Some(ry)) = (
+                    svg_number_attribute(attributes, "rx"),
+                    svg_number_attribute(attributes, "ry"),
+                ) else {
+                    continue;
+                };
+                // SVG defaults omitted ellipse centers to the origin.
+                let cx = svg_number_attribute(attributes, "cx").unwrap_or(0.0);
+                let cy = svg_number_attribute(attributes, "cy").unwrap_or(0.0);
+                if rx < 0.0 || ry < 0.0 {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        "SVG ellipse radii must not be negative",
+                    ));
+                }
+                if rx <= f32::EPSILON || ry <= f32::EPSILON {
+                    None
+                } else {
+                    Some(
+                        (0..=subdivisions.max(16))
+                            .map(|index| {
+                                let angle = index as f32
+                                    * std::f32::consts::TAU
+                                    / subdivisions.max(16) as f32;
+                                normalize_svg_point(
+                                    presentation.transform.apply([
+                                        cx + rx * angle.cos(),
+                                        cy + ry * angle.sin(),
+                                    ]),
+                                    view_box,
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                }
             }
             "line" => {
                 let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
@@ -994,8 +1036,14 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                         "SVG rectangle corner radii must not be negative",
                     ));
                 }
-                let rx = raw_rx.unwrap_or(0.0).min(width * 0.5);
-                let ry = raw_ry.unwrap_or(rx).min(height * 0.5);
+                let (rx, ry) = match (raw_rx, raw_ry) {
+                    (Some(rx), Some(ry)) => (rx, ry),
+                    (Some(rx), None) => (rx, rx),
+                    (None, Some(ry)) => (ry, ry),
+                    (None, None) => (0.0, 0.0),
+                };
+                let rx = rx.min(width * 0.5);
+                let ry = ry.min(height * 0.5);
                 Some(
                     svg_rectangle(x, y, width, height, rx, ry)
                         .into_iter()
@@ -1010,7 +1058,7 @@ pub fn parse_svg_document_vector_records_from_xml_events(
         if let Some(points) = points.filter(|points: &Vec<[f32; 2]>| points.len() > 1) {
             let closed = matches!(
                 element.name.local_name.as_str(),
-                "circle" | "rect" | "polygon"
+                "circle" | "ellipse" | "rect" | "polygon"
             );
             let points = if closed {
                 points[..points.len() - 1].to_vec()
@@ -1115,11 +1163,6 @@ fn parse_svg_point_numbers(values: &str, element: &str) -> Result<Vec<f32>, Stri
             Ok(number)
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if numbers.len() % 2 != 0 {
-        return Err(format!(
-            "SVG {element} points attribute contains an unmatched coordinate"
-        ));
-    }
     Ok(numbers)
 }
 
@@ -1794,16 +1837,17 @@ mod tests {
     #[test]
     fn vector_document_adapter_handles_primitive_elements() {
         let paths = parse_svg_document_vector_paths(
-            r#"<svg><circle cx="12" cy="12" r="4"/><rect x="2" y="3" width="5" height="6"/><line x1="0" y1="0" x2="24" y2="24"/></svg>"#,
+            r#"<svg><circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="6" ry="4"/><rect x="2" y="3" width="5" height="6"/><line x1="0" y1="0" x2="24" y2="24"/></svg>"#,
             8,
             [0.0, 0.0, 24.0, 24.0],
         )
         .unwrap();
 
-        assert_eq!(paths.len(), 3);
+        assert_eq!(paths.len(), 4);
         assert!(paths[0].contours[0].closed);
         assert!(paths[1].contours[0].closed);
-        assert!(!paths[2].contours[0].closed);
+        assert!(paths[2].contours[0].closed);
+        assert!(!paths[3].contours[0].closed);
     }
 
     #[test]
@@ -1815,6 +1859,14 @@ mod tests {
         )
         .expect_err("negative circle radii must be rejected");
         assert!(circle_error.contains("circle radius"));
+
+        let ellipse_error = parse_svg_document_vector_paths(
+            r#"<svg><ellipse cx="12" cy="12" rx="6" ry="-4"/></svg>"#,
+            8,
+            [0.0, 0.0, 24.0, 24.0],
+        )
+        .expect_err("negative ellipse radii must be rejected");
+        assert!(ellipse_error.contains("ellipse radii"));
 
         let rect_error = parse_svg_document_vector_paths(
             r#"<svg><rect x="0" y="0" width="-4" height="8"/></svg>"#,
@@ -1831,6 +1883,23 @@ mod tests {
         )
         .expect_err("negative rectangle radii must be rejected");
         assert!(radius_error.contains("corner radii"));
+    }
+
+    #[test]
+    fn rounded_rect_couples_an_omitted_radius() {
+        let records = parse_svg_document_vector_records(
+            r#"<svg><rect x="0" y="0" width="12" height="8" ry="2"/><rect x="20" y="0" width="12" height="8" rx="2"/></svg>"#,
+            8,
+            [0.0, 0.0, 32.0, 8.0],
+        )
+        .expect("rounded rectangles with one radius should parse");
+
+        assert_eq!(records.len(), 2);
+        assert!(records[0].path.contours[0].points.len() > 5);
+        assert_eq!(
+            records[0].path.contours[0].points.len(),
+            records[1].path.contours[0].points.len()
+        );
     }
 
     #[test]
@@ -1855,15 +1924,16 @@ mod tests {
     }
 
     #[test]
-    fn vector_document_adapter_rejects_unmatched_polyline_coordinates() {
-        let error = parse_svg_document_vector_paths(
+    fn vector_document_adapter_ignores_unmatched_trailing_point_coordinate() {
+        let paths = parse_svg_document_vector_paths(
             r#"<svg><polyline points="0,0 12,12 24"/></svg>"#,
             8,
             [0.0, 0.0, 24.0, 24.0],
         )
-        .expect_err("an unmatched primitive coordinate must not be discarded");
+        .expect("an unmatched trailing coordinate is ignored");
 
-        assert!(error.contains("unmatched coordinate"));
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].contours[0].points.len(), 2);
     }
 
     #[test]
@@ -2184,5 +2254,21 @@ mod tests {
             .all(|point| {
                 (-0.51..=0.51).contains(&point[0]) && (-0.51..=0.51).contains(&point[1])
             }));
+    }
+
+    #[test]
+    fn applies_svg_default_centers_for_circles_and_ellipses() {
+        let svg = r#"<svg viewBox="-50 -50 300 300">
+            <circle r="10" />
+            <circle cx="80" cy="80" r="10" />
+            <circle cx="120" cy="120" r="0" />
+            <ellipse rx="20" ry="10" />
+            <ellipse cx="140" cy="140" rx="20" ry="10" />
+            <ellipse cx="180" cy="180" rx="0" ry="10" />
+        </svg>"#;
+        let paths = parse_svg_document_vector_paths(svg, 8, [-50.0, -50.0, 300.0, 300.0])
+            .expect("default shape centers should be accepted");
+        assert_eq!(paths.len(), 4);
+        assert!(paths.iter().all(|path| path.contours.len() == 1));
     }
 }

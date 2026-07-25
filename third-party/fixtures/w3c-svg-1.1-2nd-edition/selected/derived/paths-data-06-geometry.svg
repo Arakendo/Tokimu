@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280">
+  <!-- Derived from upstream/svg/paths-data-06-t.svg. -->
+  <path fill="#3978c7" d="M 40 40 H 100 V 90 H 160 V 140 H 220 V 190 H 40 Z"/>
+  <path fill="#d04a9b" d="m 280 40 h 60 v 50 h 60 v 50 h 60 v 50 h -180 v -200 z"/>
+</svg>

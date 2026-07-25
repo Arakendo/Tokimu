@@ -26,8 +26,8 @@
     },
     {
       "stage": "mesh",
-      "status": "ready",
-      "summary": "closed_paths=1 open_paths=2 triangles=18 vertices=54 finite=true complete=true degenerate=0 area=0.171982"
+      "status": "expected-failure",
+      "summary": "no closed fill paths; stroke-only SVG geometry is outside the current mesh scope"
     }
   ],
   "diagnostics": []

@@ -2,10 +2,10 @@
   "metadata": {
     "schema": 1,
     "artifact": "mesh",
-    "producer": "svg/w3c",
-    "case_id": "svg/w3c/painting-fill-03-t",
-    "input_hash": "fnv1a64:1d1faa5f3b6b8432",
-    "source": "W3C SVG 1.1 2nd Edition/painting-fill-03-t.svg",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/painting-fill-03-geometry",
+    "input_hash": "fnv1a64:8d254defd3fc7612",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/painting-fill-03-geometry.svg",
     "algorithms": {
       "flatten": "svg-path-flatten-v1:subdivisions=12",
       "tessellator": "ui-tools-general-fill",

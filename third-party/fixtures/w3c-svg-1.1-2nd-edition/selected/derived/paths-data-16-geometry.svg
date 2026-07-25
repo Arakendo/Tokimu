@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived from upstream/svg/paths-data-16-t.svg. Retains only its path-data geometry. -->
+  <path fill="red" d="M100,120 L160,220 L40,220 z"/>
+  <path fill="red" d="M350,120 L410,220 L290,220 z"/>
+  <path fill="gold" d="M100,120 160,220 40,220 z"/>
+  <path fill="gold" d="m350,120 60,100 -120,0 z"/>
+</svg>

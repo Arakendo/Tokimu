@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived from upstream/svg/shapes-line-01-t.svg. -->
+  <line stroke="#3978c7" x1="40" y1="60" x2="180" y2="140"/>
+  <line stroke="#d04a9b" x1="180" y1="140" x2="320" y2="60"/>
+  <line stroke="#35b878" x1="100" y1="250" x2="380" y2="250"/>
+</svg>

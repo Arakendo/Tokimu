@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!--
+    Derived from upstream/svg/paths-data-01-t.svg.
+    Retains closed cubic and smooth-cubic fill geometry only; defs, text,
+    framing, and stroke presentation are deliberately omitted.
+  -->
+  <path fill="#00C000" d="M5 260 C40 260 60 175 55 160 c -5 15 15 100 50 100Z"/>
+  <path fill="#FFFF00" d="M360 210 c 0 20 -16 36 -36 36 s -36 -16 -36 -36 s 16 -36 36 -36 s 36 16 36 36 z"/>
+</svg>

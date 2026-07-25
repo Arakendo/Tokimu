@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!--
+    Derived from upstream/svg/coords-trans-02-t.svg.
+    Retains nested group transforms, inherited fill, and primitive geometry;
+    test-suite text, markers, defs, and framing are deliberately omitted.
+  -->
+  <g fill="blue" transform="translate(-30, 0) scale(2.5, 2.5)">
+    <g transform="translate(50, 50)">
+      <rect x="0" y="0" width="20" height="2"/>
+      <rect x="0" y="0" width="2" height="20" fill="red"/>
+    </g>
+    <g transform="translate(150, 70) rotate(-90)">
+      <rect x="0" y="0" width="20" height="2"/>
+      <rect x="0" y="0" width="2" height="20" fill="red"/>
+    </g>
+  </g>
+</svg>

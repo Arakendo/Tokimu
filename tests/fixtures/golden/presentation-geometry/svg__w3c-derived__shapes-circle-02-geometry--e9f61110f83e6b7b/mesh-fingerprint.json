@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/shapes-circle-02-geometry",
+    "input_hash": "fnv1a64:a81b06055dd1a0e4",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/shapes-circle-02-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.5833333,
+      0.19444445
+    ],
+    [
+      0.3333333,
+      0.6111111
+    ]
+  ],
+  "triangle_count": 56,
+  "degenerate_triangles": 0,
+  "total_area": 0.113387674,
+  "canonical_triangle_hash": "fnv1a64:2feb15636d3ec295"
+}

@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/shapes-ellipse-01-geometry",
+    "input_hash": "fnv1a64:c0253be90941d8d9",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/shapes-ellipse-01-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.22916666,
+      -0.25
+    ],
+    [
+      0.34375,
+      0.43055555
+    ]
+  ],
+  "triangle_count": 56,
+  "degenerate_triangles": 0,
+  "total_area": 0.12446068,
+  "canonical_triangle_hash": "fnv1a64:e18c1929f5c54f7f"
+}

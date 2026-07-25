@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/shapes-rect-03-geometry",
+    "input_hash": "fnv1a64:211c061bd3c8f607",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/shapes-rect-03-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.45833334,
+      -0.08333331
+    ],
+    [
+      0.4166667,
+      0.41666666
+    ]
+  ],
+  "triangle_count": 50,
+  "degenerate_triangles": 0,
+  "total_area": 0.25137773,
+  "canonical_triangle_hash": "fnv1a64:5b7c7de9dc5a6f00"
+}

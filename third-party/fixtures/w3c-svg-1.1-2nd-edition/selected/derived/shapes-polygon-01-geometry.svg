@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived from upstream/svg/shapes-polygon-01-t.svg. -->
+  <polygon fill="blue" points="179,45 218,63 228,105 202,139 159,140 131,107 139,65"/>
+  <polygon fill="blue" points="350,45 375,80 410,95 375,110 350,145 325,120 290,95 325,70"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!--
+    Derived from upstream/svg/paths-data-02-t.svg.
+    Retains closed quadratic and smooth-quadratic fill geometry only; defs,
+    text, framing, and stroke presentation are deliberately omitted.
+  -->
+  <path fill="#FFFF00" d="M372 130Q272 50 422 10zm70 0q50-150-80-90z"/>
+  <path fill="#00C000" d="M208 168Q258 268 308 168T258 118Q128 88 208 168z"/>
+</svg>

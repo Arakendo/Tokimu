@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280">
+  <!-- Derived from upstream/svg/paths-data-15-t.svg. -->
+  <path fill="#3978c7" d="M 50 150 Q 90 50 130 150 170 250 210 150 T 290 150 L 290 220 L 50 220 Z"/>
+  <path fill="#d04a9b" d="M 330 150 T 370 150 410 150 L 410 220 L 330 220 Z"/>
+</svg>

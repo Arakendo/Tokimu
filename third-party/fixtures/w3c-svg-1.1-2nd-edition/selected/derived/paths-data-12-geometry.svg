@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280">
+  <!-- Derived from upstream/svg/paths-data-12-t.svg. -->
+  <path fill="#3978c7" d="M 50 150 C 50 60 130 60 130 150 S 210 240 210 150 L 210 220 L 50 220 Z"/>
+  <path fill="#d04a9b" d="M 270 150 S 350 60 350 150 430 240 430 150 L 430 220 L 270 220 Z"/>
+</svg>

@@ -12,7 +12,7 @@
     {
       "stage": "source",
       "status": "ready",
-      "summary": "file=paths-data-16-t.svg bytes=3273 source=W3C SVG 1.1 2nd Edition"
+      "summary": "file=paths-data-16-t.svg bytes=3273 source=W3C SVG 1.1 2nd Edition/paths-data-16-t.svg"
     },
     {
       "stage": "xml",
@@ -21,13 +21,13 @@
     },
     {
       "stage": "vector",
-      "status": "ready",
-      "summary": "W3C implicit line-to and relative path fixture paths=5 contours=5 points=16 closed_contours=5"
+      "status": "expected-failure",
+      "summary": "expected SVG-profile exclusion: SVG semantic error at Some(XmlSpan { source: XmlSourceId(2), start: 1851, end: 1857 }): SVG element 'defs' is outside the admitted importer profile"
     },
     {
       "stage": "mesh",
-      "status": "ready",
-      "summary": "closed_paths=4 open_paths=1 triangles=4 vertices=12 finite=true complete=true degenerate=0 area=0.138889"
+      "status": "expected-failure",
+      "summary": "not attempted after expected SVG-profile exclusion"
     }
   ],
   "diagnostics": []

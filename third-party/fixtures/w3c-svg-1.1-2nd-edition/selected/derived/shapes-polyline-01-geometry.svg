@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!--
+    Derived from upstream/svg/shapes-polyline-01-t.svg.
+    The open polylines intentionally remain vector-stage evidence; no fill
+    mesh is claimed for them.
+  -->
+  <polyline fill="none" stroke="blue" points="10,50 35,150 60,50 85,150 110,50 135,150"/>
+  <polyline fill="none" stroke="blue" points="220,50 267,84 249,140 190,140 172,84 220,50"/>
+</svg>

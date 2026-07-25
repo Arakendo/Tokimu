@@ -6,17 +6,24 @@ complete W3C suite.
 | Capability | v1 status | Evidence |
 | --- | --- | --- |
 | Move-to | supported | `paths-data-01` and later path cases |
-| Line-to | supported | `paths-data-04`, `paths-data-05` |
-| Horizontal/vertical line-to | supported | `paths-data-06`, `paths-data-07` |
-| Quadratic curves | supported | `paths-data-02` |
-| Cubic curves | supported | `paths-data-01` |
-| Smooth curve commands | supported | `paths-data-01`, `paths-data-02` |
-| Elliptical arcs | supported | `paths-data-12` through `paths-data-14` |
-| Relative commands | supported | `paths-data-01`, `paths-data-02`, `paths-data-05`, `paths-data-07`, `paths-data-09` |
-| Close path | supported | `paths-data-02`, `paths-data-04` through `paths-data-09`, `paths-data-16` |
-| Multiple contours | supported | `paths-data-02`, `paths-data-04`, `paths-data-08`, `paths-data-09`, `painting-fill-03` |
-| Even-odd fill | selected | `painting-fill-03`; runner support to be verified |
-| Non-zero fill | selected | `painting-fill-03`; runner support to be verified |
+| Line-to | supported | `derived/paths-data-04-geometry.svg` exercises explicit `L`; `derived/paths-data-05-geometry.svg` exercises relative `l` |
+| Horizontal/vertical line-to | supported | `derived/paths-data-06-geometry.svg` exercises absolute and relative `H/V` and `h/v`; `derived/paths-data-07-geometry.svg` isolates relative `h/v`; `derived/paths-data-13-geometry.svg` exercises repeated arguments |
+| Quadratic curves | focused support; derived structural evidence | `derived/paths-data-02-quadratics-geometry.svg` reaches mesh without degenerate triangles |
+| Cubic curves | focused support; derived structural evidence | `derived/paths-data-01-curves-geometry.svg` reaches mesh with its current degenerate count recorded |
+| Smooth curve commands | focused support; derived structural evidence | The admitted derived `paths-data-01` and `paths-data-12` fixtures exercise `S`; `paths-data-02` and `paths-data-15` exercise `T`, including initial smooth commands |
+| Elliptical arcs | focused support; derived diagnostic evidence | `derived/paths-data-03-arcs-geometry.svg` reaches mesh with its current degenerate count recorded; upstream provenance is a negative-test case, not a conformance pass |
+| Relative commands | supported | `derived/paths-data-05-geometry.svg`, `derived/paths-data-07-geometry.svg`, `derived/paths-data-09-geometry.svg`, and `derived/paths-data-14-geometry.svg` exercise direct, H/V, and implicit relative forms |
+| Close path | supported | Derived `paths-data-02`, `paths-data-04` through `paths-data-09`, `paths-data-14`, and `paths-data-16` fixtures |
+| Multiple contours | supported | `derived/paths-data-05-geometry.svg`, `derived/paths-data-08-geometry.svg`, and `derived/paths-data-09-geometry.svg` exercise nested closed contours across explicit and implicit forms |
+| Filled polygons | supported | `derived/shapes-polygon-01-geometry.svg` reaches a finite mesh with two contours and no degenerate triangles; `derived/shapes-polygon-02-geometry.svg` exercises concave and star-shaped fills; `derived/shapes-polygon-03-geometry.svg` exercises odd-coordinate truncation |
+| Open polylines | vector evidence; fill mesh out of scope | `derived/shapes-polyline-01-geometry.svg` preserves open contours without claiming stroke expansion |
+| Rectangles and rounded rectangles | supported | `derived/shapes-rect-01-geometry.svg` exercises filled primitives; `derived/shapes-rect-02-geometry.svg` exercises `rx`/`ry` coupling; `derived/shapes-rect-03-geometry.svg` exercises radius clamping |
+| Circles | supported | `derived/shapes-circle-01-geometry.svg` exercises filled circle primitives; `derived/shapes-circle-02-geometry.svg` exercises default centers and zero-radius omission |
+| Ellipses | supported | `derived/shapes-ellipse-01-geometry.svg` exercises circular and non-circular radii; `derived/shapes-ellipse-02-geometry.svg` exercises default centers and zero-radius omission |
+| Lines | vector evidence; fill mesh out of scope | `derived/shapes-line-01-geometry.svg` preserves open line primitives without claiming stroke expansion |
+| Explicit M/L/Z paths | supported | `derived/paths-data-04-geometry.svg` exercises explicit line commands, close-path, and nested contours |
+| Even-odd fill | focused support; derived structural evidence | Verbatim `painting-fill-03` remains a profile exclusion; `derived/painting-fill-03-geometry.svg` reaches mesh with its current degenerate count recorded |
+| Non-zero fill | focused support; derived structural evidence | Verbatim `painting-fill-03` remains a profile exclusion; `derived/painting-fill-03-geometry.svg` reaches mesh with its current degenerate count recorded |
 | Nested groups and presentation inheritance | focused support; W3C profile exclusion recorded | `struct-group-01` carries unadmitted `defs` and text alongside the relevant groups |
 | Transform composition | focused support; W3C profile exclusion recorded | `coords-trans-02` carries unadmitted `defs` and text alongside the relevant transforms |
 | Stroke geometry | planned | W3C stroke cases are preserved upstream but not admitted in v1 |
