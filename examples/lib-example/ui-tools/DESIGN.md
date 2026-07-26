@@ -467,26 +467,128 @@ ui-tools/
 ├── Cargo.toml
 ├── DESIGN.md
 └── src/
-    ├── lib.rs
-    ├── controls.rs
+    ├── controls/
+    │   ├── button.rs
+    │   ├── content.rs
+    │   ├── interaction.rs
+    │   └── mod.rs
+    ├── corpus.rs
+    ├── draw.rs
+    ├── font.rs
+    ├── font_outline/
+    │   ├── lowering.rs
+    │   ├── mod.rs
+    │   ├── provider.rs
+    │   ├── types.rs
+    │   └── tests.rs
     ├── geometry.rs
+    ├── icon.rs
     ├── layout.rs
-    ├── raster.rs
-    ├── svg.rs
-    └── text.rs
+    ├── lib.rs
+    ├── presets.rs
+    ├── raster/
+    │   ├── bitmap.rs
+    │   ├── layout.rs
+    │   ├── mod.rs
+    │   ├── provider.rs
+    │   ├── tests.rs
+    │   └── types.rs
+    ├── region.rs
+    ├── scroll.rs
+    ├── svg/
+    │   ├── document.rs
+    │   ├── mod.rs
+    │   ├── path.rs
+    │   ├── primitives.rs
+    │   ├── semantic.rs
+    │   ├── transform.rs
+    │   ├── types.rs
+    │   └── tests/
+    │       ├── document.rs
+    │       ├── lucide.rs
+    │       ├── mod.rs
+    │       ├── path.rs
+    │       └── primitives.rs
+    ├── tests/
+    │   ├── drawing.rs
+    │   ├── interaction.rs
+    │   ├── layout.rs
+    │   └── mod.rs
+    ├── text/
+    │   ├── bitmap.rs
+    │   ├── mod.rs
+    │   └── tests.rs
+    ├── text_input.rs
+    ├── theme.rs
+    └── vector/
+        ├── builder.rs
+        ├── fill/
+        │   ├── lyon.rs
+        │   └── mod.rs
+        ├── geometry.rs
+        ├── mod.rs
+        ├── stroke.rs
+        ├── types.rs
+        └── tests.rs
 ```
 
-## Suggested Internal Structure
+## Internal Structure
 
-Keep the implementation small and role-based:
+Keep small, cohesive responsibilities in role-based files:
 
 - `geometry.rs` for rectangles, anchors, margins, and bounds math
-- `controls.rs` for buttons, chips, labels, and interaction state
+- `controls/` for controls, passive content specs, and interaction state
 - `layout.rs` for regions, toolbars, sidebars, cards, and framing helpers
-- `text.rs` for baseline-aware text layout and text-box contracts
-- `raster.rs` for backend-neutral glyph coverage generation
-- `svg.rs` for shared SVG/path geometry services
+- `text/` for baseline-aware text layout and text-box contracts
+- `raster/` for font-provider rasterization, baseline layout, and bitmap
+  composition
+- `svg/` for SVG document lowering, path parsing, and SVG-local transforms
+- `vector/` for provider-neutral presentation geometry and tessellation
+- `font_outline/` for lowering provider outlines into vector geometry
 - future `state.rs` only if examples need shared lightweight interaction state
+
+Use a folder when a capability has multiple independently testable
+responsibilities, not merely because a file crosses an arbitrary line count.
+The folder's `mod.rs` owns the capability boundary and public exports; internal
+files own focused transformations. Tests live beside the capability they
+exercise. Cross-capability contract tests live under `src/tests/`, grouped by
+the behavior under test.
+
+In particular:
+
+- `svg/path.rs` owns tokenization, path commands, and curve/arc flattening.
+- `svg/transform.rs` owns SVG-local affine transform parsing and composition.
+- `svg/types.rs` owns structured importer diagnostics and SVG record contracts.
+- `svg/semantic.rs` owns namespace-aware XML events, inherited presentation,
+  admitted feature classification, attributes, and viewport normalization.
+- `svg/primitives.rs` owns primitive point generation and compatibility
+  adapters; it does not own document traversal.
+- `svg/document.rs` owns XML-to-SVG semantic traversal and primitive lowering.
+- `svg/mod.rs` owns only the capability boundary and public importer exports.
+- `text/bitmap.rs` is the built-in bitmap provider; it does not define the
+  provider-neutral text contract.
+- `controls/interaction.rs` owns focus, activation, events, and diagnostics.
+- `controls/button.rs` owns button measurement and activation behavior.
+- `controls/content.rs` owns passive labels, chips, and card specifications.
+- `font_outline/provider.rs` stops font-technology-specific extraction before
+  provider-neutral outline contracts.
+- `font_outline/types.rs` owns provider-neutral outline and diagnostic types.
+- `font_outline/lowering.rs` is the only font-outline module that lowers into
+  shared vector geometry.
+- `raster/provider.rs` owns provider construction and individual glyph
+  rasterization.
+- `raster/layout.rs` owns advances, tracking, baselines, and multiline layout.
+- `raster/bitmap.rs` owns coverage-buffer composition and color expansion.
+- `raster/types.rs` owns the renderer-neutral raster contracts shared by those
+  stages.
+- `vector/types.rs` and `vector/builder.rs` own paths and their construction.
+- `vector/fill/` and `vector/stroke.rs` own independent tessellation paths.
+- `vector/fill/lyon.rs` isolates the replaceable Lyon execution backend from
+  Tokimu's fill validation, cleanup, and repair policy in `vector/fill/mod.rs`.
+- `vector/geometry.rs` contains only numerical helpers shared by those
+  tessellators.
+- provider-specific parsing must stop before `vector/`.
+- renderer submission and GPU cache lifetime must remain outside these folders.
 
 ## Success Criteria
 
