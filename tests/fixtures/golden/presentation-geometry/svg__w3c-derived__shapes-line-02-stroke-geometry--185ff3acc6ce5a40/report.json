@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "svg/w3c-derived/shapes-line-02-stroke-geometry",
+  "producer": "svg/w3c-derived",
+  "selected_stages": [
+    "source",
+    "xml",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=shapes-line-02-stroke-geometry.svg bytes=418 source=W3C SVG 1.1 2nd Edition derived geometry/shapes-line-02-stroke-geometry.svg"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=13 elements=4/4 text=5 comments=0 processing_instructions=0 roots=2 document_element=true"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "W3C-derived line, polyline, and open-path stroke intent paths=3 contours=3 points=18 closed_contours=0"
+    },
+    {
+      "stage": "mesh",
+      "status": "expected-failure",
+      "summary": "no closed fill paths; stroke-only geometry is outside W3C v1 mesh scope"
+    }
+  ],
+  "diagnostics": []
+}

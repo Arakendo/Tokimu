@@ -271,6 +271,27 @@ reason = "Exercises W3C odd-coordinate handling by retaining valid coordinate pa
 expected = "structural-pass"
 
 [[derived_case]]
+id = "shapes-line-02-stroke-geometry.svg"
+upstream = "shapes-line-02-t.svg"
+capability = ["line", "polyline", "path", "stroke", "caps", "joins"]
+reason = "Preserves line, polyline, and curved open-path stroke intent as the first explicit stroke-expansion corpus boundary."
+expected = "vector-pass-stroke-mesh-deferred"
+
+[[derived_case]]
+id = "coords-trans-03-elementary-geometry.svg"
+upstream = "coords-trans-03-t.svg"
+capability = ["transform", "translation", "rotation", "scale", "skew", "matrix", "nested-transform", "rect"]
+reason = "Retains elementary and nested coordinate transforms as closed fill geometry, isolating transform composition from upstream markers, labels, metadata, and stroke presentation."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "struct-group-01-inheritance-geometry.svg"
+upstream = "struct-group-01-t.svg"
+capability = ["nested-groups", "presentation-inheritance", "fill", "stroke", "fill-rule", "multiple-contours"]
+reason = "Retains group-level paint inheritance and child overrides as provider-neutral geometry records, including an even-odd nested contour and stroke-only intent."
+expected = "structural-pass"
+
+[[derived_case]]
 id = "paths-data-01-curves-geometry.svg"
 upstream = "paths-data-01-t.svg"
 capability = ["path-data", "cubic", "smooth-cubic", "relative-commands", "close-path"]

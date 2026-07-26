@@ -18,6 +18,8 @@ the verbatim `svg/w3c` source exclusions.
 | `paths-data-01-curves-geometry.svg` | `paths-data-01-t.svg` | cubic and smooth-cubic closed fill geometry |
 | `paths-data-02-quadratics-geometry.svg` | `paths-data-02-t.svg` | quadratic and smooth-quadratic closed fill geometry |
 | `coords-trans-02-group-geometry.svg` | `coords-trans-02-t.svg` | nested group transforms, inherited fill, and rectangles |
+| `coords-trans-03-elementary-geometry.svg` | `coords-trans-03-t.svg` | translation, rotation, scale, skew, matrix, and nested transform composition |
+| `struct-group-01-inheritance-geometry.svg` | `struct-group-01-t.svg` | group-level fill/stroke/fill-rule inheritance and child overrides |
 | `paths-data-03-arcs-geometry.svg` | `paths-data-03-f.svg` | closed arc diagnostic geometry; upstream negative-test provenance |
 | `shapes-polygon-01-geometry.svg` | `shapes-polygon-01-t.svg` | filled polygon geometry |
 | `shapes-polyline-01-geometry.svg` | `shapes-polyline-01-t.svg` | open polyline geometry; no fill mesh claimed |

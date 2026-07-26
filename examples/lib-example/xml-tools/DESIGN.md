@@ -55,6 +55,37 @@ retain their opening-element span as parser-neutral related context.
 `XmlDocument` is an immutable event adapter with document-local node handles;
 it is not a general DOM.
 
+## Module Ownership
+
+The crate root preserves the importer-facing API while implementation concerns
+remain separate:
+
+```text
+contracts.rs   source identity, spans, options, and bounded input validation
+diagnostic.rs  stable parser-neutral diagnostic contracts
+model.rs       expanded names, attributes, and event values
+document.rs    immutable retained traversal and document-local handles
+parser_support.rs
+               private decoding, buffering, event, and diagnostic helpers
+parser_names.rs private namespace/name resolution and attribute adaptation
+parser_state.rs private nesting, text, event-order, and EOF invariants
+parser.rs      private quick-xml event-loop policy
+parser_adapters.rs
+               byte-source decoding and retained-document entry points
+lib.rs         module declarations and public re-exports
+```
+
+Parser implementation types remain private to the adapter. The retained
+document and public contracts do not depend on `quick-xml`.
+
+The local unit tests follow the same ownership boundaries:
+
+```text
+tests/contracts.rs  limits, source identity, and span contracts
+tests/parser.rs     event ordering, namespaces, decoding, and hostile input
+tests/document.rs   retained traversal, handles, and document construction
+```
+
 ## Validation Tiers
 
 Normal crate tests cover the local smoke fixtures and parser-neutral document

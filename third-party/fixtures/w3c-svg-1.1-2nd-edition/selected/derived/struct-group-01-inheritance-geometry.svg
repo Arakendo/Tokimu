@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
+  <!-- Derived from struct-group-01-t.svg; labels and test framing omitted. -->
+  <g fill="blue" stroke="none">
+    <path d="M 12 18 L 68 18 L 68 58 L 12 58 Z"/>
+    <g fill="red">
+      <path d="M 86 18 L 142 18 L 142 58 L 86 58 Z"/>
+    </g>
+    <g fill="none" stroke="green" fill-rule="evenodd">
+      <path d="M 160 18 L 220 18 L 220 58 L 160 58 Z M 174 30 L 206 30 L 206 46 L 174 46 Z"/>
+    </g>
+  </g>
+</svg>

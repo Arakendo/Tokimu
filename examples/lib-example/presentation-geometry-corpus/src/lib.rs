@@ -101,7 +101,7 @@ const SYNTHETIC_SVG_CASES: [SyntheticSvgCase; 1] = [SyntheticSvgCase::new(
     r#"<s:svg xmlns:s="http://www.w3.org/2000/svg" xmlns:foreign="urn:tokimu:foreign" viewBox="0 0 24 24"><foreign:path d="M 0 0 H 24 V 24 H 0 Z"/><s:path d="M 2 2 H 22 V 22 H 2 Z"/></s:svg>"#,
 )];
 
-const W3C_SVG_CASES: [W3cSvgCase; 32] = [
+const W3C_SVG_CASES: [W3cSvgCase; 35] = [
     W3cSvgCase::expected_unsupported_profile(
         "svg/w3c/painting-fill-03-t",
         "painting-fill-03-t.svg",
@@ -181,6 +181,21 @@ const W3C_SVG_CASES: [W3cSvgCase; 32] = [
         "svg/w3c-derived/shapes-line-01-geometry",
         "shapes-line-01-geometry.svg",
         "W3C-derived open line geometry",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/shapes-line-02-stroke-geometry",
+        "shapes-line-02-stroke-geometry.svg",
+        "W3C-derived line, polyline, and open-path stroke intent",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/coords-trans-03-elementary-geometry",
+        "coords-trans-03-elementary-geometry.svg",
+        "W3C-derived elementary and nested transform composition",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/struct-group-01-inheritance-geometry",
+        "struct-group-01-inheritance-geometry.svg",
+        "W3C-derived group paint inheritance and child overrides",
     ),
     W3cSvgCase::derived_profile_fixture(
         "svg/w3c-derived/paths-data-04-geometry",
@@ -266,7 +281,7 @@ const W3C_SVG_CASES: [W3cSvgCase; 32] = [
 
 const UI_CASES: [UiCase; 1] = [UiCase::new("ui/panel-surface", "default panel surface")];
 
-const ALL_CASES: [CorpusCase; 44] = [
+const ALL_CASES: [CorpusCase; 47] = [
     CorpusCase::Glyph(GLYPH_CASES[0]),
     CorpusCase::Glyph(GLYPH_CASES[1]),
     CorpusCase::Glyph(GLYPH_CASES[2]),
@@ -310,6 +325,9 @@ const ALL_CASES: [CorpusCase; 44] = [
     CorpusCase::W3cSvg(W3C_SVG_CASES[29]),
     CorpusCase::W3cSvg(W3C_SVG_CASES[30]),
     CorpusCase::W3cSvg(W3C_SVG_CASES[31]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[32]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[33]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[34]),
     CorpusCase::Ui(UI_CASES[0]),
 ];
 

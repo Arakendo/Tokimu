@@ -24,9 +24,9 @@ complete W3C suite.
 | Explicit M/L/Z paths | supported | `derived/paths-data-04-geometry.svg` exercises explicit line commands, close-path, and nested contours |
 | Even-odd fill | focused support; derived structural evidence | Verbatim `painting-fill-03` remains a profile exclusion; `derived/painting-fill-03-geometry.svg` reaches mesh with its current degenerate count recorded |
 | Non-zero fill | focused support; derived structural evidence | Verbatim `painting-fill-03` remains a profile exclusion; `derived/painting-fill-03-geometry.svg` reaches mesh with its current degenerate count recorded |
-| Nested groups and presentation inheritance | focused support; W3C profile exclusion recorded | `struct-group-01` carries unadmitted `defs` and text alongside the relevant groups |
-| Transform composition | focused support; W3C profile exclusion recorded | `coords-trans-02` carries unadmitted `defs` and text alongside the relevant transforms |
-| Stroke geometry | planned | W3C stroke cases are preserved upstream but not admitted in v1 |
+| Nested groups and presentation inheritance | focused support; group paint inheritance covered | `struct-group-01-inheritance-geometry.svg` covers inherited fill/stroke, child overrides, fill-rule, and nested contours |
+| Transform composition | focused support; elementary and nested transforms covered | `coords-trans-02-group-geometry.svg`, `coords-trans-03-elementary-geometry.svg` cover translation, rotation, scale, skew, matrix, nesting, and transform order |
+| Stroke geometry | vector evidence; expansion planned | `derived/shapes-line-02-stroke-geometry.svg` preserves line, polyline, and curved open-path stroke intent; cap/join expansion remains outside the current mesh profile |
 | Clip paths | planned | Excluded from v1 |
 | Gradients | deferred | Excluded from v1 |
 | Masks | deferred | Excluded from v1 |

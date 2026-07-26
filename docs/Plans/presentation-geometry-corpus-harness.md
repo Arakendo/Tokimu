@@ -2,13 +2,13 @@
 
 ## Status
 
-Incubating. Slices 1 through 8 have partial executable evidence in the
-example-side runner. Stage selection and glyph lineage artifacts are now
-implemented. Synthetic topology probes now classify self-intersection at the
-vector boundary instead of assuming the mesh tessellator will reject it. The
-immediate trigger is unresolved font-outline geometry loss in the
-`hello-ui-text-vectors` corpus, including malformed `K`, `k`, `M`, `e`, and
-other hard-edge or mixed-curve glyphs.
+Incubating. Slices 1 through 9 have partial executable evidence in the
+example-side runner. Stage selection, glyph lineage, W3C fixture provenance,
+and golden comparison are implemented. The W3C selection now includes explicit
+stroke-intent and elementary-transform probes; actual stroke expansion and
+full viewport behavior remain open. Synthetic topology probes classify
+self-intersection at the vector boundary instead of assuming the mesh
+tessellator will reject it.
 
 ## Purpose
 
@@ -527,10 +527,11 @@ High-value shapes and methods:
 Correct document coordinates allow compact source fixtures and real assets to
 share the same geometry contract without example-specific scaling.
 
-- [ ] Admit root `viewBox` mapping.
+- [x] Admit root `viewBox` mapping through the explicit document viewport
+      policy.
 - [ ] Implement the common `preserveAspectRatio` meet modes before slice modes.
-- [ ] Apply transforms consistently to path and primitive elements.
-- [ ] Validate nested translate, scale, rotate, skew, and matrix composition.
+- [x] Apply transforms consistently to path and primitive elements.
+- [x] Validate nested translate, scale, rotate, skew, and matrix composition.
 - [ ] Record source-space and transformed bounds separately.
 
 High-value shapes and methods:
@@ -550,7 +551,8 @@ presentation profile would unlock those fixtures without admitting a browser
 style system.
 
 - [ ] Define precedence for supported inline attributes and `style` entries.
-- [ ] Inherit `fill`, `stroke`, opacity, and stroke parameters through groups.
+- [x] Inherit `fill`, `stroke`, and `fill-rule` through groups; opacity and
+      stroke-parameter inheritance remain open.
 - [ ] Treat `defs` as non-rendering storage.
 - [ ] Resolve local fragment references for a bounded `<use href="#...">`
       profile.
@@ -996,6 +998,10 @@ Validation:
       mesh.
 - [x] Add a reduced open-polyline fixture that preserves vector evidence and
       records the current no-fill mesh boundary.
+- [x] Add a stroke-intent fixture covering line, polyline, caps, joins, and an
+      open cubic path without claiming stroke expansion.
+- [x] Add an elementary-transform fixture covering translation, rotation,
+      scale, skew, matrix, nesting, and closed-fill mesh output.
 - [ ] Evaluate optional resvg differential rendering.
 - [x] Add constrained seeded generation and replay.
 - [x] Record generation count, seed, stage summaries, and failures in the CLI
@@ -1013,6 +1019,12 @@ Current evidence:
 - `generate <seed> <count>` produces deterministic convex-ish polygon inputs;
 - generated inputs are intentionally non-golden and are not added to the
   reviewed case registry;
+- `coords-trans-03-elementary-geometry.svg` produces eight finite transformed
+  closed paths with zero mesh degenerates;
+- `shapes-line-02-stroke-geometry.svg` reaches the vector stage and records the
+  current intentional stroke-only mesh boundary;
+- `struct-group-01-inheritance-geometry.svg` records group paint inheritance,
+  child overrides, and nested fill-rule contours with zero mesh degenerates;
 - generation is capped at 1000 cases per invocation to keep local diagnostics
   bounded;
 - The pinned W3C fixture supplies four explicitly classified profile exclusions
