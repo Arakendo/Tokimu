@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Incubating |
+| Status | Deferred |
 | Opened | 2026-07-21 |
-| Last reviewed | 2026-07-23 |
+| Last reviewed | 2026-07-27 |
 | Scope | Foundational presentation capability / backend boundary |
 | Trigger | UI surface duplication and repeated SVG/Lucide stroke pressure |
 | Related ADRs | ADR-0003, ADR-0004 |
-| Related evidence | `hello-ui-box`, `hello-ui-lucide2`, UI and font-outline vector presentation plans |
+| Related evidence | `hello-ui-box`, `hello-ui-lucide2`, `hello-ui-text-vectors`, presentation geometry corpus, W3C SVG selection |
 
 ## Architectural Question
 
@@ -65,22 +65,34 @@ tessellation are shared Tokimu-owned meaning, while UI controls, font formats,
 font shaping, icon libraries, and document formats retain their independent
 service semantics.
 
-This is not yet the disposition of the review. The font-outline consumer is
-planned but unproven, no non-example consumer depends on the contracts, and
-broader fill topology and native-curve pressure remain under investigation.
+The review now confirms this ownership direction for the incubating
+implementation. Font outlines, UI surfaces, SVG, Lucide icons, synthetic
+topology probes, and selected W3C SVG fixtures all reach the same
+provider-neutral geometry boundary without moving their producer semantics
+into vector geometry.
+
+This finding does not admit a first-party `tokimu-vector` crate. Packaging and
+public stability remain deferred until a production or independent tool
+consumer needs the same contracts.
 
 ## Trigger And Evidence
 
-- Corpus examples: `hello-ui-box`, `hello-ui-lucide2`.
-- Automated tests: existing `ui-tools` SVG parser and stroke tests.
+- Corpus examples: `hello-ui-box`, `hello-ui-lucide2`, and
+  `hello-ui-text-vectors`.
+- Automated tests: `ui-tools` vector, SVG, font-outline, fill, stroke, and
+  topology tests plus workspace consumption of the presentation geometry
+  corpus.
+- External evidence: pinned Lucide and W3C SVG fixtures with structural source,
+  XML, vector, mesh, fingerprint, and diagnostic artifacts.
 - Repeated implementation friction: local box geometry, stroke repair work,
   and duplicated renderer-facing surface assembly.
-- Remaining evidence gaps: general fill topology, semantic clip-to-scissor
-  lowering,
-  retained caching, and a second non-example consumer of stable vector
-  contracts.
-- Planned evidence: monochrome TTF/OTF glyph outlines lowering through an
-  adapter into shared vector paths, without typography leaking into geometry.
+- Resolved evidence: monochrome TTF/OTF glyph outlines lower through an adapter
+  into shared vector paths without typography leaking into geometry; semantic
+  rectangular clipping lowers to renderer scissoring; general contour and
+  fill-rule handling now supports the admitted glyph and W3C cases.
+- Remaining promotion evidence: a production or independent tool consumer of
+  stable vector contracts and a reason to make the package/API boundary
+  first-party rather than example-side.
 
 ## Ownership Analysis
 
@@ -130,23 +142,53 @@ engine crate is admitted by this review.
 
 ## Findings
 
-The evidence supports a shared provider-neutral geometry direction. UI boxes and
-the Lucide corpus now consume the same `VectorPath` and stroke tessellator, and
-the implementation has explicit clipping metadata and bounded batching. It does
-not yet support a new first-party crate, arbitrary SVG fill support, retained
-vector scene graphs, or a renderer-specific mesh/cache contract.
+The evidence supports these durable ownership findings:
+
+- presentation geometry owns provider-neutral paths, contours, fill rules,
+  stroke expansion, topology, and tessellation;
+- UI owns controls, layout, themes, interaction, and semantic surface roles;
+- SVG/XML import owns document and SVG semantics before lowering;
+- font and text services own faces, glyph identity, shaping, metrics,
+  baselines, fallback, and positioned glyph runs;
+- icon providers own provider identity and source assets;
+- renderers own GPU buffers, uploads, batching, cache lifetime, and execution;
+- presentation diagnostics may observe all stages but do not own their
+  semantics.
+
+UI boxes, SVG, Lucide icons, and font outlines now consume the same
+`VectorPath` and tessellation boundary. The selected W3C SVG corpus and
+synthetic topology probes provide independent data pressure and localized
+artifacts. The workspace test consumer proves the diagnostic API can be used
+outside the example package itself.
+
+The evidence does not justify freezing a first-party crate or public stable API
+yet. Native curve retention, broader SVG paint features, retained vector scene
+graphs, and renderer caching remain separate questions rather than blockers for
+the current boundary.
 
 ## Disposition
 
-Incubating. The initial UI surface lowering and shared SVG consumption are now
-proven in `ui-tools`; continue gathering evidence before extraction.
+Deferred. The shared presentation-geometry ownership boundary is validated for
+the current implementation and may continue inside `ui-tools`. Promotion to a
+first-party capability and stabilization of a public vector API are deferred
+until a production or independent tool consumer requires the same semantics.
+
+No ADR revision is required. ADR-0003 already places optional Tokimu-owned
+domain meaning in capability crates rather than `tokimu-core`, and ADR-0004
+already keeps text/font/icon provider semantics separate from renderer
+execution. This review refines where shared presentation geometry appears
+between those accepted boundaries without changing them.
 
 ## Consequences
 
-The implementation can improve UI and SVG together while keeping application
-semantics independent of SVG and renderer details. It temporarily places the
-prototype in an example support crate and requires explicit diagnostics for
-unsupported topology and clipping.
+The implementation can improve UI, SVG, icons, and font outlines together while
+keeping producer semantics independent of geometry and renderer details. The
+prototype remains in an example support crate, its API is not promised stable,
+and unsupported features must remain explicit diagnostics.
+
+Future work should treat selective corpus hardening as maintenance unless it
+proves a new capability, removes a demonstrated limitation, or satisfies a
+reopening trigger.
 
 ## Required Follow-Up
 
@@ -157,13 +199,14 @@ unsupported topology and clipping.
 
 ## Reopening Triggers
 
-- UI and SVG both consume stable vector contracts without semantic leakage;
-- font outlines independently consume the same path and tessellation contracts
-  without moving metrics, shaping, fallback, or glyph identity into vector;
-- a non-example consumer requires the same geometry API;
+- a production or independent tool consumer requires the same geometry API;
+- a first-party crate or stable public vector API is proposed;
+- native curves are required by at least two independent producers;
 - unsupported topology blocks a real application consumer;
 - renderer batching or clipping requires a boundary redesign;
-- duplicate geometry generation remains in corpus applications after migration.
+- duplicate geometry generation reappears outside the shared implementation;
+- presentation diagnostics begin acquiring vector, renderer, or provider
+  ownership accidentally.
 
 ## Review History
 
@@ -436,6 +479,36 @@ The current ownership findings can therefore be summarized as:
 - Follow-up: keep W3C admission incremental, address the fill-topology finding
   with a focused diagnostic slice, and revisit differential rendering only if
   structural artifacts stop localizing a failure.
+
+### Cycle 12 -- 2026-07-27
+
+- Status entering review: Incubating
+- New evidence:
+  - `hello-ui-text-vectors` now renders the admitted printable glyph corpus
+    through the font-outline-to-vector path without an obvious remaining visual
+    defect in the reviewed cases;
+  - UI surfaces, SVG, Lucide icons, TTF/OTF outlines, synthetic topology probes,
+    and selected W3C SVG fixtures all use the shared provider-neutral geometry
+    boundary;
+  - the W3C selection represents 32 unique upstream SVG documents and records
+    structural evidence without claiming full standards conformance;
+  - the corpus library tests pass and a workspace-level test consumer exercises
+    the public diagnostic surface;
+  - deterministic structural, mesh-fingerprint, and CPU image artifacts can
+    localize failures without moving diagnostics into geometry ownership.
+- Findings:
+  - shared presentation geometry is a coherent Tokimu capability candidate;
+  - producer semantics remain correctly outside vector geometry;
+  - renderer caching and GPU execution remain correctly downstream;
+  - additional W3C breadth is now selective hardening rather than required
+    evidence for the ownership question;
+  - first-party crate promotion still lacks a production or independent tool
+    consumer and would stabilize package/API choices without added decision
+    value.
+- Disposition: Deferred. Close the active review, retain the example-side
+  implementation, and reopen only when a named trigger occurs.
+- Resulting ADR or documentation change: no ADR change; the review confirms
+  ADR-0003 and ADR-0004 boundaries and records the deferred promotion decision.
 
 ## References
 

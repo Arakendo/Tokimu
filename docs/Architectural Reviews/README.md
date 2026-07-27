@@ -151,7 +151,8 @@ across unrelated decisions.
 ## Index
 
 - [AR-0001: Shared Vector Presentation Geometry](AR-0001-shared-vector-presentation-geometry.md)
-  — Incubating
+  — Deferred; shared ownership validated, first-party capability promotion
+  awaits a production or independent tool consumer
 - [AR-0002: Native Execution and Multithreading Ownership](AR-0002-native-execution-and-multithreading.md)
   — Accepted; resulted in ADR-0006
 - [AR-0003: XML Document Boundary](AR-0003-xml-document-boundary.md)

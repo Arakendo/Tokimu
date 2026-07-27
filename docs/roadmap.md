@@ -343,6 +343,8 @@ Goal: prove Tokimu can grow into new presentation and transport surfaces.
       - [ ] Wire a real runtime backend to the boundary on a supported headset
 - [~] M11 networking and transport spike — replication unit and transport seam
   documented for native and browser targets
+  - Implementation plan:
+    `docs/Plans/networking-and-transport.md`
   - Deliverables:
     - [ ] Name the first replication unit concretely (commands vs snapshots vs
       deltas) and record the choice
