@@ -14,6 +14,11 @@ pub(super) fn parse_svg_point_numbers(values: &str, element: &str) -> Result<Vec
             Ok(number)
         })
         .collect::<Result<Vec<_>, _>>()?;
+    if numbers.len() % 2 != 0 {
+        return Err(format!(
+            "SVG {element} points attribute requires an even number of coordinates"
+        ));
+    }
     Ok(numbers)
 }
 

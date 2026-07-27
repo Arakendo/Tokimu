@@ -273,7 +273,7 @@ fn prepared_inter_regression_glyphs_preserve_positioned_mesh_coverage() {
         return;
     };
 
-    for character in ['F', 'K', 'k', 'M', 'e'] {
+    for character in ['F', 'K', 'k', 'M', 'e', '/', '%', '@', '0', '8'] {
         let outline = font
             .outline(character)
             .unwrap_or_else(|error| panic!("{character} outline failed: {error:?}"));
@@ -300,8 +300,22 @@ fn prepared_inter_regression_glyphs_preserve_positioned_mesh_coverage() {
         assert!(triangles
             .iter()
             .all(|point| point[0].is_finite() && point[1].is_finite()));
-        assert_mesh_matches_fill_rule(character, &path, &triangles, true);
+        assert_mesh_matches_fill_rule(character, &path, &triangles, false);
     }
+}
+
+#[test]
+fn positioned_inter_a_remains_filled_at_example_scale() {
+    let Some(font) = prepared_inter_fixture() else {
+        return;
+    };
+    let layout = font.layout("A", 96.0);
+    let positioned = &layout.glyphs[0];
+    let triangles = font
+        .tessellate_positioned_glyph(positioned, 96.0, 1.0 / 600.0, [0.0, 0.0], 0.18 / 600.0)
+        .expect("example-scale A fill");
+    assert!(triangles.len() >= 3 * 20, "A lost geometry at output scale");
+    assert!(triangles.iter().all(|point| point.iter().all(|value| value.is_finite())));
 }
 
 #[test]

@@ -264,11 +264,18 @@ reason = "Exercises omitted ellipse center coordinates, non-circular radii, and 
 expected = "structural-pass"
 
 [[derived_case]]
+id = "coords-trans-04-stroke-geometry.svg"
+upstream = "coords-trans-04-t.svg"
+capability = ["transform", "stroke", "non-uniform-scale", "joins", "caps"]
+reason = "Exercises transformed open strokes while keeping non-uniform stroke-width normalization explicitly provisional."
+expected = "structural-pass"
+
+[[derived_case]]
 id = "shapes-polygon-03-geometry.svg"
 upstream = "shapes-polygon-03-t.svg"
-capability = ["polygon", "polyline", "odd-coordinate-truncation"]
-reason = "Exercises W3C odd-coordinate handling by retaining valid coordinate pairs and ignoring an incomplete trailing value."
-expected = "structural-pass"
+capability = ["polygon", "polyline", "invalid-coordinate-list"]
+reason = "Confirms malformed odd-coordinate polyline lists are rejected before vector lowering rather than silently truncated."
+expected = "expected-invalid-input"
 
 [[derived_case]]
 id = "shapes-line-02-stroke-geometry.svg"
@@ -319,3 +326,35 @@ upstream_classification = "negative-test"
 capability = ["path-data", "arc", "relative-arc", "even-odd", "close-path"]
 reason = "Retains closed arc geometry solely as a Tokimu parser, flattening, and fill-tessellation diagnostic probe; it is not a W3C conformance result."
 expected = "structural-pass-with-recorded-degenerates"
+
+[[derived_case]]
+id = "shapes-line-03-dash-geometry.svg"
+upstream = "derived-local"
+upstream_classification = "negative-test"
+capability = ["line", "polyline", "path", "stroke", "dasharray", "dashoffset", "caps", "joins"]
+reason = "Exercises alternating dash segments, dash phase, mixed path geometry, and cap/join reuse through the admitted stroke expansion boundary."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "clip-rect-geometry.svg"
+upstream = "derived-local"
+upstream_classification = "negative-test"
+capability = ["clip-path", "rectangular-clip", "fill-intersection"]
+reason = "Exercises one-level local rectangular clipping from XML resolution through provider-neutral vector intersection and structural fill mesh evidence."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "clip-polygon-geometry.svg"
+upstream = "derived-local"
+upstream_classification = "negative-test"
+capability = ["clip-path", "convex-polygon-clip", "fill-intersection"]
+reason = "Exercises a convex polygon clip through XML resolution, provider-neutral contour intersection, and structural fill mesh evidence."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "clip-transformed-polygon-geometry.svg"
+upstream = "derived-local"
+upstream_classification = "negative-test"
+capability = ["clip-path", "convex-polygon-clip", "transform", "fill-intersection"]
+reason = "Exercises a transformed convex polygon clip through XML transform resolution and structural fill mesh evidence."
+expected = "structural-pass"

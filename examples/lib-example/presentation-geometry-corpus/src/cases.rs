@@ -94,6 +94,7 @@ pub struct W3cSvgCase {
 pub enum W3cSvgExpectation {
     StructuralPass,
     UnsupportedProfile,
+    ExpectedInvalidInput,
 }
 
 /// Locates a W3C-related fixture without confusing a reduced geometry fixture
@@ -126,6 +127,20 @@ impl W3cSvgCase {
             description,
             expectation: W3cSvgExpectation::UnsupportedProfile,
             source: W3cSvgSource::UpstreamSvg,
+        }
+    }
+
+    pub const fn expected_invalid_input(
+        id: &'static str,
+        file_name: &'static str,
+        description: &'static str,
+    ) -> Self {
+        Self {
+            id,
+            file_name,
+            description,
+            expectation: W3cSvgExpectation::ExpectedInvalidInput,
+            source: W3cSvgSource::DerivedProfileFixture,
         }
     }
 

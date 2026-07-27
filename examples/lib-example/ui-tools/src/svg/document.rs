@@ -1,13 +1,108 @@
-use xml_tools::{parse_xml_events, XmlEvent, XmlOptions, XmlSourceId};
+use std::collections::{HashMap, HashSet};
+
+use xml_tools::{parse_xml_events, XmlAttribute, XmlEvent, XmlOptions, XmlSourceId};
 
 use super::path::flatten_path;
 use super::primitives::{parse_svg_point_numbers, svg_rectangle};
 use super::semantic::{
-    is_svg_geometry_element, is_svg_name, is_unadmitted_svg_feature, normalize_svg_point,
-    parse_svg_root_view_box, svg_attribute_value, svg_number_attribute, svg_semantic_events,
-    validate_svg_view_box, SvgSemanticEvent, SvgSemanticFrame,
+    is_svg_geometry_element, is_svg_name, is_unadmitted_svg_feature,
+    normalize_svg_point_with_aspect, parse_svg_root_preserve_aspect_ratio, parse_svg_root_view_box,
+    svg_attribute_value, svg_number_attribute, svg_semantic_events, validate_svg_view_box,
+    SvgSemanticEvent, SvgSemanticFrame,
 };
-use super::{parse_path, SvgImportDiagnostic, SvgVectorRecord, SvgViewportSource};
+use super::{
+    parse_path, SvgImportDiagnostic, SvgPreserveAspectRatio, SvgVectorRecord, SvgViewportSource,
+};
+
+type Bounds = Option<([f32; 2], [f32; 2])>;
+
+fn svg_fragment_reference(attributes: &[XmlAttribute]) -> Option<&str> {
+    attributes.iter().find_map(|attribute| {
+        let is_href = attribute.name.local_name == "href"
+            && (attribute.name.namespace_uri.is_none()
+                || attribute.name.namespace_uri.as_deref() == Some("http://www.w3.org/1999/xlink"));
+        is_href.then(|| attribute.value.trim())
+    })
+}
+
+fn svg_definition_id(attributes: &[XmlAttribute]) -> Option<&str> {
+    attributes.iter().find_map(|attribute| {
+        (attribute.name.namespace_uri.is_none() && attribute.name.local_name == "id")
+            .then(|| attribute.value.trim())
+            .filter(|value| !value.is_empty())
+    })
+}
+
+fn svg_use_has_unadmitted_overrides(attributes: &[XmlAttribute]) -> bool {
+    attributes.iter().any(|attribute| {
+        let local_name = attribute.name.local_name.as_str();
+        local_name != "href"
+            && local_name != "id"
+            && (attribute.name.namespace_uri.is_none()
+                || attribute.name.namespace_uri.as_deref() == Some("http://www.w3.org/1999/xlink"))
+    })
+}
+
+fn active_clip_path_id(element_stack: &[SvgSemanticFrame]) -> Option<String> {
+    element_stack
+        .iter()
+        .rev()
+        .find(|frame| {
+            is_svg_name(&frame.element.name) && frame.element.name.local_name == "clipPath"
+        })
+        .and_then(|frame| svg_definition_id(&frame.element.attributes))
+        .map(str::to_owned)
+}
+
+fn bounds_of_points(points: &[[f32; 2]]) -> Bounds {
+    points.iter().copied().fold(None, |bounds, point| {
+        Some(match bounds {
+            Some((min, max)) => (
+                [min[0].min(point[0]), min[1].min(point[1])],
+                [max[0].max(point[0]), max[1].max(point[1])],
+            ),
+            None => (point, point),
+        })
+    })
+}
+
+fn union_bounds(first: Bounds, second: Bounds) -> Bounds {
+    match (first, second) {
+        (Some((first_min, first_max)), Some((second_min, second_max))) => Some((
+            [
+                first_min[0].min(second_min[0]),
+                first_min[1].min(second_min[1]),
+            ],
+            [
+                first_max[0].max(second_max[0]),
+                first_max[1].max(second_max[1]),
+            ],
+        )),
+        (Some(bounds), None) | (None, Some(bounds)) => Some(bounds),
+        (None, None) => None,
+    }
+}
+
+fn normalize_points(
+    points: &[[f32; 2]],
+    transform: super::transform::SvgAffine,
+    view_box: [f32; 4],
+    preserve_aspect_ratio: SvgPreserveAspectRatio,
+) -> (Vec<[f32; 2]>, Bounds, Bounds) {
+    let transformed = points
+        .iter()
+        .copied()
+        .map(|point| transform.apply(point))
+        .collect::<Vec<_>>();
+    let source_bounds = bounds_of_points(points);
+    let transformed_bounds = bounds_of_points(&transformed);
+    let normalized = transformed
+        .iter()
+        .copied()
+        .map(|point| normalize_svg_point_with_aspect(point, view_box, preserve_aspect_ratio))
+        .collect();
+    (normalized, source_bounds, transformed_bounds)
+}
 
 /// Extracts SVG geometry into the shared provider-neutral path model.
 ///
@@ -69,7 +164,11 @@ pub fn parse_svg_document_vector_records_from_xml_events(
         ),
         SvgViewportSource::DocumentViewBox => None,
     };
+    let mut preserve_aspect_ratio = SvgPreserveAspectRatio::None;
     let mut paths = Vec::<(usize, SvgVectorRecord)>::new();
+    let mut definitions = HashMap::<String, SvgVectorRecord>::new();
+    let mut clip_paths = HashMap::<String, crate::VectorPath>::new();
+    let mut definition_ids = HashSet::<String>::new();
     let mut element_stack = Vec::<SvgSemanticFrame>::new();
     let mut saw_root = false;
 
@@ -89,11 +188,15 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                             Some(parse_svg_root_view_box(&element.attributes).map_err(
                                 |message| SvgImportDiagnostic::svg(Some(element.span), message),
                             )?);
+                        preserve_aspect_ratio = parse_svg_root_preserve_aspect_ratio(
+                            &element.attributes,
+                        )
+                        .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?;
                     }
                 }
                 let inherited_presentation = element_stack
                     .last()
-                    .map(|frame| frame.presentation)
+                    .map(|frame| frame.presentation.clone())
                     .unwrap_or_default();
                 let presentation = if is_svg_name(&element.name) {
                     inherited_presentation
@@ -102,7 +205,25 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 } else {
                     inherited_presentation
                 };
+                let parent_renders_geometry = element_stack
+                    .last()
+                    .is_none_or(|frame| frame.render_geometry);
+                let render_geometry = parent_renders_geometry
+                    && !(is_svg_name(&element.name) && element.name.local_name == "defs");
                 let is_geometry = is_svg_geometry_element(&element);
+                let is_use = is_svg_name(&element.name) && element.name.local_name == "use";
+                if is_svg_name(&element.name)
+                    && element.name.local_name == "clipPath"
+                    && element_stack.iter().any(|frame| {
+                        is_svg_name(&frame.element.name)
+                            && frame.element.name.local_name == "clipPath"
+                    })
+                {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        "nested SVG clipPath elements are outside the admitted one-level profile",
+                    ));
+                }
                 if !is_geometry && is_unadmitted_svg_feature(&element) {
                     return Err(SvgImportDiagnostic::svg(
                         Some(element.span),
@@ -112,14 +233,25 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                         ),
                     ));
                 }
+                if !render_geometry {
+                    if let Some(id) = svg_definition_id(&element.attributes) {
+                        if !definition_ids.insert(id.to_owned()) {
+                            return Err(SvgImportDiagnostic::svg(
+                                Some(element.span),
+                                format!("duplicate SVG definition id '{id}'"),
+                            ));
+                        }
+                    }
+                }
                 element_stack.push(SvgSemanticFrame {
                     element: element.clone(),
-                    presentation,
+                    presentation: presentation.clone(),
+                    render_geometry,
                 });
-                if !is_geometry {
+                if (!is_geometry && !is_use) || (is_use && !render_geometry) {
                     continue;
                 }
-                (element, presentation)
+                (element, presentation, render_geometry)
             }
             SvgSemanticEvent::End { name, span } => {
                 let Some(open) = element_stack.pop() else {
@@ -140,9 +272,50 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 continue;
             }
         };
-        let (element, presentation) = element;
+        let (element, presentation, render_geometry) = element;
         let view_box = resolved_view_box.expect("an admitted SVG root resolves a viewBox");
         let attributes = &element.attributes;
+        let clip_definition_id = active_clip_path_id(&element_stack);
+        if element.name.local_name == "use" {
+            if svg_use_has_unadmitted_overrides(attributes)
+                || presentation.transform != super::transform::SvgAffine::IDENTITY
+            {
+                return Err(SvgImportDiagnostic::svg(
+                    Some(element.span),
+                    "SVG <use> overrides and transforms are outside the admitted local-fragment profile",
+                ));
+            }
+            let Some(reference) = svg_fragment_reference(attributes) else {
+                return Err(SvgImportDiagnostic::svg(
+                    Some(element.span),
+                    "SVG <use> requires a local fragment href such as '#shape'",
+                ));
+            };
+            let Some(id) = reference.strip_prefix('#').filter(|id| !id.is_empty()) else {
+                return Err(SvgImportDiagnostic::svg(
+                    Some(element.span),
+                    format!("SVG <use> reference '{reference}' is external; only local fragments are admitted"),
+                ));
+            };
+            let Some(record) = definitions.get(id).cloned() else {
+                let message = if definition_ids.contains(id) {
+                    format!("SVG <use> target '#{id}' is a cyclic or non-geometric definition")
+                } else {
+                    format!("SVG <use> target '#{id}' is missing")
+                };
+                return Err(SvgImportDiagnostic::svg(Some(element.span), message));
+            };
+            let mut reused = record;
+            reused.source_span = element.span;
+            if render_geometry {
+                paths.push((element.span.start, reused));
+            }
+            continue;
+        }
+        let number = |name: &str| {
+            svg_number_attribute(attributes, name)
+                .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))
+        };
         let points = match element.name.local_name.as_str() {
             "path" => {
                 let Some(data) = svg_attribute_value(attributes, "d") else {
@@ -150,14 +323,39 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 };
                 let commands = parse_path(data)
                     .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?;
-                let contours = flatten_path(&commands, subdivisions)
+                let raw_contours = flatten_path(&commands, subdivisions)
                     .into_iter()
                     .filter(|points| points.len() > 1)
+                    .collect::<Vec<_>>();
+                let source_bounds = raw_contours
+                    .iter()
+                    .map(|points| bounds_of_points(points))
+                    .fold(None, union_bounds);
+                let transformed_contours = raw_contours
+                    .iter()
+                    .map(|points| {
+                        points
+                            .iter()
+                            .copied()
+                            .map(|point| presentation.transform.apply(point))
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                let transformed_bounds = transformed_contours
+                    .iter()
+                    .map(|points| bounds_of_points(points))
+                    .fold(None, union_bounds);
+                let contours = transformed_contours
+                    .into_iter()
                     .map(|points| {
                         let mut points = points
                             .into_iter()
                             .map(|point| {
-                                normalize_svg_point(presentation.transform.apply(point), view_box)
+                                normalize_svg_point_with_aspect(
+                                    point,
+                                    view_box,
+                                    preserve_aspect_ratio,
+                                )
                             })
                             .collect::<Vec<_>>();
                         let closed = points.len() > 1 && points.first() == points.last();
@@ -168,24 +366,54 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                     })
                     .collect::<Vec<_>>();
                 if !contours.is_empty() {
-                    paths.push((
-                        element.span.start,
-                        SvgVectorRecord::from_presentation(
-                            crate::VectorPath::new(contours),
-                            presentation,
-                            element.span,
-                        ),
-                    ));
+                    let clip_path_reference = presentation.clip_path.clone();
+                    let mut record = SvgVectorRecord::from_presentation(
+                        crate::VectorPath::new(contours),
+                        source_bounds,
+                        transformed_bounds,
+                        presentation,
+                        element.span,
+                    );
+                    if let Some(clip_id) = clip_path_reference.as_deref() {
+                        let Some(clip_path) = clip_paths.get(clip_id).cloned() else {
+                            return Err(SvgImportDiagnostic::svg(
+                                Some(element.span),
+                                format!(
+                                    "SVG clip-path target '#{clip_id}' is missing or not yet defined"
+                                ),
+                            ));
+                        };
+                        record.clip_path = Some(clip_path);
+                    }
+                    if let Some(clip_id) = clip_definition_id {
+                        if clip_paths
+                            .insert(clip_id.clone(), record.path.clone())
+                            .is_some()
+                        {
+                            return Err(SvgImportDiagnostic::svg(
+                                Some(element.span),
+                                format!(
+                                    "SVG clipPath '#{clip_id}' contains multiple geometric children"
+                                ),
+                            ));
+                        }
+                        continue;
+                    }
+                    if render_geometry {
+                        paths.push((element.span.start, record));
+                    } else if let Some(id) = svg_definition_id(attributes) {
+                        definitions.insert(id.to_owned(), record);
+                    }
                 }
                 continue;
             }
             "circle" => {
-                let Some(radius) = svg_number_attribute(attributes, "r") else {
+                let Some(radius) = number("r")? else {
                     continue;
                 };
                 // SVG defaults omitted circle centers to the origin.
-                let cx = svg_number_attribute(attributes, "cx").unwrap_or(0.0);
-                let cy = svg_number_attribute(attributes, "cy").unwrap_or(0.0);
+                let cx = number("cx")?.unwrap_or(0.0);
+                let cy = number("cy")?.unwrap_or(0.0);
                 if radius < 0.0 {
                     return Err(SvgImportDiagnostic::svg(
                         Some(element.span),
@@ -200,28 +428,19 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                             .map(|index| {
                                 let angle = index as f32 * std::f32::consts::TAU
                                     / subdivisions.max(16) as f32;
-                                normalize_svg_point(
-                                    presentation.transform.apply([
-                                        cx + radius * angle.cos(),
-                                        cy + radius * angle.sin(),
-                                    ]),
-                                    view_box,
-                                )
+                                [cx + radius * angle.cos(), cy + radius * angle.sin()]
                             })
                             .collect::<Vec<_>>(),
                     )
                 }
             }
             "ellipse" => {
-                let (Some(rx), Some(ry)) = (
-                    svg_number_attribute(attributes, "rx"),
-                    svg_number_attribute(attributes, "ry"),
-                ) else {
+                let (Some(rx), Some(ry)) = (number("rx")?, number("ry")?) else {
                     continue;
                 };
                 // SVG defaults omitted ellipse centers to the origin.
-                let cx = svg_number_attribute(attributes, "cx").unwrap_or(0.0);
-                let cy = svg_number_attribute(attributes, "cy").unwrap_or(0.0);
+                let cx = number("cx")?.unwrap_or(0.0);
+                let cy = number("cy")?.unwrap_or(0.0);
                 if rx < 0.0 || ry < 0.0 {
                     return Err(SvgImportDiagnostic::svg(
                         Some(element.span),
@@ -236,30 +455,19 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                             .map(|index| {
                                 let angle = index as f32 * std::f32::consts::TAU
                                     / subdivisions.max(16) as f32;
-                                normalize_svg_point(
-                                    presentation
-                                        .transform
-                                        .apply([cx + rx * angle.cos(), cy + ry * angle.sin()]),
-                                    view_box,
-                                )
+                                [cx + rx * angle.cos(), cy + ry * angle.sin()]
                             })
                             .collect::<Vec<_>>(),
                     )
                 }
             }
             "line" => {
-                let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
-                    svg_number_attribute(attributes, "x1"),
-                    svg_number_attribute(attributes, "y1"),
-                    svg_number_attribute(attributes, "x2"),
-                    svg_number_attribute(attributes, "y2"),
-                ) else {
+                let (Some(x1), Some(y1), Some(x2), Some(y2)) =
+                    (number("x1")?, number("y1")?, number("x2")?, number("y2")?)
+                else {
                     continue;
                 };
-                Some(vec![
-                    normalize_svg_point(presentation.transform.apply([x1, y1]), view_box),
-                    normalize_svg_point(presentation.transform.apply([x2, y2]), view_box),
-                ])
+                Some(vec![[x1, y1], [x2, y2]])
             }
             "polyline" | "polygon" => {
                 let Some(values) = svg_attribute_value(attributes, "points") else {
@@ -269,12 +477,7 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                     .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?;
                 let mut points = numbers
                     .chunks_exact(2)
-                    .map(|pair| {
-                        normalize_svg_point(
-                            presentation.transform.apply([pair[0], pair[1]]),
-                            view_box,
-                        )
-                    })
+                    .map(|pair| [pair[0], pair[1]])
                     .collect::<Vec<_>>();
                 if element.name.local_name == "polygon" && points.first() != points.last() {
                     if let Some(first) = points.first().copied() {
@@ -285,10 +488,10 @@ pub fn parse_svg_document_vector_records_from_xml_events(
             }
             "rect" => {
                 let (Some(x), Some(y), Some(width), Some(height)) = (
-                    svg_number_attribute(attributes, "x"),
-                    svg_number_attribute(attributes, "y"),
-                    svg_number_attribute(attributes, "width"),
-                    svg_number_attribute(attributes, "height"),
+                    number("x")?,
+                    number("y")?,
+                    number("width")?,
+                    number("height")?,
                 ) else {
                     continue;
                 };
@@ -298,8 +501,8 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                         "SVG rectangle width and height must not be negative",
                     ));
                 }
-                let raw_rx = svg_number_attribute(attributes, "rx");
-                let raw_ry = svg_number_attribute(attributes, "ry");
+                let raw_rx = number("rx")?;
+                let raw_ry = number("ry")?;
                 if raw_rx.is_some_and(|value| value < 0.0)
                     || raw_ry.is_some_and(|value| value < 0.0)
                 {
@@ -319,9 +522,6 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 Some(
                     svg_rectangle(x, y, width, height, rx, ry)
                         .into_iter()
-                        .map(|point| {
-                            normalize_svg_point(presentation.transform.apply(point), view_box)
-                        })
                         .collect(),
                 )
             }
@@ -332,19 +532,51 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 element.name.local_name.as_str(),
                 "circle" | "ellipse" | "rect" | "polygon"
             );
+            let (normalized_points, source_bounds, transformed_bounds) = normalize_points(
+                &points,
+                presentation.transform,
+                view_box,
+                preserve_aspect_ratio,
+            );
             let points = if closed {
-                points[..points.len() - 1].to_vec()
+                normalized_points[..normalized_points.len() - 1].to_vec()
             } else {
-                points
+                normalized_points
             };
-            paths.push((
-                element.span.start,
-                SvgVectorRecord::from_presentation(
-                    crate::VectorPath::new(vec![crate::VectorContour::new(points, closed)]),
-                    presentation,
-                    element.span,
-                ),
-            ));
+            let clip_path_reference = presentation.clip_path.clone();
+            let mut record = SvgVectorRecord::from_presentation(
+                crate::VectorPath::new(vec![crate::VectorContour::new(points, closed)]),
+                source_bounds,
+                transformed_bounds,
+                presentation,
+                element.span,
+            );
+            if let Some(clip_id) = clip_path_reference.as_deref() {
+                let Some(clip_path) = clip_paths.get(clip_id).cloned() else {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        format!("SVG clip-path target '#{clip_id}' is missing or not yet defined"),
+                    ));
+                };
+                record.clip_path = Some(clip_path);
+            }
+            if let Some(clip_id) = clip_definition_id {
+                if clip_paths
+                    .insert(clip_id.clone(), record.path.clone())
+                    .is_some()
+                {
+                    return Err(SvgImportDiagnostic::svg(
+                        Some(element.span),
+                        format!("SVG clipPath '#{clip_id}' contains multiple geometric children"),
+                    ));
+                }
+                continue;
+            }
+            if render_geometry {
+                paths.push((element.span.start, record));
+            } else if let Some(id) = svg_definition_id(attributes) {
+                definitions.insert(id.to_owned(), record);
+            }
         }
     }
 

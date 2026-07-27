@@ -15,7 +15,8 @@ pub use document::{
 };
 pub use path::{parse_path, tokenize_path, SvgPathCommand, SvgToken};
 pub use types::{
-    SvgFillRule, SvgImportDiagnostic, SvgImportStage, SvgVectorRecord, SvgViewportSource,
+    SvgColor, SvgFillRule, SvgImportDiagnostic, SvgImportStage, SvgPreserveAspectRatio,
+    SvgStrokeLinecap, SvgStrokeLinejoin, SvgVectorRecord, SvgViewportSource,
 };
 
 #[cfg(test)]

@@ -132,6 +132,160 @@ pub fn tessellate_general_fill_with_rule(
     Ok(repaired_triangles)
 }
 
+/// Tessellates font outlines through the robust multi-contour path.
+///
+/// Font contours are provider data and can contain sharp re-entrant joins or
+/// borderline topology that is valid but unsuitable for the optimistic
+/// single-contour ear-clipping shortcut used by ordinary fills. Keep this
+/// policy at the font boundary rather than weakening the general fill fast
+/// path for every producer.
+pub(crate) fn tessellate_font_fill_with_rule(
+    path: &VectorPath,
+    fill_rule: VectorFillRule,
+) -> Result<Vec<[f32; 2]>, String> {
+    if path.contours.is_empty() {
+        return Err("font fill requires at least one contour".into());
+    }
+    if path
+        .contours
+        .iter()
+        .any(|contour| !contour.closed || contour.points.len() < 3)
+    {
+        return Err("font fill requires closed contours with at least three points".into());
+    }
+    if !path.is_finite() {
+        return Err("font fill received non-finite coordinates".into());
+    }
+
+    let contours = path
+        .contours
+        .iter()
+        .map(|contour| sanitized_closed_points(&contour.points))
+        .collect::<Vec<_>>();
+    if contours.iter().any(|points| points.len() < 3) {
+        return Err("font fill contour became degenerate after sanitization".into());
+    }
+
+    let triangles = tessellate_font_components(&contours, fill_rule)?;
+    if triangles.is_empty() && contours.len() == 1 {
+        // Very thin single-contour glyphs such as slash can collapse inside
+        // Lyon's fill tolerance at small output scales. The contour is still
+        // a valid simple polygon, so preserve it with the local fallback.
+        return tessellate_simple_loop(&contours[0]);
+    }
+    if triangles.iter().flatten().any(|value| !value.is_finite()) {
+        return Err("font fill tessellation produced no finite geometry".into());
+    }
+    Ok(triangles)
+}
+
+fn tessellate_font_components(
+    contours: &[Vec<[f32; 2]>],
+    fill_rule: VectorFillRule,
+) -> Result<Vec<[f32; 2]>, String> {
+    let mut parents = vec![None; contours.len()];
+    for child in 0..contours.len() {
+        let mut best_parent = None;
+        let mut best_area = f32::INFINITY;
+        for candidate in 0..contours.len() {
+            if child == candidate
+                || !contour_bounds_contain(&contours[candidate], &contours[child])
+                || !point_in_polygon(contours[child][0], &contours[candidate])
+            {
+                continue;
+            }
+            let area = signed_area(&contours[candidate]).abs();
+            if area < best_area {
+                best_parent = Some(candidate);
+                best_area = area;
+            }
+        }
+        parents[child] = best_parent;
+    }
+
+    // Keep ordinary font contours on Lyon's established path. Component
+    // partitioning is only needed when the outline contains multiple nested
+    // holes/components, as in percent-like glyphs.
+    if parents.iter().filter(|parent| parent.is_some()).count() < 2 {
+        return tessellate_lyon_contours(contours, fill_rule);
+    }
+
+    let mut triangles = Vec::new();
+    for root in 0..contours.len() {
+        if parents[root].is_some() {
+            continue;
+        }
+        let mut component = vec![root];
+        let mut cursor = 0;
+        while cursor < component.len() {
+            let parent = component[cursor];
+            let children = parents
+                .iter()
+                .enumerate()
+                .filter_map(|(index, candidate)| (*candidate == Some(parent)).then_some(index))
+                .filter(|index| !component.contains(index))
+                .collect::<Vec<_>>();
+            component.extend(children);
+            cursor += 1;
+        }
+        let component_contours = component
+            .iter()
+            .map(|index| contours[*index].clone())
+            .collect::<Vec<_>>();
+        let component_triangles = tessellate_lyon_contours(&component_contours, fill_rule)?;
+        if component_triangles.is_empty() && component_contours.len() == 1 {
+            triangles.extend(tessellate_simple_loop(&component_contours[0])?);
+        } else {
+            triangles.extend(component_triangles);
+        }
+    }
+    Ok(triangles)
+}
+
+fn point_in_polygon(point: [f32; 2], polygon: &[[f32; 2]]) -> bool {
+    let mut inside = false;
+    for (start, end) in polygon
+        .iter()
+        .zip(polygon.iter().cycle().skip(1))
+        .take(polygon.len())
+    {
+        let crosses = (start[1] > point[1]) != (end[1] > point[1]);
+        if crosses {
+            let x_at_y =
+                start[0] + (point[1] - start[1]) * (end[0] - start[0]) / (end[1] - start[1]);
+            if point[0] < x_at_y {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
+fn contour_bounds_contain(outer: &[[f32; 2]], inner: &[[f32; 2]]) -> bool {
+    let outer = contour_bounds(outer);
+    let inner = contour_bounds(inner);
+    inner[0] > outer[0] && inner[1] > outer[1] && inner[2] < outer[2] && inner[3] < outer[3]
+}
+
+fn contour_bounds(points: &[[f32; 2]]) -> [f32; 4] {
+    points.iter().fold(
+        [
+            f32::INFINITY,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::NEG_INFINITY,
+        ],
+        |bounds, point| {
+            [
+                bounds[0].min(point[0]),
+                bounds[1].min(point[1]),
+                bounds[2].max(point[0]),
+                bounds[3].max(point[1]),
+            ]
+        },
+    )
+}
+
 fn sanitized_closed_points(points: &[[f32; 2]]) -> Vec<[f32; 2]> {
     let mut sanitized = Vec::with_capacity(points.len());
     for &point in points {

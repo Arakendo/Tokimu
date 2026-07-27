@@ -4,11 +4,55 @@
 
 Incubating. Slices 1 through 9 have partial executable evidence in the
 example-side runner. Stage selection, glyph lineage, W3C fixture provenance,
-and golden comparison are implemented. The W3C selection now includes explicit
-stroke-intent and elementary-transform probes; actual stroke expansion and
-full viewport behavior remain open. Synthetic topology probes classify
+golden comparison, and focused SVG source-boundary hardening are implemented.
+The W3C selection now includes explicit stroke-intent and elementary-transform
+probes; actual transformed stroke width and physical viewport sizing remain
+open. Synthetic topology probes classify
 self-intersection at the vector boundary instead of assuming the mesh
 tessellator will reject it.
+
+The latest SVG hardening slice makes malformed odd-coordinate `polyline` and
+`polygon` input fail explicitly instead of silently dropping a trailing value.
+It also locks in compact SVG transform-number syntax such as signed values
+without whitespace and comma-separated scale arguments. These are importer
+boundary guarantees, not evidence of broader SVG conformance.
+
+The follow-up hardening slice applies the same rule to primitive numeric
+attributes: a present but malformed value such as `cx="nope"` now produces an
+SVG diagnostic, while an omitted optional coordinate still receives its
+documented default.
+
+Stroke intent is now preserved as bounded SVG metadata (`stroke-width`,
+`stroke-linecap`, `stroke-linejoin`, `stroke-miterlimit`, `stroke-dasharray`,
+and `stroke-dashoffset`) with inheritance and invalid-value diagnostics. Solid
+and dashed stroke records are expanded into mesh evidence by the corpus runner;
+dash expansion is still a bounded normalized user-unit policy rather than a
+claim of complete SVG paint conformance.
+
+The shared stroke tessellator also no longer collapses short open two-point
+strokes into a midpoint cap. Short segments retain both endpoint caps and
+their directional span, with a regression test at the provider-neutral vector
+boundary. This is a targeted correctness fix, not yet the complete SVG stroke
+style implementation.
+
+The provider-neutral stroke boundary now also exposes explicit cap and join
+intent. Butt, round, and square caps produce distinct open-stroke geometry;
+round and bevel joins now produce connected outer-corner geometry instead of
+silently falling back to miter geometry. SVG records are wired to this API
+under a provisional normalized-width policy; normalized stroke width under
+document transforms remains open.
+
+The corpus now consumes that boundary for admitted SVG records using an
+explicit uniform normalized-width policy for the current fixed viewport. This
+lets stroke-only cases produce mesh evidence without treating them as filled
+geometry. The policy is intentionally
+provisional: transformed and non-uniform viewport stroke widths still require
+importer-owned scale metadata before they can be considered conformant.
+
+The miter limit is now applied from the explicit stroke style rather than a
+hardcoded clamp, with a sharp-join regression proving that the style changes
+the produced geometry. Round joins use a signed shortest arc so right-hand
+turns do not accidentally sweep the long way around.
 
 ## Purpose
 
@@ -503,15 +547,16 @@ Stroke support is the largest immediate gap. It unlocks line art, Lucide-style
 icons, open paths, and a large portion of otherwise structurally valid W3C
 fixtures.
 
-- [ ] Lower `line`, open `polyline`, and open `path` strokes through one shared
+- [x] Lower `line`, open `polyline`, and open `path` strokes through one shared
       stroke-expansion implementation.
-- [ ] Validate `stroke-width`, `stroke-linecap`, `stroke-linejoin`, and
+- [x] Validate `stroke-width`, `stroke-linecap`, `stroke-linejoin`, and
       `stroke-miterlimit`.
-- [ ] Cover butt, round, and square caps plus miter, bevel, and round joins.
-- [ ] Preserve fill and stroke as independent operations when both are present.
-- [ ] Record the expanded stroke outline and mesh as structural artifacts.
-- [ ] Add `stroke-dasharray` and `stroke-dashoffset` only after solid strokes
-      are stable.
+- [x] Cover butt, round, and square caps plus miter, bevel, and round joins.
+- [x] Preserve fill and stroke as independent operations when both are present.
+- [x] Record the expanded stroke mesh as structural artifacts.
+- [x] Add bounded `stroke-dasharray` and `stroke-dashoffset` expansion after
+      solid strokes stabilized; retain explicit diagnostics for invalid or
+      empty patterns.
 
 High-value shapes and methods:
 
@@ -529,10 +574,11 @@ share the same geometry contract without example-specific scaling.
 
 - [x] Admit root `viewBox` mapping through the explicit document viewport
       policy.
-- [ ] Implement the common `preserveAspectRatio` meet modes before slice modes.
+- [x] Implement the common `preserveAspectRatio` meet alignment modes before
+      slice modes; default document viewBox lowering uses centered meet.
 - [x] Apply transforms consistently to path and primitive elements.
 - [x] Validate nested translate, scale, rotate, skew, and matrix composition.
-- [ ] Record source-space and transformed bounds separately.
+- [x] Record source-space and transformed bounds separately.
 
 High-value shapes and methods:
 
@@ -543,6 +589,33 @@ High-value shapes and methods:
 - reflected geometry through negative scale;
 - the same source geometry under several viewport sizes.
 
+Current viewport boundary:
+
+- document-owned `viewBox` lowering supports `none` and the nine x/y meet
+  alignments;
+- SVG records distinguish source-space bounds, element-transformed bounds, and
+  final normalized path bounds for diagnostic provenance;
+- unsupported `slice`, `defer`, and physical `width`/`height` sizing produce
+  explicit profile diagnostics or remain caller/platform policy;
+- caller-owned normalization retains its established non-uniform mapping so
+  existing embedding callers do not acquire an implicit aspect policy.
+
+Current presentation precedence boundary:
+
+- admitted presentation properties may be supplied by direct attributes or
+  the element's inline `style` attribute;
+- inline style overrides the corresponding direct presentation attribute;
+- repeated inline declarations use the last declaration;
+- selectors, external stylesheets, and `!important` handling remain outside
+  this profile.
+- `defs` is accepted as non-rendering storage; its geometry is skipped until a
+  future bounded local `<use>` reference slice admits it for rendering.
+- `<use href="#id">` and namespaced `xlink:href` now resolve previously parsed
+  geometric definitions into provider-neutral vector records.
+- Missing, duplicate, cyclic, and non-geometric targets produce explicit SVG
+  diagnostics; use-site transforms, coordinates, paint overrides, and external
+  references remain outside this initial profile.
+
 ##### Priority 3: Presentation Attributes, Inheritance, And Reuse
 
 Many verbatim W3C fixtures currently stop at `defs` or surrounding document
@@ -550,19 +623,23 @@ content even when their relevant geometry is already supported. A bounded
 presentation profile would unlock those fixtures without admitting a browser
 style system.
 
-- [ ] Define precedence for supported inline attributes and `style` entries.
+- [x] Define precedence for supported inline attributes and `style` entries:
+      supported inline style declarations override presentation attributes, and
+      the last declaration for a property wins; selectors and `!important`
+      remain outside the profile.
 - [x] Inherit `fill`, `stroke`, and `fill-rule` through groups; opacity and
       stroke-parameter inheritance remain open.
-- [ ] Treat `defs` as non-rendering storage.
-- [ ] Resolve local fragment references for a bounded `<use href="#...">`
+- [x] Treat `defs` as non-rendering storage; referenced reuse remains a separate
+      bounded `<use>` slice.
+- [x] Resolve local fragment references for a bounded `<use href="#...">`
       profile.
-- [ ] Diagnose missing, duplicate, or cyclic references explicitly.
+- [x] Diagnose missing, duplicate, or cyclic references explicitly.
 - [ ] Keep external references and general CSS selectors outside the initial
       profile.
 
 High-value shapes and methods:
 
-- one definition reused under multiple transforms;
+- one definition reused at multiple use sites without use-site transforms;
 - nested groups overriding one inherited property at a time;
 - `fill="none"` with a visible stroke;
 - group opacity combined with element opacity;
@@ -573,12 +650,53 @@ High-value shapes and methods:
 Clip paths pressure contour composition, transforms, fill rules, and ownership
 without requiring gradients, filters, or text.
 
-- [ ] Support a single local geometric `clipPath`.
-- [ ] Validate rectangular, circular, polygonal, and path clips.
-- [ ] Intersect clip geometry structurally before relying on pixel comparison.
-- [ ] Add transformed and nested clips after one-level clipping is stable.
+- [x] Support a single local geometric `clipPath`.
+- [x] Validate rectangular, circular, polygonal, and path clips through the
+      shared SVG geometry lowering boundary.
+- [x] Intersect admitted clip geometry structurally before relying on pixel
+      comparison; the current implementation is bounded to one convex clip
+      contour and closed fill targets.
+- [x] Add a provider-neutral convex-polygon clipping primitive for closed
+      polygon contours, with explicit rejection for open strokes and concave
+      clip geometry.
+- [x] Wire convex clip intersections into SVG fill mesh evidence; keep clipped
+      strokes, concave clips, and multi-contour clips explicitly unsupported.
+- [x] Apply and test the existing SVG transform stack for one-level clips.
+- [x] Diagnose nested clips explicitly while structural composition remains
+      unimplemented.
 - [ ] Keep masks separate; alpha/luminance masks are paint operations rather
       than ordinary geometric clipping.
+
+Current clip-path boundary:
+
+- one local `clipPath` with one geometric child is parsed into a
+  provider-neutral `VectorPath` and attached to the target `SvgVectorRecord`;
+- rectangular, circular, polygonal, and path geometry use the existing SVG
+  geometry lowering path when used as the clip child;
+- regression coverage confirms those four clip-child families retain finite
+  provider-neutral geometry on the target record;
+- missing references and multiple geometric children produce explicit
+  diagnostics;
+- corpus `vector.json` artifacts record clip attachments and clip geometry
+  statistics so the unresolved intersection stage remains visible in evidence;
+- corpus mesh generation now withholds unclipped mesh output whenever a record
+  has an unresolved clip, and marks the mesh graph node as an expected failure
+  instead of producing a false-positive mesh artifact;
+- the shared vector layer now has a bounded convex-polygon clip helper for
+  closed polygon contours; SVG corpus wiring remains deliberately limited to
+  closed-fill records with one provably convex clip contour;
+- rectangular and other convex SVG clips now lower to structurally clipped
+  fill meshes, while clipped strokes, concave clips, and multi-contour clips
+  remain expected failures;
+- the rectangle clip primitive drops disjoint closed contours and preserves
+  intersecting contours deterministically; invalid or zero-sized clip bounds
+  fail before geometry is produced;
+- `clip-polygon-geometry.svg` proves the admitted intersection is not
+  rectangle-specialized, while `clip-transformed-polygon-geometry.svg` keeps
+  the transform path visible as an independent structural case;
+- structural intersection beyond convex polygon clips, nested clips, and mask
+  semantics remain future slices; the current record metadata is not yet a
+  raster clipping implementation.
 
 High-value shapes and methods:
 
@@ -593,14 +711,38 @@ High-value shapes and methods:
 Basic paint state makes visual evidence useful, but it should not pull gradients
 or renderer resources into the vector geometry contract.
 
-- [ ] Validate solid fill and stroke colors.
-- [ ] Validate `fill-opacity`, `stroke-opacity`, and element `opacity`.
-- [ ] Support `none` and a bounded `currentColor` inheritance path.
-- [ ] Record paint intent separately from tessellated geometry.
-- [ ] Evaluate linear gradients only after solid paint and inheritance are
-      stable.
+- [x] Validate and preserve bounded solid fill and stroke colors (named colors
+      and hexadecimal forms).
+- [x] Validate and preserve inherited `fill-opacity`, `stroke-opacity`, and
+      element `opacity` as bounded paint intent.
+- [x] Support `none` and a bounded `currentColor` inheritance path.
+- [x] Record bounded paint intent separately from tessellated geometry.
+- [x] Evaluate linear gradients after solid paint and inheritance stabilized;
+      defer implementation until a provider-neutral paint-resource and
+      renderer compositing contract exists.
 - [ ] Defer radial gradients, patterns, masks, filters, and blending until an
       admitted renderer-facing paint contract exists.
+
+Current paint boundary:
+
+- `fill-opacity`, `stroke-opacity`, and `opacity` are parsed, inherited, range
+  checked, and preserved on `SvgVectorRecord` as provider-neutral paint intent;
+- solid `fill` and `stroke` values support `none`, bounded named colors, short
+  and full hexadecimal colors, and inherited `currentColor` resolution;
+- the current record does not yet perform source-over compositing or renderer
+  blending, so opacity is diagnostic metadata rather than
+  a claim of pixel-equivalent SVG paint behavior;
+- CSS color-function syntax, gradient parsing, and paint-resource resolution
+  remain future paint slices; gradient references currently produce explicit
+  unsupported-paint diagnostics rather than silently becoming solid fills.
+
+Gradient evaluation result:
+
+- linear gradients are not admitted by the current geometry profile;
+- accepting them would require stop ordering, coordinate units, gradient
+  transforms, spread behavior, and a renderer-facing compositing contract;
+- the current explicit rejection is therefore the intentional boundary, not a
+  missing fallback.
 
 ##### Explicitly Lower-Return For This Plan
 
@@ -646,8 +788,9 @@ Primitive shapes:
 - omitted and zero-valued default coordinates;
 - zero and negative width, height, or radius behavior;
 - rounded-rectangle radius coupling and clamping;
-- odd polygon/polyline coordinate counts, repeated points, and one-point or
-  two-point inputs.
+- [x] odd polygon/polyline coordinate counts are rejected with an explicit
+  importer diagnostic;
+- repeated points, and one-point or two-point inputs remain open edge cases.
 
 Fill topology:
 
@@ -998,8 +1141,10 @@ Validation:
       mesh.
 - [x] Add a reduced open-polyline fixture that preserves vector evidence and
       records the current no-fill mesh boundary.
-- [x] Add a stroke-intent fixture covering line, polyline, caps, joins, and an
-      open cubic path without claiming stroke expansion.
+- [x] Add a stroke fixture covering line, polyline, caps, joins, and an open
+      cubic path; the runner records expanded stroke geometry.
+- [x] Add a dashed-stroke fixture covering alternating segments, odd-pattern
+      duplication, dash phase, and cap/join reuse.
 - [x] Add an elementary-transform fixture covering translation, rotation,
       scale, skew, matrix, nesting, and closed-fill mesh output.
 - [ ] Evaluate optional resvg differential rendering.
@@ -1021,8 +1166,30 @@ Current evidence:
   reviewed case registry;
 - `coords-trans-03-elementary-geometry.svg` produces eight finite transformed
   closed paths with zero mesh degenerates;
-- `shapes-line-02-stroke-geometry.svg` reaches the vector stage and records the
-  current intentional stroke-only mesh boundary;
+- `coords-trans-04-stroke-geometry.svg` produces two transformed open stroke
+  paths and 53 finite mesh triangles with zero degenerates; the case deliberately
+  preserves the current uniform normalized-width limitation for non-uniform
+  transforms;
+- `shapes-line-02-stroke-geometry.svg` records line, polyline, and open-path
+  stroke expansion through the shared cap/join boundary;
+- `shapes-line-03-dash-geometry.svg` records dashed line, cubic, and polyline
+  meshes with dash phase applied before cap/join expansion and zero recorded
+  degenerates;
+- `clip-rect-geometry.svg` exercises the complete admitted rectangular clip
+  path from XML/source through clip metadata and structural fill intersection;
+  the resulting mesh is bounded to the clip rectangle rather than merely
+  recording an unresolved clip;
+- `clip-polygon-geometry.svg` exercises the same end-to-end path with a convex
+  polygon clip, proving the implementation is not specialized to rectangle
+  bounds;
+- `clip-transformed-polygon-geometry.svg` exercises a one-level transformed
+  convex clip and confirms the transform is applied before structural
+  intersection;
+- document viewBox tests cover centered meet, explicit xMinYMin alignment,
+  `preserveAspectRatio="none"`, and explicit rejection of slice mode;
+- SVG artifact generation now uses the same stroke expansion path as runtime
+  corpus execution, so W3C, Lucide, and synthetic SVG artifacts include stroke
+  triangles when the source carries stroke intent;
 - `struct-group-01-inheritance-geometry.svg` records group paint inheritance,
   child overrides, and nested fill-rule contours with zero mesh degenerates;
 - generation is capped at 1000 cases per invocation to keep local diagnostics
@@ -1113,6 +1280,13 @@ Current W3C evidence:
   lowering match but missing from the admitted SVG geometry-element profile;
   the adapter now admits it explicitly and tests both valid geometry and
   negative-radius diagnostics;
+- the SVG importer now rejects odd-length `points` data instead of allowing
+  `chunks_exact` to discard a trailing coordinate;
+- primitive numeric attributes now distinguish malformed values from omitted
+  optional attributes, preserving defaults without silently accepting bad
+  source data;
+- compact transform argument forms such as `translate(10-20) scale(2,.5)` are
+  covered by importer tests, preserving SVG's signed-number separator rules;
 - `svg/synthetic/prefixed-namespace` proves the parser-neutral XML/SVG
   boundary ignores a foreign local-name collision while lowering a prefixed SVG
   path through vector and mesh stages;
@@ -1120,6 +1294,9 @@ Current W3C evidence:
   shared `VectorPath` contract remains paint-neutral;
 - the W3C runner sends only closed records marked for fill into the shared
   fill tessellator, leaving stroke-only geometry as explicit non-fill evidence;
+- the selected W3C-derived polygon case with an odd trailing coordinate is
+  classified as expected invalid input; the importer rejects it before vector
+  lowering instead of silently truncating malformed source data;
 - stroke-only Lucide cases follow the same boundary: source, XML, and vector
   evidence are retained while the mesh stage records an expected limitation
   rather than misclassifying absent fill geometry as a tessellation failure;
@@ -1128,8 +1305,11 @@ Current W3C evidence:
   cleared so an earlier structural run cannot be mistaken for current evidence;
 - full W3C `paths-data-01-t` and `paths-data-02-t` remain upstream provenance
   fixtures until their broader documents fit the admitted SVG profile;
-- stroke-oriented cases remain vector-stage evidence until SVG paint and
-  stroke-expansion semantics are represented explicitly.
+- stroke-oriented cases now retain vector evidence and expanded stroke mesh
+  artifacts through the bounded cap/join and dash-expansion path.
+- SVG vector records retain validated stroke width, cap, join, miter-limit,
+  dasharray, and dashoffset intent through group inheritance; transformed
+  non-uniform width, percentages, and full CSS paint semantics remain open.
 
 ### Slice 10: Architectural Review
 

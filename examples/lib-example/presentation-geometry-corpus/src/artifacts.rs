@@ -83,9 +83,22 @@ pub enum OutlineSegmentArtifact {
 #[derive(Clone, Debug, Serialize)]
 pub struct VectorArtifact {
     pub metadata: ArtifactEnvelope,
+    /// Optional producer-space bounds. SVG records populate these before
+    /// viewBox normalization; other producers may leave them absent.
+    pub source_bounds: Option<([f32; 2], [f32; 2])>,
+    pub transformed_bounds: Option<([f32; 2], [f32; 2])>,
     pub bounds: Option<([f32; 2], [f32; 2])>,
     pub contours: Vec<VectorContourArtifact>,
     pub intersections: Vec<SegmentIntersectionArtifact>,
+    pub clips: Vec<ClipPathArtifact>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ClipPathArtifact {
+    pub target_record: usize,
+    pub bounds: Option<([f32; 2], [f32; 2])>,
+    pub contour_count: usize,
+    pub point_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]

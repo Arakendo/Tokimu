@@ -4,7 +4,7 @@ use crate::{
     fixture_paths::{find_w3c_fixture_root, w3c_source_label, w3c_svg_source_path},
     geometry::{format_mesh_summary, validate_mesh},
     reports::failed_stage,
-    svg_support::{summarize_paths, tessellate_closed_fills},
+    svg_support::{summarize_paths, tessellate_closed_fills, tessellate_svg_strokes},
     xml_stage::inspect_xml_stage,
     CaseReport, CorpusCase, CorpusStage, StageReport, StageStatus, W3cSvgCase, W3cSvgExpectation,
 };
@@ -95,16 +95,26 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
             report.diagnostics.push(message);
             return report;
         }
-        Err(error) if case.expectation == W3cSvgExpectation::UnsupportedProfile => {
+        Err(error)
+            if matches!(
+                case.expectation,
+                W3cSvgExpectation::UnsupportedProfile | W3cSvgExpectation::ExpectedInvalidInput
+            ) =>
+        {
+            let label = match case.expectation {
+                W3cSvgExpectation::UnsupportedProfile => "expected SVG-profile exclusion",
+                W3cSvgExpectation::ExpectedInvalidInput => "expected invalid SVG input",
+                W3cSvgExpectation::StructuralPass => unreachable!(),
+            };
             report.stages.push(StageReport {
                 stage: CorpusStage::Vector,
                 status: StageStatus::ExpectedFailure,
-                summary: format!("expected SVG-profile exclusion: {error}"),
+                summary: format!("{label}: {error}"),
             });
             report.stages.push(StageReport {
                 stage: CorpusStage::Mesh,
                 status: StageStatus::ExpectedFailure,
-                summary: "not attempted after expected SVG-profile exclusion".to_owned(),
+                summary: "not attempted after expected vector-boundary failure".to_owned(),
             });
             return report;
         }
@@ -126,10 +136,16 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
         status: StageStatus::Ready,
         summary: summarize_paths(case.description, &paths),
     });
-    let fill_meshes = tessellate_closed_fills(&records, "W3C SVG");
+    let mut fill_meshes = tessellate_closed_fills(&records, "W3C SVG");
+    let stroke_meshes = tessellate_svg_strokes(&records, 1.0 / 480.0, "W3C SVG");
+    fill_meshes
+        .triangles
+        .extend(stroke_meshes.triangles.iter().copied());
+    fill_meshes.stroke_paths = stroke_meshes.stroke_paths;
+    fill_meshes.diagnostics.extend(stroke_meshes.diagnostics);
     let validation = validate_mesh(&fill_meshes.triangles);
     report.diagnostics.extend(fill_meshes.diagnostics);
-    if fill_meshes.fill_paths == 0 {
+    if fill_meshes.fill_paths == 0 && fill_meshes.stroke_paths == 0 {
         report.stages.push(StageReport {
             stage: CorpusStage::Mesh,
             status: StageStatus::ExpectedFailure,
@@ -150,8 +166,9 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
             stage: CorpusStage::Mesh,
             status: StageStatus::Ready,
             summary: format!(
-                "closed_paths={} open_paths={} {}",
+                "closed_paths={} stroke_paths={} open_paths={} {}",
                 fill_meshes.fill_paths,
+                fill_meshes.stroke_paths,
                 paths.len() - fill_meshes.fill_paths,
                 format_mesh_summary(&validation)
             ),

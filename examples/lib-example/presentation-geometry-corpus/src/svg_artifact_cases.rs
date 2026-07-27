@@ -35,6 +35,7 @@ pub fn write_svg_artifacts(case: SvgCase) -> Result<PathBuf, String> {
         source,
         xml,
         records,
+        1.0 / 24.0,
     )
 }
 
@@ -56,6 +57,7 @@ pub fn write_synthetic_svg_artifacts(case: SyntheticSvgCase) -> Result<PathBuf, 
         source,
         xml,
         records,
+        1.0 / 24.0,
     )
 }
 
@@ -76,19 +78,38 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
         SvgViewportSource::Caller([0.0, 0.0, 480.0, 360.0]),
     ) {
         Ok(records) => records,
-        Err(error) if case.expectation == W3cSvgExpectation::UnsupportedProfile => {
-            return crate::svg_artifact_cleanup::write_svg_profile_exclusion_artifacts(
+        Err(error)
+            if matches!(
+                case.expectation,
+                W3cSvgExpectation::UnsupportedProfile | W3cSvgExpectation::ExpectedInvalidInput
+            ) =>
+        {
+            let (expectation, artifact_name) = match case.expectation {
+                W3cSvgExpectation::UnsupportedProfile => {
+                    ("unsupported-profile", "svg-profile-exclusion")
+                }
+                W3cSvgExpectation::ExpectedInvalidInput => {
+                    ("expected-invalid-input", "svg-invalid-input")
+                }
+                W3cSvgExpectation::StructuralPass => unreachable!(),
+            };
+            return crate::svg_artifact_cleanup::write_svg_expected_failure_artifacts(
                 case.id,
                 case.producer(),
                 w3c_source_label(case),
                 source,
                 &xml.evidence,
                 error.to_string(),
+                expectation,
+                artifact_name,
             );
         }
         Err(error) => return Err(format!("W3C vector conversion failed: {error}")),
     };
-    if case.expectation == W3cSvgExpectation::UnsupportedProfile {
+    if matches!(
+        case.expectation,
+        W3cSvgExpectation::UnsupportedProfile | W3cSvgExpectation::ExpectedInvalidInput
+    ) {
         return Err(
             "W3C SVG fixture unexpectedly lowered despite an unsupported-profile expectation"
                 .to_owned(),
@@ -101,5 +122,6 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
         source,
         xml,
         records,
+        1.0 / 480.0,
     )
 }

@@ -1,8 +1,6 @@
 use ttf_parser::OutlineBuilder;
 
-use crate::{
-    tessellate_general_fill_with_rule, UiFontRasterizer, UiRasterTextGlyph, VectorFillRule,
-};
+use crate::{tessellate_font_fill_with_rule, UiFontRasterizer, UiRasterTextGlyph, VectorFillRule};
 
 use super::{
     types::vector_diagnostic, UiGlyphContour, UiGlyphOutline, UiGlyphOutlineDiagnostic,
@@ -38,6 +36,12 @@ impl UiFontRasterizer {
             baseline_origin[0] + positioned.pen_x * output_units_per_pixel,
             baseline_origin[1],
         ];
+        let output_scale = output_units_per_pixel * font_pixels;
+        // Keep tessellation in font-sized coordinates. Tessellating directly
+        // in tiny window-normalized coordinates makes valid joins and narrow
+        // counters sensitive to the tessellator's numerical tolerances.
+        let geometry_scale = font_pixels;
+        let geometry_tolerance = flatten_tolerance * geometry_scale / output_scale;
         let outline = self
             .outline(positioned.glyph.character)
             .map_err(|diagnostic| {
@@ -52,17 +56,29 @@ impl UiFontRasterizer {
                 )
             })?;
         let path = outline.to_vector_path(UiGlyphVectorOptions::new(
-            output_units_per_pixel * font_pixels,
-            origin,
-            flatten_tolerance,
+            geometry_scale,
+            [0.0, 0.0],
+            geometry_tolerance,
         ))?;
-        // Flattened font contours can contain shared or crossing edges even
-        // when the source outline is visually unambiguous. Even-odd fill is
-        // stable for those provider contours and keeps this recovery policy
-        // local to fonts; the general vector API remains non-zero by default.
-        tessellate_general_fill_with_rule(&path, VectorFillRule::EvenOdd).map_err(|message| {
-            vector_diagnostic(UiGlyphVectorDiagnosticKind::UnsupportedTopology, message)
-        })
+        // Font outlines use winding to distinguish additive contours from
+        // counters. Non-zero preserves filled components such as the crossbar
+        // in `A` while still leaving oppositely wound counters empty.
+        tessellate_font_fill_with_rule(&path, VectorFillRule::NonZero)
+            .map(|triangles| {
+                let output_factor = output_scale / geometry_scale;
+                triangles
+                    .into_iter()
+                    .map(|point| {
+                        [
+                            origin[0] + point[0] * output_factor,
+                            origin[1] + point[1] * output_factor,
+                        ]
+                    })
+                    .collect()
+            })
+            .map_err(|message| {
+                vector_diagnostic(UiGlyphVectorDiagnosticKind::UnsupportedTopology, message)
+            })
     }
 
     /// Extracts an unscaled, provider-neutral monochrome outline.

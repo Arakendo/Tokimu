@@ -93,6 +93,8 @@ pub fn write_glyph_artifacts(case: GlyphCase) -> Result<PathBuf, String> {
     };
     let vector_artifact = VectorArtifact {
         metadata: envelope("vector"),
+        source_bounds: None,
+        transformed_bounds: None,
         bounds: path.bounds(),
         contours: path
             .contours
@@ -106,6 +108,7 @@ pub fn write_glyph_artifacts(case: GlyphCase) -> Result<PathBuf, String> {
             })
             .collect(),
         intersections: segment_intersections(&path),
+        clips: Vec::new(),
     };
     let mesh_artifact = MeshArtifact {
         metadata: envelope("mesh"),

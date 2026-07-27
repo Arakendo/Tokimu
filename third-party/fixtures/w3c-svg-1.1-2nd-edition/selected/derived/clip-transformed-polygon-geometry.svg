@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs>
+    <clipPath id="crop" transform="translate(4 3)">
+      <polygon points="0,0 16,0 8,16" />
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="24" height="24" fill="#8bb8df"
+        clip-path="url(#crop)" />
+</svg>

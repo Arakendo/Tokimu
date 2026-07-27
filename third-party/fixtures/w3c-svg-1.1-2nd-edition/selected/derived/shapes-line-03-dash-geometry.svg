@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <path d="M 48 72 H 432" fill="none" stroke="black" stroke-width="18"
+        stroke-linecap="butt" stroke-dasharray="48 24" />
+  <path d="M 72 180 C 144 96 264 264 408 156" fill="none" stroke="black"
+        stroke-width="14" stroke-linecap="round" stroke-linejoin="round"
+        stroke-dasharray="36 18 8 18" stroke-dashoffset="12" />
+  <polyline points="72,288 168,240 264,300 408,252" fill="none" stroke="black"
+            stroke-width="12" stroke-linecap="square" stroke-linejoin="bevel"
+            stroke-dasharray="30,15" />
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived transform/stroke probe. Stroke width remains under the corpus's
+       provisional uniform normalized-width policy. -->
+  <g transform="translate(80 40) rotate(12) scale(1.5 .75)" fill="none" stroke="#3978c7" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 40,100 L 140,100 L 100,180 L 200,180"/>
+  </g>
+  <path d="M 260,80 L 360,80 L 360,180" fill="none" stroke="#d04a9b" stroke-width="6" stroke-linecap="square" stroke-linejoin="bevel" transform="skewX(-8)"/>
+</svg>

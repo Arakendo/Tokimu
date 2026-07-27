@@ -14,16 +14,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Writes durable source/XML evidence for a deliberately excluded SVG fixture.
-/// No vector or mesh artifact is invented for a profile the current admission
-/// boundary intentionally does not support.
-pub(crate) fn write_svg_profile_exclusion_artifacts(
+/// Writes durable source/XML evidence for an expected SVG boundary failure.
+/// The expectation label keeps malformed input distinct from unsupported
+/// profile content without inventing vector or mesh artifacts.
+pub(crate) fn write_svg_expected_failure_artifacts(
     case_id: &str,
     producer: &str,
     source_label: String,
     source: String,
     xml: &XmlStageEvidence,
     diagnostic: String,
+    expectation: &str,
+    artifact_name: &str,
 ) -> Result<PathBuf, String> {
     let root = PathBuf::from("target/presentation-geometry-corpus").join(case_id);
     fs::create_dir_all(&root).map_err(|error| format!("create artifact directory: {error}"))?;
@@ -38,9 +40,9 @@ pub(crate) fn write_svg_profile_exclusion_artifacts(
     }
     let input_hash = format!("fnv1a64:{:016x}", fnv1a64(source.as_bytes(), '\0'));
     let algorithms = ArtifactAlgorithms {
-        flatten: "not-run:SVG-profile-exclusion".to_owned(),
-        tessellator: "not-run:SVG-profile-exclusion".to_owned(),
-        fill_rule: "not-run:SVG-profile-exclusion".to_owned(),
+        flatten: format!("not-run:{expectation}"),
+        tessellator: format!("not-run:{expectation}"),
+        fill_rule: format!("not-run:{expectation}"),
     };
     let envelope = |artifact: &str| ArtifactEnvelope {
         schema: 1,
@@ -63,16 +65,17 @@ pub(crate) fn write_svg_profile_exclusion_artifacts(
         has_document_element: xml.has_document_element,
     };
     let profile_artifact = SvgProfileExclusionArtifact {
-        metadata: envelope("svg-profile-exclusion"),
-        expectation: "unsupported-profile".to_owned(),
+        metadata: envelope(artifact_name),
+        expectation: expectation.to_owned(),
         diagnostic,
     };
+    let failure_artifact = format!("{artifact_name}.json");
     let graph_artifact = GraphArtifact {
         metadata: envelope("graph"),
         nodes: [
             ("source", "ready", "source.svg"),
             ("xml", "ready", "xml.json"),
-            ("vector", "expected-failure", "svg-profile-exclusion.json"),
+            ("vector", "expected-failure", failure_artifact.as_str()),
             ("mesh", "expected-failure", "not-produced"),
         ]
         .into_iter()
@@ -92,7 +95,10 @@ pub(crate) fn write_svg_profile_exclusion_artifacts(
             .collect(),
     };
     write_json(&root.join("xml.json"), &xml_artifact)?;
-    write_json(&root.join("svg-profile-exclusion.json"), &profile_artifact)?;
+    write_json(
+        &root.join(format!("{artifact_name}.json")),
+        &profile_artifact,
+    )?;
     write_json(&root.join("graph.json"), &graph_artifact)?;
     fs::write(root.join("source.svg"), source)
         .map_err(|error| format!("write source.svg: {error}"))?;

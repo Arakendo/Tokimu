@@ -11,6 +11,83 @@ fn rectangle_is_one_closed_contour_with_expected_bounds() {
 }
 
 #[test]
+fn axis_aligned_clip_intersects_closed_polygon_contours() {
+    let path = VectorPath::new(vec![VectorContour::new(
+        vec![[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]],
+        true,
+    )]);
+
+    let clipped = clip_path_to_axis_aligned_rect(&path, [0.5, 0.25], [1.5, 1.75])
+        .expect("rectangle clipping should produce a contour");
+    assert_eq!(clipped.contours.len(), 1);
+    assert_eq!(clipped.bounds(), Some(([0.5, 0.25], [1.5, 1.75])));
+}
+
+#[test]
+fn axis_aligned_clip_rejects_open_contours() {
+    let path = VectorPath::new(vec![VectorContour::new(
+        vec![[0.0, 0.0], [2.0, 2.0]],
+        false,
+    )]);
+
+    let error = clip_path_to_axis_aligned_rect(&path, [0.0, 0.0], [1.0, 1.0])
+        .expect_err("open strokes require a separate clipping policy");
+    assert!(error.contains("closed polygon"));
+}
+
+#[test]
+fn axis_aligned_clip_drops_disjoint_contours_and_preserves_intersecting_ones() {
+    let path = VectorPath::new(vec![
+        VectorContour::new(
+            vec![[10.0, 10.0], [12.0, 10.0], [12.0, 12.0], [10.0, 12.0]],
+            true,
+        ),
+        VectorContour::new(vec![[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]], true),
+    ]);
+
+    let clipped = clip_path_to_axis_aligned_rect(&path, [0.5, 0.5], [1.5, 1.5])
+        .expect("disjoint contours should be discarded without failing the clip");
+    assert_eq!(clipped.contours.len(), 1);
+    assert_eq!(clipped.bounds(), Some(([0.5, 0.5], [1.5, 1.5])));
+}
+
+#[test]
+fn axis_aligned_clip_rejects_non_positive_bounds() {
+    let path = PathBuilder::new().rect([0.0, 0.0], [1.0, 1.0]).build();
+
+    let error = clip_path_to_axis_aligned_rect(&path, [1.0, 0.0], [1.0, 1.0])
+        .expect_err("zero-sized clip bounds should be rejected");
+    assert!(error.contains("finite positive bounds"));
+}
+
+#[test]
+fn convex_clip_intersects_a_triangle() {
+    let path = PathBuilder::new().rect([0.0, 0.0], [4.0, 4.0]).build();
+    let clip = VectorPath::new(vec![VectorContour::new(
+        vec![[1.0, 0.0], [4.0, 1.0], [1.0, 4.0]],
+        true,
+    )]);
+
+    let clipped = clip_path_to_convex_polygon(&path, &clip)
+        .expect("a convex polygon clip should produce finite geometry");
+    assert_eq!(clipped.contours.len(), 1);
+    assert_eq!(clipped.bounds(), Some(([1.0, 0.0], [4.0, 4.0])));
+}
+
+#[test]
+fn convex_clip_rejects_concave_clip_geometry() {
+    let path = PathBuilder::new().rect([0.0, 0.0], [4.0, 4.0]).build();
+    let clip = VectorPath::new(vec![VectorContour::new(
+        vec![[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [2.0, 2.0], [0.0, 4.0]],
+        true,
+    )]);
+
+    let error = clip_path_to_convex_polygon(&path, &clip)
+        .expect_err("concave clip geometry remains outside this bounded slice");
+    assert!(error.contains("convex polygon"));
+}
+
+#[test]
 fn rounded_rectangle_is_finite_and_closed() {
     let path = PathBuilder::new()
         .rounded_rect([-1.0, -0.5], [2.0, 1.0], 0.25)
@@ -224,6 +301,22 @@ fn simple_fill_allows_vertices_on_candidate_ear_edges() {
 }
 
 #[test]
+fn font_fill_preserves_thin_single_contours() {
+    // A slash-like glyph can be valid at font scale while falling below the
+    // robust fill tessellator's tolerance after output scaling.
+    let path = VectorPath::new(vec![VectorContour::new(
+        vec![[0.0, 0.0], [0.0015, 1.0], [0.0030, 1.0], [0.0015, 0.0]],
+        true,
+    )]);
+
+    let triangles = tessellate_font_fill_with_rule(&path, VectorFillRule::EvenOdd)
+        .expect("thin font contours should remain drawable");
+
+    assert!(!triangles.is_empty());
+    assert!(triangles.iter().flatten().all(|value| value.is_finite()));
+}
+
+#[test]
 fn general_fill_preserves_self_intersecting_font_outline_extents() {
     let points = vec![
         [0.0050781253, 0.0],
@@ -316,6 +409,110 @@ fn stroke_uses_explicit_open_and_closed_contour_state() {
 
     assert_eq!(tessellate_stroke(&open, 0.1).len(), 78);
     assert_eq!(tessellate_stroke(&closed, 0.1).len(), 24);
+}
+
+#[test]
+fn short_open_stroke_preserves_both_endpoints() {
+    let contour = VectorContour::new(vec![[0.0, 0.0], [0.1, 0.0]], false);
+    let mesh = tessellate_stroke(&contour, 0.1);
+
+    assert!(!mesh.is_empty());
+    let min_x = mesh
+        .iter()
+        .map(|vertex| vertex[0])
+        .fold(f32::INFINITY, f32::min);
+    let max_x = mesh
+        .iter()
+        .map(|vertex| vertex[0])
+        .fold(f32::NEG_INFINITY, f32::max);
+
+    assert!(
+        min_x <= -0.099,
+        "short stroke lost its first endpoint: {min_x}"
+    );
+    assert!(
+        max_x >= 0.199,
+        "short stroke lost its second endpoint: {max_x}"
+    );
+}
+
+#[test]
+fn stroke_caps_change_only_the_open_end_treatment() {
+    let contour = VectorContour::new(vec![[0.0, 0.0], [1.0, 0.0]], false);
+    let style = |cap| VectorStrokeStyle {
+        half_width: 0.1,
+        cap,
+        join: VectorStrokeJoin::Miter,
+        miter_limit: 4.0,
+    };
+
+    let butt =
+        tessellate_stroke_with_style(&contour, style(VectorStrokeCap::Butt)).expect("butt cap");
+    let round =
+        tessellate_stroke_with_style(&contour, style(VectorStrokeCap::Round)).expect("round cap");
+    let square =
+        tessellate_stroke_with_style(&contour, style(VectorStrokeCap::Square)).expect("square cap");
+
+    assert_eq!(butt.len(), 6);
+    assert_eq!(round.len(), 78);
+    assert_eq!(square.len(), 6);
+    assert!(square.iter().any(|vertex| vertex[0] < -0.099));
+    assert!(square.iter().any(|vertex| vertex[0] > 1.099));
+}
+
+#[test]
+fn connected_stroke_joins_produce_geometry() {
+    let contour = VectorContour::new(vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]], false);
+    let style = VectorStrokeStyle {
+        half_width: 0.1,
+        cap: VectorStrokeCap::Butt,
+        join: VectorStrokeJoin::Round,
+        miter_limit: 4.0,
+    };
+
+    let round = tessellate_stroke_with_style(&contour, style).expect("round join");
+    let bevel = tessellate_stroke_with_style(
+        &contour,
+        VectorStrokeStyle {
+            join: VectorStrokeJoin::Bevel,
+            ..style
+        },
+    )
+    .expect("bevel join");
+    assert!(round.len() > 6);
+    assert!(bevel.len() > 6);
+}
+
+#[test]
+fn round_join_uses_the_short_arc_for_a_right_turn() {
+    let contour = VectorContour::new(vec![[0.0, 0.0], [1.0, 0.0], [1.0, -1.0]], false);
+    let style = VectorStrokeStyle {
+        half_width: 0.1,
+        cap: VectorStrokeCap::Butt,
+        join: VectorStrokeJoin::Round,
+        miter_limit: 4.0,
+    };
+
+    let mesh = tessellate_stroke_with_style(&contour, style).expect("right-hand round join");
+    assert_eq!(mesh.len(), 30);
+}
+
+#[test]
+fn miter_limit_controls_sharp_join_extent() {
+    let contour = VectorContour::new(vec![[0.0, 0.0], [1.0, 0.0], [1.1, 0.0175]], false);
+    let style = |miter_limit| VectorStrokeStyle {
+        half_width: 0.1,
+        cap: VectorStrokeCap::Butt,
+        join: VectorStrokeJoin::Miter,
+        miter_limit,
+    };
+    let constrained = tessellate_stroke_with_style(&contour, style(0.5)).expect("low miter");
+    let extended = tessellate_stroke_with_style(&contour, style(4.0)).expect("high miter");
+
+    assert_ne!(
+        constrained, extended,
+        "miter limit did not affect the sharp join"
+    );
 }
 
 #[test]

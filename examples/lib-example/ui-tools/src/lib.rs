@@ -60,9 +60,9 @@ pub use svg::{
     parse_path, parse_svg_document_convex_fill_meshes, parse_svg_document_vector_paths,
     parse_svg_document_vector_records, parse_svg_document_vector_records_from_xml_events,
     parse_svg_document_vector_records_with_viewport,
-    parse_svg_document_vector_records_with_xml_options, tokenize_path, SvgFillRule,
-    SvgImportDiagnostic, SvgImportStage, SvgPathCommand, SvgToken, SvgVectorRecord,
-    SvgViewportSource,
+    parse_svg_document_vector_records_with_xml_options, tokenize_path, SvgColor, SvgFillRule,
+    SvgImportDiagnostic, SvgImportStage, SvgPathCommand, SvgStrokeLinecap, SvgStrokeLinejoin,
+    SvgToken, SvgVectorRecord, SvgViewportSource,
 };
 pub use text::{
     bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad,
@@ -75,10 +75,13 @@ pub use theme::{
     UiBorderScale, UiControlRole, UiElevation, UiRadiusScale, UiSpacingScale, UiSurfaceStyle,
     UiTextStyle, UiTheme,
 };
+pub(crate) use vector::tessellate_font_fill_with_rule;
 pub use vector::{
+    clip_path_to_axis_aligned_rect, clip_path_to_convex_polygon, is_convex_polygon_clip,
     tessellate_convex_fill, tessellate_general_fill, tessellate_general_fill_with_rule,
-    tessellate_path_strokes, tessellate_stroke, validate_convex_fill, PathBuilder, VectorContour,
-    VectorFillRule, VectorPath,
+    tessellate_path_strokes, tessellate_stroke, tessellate_stroke_with_style, validate_convex_fill,
+    PathBuilder, VectorContour, VectorFillRule, VectorPath, VectorStrokeCap, VectorStrokeJoin,
+    VectorStrokeStyle,
 };
 
 #[cfg(test)]
