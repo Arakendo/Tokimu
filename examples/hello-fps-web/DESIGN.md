@@ -107,9 +107,11 @@ Run the browser shell through the example's local server, not directly from
 
 - `npm start` in `examples/hello-fps-web/web` builds the TypeScript bundle,
 	starts the Rust example, and serves the shell on `http://127.0.0.1:4173`
-- the Rust process writes live frame snapshots to `web/live-frame.json`
-- the browser shell polls that file and switches from the demo preview to the
-	Rust feed as soon as the first snapshot arrives
+- the native Rust process writes a bounded `network-tools` observation envelope
+  containing its application-owned frame snapshot to `web/live-frame.json`
+- the browser shell polls that explicit file-bridge provider, validates the
+  envelope and snapshot schema, then switches from the demo preview to the
+  Rust feed as soon as the first observation arrives
 - opening `index.html` directly from disk will fail for module loading because
 	the browser treats `file://` as an isolated origin
 
@@ -119,6 +121,8 @@ This example demonstrates:
 
 - Rust owns simulation truth.
 - Browser shell consumes state.
+- The native file bridge moves an envelope; it does not grant the browser
+  authority over simulation or establish a general networking provider.
 - TypeScript does not own gameplay.
 - Presentation may evolve independently.
 - Procedural content is sufficient to validate runtime behavior.

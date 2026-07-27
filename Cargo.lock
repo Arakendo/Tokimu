@@ -533,6 +533,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gltf-corpus"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "glutin_wgl_sys"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -668,6 +677,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
+ "network-tools",
  "serde",
  "serde_json",
  "tokimu",
@@ -691,6 +701,22 @@ name = "hello-missile-command"
 version = "0.1.0"
 dependencies = [
  "tokimu",
+]
+
+[[package]]
+name = "hello-network-client-server"
+version = "0.1.0"
+dependencies = [
+ "network-tools",
+ "serde",
+]
+
+[[package]]
+name = "hello-network-loopback"
+version = "0.1.0"
+dependencies = [
+ "network-tools",
+ "serde",
 ]
 
 [[package]]
@@ -1291,6 +1317,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
+]
+
+[[package]]
+name = "network-tools"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

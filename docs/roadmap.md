@@ -341,16 +341,18 @@ Goal: prove Tokimu can grow into new presentation and transport surfaces.
       - [x] Define an OpenXR render bridge contract for stereo frame submission
       - [x] Define an OpenXR session readiness contract for backend validation
       - [ ] Wire a real runtime backend to the boundary on a supported headset
-- [~] M11 networking and transport spike — replication unit and transport seam
-  documented for native and browser targets
+- [x] M11 networking and transport spike — replication unit and transport seam
+  proven through loopback, a browser-facing observation bridge, and an
+  authoritative client/server corpus; first-party capability admission deferred
+  by AR-0004
   - Implementation plan:
     `docs/Plans/networking-and-transport.md`
   - Deliverables:
-    - [ ] Name the first replication unit concretely (commands vs snapshots vs
+    - [x] Name the first replication unit concretely (commands vs snapshots vs
       deltas) and record the choice
-    - [ ] Define a transport trait seam that native and browser backends could
-      implement, with no protocol code yet
-    - [ ] Prove the seam by serializing one replication message to bytes and
+    - [x] Define a transport trait seam that native and browser backends could
+      implement without selecting a concrete socket or browser provider
+    - [x] Prove the seam by serializing one replication message to bytes and
       back in a test
 - [~] M12 text / MUD architecture spike — text-first presentation, command
   dispatch, and transcript flow documented as an adapter over the shared core
@@ -696,8 +698,9 @@ decided ad hoc.
   chosen.
 - `tokimu-physics` — add only after one example needs engine-owned collision or
   query semantics beyond transforms, bounds, and simple overlap helpers.
-- `tokimu-net` — add only after the M11 transport trait seam is proven by the
-  serialize round-trip test.
+- `tokimu-net` — add only after a real provider or non-example application
+  proves the M11 seam needs first-party session or transport semantics; see
+  AR-0004.
 - `tokimu-script-host` — add only after a runtime-hosted execution path is
   justified beyond the existing `tokimu-ts-frontend` lowering/validation seam.
 - `tokimu-audio`, `tokimu-tools` — no current trigger; do not add until a

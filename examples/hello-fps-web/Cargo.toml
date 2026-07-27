@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
 tokimu-core = { path = "../../crates/tokimu-core" }
+network-tools = { path = "../lib-example/network-tools" }
 console_error_panic_hook.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1"

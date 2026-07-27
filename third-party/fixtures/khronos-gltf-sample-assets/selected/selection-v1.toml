@@ -1,0 +1,49 @@
+selection = "v1"
+suite = "Khronos glTF Sample Assets"
+revision = "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf"
+source_root = "../upstream"
+
+[[case]]
+id = "triangle-gltf"
+logical_model = "Triangle"
+source = "Models/Triangle/glTF/Triangle.gltf"
+dependencies = ["Models/Triangle/glTF/Triangle.bin"]
+dependency_sha256 = ["898ed7f560dca9907a80c98be57fbbc0f3a092d2e3683b964ffcfa75c549ac62"]
+capability = ["gltf-json", "external-buffer", "indexed-geometry-metadata"]
+reason = "Exercises the smallest indexed geometry source with one external binary buffer."
+expected = "source-structural-pass"
+source_sha256 = "6f4a8a1fbefbac2d0adde0800864279fd98c3f119077380e6840810ed62b6cfc"
+
+[[case]]
+id = "box-glb"
+logical_model = "Box"
+source = "Models/Box/glTF-Binary/Box.glb"
+dependencies = []
+dependency_sha256 = []
+capability = ["glb-container", "json-chunk", "binary-chunk", "mesh-metadata", "material-metadata"]
+reason = "Exercises GLB v2 framing with JSON and embedded BIN chunks using one mesh and material."
+expected = "source-structural-pass"
+source_sha256 = "ed52f7192b8311d700ac0ce80644e3852cd01537e4d62241b9acba023da3d54e"
+
+[[case]]
+id = "box-textured-gltf"
+logical_model = "BoxTextured"
+source = "Models/BoxTextured/glTF/BoxTextured.gltf"
+dependencies = [
+    "Models/BoxTextured/glTF/BoxTextured0.bin",
+    "Models/BoxTextured/glTF/CesiumLogoFlat.png",
+]
+dependency_sha256 = [
+    "2e8c0483fa6665c686ec345f89dcbb2a694a587442584d09f8a83a59633327bc",
+    "9c22b05c5b136d03c5621a8765e50a8322be6c35b9de53e9fe22685840d7f469",
+]
+capability = [
+    "gltf-json",
+    "external-buffer",
+    "texcoord-0",
+    "external-image-reference",
+    "material-metadata",
+]
+reason = "Exercises FLOAT VEC2 TEXCOORD_0 decoding while retaining image and material references as source evidence."
+expected = "source-structural-pass"
+source_sha256 = "1e9003a4a2a8822ff60da529357bd8e4dec4a59b1a479017993e7e2ad5fcebef"

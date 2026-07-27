@@ -1,5 +1,5 @@
 import { createHudElements, renderHud } from "./hud.js";
-import type { FpsFrameSnapshot } from "./protocol.js";
+import { decodeFpsFrameEnvelope, type FpsFrameSnapshot } from "./protocol.js";
 
 const demoFrame: FpsFrameSnapshot = {
   frame: 0,
@@ -55,7 +55,7 @@ export function bootstrapHelloFpsWeb(): void {
         return;
       }
 
-      const snapshot = (await response.json()) as FpsFrameSnapshot;
+      const snapshot = decodeFpsFrameEnvelope(await response.json());
       publishFrame(snapshot);
     } catch {
       // Keep the demo preview running until the Rust process publishes a frame.

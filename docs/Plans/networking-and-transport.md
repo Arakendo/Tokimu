@@ -2,9 +2,15 @@
 
 ## Status
 
-Proposed. M6.5 documented the ownership boundary; M11 now needs one concrete
-replication unit, one provider-neutral transport seam, and one byte-level
-round-trip proof.
+Complete. M6.5 documented the ownership boundary; M11 now has one concrete
+replication unit, one provider-neutral transport seam, one byte-level
+round-trip proof, ordered delivery policy, and a second browser-facing caller.
+AR-0004 records the resulting decision: retain `network-tools` as example-side
+incubation and defer first-party networking admission until a real provider or
+non-example consumer supplies the missing lifecycle and authority evidence.
+The completed spike also has follow-on `hello-network-client-server` evidence:
+application-defined client input is validated by an authoritative example
+server before it changes local simulation state.
 
 ## Purpose
 
@@ -35,9 +41,11 @@ in-memory loopback mechanism
 decode, validate, and deliver to an application-owned consumer
 ```
 
-This is the first replication proof, not the final networking model. Commands,
-events, state deltas, authoritative correction, prediction, rollback, and
-unreliable delivery remain future message kinds or separate review questions.
+This is the first replication proof, not the final networking model.
+`hello-network-client-server` adds a narrowly scoped `client_input` message to
+prove local server-side validation before simulation changes. Events, state
+deltas, authoritative correction, prediction, rollback, and unreliable
+delivery remain future message kinds or separate review questions.
 
 ## Motivation And Existing Evidence
 
@@ -292,169 +300,169 @@ Do not create `tokimu-net` solely to complete this plan.
 
 Deliverables:
 
-- [ ] Record the existing `hello-fps-web` snapshot fields, serialization path,
+- [x] Record the existing `hello-fps-web` snapshot fields, serialization path,
   cadence, and browser consumption behavior.
-- [ ] Identify which fields are simulation observations and which are
+- [x] Identify which fields are simulation observations and which are
   presentation-only.
-- [ ] Record native and browser constraints without selecting a real network
+- [x] Record native and browser constraints without selecting a real network
   library.
-- [ ] Confirm the first unit as an application-owned observation snapshot.
+- [x] Confirm the first unit as an application-owned observation snapshot.
 
 Acceptance criteria:
 
-- [ ] The baseline identifies one bounded payload with no renderer or platform
+- [x] The baseline identifies one bounded payload with no renderer or platform
   handles.
-- [ ] The document distinguishes observation, replication, transport, codec,
+- [x] The document distinguishes observation, replication, transport, codec,
   and application behavior.
-- [ ] No real socket or browser mechanism is needed to complete the baseline.
+- [x] No real socket or browser mechanism is needed to complete the baseline.
 
 ### Slice 1: Add The Envelope And Codec
 
 Deliverables:
 
-- [ ] Create `examples/lib-example/network-tools`.
-- [ ] Define protocol version, schema identity, sequence, message kind, and
+- [x] Create `examples/lib-example/network-tools`.
+- [x] Define protocol version, schema identity, sequence, message kind, and
   bounded payload.
-- [ ] Add one explicit codec for the proof.
-- [ ] Add maximum frame and payload limits.
-- [ ] Add structured errors for malformed data, unsupported versions, unknown
+- [x] Add one explicit codec for the proof.
+- [x] Add maximum frame and payload limits.
+- [x] Add structured errors for malformed data, unsupported versions, unknown
   message kinds, and exceeded limits.
 
 Acceptance criteria:
 
-- [ ] One observation payload encodes and decodes exactly.
-- [ ] Unsupported protocol and schema versions fail explicitly.
-- [ ] Truncated, oversized, and malformed frames cannot panic.
-- [ ] Codec types do not perform I/O or depend on platform APIs.
-- [ ] Application payload fields do not enter the transport trait.
+- [x] One observation payload encodes and decodes exactly.
+- [x] Unsupported protocol and schema versions fail explicitly.
+- [x] Truncated, oversized, and malformed frames cannot panic.
+- [x] Codec types do not perform I/O or depend on platform APIs.
+- [x] Application payload fields do not enter the transport trait.
 
 ### Slice 2: Add In-Memory Loopback Transport
 
 Deliverables:
 
-- [ ] Implement a bounded in-memory loopback provider.
-- [ ] Preserve frame boundaries.
-- [ ] Define empty receive behavior.
-- [ ] Define queue-full, closed, and injected-failure behavior.
-- [ ] Keep loopback selection explicit in diagnostics.
+- [x] Implement a bounded in-memory loopback provider.
+- [x] Preserve frame boundaries.
+- [x] Define empty receive behavior.
+- [x] Define queue-full, closed, and injected-failure behavior.
+- [x] Keep loopback selection explicit in diagnostics.
 
 Acceptance criteria:
 
-- [ ] A framed envelope survives send and receive byte-for-byte.
-- [ ] Multiple frames preserve documented queue order.
-- [ ] Queue limits and closure produce structured transport errors.
-- [ ] The provider knows nothing about snapshots or application schemas.
-- [ ] Repeated setup and shutdown leave no hidden global state.
+- [x] A framed envelope survives send and receive byte-for-byte.
+- [x] Multiple frames preserve documented queue order.
+- [x] Queue limits and closure produce structured transport errors.
+- [x] The provider knows nothing about snapshots or application schemas.
+- [x] Repeated setup and shutdown leave no hidden global state.
 
 ### Slice 3: Build `hello-network-loopback`
 
 Deliverables:
 
-- [ ] Create a focused example with one sender and one receiver.
-- [ ] Produce one observation snapshot from application-owned state.
-- [ ] Encode, send, receive, decode, and compare it.
-- [ ] Print protocol, schema, sequence, byte count, and selected provider.
-- [ ] Demonstrate one malformed or unsupported frame diagnostic.
+- [x] Create a focused example with one sender and one receiver.
+- [x] Produce one observation snapshot from application-owned state.
+- [x] Encode, send, receive, decode, and compare it.
+- [x] Print protocol, schema, sequence, byte count, and selected provider.
+- [x] Demonstrate one malformed or unsupported frame diagnostic.
 
 Acceptance criteria:
 
-- [ ] The example completes one end-to-end round trip.
-- [ ] The received snapshot exactly matches the sent semantic values.
-- [ ] No renderer, window, filesystem, or live network is required.
-- [ ] The receiver does not mutate a `World`.
-- [ ] Failure output identifies the owning stage: encode, transport, decode, or
+- [x] The example completes one end-to-end round trip.
+- [x] The received snapshot exactly matches the sent semantic values.
+- [x] No renderer, window, filesystem, or live network is required.
+- [x] The receiver does not mutate a `World`.
+- [x] Failure output identifies the owning stage: encode, transport, decode, or
   application validation.
 
 ### Slice 4: Prove Ordered Observation Delivery
 
 Deliverables:
 
-- [ ] Send a bounded sequence of snapshots.
-- [ ] Detect duplicate, stale, skipped, and out-of-order sequence numbers.
-- [ ] Keep sequence policy separate from transport mechanics.
-- [ ] Record whether each condition is accepted, ignored, or diagnosed.
+- [x] Send a bounded sequence of snapshots.
+- [x] Detect duplicate, stale, skipped, and out-of-order sequence numbers.
+- [x] Keep sequence policy separate from transport mechanics.
+- [x] Record whether each condition is accepted, ignored, or diagnosed.
 
 Acceptance criteria:
 
-- [ ] Ordered input produces ordered application observations.
-- [ ] Every abnormal sequence condition has deterministic behavior.
-- [ ] Sequence handling does not imply reliable delivery guarantees that the
+- [x] Ordered input produces ordered application observations.
+- [x] Every abnormal sequence condition has deterministic behavior.
+- [x] Sequence handling does not imply reliable delivery guarantees that the
   transport contract does not make.
-- [ ] Diagnostics identify schema and sequence without dumping unbounded
+- [x] Diagnostics identify schema and sequence without dumping unbounded
   payload data.
 
 ### Slice 5: Adapt `hello-fps-web`
 
 Deliverables:
 
-- [ ] Replace duplicate envelope/framing logic with `network-tools`.
-- [ ] Keep `FpsFrameSnapshot` application-owned.
-- [ ] Keep the current file/browser bridge as an explicit example provider or
+- [x] Replace duplicate envelope/framing logic with `network-tools`.
+- [x] Keep `FpsFrameSnapshot` application-owned.
+- [x] Keep the current file/browser bridge as an explicit example provider or
   replace it with an equally bounded local bridge.
-- [ ] Generate or validate the TypeScript snapshot contract from one recorded
+- [x] Generate or validate the TypeScript snapshot contract from one recorded
   schema boundary, without moving simulation to TypeScript.
-- [ ] Preserve the existing browser presentation behavior.
+- [x] Preserve the existing browser presentation behavior.
 
 Acceptance criteria:
 
-- [ ] Rust remains the owner of FPS simulation truth.
-- [ ] Browser TypeScript consumes observations and does not become an
+- [x] Rust remains the owner of FPS simulation truth.
+- [x] Browser TypeScript consumes observations and does not become an
   authoritative simulation.
-- [ ] The same encoded envelope can pass through loopback and the browser bridge.
-- [ ] The provider can change without changing `FpsFrameSnapshot`.
-- [ ] Browser unavailability does not alter native simulation behavior.
+- [x] The same encoded envelope can pass through loopback and the browser bridge.
+- [x] The provider can change without changing `FpsFrameSnapshot`.
+- [x] Browser unavailability does not alter native simulation behavior.
 
 ### Slice 6: Review Native And Browser Transport Constraints
 
 Deliverables:
 
-- [ ] Compare WebSocket, WebTransport, and one native-capable mechanism at the
+- [x] Compare WebSocket, WebTransport, and one native-capable mechanism at the
   contract level.
-- [ ] Record push/callback versus poll/queue adaptation.
-- [ ] Record reliable/unreliable, binary/text, backpressure, lifecycle, and
+- [x] Record push/callback versus poll/queue adaptation.
+- [x] Record reliable/unreliable, binary/text, backpressure, lifecycle, and
   security-context differences.
-- [ ] Decide whether the candidate `Transport` trait survives both target
+- [x] Decide whether the candidate `Transport` trait survives both target
   shapes.
-- [ ] Avoid adding a real dependency unless one mechanism is needed by a
+- [x] Avoid adding a real dependency unless one mechanism is needed by a
   runnable proof.
 
 Acceptance criteria:
 
-- [ ] The semantic contract can be implemented by both native and browser
+- [x] The semantic contract can be implemented by both native and browser
   adapters without target-specific types leaking upward.
-- [ ] Unsupported target features are discoverable and diagnostic.
-- [ ] The comparison does not claim unreliable delivery where the selected
+- [x] Unsupported target features are discoverable and diagnostic.
+- [x] The comparison does not claim unreliable delivery where the selected
   browser mechanism cannot provide it.
-- [ ] No browser-specific runtime fork is introduced.
+- [x] No browser-specific runtime fork is introduced.
 
 ### Slice 7: Admission Review
 
 Deliverables:
 
-- [ ] Record whether envelope, codec, sequence, and transport meanings are
+- [x] Record whether envelope, codec, sequence, and transport meanings are
   genuinely shared by two callers.
-- [ ] Record what remains application-specific.
-- [ ] Decide whether `network-tools` remains example-side or justifies a
+- [x] Record what remains application-specific.
+- [x] Decide whether `network-tools` remains example-side or justifies a
   first-party networking capability.
-- [ ] Compare the observed networking pipeline with publishing, replay, file,
+- [x] Compare the observed networking pipeline with publishing, replay, file,
   and diagnostic artifact pipelines without assuming they share an
   implementation.
-- [ ] Record whether any apparent movement/envelope convergence is contractual
+- [x] Record whether any apparent movement/envelope convergence is contractual
   evidence or only structural similarity.
-- [ ] Open an Architectural Review before creating `tokimu-net`.
-- [ ] Open a separate Architectural Review before admitting a generic envelope
+- [x] Open an Architectural Review before creating `tokimu-net`.
+- [x] Open a separate Architectural Review before admitting a generic envelope
   or movement capability.
-- [ ] Update the roadmap and SDD with observed behavior only.
+- [x] Update the roadmap and SDD with observed behavior only.
 
 Acceptance criteria:
 
-- [ ] Every proposed public contract has at least two concrete callers.
-- [ ] No codec or transport provider is mistaken for replication semantics.
-- [ ] The review names authority, mutation, and delivery questions still
+- [x] Every proposed public contract has at least two concrete callers.
+- [x] No codec or transport provider is mistaken for replication semantics.
+- [x] The review names authority, mutation, and delivery questions still
   deferred.
-- [ ] Any cross-domain movement finding names at least two independent
+- [x] Any cross-domain movement finding names at least two independent
   consumers and the exact guarantees they share.
-- [ ] Crate extraction is a separate deliberate decision.
+- [x] Crate extraction is a separate deliberate decision.
 
 ## Failure Semantics
 

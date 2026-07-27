@@ -1962,8 +1962,10 @@ Acceptance criteria:
 ### M11 — Networking and Transport Architecture Spike
 
 * remote simulation requirements documented
-* transport abstraction seam chosen
-* browser and native constraints reviewed together
+* an example-side transport abstraction seam proven with bounded loopback
+  frames and an independent browser-facing observation bridge
+* browser and native constraints reviewed together without choosing a socket,
+  browser transport, or async runtime
 
 Acceptance criteria:
 
@@ -1973,6 +1975,21 @@ Acceptance criteria:
   whether that becomes commands, events, snapshots, state deltas, or a hybrid.
 * A likely future direction for native and browser-capable transport support is
   identified without binding the engine to premature protocol decisions.
+
+Observed spike result:
+
+* The first replication unit is an application-owned, versioned, sequenced
+  observation snapshot. `examples/lib-example/network-tools` incubates only
+  bounded envelope, codec, sequence, and framed-byte transport semantics.
+* `hello-network-loopback`, `hello-network-client-server`, and `hello-fps-web`
+  are independent example callers. The client/server corpus proves
+  application-defined `client_input` messages are validated and applied only by
+  a fixed-step authoritative server before sequenced observations return to
+  clients. The FPS file bridge is an explicit local provider; browser TypeScript
+  validates and presents observations without owning simulation truth.
+* `tokimu-net` admission is deferred by AR-0004 until a real provider or
+  non-example consumer establishes session, authority, lifecycle, and public
+  transport requirements.
 
 ### M12 — Text / MUD Architecture Spike
 
@@ -2130,11 +2147,14 @@ These are active design questions, not silent deferrals:
 18. Networking authority model. If Tokimu grows remote simulation, should the
   first architecture assume authoritative host, deterministic lockstep,
   snapshot interpolation, rollback, or another hybrid?
-19. Transport surface. What is the narrowest Tokimu-owned transport abstraction
-  that can span native and browser-capable environments without leaking a
-  specific networking library everywhere?
-20. Replication unit. What engine-level meaning should cross the wire first:
-  player commands, signals, world diffs, snapshots, or some mixed model?
+19. Transport surface. The M11 spike incubates a polling framed-byte transport
+  seam that browser callbacks and native readiness mechanisms can adapt through
+  provider-owned bounded queues. Whether that is the final public transport API
+  remains open pending a real provider; see AR-0004.
+20. Replication unit. The first spike uses an application-owned observation
+  snapshot with version, schema identity, sequence, message kind, and bounded
+  payload. Commands, signals, world diffs, authority, and mixed replication
+  models remain separate future decisions.
 21. Input abstraction shape. What is the smallest Tokimu-owned action and axis
   model that cleanly spans keyboard, mouse, controllers, joysticks, and later
   VR/XR inputs without collapsing into device-specific special cases?

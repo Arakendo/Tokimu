@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokimu::{
     App, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome, Instance2d,
     KeyCode, Material, MaterialHandle, Mesh, MeshHandle, MouseButton, Pipeline, PipelineHandle,
@@ -195,41 +195,59 @@ impl HelloFpsWebApp {
         self.render_scene()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn native_frame_snapshot(&self) -> NativeFrameSnapshot {
+        NativeFrameSnapshot {
+            frame: self.frame_index,
+            elapsed_seconds: self.app.elapsed_seconds(),
+            player: NativePlayerSnapshot {
+                x: self.camera_position.x,
+                y: self.camera_position.y,
+                z: self.camera_position.z,
+                yaw: self.yaw,
+                pitch: self.pitch,
+            },
+            hud: NativeHudSnapshot {
+                score: self.score,
+                wave: self.wave + 1,
+                targets: self.targets.iter().filter(|target| target.active).count() as u32,
+                projectiles: self
+                    .projectiles
+                    .iter()
+                    .filter(|projectile| projectile.active)
+                    .count() as u32,
+                status: if self.fire_requested {
+                    "fire requested".to_string()
+                } else {
+                    "running".to_string()
+                },
+            },
+        }
+    }
+
     fn publish_frame_snapshot(&self) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let snapshot = NativeFrameSnapshot {
-                frame: self.frame_index,
-                elapsed_seconds: self.app.elapsed_seconds(),
-                player: NativePlayerSnapshot {
-                    x: self.camera_position.x,
-                    y: self.camera_position.y,
-                    z: self.camera_position.z,
-                    yaw: self.yaw,
-                    pitch: self.pitch,
-                },
-                hud: NativeHudSnapshot {
-                    score: self.score,
-                    wave: self.wave + 1,
-                    targets: self.targets.iter().filter(|target| target.active).count() as u32,
-                    projectiles: self
-                        .projectiles
-                        .iter()
-                        .filter(|projectile| projectile.active)
-                        .count() as u32,
-                    status: if self.fire_requested {
-                        "fire requested".to_string()
-                    } else {
-                        "running".to_string()
-                    },
-                },
-            };
-
             let snapshot_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("web")
                 .join("live-frame.json");
-            if let Ok(serialized) = serde_json::to_string(&snapshot) {
-                let _ = std::fs::write(snapshot_path, serialized);
+            let schema =
+                network_tools::SchemaIdentity::new(FPS_FRAME_SCHEMA_ID, FPS_FRAME_SCHEMA_VERSION);
+            let codec = network_tools::JsonEnvelopeCodec::new(schema.clone());
+            let snapshot = self.native_frame_snapshot();
+            let result =
+                network_tools::encode_payload(&snapshot, network_tools::DEFAULT_PAYLOAD_LIMIT)
+                    .map(|payload| {
+                        network_tools::ReplicationEnvelope::observation(
+                            schema,
+                            snapshot.frame as u64,
+                            payload,
+                        )
+                    })
+                    .and_then(|envelope| codec.encode(&envelope));
+
+            if let Ok(frame) = result {
+                let _ = std::fs::write(snapshot_path, frame);
             }
         }
 
@@ -885,7 +903,13 @@ struct ProjectileSlot {
     active: bool,
 }
 
-#[derive(Serialize)]
+#[cfg(not(target_arch = "wasm32"))]
+const FPS_FRAME_SCHEMA_ID: &str = "tokimu.example.fps-frame-snapshot";
+#[cfg(not(target_arch = "wasm32"))]
+const FPS_FRAME_SCHEMA_VERSION: u16 = 1;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeFrameSnapshot {
     frame: u32,
@@ -894,7 +918,8 @@ struct NativeFrameSnapshot {
     hud: NativeHudSnapshot,
 }
 
-#[derive(Serialize)]
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativePlayerSnapshot {
     x: f32,
@@ -904,7 +929,8 @@ struct NativePlayerSnapshot {
     pitch: f32,
 }
 
-#[derive(Serialize)]
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeHudSnapshot {
     score: u32,
@@ -912,4 +938,54 @@ struct NativeHudSnapshot {
     targets: u32,
     projectiles: u32,
     status: String,
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use network_tools::{
+        decode_payload, encode_payload, JsonEnvelopeCodec, LoopbackTransport, ReplicationEnvelope,
+        SchemaIdentity, Transport, DEFAULT_PAYLOAD_LIMIT,
+    };
+
+    #[test]
+    fn fps_snapshot_round_trips_through_the_neutral_envelope() {
+        let snapshot = NativeFrameSnapshot {
+            frame: 7,
+            elapsed_seconds: 1.25,
+            player: NativePlayerSnapshot {
+                x: 1.0,
+                y: 2.0,
+                z: 3.0,
+                yaw: 0.25,
+                pitch: -0.5,
+            },
+            hud: NativeHudSnapshot {
+                score: 900,
+                wave: 3,
+                targets: 4,
+                projectiles: 2,
+                status: "running".to_owned(),
+            },
+        };
+        let schema = SchemaIdentity::new(FPS_FRAME_SCHEMA_ID, FPS_FRAME_SCHEMA_VERSION);
+        let codec = JsonEnvelopeCodec::new(schema.clone());
+        let payload = encode_payload(&snapshot, DEFAULT_PAYLOAD_LIMIT).expect("payload encodes");
+        let envelope = ReplicationEnvelope::observation(schema, snapshot.frame as u64, payload);
+        let mut transport = LoopbackTransport::new(1);
+
+        transport
+            .send(&codec.encode(&envelope).expect("envelope encodes"))
+            .expect("loopback sends");
+        let frame = transport
+            .try_receive()
+            .expect("loopback receives")
+            .expect("frame is queued");
+        let decoded = codec.decode(&frame).expect("envelope decodes");
+        let recovered: NativeFrameSnapshot =
+            decode_payload(&decoded.payload, DEFAULT_PAYLOAD_LIMIT).expect("payload decodes");
+
+        assert_eq!(decoded.sequence, snapshot.frame as u64);
+        assert_eq!(recovered, snapshot);
+    }
 }

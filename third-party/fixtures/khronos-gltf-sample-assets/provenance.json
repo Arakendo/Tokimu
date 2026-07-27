@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "source": {
+    "repository": "https://github.com/KhronosGroup/glTF-Sample-Assets.git",
+    "revision": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+    "branch_at_selection": "main",
+    "retrieved_utc": "2026-07-27"
+  },
+  "layout": {
+    "upstream": "upstream/",
+    "selection": "selected/selection-v1.toml",
+    "feature_matrix": "selected/feature-matrix.md"
+  },
+  "acquisition": "Selected model subtrees and required license texts are copied verbatim from the pinned revision; the complete upstream repository is not vendored.",
+  "validation_boundary": {
+    "authoritative": "container, JSON, external-resource, structural summary, and selected primitive-accessor artifacts",
+    "not_yet_claimed": [
+      "canonical model lowering",
+      "Tokimu mesh creation",
+      "material lowering",
+      "renderer submission",
+      "visual equivalence",
+      "complete glTF conformance"
+    ]
+  }
+}

@@ -157,3 +157,6 @@ across unrelated decisions.
   — Accepted; resulted in ADR-0006
 - [AR-0003: XML Document Boundary](AR-0003-xml-document-boundary.md)
   — Incubating
+- [AR-0004: Networking Transport Seam](AR-0004-networking-transport-seam.md)
+  — Deferred; bounded observation transport remains example-side until a real
+  provider or non-example consumer proves capability admission

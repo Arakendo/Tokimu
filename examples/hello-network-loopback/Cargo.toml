@@ -1,0 +1,11 @@
+[package]
+name = "hello-network-loopback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+network-tools = { path = "../lib-example/network-tools" }
+serde.workspace = true
+
