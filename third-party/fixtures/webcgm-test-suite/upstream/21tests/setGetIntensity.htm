@@ -1,0 +1,173 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setGetIntensity
+Version: $Version$
+Creator: Forrest Carpenter
+Description: tests intensity (picture and APS level)
+
+Source: WebCGM 2.1 5.7.5 and 5.7.6
+Revision History:
+2008-09-01 PH Initial Version
+2009-02-04 PH Changed script type to text/ecmascript
+2009-03-03 PH Changed reference CGM file.
+2009-04-20 PH Fixed HTML errors
+
+    
+-->
+<html>
+
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<title>Intensity Test Page</title>
+<script type="text/ecmascript">
+
+
+function test1() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s1");
+    try {
+      cgmPic.setStyleProperty("intensity","50%");
+    } 
+    catch (t1) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t1;
+    }
+    document.getElementById("i2").disabled = false;
+  } 
+  catch (e1) {
+    var n = document.getElementById("s1");
+    n.style.color = "#FF0000";
+    document.getElementById("s1").firstChild.nodeValue = "Failed, test not executed! Error: " + e1;
+  }
+}
+
+function test2() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s2");
+    try {
+      var v = cgmPic.getStyleProperty("intensity");
+    } 
+    catch (t2) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t2;
+    }
+    document.getElementById("i3").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e2) {
+    var n = document.getElementById("s2");
+    n.style.color = "#FF0000";
+    document.getElementById("s2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2;
+  }
+}
+
+function test3() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s3");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      gr.setStyleProperty("intensity","20%");
+    } 
+    catch (t3) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t3;
+    }
+    document.getElementById("i4").disabled = false;
+  } 
+  catch (e3) {
+    var n = document.getElementById("s3");
+    n.style.color = "#FF0000";
+    document.getElementById("s3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3;
+  }
+}
+
+function test4() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s4");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      var v = gr.getStyleProperty("intensity");
+    } 
+    catch (t4) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t4;
+    }
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e4) {
+    var n = document.getElementById("s4");
+    n.style.color = "#FF0000";
+    document.getElementById("s4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4;
+  }
+}
+
+
+
+</script>
+</head>
+<body
+   onload="document.getElementById('ivx1').getWebCGMDocument().src='style.cgm';">
+   <h1>Property Intensity Test Page</h1>
+<table border="1" rules="cols">
+    <tr style="text-align:center;">
+        <th>Source image</th>
+        <th>Reference image</th>
+    </tr>
+    <tr>
+        <td><object id="ivx1"
+            type="image/cgm;Version=4;ProfileId=WebCGM" width="360"
+	    height="360"></object></td>
+      <td><img src="style.png" alt="reference image"></td>
+    </tr>
+</table>
+
+<table border="1">
+    <caption><em>Test results</em></caption>
+    <tr>
+        <td>Test</td>
+        <td>Purpose</td>
+        <td>Test Result</td>
+        <td>Comments</td>
+    </tr>
+    <tr>
+      <td><input id="i1" type="button" value="Start 1"
+            name="btn1" onClick="test1()"></td>
+	<td>Set Picture Intensity</td>
+        <td id="s1">NA</td>
+	<td>Passed if all the objects in the picture intensities change to 50%.</td>
+    </tr>
+    <tr>
+        <td><input id="i2" disabled type="button" value="Start 2"
+            name="btn2" onClick="test2()"></td>
+	<td>Get Picture Intensity</td>
+        <td id="s2">NA</td>
+	<td>Passed if test result is 50.</td>
+    </tr>
+    <tr>
+      <td><input id="i3" disabled type="button" value="Start 3"
+	  name="btn3" onClick="test3()"></td>
+      <td>Set APS Intensity</td>
+      <td id="s3">NA</td>
+      <td>Passed if only the objects in the right side of picture intensities change to 20%.</td>
+    </tr>
+    <tr>
+      <td><input id="i4" disabled type="button" value="Start 4"
+	  name="btn4" onClick="test4()"></td>
+	<td>Get APS Intensity</td>
+      <td id="s4">NA</td>
+	<td>Passed if test result is 20%.</td>
+    </tr>
+ 
+
+</table>
+
+</body>
+</html>

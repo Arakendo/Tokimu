@@ -1,0 +1,492 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: AppStructure-linkuri
+Version: $Version$
+Creator: Frank
+Description: This test evaluates getting and setting of
+             linkuri at the AppStructure level.
+Source: WebCGM 2.0 5.7.6
+Revision History:
+2006-19-05 RB 
+    improved linkuri parameters.
+--><!-- AppStructure-linkuri.htm -->
+<!-- modified: rb, 050510: improved linkuri parameters -->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>AppStructure, linkuri Test Page</title>
+<script type="text/ecmascript">
+
+    //function that compares linkuri strings
+    function samelinkuri(lki1, lki2)
+    {   
+        var delim1 = lki1.substr(0,1);
+        var delim2 = lki2.substring(0,1);
+
+        //alert("delim1 " +delim1);
+        
+        var idx1beg = 0;
+        var idx2beg = 0;
+        
+        for (i = 0; i < 3; i++)
+        {
+            //alert("loop " + i + " " + idx1beg);
+            var idx1end = lki1.indexOf(delim1,idx1beg+1);
+            var idx2end = lki2.indexOf(delim2,idx2beg+1);
+            //alert(idx1end);
+
+
+            var temp1 = lki1.substring(idx1beg+1,idx1end);
+            idx1beg = idx1end+2;
+            var temp2 = lki2.substring(idx2beg+1,idx2end);
+            idx2beg = idx2end+2;
+
+
+            //alert("lki1: " + temp1 + "/ lki2: " + temp2);
+            
+            if (temp1 != temp2)
+            {
+                return false;
+            }
+        }
+        //alert("truecmp");
+        return true;
+    }
+
+
+
+
+    //predefined APS with ID plane_3
+    var APS_ID =  "plane_3";
+
+    //get the linkuri value of the predefined APS
+    function test1()
+    {   
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_1");
+            result.style.color = "#00A000";
+
+            try
+            {
+                var aps = cgmPic.getAppStructureById(APS_ID);
+                var lki = aps.getAppStructureAttr("linkuri");
+                                
+                //CONDITION A REVOIR
+                if (lki != " ")
+                {
+                    result.firstChild.nodeValue = "Passed! -- linkuri is " + lki;
+                }
+                else
+                {
+                    result.style.color = "#FFA000";
+                    throw "APS without linkuri";
+                }
+            }
+            catch(t1)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t1;
+            }
+            document.getElementById("i2").disabled = false;
+        }
+        catch(e)
+        {
+            var n = document.getElementById("_1");
+            n.style.color = "#FF0000";
+            document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+
+    //set a new value to the linkuri of the APS (all are predefined)
+    function test2()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_2");
+            try
+            {
+                var aps = cgmPic.getAppStructureById(APS_ID);
+                var lastlki = aps.getAppStructureAttr("linkuri");
+                // CHANGE, rb, 050510: a URI paramter has to contain 3 strings (see 3.2.2.2)
+                var newlki = "'http://www.w3c.org' '' '_blank'";
+                aps.setAppStructureAttr("linkuri",newlki);
+
+                var get_lki = aps.getAppStructureAttr("linkuri");
+
+                result.style.color = "#00A000";
+                
+                if(samelinkuri(get_lki,newlki))
+                {
+                    result.firstChild.nodeValue = "Passed! get: " + get_lki + "set: " + newlki;
+                }
+                else
+                {
+                    result.style.color = "#FFA000";
+                    result.firstChild.nodeValue = "The function 'setAppStructureAttr' doesn't work, linkuri has the value " + get_lki + " instead of " + newlki;
+                }
+            }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+            document.getElementById("i3").disabled = false;
+        }
+        catch(e2)
+        {
+            var n = document.getElementById("_2");
+            n.style.color = "#FF0000";
+            document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2.description;
+        }
+    }
+        
+    
+
+    //set a new value to the linkuri of APS - the user enter this new value
+    //active the box and the Entry button
+    function test3()
+    {
+        //document.getElementById("text3").disabled = false;
+
+        document.getElementById("text3_delimiter").disabled = false;
+        document.getElementById("text3_uri").disabled = false;
+        document.getElementById("text3_title").disabled = false;
+        document.getElementById("text3_behavior").disabled = false;
+        document.getElementById("i3bis").disabled = false;
+    }
+
+    var global_new_lki;
+
+    //is activated when the user click on Entry button
+    function test3bis()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+
+            //var newlki = document.getElementById("text3").value;
+            var new_delimiter = document.getElementById("text3_delimiter").value;
+            var new_uri = document.getElementById("text3_uri").value;
+            var new_title = document.getElementById("text3_title").value;
+            var new_behavior = document.getElementById("text3_behavior").value;
+            
+            var result = document.getElementById("_3");
+
+            //compare2linkuri("'toto' 'tata' 'tutu'",'"toto" "" ""');
+
+            if (new_uri == "")
+            {
+                alert("uri value is mandatory");
+                return;
+            }
+            else
+            {
+                var newlki = new_delimiter + new_uri + new_delimiter + " " 
+                        + new_delimiter + new_title + new_delimiter + " " 
+                        + new_delimiter + new_behavior + new_delimiter;
+            }
+
+            global_new_lki = newlki;
+
+            //alert("newlki " + newlki);
+            
+            result.style.color = "#00A000";
+            
+            //result.firstChild.nodeValue = "test " + newlki;
+
+
+            try
+            {
+                var aps = cgmPic.getAppStructureById(APS_ID);
+                aps.setAppStructureAttr("linkuri",newlki);
+
+                
+                var get_lki = aps.getAppStructureAttr("linkuri");
+                
+                //alert("get_lki " + get_lki);
+                if(samelinkuri(get_lki,newlki))
+                {
+                    result.firstChild.nodeValue = "Passed! " + get_lki;
+                }
+                else
+                {
+                    result.style.color = "#FFA000";
+                    result.firstChild.nodeValue = "The function 'setAppStructureAttr' doesn't work, linkuri has the value: " + get_lki + " instead of "+ newlki;
+                }
+            }
+            catch(t3)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t3;
+            }
+            document.getElementById("i4").disabled = false;
+        }
+        catch(e3)
+        {
+            var n = document.getElementById("_3");
+            n.style.color = "#FF0000";
+            document.getElementById("_3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3.description;
+        }
+    }
+
+    //get the new linkuri value that have been written in the previous function
+    function test4()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_4");
+            result.style.color = "#00A000";
+
+            try
+            {
+                var aps = cgmPic.getAppStructureById(APS_ID);
+                var lki = aps.getAppStructureAttr("linkuri");
+                //CONDITION A REVOIR
+                if (lki != "")
+                {
+                    //alert(global_new_lki + lki);
+    
+    
+                    if (samelinkuri(lki,global_new_lki))
+                    {
+                        result.firstChild.nodeValue = "Passed! value: " + lki;
+                    }
+                    else
+                    {
+                        result.style.color = "#FFA000";
+                        result.firstChild.nodeValue = "The function 'getAppStructureAttr' works, but linkuri does not have the correct value: " + global_new_lki + " but " + lki;
+                    }
+                }
+                else
+                {
+                    throw "APS without linkuri";
+                }
+            }
+            catch(t4)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+            document.getElementById("i5").disabled = false;
+        }
+        catch(e4)
+        {
+            var n = document.getElementById("_4");
+            n.style.color = "#FF0000";
+            document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4.description;
+        }
+    }
+
+<!-- Benoit, 2005-07-04, adding a test to query the linkuri count -->
+    //get linkuri count
+    function test5()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_5");
+            result.style.color = "#00A000";
+
+            try
+            {
+                var aps = cgmPic.getAppStructureById(APS_ID);
+                result.firstChild.nodeValue = aps.linkuriCount;
+                result.style.color = "#FFA200";
+            }
+            catch(t5)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t5;
+            }
+            document.getElementById("i6").disabled = false;
+        }
+        catch(e5)
+        {
+            var n = document.getElementById("_5");
+            n.style.color = "#FF0000";
+            document.getElementById("_5").firstChild.nodeValue = "Failed, test not executed! Error: " + e5.description;
+        }
+    }
+
+    //remove linkuri of APS
+    function test6()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_6");
+            result.style.color = "#00A000";
+
+            try
+            {
+                var aps = cgmPic.getAppStructureById(APS_ID);
+                var lki_nb_before = aps.linkuriCount;
+                aps.removeAppStructureAttr("linkuri");
+
+                if (lki_nb_before > aps.linkuriCount)
+                {
+                    result.firstChild.nodeValue = "Passed!";
+                }
+                //var rlki = aps.getAppStructureAttr("linkuri");
+                //if (rlki != "")
+                //{
+                //  result.firstChild.nodeValue = "The test is bad, linkuri hasn't been removed!!";
+                //}
+                else
+                {
+                    result.firstChild.nodeValue = "Passed!";
+                }
+            }
+            catch(t6)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t6;
+            }
+        }
+        catch(e6)
+        {
+            var n = document.getElementById("_6");
+            n.style.color = "#FF0000";
+            document.getElementById("_6").firstChild.nodeValue = "Failed, test not executed! Error: " + e6.description;
+        }
+    }
+
+
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'AppStructure-linkuri.cgm';">
+    <h1>AppStructure, linkuri Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <!-- classid="CLSID:865B2280-2B71-11D1-BC01-006097AC382A" -->
+
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="AppStructure-linkuri.png">
+        </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td><input type="button" value="Start 1" name="btn1"
+        onclick="test1()"></td>
+
+        <td>get initial 'linkuri' value:</td>
+
+        <td id="_1">NA</td>
+
+        <td>This test returns the value of the first linkuri of the
+        predefined APS</td>
+      </tr>
+
+      <tr>
+        <td><input id="i2" disabled type="button" value="Start 2"
+        name="btn2" onclick="test2()"></td>
+
+        <td>set the new value 'http://www.w3c.org' to
+        'linkuri':</td>
+
+        <td id="_2">NA</td>
+
+        <td>The predefined APS linkuri has the new predefined value
+        'http://www.w3c.org' '' '_blank'</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" disabled type="button" value="Start 3"
+        name="btn3" onclick="test3()"></td>
+
+        <td>set a new value for 'linkuri':<br>
+        delimiter (' or ") : <input id="text3_delimiter" type=
+        "text" disabled><br>
+        uri: <input id="text3_uri" type="text" disabled><br>
+        title (possibly null): <input id="text3_title" type="text"
+        disabled><br>
+        behavior (possibly null): <input id="text3_behavior" type=
+        "text" disabled><br>
+        <input id="i3bis" disabled type="button" value="Entry"
+        onclick="test3bis()"></td>
+
+        <td id="_3">NA</td>
+
+        <td>The predefined APS linkuri has the new value written in
+        the text box</td>
+      </tr>
+
+      <tr>
+        <td><input id="i4" disabled type="button" value="Start 4"
+        name="btn4" onclick="test4()"></td>
+
+        <td>get new linkuri value:</td>
+
+        <td id="_4">NA</td>
+
+        <td>The returned linkuri has to be the linkuri that has
+        been written in the Test3</td>
+      </tr>
+
+      <tr>
+        <td><input id="i5" disabled type="button" value="Start 5"
+        name="btn5" onclick="test5()"></td>
+
+        <td>shows the linkuriCount:</td>
+
+        <td id="_5">NA</td>
+
+        <td>Should be the number of linkuri attributes that were
+        entered.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i6" disabled type="button" value="Start 6"
+        name="btn6" onclick="test6()"></td>
+
+        <td>remove the first 'linkuri' attribute:</td>
+
+        <td id="_6">NA</td>
+
+        <td>The default APS has no longuer its first linkuri
+        attribute</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

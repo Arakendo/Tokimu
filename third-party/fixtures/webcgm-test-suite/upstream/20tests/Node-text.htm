@@ -1,0 +1,457 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: Node-text
+Version: $Version$
+Creator:  Lofton Henderson
+Date:  31 August 2005
+Credits:  based on Node-metadata (Benoit).
+Description: This is a WebCGM DOM Test of WebCGMNode "text" node type.
+Notes:
+   Text nodes can only occur within Metadata nodes, i.e., within
+   private namespace elements defined in an XML Companion File.  
+Source: WebCGM 2.0 5.7.4
+Revision History:
+-->
+
+<html>
+  <!--
+      Author:   Lofton Henderson
+      Created:  31 August 2005
+      Credits:  based on Node-metadata (Benoit).
+      Revised:  
+          (first version)
+
+      Notes:
+          Text nodes can only occur within Metadata nodes, i.e., within
+          private namespace elements defined in an XML Companion File.        
+    -->
+
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>Text node Test Page</title>
+<script type="text/ecmascript">
+function OnBtnDOM()
+  {
+    try
+    {
+      // open the CGM for the test (via <object> element).
+      document.getElementById('ivx1').getWebCGMDocument().src= 'node-text.cgm';
+
+      var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+      var cgmPic  = cgmDoc.firstPicture;
+
+      var result  = document.getElementById("_0");
+      result.style.color = "#00A000";
+
+      cgmPic.applyCompanionFile("node-text.xml");
+
+/* ++++++++++ Prequisite tests -- find metadata node, verify children ++++++++++ */
+      try
+      {
+        var grndParentNode = cgmPic.getAppStructureById("elem1");
+        var metadataNode = grndParentNode.lastChild;
+        if( metadataNode.nodeType == 3 && metadataNode.nodeName == "test:elem" )
+        {
+          if( metadataNode.hasChildNodes() == true && metadataNode.childNodes.count == 3 )
+          {
+            result.firstChild.nodeValue = "Passed!";
+          }
+          else
+          {
+            throw "error finding children of metadata node.";
+          }
+        }
+        else
+        {
+          throw "failed to locate metadata node parent of text nodes.";
+        }
+      }
+      catch(t1)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t1;
+      }
+
+/* ++++++++++ Test 1 -- nodeName, nodeType, nodeValue ++++++++++++++++++++++ */
+
+      var result  = document.getElementById("_1");
+      result.style.color = "#00A000";
+
+      try
+      {
+        // First child of metadata node should be "Text before anchor" text node.
+        var textNode = metadataNode.firstChild;
+        if( textNode.nodeType == 4 )
+        {
+          if( textNode.nodeName == "#text" )
+          {
+            if( textNode.nodeValue == "Text before anchor" )
+          {
+            result.firstChild.nodeValue = "Passed!";
+          }
+          else
+          {
+            throw "wrong nodeValue";
+          }
+          }
+          else
+          {
+            throw "wrong nodeName";
+          }
+        }
+        else
+        {
+          throw "wrong nodeType";
+        }
+      }
+      catch(t1)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t1;
+      }
+
+
+/* ++++++++++ Test 2 -- parentNode, ownerPicture +++++++++++++++++++++++++++++++ */
+
+      result    = document.getElementById("_2");
+      result.style.color = "#00A000";
+      try
+      {
+        if( metadataNode == metadataNode.firstChild.parentNode )
+        {
+          if( cgmDoc.firstPicture == metadataNode.firstChild.ownerPicture )
+          {
+            result.firstChild.nodeValue = "Passed!";
+          }
+          else
+          {
+            throw "wrong ownerPicture";
+          }
+        }
+        else
+        {
+          throw "wrong parentNode";
+        }
+      }
+      catch(t2)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t2;
+      }
+
+
+
+/* ++++++++++ Test 3 -- hasChildNodes(), childNodes ++++++++++++++++++++++++++ */
+
+      result    = document.getElementById("_3");
+      result.style.color = "#00A000";
+      try
+      {
+        if( textNode.hasChildNodes() == false )
+        {
+          if( textNode.childNodes === null )
+          {
+            result.firstChild.nodeValue = "Passed!";
+          }
+          else
+          {
+            throw "wrong childNodes, should be null";
+          }
+        }
+        else
+        {
+          throw "wrong hasChildNodes(), should be false";
+        }
+      }
+      catch(t3)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t3;
+      }
+
+
+/* ++++++++++ Test 4 -- firstChild, lastChild +++++++++++++++++++++++++++++++ */
+
+      result    = document.getElementById("_4");
+      result.style.color = "#00A000";
+      try
+      {
+        if( textNode.hasChildNodes() == false )
+        {
+          if( textNode.firstChild === null )
+          {
+            if( textNode.lastChild === null )
+            {
+                  result.firstChild.nodeValue = "Passed!";
+            }
+            else
+                {
+              throw "wrong lastChild, should be null";
+            }
+          }
+          else
+          {
+            throw "wrong firstChild, should be null";
+          }
+        }
+        else
+        {
+          throw "wrong hasChildNodes(), should be false";
+        }
+      }
+      catch(t4)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t4;
+      }
+
+
+/* ++++++++++ Test 5 -- previousSibling, nextSibling +++++++++++++++++++++++++++++++ */
+
+      result    = document.getElementById("_5");
+      result.style.color = "#00A000";
+      try
+      {
+        var textNode2 = metadataNode.lastChild;
+        if( textNode.nextSibling.nodeName == "test:a" )
+        {
+          if( textNode2.previousSibling.nodeName == "test:a" )
+          {
+        result.firstChild.nodeValue = "Passed!";
+          }
+          else
+          {
+            throw "wrong previousSibling";
+          }
+        }
+        else
+        {
+          throw "wrong nextSibling";
+        }
+      }
+      // We should consider adding a test that 
+      // textNode.previousSibling==null and textNode2.nextSibling==null.
+      catch(t5)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t5;
+      }
+
+
+/* ++++++++++ Test 6 -- hasAttributes(), attributes +++++++++++++++++++++++++++++++ */
+
+      result    = document.getElementById("_6");
+      result.style.color = "#00A000";
+      try
+      {
+        if( textNode.hasAttributes() == false )
+        {
+          if( textNode.attributes === null )
+          {
+        result.firstChild.nodeValue = "Passed!";
+          }
+          else
+          {
+            throw "wrong attributes, must be null";
+          }
+        }
+        else
+        {
+          throw "wrong hasAttributes(), must be false";
+        }
+      }
+      catch(t6)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t6;
+      }
+
+
+/* ++++++++++ Test 7 -- namespaceURI, prefix, localName ++++++++++++++++++++ */
+
+      result    = document.getElementById("_7");
+      result.style.color = "#00A000";
+      try
+      {
+        if( textNode.namespaceURI == "" )
+        {
+          if( textNode.localName == "" )
+          {
+            if( textNode.prefix == "" )
+            {
+              result.firstChild.nodeValue = "Passed!";
+            }
+            else
+            {
+              throw "wrong prefix, must be empty string";
+            }
+          }
+          else
+          {
+            throw "wrong localName, must be empty string";
+          }
+        }
+        else
+        {
+          throw "wrong namespaceURI, must be empty string";
+        }
+      }
+      catch(t7)
+      {
+        result.style.color = "#FF0000";
+        result.firstChild.nodeValue = "Failed! Error: " + t7;
+      }
+    }
+    catch(e)
+    {
+      var n = document.getElementById("_0");
+      n.style.color = "#FF0000";
+      document.getElementById("_0").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+    }
+  }
+</script>
+  </head>
+
+  <body onload="OnBtnDOM();">
+    <!-- 
+    Moved the metafile open into OnBtnDom, to trap any on-open exception...
+    <body onload="document.getElementById('ivx1').getWebCGMDocument().src= 'node-text.cgm'; OnBtnDOM();">
+    -->
+
+    <h1>Text Node Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="node-text.png"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>Prerequisite for Text Node tests</td>
+
+        <td id="_0">NA</td>
+
+        <td>Successfully locate the metadata node that is parent of
+        the text nodes, verify it has 3 children. See <a href=
+        "#note-1">Note 1</a>.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>nodeName, nodeType, nodeValue:</td>
+
+        <td id="_1">NA</td>
+
+        <td>Test is looking for nodeName of '#text', nodeType of
+        '4' and nodeValue of 'Text before anchor'.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>parentNode, ownerPicture:</td>
+
+        <td id="_2">NA</td>
+
+        <td>.ownerPicture on first Text Node should be same object
+        as WebCGMMetafile.firstPicture.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>hasChildNodes, childNodes:</td>
+
+        <td id="_3">NA</td>
+
+        <td>For any Text Node, hasChildNodes() must be false and
+        childNodes must be null/empty (which one?).</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>firstChild, lastChild:</td>
+
+        <td id="_4">NA</td>
+
+        <td>For any Text Node, firstChild and lastChild must
+        null.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>previousSibling, nextSibling:</td>
+
+        <td id="_5">NA</td>
+
+        <td>Test nextSibling of 1st Text Node and previousSibling
+        of last Text Node.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>hasAttributes, attributes:</td>
+
+        <td id="_6">NA</td>
+
+        <td>For any Text Node, hasAttributes() must be false and
+        attributes must be null/empty (which one?).</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>namespaceURI, prefix, localName:</td>
+
+        <td id="_7">NA</td>
+
+        <td>Two different namespaces are used in this test.</td>
+      </tr>
+    </table>
+
+    <p><a id="note-1" name="note-1"><strong>Note 1.</strong></a>
+    Text nodes can only be the children of metadata nodes.
+    Therefore the first test is a "prerequisites test", to verify
+    that the metadata node can be located and that it has the
+    correct number of children, three. (The children are a text
+    node, followed by a metadata node sibling, followed by another
+    text node sibling -- this is <em>not</em> tested in the
+    prerequisites test). If this prerequisites test fails, then all
+    the remaining tests will likely fail.</p>
+
+    <p></p>
+  </body>
+</html>
+

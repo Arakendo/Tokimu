@@ -1,0 +1,5 @@
+<webcgm id="root-cgm" version="2.0" filename="transformXCF.cgm" xmlns="http://www.cgmopen.org/schema/webcgm/" >
+  <grobject apsid="arrow1" translate="50.0 0.0 replace" />
+  <grobject apsid="arrow2" rotate="90 20 50 replace" />
+  <grobject apsid="arrow3" scale="3 1 10 30 replace" />
+</webcgm>

@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Language" content="en-us">
+<title>otherAPS-para-BE-02</title>
+<link rel="prev" href="otherAPS-para-BE-01-dyn.html">
+<link rel="next" href="otherAPS-para-BE-02-dyn.html">
+<link rel="child" href="toc-para-BE-02-dyn.html">
+<link rel="contents" href="otherAPS-para-DT-02-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     --></style>
+</head>
+<body>
+<div class="navbar" align="center"><p>
+<a target="_top" href="otherAPS-para-BE-01-dyn.html">previous</a> &nbsp;<a target="_top" href="otherAPS-para-BE-02-dyn.html">next</a> &nbsp;<a target="_top" href="otherAPS-para-BE-02-dyn.html">parent</a> &nbsp;<a target="_top" href="otherAPS-para-BE-02-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p></div>
+<p>Test Purpose: Test basic correct viewer handling of 'para' APS
+and associated attributes, as link target from other WebCGM content.</p>
+<p>
+This is a companion test to otherAPS-para-BE-01 -- the same content
+files are used, but their roles are reversed.
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+These are labelled respectively &quot;first object&quot;, &quot;second object&quot;, 
+and &quot;third object&quot;.
+    </p>
+<p>
+The magenta rectangle (&quot;first object&quot;) contains a hyperlink 
+to another local, one-picture WebCGM instance, containing
+two para objects (this is the root file of otherAPS-para-BE-01).
+The 'linkuri' identifies the blue 'para' by id, and contains no
+object behavior parameters.
+The red triangle (&quot;third object&quot;) contains a hyperlink 
+to the same local, one-picture WebCGM instance, and identifies
+the green 'para' by id.
+This 'linkuri' contains the object behavior parameter,
+&quot;view_context&quot;.
+    </p>
+<p>
+Clicking anywhere over the magenta rectangle (&quot;first object&quot;)
+should cause the target WebCGM instance to be displayed in 
+the right-hand frame, in a full picture view with the blue
+'para' object highlighted.  The primitives themselves should
+be highlighted.
+    </p>
+<p>
+Clicking anywhere over the red triangle (&quot;third object&quot;)
+should cause the target WebCGM instance to be displayed in 
+the right-hand frame, in a zoomed view with the green
+'para' object highlighted.  The dotted rectangle labelled
+&quot;viewcontext&quot; should fill the display frame, and the 
+dashed rectangle labelled &quot;region&quot; should be highlighted.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of the 
+target PNG image which should appear in the right-hand frame upon
+activating the &quot;first object&quot; (magenta rectangle) link in the WebCGM 
+source instance.  There should be no
+significant visual deviation between the reference image of the left
+frame and the view in the right frame after link activation, 
+except for the method of object highlighting. 
+The reference image shows one valid method -- each of the text strings
+comprising the para object is outlined in red. 
+Any other visual highlighting method -- e.g., changing the 
+color of the whole object -- would be equally acceptable. 
+    </p>
+<p>
+The portion of the PNG reference image within the dotted &quot;viewcontext&quot;
+rectangle should fill the display frame for the hyperlink aimed at the
+green para.  The highlighting of the blue 'para' would be off, and
+there would be highlighting corresponding to the dashed &quot;region&quot; 
+rectangle.
+    </p>
+<p>
+You may be able to use the browser &quot;Back&quot; and &quot;Forward&quot; 
+buttons to go back and forth between the target WebCGM 
+picture the source HTML text in the right-hand frame. 
+This latter normal browser behavior 
+is not part of the WebCGM standard, and it is not a pass/fail 
+criterion for WebCGM viewers for this test.
+If it doesn't work, use &quot;Reload&quot; or &quot;Refresh&quot; between link
+executions, or go the table of contents and back.
+Also note that this pair of tests (this one and its BE-01 companion) 
+are cross linked.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

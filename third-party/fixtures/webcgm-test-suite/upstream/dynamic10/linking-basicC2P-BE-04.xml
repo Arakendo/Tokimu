@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- linking-basicC2P-BE-04.xml                                            --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         linking-basicC2P-BE-04.                                       --><!--                                                                       --><!-- Author : Lofton Henderson, 20-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  20-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="linking" focus="basicC2P" rootType="cgm" testType="BE" BENumber="04">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="linking" focus="basicC2C" BENumber="03"/>
+  
+   <Next category="linking" focus="selectId" BENumber="05"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="circ-rect">.cgm</srcFile>
+    
+      <dstFile cgmType="">-target.png</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test a basic CGM-to-PNG link, from a Application Structure with 
+'linkuri' APS Attribute within the CGM, to a whole PNG file, with 
+no behaviors or fragments associated with the link.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id precedence="first">picbehav-other</ta-id>
+         <ta-id>picbehav-default-to-html</ta-id>
+         <ta-id>picbehav-self-to-html</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display a 
+CGM containing a simple picture with a blue-filled square
+on the left and a green-filled circle on the right, both with thick
+black borders.  The circle is contained within an Application Structure, with id
+value of "myObjId".  The APS contains a single APS Attribute of type
+'linkuri', whose first parameter points to a local PNG file, and whose
+2nd and 3rd parameters are null.
+    </Paragraph>
+    
+      <Paragraph>
+To execute the hyperlink, move the mouse anywhere over the circle and
+click the left mouse button.
+Because there is no "picture behavior" on the link-bearing object in the
+CGM instance, correct viewer handling of the link will result in image of the 
+target PNG file replacing the CGM picture
+in the right-hand frame.  This is the default WebCGM picture behavior.  
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the target PNG image and the source CGM picture
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </Paragraph>
+    
+      <Paragraph>
+Viewers are required to give visual feedback to the user that a successful 
+pick has occurred, and an indication of the particular object which has 
+been picked. The exact method of feedback is viewer dependent.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of the 
+target PNG image which should appear in the right-hand frame upon
+activating the link in the WebCGM source instance.  There should be no
+significant visual deviation between the reference image of the left
+frame and the view in the right frame after link activation.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

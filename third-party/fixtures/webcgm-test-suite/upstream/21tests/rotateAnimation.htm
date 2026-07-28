@@ -1,0 +1,139 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: AppStructure Transformation: Rotation Animation
+Version: $Version$
+Creator: Ulrich Laesche
+Description: This test shows the rotation animation at the Appliction Structure level.
+Source: WebCGM 2.1 - Sections 5.2.6, 5.7.1.3
+Revision History:
+	2009-01-30 UL Initial Version
+	2009-02-01 Alik Bars Calls to the viewer added
+	2009-02-05 Airat Khasanov Adding of timer sequences
+	2009-04-05 UL Correction of semantic HTML errors
+	2009-10-14 Forrest Carpenter (SDI): Correction of "Initial Rotation" and "Get Transform" values
+	2009-10-20 LH -- fixed rotateAnimation..cgm to rotateAnimation.cgm
+-->
+
+<html> <head> <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebCGM2.1, Rotation Animation Test</title>
+<script type="text/ecmascript">
+
+function init()
+{
+	document.getElementById('id1').getWebCGMDocument().src='rotateAnimation.cgm';
+}
+
+var repeat;
+var position = 0;
+
+function startAnimation() {
+	repeat = 14;
+	rotate('id1','0','181.7','46.0','replace');
+	animate();
+}
+
+function animate() {
+	rotate('id1','-5','181.7','46.0','combine');
+	repeat--;
+	if(repeat > 0) 
+		setTimeout("animate()", 30);
+	position = 1;
+}
+
+function rotate(aps, angle, rx, ry, type)
+{
+	var cgmDoc = document.getElementById(aps).getWebCGMDocument();
+	var cgmPic = cgmDoc.firstPicture;
+	var obj = cgmPic.getAppStructureById("THROTTLE");
+	try
+	{
+		obj.rotate(angle, rx, ry, type);
+	}
+	catch(e)
+	{
+		alert("It seems method 'rotate' is not implemented yet in CGM viewer.");
+		return;
+	}
+}
+
+function compareMatrix(m1, m2) {
+	var c = m1.split(" ");
+	return (Math.abs(c[0] - m2.a) < 0.01 && 
+	Math.abs(c[1] - m2.b) < 0.01 && 
+	Math.abs(c[2] - m2.c) < 0.01 && 
+	Math.abs(c[3] - m2.d) < 0.01 && 
+	Math.abs(c[4] - m2.e) < 0.01 && 
+	Math.abs(c[5] - m2.f) < 0.01);
+}
+
+function getTransform(aps, res_id, type)
+{
+	var matrix_final = "0.34 -0.94 0.94 0.34 76.33 201.01";
+	var matrix_init = "1 0 0 1 0 0";
+	var ref_matrix = position == 0? matrix_init:matrix_final;
+	var matrix;
+
+	var result = document.getElementById(res_id);
+
+	var cgmDoc = document.getElementById(aps).getWebCGMDocument();
+	var cgmPic = cgmDoc.firstPicture;
+	var obj = cgmPic.getAppStructureById("THROTTLE");
+
+	try
+	{
+		matrix = obj.getTransform("local");
+	}
+	catch(e)
+	{
+		alert("It seems method 'getTransform' is not implemented yet in CGM viewer.");
+		result.style.color = "#FF0000";
+		result.firstChild.nodeValue = "Not Implemented!";
+		return;
+	}
+
+	if(compareMatrix(ref_matrix, matrix))
+	{
+		result.style.color = "#00A000";
+		result.firstChild.nodeValue = "Passed!";
+	}
+	else
+	{
+		result.style.color = "#FF0000";
+		result.firstChild.nodeValue = "Failed!";
+	}
+}
+</script>
+</head>
+
+<body onload="init()">
+
+<h1>WebCGM2.1, Rotation Animation Test</h1>
+
+<object id="id1" type="image/cgm;Version=4;ProfileId=WebCGM" width="700" height="450"></object>
+
+<table border="1">
+<tr>
+<td>Test Description</td>
+</tr>
+
+<tr>
+<td>When clicking on the "Start Animation" button, the "THROTTLE" object should gradually rotate from left to right around the center of the "CONSOLE" plate, and stop when having reached a total rotation angle of 70 degrees.  A subsequent click on the "Get Transform" button should show the result "Passed".</td>
+</tr>
+</table>
+
+<table border="1">
+<tr>
+<td>Run Test</td>
+<td>Get Transform</td>
+<td>Test Result</td>
+</tr>
+
+<tr>
+<td><input id="i1" type="button" value="Start Animation" name="btn21"  onclick="startAnimation()"></td>
+<td><input id="i2" type="button" value="Get Transform" name="btn22" onclick="getTransform('id1','r1','combine')"></td>
+<td id="r1">Fail/Success</td>
+</tr>
+</table>
+
+</body>
+</html>

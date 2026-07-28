@@ -1,0 +1,59 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: aciEdgeAttr
+Version: $Version$
+Creator: Don Larson
+Description: test edgeCap, edgeJoin and edgeTypeCont metafile default
+
+Source: WebCGM 2.1 9.6
+Revision History:
+2008-09-01 DL Initial Version
+2009-02-05 DL Updated
+2009-09-02 DL revised test comments
+2010-02-16 DL removed edge type continuation    
+2010-03-27 DL html-text clarification
+    
+-->
+
+<html>
+
+<head>
+<title>aciEdgeAttr Test Page</title>
+<script language="JavaScript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciEdgeAttr.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciEdgeAttr Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="540" height="540"></object>
+    </td>
+    <td><img id="reference" src="aciEdgeAttr.png"></img>
+    </td>
+  </tr>
+</table>
+
+<p>This test uses the ACI file to define the viewer default values of the Edge Join attribute. As in the reference image, the first line of the CGM is rendered per ACI-specified defaults of bevel for Edge Join. The second line of the CGM is rendered after explicit setting of attributes in the CGM body, Edge Join to round.</p></body>
+</html>
+
+
+

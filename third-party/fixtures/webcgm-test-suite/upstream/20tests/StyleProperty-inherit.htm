@@ -1,0 +1,417 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: StyleProperty-inherit
+Version: $Version$
+Creator: Stuart Galt
+Description: Test Page for setting style property functions 
+         and how they interact with various settings of 
+         the inherit property.
+Source: WebCGM 2.0 5.7.5
+Revision History:
+--><!--
+WebCGMNodeList test page
+@author Stuart Galt 
+@date $Date: 2005/07/26 22:05:48 $
+@version $Revision: 1.1 $
+--><!--
+Test Page for setting style property functions 
+and how they interact with various settings of 
+the inherit property.
+
+
+-->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>StyleProperties-Inherit Test Page</title>
+<script type="text/ecmascript">
+
+function setOneStyle( res, style, val, obj) {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var apObj = cgmPic.getAppStructureByID(obj);
+    apObj.setStyleProperty(style, val);
+  } catch(e) {
+    var n = document.getElementById(res);
+    n.style.color = "#FF0000";
+    document.getElementById(res).firstChild.nodeValue = "Failed, test not executed! Error: " + e;
+  }
+}
+
+function resetStyle(s) {
+  var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+  var cgmPic = cgmDoc.firstPicture;
+  var apA = cgmPic.getAppStructureByID("A");
+  var apB = cgmPic.getAppStructureByID("B");
+  var apC = cgmPic.getAppStructureByID("C");
+  var apD = cgmPic.getAppStructureByID("D");
+  apA.setStyleProperty(style, 'inherit');
+  apB.setStyleProperty(style, 'inherit');
+  apC.setStyleProperty(style, 'inherit');
+  apD.setStyleProperty(style, 'inherit');
+}
+
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src='StyleProperty-inherit.cgm';">
+    <h1>StyleProperties-Inherit Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object></td>
+
+        <td><img id="reference" src="StyleProperty-inherit.png">
+        </td>
+      </tr>
+    </table>
+
+    <table width="680" border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td width="100">Initiate Test</td>
+
+        <td width="140">Purpose</td>
+
+        <td width="70">Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+    </table>
+
+    <div style=
+    "overflow:auto;width:700px; height:300px; table-layout:fixed;">
+      <table border="1" width="680">
+        <tr>
+          <td><input type="button" value="reset" onclick=
+          "location.reload()"></td>
+
+          <td colspan="3" align="center"><b>Style Property = Text
+          Size</b></td>
+        </tr>
+
+        <tr>
+          <td width="100"><input type="button" value="A_125"
+          onclick="setOneStyle('_1','text-size','125%','A')"></td>
+
+          <td width="140">set A 125%</td>
+
+          <td width="70" id="_1">NA</td>
+
+          <td>Passed if all 4 letters 125% size.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_200" onclick=
+          "setOneStyle('_2','text-size','200%','C')"></td>
+
+          <td>Set C 200%</td>
+
+          <td id="_2">NA</td>
+
+          <td>Passed if C and D are 200% size.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="D_80" onclick=
+          "setOneStyle('_3','text-size','80%','D')"></td>
+
+          <td>Set D 80%</td>
+
+          <td id="_3">NA</td>
+
+          <td>Passed if D is 80% size.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_inherit" onclick=
+          "setOneStyle('_4','text-size','inherit','C')"></td>
+
+          <td>Set C inherit</td>
+
+          <td id="_4">NA</td>
+
+          <td>Passed if all C becomes 125% size D stays 80%.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="reset" onclick=
+          "location.reload()"></td>
+
+          <td colspan="3" align="center"><b>Style Property = Fill
+          Color</b></td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="A_red" onclick=
+          "setOneStyle('_1','fill-color','#FF0000','A')"></td>
+
+          <td>set A red</td>
+
+          <td id="_1">NA</td>
+
+          <td>Passed if all 4 turn red.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_blue" onclick=
+          "setOneStyle('_2','fill-color','#0000FF','C')"></td>
+
+          <td>Set C blue</td>
+
+          <td id="_2">NA</td>
+
+          <td>Passed if C and D turn blue.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="D_yellow" onclick=
+          "setOneStyle('_3','fill-color','#FFFF00','D')"></td>
+
+          <td>Set D yellow</td>
+
+          <td id="_3">NA</td>
+
+          <td>Passed if D turns yellow.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_inherit" onclick=
+          "setOneStyle('_4','fill-color','inherit','C')"></td>
+
+          <td>Set C inherit</td>
+
+          <td id="_4">NA</td>
+
+          <td>Passed if all C turns red D stays yellow.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="reset" onclick=
+          "location.reload()"></td>
+
+          <td colspan="3" align="center"><b>Style Property =
+          Intensity</b></td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="A_20" onclick=
+          "setOneStyle('_1','intensity','20%','A')"></td>
+
+          <td>set A red</td>
+
+          <td id="_1">NA</td>
+
+          <td>Passed if all intensity 20%.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_80" onclick=
+          "setOneStyle('_2','intensity','90%','C')"></td>
+
+          <td>Set C blue</td>
+
+          <td id="_2">NA</td>
+
+          <td>Passed if C and D intensity is 80%.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="D_50" onclick=
+          "setOneStyle('_3','intensity','50%','D')"></td>
+
+          <td>Set D yellow</td>
+
+          <td id="_3">NA</td>
+
+          <td>Passed if D intensity is 50%.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_inherit" onclick=
+          "setOneStyle('_4','intensity','inherit','C')"></td>
+
+          <td>Set C inherit</td>
+
+          <td id="_4">NA</td>
+
+          <td>Passed if all C intensity is 20% and D remains
+          50%.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="reset" onclick=
+          "location.reload()"></td>
+
+          <td colspan="3" align="center"><b>Style Property = Stroke
+          Color</b></td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="A_red" onclick=
+          "setOneStyle('_1','stroke-color','#FF0000','A')"></td>
+
+          <td>set A red</td>
+
+          <td id="_1">NA</td>
+
+          <td>Passed if all 4 turn red.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_blue" onclick=
+          "setOneStyle('_2','stroke-color','#0000FF','C')"></td>
+
+          <td>Set C blue</td>
+
+          <td id="_2">NA</td>
+
+          <td>Passed if C and D turn blue.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="D_yellow" onclick=
+          "setOneStyle('_3','stroke-color','#FFFF00','D')"></td>
+
+          <td>Set D yellow</td>
+
+          <td id="_3">NA</td>
+
+          <td>Passed if D turns yellow.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_inherit" onclick=
+          "setOneStyle('_4','stroke-color','inherit','C')"></td>
+
+          <td>Set C inherit</td>
+
+          <td id="_4">NA</td>
+
+          <td>Passed if all C turns red D stays yellow.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="reset" onclick=
+          "location.reload()"></td>
+
+          <td colspan="3" align="center"><b>Style Property = Stroke
+          Weight</b></td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="A_2" onclick=
+          "setOneStyle('_1','stroke-weight','2','A')"></td>
+
+          <td>set A to 2</td>
+
+          <td id="_1">NA</td>
+
+          <td>Passed if all circles stroke width is 2.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_5" onclick=
+          "setOneStyle('_2','stroke-weight','5','C')"></td>
+
+          <td>Set C to 5</td>
+
+          <td id="_2">NA</td>
+
+          <td>Passed if C and D stroke width 5.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="D_1" onclick=
+          "setOneStyle('_3','stroke-weight','1','D')"></td>
+
+          <td>Set D 50</td>
+
+          <td id="_3">NA</td>
+
+          <td>Passed if D stroke width 1.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_inherit" onclick=
+          "setOneStyle('_4','stroke-weight','inherit','C')"></td>
+
+          <td>Set C inherit</td>
+
+          <td id="_4">NA</td>
+
+          <td>Passed if all C stroke width is 2 and D remains
+          1.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="reset" onclick=
+          "location.reload()"></td>
+
+          <td colspan="3" align="center"><b>Style Property = Text
+          Color</b></td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="A_red" onclick=
+          "setOneStyle('_1','text-color','#FF0000','A')"></td>
+
+          <td>set A red</td>
+
+          <td id="_1">NA</td>
+
+          <td>Passed if all 4 turn red.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_blue" onclick=
+          "setOneStyle('_2','text-color','#0000FF','C')"></td>
+
+          <td>Set C blue</td>
+
+          <td id="_2">NA</td>
+
+          <td>Passed if C and D turn blue.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="D_yellow" onclick=
+          "setOneStyle('_3','text-color','#FFFF00','D')"></td>
+
+          <td>Set D yellow</td>
+
+          <td id="_3">NA</td>
+
+          <td>Passed if D turns yellow.</td>
+        </tr>
+
+        <tr>
+          <td><input type="button" value="C_inherit" onclick=
+          "setOneStyle('_4','text-color','inherit','C')"></td>
+
+          <td>Set C inherit</td>
+
+          <td id="_4">NA</td>
+
+          <td>Passed if all C turns red D stays yellow.</td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
+

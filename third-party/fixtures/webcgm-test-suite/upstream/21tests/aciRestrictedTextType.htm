@@ -1,0 +1,54 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: RestrictedTextType
+Version: $Version$
+Creator: Don Larson
+Description: test restrTextType metafile default
+
+Source: WebCGM 2.1 9.3.2.1 
+
+Revision History:
+2009-02-05 DL Initial version
+2009-09-02 DL revised test comments
+
+-->
+
+<html>
+<head>
+<title>aciRestrictedTextType Test Page</title>
+<script type="text/ecmascript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciRestrictedTextType.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciRestrictedTextType Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="400" height="360"></object>
+    </td>
+    <td><img id="reference" src="aciRestrictedTextType.png" alt="aciRestrictedTextType.png">
+    </td>
+  </tr>
+</table>
+
+<p>This test uses the ACI file to modify the default (Basic) restricted text type. The CGM file displayed on the left contains 2 restricted text elements. The text at the top is defaulted and the other at the bottom is explicitly set to Boxed-Cap. The image on the right shows the CGM rendered with the Metafile default. The CGM should have default restricted text type set to Boxed-Cap thus making both Restricted Text elements Boxed-Cap.
+</p></body>
+</html>

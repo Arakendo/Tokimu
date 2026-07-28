@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- behavior-picTargetC2H-BE-04.xml                                       --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         behavior-picTargetC2H-BE-04.                                  --><!--                                                                       --><!-- Author : Lofton Henderson, 24-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  24-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="behavior" focus="picTargetC2H" rootType="cgm" testType="BE" BENumber="04">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="behavior" focus="picBlankC2H" BENumber="03"/>
+  
+   <Next category="behavior" focus="objHighlight" BENumber="05"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="3-shape">.cgm</srcFile>
+    
+      <dstFile cgmType="">-target.html</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test viewer capility to recognize and effect picture behavior 
+request on a basic CGM-to-HTML link, for target-frame behavior.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>picbehav-target-to-html</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+The magenta rectangle object (APS) contains a hyperlink 
+to a local HTML file instance.
+The hyperlink is a 'linkuri' APS attribute, and the frame 
+name "referenceFrame" is contained in the 3rd ("Behavior") 
+parameter of the 'linkuri' attribute.
+    </Paragraph>
+    
+      <Paragraph>
+A mouse click anywhere over the magenta rectangle (labelled "first object")
+should cause the hyperlink to be executed.  This should result in 
+the target HTML text being displayed in the left-hand frame.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of
+the text content of the HTML file that should appear in the left-hand frame, 
+upon execution of the link.  I.e., the execution of the link will overwrite
+the reference image with the HTML target text.
+The initial reference image has "-- PNG Reference --" written over it
+in red, to distinguish it from the HTML text which should appear after
+link execution. 
+The style and layout of the HTML text may vary from the reference image, 
+and are not part of the pass/fail criteria of this test.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

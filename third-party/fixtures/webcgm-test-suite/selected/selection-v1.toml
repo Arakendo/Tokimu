@@ -1,0 +1,188 @@
+selection = "v1"
+suite = "WebCGM 2.1 Test Suite"
+release = "1.2"
+archive_sha256 = "d540a452d989091db3abd83724ab9d0d9730f57ad792f4db85a04d93103063c9"
+source_root = "../upstream"
+
+# All v1 cases are unmodified static WebCGM 1.0 binary metafiles. Expected
+# stages describe the first intended parser milestone, not current passes.
+
+[[case]]
+id = "ALLELM01"
+source = "static10/ALLELM01.cgm"
+source_sha256 = "cc8e3f2f08341dd898545cd2fd8850e02fe8ac7cd1698d464590beeb43e565ac"
+reference_image = "static10/images/ALLELM01.png"
+reference_sha256 = "6c9c0fe445251fcff7de7157d90805c8227d1ca399162f6ccb05c6803db95464"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["metafile-lifecycle", "picture-lifecycle", "element-inventory"]
+reason = "Broad lifecycle and element inventory before primitive-specific admission."
+expected = "decode-inventory"
+
+[[case]]
+id = "VDCEXT01"
+source = "static10/VDCEXT01.cgm"
+source_sha256 = "42bce3f5510cdbcb875e909cd3eadf8444c555bbf5a3872e9403552882979ed5"
+reference_image = "static10/images/VDCEXT01.png"
+reference_sha256 = "58bc52a3ac2840fe957aaacaacd1bfb989c62c7ca47269c680978bea7e9f233e"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["vdc-extent", "coordinate-normalization"]
+reason = "Source coordinate normalization without renderer assumptions."
+expected = "semantic-pass"
+
+[[case]]
+id = "POLYLN01"
+source = "static10/POLYLN01.cgm"
+source_sha256 = "8b2815e2ad1be52eb3dd913111e52f521dd052cbdf9c6f303451f125b6d68a00"
+reference_image = "static10/images/POLYLN01.png"
+reference_sha256 = "f6bd6a5ee20e048e4a266c9a25b19b9037bee426cfc0f527f6ff71ce4823cb46"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["polyline", "open-path", "stroke-intent"]
+reason = "First open primitive and shared stroke-lowering evidence."
+expected = "structural-pass"
+
+[[case]]
+id = "POLYGN01"
+source = "static10/POLYGN01.cgm"
+source_sha256 = "da675a804f223730d6dca803fb1473111bf0e9c6c82a70b60e0bb5c9636b1939"
+reference_image = "static10/images/POLYGN01.png"
+reference_sha256 = "2d1b73690a5393dbfe9116ea0656889fe13d12ea122291fab07c726b1cc43175"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["polygon", "closed-contour", "fill-intent", "edge-intent"]
+reason = "First closed contour and explicit fill-versus-edge ownership case."
+expected = "structural-pass"
+
+[[case]]
+id = "RCTNGL01"
+source = "static10/RCTNGL01.cgm"
+source_sha256 = "764a66e391369e863b3c4ec0bb9928ab41b462cc8641a210eb9682886f649572"
+reference_image = "static10/images/RCTNGL01.png"
+reference_sha256 = "ebd45777f5da1b63b5a13f7f1fd9d14eb3497452a489bd0f572d6ff20bd52781"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["rectangle", "closed-contour", "finite-bounds"]
+reason = "Primitive comparison with existing UI and SVG rectangles."
+expected = "structural-pass"
+
+[[case]]
+id = "CIRCLE01"
+source = "static10/CIRCLE01.cgm"
+source_sha256 = "263a6db1472e405ba7ca3e250f648e5e1fc7ecc8a2a8208a6e90842850de9dbc"
+reference_image = "static10/images/CIRCLE01.png"
+reference_sha256 = "fd63d38e942dfe89135c69ef9662ac8f2b58064fc96b19afbcdeefe2c14c0f86"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["circle", "curve-flattening", "closed-contour"]
+reason = "Curved closed geometry through the shared vector boundary."
+expected = "structural-pass"
+
+[[case]]
+id = "ELLIPS01"
+source = "static10/ELLIPS01.cgm"
+source_sha256 = "3d61b098dfeacea6ef16e0816610d34ab338a4ac573de40321508100f5059920"
+reference_image = "static10/images/ELLIPS01.png"
+reference_sha256 = "80ceb317a9163a0afb0eff0f464d54e2e0ddf7f2023954627fe95fd0f9ffc61b"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["ellipse", "orientation", "non-circular-radii"]
+reason = "Oriented non-circular curved geometry."
+expected = "structural-pass"
+
+[[case]]
+id = "CIRARC01"
+source = "static10/CIRARC01.cgm"
+source_sha256 = "74c2235926046f9e371ddc65f59384ea91f9cad573b200436aa0ea678745b80a"
+reference_image = "static10/images/CIRARC01.png"
+reference_sha256 = "2df9827595332b87f0225396b9dafe8a375e582d45086a30109c425a4f1e3fc2"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["circular-arc", "direction", "closure"]
+reason = "Arc interpretation after basic primitives stabilize."
+expected = "deferred-arc"
+
+[[case]]
+id = "ELLARC01"
+source = "static10/ELLARC01.cgm"
+source_sha256 = "2797b470f75f8aff1c3a9d576a47e18441bd9336ee8a392aae694a354542b723"
+reference_image = "static10/images/ELLARC01.png"
+reference_sha256 = "bce847f6e64b227784d5b9d7e7795009e626fb65e48f38091a04eb463d3df63f"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["elliptical-arc", "direction", "closure"]
+reason = "Non-circular arc evidence without leaking CGM semantics into vector."
+expected = "deferred-arc"
+
+[[case]]
+id = "PLGSET01"
+source = "static10/PLGSET01.cgm"
+source_sha256 = "cb94ac313600663a9a24f9e685f095f59f39a226c4c3c8cdb326ebb383bfd218"
+reference_image = "static10/images/PLGSET01.png"
+reference_sha256 = "d548d33e0202fbea6959e933594e4a70578460601fa347e167cac69f8f180467"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["polygon-set", "visibility-flags", "topology"]
+reason = "Multi-contour and edge-visibility pressure after polygon support."
+expected = "deferred-polygon-set"
+
+[[case]]
+id = "INTSTL01"
+source = "static10/INTSTL01.cgm"
+source_sha256 = "6a4b6198ab3f0d257ef8733a78384ded3f4a3b9d071aa9a974eb4799df45242e"
+reference_image = "static10/images/INTSTL01.png"
+reference_sha256 = "799187bb01158df6578e8f07efefbe8cd7d4ed3298acd549b5a3dd2bc9de92d1"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["interior-style", "state-resolution", "fill-intent"]
+reason = "Stateful interior-style resolution separate from primitive decoding."
+expected = "semantic-pass"
+
+[[case]]
+id = "LINCAP01"
+source = "static10/LINCAP01.cgm"
+source_sha256 = "dbd3339b48fb6d73b5819a2fd0d653a05d222794c2c7350ef337334c0a9494b8"
+reference_image = "static10/images/LINCAP01.png"
+reference_sha256 = "b288c30e146a207a78c38d971c1b88e846b6adf06674d7a81a884a70018692df"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["line-cap", "state-resolution", "stroke-intent"]
+reason = "Source cap state mapped into shared stroke semantics."
+expected = "deferred-stroke-attributes"
+
+[[case]]
+id = "LNJOIN01"
+source = "static10/LNJOIN01.cgm"
+source_sha256 = "28c642bd399564dfa7f82fd78f37a9c133489f75e7d27c517cf4bfcec688f789"
+reference_image = "static10/images/LNJOIN01.png"
+reference_sha256 = "414e8c2369c2c8a4aed549221f00338aaf6ee9b1d87eb7f1e82a24f4a8e1f075"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["line-join", "state-resolution", "stroke-intent"]
+reason = "Source join state mapped into shared connected stroke semantics."
+expected = "deferred-stroke-attributes"
+
+[[case]]
+id = "CLIPNG01"
+source = "static10/CLIPNG01.cgm"
+source_sha256 = "a59ccb5f0efbdc3d8a6b543fbd3a241df94b0135c7cfd450de57d768200749b0"
+reference_image = "static10/images/CLIPNG01.png"
+reference_sha256 = "9fc7e0e75cba91cae1acc613cdcc6de9ae72ee67e7b64dcd36e6de1a1b8cf4e7"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["clip-rectangle", "clip-state", "state-resolution"]
+reason = "Stateful clipping through the provider-neutral clipping boundary."
+expected = "deferred-clipping"
+
+[[case]]
+id = "COLRMD01"
+source = "static10/COLRMD01.cgm"
+source_sha256 = "d23a17c96200a38c1c19f2775a60bfcaa4a2b9d6bbba8944420e3a867dd8a2e2"
+reference_image = "static10/images/COLRMD01.png"
+reference_sha256 = "3e91d4150c96e1b15635813cc658e20cf67291972d20df436cc29cb0ee5d2d6c"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["color-selection-mode", "color-state", "paint-intent"]
+reason = "Indexed-versus-direct color resolution before rendering."
+expected = "deferred-color"

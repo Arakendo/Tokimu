@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- linking-multiLink-BE-08.xml                                            --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         linking-multiLink-BE-08.                                       --><!--                                                                       --><!-- Author : Lofton Henderson, 31-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  31-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="linking" focus="multiLink" rootType="cgm" testType="BE" BENumber="08">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="linking" focus="anyURI" BENumber="07"/>
+  
+   <Next category="behavior" focus="picBlankC2C" BENumber="01"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="circ-rect">.cgm</srcFile>
+    
+      <dstFile cgmType="">-target.png</dstFile>
+    
+      <dstFile cgmType="">-target.html</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test correct viewer handling of multiple links
+on a single object (APS).</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>picbehav-default-to-html</ta-id>
+         <ta-id>picbehav-to-other</ta-id>
+         <ta-id>objbehav-default</ta-id>
+         <ta-id precedence="first">pick-obj-multi-link</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display a 
+CGM containing a simple picture with a blue-filled square
+on the left and a green-filled circle on the right, both with thick
+black borders.  The circle is contained within an Application Structure, with id
+value of "myObjId".  The APS contains a two APS Attributes of type
+'linkuri'.  Respectively, the first parameter (URI) points to a local PNG file,
+and to a file of HTML text.  Each 2nd parameter (Link Title) contains a
+short title phrase for the link, respectively, "Link to raster copy of
+this CGM" and "Link to WebCGM 1.0 reference text".
+The 3rd parameters on both links are null.
+    </Paragraph>
+    
+      <Paragraph>
+To execute the hyperlink, move the mouse anywhere over the circle and
+click the left mouse button.  According to the WebCGM 1.0 specification,
+the user shall be given a choice of which link to navigate.
+The initial view in the left-hand frame is a PNG reference image of a 
+valid "choice" offering, as should appear in the right-hand frame upon
+clicking the link-bearing circle object.  The manner and style of
+"giving a choice" is viewer dependent.
+It is suggested in the WebCGM specification, but not required, that
+the Link Title parameter of the 'linkuri' be used in the presentation of
+link choice.
+    </Paragraph>
+    
+      <Paragraph>
+Because there is no Behavior parameter associated with either of the 'linkuri' 
+instances,
+on the link-bearing object in the
+CGM instance, correct viewer handling of the link will result in image of the 
+target PNG file replacing the CGM picture
+in the right-hand frame.  This is the default WebCGM picture behavior.  
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the target PNG image and the source CGM picture
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </Paragraph>
+    
+      <Paragraph>
+Viewers are required to give visual feedback to the user that a successful 
+pick has occurred, and an indication of the particular object which has 
+been picked. The exact method of feedback is viewer dependent.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of the 
+how the right-hand frame should appear upon activating the link in the 
+WebCGM source instance (i.e., clicking on the circle).  The viewer shall
+present a choice of two links to navigate.  The exact location and style
+of such presentation may vary, and is not a criterion for pass/fail of
+this test case.
+    </Paragraph>
+    
+      <Paragraph>
+If the first (raster image) link is picked, then the viewer should 
+open a new window and display a raster image of the original source CGM instance.  
+If second (HTML text) link is picked, then the viewer should 
+open a new window and display a section of (HTML) text. 
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

@@ -1,0 +1,115 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setGetPatternIndex
+Version: $Version$
+Creator: Forrest Carpenter
+Description: tests pattern index (APS level)
+
+Source: WebCGM 2.1 5.7.6
+Revision History:
+2008-09-01 PH Initial Version
+2009-01-27 PH Changed script type to text/ecmascript
+2009-03-03 PH Changed reference CGM and image
+2009-04-20 PH Fixed HTML errors
+
+-->
+
+<html>
+
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<title>APS Pattern Index Property Test Page</title>
+<script type="text/ecmascript">
+
+
+function test1() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s1");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      gr.setStyleProperty("pattern-index","1");
+    } 
+    catch (t1) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t1;
+    }
+    document.getElementById("i2").disabled = false;
+  } 
+  catch (e1) {
+    var n = document.getElementById("s1");
+    n.style.color = "#FF0000";
+    document.getElementById("s1").firstChild.nodeValue = "Failed, test not executed! Error: " + e1;
+  }
+}
+
+function test2() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s2");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      var v = gr.getStyleProperty("pattern-index");
+    } 
+    catch (t2) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t2;
+    }
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e2) {
+    var n = document.getElementById("s2");
+    n.style.color = "#FF0000";
+    document.getElementById("s2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2;
+  }
+}
+
+</script>
+</head>
+<body
+   onload="document.getElementById('ivx1').getWebCGMDocument().src='setGetPatternIndex.cgm';">
+   <h1>APS Style Property Pattern Index Test Page</h1>
+<table border="1" rules="cols">
+    <tr style="text-align:center;">
+        <th>Source image</th>
+        <th>Reference image</th>
+    </tr>
+    <tr>
+        <td><object id="ivx1"
+            type="image/cgm;Version=4;ProfileId=WebCGM" width="480"
+	    height="360"></object></td>
+      <td><img src="setGetPatternIndex.png" alt="reference image"></td>
+    </tr>
+</table>
+
+<table border="1">
+    <caption><em>Test results</em></caption>
+    <tr>
+        <td>Test</td>
+        <td>Purpose</td>
+        <td>Test Result</td>
+        <td>Comments</td>
+    </tr>
+ 
+ 
+    <tr>
+      <td><input id="i1" type="button" value="Start 1"
+	  name="btn1" onClick="test1()"></td>
+	<td>Set APS Pattern Index</td>
+      <td id="s1">NA</td>
+	<td>Passed if patterns of both objects to be the same</td>
+    </tr>
+    <tr>
+      <td><input id="i2" disabled type="button" value="Start 2"
+	  name="btn2" onClick="test2()"></td>
+	<td>Get APS pattern Index</td>
+      <td id="s2">NA</td>
+	<td>Passed if test result is 1.</td>
+    </tr>
+   
+</table>
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: alphaEscape 
+Version: $Version$
+Creator: Forrest Carpenter
+Description: tests alpha transparency escape 
+
+Source: WebCGM profile 6.10
+Revision History:
+2009-02-05 FC Initial Version
+2009-03-03 FC Fixed profile violations in CGM 
+
+    
+-->
+
+<html>
+
+<head>
+<title>Alpha Escape Test </title>
+</head>
+
+<body onload="document.getElementById('sdi').getWebCGMDocument().src= 'alphaEscape.cgm';">
+<h2>Alpha Escape Test</h2>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="sdi" type="image/cgm;Version=4;ProfileId=WebCGM" width="400" height="400"></object>
+    </td>
+    <td><img id="reference" src="alphaEscape.png" width="408" alt="reference image" >
+    </td>
+  </tr>
+</table>
+<p>Alpha Escape test - This test is passed if both images are look alike.</p>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setGetTextStyles
+Version: $Version$
+Creator: Forrest Carpenter
+Description: tests all text styles (picture and APS level)
+
+Source: WebCGM 2.1 5.7.5 and 5.7.6
+Revision History:
+2008-09-01 FC Initial Version
+2009-01-27 FC Changed script type to text/ecmascript
+2009-08-24 FC Fixed bug in test 5 should return Times
+
+-->
+
+<html>
+
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<title>Style Property Test Page</title>
+<script type="text/ecmascript">
+
+function test1() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s1");
+    try {
+      cgmPic.setStyleProperty("text-font","Times");
+      cgmPic.setStyleProperty("text-size","125%");
+      cgmPic.setStyleProperty("text-color","#0000A0");
+    } 
+    catch (t1) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t1;
+    }
+    document.getElementById("i2").disabled = false;
+  } 
+  catch (e1) {
+    var n = document.getElementById("s1");
+    n.style.color = "#FF0000";
+    document.getElementById("s1").firstChild.nodeValue = "Failed, test not executed! Error: " + e1;
+  }
+}
+
+function test2() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s2");
+    try {
+      var v = cgmPic.getStyleProperty("text-font");
+    } 
+    catch (t2) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t2;
+    }
+    document.getElementById("i3").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e2) {
+    var n = document.getElementById("s2");
+    n.style.color = "#FF0000";
+    document.getElementById("s2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2;
+  }
+}
+
+function test3() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s3");
+    try {
+      var v = cgmPic.getStyleProperty("text-size");
+    } 
+    catch (t3) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t3;
+    }
+    document.getElementById("i4").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e3) {
+    var n = document.getElementById("s3");
+    n.style.color = "#FF0000";
+    document.getElementById("s3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3;
+  }
+}
+
+function test4() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s4");
+    try {
+      var v = cgmPic.getStyleProperty("text-color");
+    } 
+    catch (t4) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t4;
+    }
+    document.getElementById("i5").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e4) {
+    var n = document.getElementById("s4");
+    n.style.color = "#FF0000";
+    document.getElementById("s4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4;
+  }
+}
+
+function test5() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s5");
+    try {
+      var gr = cgmPic.getAppStructureById("subpara");
+      var v = gr.getStyleProperty("text-font");
+    } 
+    catch (t5) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t5;
+    }
+    document.getElementById("i6").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e5) {
+    var n = document.getElementById("s5");
+    n.style.color = "#FF0000";
+    document.getElementById("s5").firstChild.nodeValue = "Failed, test not executed! Error: " + e5;
+  }
+}
+
+function test6() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s6");
+    try {
+      var gr = cgmPic.getAppStructureById("subpara");
+      gr.setStyleProperty("text-font","Arial");
+      gr.setStyleProperty("text-size","200%");
+      gr.setStyleProperty("text-color","#FF0000");
+    } 
+    catch (t6) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t6;
+    }
+    document.getElementById("i7").disabled = false;
+  } 
+  catch (e6) {
+    var n = document.getElementById("s6");
+    n.style.color = "#FF0000";
+    document.getElementById("s6").firstChild.nodeValue = "Failed, test not executed! Error: " + e6;
+  }
+}
+
+function test7() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s7");
+    try {
+      var gr = cgmPic.getAppStructureById("subpara");
+      var v = gr.getStyleProperty("text-font");
+    } 
+    catch (t7) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t7;
+    }
+    document.getElementById("i8").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e7) {
+    var n = document.getElementById("s7");
+    n.style.color = "#FF0000";
+    document.getElementById("s7").firstChild.nodeValue = "Failed, test not executed! Error: " + e7;
+  }
+}
+
+function test8() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s8");
+    try {
+      var gr = cgmPic.getAppStructureById("subpara");
+      var v = gr.getStyleProperty("text-size");
+    } 
+    catch (t8) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t8;
+    }
+    document.getElementById("i9").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e8) {
+    var n = document.getElementById("s8");
+    n.style.color = "#FF0000";
+    document.getElementById("s8").firstChild.nodeValue = "Failed, test not executed! Error: " + e8;
+  }
+}
+
+function test9() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s9");
+    try {
+      var gr = cgmPic.getAppStructureById("subpara");
+      var v = gr.getStyleProperty("text-color");
+    } 
+    catch (t9) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t9;
+    }
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e9) {
+    var n = document.getElementById("s9");
+    n.style.color = "#FF0000";
+    document.getElementById("s9").firstChild.nodeValue = "Failed, test not executed! Error: " + e9;
+  }
+}
+
+</script>
+</head>
+<body
+   onload="document.getElementById('ivx1').getWebCGMDocument().src='setGetTextStyles.cgm';">
+   <h1>Text Style Property Test Page</h1>
+<table border="1" rules="cols">
+    <tr style="text-align:center;">
+        <th>Source image</th>
+        <th>Reference image</th>
+    </tr>
+    <tr>
+        <td><object id="ivx1"
+            type="image/cgm;Version=4;ProfileId=WebCGM" width="480"
+	    height="360"></object></td>
+      <td><img src="setGetTextStyles.png" alt="reference image"></td>
+    </tr>
+</table>
+
+<table border="1">
+    <caption><em>Test results</em></caption>
+    <tr>
+        <td>Test</td>
+        <td>Purpose</td>
+        <td>Test Result</td>
+        <td>Comments</td>
+    </tr>
+    <tr>
+      <td><input id="i1" type="button" value="Start 1"
+            name="btn1" onClick="test1()"></td>
+	<td>Set Picture Text Font, Size and Color</td>
+        <td id="s1">NA</td>
+	<td>Passed if the text font changes to Times, size to 125%, and the color to blue.</td>
+    </tr>
+    <tr>
+        <td><input id="i2" disabled type="button" value="Start 2"
+            name="btn2" onClick="test2()"></td>
+	<td>Get Picture Text Font</td>
+        <td id="s2">NA</td>
+	<td>Passed if test result is Times.</td>
+    </tr>
+    <tr>
+      <td><input id="i3" disabled type="button" value="Start 3"
+	  name="btn3" onClick="test3()"></td>
+      <td>Get Picture Text Size</td>
+      <td id="s3">NA</td>
+      <td>Passed if test result is 125%.</td>
+    </tr>
+    <tr>
+      <td><input id="i4" disabled type="button" value="Start 4"
+	  name="btn4" onClick="test4()"></td>
+	<td>Get Picture Text Color</td>
+      <td id="s4">NA</td>
+	<td>Passed if test result is #0000A0.</td>
+    </tr>
+    <tr>
+      <td><input id="i5" disabled type="button" value="Start 5"
+            name="btn5" onClick="test5()"></td>
+	<td>Get APS Text Font</td>
+        <td id="s5">NA</td>
+	<td>Passed if test result is Times.</td>
+    </tr>
+    <tr>
+      <td><input id="i6" disabled type="button" value="Start 6"
+            name="btn6" onClick="test6()"></td>
+	<td>Set APS Text Font, Size and Color</td>
+        <td id="s6">NA</td>
+	<td>Passed if the second para text font changes to Arial, size to 200%, and the color to red.</td>
+    </tr>
+    <tr>
+      <td><input id="i7" disabled type="button" value="Start 7"
+            name="btn7" onClick="test7()"></td>
+	<td>Get APS Text Font</td>
+        <td id="s7">NA</td>
+	<td>Passed if test result is Arial.</td>
+    </tr>
+    <tr>
+      <td><input id="i8" disabled type="button" value="Start 8"
+	  name="btn8" onClick="test8()"></td>
+      <td>Get APS Text Size</td>
+      <td id="s8">NA</td>
+      <td>Passed if test result is 200%.</td>
+    </tr>
+    <tr>
+      <td><input id="i9" disabled type="button" value="Start 9"
+	  name="btn8" onClick="test9()"></td>
+	<td>Get APS Text Color</td>
+      <td id="s9">NA</td>
+	<td>Passed if test result is #FF0000.</td>
+    </tr>
+ 
+
+</table>
+
+</body>
+</html>

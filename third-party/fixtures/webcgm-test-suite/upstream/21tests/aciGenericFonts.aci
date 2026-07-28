@@ -1,0 +1,23 @@
+<?xml version = "1.0" ?>
+<!DOCTYPE webcgmConfig PUBLIC "-//OASIS//DTD WebCGM 2.1 Config//EN" "http://docs.oasis-open.org/webcgm/v2.1/webcgmConfig21.dtd">
+<webcgmConfig>
+  <fontMap>
+    <mapList
+      cgmFont="Courier"
+	substitutionList="serif"/>
+    <mapList
+      cgmFont="Times-Roman"
+	substitutionList="sans-serif"/>
+    <mapList
+      cgmFont="Helvetica"
+	substitutionList="cursive"/>
+    <mapList
+      cgmFont="Helvetica-Bold"
+	substitutionList="fantasy"/>
+    <mapList
+      cgmFont="Helvetica-Oblique"
+	substitutionList="monospace"/>
+  </fontMap>
+</webcgmConfig>
+
+

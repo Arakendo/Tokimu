@@ -1,0 +1,2466 @@
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+
+
+Metafile Examined     : behavior-objHighlight-BE-05-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+Metafile Examined     : behavior-objHighlight-BE-05-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-objHighlight-BE-05-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 234: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          74 Elements Tested
+        1260 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-objHighlightAll-BE-06-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+
+
+Metafile Examined     : behavior-objHighlightAll-BE-06-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+Metafile Examined     : behavior-objHighlightAll-BE-06-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-objHighlightAll-BE-06-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 236: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          99 Elements Tested
+        1806 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-objViewContext-BE-07-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+
+
+Metafile Examined     : behavior-objViewContext-BE-07-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+Metafile Examined     : behavior-objViewContext-BE-07-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-objViewContext-BE-07-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 236: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+         108 Elements Tested
+        1940 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-picBlankC2C-BE-01-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+
+
+Metafile Examined     : behavior-picBlankC2C-BE-01-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+Metafile Examined     : behavior-picBlankC2C-BE-01-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-picBlankC2C-BE-01-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 232: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          67 Elements Tested
+        1192 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-picBlankC2C-BE-01.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+
+
+Metafile Examined     : behavior-picBlankC2C-BE-01.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:08 
+
+Metafile Examined     : behavior-picBlankC2C-BE-01.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-picBlankC2C-BE-01<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          81 Elements Tested
+        1144 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-picBlankC2H-BE-03.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : behavior-picBlankC2H-BE-03.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : behavior-picBlankC2H-BE-03.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-picBlankC2H-BE-03<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          80 Elements Tested
+        1114 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-picReplaceC2C-BE-02-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : behavior-picReplaceC2C-BE-02-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : behavior-picReplaceC2C-BE-02-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-picReplaceC2C-BE-02-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 234: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          84 Elements Tested
+        1554 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-picReplaceC2C-BE-02.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : behavior-picReplaceC2C-BE-02.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : behavior-picReplaceC2C-BE-02.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-picReplaceC2C-BE-02<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 222: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          82 Elements Tested
+        1156 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm behavior-picTargetC2H-BE-04.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : behavior-picTargetC2H-BE-04.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : behavior-picTargetC2H-BE-04.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >behavior-picTargetC2H-BE-04<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          81 Elements Tested
+        1144 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm fragment-fiveForms-BE-03-target1.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : fragment-fiveForms-BE-03-target1.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : fragment-fiveForms-BE-03-target1.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >fragment-fiveForms-BE-03-target1<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 232: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          73 Elements Tested
+        1254 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm fragment-fiveForms-BE-03-target2.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : fragment-fiveForms-BE-03-target2.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : fragment-fiveForms-BE-03-target2.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >fragment-fiveForms-BE-03-target2<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 232: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          73 Elements Tested
+        1254 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm fragment-idC2H-BE-01.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+
+
+Metafile Examined     : fragment-idC2H-BE-01.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:09 
+
+Metafile Examined     : fragment-idC2H-BE-01.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >fragment-idC2H-BE-01<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 218: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          65 Elements Tested
+        1090 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm fragment-multiPic-BE-02-target1.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+
+
+Metafile Examined     : fragment-multiPic-BE-02-target1.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+Metafile Examined     : fragment-multiPic-BE-02-target1.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >fragment-multiPic-BE-02-target1<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 226: >Picture 1<
+Picture 2 starts at octet offset 528: >Second-Picture<
+Picture 3 starts at octet offset 1166: >Picture 3<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           3 Pictures Tested
+         124 Elements Tested
+        1482 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm fragment-multiPic-BE-02-target2.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+
+
+Metafile Examined     : fragment-multiPic-BE-02-target2.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+Metafile Examined     : fragment-multiPic-BE-02-target2.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >fragment-multiPic-BE-02-target2<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 226: >Picture 1<
+Picture 2 starts at octet offset 528: >Second-Picture<
+Picture 3 starts at octet offset 1166: >Picture 3<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           3 Pictures Tested
+         124 Elements Tested
+        1482 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm interact-pick-BE-01.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+
+
+Metafile Examined     : interact-pick-BE-01.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+Metafile Examined     : interact-pick-BE-01.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >interact-pick-BE-01<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 216: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          86 Elements Tested
+        1566 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm interact-pickRegion-BE-02.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+
+
+Metafile Examined     : interact-pickRegion-BE-02.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+Metafile Examined     : interact-pickRegion-BE-02.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >interact-pickRegion-BE-02<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 222: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          90 Elements Tested
+        1772 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm interact-screenTip-BE-03.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+
+
+Metafile Examined     : interact-screenTip-BE-03.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+Metafile Examined     : interact-screenTip-BE-03.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >interact-screenTip-BE-03<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 222: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+         112 Elements Tested
+        2110 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-anyURI-BE-07.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:10 
+
+
+
+Metafile Examined     : linking-anyURI-BE-07.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+Metafile Examined     : linking-anyURI-BE-07.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-anyURI-BE-07<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 214: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          83 Elements Tested
+        1142 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-basicC2C-BE-03-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+
+
+Metafile Examined     : linking-basicC2C-BE-03-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+Metafile Examined     : linking-basicC2C-BE-03-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-basicC2C-BE-03-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 226: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          68 Elements Tested
+        1250 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-basicC2C-BE-03.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+
+
+Metafile Examined     : linking-basicC2C-BE-03.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+Metafile Examined     : linking-basicC2C-BE-03.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-basicC2C-BE-03<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          64 Elements Tested
+        1034 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-basicC2H-BE-02.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+
+
+Metafile Examined     : linking-basicC2H-BE-02.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+Metafile Examined     : linking-basicC2H-BE-02.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-basicC2H-BE-02<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          64 Elements Tested
+        1034 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-basicC2P-BE-04.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+
+
+Metafile Examined     : linking-basicC2P-BE-04.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+Metafile Examined     : linking-basicC2P-BE-04.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-basicC2P-BE-04<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          64 Elements Tested
+        1034 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-basicH2C-BE-01.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+
+
+Metafile Examined     : linking-basicH2C-BE-01.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+Operator Error: Unable to find the specified CGM;
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-multiLink-BE-08.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+
+
+Metafile Examined     : linking-multiLink-BE-08.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:11 
+
+Metafile Examined     : linking-multiLink-BE-08.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-multiLink-BE-08<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          67 Elements Tested
+        1230 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-selectId-BE-05-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+
+
+Metafile Examined     : linking-selectId-BE-05-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+Metafile Examined     : linking-selectId-BE-05-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-selectId-BE-05-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 222: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          79 Elements Tested
+        1012 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm linking-selectName-BE-06-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+
+
+Metafile Examined     : linking-selectName-BE-06-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+Metafile Examined     : linking-selectName-BE-06-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >linking-selectName-BE-06-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 226: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          78 Elements Tested
+         996 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm otherAPS-para-BE-01-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+
+
+Metafile Examined     : otherAPS-para-BE-01-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+Metafile Examined     : otherAPS-para-BE-01-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >otherAPS-para-BE-01-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 220: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          78 Elements Tested
+        1116 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm otherAPS-para-BE-01.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+
+
+Metafile Examined     : otherAPS-para-BE-01.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+Metafile Examined     : otherAPS-para-BE-01.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >otherAPS-para-BE-01<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 216: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+         100 Elements Tested
+        2128 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm otherAPS-para-BE-02-target.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+
+
+Metafile Examined     : otherAPS-para-BE-02-target.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+Metafile Examined     : otherAPS-para-BE-02-target.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >otherAPS-para-BE-02-target<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 224: >Picture 1<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          87 Elements Tested
+        1850 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+C:\nist\task2-1\dynamic>c:\metachek\metachek\src\release\metachek -l0 -r webcgm otherAPS-para-BE-02.cgm
+
+
+MetaCheck Version 5.20 -- CGM Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+
+
+Metafile Examined     : otherAPS-para-BE-02.cgm
+Message File          : c:\metachek\metachek\src/metachek.mg1
+Registration File     : c:\metachek\metachek\src/metachek.rg1
+Profile File          : c:\metachek\metachek\src/webcgm.cf1
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+
+======================= Trace Report ========================
+
+
+
+Tracing not selected.
+
+
+
+============= CGM Conformance Violation Report ==============
+
+
+
+No Errors Detected
+
+
+============== WebCGM 1.0 (2R) Profile Report ===============
+
+No profile discrepancies detected.
+
+
+
+================ Conformance Summary Report =================
+
+
+
+MetaCheck Version 5.20 -- WebCGM 1.0 (2R) Profile Conformance Analyzer
+Copyright 1988-2001 CGM Technology Software 
+Execution Date: 01/06/2002     Time:  15:09:12 
+
+Metafile Examined     : otherAPS-para-BE-02.cgm
+Encoding              : Binary
+
+Pictures Examined     : All
+Elements Examined     : All
+Bytes    Examined     : All
+
+BEGIN METAFILE string : >otherAPS-para-BE-02<
+METAFILE DESCRIPTION  : >"ProfileId:WebCGM""ProfileEd:1.0""ColourClass:colour"<
+                        >"Source:CGM Open/NIST""Date:20011001"<
+
+Picture 1 starts at octet offset 212: >(was) picture_2<
+
+
+Conformance Summary  :  This file conforms to the CGM specification.
+
+                        This file meets the 
+                        WebCGM 1.0 (2R) Profile.
+
+
+Summary of Testing Performed and Errors Found:
+
+           1 Pictures Tested
+          85 Elements Tested
+        1268 Octets Tested
+
+
+                =================================
+                |    No Errors Were Detected    |
+                =================================
+
+
+
+================ End of Conformance Report ==================
+
+
+

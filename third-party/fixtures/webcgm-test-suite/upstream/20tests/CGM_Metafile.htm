@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: WebCGMMetafile
+Version: $Version$
+Creator: Ulrich
+Description: This test extracts attributes from the
+             WebCGMMetafile structure.
+Source: WebCGM 2.0 5.7.3
+Revision History:
+--><!-- saved from url=(0022)http://internet.e-mail -->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>WebCGMMetafile Test Page</title>
+<script type="text/ecmascript">
+    function OnBtnDOM()
+    {
+        try
+        {
+            var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+
+            var result = document.getElementById("_1");
+            result.style.color = "#00A000";
+            try
+            {
+                if( cgmDoc.metafileDescription == "ProfileId:WebCGM, ProfileEd:2.0, ColourClass:colour" )
+                {
+                    result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                    throw "wrong metafileDescription";
+                }
+            }
+            catch(t1)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t1;
+            }
+
+            result = document.getElementById("_2");
+            result.style.color = "#00A000";
+            try
+            {
+                if( cgmDoc.metafileID == "WebCGM_Metafile" )
+                {
+                    result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                    throw "wrong metafileID";
+                }
+            }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+
+            result = document.getElementById("_3");
+            result.style.color = "#00A000";
+            try
+            {
+                if( cgmDoc.metafileVersion == 4 )
+                {
+                    result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                  throw "wrong metafileVersion";
+                }
+            }
+            catch(t3)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t3;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("_1");
+            n.style.color = "#FF0000";
+            document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+
+    function test2()
+    {
+        try
+        {
+            var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+            var result = document.getElementById("_4");
+            result.style.color = "#00A000";
+            try
+            {
+                cgmDoc.addEventListener ( "click", handleClick );
+            }
+            catch(t4)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+            document.getElementById("i3").disabled = false;
+        }
+        catch(e2)
+        {
+            var n = document.getElementById("_4");
+            n.style.color = "#FF0000";
+            document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e2.description;
+        }       
+    }
+
+    function test3()
+    {
+        try
+        {
+            var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+            var result = document.getElementById("_5");
+            result.style.color = "#00A000";
+            try
+            {
+                cgmDoc.removeEventListener ( "click", handleClick );
+            }
+            catch(t5)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+        }
+        catch(e3)
+        {
+            var n = document.getElementById("_5");
+            n.style.color = "#FF0000";
+            document.getElementById("_5").firstChild.nodeValue = "Failed, test not executed! Error: " + e3.description;
+        }       
+    }
+
+    function handleClick(evt)
+    {
+        // Benoit: 02.22.2006, added 'else' statement
+        if( evt.target.apsId == "elemId" )
+        {
+            alert( "Event listener installed and called." );
+        }
+        else
+        {
+            alert( "Error: no target object, the event should not have been dispatched." );
+        }
+    }
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'CGM_Metafile.cgm'; OnBtnDOM();">
+    <h1>WebCGMMetafile Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="CGM_Metafile.png"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>Metafile Description:</td>
+
+        <td id="_1">NA</td>
+
+        <td>Test is looking for a Metafile Description of
+        'ProfileId:WebCGM, ProfileEd:2.0, ColourClass:colour'.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>Metafile ID:</td>
+
+        <td id="_2">NA</td>
+
+        <td>Test is looking for a Metafile ID of
+        'WebCGM_Metafile'.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>Metafile Version:</td>
+
+        <td id="_3">NA</td>
+
+        <td>Test is looking for a Metafile Version of 4.</td>
+      </tr>
+
+      <tr>
+        <td><input type="button" value="Start 2" name="btn2"
+        onclick="test2()"></td>
+
+        <td>Add Event Listener:</td>
+
+        <td id="_4">NA</td>
+
+        <td>Upon clicking on button event listener will be
+        installed. To test, click with left mouse button onto
+        graphics in image. Passed if an alert box comes up with the
+        message 'Event listener installed and called.'. An error
+        message represents a Fail.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" disabled type="button" value="Start 3"
+        name="btn3" onclick="test3()"></td>
+
+        <td>Remove Event Listener:</td>
+
+        <td id="_5">NA</td>
+
+        <td>Upon clicking on button previously installed event
+        listener will be removed. To test click with left mouse
+        button onto graphics in image. Passed if no alert box comes
+        up this time and if previous test was successful.</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

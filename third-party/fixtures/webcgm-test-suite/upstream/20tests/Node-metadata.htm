@@ -1,0 +1,281 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: Node-metadata
+Version: $Version$
+Creator: Benoit
+Description: Test WebCGMNode and the XML companion file.
+
+Source: WebCGM 2.0 5.7.4
+Revision History:
+	10-jul-2009:  corrected attribute count, from 2 to 1 (BB); 
+                      Fxd validation errs in this HTML (LH & RO).
+-->
+
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+<title>WebCGMNode and XMLMetadata Test Page</title>
+<script type="text/ecmascript">
+	function OnBtnDOM()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			var cgmPic	= cgmDoc.firstPicture;
+			var result	= document.getElementById("r_1");
+			result.style.color = "#00A000";
+			cgmPic.applyCompanionFile("node-metadata.xml");
+			try
+			{
+				var parentNode = cgmPic.getAppStructureById("elem1");
+				var metadataNode2 = parentNode.lastChild;
+				if( metadataNode2.nodeType == 3 )
+				{
+				  if( metadataNode2.nodeName == "extra:el" )
+				  {
+				    if( metadataNode2.nodeValue == "" )
+					{
+					  result.firstChild.nodeValue = "Passed!";
+					}
+					else
+					{
+					  throw "wrong nodeValue";
+					}
+				  }
+				  else
+				  {
+				    throw "wrong nodeName";
+				  }
+				}
+				else
+				{
+					throw "wrong nodeType";
+				}
+			}
+			catch(t1)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t1;
+			}
+
+			result	= document.getElementById("r_2");
+			result.style.color = "#00A000";
+			try
+			{
+				if( cgmPic.getAppStructureById("elem1") == cgmPic.getAppStructureById("elem1").lastChild.parentNode )
+				{
+				  if( cgmDoc.firstPicture == cgmPic.getAppStructureById("elem1").lastChild.ownerPicture )
+				  {
+					result.firstChild.nodeValue = "Passed!";
+				  }
+				  else
+				  {
+				    throw "wrong ownerPicture";
+				  }
+				}
+				else
+				{
+					throw "wrong parentNode";
+				}
+			}
+			catch(t2)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t2;
+			}
+
+			result	= document.getElementById("r_3");
+			result.style.color = "#00A000";
+			try
+			{
+				var parentNode = cgmPic.getAppStructureById("elem1");
+				var metadataNode1 = parentNode.lastChild.previousSibling;
+				if( metadataNode1.hasChildNodes() == true )
+				{
+				  var nodes = metadataNode1.childNodes;
+				  if( nodes.count == 3 )
+				  {
+				    result.firstChild.nodeValue = "Passed!";
+				  }
+				  else
+				  {
+				    throw "wrong childNodes";
+				  }
+				}
+				else
+				{
+				  throw "wrong metadata element";
+				}
+			}
+			catch(t3)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t3;
+			}
+
+			result	= document.getElementById("r_4");
+			result.style.color = "#00A000";
+			try
+			{
+				var parentNode = cgmPic.getAppStructureById("elem1");
+				var metadataNode1 = parentNode.lastChild.previousSibling;
+				if( metadataNode1.hasChildNodes() == true )
+				{
+				  var first = metadataNode1.firstChild;
+				  if( first.nodeValue == "Text before anchor" )
+				  {
+				    var last = metadataNode1.lastChild;
+					if( last.nodeValue == "Text after anchor" )
+					{
+				      result.firstChild.nodeValue = "Passed!";
+					}
+					else
+				    {
+					  throw "wrong lastChild";
+					}
+				  }
+				  else
+				  {
+				    throw "wrong firstChild";
+				  }
+				}
+				else
+				{
+				  throw "wrong metadata element";
+				}
+			}
+			catch(t4)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t4;
+			}
+
+			result	= document.getElementById("r_5");
+			result.style.color = "#00A000";
+			try
+			{
+				var parentNode = cgmPic.getAppStructureById("elem1");
+				if( parentNode.firstChild.nextSibling.nodeName == "extra:el" )
+				{
+				  if( parentNode.lastChild.previousSibling.nodeName == "test:elem" )
+				  {
+  			        result.firstChild.nodeValue = "Passed!";
+				  }
+				  else
+				  {
+				    throw "wrong previousSibling";
+				  }
+				}
+				else
+				{
+				  throw "wrong nextSibling";
+				}
+			}
+			catch(t5)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t5;
+			}
+
+			result	= document.getElementById("r_6");
+			result.style.color = "#00A000";
+			try
+			{
+				var elem = cgmPic.getAppStructureById("elem1").lastChild;
+				if( elem.hasAttributes() ==  true )
+				{
+				  var attribs = elem.attributes;
+				  if( attribs.count == 1 )
+				  {
+  			        result.firstChild.nodeValue = "Passed!";
+				  }
+				  else
+				  {
+				    throw "wrong attributes";
+				  }
+				}
+				else
+				{
+				  throw "wrong hasAttributes";
+				}
+			}
+			catch(t6)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t6;
+			}
+
+			result	= document.getElementById("r_7");
+			result.style.color = "#00A000";
+			try
+			{
+				var elem2 = cgmPic.getAppStructureById("elem1").lastChild;
+				var elem1 = elem2.previousSibling;
+				if( elem1.namespaceURI == "http://www.example.org" && elem2.namespaceURI == "http://www.example.com" )
+				{
+				  if( elem1.localName == "elem" && elem2.localName == "el" )
+				  {
+				    if( elem1.prefix == "test" && elem2.prefix == "extra" )
+					{
+					  result.firstChild.nodeValue = "Passed!";
+					}
+					else
+					{
+					  throw "wrong prefix";
+					}
+				  }
+				  else
+				  {
+				    throw "wrong localName";
+				  }
+				}
+				else
+				{
+				  throw "wrong namespaceURI";
+				}
+			}
+			catch(t7)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t7;
+			}
+		}
+		catch(e)
+		{
+			var n = document.getElementById("r_1");
+			n.style.color = "#FF0000";
+			document.getElementById("r_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+		}
+	}
+</script>
+</head>
+
+<body onload="document.getElementById('ivx1').getWebCGMDocument().src= 'node-metadata.cgm'; OnBtnDOM();">
+<h1>WebCGMNode and XMLMetadata Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object>
+    </td>
+    <td><img id="reference" src="node-metadata.png" alt="node-metadata reference png image" >
+    </td>
+  </tr>
+</table>
+
+<table border="1">
+<caption><em>Test results</em></caption>
+<tr><td>Initiate Test</td><td>Purpose</td><td>Test Result</td><td>Comments</td></tr>
+<tr><td>Done on load</td><td>nodeName, nodeType, nodeValue:</td><td id="r_1">NA</td><td>Test is looking for a nodeName of 'extra:el', nodeType of '3' and nodeValue of 'null'</td></tr>
+<tr><td>Done on load</td><td>parentNode, ownerPicture:</td><td id="r_2">NA</td><td>WebCGMMetafile.firstPicture should be the same object than .ownerPicture</td></tr>
+<tr><td>Done on load</td><td>hasChildNodes, childNodes:</td><td id="r_3">NA</td><td>The metadata node should have 3 child nodes, 1 text node, followed by a metadata node followed by another text node</td></tr>
+<tr><td>Done on load</td><td>firstChild, lastChild:</td><td id="r_4">NA</td><td>The first child of 'test:elem' has a nodeValue of 'Text before anchor' while the last child has a nodeValue of 'Text after anchor'</td></tr>
+<tr><td>Done on load</td><td>previousSibling, nextSibling:</td><td id="r_5">NA</td><td>Testing next/previousSibling of metadata nodes</td></tr>
+<tr><td>Done on load</td><td>hasAttributes, attributes:</td><td id="r_6">NA</td><td>The metatdata node 'extra:el' has one attribute, 'noContent'.</td></tr>
+<tr><td>Done on load</td><td>namespaceURI, prefix, localName:</td><td id="r_7">NA</td><td>Two different namespaces are used in this test.</td></tr>
+</table>
+</body>
+</html>

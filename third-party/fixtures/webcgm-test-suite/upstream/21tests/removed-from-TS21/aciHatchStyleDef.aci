@@ -1,0 +1,11 @@
+<?xml version = "1.0" ?>
+<!DOCTYPE webcgmConfig PUBLIC "-//OASIS//DTD WebCGM 2.1 Config//EN" "http://docs.oasis-open.org/webcgm/v2.1/webcgmConfig21.dtd">
+<webcgmConfig>
+  <defaultAttributes>
+    <hatchStyleDef hatchIndex="1" styleInd="crosshatch" cycleLength="400" numberOfLines="2" 
+	directionVectors="0.0 1.0 1.0 0.0" gapWidth="10 10" lineTypeIndex="1 1"
+    /> 
+  </defaultAttributes>
+</webcgmConfig>
+
+

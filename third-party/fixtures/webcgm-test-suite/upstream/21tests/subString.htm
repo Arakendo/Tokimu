@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: subString
+Version: $Version$
+Creator: Stuart Galt
+Description: test subtring hotspots
+
+Source: WebCGM 2.1 ?
+Revision History:
+
+-->
+<html>
+<head>
+<meta content="text/html; charset=UTF-8">
+  <title>subString Test Page</title>
+
+</head>
+
+<body
+onload="document.getElementById('img').getWebCGMDocument().src='subString.cgm';">
+<h1>subString Test Page</h1>
+
+<table border="1" rules="cols">
+  <tbody>
+    <tr style="text-align:center;">
+      <th>Source image</th>
+      <th>Reference image</th>
+    </tr>
+    <tr>
+      <td><object id="img" type="image/cgm;Version=4;ProfileId=WebCGM"
+        width="480" height="360">
+        </object> </td>
+      <td><img id="reference" width="360" height="360" src="substring.png"
+        alt="subString reference png"></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<table border="1">
+  <caption><em>Test results</em> </caption>
+  <tbody>
+    <tr>
+      <td>Purpose</td>
+      <td>Test Result</td>
+      <td>Comments</td>
+    </tr>
+    <tr>
+      <td>Display</td>
+      <td>NA</td>
+      <td>Pass if source image looks like the reference image.</td>
+    </tr>
+    <tr>
+      <td>Screentip</td>
+      <td>NA</td>
+      <td>Move the mouse over the words.  Pass if screetip changes over the
+	blue words.  Text should be "link at beginning", "link in middle", or "link at end"</td>
+    </tr>
+    <tr>
+      <td>Linking</td>
+      <td>NA</td>
+      <td>Pass if clicking on link opens a new window with http://www.cgmopen.org</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>

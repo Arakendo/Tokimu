@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Language" content="en-us">
+<title>linking-selectName-BE-06</title>
+<link rel="prev" href="linking-selectId-BE-05-dyn.html">
+<link rel="next" href="linking-anyURI-BE-07-dyn.html">
+<link rel="child" href="toc-selectName-BE-06-dyn.html">
+<link rel="contents" href="linking-selectName-DT-06-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     --></style>
+</head>
+<body>
+<div class="navbar" align="center"><p>
+<a target="_top" href="linking-selectId-BE-05-dyn.html">previous</a> &nbsp;<a target="_top" href="linking-anyURI-BE-07-dyn.html">next</a> &nbsp;<a target="_top" href="linking-selectName-BE-06-dyn.html">parent</a> &nbsp;<a target="_top" href="linking-selectName-BE-06-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p></div>
+<p>Test Purpose: Test viewer ability to select an object in
+a WebCGM instance by the value of a contained APS attribute 'name' element.</p>
+<p>
+At the start of the test, the right-hand frame should display a 
+some HTML text containing a string, &quot;Click to name-select a WebCGM
+object.&quot;  The hyperlink on the HTML text points to a local WebCGM
+instance, with a &quot;#&quot; fragment identifying the particular object,
+&quot;myObject&quot;, by 'name'.  The target WebCGM instance contains a simple picture
+with three objects:  a magenta rectangle, a cyan circle, and a red triangle,
+all with thick black borders.
+    </p>
+<p>
+The &quot;second object&quot; in the target picture has APS id parameter value 'secondObject',
+and contains an APS attribute of type 'name' whose value is &quot;myObject&quot;.  
+The first and third objects respectively have APS id parameter values &quot;firstObject&quot;
+and &quot;myObject&quot;, and neither contain any other APS attribute elements.
+Therefore, successful completion of the link navigation request by
+the viewer will result in display of the target WebCGM and selection
+of the cyan circle, which is labelled &quot;second object&quot;. 
+    </p>
+<p>
+Since there are no object behavior parameters associated with the link,
+the default 'highlight' behavior is required -- the object shall be 
+highlighted and shall be zoomed.  The exact method of highlighting is viewer dependent.
+(Note. You should be able to use the viewer's zoom-pan
+controls to zoom out and get a full-picture view, but this is not a
+pass/fail criterion of this test.)
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of one 
+correct rendering of how the target WebCGM instance should appear in the 
+right-hand frame after activating the link in the HTML source instance.  
+There should be no significant visual deviation between the reference 
+image of the left frame and the view in the right frame after link activation,
+except for the method of object highlighting.  The reference image shows
+one valid method -- the border is outlined in red.  Any other visual
+highlighting method -- e.g., changing the color of the whole object -- 
+would be equally acceptable.
+    </p>
+<p>
+You should be able to use the browser &quot;Back&quot; and &quot;Forward&quot; buttons to go 
+back and forth between the target WebCGM picture the source HTML text
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

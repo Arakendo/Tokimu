@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!-- behavior-objViewContext-BE-07.xml                                     -->
+<!--                                                                       -->
+<!-- This is the XML description for WebCGM Test Case                      -->
+<!--         behavior-objViewContext-BE-07.                                -->
+<!--                                                                       -->
+<!-- Author : Lofton Henderson, 24-May-2001                                -->
+<!--                                                                       -->
+<!-- History:                                                              -->
+<!--  07-Mar-2006 - LH: revised for WebCGM 2.0                             -->
+<!--  24-May-2001 - LH: created.                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<CGMTestCase category="behavior" focus="objViewContext" rootType="html" testType="BE" BENumber="07">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="behavior" focus="objHighlightAll" BENumber="06"/>
+  
+   <Next category="fragment" focus="idC2H" BENumber="01"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="">.html</srcFile>
+    
+      <dstFile cgmType="four-cyl">-target.cgm</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test that [WebCGM 2.0] viewer correctly maps the 
+[WebCGM 1.0] "view_context"
+object behavior, on a basic HTML-to-CGM link.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>objbehav-viewcontext-vc</ta-id>
+         <ta-id>picbehav-self-to-cgm</ta-id>
+         <ta-id>picseqno-is-pic-seqno</ta-id>
+         <ta-id>objid-aps-id-param</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+      <Paragraph> 
+This is a WebCGM 2.0 test that verifies normative 2.0 viewer handling 
+of the 'view_context' object behavior keyword of WebCGM 1.0.
+      </Paragraph>
+
+      <Paragraph>
+At the start of the test, the right-hand frame should display 
+some HTML text containing a string, 
+"Click to view a WebCGM object with view context."
+The hyperlink on the HTML text points to a local WebCGM
+instance, that contains drawings of four cylinders objects,
+drawn in black on a white background.
+Two of the objects have 'name' APS attributes with value 
+"smallCylinders", and the other two have 'name' APS attributes
+with value "bigCylinders", and each cylinder has a unique APS
+id parameter value.
+    </Paragraph>
+    
+      <Paragraph>
+The hyperlink in the source HTML text contains a fragment which selects
+"smallTopCylinder" by id, and specifies the object behavior "view_context" -- 
+upon execution of the hyperlink, the selected object shall effectively
+be zoomed.  It contains a 'viewcontext' APS attribute whose value just
+encloses the small top cylinder and a little bit of its surroundings.  
+The WebCGM picture, for reference, contains a dotted rectangle 
+that is slightly smaller than the 'viewcontext' of the object.
+    </Paragraph>
+    
+      <Paragraph>
+In addition to being zoomed to the view context, the target object 
+shall be highlighted.  The exact method of highlighting is 
+viewer dependent.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of one 
+correct rendering of how the target WebCGM instance should appear in the 
+right-hand frame after activating the link in the HTML source instance.  
+WebCGM does not specify exactly how the view context should fit into
+the display frame.  The reference picture shows one valid fit.  Others
+are possible, especially if the view context and the display frame have
+different aspect ratios.
+The method of object highlighting may also vary.  The reference image shows
+one valid method -- the border is outlined in red.  Any other visual
+highlighting method -- e.g., changing the color of the whole object -- 
+is equally acceptable.
+    </Paragraph>
+    
+      <Paragraph>
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the target WebCGM picture the source HTML text
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

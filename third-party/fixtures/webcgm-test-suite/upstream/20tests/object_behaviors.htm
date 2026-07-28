@@ -1,0 +1,239 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: object_behaviors
+Version: $Version$
+Creator: Ralf Berger
+Date: 6 September 2005
+Description: Test object behaviors
+Source: WebCGM 2.0 3.1.2.4
+Revision History:
+--><!--
+    Author:   Ralf Berger
+    Created:  6 September 2005
+    Revised:
+
+    Notes:
+  -->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>Object Behaviors Test Page</title>
+<script type="text/ecmascript">
+
+function test0()
+{   // object_behaviors.cgm#id(rect)
+    try
+    {
+        var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+        cgmDoc.src="object_behaviors.cgm#id(rect)"
+        document.getElementById("i1").disabled = false;
+    }
+    catch (e1)
+    {
+        var n = document.getElementById("_0");
+        n.style.color = "#FF0000";
+        document.getElementById("_0").firstChild.nodeValue = "Failed, test not executed! Error: " + e1.description;
+    }
+}
+
+function test1()
+{   // object_behaviors.cgm#id(path,newHighlight+full)
+    try
+    {
+        var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+        cgmDoc.src="object_behaviors.cgm#id(path,newHighlight+full)"
+        document.getElementById("i2").disabled = false;
+    }
+    catch (e1)
+    {
+        var n = document.getElementById("_1");
+        n.style.color = "#FF0000";
+        document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e1.description;
+    }
+}
+
+function test2()
+{   // object_behaviors.cgm#id(polygon,addHighlight+zoom)
+    try
+    {
+        var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+        cgmDoc.src="object_behaviors.cgm#id(polygon,addHighlight+zoom)"
+        document.getElementById("i3").disabled = false;
+    }
+    catch (e2)
+    {
+        var n = document.getElementById("_2");
+        n.style.color = "#FF0000";
+        document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e1.description;
+    }
+}
+
+function test3()
+{   // object_behaviors.cgm#id(ellipse,move)
+    try
+    {
+        var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+        cgmDoc.src="object_behaviors.cgm#id(ellipse,move)"
+        document.getElementById("i4").disabled = false;
+    }
+    catch (e3)
+    {
+        var n = document.getElementById("_3");
+        n.style.color = "#FF0000";
+        document.getElementById("_3").firstChild.nodeValue = "Failed, test not executed! Error: " + e1.description;
+    }
+}
+
+
+function test4()
+{   // object_behaviors.cgm#id(rect,newHighlight+full)
+    try
+    {
+        var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+        cgmDoc.src="object_behaviors.cgm#id(rect,newHighlight+full)"
+        document.getElementById("i5").disabled = false;
+    }
+    catch (e4)
+    {
+        var n = document.getElementById("_4");
+        n.style.color = "#FF0000";
+        document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e1.description;
+    }
+}
+
+function test5()
+{   // object_behaviors.cgm#id(*,clearHighlight)
+    try
+    {
+        var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+        cgmDoc.src="object_behaviors.cgm#id(*,clearHighlight)"
+    }
+    catch (e5)
+    {
+        var n = document.getElementById("_5");
+        n.style.color = "#FF0000";
+        document.getElementById("_5").firstChild.nodeValue = "Failed, test not executed! Error: " + e1.description;
+    }
+}
+
+
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src='object_behaviors.cgm';">
+    <h1>Object Behaviors Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object></td>
+
+        <td><img id="reference" src="object_behaviors.png"></td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td><input id="i0" type="button" value="Start 0" name=
+        "btn0" onclick="test0()"></td>
+
+        <td>object_behaviors.cgm#id(rect)</td>
+
+        <td id="_0">NA</td>
+
+        <td>Passed if the magenta rectangle is hightlighted and
+        zoomed<br>
+         (default object behavior).</td>
+      </tr>
+
+      <tr>
+        <td><input id="i1" disabled type="button" value="Start 1"
+        name="btn1" onclick="test1()"></td>
+
+        <td>object_behaviors.cgm#id(path,newHighlight+full)</td>
+
+        <td id="_1">NA</td>
+
+        <td>Passed if the blue path is hightlighted and the full
+        picture is displayed.<br>
+         The highlight on the magenta rectangle should be
+        removed.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i2" disabled type="button" value="Start 2"
+        name="btn2" onclick="test2()"></td>
+
+        <td>object_behaviors.cgm#id(polygon,addHighlight+zoom)</td>
+
+        <td id="_2">NA</td>
+
+        <td>Passed if the yellow polygon is hightlighted and
+        zoomed.<br>
+         The blue path should remain highlighted.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" disabled type="button" value="Start 3"
+        name="btn3" onclick="test3()"></td>
+
+        <td>object_behaviors.cgm#id(ellipse,move)</td>
+
+        <td id="_3">NA</td>
+
+        <td>Passed if view is moved to the green ellipse.<br>
+         All previous highlights should still be displayed
+        (polygon,path).</td>
+      </tr>
+
+      <tr>
+        <td><input id="i4" disabled type="button" value="Start 4"
+        name="btn4" onclick="test4()"></td>
+
+        <td>object_behaviors.cgm#id(rect,newHighlight+full)</td>
+
+        <td id="_4">NA</td>
+
+        <td>Passed if the magenta rectangle is hightlighted and the
+        full picture is displayed<br>
+         All previous highlightes should be reset.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i5" disabled type="button" value="Start 5"
+        name="btn5" onclick="test5()"></td>
+
+        <td>object_behaviors.cgm#id(*,clearHighlight)</td>
+
+        <td id="_5">NA</td>
+
+        <td>Passed if all highlights are removed.</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

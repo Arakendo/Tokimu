@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!-- fragment-fiveForms-BE-03.xml                                          -->
+<!--                                                                       -->
+<!-- This is the XML description for WebCGM Test Case                      -->
+<!--         fragment-fiveForms-BE-03.                                     -->
+<!--                                                                       -->
+<!-- Author : Lofton Henderson, 30-May-2001                                -->
+<!--                                                                       -->
+<!-- History:                                                              -->
+<!--  16-Feb-2006 - LH: revised for WebCGM 2.0.                            -->
+<!--  30-May-2001 - LH: created.                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<CGMTestCase category="fragment" focus="fiveForms" rootType="html" testType="BE" BENumber="03">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="fragment" focus="multiPic" BENumber="02"/>
+  
+   <Next category="interact" focus="pick" BENumber="01"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="">.html</srcFile>
+    <!-- The targets are identical and derive from -target.ctx -->
+    
+      <dstFile cgmType="two-cyl">-target1.cgm</dstFile>
+    
+      <dstFile cgmType="two-cyl">-target2.cgm</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test that viewer implements the five variations
+on the allowable form of the "#" fragment for links.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id precedence="first">ebnf-five-frag-forms</ta-id>
+         <ta-id>picid-is-begpic-id</ta-id>
+         <ta-id>objid-aps-id-param</ta-id>
+         <ta-id>picbehav-default-to-cgm</ta-id>
+         <ta-id>objbehav-highlight</ta-id>
+         <ta-id>objbehav-default</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display 
+some HTML text containing two strings, 
+"Click to activate link with "#object-term" fragment." and
+"Click to activate link with "#picid.objid" fragment."
+Each has a hyperlink that points to a local WebCGM instance,
+that contains a single picture with a pair of cylinder objects.
+    </Paragraph>
+    
+      <Paragraph>
+In order to avoid the browser "#" fragment bug, the two links actually
+point into two identical copies of the file, with different filenames.
+(The same target file could be used for the two links, and the browser bug
+avoided, if another link to a different file were activated between
+the two test links.)
+Clicking on either hyperlink should cause the WebCGM picture 
+to be displayed in the right hand frame, in place of the HTML text,
+and the right hand cylinder to be highlighted.  The exact method of 
+highlighting is viewer dependent.
+    </Paragraph>
+    
+      <Paragraph>
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the HTML view and the WebCGM view in the right-hand frame.
+(Note, however, that this latter normal behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for
+this test.)  If the "Back" button does not work properly, you will
+need to reload the test in order to access the other hyperlink.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of a 
+correct rendering of how the target WebCGM instance should appear in the 
+right-hand frame after activating the first link in the HTML source instance.
+Activating the second link should result in a highlighted, zoomed view of the right-hand
+cylinder.
+Otherwise there should be no significant visual deviation between the reference 
+image of the left frame and the view in the right frame after link activation, 
+except for the method of object highlighting.  The reference image shows
+one valid method -- the border is outlined in red.  Any other visual
+highlighting method -- e.g., changing the color of the whole object -- 
+is equally acceptable.  
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

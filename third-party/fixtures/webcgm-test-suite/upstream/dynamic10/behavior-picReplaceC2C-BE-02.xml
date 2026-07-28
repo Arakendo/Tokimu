@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- behavior-picReplaceC2C-BE-02.xml                                      --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         behavior-picReplaceC2C-BE-02.                                 --><!--                                                                       --><!-- Author : Lofton Henderson, 23-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  23-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="behavior" focus="picReplaceC2C" rootType="cgm" testType="BE" BENumber="02">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="behavior" focus="picBlankC2C" BENumber="01"/>
+  
+   <Next category="behavior" focus="picBlankC2H" BENumber="03"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="3-shape">.cgm</srcFile>
+    
+      <dstFile cgmType="four-cyl">-target.cgm</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test viewer capility to recognize and effect picture behavior 
+request on a basic CGM-to-CGM link, for picture behavior "_replace".</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>picbehav-replace-to-cgm</ta-id>
+         <ta-id>objbehav-default</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+The magenta rectangle object (APS) contains a hyperlink 
+to another local, one-picture WebCGM instance,
+that contains a drawing of a set of cylinders.  
+The hyperlink is a 'linkuri' APS attribute, and the picture 
+behavior "_replace" is contained on a "#" fragment
+on the URI parameter.
+No object selection or object behavior parameters are
+associated with the 'linkuri'.
+    </Paragraph>
+    
+      <Paragraph>
+A mouse click anywhere over the magenta rectangle (labelled "first object")
+should cause the hyperlink to be executed.  This should result in the entire 
+target WebCGM picture to be displayed in the right-hand frame, 
+replacing the initial display of the 3 simple objects. 
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of
+the target WebCGM picture that should appear in the right-hand frame,
+after link activation.
+There should be no
+significant visual deviation between the reference image of the left
+frame and the view in the right frame after link activation.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

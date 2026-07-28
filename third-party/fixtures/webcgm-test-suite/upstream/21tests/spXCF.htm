@@ -1,0 +1,74 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: spXCF
+Version: $Version$
+Creator: Benoit Bezaire
+Description: tests WebCGM 2.1 new style properties through XCF interface.
+
+Source: WebCGM 2.1;  sec 5.5.7, 4.3.2, 4.3.10
+Revision History:
+2009-08-02 BB Initial Version
+2009-09-02 LH added missing PNG reference image.  
+-->
+
+
+<html>
+
+<head>
+<title>WebCGM 2.1 Style Properties</title>
+<script language="JavaScript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			var cgmPic	= cgmDoc.firstPicture;
+			var result	= document.getElementById("_1");
+			cgmPic.applyCompanionFile("spXCF.xml");
+			result.style.color = "#00A000";
+			try
+			{
+			}
+			catch(t1)
+			{
+				result.style.color = "#FF0000";
+				result.firstChild.nodeValue = "Failed! Error: " + t1;
+			}
+		}
+		catch(e)
+		{
+			var n = document.getElementById("_1");
+			n.style.color = "#FF0000";
+			document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+		}
+	}
+
+</script>
+</head>
+
+<body onload="document.getElementById('ivx1').getWebCGMDocument().src= 'spXCF.cgm';">
+<h1>WebCGM 2.1 Style Properties</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object>
+    </td>
+    <td><img id="reference" src="spXCF.png"></img>
+    </td>
+  </tr>
+</table>
+
+<table border="1">
+<caption><em>Test results</em></caption>
+<tr><td>Execute test</td><td>Purpose</td><td>Test Result</td><td>Comments</td></tr>
+<tr><td><input id="i1" type="button" value="Style Illustration" name="btn1" onClick="test1()"/></td>
+<td>Applying 2.1 Style Properties using XCF:</td>
+<td id="_1">See reference image</td><td>The two patterns are swapped. <br />
+The wheel should be drawn using solid lines. <br />The two bottom horizontal lines should have an offset. <br />
+    The rectangle should be filled with horizontal lines and the blue edge hidden.</td></tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>HTML target file for linking-basicC2H-BE-02</title>
+  <meta name="GENERATOR" content="amaya V4.3.2">
+</head>
+
+<body>
+<h4 style="font-size: 14pt"><a id="webcgm_3_2_1_1" name="webcgm_3_2_1_1"><span
+style="font-size: 14pt">3.2.1.1 Grobject</span></a></h4>
+
+<p style="font-size: 14pt">Description. The application structure (APS) of
+type 'grobject' is used to group graphical primitives in a picture together
+and assign certain attributes to the group. The object is geometrically
+identified either by the set of primitives enclosed between the BEGIN APS and
+END APS elements (if any), or by the spatial region associated with the
+'region' APS Attribute (if present). 'Grobject' APSs may contain any CGM
+graphical content allowed by this profile, and may contain other APS and APS
+attribute content as defined in section 3.3 (the complete, normative WebCGM
+content model).</p>
+
+<p style="font-size: 14pt">Viewer Behavior. A 'grobject' APS may be selected
+by the user ("pick"). The viewer shall decide about the pick selection in the
+following manner:</p>
+<ol style="font-size: 14pt">
+  <li>If the object does not contain a 'region' attribute and contains no a
+    LinkURI attributes no further action is required.</li>
+  <li value="2">If the object contains at least one 'LinkURI' attribute but no
+    'region' attribute, a click on non-transparent areas of the graphical
+    elements of the object selects the object. If the object does not contain
+    any graphical primitives no further action is required. If the object
+    contains more than one LinkURI attribute, the user shall be given a choice
+    of which URI to navigate.</li>
+  <li value="3">If the object contains a 'region' attribute and contains at
+    least one LinkURI attribute, then the 'region' shall be used for
+    selection. If the object contains more than one LinkURI attribute, the
+    user shall be given a choice of which URI to navigate.</li>
+  <li value="4">If the object contains a 'region' attribute but no LinkURI
+    attributes no further action is required.</li>
+</ol>
+
+<p style="font-size: 14pt">It is possible that a user selection ("pick") of a
+object in a displayed WebCGM picture may not have a single unambiguous result
+- the cursor location may reside within the geometric extent or 'region' of
+more than one APS. In such a case, the pick priority is as follows:</p>
+<ol start="5" style="font-size: 14pt">
+  <li>If the pick has selected only one APS (and it contains a linkURI), then
+    it is the one which is picked;</li>
+  <li value="6">If the pick has selected more than one APS (and each contains
+    a linkURI), and the APSs are not nested, then the APS with the highest
+    pick priority is the one whose picking region occurs latest in the picture
+    (see the 'region' APS Attribute for definition of "picking region").</li>
+  <li value="7">If the pick has selected more than one APS (and each contains
+    a linkURI), and the APSs are nested, the user shall be given a choice of
+    which URI to navigate.</li>
+</ol>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">Viewers shall give
+visual feedback to the user that a successful pick has occurred, and an
+indication of the particular object (or region) which has been picked. The
+exact method of feedback is viewer dependent.</span></p>
+</body>
+</html>

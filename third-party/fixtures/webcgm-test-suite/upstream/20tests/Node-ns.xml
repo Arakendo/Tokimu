@@ -1,0 +1,8 @@
+<webcgm id="root-cgm" version="2.0" filename="Node-ns.cgm" xmlns="http://www.cgmopen.org/schema/webcgm/" xmlns:test="http://www.example.org" test:att="ns attribute on root element">
+  <test:root>ns element of root</test:root>
+  <grobject apsid="elem1" test:att="a namespace attribute"/>
+  <para apsid="para1" test:att2="another namespace attribute">
+    <test:el att3="no prefix">This is the first child of &quot;para1&quot;</test:el>
+    <test:el>This is the last child of &apos;para1&apos;</test:el>
+  </para>
+</webcgm>

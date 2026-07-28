@@ -1,0 +1,66 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>linking-basicH2C-BE-01</title>
+<link rel="prev" href="linking-basicH2C-BE-01-dyn.html">
+<link rel="next" href="linking-basicC2H-BE-02-dyn.html">
+<link rel="child" href="toc-basicH2C-BE-01-dyn.html">
+<link rel="contents" href="linking-basicH2C-DT-01-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     -->
+</style>
+</head>
+<body>
+<div class="navbar" align="center">
+<p>
+<a target="_top" href="linking-basicH2C-BE-01-dyn.html">previous</a> &nbsp;<a target="_top" href="linking-basicC2H-BE-02-dyn.html">next</a> &nbsp;<a target="_top" href="linking-basicH2C-BE-01-dyn.html">parent</a> &nbsp;<a target="_top" href="linking-basicH2C-BE-01-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p>
+</div>
+<p>Test Purpose: Test basic HTML-to-CGM link, from a HTML 'A' tag to a whole CGM,
+with no behaviors or fragments.</p>
+<p>
+At the start of the test, the right-hand frame should contain some HTML
+text, with a string "Click here to display WebCGM picture." having hyperlink highlighting.
+Clicking that hyperlink should cause the contents of a referenced CGM
+file to appear.  The CGM contains a simple picture with a green-filled square
+on the left and a blue-filled circle on the right, both with thick
+black borders.
+    </p>
+<p>
+Because there is no (HTML) TARGET behavior on the
+hyperlink, the CGM picture will replace the HTML text in the right-hand
+frame.  This is the standard HTML 4.0 behavior.  You should be able to use
+the browser "Back" and "Forward" buttons to go back and forth between
+the HTML view and the WebCGM view in the right-hand frame.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of the 
+simple CGM file which should appear in the right-hand frame upon
+activating the hyperlink.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

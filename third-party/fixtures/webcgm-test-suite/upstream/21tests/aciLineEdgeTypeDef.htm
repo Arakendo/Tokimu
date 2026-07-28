@@ -1,0 +1,56 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: aciLineEdgeTypeDef
+Version: $Version$
+Creator: Don Larson
+Description: test line and edge type definiton metafile default
+
+Source: WebCGM 2.1 9.6
+Revision History:
+2008-09-01 DL Initial Version
+2009-02-05 DL Updated
+2009-09-02 DL revised test comments
+    
+-->
+
+<html>
+
+<head>
+<title>aciLineEdgeTypeDef Test Page</title>
+<script language="JavaScript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciLineEdgeTypeDef.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciLineEdgeTypeDef Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="500" height="375"></object>
+    </td>
+    <td><img id="reference" src="aciLineEdgeTypeDef.png"></img>
+    </td>
+  </tr>
+</table>
+
+<p>This test uses the ACI file to modify the standard line and edge type 1 which is Solid by default with a long dashed pattern. The image on the right shows the CGM rendered with line and edge type 1 replaced with a long dashed pattern.
+</p></body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Language" content="en-us">
+<title>behavior-objViewContext-BE-07</title>
+<link rel="prev" href="behavior-objHighlightAll-BE-06-dyn.html">
+<link rel="next" href="fragment-idC2H-BE-01-dyn.html">
+<link rel="child" href="toc-objViewContext-BE-07-dyn.html">
+<link rel="contents" href="behavior-objViewContext-DT-07-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     --></style>
+</head>
+<body>
+<div class="navbar" align="center"><p>
+<a target="_top" href="behavior-objHighlightAll-BE-06-dyn.html">previous</a> &nbsp;<a target="_top" href="fragment-idC2H-BE-01-dyn.html">next</a> &nbsp;<a target="_top" href="behavior-objViewContext-BE-07-dyn.html">parent</a> &nbsp;<a target="_top" href="behavior-objViewContext-BE-07-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p></div>
+<p>Test Purpose: Test that [WebCGM 2.0] viewer correctly maps the 
+[WebCGM 1.0] &quot;view_context&quot;
+object behavior, on a basic HTML-to-CGM link.</p>
+<p> 
+This is a WebCGM 2.0 test that verifies normative 2.0 viewer handling 
+of the 'view_context' object behavior keyword of WebCGM 1.0.
+      </p>
+<p>
+At the start of the test, the right-hand frame should display 
+some HTML text containing a string, 
+&quot;Click to view a WebCGM object with view context.&quot;
+The hyperlink on the HTML text points to a local WebCGM
+instance, that contains drawings of four cylinders objects,
+drawn in black on a white background.
+Two of the objects have 'name' APS attributes with value 
+&quot;smallCylinders&quot;, and the other two have 'name' APS attributes
+with value &quot;bigCylinders&quot;, and each cylinder has a unique APS
+id parameter value.
+    </p>
+<p>
+The hyperlink in the source HTML text contains a fragment which selects
+&quot;smallTopCylinder&quot; by id, and specifies the object behavior &quot;view_context&quot; -- 
+upon execution of the hyperlink, the selected object shall effectively
+be zoomed.  It contains a 'viewcontext' APS attribute whose value just
+encloses the small top cylinder and a little bit of its surroundings.  
+The WebCGM picture, for reference, contains a dotted rectangle 
+that is slightly smaller than the 'viewcontext' of the object.
+    </p>
+<p>
+In addition to being zoomed to the view context, the target object 
+shall be highlighted.  The exact method of highlighting is 
+viewer dependent.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of one 
+correct rendering of how the target WebCGM instance should appear in the 
+right-hand frame after activating the link in the HTML source instance.  
+WebCGM does not specify exactly how the view context should fit into
+the display frame.  The reference picture shows one valid fit.  Others
+are possible, especially if the view context and the display frame have
+different aspect ratios.
+The method of object highlighting may also vary.  The reference image shows
+one valid method -- the border is outlined in red.  Any other visual
+highlighting method -- e.g., changing the color of the whole object -- 
+is equally acceptable.
+    </p>
+<p>
+You should be able to use the browser &quot;Back&quot; and &quot;Forward&quot; buttons to go 
+back and forth between the target WebCGM picture the source HTML text
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

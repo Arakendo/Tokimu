@@ -1,0 +1,49 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: Text-On-Path-cases
+Version: $Version$
+Creator: David Cruikshank
+Date: 2006-08-06
+Description:  Static test of CGM:1999 Version 3 text-on-path
+functionality, BEGIN/END COMPOUND TEXT PATH and GENERALIZED TEXT PATH MODE.
+Source: WebCGM 2.0 6.4 (T.15.7)
+Revision History:
+   06-aug-2006: created.
+-->
+
+<html>
+
+  <head>
+    <title>Text-On-Path-cases Test Page</title>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'Text-On-Path-cases.cgm';">
+    <h1>Text-On-Path-cases Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="400" height=
+        "400">
+        </object> </td>
+
+        <td><img id="reference" src="Text-On-Path-cases.png" width="311"
+        height="400"> </td>
+      </tr>
+    </table>
+
+      <p>
+        Text-On-Path-cases test -- This test is passed if the rendered CGM looks 
+        like the PNG reference image. 
+      </p>
+
+  </body>
+</html>
+

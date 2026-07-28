@@ -1,0 +1,122 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: getObjectExtentTransformed
+Version: $Version$
+Creator: Stuart Galt
+Description: Test the extents of various objects including
+a tranformed APS, text object, and an empty APS
+
+Source: WebCGM 2.1 5.7.6
+Revision History:
+2008-12-15 SG Initial Version
+2009-08-17 SG fixed error in function results()
+2009-08-24 SG changed test result for last test to Pass if result is null
+2009-09-03 SG fixed line width spec mode, from scaled to absolute.
+
+-->
+<html>
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=iso-8859-1">
+  <title>getObjectExtentTransformed Test Page</title>
+  <script type="text/ecmascript">
+
+  function dotests() {
+    try {
+      var cgmDoc = document.getElementById("img").getWebCGMDocument();
+      var cgmPic  = cgmDoc.firstPicture;
+      
+      // Move the circle (object B)
+      var circle = cgmPic.getAppStructureById("obj_B");
+      circle.translate(120, 0, "replace");
+
+      // Now get the extents
+      results("obj_both", "n_1");
+      results("obj_B", "n_2");
+      results("obj_A", "n_3");
+      results("obj_text", "n_4");
+      results("obj_empty", "n_5");
+      } catch(e) {
+        alert(e);
+      }
+  }
+  
+  function results(myaps, loc) {
+    var rec;
+    var cgmDoc = document.getElementById("img").getWebCGMDocument();
+    var cgmPic  = cgmDoc.firstPicture;
+    var aps = cgmPic.getAppStructureById(myaps);
+    var result = document.getElementById(loc);
+    try {
+    rec = aps.getObjectExtent();
+    if( rec != null) {
+      result.firstChild.nodeValue = "( " + rec.xll + " " + rec.yll + " " + rec.xur + " " + rec.yur + ")";
+    } else {
+      result.firstChild.nodeValue = "null";
+    }
+    } catch(e) {
+      result.firstChild.nodeValue = "getObjectExtent not implemented";
+      result.style.color = '#FF0000';
+    }
+  }
+
+  </script>
+</head>
+
+<body
+onload="document.getElementById('img').getWebCGMDocument().src='getObjectExtentTransformed.cgm'; dotests();">
+<h1>getObjectExtentTransformed Test Page</h1>
+
+<table border="1" rules="cols">
+  <tbody>
+    <tr style="text-align:center;">
+      <th>Source image</th>
+      <th>Reference image</th>
+    </tr>
+    <tr>
+      <td><object id="img" type="image/cgm;Version=4;ProfileId=WebCGM"
+        width="480" height="360">
+        </object> </td>
+      <td><img id="reference" width="360" height="360" src="getObjectExtentTransformed.png"
+        alt="getObjectExtentTransformed reference png"></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<table border="1">
+  <caption><em>Test results</em> </caption>
+  <tbody>
+    <tr>
+      <td>Purpose</td>
+      <td>Test Result</td>
+      <td>Comments</td>
+    </tr>
+    <tr>
+      <td>getObjectExtent of the circle and the square:</td>
+      <td id="n_1">NA</td>
+      <td>Pass if result is (150 150 250 250).</td>
+    </tr>
+    <tr>
+      <td>getObjectExtent of the circle:</td>
+      <td id="n_2">NA</td>
+      <td>Pass if result is (150 150 250 250).</td>
+    </tr>
+    <tr>
+      <td>getObjectExtent of the square:</td>
+      <td id="n_3">NA</td>
+      <td>Pass if result is (150 150 250 250).</td>
+    </tr>
+    <tr>
+      <td>getObjectExtent of text string:</td>
+      <td id="n_4">NA</td>
+      <td>Pass if result is (75 72.2 225 112.4).</td>
+    </tr>
+    <tr>
+      <td>getObjectExtent of an empty APS:</td>
+      <td id="n_5">NA</td>
+      <td>Pass if result is null.</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setView001
+Version: $Version$
+Creator: Benoit Bezaire
+Description: initializes a WebCGMRect to be used by setView()
+
+Source: WebCGM 2.1 5.7.5
+Revision History:
+Benoit, Aug 14 2008, created 
+Lofton, Aug 18 2008, changed name to setView001
+Benoit, Nov 21 2008, uses createWebCGMRect()
+Lofton, Apr 20 2009, fixed 3 (HTML 4.01) validation errors.
+
+-->
+<html>
+
+<head>
+<title>setView001 Test Page</title>
+<script language="JavaScript" type="text/ecmascript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'setView001.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+			try
+			{
+			    var re = cgmPic.createWebCGMRect();
+			    re.xll = 60; // got from "rect".getObjectExtent();
+			    re.yll = 60;
+			    re.xur = 460;
+			    re.yur = 360;
+				cgmPic.setView( re );
+			}
+			catch(t1)
+			{
+;			}
+		}
+		catch(e)
+		{
+;		}
+	}
+
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>setView001 Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object>
+    </td>
+    <td><img id="reference" src="setView001.png" alt="setView001 reference image">
+    </td>
+  </tr>
+</table>
+
+<p>Result should match reference image</p></body>
+</html>

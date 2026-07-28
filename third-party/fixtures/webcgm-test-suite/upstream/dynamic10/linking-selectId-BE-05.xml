@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!-- linking-selectId-BE-05.xml                                            -->
+<!--                                                                       -->
+<!-- This is the XML description for WebCGM Test Case                      -->
+<!--         linking-selectId-BE-05.                                       -->
+<!--                                                                       -->
+<!-- Author : Lofton Henderson, 20-May-2001                                -->
+<!--                                                                       -->
+<!-- History:                                                              -->
+<!--  09-Feb-2006 - LH: modified for WebCGM 2.0.                           -->
+<!--  20-May-2001 - LH: created.                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<CGMTestCase category="linking" focus="selectId" rootType="html" testType="BE" BENumber="05">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="linking" focus="basicC2P" BENumber="04"/>
+  
+   <Next category="linking" focus="selectName" BENumber="06"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="">.html</srcFile>
+    
+      <dstFile cgmType="3-shape">-target.cgm</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test viewer ability to select an object in
+a WebCGM instance by the value of its APS Id parameter.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id precedence="first">objid-aps-id-param</ta-id>
+         <ta-id>picbehav-default-to-cgm</ta-id>
+         <ta-id>objbehav-to-cgm-default</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+   
+      <Paragraph>
+At the start of the test, the right-hand frame should display 
+some HTML text containing a string, "Click to id-select a WebCGM
+object."  The hyperlink on the HTML text points to a local WebCGM
+instance, with a "#" fragment identifying the particular object,
+"myObject".  The target WebCGM instance contains a simple picture
+with three objects:  a magenta rectangle, a cyan circle, and a red triangle,
+all with thick black borders.
+    </Paragraph>
+    
+      <Paragraph>
+The "Second Object" in the target picture has the APS Id parameter value
+"myObject", and contains no APS attribute elements.  The first and
+third objects have unique APS Id parameter values, and each contain
+an APS attribute element of type 'name' with value "myObject".
+Therefore, successful completion of the link navigation request by
+the viewer will result in display of the target WebCGM and selection
+of the "Second Object". 
+    </Paragraph>
+    
+      <Paragraph>
+Since there are no object behavior parameters associated with the link,
+the default object behavior is required, 'zoom+newHighlight' -- the object 
+shall be zoomed and highlighted.  The exact method of highlighting is 
+viewer dependent.  <em>(Note. You should be able to use the viewer's zoom-pan
+controls to zoom out and get a full-picture view, but this is not a
+pass/fail criterion of this test.)</em>
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of one 
+correct rendering of how the target WebCGM instance should appear in the 
+right-hand frame after activating the link in the HTML source instance.  
+There should be no significant visual deviation between the reference 
+image of the left frame and the view in the right frame after link activation,
+except for the method of object highlighting.  The reference image shows
+one valid method -- the border is outlined in red.  Any other visual
+highlighting method -- e.g., changing the color of the whole object -- 
+would be equally acceptable.
+    </Paragraph>
+    
+      <Paragraph>
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the target WebCGM picture the source HTML text
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

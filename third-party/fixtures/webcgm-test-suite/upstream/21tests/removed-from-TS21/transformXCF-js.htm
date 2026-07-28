@@ -1,0 +1,142 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: transformXCF
+Version: $Version$
+Creator: Stuart Galt
+Description: Test the geometric transforms via the XCF API.
+
+Source: WebCGM 2.1 5.7.6
+Revision History:
+2009-08-10 SG Initial Version
+
+-->
+<html>
+<head>
+  <title>Transform XCF Test Page</title>
+  <script type="text/ecmascript">
+    function test1()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("img").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+	    var result  = document.getElementById("r_1");
+	    var a1 = cgmPic.getAppStructureById('arrow1');
+	    var a2 = cgmPic.getAppStructureById('arrow2');
+	    var a3 = cgmPic.getAppStructureById('arrow3');
+            result.style.color = "#00A000";
+            try
+	    {
+	      a1.translate("50", "0", "replace");
+	      a2.rotate("90", "20", "50", "replace");
+	      a3.scale("3", "1", "10", "30", "replace");
+            }
+            catch(t1)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t1;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("r_1");
+            n.style.color = "#FF0000";
+            document.getElementById("r_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+
+    function test2()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("img").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("r_2");
+	    var a1 = cgmPic.getAppStructureById('arrow1');
+	    var a2 = cgmPic.getAppStructureById('arrow2');
+	    var a3 = cgmPic.getAppStructureById('arrow3');
+            result.style.color = "#00A000";
+            try
+            {
+	      a1.translate("0", "0", "replace");
+	      a2.rotate("0", "20", "50", "replace");
+	      a3.scale("1", "1", "10", "30", "replace");
+            }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("r_2");
+            n.style.color = "#FF0000";
+            document.getElementById("r_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+  </script>
+</head>
+
+<body
+onload="document.getElementById('img').getWebCGMDocument().src='transformXCF.cgm';">
+<h1>Transform XCF Test Page</h1>
+
+ <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="img" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="transformXCF.png" width="480" height="360" alt="reference image"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Test Number</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td><input id="i1" type="button" value="Test 1" name="btn1"
+        onclick="test1()"></td>
+
+        <td>Transform a CGM document using XCF:</td>
+
+        <td id="r_1">NA</td>
+
+        <td>Should look like reference image</td>
+      </tr>
+
+      <tr>
+        <td><input id="i2" type="button" value="Test 2" name="btn2"
+        onclick="test2()"></td>
+
+        <td>Reset initial styles</td>
+
+        <td id="r_2">NA</td>
+
+        <td>CGM illustration should be back to initial look</td>
+      </tr>
+    </table>
+
+</body>
+</html>
+

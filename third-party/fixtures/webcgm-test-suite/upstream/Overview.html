@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Transitional 1.0//EN"
+       "http://www.w3.org/TR/xhtml-transitional/xhtml-basic10.dtd"><html
+xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <title>Readme for WebCGM21TS</title>
+  <meta name="GENERATOR" content="amaya 8.3, see http://www.w3.org/Amaya/" />
+</head>
+
+<body>
+<h1 align="center"><span style="text-decoration: underline">WebCGM 2.1 Test
+Suite</span></h1>
+
+<h2 align="center">Release 1.2 -- 19 April 2010</h2>
+<hr />
+<ul>
+  <li><a href="#Introduction">Introduction</a></li>
+  <li><a href="#Copyright">Copyright&amp;License</a></li>
+  <li><a href="#About">About</a></li>
+  <li><a href="#Caveats">Caveats</a></li>
+  <li><a href="#Instructions">Installation Instructions</a></li>
+  <li><a href="#DynamicContents">Dynamic10 Contents</a></li>
+  <li><a href="#new20tests">WebCGM 2.0 tests.</a></li>
+  <li><a href="#Download"><strong>Download</strong></a></li>
+  <li><a href="#ViewIntroPage">View Intro Page</a></li>
+</ul>
+<hr />
+
+<p><a id="Introduction" name="Introduction"></a>
+<strong>Introduction.</strong> This is a publication / release version of the
+WebCGM 2.1 Test Suite (WebCGM21TS). This release covers all of the
+functionality of the <a
+href="http://docs.oasis-open.org/webcgm/test-materials/webcgm20ts/webcgm20-ts-index.html">WebCGM20TS</a>,
+plus the additional functionality has been added to the 2.1 version of WebCGM
+profile. Please see the <a href="releaseNotes.html">Release Notes</a>.</p>
+
+<p>Future releases are anticipated, with further improvements, bug fixes,
+etc.</p>
+<hr />
+
+<p><a id="Copyright" name="Copyright"></a> <strong>Copyright &amp;
+License.</strong> The WebCGM21TS adds 42 new tests to the existing 300 tests
+of <a
+href="http://docs.oasis-open.org/webcgm/test-materials/webcgm20ts/webcgm20-ts-index.html">WebCGM20TS</a>.
+These tests were developed by the <a
+href="http://www.oasis-open.org/committees/tc_home.php?wg_abbrev=cgmo-webcgm">OASIS
+CGM Open WebCGM Technical Committee</a>. OASIS copyright rules apply to these
+tests, <a
+href="http://www.oasis-open.org/who/intellectualproperty.php#14.2">Copyright
+© OASIS Open 2009-2010. All Rights Reserved.</a></p>
+
+<p>The core of the WebCGM 2.1 Test Suite (WebCGM21TS) is the <a
+href="http://docs.oasis-open.org/webcgm/test-materials/webcgm20ts/webcgm20-ts-index.html">WebCGM
+2.0 Test Suite</a> (WebCGM20TS). The core of the WebCGM20TS is the
+WebCGM10TS. The WebCGM10TS was developed by Lofton Henderson and NIST
+(National Institute of Standards and Technology). <a
+href="http://www.cgmopen.org/">CGM Open</a> has provided a Web location for
+free distribution of the WebCGM10TS since its first publication. Copyright of
+the WebCGM10TS is held by Lofton Henderson. License terms for use and
+redistribution are free, subject to a no-modification restriction (to
+preserve the integrity of WebCGM10TS materials). See the <a
+href="copyright-license.html">WebCGM10TS copyright &amp; license
+document</a>.</p>
+
+<p>Other than those tests that comprise the WebCGM10TS, all tests in the
+WebCGM21TS were developed by the <a
+href="http://www.oasis-open.org/committees/tc_home.php?wg_abbrev=cgmo-webcgm">OASIS
+CGM Open WebCGM Technical Committee</a>. OASIS copyright rules apply to these
+tests, <a
+href="http://www.oasis-open.org/who/intellectualproperty.php#14.2">Copyright
+© OASIS Open 2006-2010. All Rights Reserved</a>.</p>
+
+<p><a id="NIST-Software" name="NIST-Software"></a> <strong>NIST Software
+Disclaimer.</strong> The WebCGM 1.0 Conformance Test Suite (WebCGM10TS) was
+developed under contract for the National Institute of Standards and
+Technology (NIST), an agency of the U.S. Department of Commerce, Gaithersburg
+MD 20899, USA. WebCGM10TS bears no warranty, either express or implied. NIST
+does not assume legal liability nor responsibility for a User's use of
+WebCGMTS10 or the results of such use.</p>
+<hr />
+
+<p><a id="About" name="About"><strong>About.</strong></a></p>
+
+<p><em>Composition</em>. The composition of the WebCGM 2.1 test suite is as
+follows:</p>
+<ul>
+  <li>WebCGM21TS (~345 tests)
+    <ul>
+      <li>WebCGM21 add-on module (~42 tests)</li>
+      <li>WebCGM20TS (~300 tests)
+        <ul>
+          <li>WebCGM20 add-on module (~43 tests)</li>
+          <li>WebCGM10TS (~257 tests)
+            <ul>
+              <li>WebCGM10 static tests (~232 tests)</li>
+              <li>WebCGM10 dynamic tests (~25 tests)</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<p><em>Test versions</em>. In the WebCGM 2.1 profile, there is a conformance
+rule that the metafile must be identified by the "ProfileEd:2.1" string. A
+similar rule is present in the WebCGM 2.0 profile ("ProfileEd:2.0"), and the
+WebCGM 1.0 profile ("ProfileEd:1.0"). Except for this requirement, most valid
+1.0 and 2.0 metafiles would be valid 2.1 metafiles. I.e., if their identifer
+string were changed to 2.1, they would be valid 2.1 metafiles.</p>
+
+<p>In the initial releases of the WebCGM21TS, most of the files in the
+previous editions -- WebCGM10TS and WebCGM20TS metafiles -- have been left
+"as is". I.e., their identifiers have not been changed to "ProfileEd:2.1".
+Exceptions have been made in cases where WebCGM 2.1 has changed the
+associated conformance requirements in the test. In such cases, the ProfileEd
+has been changed to 2.1. In other words, the ProfileEd in any test of the
+WebCGM21TS actually denotes the oldest edition of the WebCGM profile for
+which the test is valid.</p>
+
+<p>It is planned that a future release of this WebCGM21TS will change all
+files to contain "ProfileEd:2.1". Please see the <a
+href="releaseNotes.html">Release Notes</a> for up-to-date information about
+particular Test Suite releases.</p>
+<hr />
+
+<p><a id="Caveats" name="Caveats"><strong>Caveats.</strong></a></p>
+
+<p>Please check the <a href="releaseNotes.html">Release Notes</a> for any
+up-to-date information about the following Test Suite caveats.</p>
+<ol>
+  <li>Some of the dynamic tests (of WebCGM10TS subset) involve HTML as either
+    a source or destination of hyperlinks. In some cases, the HTML text was
+    borrowed from the WebCGM 1.0 specification. Some of these HTML snippets
+    have not yet been updated by the corresponding snippets from WebCGM 2.1.
+    Although the tests are functionally correct, the ultimate goal is to
+    update all of those snippets for clarity and cosmetic reasons.</li>
+  <li>Some CGMs and PNG reference images still reflect pre-release version
+    numbers, e.g.," 0.9". The tests are functionally correct, and this
+    cosmetic defect may be fixed in a future release.</li>
+  <li>The Dynamic (hyperlinking) tests (of WebCGM10TS subset) may not look
+    very good if you are running on a small screen, or at less that 1024x768
+    resolution. (At higher resolutions, there may also be some frame-layout
+    issues).</li>
+  <li>In a some cases, production of reference images was problematical for
+    WebCGM20TS (as well as WebCGM10TS), due to limited access to
+    high-resolution systems and tools. This may be addressed in a future
+    release. This is not a critical criterion for the dynamic10 tests, in
+    particular, and there is a caveat at the end of each Operator Script.</li>
+</ol>
+<hr />
+
+<p><a id="Instructions" name="Instructions"></a><strong>Installation
+Instructions.</strong> To view WebCGM21TS, all you have to do is unzip the
+delivery into a local directory. Be sure to pay attention to these details
+when un-zipping:</p>
+<ul>
+  <li>The destination directory should be the local directory which you want
+    to be the root of your installation of the test suite.</li>
+  <li>Sub-directories 'static10', 'dynamic10', '20tests', and 'new21tests'
+    will be created, and there will be further sub-directories in these.</li>
+  <li>Be sure that your unzip operation is done with the option "Use folder
+    names", or equivalent, so that the sub-directories are created and
+    populated.</li>
+</ul>
+
+<p>After you have successfully unzipped the contents:</p>
+<ol>
+  <li>open "<a href="introPage.html">introPage.html</a>" in a browser, or
+    navigate there from this page (Overview.html)</li>
+  <li>click the link to the dynamic module, the static-graphics module, the
+    20tests, or the new21tests</li>
+  <li>If you choose "Dynamic", this will display a Table of Contents of test
+    cases. Select any one.</li>
+  <li>If you choose "20tests", this will display a Table of Contents of test
+    cases of the WebCGM20 add-on module (see <a href="#About">About</a>).
+    Select any one.
+    <p>If you choose "21tests", this will display a Table of Contents of new
+    WebCGM 2.1 test cases. Select any one.</p>
+  </li>
+  <li>You will need a WebCGM plug-in at this point (selecting tests from the
+    TOCs).</li>
+  <li>If you select "Static", then you will be taken to a Javascript page
+    (this will not work in older versions of Netscape Navigator -- you may
+    have to switch to Internet Explorer or another browser).</li>
+  <li>You can navigate to any one of the 200+ static tests, by one of several
+    selection categories.</li>
+  <li>The Operator Script will be displayed, plus a button to display the
+    (raster) reference image. You will have to cause your viewer (plugin, or
+    standalone, or...) to display the CGM.</li>
+</ol>
+<hr />
+
+<p><a id="DynamicContents" name="DynamicContents"></a><strong>Dynamic10
+Contents.</strong> Test cases have names like: linking-basicH2C-BE-01. The
+first bit is the functional category, the second is the specific focus, the
+third is test type (all of these are BE, Basic Effectivity), the 4th is a
+sequence (within category): category-focus-BE-nn.. All of the tests are BE
+tests. They try to provide a complete coverage of V4 functionality at a basic
+level of detail -- no drill down or detailed testing (DT).</p>
+
+<p>When you select a test in the TOC, a 4-frame screen will come up.</p>
+<ul>
+  <li>The top frame contains the test case name, and a link (not yet
+    implemented) to the spec reference associated with the test case.</li>
+  <li>The bottom frame contains the navigation bar, which allows you to go to
+    the previous test, next test, or back to the TOC (the child and parent
+    buttons are not implemented). Also, the Operator Script, which tells you
+    how to execute the test and what to look for in the way of pass/fail.</li>
+  <li>The right frame is generally where the test root will appear (HTML or
+    CGM file).</li>
+  <li>The left frame initially displays a PNG reference image of a correct
+    result of executing the test. (In some cases, it will also subsequently
+    be the target frame for linked content.)</li>
+</ul>
+
+<p>For information (but not relevant to viewing and using the test suite),
+the test cases are each driven off of an XML test case description instance,
+and XSLT stylesheets generate the test harnesses.</p>
+
+<p>There are many files associated with each test case. You don't need to
+worry much about most of them. But a couple of files might interest you. The
+test content root file will generally be named "category-focus-BE-nn" with
+extension .cgm or .html. If the test case has a target file for a link, it
+will be named something line "category-focus-BE-nn-target", with extension
+.cgm or .html. All of the files with bits like "-dyn" as a suffix to the name
+are associated with the harness, and you shouldn't need to worry about
+them.</p>
+
+<p><a id="new20tests" name="new20tests"></a><strong>WebCGM 2.0
+tests.</strong> The majority of these are DOM and XCF tests, that each start
+with an HTML page. Typically there is a reference picture (PNG) on one side,
+a frame for display of the subject source metafile the other side, and an
+HTML table below, with interactive buttons for triggering DOM calls.</p>
+
+<p><a id="new21tests" name="new21tests"></a><strong>WebCGM 2.1
+tests.</strong> These are mostly tests for the functionality added to WebCGM
+by the 2.1 edition. Each start with an HTML page. Typically there is a
+reference picture (PNG) on one side, a frame for display of the subject
+source metafile the other side, and an HTML table below, with interactive
+buttons for triggering the various sub-tests.</p>
+<hr />
+
+<p><a id="Download" name="Download"></a><strong>Download.</strong> You can <a
+id="put-download-link-here" name="put-download-link-here"
+href="http://docs.oasis-open.org/webcgm/test-materials/webcgm21ts/webcgm21-ts-index.html">download
+a ZIP file</a> and install the test suite on a local computer.</p>
+
+<p><a id="ViewIntroPage" name="ViewIntroPage"></a><strong>View Intro
+Page.</strong> Download the ZIP file, install it per the <a
+href="#Instructions">above instructions</a>, and initiate viewing at
+introPage.html. Either way, if you view the Intro page, it will have links
+that take you to the various parts of the suite. Please note viewer and
+browser requirements <a href="#Instructions">discussed above</a>.</p>
+
+<p><strong>Feedback Welcome.</strong> We welcome specific critiques on
+individual tests, Your general comments and impressions are welcome as well.
+Contributions can be made with the enclosed <a
+href="test-contribution-grant.html">contribution form</a>. Please send
+comments and contributions to the <a>WebCGM TS manager</a>, or
+info@cgmopen.org.</p>
+
+<p><strong>Questions?</strong> Please write to <a
+href="mailto:lofton@rockynet.com">WebCGM TS manager</a>, or
+info@cgmopen.org.</p>
+<hr />
+</body>
+</html>

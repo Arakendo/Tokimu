@@ -1,0 +1,2 @@
+# The WebCGM upstream tree is verified as a byte-identical extracted fixture.
+third-party/fixtures/webcgm-test-suite/upstream/** -text

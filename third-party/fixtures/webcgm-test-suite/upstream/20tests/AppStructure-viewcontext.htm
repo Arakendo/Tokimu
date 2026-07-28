@@ -1,0 +1,372 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: AppStructure-viewcontext
+Version: $Version$
+Creator: Lofton Henderson
+Date: 26 April 2005
+Description: This is a WebCGM DOM test that evaluates the viewcontext attribute
+             at the AppStructure level.
+Source: WebCGM 2.0 5.7.6
+Credits:  borrowed and modified from Benoit's "AppStructure-interactivity"
+Revision History:
+2005-05-17 Lofton
+    change CGM Metafile Description to "ProfileEd:2.0".
+2005-05-13 Lofton
+    remove debug code from test2
+2005-05-11 Lofton
+    change single-blank delimited to wsp delimited in vc strings.
+-->
+
+<html>
+  <!--
+      Author:   Lofton Henderson
+      Created:  26 April 2005
+      Credits:  borrowed and modified from Benoit's "AppStructure-interactivity"
+      Revised:  
+          17 May 2005: change CGM Metafile Description to "ProfileEd:2.0".
+          13 May 2005: remove debug code from test2
+          11 May 2005: change single-blank delimited to wsp delimited in vc strings.
+    -->
+
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>AppStructure, viewcontext Test Page</title>
+<script type="text/ecmascript">
+  function OnBtnDOM()
+  {
+     try
+     {
+        // open the CGM for the test (via <object> element).
+        document.getElementById('ivx1').getWebCGMDocument().src= 'AppStructure-viewcontext.cgm';
+
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var refVC_1 = "103.50 24.36 139.50 48.36";       // initial VC (nvdc) on plane_1.
+        var result   = document.getElementById("_1");
+
+        try
+        {
+           var gr = cgmPic.getAppStructureById("big_plane");
+           var gr1 = cgmPic.getAppStructureById("plane_1"); 
+           var v = gr.getAppStructureAttr("viewcontext");   // should be empty initially.
+           var v1 = gr1.getAppStructureAttr("viewcontext");     // should be refVC_1 initially.
+           if( vcEqual(v, "") && vcEqual(v1, refVC_1) )
+           {
+             result.style.color = "#00A000";
+             result.firstChild.nodeValue = "Passed!";
+             }
+           else
+           {
+             throw "wrong viewcontext value";
+           }
+        }
+        catch(t1)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t1;
+        }
+     }
+     catch(e)
+     {
+        var n = document.getElementById("_1");
+        n.style.color = "#FF0000";
+        document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+     }
+  }
+
+  function test2()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var setVC_big = "1.50 8.36 87.50 39.36";        // value (nvdc) for big_plane's unspecified VC.
+        var result   = document.getElementById("_2");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("big_plane");
+           gr.setAppStructureAttr("viewcontext", setVC_big);
+           result.style.color = "#FFA200";
+           result.firstChild.nodeValue = "No errors.";
+
+        }
+        catch(t2)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t2;
+        }
+        document.getElementById("i3").disabled = false;       // enable test3 button.
+     }
+     catch(e2)
+     {
+        var n = document.getElementById("_2");
+        n.style.color = "#FF0000";
+        document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2.description;
+     }      
+  }
+
+  function test3()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var resetVC_1 = "103.50 24.36 156.50 48.36";       // enlarge VC (nvdc) on plane_1.
+        var result   = document.getElementById("_3");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("plane_1");
+           gr.setAppStructureAttr("viewcontext", resetVC_1);
+           result.style.color = "#FFA200";
+           result.firstChild.nodeValue = "No errors.";
+        }
+        catch(t3)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t3;
+        }
+        document.getElementById("i4").disabled = false;
+     }
+     catch(e3)
+     {
+        var n = document.getElementById("_3");
+        n.style.color = "#FF0000";
+        document.getElementById("_3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3.description;
+     }
+  }
+
+  function test4()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var setVC_big = "1.50 8.36 87.50 39.36";          // earlier-set big_plane VC.
+        var resetVC_1 = "103.50 24.36 156.50 48.36";      // earlier-reset plane_1 VC.
+        var result   = document.getElementById("_4");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("plane_1");
+           var v = gr.getAppStructureAttr("viewcontext");
+           var gr2 = cgmPic.getAppStructureById("big_plane");
+           var v2 = gr2.getAppStructureAttr("viewcontext");
+           if( vcEqual(v, resetVC_1) && vcEqual(v2, setVC_big) )
+           {
+              result.style.color = "#00A000";
+              result.firstChild.nodeValue = "Passed!";
+           }
+           else
+           {
+              throw "wrong viewcontext value(s)";
+           }
+        }
+        catch(t4)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t4;
+        }
+        document.getElementById("i5").disabled = false;
+     }
+     catch(e4)
+     {
+        var n = document.getElementById("_4");
+        n.style.color = "#FF0000";
+        document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4.description;
+     }      
+  }
+
+  function test5()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var result   = document.getElementById("_5");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("plane_1");
+           var gr2 = cgmPic.getAppStructureById("big_plane");
+           gr.removeAppStructureAttr("viewcontext");
+           gr2.removeAppStructureAttr("viewcontext");
+
+           result.style.color = "#FFA200";
+           result.firstChild.nodeValue = "No errors.";
+        }
+        catch(t5)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t5;
+        }
+     }
+     catch(e5)
+     {
+        var n = document.getElementById("_5");
+        n.style.color = "#FF0000";
+        document.getElementById("_5").firstChild.nodeValue = "Failed, test not executed! Error: " + e5.description;
+     }      
+  }
+
+  function vcEqual(vc1, vc2)
+  {
+     // Test whether 2 viewcontext DOMstrings are "equal" -- 
+     // either both are empty, or their respective 4 numbers 
+     // agree to within 0.05 (nvdc).  DOMstring numbers are  
+     // whitespace separated.  Wsp: blank, tab, linefeed, return. 
+   
+     if (vc1 == "" && vc2 == "") return true;
+     if (vc1 == "" || vc2 == "") return false;
+
+     var wsp = /[\x20\x09\0D\x0A]+/;      // regex for 'whitespace' delimiter
+
+     var sp1 = vc1.split(wsp);
+     var sp2 = vc2.split(wsp);
+     for (i=0; i<4; i++)
+        if (Math.round((sp1[i]-sp2[i])*10) != 0) return false;
+     return true;    
+  }
+
+</script>
+  </head>
+
+  <body onload="OnBtnDOM();">
+    <h1>AppStructure, viewcontext Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="AppStructure-viewcontext.png">
+        </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>Get initial 'viewcontext' values</td>
+
+        <td id="_1">NA</td>
+
+        <td>"Passed" if getAppStructureAttr values are correct. See
+        <a href="#note-1">Note 1</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input type="button" value="Start 2" name="btn2"
+        onclick="test2()"></td>
+
+        <td>Set 'viewcontext' of larger plane to dashed
+        rectangle.</td>
+
+        <td id="_2">NA</td>
+
+        <td>"No errors" if no error executing setAppStructureAttr.
+        See <a href="#note-2">Note 2</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" disabled type="button" value="Start 3"
+        name="btn3" onclick="test3()"></td>
+
+        <td>Reset already-specified 'viewcontext' on plane_1.</td>
+
+        <td id="_3">NA</td>
+
+        <td>"No errors" if no error executing setAppStructureAttr.
+        See <a href="#note-3">Note 3</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i4" disabled type="button" value="Start 4"
+        name="btn4" onclick="test4()"></td>
+
+        <td>Retrieve current 'viewcontext' values.</td>
+
+        <td id="_4">NA</td>
+
+        <td>"Passed" if getAppStructureAttr values are correct. See
+        <a href="#note-4">Note 4</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i5" disabled type="button" value="Start 5"
+        name="btn5" onclick="test5()"></td>
+
+        <td>Remove 'viewcontext' attributes:</td>
+
+        <td id="_5">NA</td>
+
+        <td>"No errors" if no error executing
+        removeAppStructureAttr. See <a href="#note-5">Note
+        5</a>.</td>
+      </tr>
+    </table>
+
+    <p><a id="note-1" name="note-1"><strong>Note 1.</strong></a> At
+    test start, there is a 'viewcontext' ApsAttr on plane_1
+    (upper-left small plane in the fleet of 6), whose extent is
+    indicated by the dashed rectangle. There is no 'viewcontext' on
+    big_plane initially. There is a linkuri from plane_5 (the
+    bottom small one) to plane_1, and a linkuri from plane_6 (the
+    upper-right small plane) to big_plane. The first (onload) test
+    is passed if the returned getApsStructureAttr values are
+    correct. (You can also activate these links to visually verify
+    viewer behavior.)</p>
+
+    <p><a id="note-2" name="note-2"><strong>Note 2.</strong></a>
+    "No errors" only means that there were no exceptions upon test
+    execution. To interactively verify that the initial value (no
+    'viewcontext') is replaced on big_plane, activate the linkuri
+    from plane_6 (the upper-right small plane) to big_plane.</p>
+
+    <p><a id="note-3" name="note-3"><strong>Note 3.</strong></a>
+    "No errors" only means that there were no exceptions upon test
+    execution. To interactively verify that the initial value
+    (dashed rectangle) is replaced on plane_1, activate the linkuri
+    from plane_5 (the lowest small plane) to plane_1. The new view
+    context is the height of the dashed rectangle, but as wide as
+    the whole small-plane fleet.</p>
+
+    <p><a id="note-4" name="note-4"><strong>Note 4.</strong></a>
+    "Passed" means that getAppStructureAttr returned the same
+    'viewcontext' values on plane_1 and big_plane as were set in
+    tests 2 and 3.</p>
+
+    <p><a id="note-5" name="note-5"><strong>Note 5.</strong></a>
+    "No errors" only means that there were no exceptions upon test
+    execution. To interactively verify that the removal happened,
+    activate the linkuri from plane_6 to big_plane, and the linkuri
+    from plane_5 to plane_1. Correct result is a zoomed view to a
+    minimal enclosing rectangle of the linkuri target.</p>
+  </body>
+</html>
+

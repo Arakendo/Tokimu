@@ -1,0 +1,54 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: aciHatchStyleDef
+Version: $Version$
+Creator: Don Larson
+Description: test ACI Generic font subsitution
+
+Source: WebCGM 2.1 9.3.2.2 
+
+Revision History:
+2009-02-09 DL Initial version
+2009-09-02 DL revised test comments
+
+-->
+
+<html>
+<head>
+<title>aciGenericFonts Test Page</title>
+<script language="JavaScript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciGenericFonts.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciGenericFonts  Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="360" height="360"></object>
+    </td>
+    <td><img id="reference" src="aciGenericFonts.png"></img>
+    </td>
+  </tr>
+</table>
+
+<p>This tests ACI file generic font substition. The CGM file displayed on the left contains a fontlist with 5 different fonts and 5 restricted text elements which reference each of the 5 fonts respectively. The ACI file substitutes generic fonts for all of the 5 fonts. The image on the right shows how the CGM should appear if the substitutions works correctly. Note that appearance may vary as long as the substituted font is in the proper generic family.</p>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>linking-multiLink-BE-08</title>
+<link rel="prev" href="linking-anyURI-BE-07-dyn.html">
+<link rel="next" href="behavior-picBlankC2C-BE-01-dyn.html">
+<link rel="child" href="toc-multiLink-BE-08-dyn.html">
+<link rel="contents" href="linking-multiLink-DT-08-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     -->
+</style>
+</head>
+<body>
+<div class="navbar" align="center">
+<p>
+<a target="_top" href="linking-anyURI-BE-07-dyn.html">previous</a> &nbsp;<a target="_top" href="behavior-picBlankC2C-BE-01-dyn.html">next</a> &nbsp;<a target="_top" href="linking-multiLink-BE-08-dyn.html">parent</a> &nbsp;<a target="_top" href="linking-multiLink-BE-08-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p>
+</div>
+<p>Test Purpose: Test correct viewer handling of multiple links
+on a single object (APS).</p>
+<p>
+At the start of the test, the right-hand frame should display a 
+CGM containing a simple picture with a blue-filled square
+on the left and a green-filled circle on the right, both with thick
+black borders.  The circle is contained within an Application Structure, with id
+value of "myObjId".  The APS contains a two APS Attributes of type
+'linkuri'.  Respectively, the first parameter (URI) points to a local PNG file,
+and to a file of HTML text.  Each 2nd parameter (Link Title) contains a
+short title phrase for the link, respectively, "Link to raster copy of
+this CGM" and "Link to WebCGM 1.0 reference text".
+The 3rd parameters on both links are null.
+    </p>
+<p>
+To execute the hyperlink, move the mouse anywhere over the circle and
+click the left mouse button.  According to the WebCGM 1.0 specification,
+the user shall be given a choice of which link to navigate.
+The initial view in the left-hand frame is a PNG reference image of a 
+valid "choice" offering, as should appear in the right-hand frame upon
+clicking the link-bearing circle object.  The manner and style of
+"giving a choice" is viewer dependent.
+It is suggested in the WebCGM specification, but not required, that
+the Link Title parameter of the 'linkuri' be used in the presentation of
+link choice.
+    </p>
+<p>
+Because there is no Behavior parameter associated with either of the 'linkuri' 
+instances,
+on the link-bearing object in the
+CGM instance, correct viewer handling of the link will result in image of the 
+target PNG file replacing the CGM picture
+in the right-hand frame.  This is the default WebCGM picture behavior.  
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the target PNG image and the source CGM picture
+in the right-hand frame.
+Note, however, that this latter normal browser behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </p>
+<p>
+Viewers are required to give visual feedback to the user that a successful 
+pick has occurred, and an indication of the particular object which has 
+been picked. The exact method of feedback is viewer dependent.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of the 
+how the right-hand frame should appear upon activating the link in the 
+WebCGM source instance (i.e., clicking on the circle).  The viewer shall
+present a choice of two links to navigate.  The exact location and style
+of such presentation may vary, and is not a criterion for pass/fail of
+this test case.
+    </p>
+<p>
+If the first (raster image) link is picked, then the viewer should 
+open a new window and display a raster image of the original source CGM instance.  
+If second (HTML text) link is picked, then the viewer should 
+open a new window and display a section of (HTML) text. 
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

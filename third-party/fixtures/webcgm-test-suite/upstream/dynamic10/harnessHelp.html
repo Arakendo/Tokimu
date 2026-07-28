@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <title>Help document for the WebCGM TS harness frameset</title>
+  <meta name="GENERATOR" content="amaya 5.1" />
+  <style type="text/css">
+    <!--
+    body {font-family: helvetica; font-size: 12pt; }
+    h2 {font-family: helvetica; text-decoration: underline;  font-size: 16pt; text-align:center}
+    h3 {font-family: helvetica; text-decoration: underline;  font-size: 14pt; text-align:left}
+    dt {font-weight: bold}
+    -->
+
+
+
+
+
+
+  </style>
+</head>
+
+<body>
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<h2>Help document for the WebCGM TS harness frameset</h2>
+
+<p></p>
+
+<h3>Contents</h3>
+<ul>
+  <li><a href="#Frame">Frame layout</a></li>
+  <li><a href="#Navigation">Navigation through test suite</a></li>
+  <li><a href="#Operator">Operator Script</a></li>
+  <li><a href="#Traceabili">Traceability features</a> 
+    <ul>
+      <li><a href="#WebCGM">WebCGM Reference</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h3><a name="Frame" id="Frame">Frame layout</a></h3>
+
+<p>There are four frames in the WebCGM test harness frameset:</p>
+<dl>
+  <dt>top</dt>
+    <dd>This is the title bar, and contains the buttons (links) to the <a
+      href="#Traceabili">traceability features</a>, including the <a
+      href="#WebCGM">WebCGM Reference</a><a></a> button (link).</dd>
+  <dt>bottom</dt>
+    <dd>The bottom frame initially contains the navigation bar -- buttons to
+      go to next test, previous test, table of contents, etc. -- as well as
+      the <a href="#Operator">Operator Script</a><a></a>. The bottom window
+      is also used by default for presentation of <a
+      href="#Traceabili">traceability features</a><a></a> -- spec reference,
+      test assertions, etc -- when those buttons are activated.</dd>
+  <dt>right middle</dt>
+    <dd>The right middle frame contains the source for the test -- an html or
+      CGM file. Often it has a link that is activated to execute the test.
+      The instructions will be found in the <a href="#Operator">Operator
+      Script</a>.</dd>
+  <dt>left middle</dt>
+    <dd>This is the reference frame -- it contains a reference image that
+      shows what should be seen upon successful execution of the test. The <a
+      href="#Operator">Operator Script</a> describes how it should be
+    used.</dd>
+</dl>
+
+<h3><a name="Navigation" id="Navigation">Navigation through test
+suite</a></h3>
+
+<p>Use the buttons at the top of the bottom frame. They are
+self-explanatory:</p>
+<ul>
+  <li>next: next test in the series</li>
+  <li>previous: previous test in the series</li>
+  <li>contents: table of contents for all tests</li>
+</ul>
+
+<p>The parent and child buttons are not implemented (they refer to a planned
+addition of detailed tests to explore functionality in more depth).</p>
+
+<h3><a name="Operator" id="Operator">Operator Script</a></h3>
+
+<p>The operator script (bottom frame) defines the Test Purpose, describes how
+to execute the test, and describes the verdict criteria -- pass/fail -- for
+the execution of the test.</p>
+
+<h3><a name="Traceabili" id="Traceabili">Traceability features</a></h3>
+
+<p><em>Traceability features</em> refer to links from the test case back to
+the test assertions upon which the test case is based. Features in this
+release of the WebCGM Test Suite:</p>
+
+<h4><a name="WebCGM" id="WebCGM">WebCGM Reference</a></h4>
+<ul>
+  <li>The <em>WebCGM Reference</em> button (link) of the top frame will
+    present, in the bottom (operator script) frame by default, the
+    <em>principal test assertion</em> associated with the test case.</li>
+  <li>The initial view of the information is a table, whose top (targetted)
+    row contains the principal test assertion: 
+    <ul>
+      <li>id of the assertion;</li>
+      <li>one or more references (hyperlinked) to the WebCGM spec;</li>
+      <li>a paraphrasing of the test assertion.</li>
+    </ul>
+  </li>
+  <li>If you activate the link(s) to the WebCGM spec from this t-a table row,
+    you will be taken to the closest anchor in that (W3C Recommendation)
+    document. Be aware that the assertion may not be exactly at that
+    location, but it will be in that numbered section.</li>
+  <li>The reference to the spec in the 2nd column uses conventions to help
+    you further find the assertion, from the numbered section header: 
+    <ul>
+      <li><var>pn</var> means paragraph <var>n</var>, e.g., 3.1.2.2.p7 refers
+        to the seventh paragraph of that section.</li>
+      <li><var>sn</var> means sentence <var>n</var>, e.g., 3.1.2.2.p9.s2
+        refers to the 2nd sentence of the 7th paragraph.</li>
+      <li><var>lin</var> means <var>nth</var> numbered item in a list.</li>
+      <li>tbl.rn.cm means the <var>nth</var> row, <var>mth</var> column of
+        the table at that location, e.g., 3.1.2.2.tbl.r6.c2.</li>
+      <li>etc</li>
+    </ul>
+  </li>
+  <li>Many browsers will give the option, if you right-click the link (or
+    equivalent action), to opt for a new blank window for the information, in
+    case you don't want it in the bottom window.</li>
+  <li>If the traceability information has been displayed in the bottom frame,
+    then the browser <em>back</em> button may help you to get back to the
+    Operator Script.</li>
+</ul>
+
+<h4>All Test Assertions</h4>
+
+<p><em>Future feature.</em> The principal test assertion (above) may be one
+of several that importantly affect the correct execution of the test.</p>
+<ul>
+  <li>Activating this <em>All Test Assertions</em> button (link) will
+    present, in the bottom frame by default, a list of all of the test
+    assertions for this test case.</li>
+  <li>Each test assertion id is a hyperlink to the appropriate row of the
+    test assertions table, as described in the previous section.</li>
+  <li>As with the <em>WebCGM Reference</em> button, browsers will often give
+    right-button options to present the linked information in another (new)
+    window instead of the bottom frame.</li>
+</ul>
+
+<p>.</p>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>behavior-picReplaceC2C-BE-02</title>
+<link rel="prev" href="behavior-picBlankC2C-BE-01-dyn.html">
+<link rel="next" href="behavior-picBlankC2H-BE-03-dyn.html">
+<link rel="child" href="toc-picReplaceC2C-BE-02-dyn.html">
+<link rel="contents" href="behavior-picReplaceC2C-DT-02-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     -->
+</style>
+</head>
+<body>
+<div class="navbar" align="center">
+<p>
+<a target="_top" href="behavior-picBlankC2C-BE-01-dyn.html">previous</a> &nbsp;<a target="_top" href="behavior-picBlankC2H-BE-03-dyn.html">next</a> &nbsp;<a target="_top" href="behavior-picReplaceC2C-BE-02-dyn.html">parent</a> &nbsp;<a target="_top" href="behavior-picReplaceC2C-BE-02-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p>
+</div>
+<p>Test Purpose: Test viewer capility to recognize and effect picture behavior 
+request on a basic CGM-to-CGM link, for picture behavior "_replace".</p>
+<p>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+The magenta rectangle object (APS) contains a hyperlink 
+to another local, one-picture WebCGM instance,
+that contains a drawing of a set of cylinders.  
+The hyperlink is a 'linkuri' APS attribute, and the picture 
+behavior "_replace" is contained on a "#" fragment
+on the URI parameter.
+No object selection or object behavior parameters are
+associated with the 'linkuri'.
+    </p>
+<p>
+A mouse click anywhere over the magenta rectangle (labelled "first object")
+should cause the hyperlink to be executed.  This should result in the entire 
+target WebCGM picture to be displayed in the right-hand frame, 
+replacing the initial display of the 3 simple objects. 
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of
+the target WebCGM picture that should appear in the right-hand frame,
+after link activation.
+There should be no
+significant visual deviation between the reference image of the left
+frame and the view in the right frame after link activation.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

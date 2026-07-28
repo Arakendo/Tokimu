@@ -1,0 +1,262 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: AppAttContent
+Version: $Version$
+Creator: Forrest
+Description: This test gets and sets the value of an
+             attribute at the WebCGM Metafile level.
+Source: WebCGM 2.0 5.7.6
+Revision History:
+2006-05-28 Ralf
+    typo: getAppStructureByName vs. getAppStructuresByName 
+
+-->
+<!-- Ralf, 2005-06-13, typo: getAppStructureByName vs. getAppStructuresByName -->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>AppStructure, Attribute Content Test Page</title>
+<script type="text/ecmascript">
+    function test1()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_1");
+            result.style.color = "#00A000";
+            try
+            {
+                var gr = cgmPic.getAppStructureById("sdi-9ASH9911");
+                var v = gr.getAppStructureAttr("content");
+                if( v == "limerick" )
+                {
+                  result.firstChild.nodeValue = v;
+                    }
+                else
+                {
+                  throw "wrong content value";
+                }
+            }
+            catch(t1)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t1;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("_1");
+            n.style.color = "#FF0000";
+            document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+
+    function test2()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_2");
+            try
+            {
+                var nodeList = cgmPic.getAppStructuresByName("poem");
+                        var count = nodeList.count;
+                        var found = false;
+                        if (count > 0)
+                        {
+                          var i;
+                          for (i = 0; i < count; i++)
+                          {
+                            var node = nodeList.item(i);
+                    var v = node.getAppStructureAttr("content");
+                      if( v == "limerick" )
+                    {
+                              found = true;
+                      result.firstChild.nodeValue = v;
+                              break;
+                            }
+                      }
+                          if (found == false)
+                          {
+                            throw "wrong content value";
+                          }
+                        }
+                else
+                {
+                  throw "wrong content value";
+                }
+
+                  }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+        }
+        catch(e2)
+        {
+            var n = document.getElementById("_2");
+            n.style.color = "#FF0000";
+            document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2.description;
+        }
+    }
+
+    function test3()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_3");
+            try
+            {
+                var gr = cgmPic.getAppStructureById("sdi-9ASH9912");
+                gr.removeAppStructureAttr("content");
+                var v = gr.getAppStructureAttr("content");
+                        if (v == "")
+                {
+                  result.firstChild.nodeValue = v;
+                    }
+                else
+                {
+                  throw "wrong content value";
+                }
+            }
+            catch(t3)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t3;
+            }
+        }
+        catch(e3)
+        {
+            var n = document.getElementById("_3");
+            n.style.color = "#FF0000";
+            document.getElementById("_3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3.description;
+        }
+    }
+
+    function test4()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_4");
+            try
+            {
+                var gr = cgmPic.getAppStructureById("sdi-9ASH9912");
+                gr.setAppStructureAttr("content", "five line poem");
+                var v = gr.getAppStructureAttr("content");
+                        if (v == "five line poem")
+                {
+                  result.firstChild.nodeValue = v;
+                    }
+                else
+                {
+                  throw "wrong content value";
+                }
+            }
+            catch(t4)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+        }
+        catch(e4)
+        {
+            var n = document.getElementById("_4");
+            n.style.color = "#FF0000";
+            document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4.description;
+        }
+    }
+
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'AppAttContent.cgm';">
+    <h1>AppAtt, content Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="AppAttContent.png"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Test Number</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td><input id="i1" type="button" value="Test 1" name="btn1"
+        onclick="test1()"></td>
+
+        <td>get content value by ID:</td>
+
+        <td id="_1">NA</td>
+
+        <td>Passed if result is limerick.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i2" type="button" value="Test 2" name="btn2"
+        onclick="test2()"></td>
+
+        <td>get content value by name:</td>
+
+        <td id="_2">NA</td>
+
+        <td>Passed if result is limerick.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" type="button" value="Test 3" name="btn3"
+        onclick="test3()"></td>
+
+        <td>remove content:</td>
+
+        <td id="_3">NA</td>
+
+        <td>Passed if result is blank.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i4" type="button" value="Test 4" name="btn4"
+        onclick="test4()"></td>
+
+        <td>set content to a new value:</td>
+
+        <td id="_4">NA</td>
+
+        <td>Passed if result is five line poem.</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

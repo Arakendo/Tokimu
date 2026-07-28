@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Language" content="en-us">
+<title>linking-anyURI-BE-07</title>
+<link rel="prev" href="linking-selectName-BE-06-dyn.html">
+<link rel="next" href="linking-multiLink-BE-08-dyn.html">
+<link rel="child" href="toc-anyURI-BE-07-dyn.html">
+<link rel="contents" href="linking-anyURI-DT-07-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     --></style>
+</head>
+<body>
+<div class="navbar" align="center"><p>
+<a target="_top" href="linking-selectName-BE-06-dyn.html">previous</a> &nbsp;<a target="_top" href="linking-multiLink-BE-08-dyn.html">next</a> &nbsp;<a target="_top" href="linking-anyURI-BE-07-dyn.html">parent</a> &nbsp;<a target="_top" href="linking-anyURI-BE-07-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p></div>
+<p>Test Purpose: Lightweight first test of viewer conformance to the
+requirement that the first
+parameter of 'linkuri' is &quot;any valid URI&quot;.</p>
+<p>
+WebCGM requires that the URI (first) parameter of the 'linkuri' 
+APS attribute be any valid URI (under RFC-3986).  Other URIs in this
+(BE) test suite are (almost) all simple references to a local file in
+the local directory.  This first
+Basic Effectivity test of URL variations will simply test a couple
+of likely and useful variations:  a full URI reference to a remote
+Web site; and, a fragment-only id reference to an object in the same
+picture.
+    </p>
+<p>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a red rectangle, a magenta circle, 
+and a cyan triangle, all with thick black borders.
+The red rectangle object (APS) contains a hyperlink 
+the CGM Open home page, http://www.cgmopen.org.
+The magenta circle object (APS) contains a hyperlink to the third (cyan
+triangle) object, the URL consisting only of &quot;#&quot; followed by the
+object's id, &quot;thirdObject&quot;.
+    </p>
+<p>
+Both hyperlinks comprise a 'linkuri' APS attribute, with the URL in the
+first parameter, and the second (Link Title) and third (Behavior)
+parameters null.
+Because the Behavior parameter is null, its default value of &quot;_self&quot; is
+used, in which case the content of the destination URI should replace
+the initial WebCGM picture in the right-hand frame.
+    </p>
+<p>
+A mouse click anywhere over the red rectangle (labelled &quot;first object&quot;)
+should cause the CGM Open home page to appear in the right frame.  The
+&quot;Back&quot; button should cause the original WebCGM instance to be displayed
+again in the right frame.  (However, this is not a pass/fail criterion
+of the test, and if it doesn't work, then the test will have to be
+reloaded in order to execute the other link.)
+   </p>
+<p>
+A mouse click anywhere over the magenta circle (labelled &quot;second object&quot;)
+should cause the initial WebCGM instance to be redisplayed in the right-hand 
+frame, but with the target object (cyan triangle, labelled &quot;third object&quot;)
+highlighted and zoomed.  
+(Note. You should be able to use the viewer's zoom-pan
+controls to zoom out and get a full-picture view, but this is not a
+pass/fail criterion of this test.)
+The &quot;Back&quot; button should cause the original WebCGM instance 
+to be displayed again in the right frame.  (However, this is not a pass/fail criterion
+of the test, and if it doesn't work, then the test will have to be
+reloaded in order to execute the other link.)
+   </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of
+how the target WebCGM picture should appear in the right-hand frame, 
+upon execution of the hyperlink attached to the magenta circle (&quot;second
+object&quot;).  There should be no significant visual deviation between the 
+reference image of the left frame and the view in the right frame after 
+link activation, except for
+the method of highlighting the cyan triangle (&quot;third object&quot;).  One
+valid method is shown -- outline the object in red.  Any other visual 
+highlighting method -- e.g., changing the color of the whole object -- 
+is equally acceptable. 
+    </p>
+<p>
+WARNING. Depending on how intra-picture links are implemented by the
+viewer, this test could be affected by the &quot;#&quot; 
+fragment browser bug.
+(See http://www.cgmopen.org/technical/bho/index.html).
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

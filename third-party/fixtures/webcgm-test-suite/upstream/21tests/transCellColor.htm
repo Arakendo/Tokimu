@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: transCellColor
+Version: $Version$
+Creator: Stuart Galt
+Description:  Static test to verify transparent cell color.
+Source: WebCGM 6.7
+Revision History:
+-->
+
+<html>
+  <head>
+    <meta name="generator" content="text/html; charset=UTF-8">
+    <title>Transparent Cell Color Test Page</title>
+  </head>
+
+  <body onload=
+  "document.getElementById('tcc').getWebCGMDocument().src= 'transCellColor.cgm';">
+
+    <h1>Transparent Cell Color Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="tcc" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="400" height=
+        "250">
+        </object> </td>
+
+        <td><img id="reference" src="transCellColor.png" width="400"
+        height="200" alt="reference image"> </td>
+      </tr>
+    </table>
+
+    <p>
+        Transparent Cell Color Test - This test is passed if both images look
+        alike.
+      </p>
+  </body>
+</html>
+

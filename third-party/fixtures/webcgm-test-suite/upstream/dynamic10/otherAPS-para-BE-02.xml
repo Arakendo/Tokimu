@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!-- otherAPS-para-BE-02.xml                                               -->
+<!--                                                                       -->
+<!-- This is the XML description for WebCGM Test Case                      -->
+<!--         otherAPS-para-BE-02.                                          -->
+<!--                                                                       -->
+<!-- Author : Lofton Henderson, 31-May-2001                                -->
+<!--                                                                       -->
+<!-- History:                                                              -->
+<!--  27-Feb-2006 - LH: revised for WebCGM 2.0.                            -->
+<!--  31-May-2001 - LH: created.                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<CGMTestCase category="otherAPS" focus="para" rootType="cgm" testType="BE" BENumber="02">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="otherAPS" focus="para" BENumber="01"/>
+  
+   <Next category="otherAPS" focus="para" BENumber="02"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="3-shape">.cgm</srcFile>
+    
+      <dstFile cgmType="two-para">-target.cgm</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test basic correct viewer handling of 'para' APS
+and associated attributes, as link target from other WebCGM content.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>para-content-model</ta-id>
+         <ta-id>para-viewer-rqts-set</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+This is a companion test to otherAPS-para-BE-01 -- the same content
+files are used, but their roles are reversed.
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+These are labelled respectively "first object", "second object", 
+and "third object".
+    </Paragraph>
+    
+      <Paragraph>
+The magenta rectangle ("first object") contains a hyperlink 
+to another local, one-picture WebCGM instance, containing
+two para objects (this is the root file of otherAPS-para-BE-01).
+The 'linkuri' identifies the blue 'para' by id, and contains no
+object behavior parameters.
+The red triangle ("third object") contains a hyperlink 
+to the same local, one-picture WebCGM instance, and identifies
+the green 'para' by id.
+This 'linkuri' contains the object behavior parameter,
+"view_context".
+    </Paragraph>
+    
+      <Paragraph>
+Clicking anywhere over the magenta rectangle ("first object")
+should cause the target WebCGM instance to be displayed in 
+the right-hand frame, in a full picture view with the blue
+'para' object highlighted.  The primitives themselves should
+be highlighted.
+    </Paragraph>
+    
+      <Paragraph>
+Clicking anywhere over the red triangle ("third object")
+should cause the target WebCGM instance to be displayed in 
+the right-hand frame, in a zoomed view with the green
+'para' object highlighted.  The dotted rectangle labelled
+"viewcontext" should fill the display frame, and the 
+dashed rectangle labelled "region" should be highlighted.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of the 
+target PNG image which should appear in the right-hand frame upon
+activating the "first object" (magenta rectangle) link in the WebCGM 
+source instance.  There should be no
+significant visual deviation between the reference image of the left
+frame and the view in the right frame after link activation, 
+except for the method of object highlighting. 
+The reference image shows one valid method -- each of the text strings
+comprising the para object is outlined in red. 
+Any other visual highlighting method -- e.g., changing the 
+color of the whole object -- would be equally acceptable. 
+    </Paragraph>
+    
+      <Paragraph>
+The portion of the PNG reference image within the dotted "viewcontext"
+rectangle should fill the display frame for the hyperlink aimed at the
+green para.  The highlighting of the blue 'para' would be off, and
+there would be highlighting corresponding to the dashed "region" 
+rectangle.
+    </Paragraph>
+    
+      <Paragraph>
+You may be able to use the browser "Back" and "Forward" 
+buttons to go back and forth between the target WebCGM 
+picture the source HTML text in the right-hand frame. 
+This latter normal browser behavior 
+is not part of the WebCGM standard, and it is not a pass/fail 
+criterion for WebCGM viewers for this test.
+If it doesn't work, use "Reload" or "Refresh" between link
+executions, or go the table of contents and back.
+Also note that this pair of tests (this one and its BE-01 companion) 
+are cross linked.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

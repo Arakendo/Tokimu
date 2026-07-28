@@ -1,0 +1,51 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>HTML target file for linking-basicC2H-BE-02</title>
+  <meta name="GENERATOR" content="amaya V4.3.2">
+</head>
+
+<body>
+<p><strong style="font-size: 14pt"><span style="font-size: 14pt">3.2.2.3
+linkuri</span></strong><span style="font-size: 14pt">           </span></p>
+
+<p style="font-size: 14pt">Description. The 'linkuri' APS Attribute defines a
+URI, to be associated with the object containing this attribute. When the
+object is selected by a graphical pick operation, then the viewer shall take
+necessary action to navigate the link. Multiple 'linkuri' attributes may be
+contained within a single APS.           </p>
+
+<p style="font-size: 14pt">Parameters. The data record is a SDR of one member,
+containing three strings (type SF, String Fixed). The first string is the link
+destination, a URI, the second string (possibly null) is a LinkTitle
+attribute, and the third string is (possibly null) the Behavior parameter.
+Note that a null string is a zero-length string, and is not the same as an
+omitted parameter.           </p>
+
+<p style="font-size: 14pt">The destination of a link is specified by a Uniform
+Resource Identifier, or URI. Any valid URL under the specifications of
+RFC-2396 is a valid value of this parameter. This specification does not
+constrain the syntax or semantics of a URI in a 'linkuri' that identifies a
+resource that is not a CGM file (for example, an HTML or XML document).       
+   </p>
+
+<p style="font-size: 14pt">The Behavior string defines picture behavior
+associated with the link. The values and meanings are as defined in 3.1.2.2.
+In cases that the destination is not CGM media type, the 3rd parameter,
+Behavior, shall be used if picture behavior is to be specified for the link
+(there is no other option). The Behavior string may also be used for links to
+CGM media types, and is the preferred method.</p>
+
+<p><span style="font-size: 14pt">In the case that the URI points to CGM media
+type, the picture behavior may be encoded within the optional fragment
+identifier in conjunction with the URI structure, per section 3.1.1,
+"Addressing Pictures and Objects". This form is deprecated, and may be removed
+in a future edition of this profile. For specifying picture behavior,
+particular WebCGM 'linkuri' instances shall use either the Behavior string
+(preferred), or the picture behavior specificatio</span><span
+style="font-size: 14pt"></span><span style="font-size: 14pt">n embedded in the
+fragment, but not both.</span></p>
+</body>
+</html>

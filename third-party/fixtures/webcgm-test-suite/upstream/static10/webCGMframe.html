@@ -1,0 +1,184 @@
+<HTML>
+<HEAD>
+<SCRIPT LANGUAGE = "JavaScript", src = "webCGMsuite.js"></SCRIPT>
+<SCRIPT Language="JavaScript">
+<!--
+//********************************************************************
+//**                      DisplayButton
+//
+//  Purpose:
+//    Display the pulldowns for the menu
+//********************************************************************
+function DisplayButton (Items, Name, Value,DisplayName){
+	menudoc.write ("<TR><TD>");
+	menudoc.write ("\n\n<FORM NAME=select"+Name+">\n<TR><TD colspan = 2 Valign=TOP>"+DisplayName+":");
+	menudoc.write ("\n<TR><TD><TD valign=TOP align = Right>");
+	menudoc.write ('\n<SELECT NAME='+Name+' onChange="self.parent.update'+Name+'(this.form)">\n');
+	
+	for (var i=0;i<Items.length;i++){
+	   menudoc.write ("<Option");
+	   if (Value == Items[i].Value)
+		menudoc.write (" SELECTED ");
+	   menudoc.write (">"+Items[i].Value+"\n");
+	}
+	menudoc.write ("</SELECT>\n</FORM>");
+}
+//********************************************************************
+//**                     DisplayPull
+//
+//  Purpose:
+//    Display the 3 pulldown menus
+//********************************************************************
+function DisplayPull(){
+	menudoc = Menu.document;
+	menudoc.open();
+	menudoc.write ("<TABLE width=100%><TR><TD colspan=2 align=center>");
+	DisplayButton (parent.VersionInfo, "Version",VersionSelected,"Version");
+	DisplayButton (parent.CGMCategoryInfo, "CGMCategory",parent.CGMCategorySelected,"CGM Category");
+	DisplayButton (parent.TestNameInfo, "TestName",parent.TestNameSelected,"Test Name");
+	menudoc.write ("</TABLE>");
+}
+//********************************************************************
+//**                     DisplaySummary
+//
+//  Purpose:
+//    Display the summary information in the Menu frame
+//********************************************************************
+function DisplaySummary(){
+	Cat = parent.CGMCategorySelected;
+	if (Cat == "All");
+	else{
+	   list = parent.CGMCategoryInfo;
+	   for (var i=0;i<list.length;i++){
+		if (list[i].Value == Cat){
+		   menudoc.write("<H2>"+Cat+"</H2>");
+		   if (list[i].CGMElement == "");
+		   else
+		   	menudoc.write(list[i].CGMElement+"</P>");
+		   if (list[i].CatNote == "");
+		   else
+			menudoc.write (list[i].CatNote+"<BR>");
+		   
+		   menudoc.write (list[i].FileList);
+		}
+	   }
+	}
+	menudoc.close();
+}
+//********************************************************************
+//**                     UpdateVersion
+//
+//  Purpose:
+//    When the version pulldown is changed repain the screen
+//********************************************************************
+function updateVersion(form){
+     Index = form.Version.selectedIndex;
+     VersionSelected = VersionInfo[Index].Value;
+     TestNameSelected = "All";
+     DisplayPull();
+     DisplayDetail ();    
+}
+//********************************************************************
+//**                     UpdateCGMCategory
+//
+//  Purpose:
+//    When the CGM Category pulldown is changed repain the screen
+//********************************************************************
+function updateCGMCategory(form){
+     Index = form.CGMCategory.selectedIndex;
+     CGMCategorySelected = CGMCategoryInfo[Index].Value;
+     TestNameSelected = "All";
+     DisplayPull();
+     DisplayDetail();
+}
+//********************************************************************
+//**                     UpdateTestName
+//
+//  Purpose:
+//    When the Test Name pulldown is changed repain the screen
+//********************************************************************
+function updateTestName(form){
+     Index = form.TestName.selectedIndex;
+     VersionSelected = TestNameInfo[Index].Version;
+     CGMCategorySelected = TestNameInfo[Index].CGMCategory;
+     TestNameSelected = TestNameInfo[Index].Value;
+     DisplayPull();
+     DisplayDetail();
+}
+//********************************************************************
+//**                          Display Detail
+//
+//  Purpose:
+//    Repaint the Detail window
+//    Calculate the number of records displayed
+//    Calculate the total number of records in file
+//    Display the counts in the menu window.
+//********************************************************************
+function DisplayDetail(){
+	DetailInfo = parent.DetailInfo;
+	Ver = parent.VersionSelected;
+	Cat = parent.CGMCategorySelected;
+	Nam = parent.TestNameSelected;
+	count = 0;
+
+	aWin = parent.Detail;
+	detdoc = aWin.document;
+	detdoc.open();
+	detdoc.write ("<PRE>");
+
+	for (var i=0;i<DetailInfo.length;i++){
+	   Display = 0;
+	   if ((Ver == DetailInfo[i].Version) || (Ver == "All"))
+		Display = Display + 1;
+	   if ((Cat == DetailInfo[i].CGMCategory) || (Cat == "All"))
+		Display = Display + 1;
+	   if ((Nam == DetailInfo[i].TestName) || (Nam == "All"))
+		Display = Display + 1;
+	   if (Display == 3){
+		count = count + 1;
+		detdoc.write ("<TABLE><TR><TD><PRE>            ");
+		//detdoc.write ("<TR><TD valign=top>CGM Category:<TD valign=top>"+DetailInfo[i].CGMCategory+"</TR>");
+		detdoc.write ("<TR><TD valign=top>Test Name:<TD valign=top>"+DetailInfo[i].TestName);
+		detdoc.write (' <A HREF="images/'+DetailInfo[i].TestName+'.png" target="TOP">(View Reference Picture)</TR>');
+		detdoc.write ("<TR><TD valign=top>Version:<TD valign=top>"+DetailInfo[i].Version+"</TR>");
+		//detdoc.write ("<TR><TD valign=top>CGM Element:<TD valign=top>"+DetailInfo[i].CGMElement+"</TR>");
+		//detdoc.write ("<TR><TD valign=top>CatNote:<TD valign=top>"+DetailInfo[i].CatNote+"</TR>");
+		if (DetailInfo[i].Note != "")
+			detdoc.write ("<TR><TD valign=top>Note:<TD valign=top>"+DetailInfo[i].Note+"</TR>");
+		detdoc.write ("<TR><TD valign=top>CGM Purpose:<TD valign=top>"+DetailInfo[i].CGMPurpose+"</TR>");
+		detdoc.write ("<TR><TD valign=top>Check Points:<TD valign=top>"+DetailInfo[i].CheckPoints);
+		detdoc.write ("</TABLE><HR>");
+	   }
+	}
+	detdoc.close();
+	BWin = parent.Menu;
+	menudoc = BWin.document;
+	if (count==0)
+	   alert ("No test Cases are found for\nCGM Category:    "+Cat+"\nVersion:               "+Ver)
+	else{ 
+	   menudoc.write (count+" of "+i);
+	}
+	DisplaySummary();
+}
+
+//-------------------------------------
+//              Define Variables
+//-------------------------------------
+DetailInfo = new Array();
+VersionInfo = new Array();
+CGMCategoryInfo = new Array();
+
+TestNameInfo = new Array();
+VersionSelected = "All";
+CGMCategorySelected = "All";
+TestNameSelected = "All";
+// -->
+
+</SCRIPT>
+<TITLE>CGM Test Suite</TITLE>
+</HEAD>
+<frameset cols=212,*>
+	<frame name="Menu">
+	<frame name="Detail", src = "webCGMsuite.html">
+</frameset>
+</HTML>

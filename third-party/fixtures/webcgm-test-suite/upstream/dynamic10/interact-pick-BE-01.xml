@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- interact-pick-BE-01.xml                                               --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         interact-pick-BE-01.                                          --><!--                                                                       --><!-- Author : Lofton Henderson, 30-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  30-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="interact" focus="pick" rootType="cgm" testType="BE" BENumber="01">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="fragment" focus="fiveForms" BENumber="03"/>
+  
+   <Next category="interact" focus="pickRegion" BENumber="02"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="two-cyl">.cgm</srcFile>
+    
+      <dstFile cgmType="">-target.html</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test viewer ability to pick the graphical primitives
+of a 'grobject' APS without a 'region' APS attribute.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>pick-link-noregion</ta-id>
+         <ta-id>pick-fill-primitive</ta-id>
+         <ta-id>pick-visual-feedback</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with two cylindrical objects (APS of type 'grobject').
+Each of the objects contains a hyperlink 
+to a local HTML file instance.
+The hyperlink is a 'linkuri' APS attribute whose first
+parameter (URI) points to the HTML file instance.
+The second (Link Title) and third (Behavior) parameters are null.
+    </Paragraph>
+    
+      <Paragraph>
+The objects do not contain 'region' APS attributes.  Therefore
+according to WebCGM, they are picked and their hyperlinks are
+activated by a mouse click on the graphical primitives that
+comprise the object.
+The two cylinders' shapes are identical, except that the right-hand one 
+(gray filled) is a CGM filled-area object, and the left-hand one is a collection
+of line-drawing primitives in a somewhat random order.
+    </Paragraph>
+    
+      <Paragraph>
+Therefore, according to the rules of WebCGM, the right-hand object
+should be picked by clicking the mouse anywhere on or within the interior of 
+the drawn object.
+The left-hand object should be picked only by clicking the mouse somewhere
+directly on the lines which draw the object.
+    </Paragraph>
+    
+      <Paragraph>
+Viewers are required to give visual feedback to the user that a successful pick has occurred, and an indication of the particular object which has been picked. The
+exact method of feedback is viewer dependent. 
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of
+the text content of the HTML file that should appear in the left-hand frame, 
+upon execution of the link.  
+The style and layout of the HTML text may vary from the reference image, 
+and are not part of the pass/fail criteria of this test.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

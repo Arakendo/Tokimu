@@ -1,0 +1,13 @@
+<?xml version = "1.0" ?>
+<!DOCTYPE webcgmConfig PUBLIC "-//OASIS//DTD WebCGM 2.1 Config//EN" "http://docs.oasis-open.org/webcgm/v2.1/webcgmConfig21.dtd">
+<webcgmConfig>
+  <defaultAttributes>
+    <lineEdgeTypeDef 
+        lineIndex="1" 
+        repeatLength="400"
+        dashLength="3 1"
+    /> 
+  </defaultAttributes>
+</webcgmConfig>
+
+

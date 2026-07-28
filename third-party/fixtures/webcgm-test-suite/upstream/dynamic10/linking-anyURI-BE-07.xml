@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!-- linking-anyURI-BE-07.xml                                              -->
+<!--                                                                       -->
+<!-- This is the XML description for WebCGM Test Case                      -->
+<!--         linking-anyURI-BE-07.                                         -->
+<!--                                                                       -->
+<!-- Author : Lofton Henderson, 31-May-2001                                -->
+<!--                                                                       -->
+<!-- History:                                                              -->
+<!--  12-Feb-2006 - LH: revised for WebCGM 2.0 upgrade.                    -->
+<!--  31-May-2001 - LH: created.                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<CGMTestCase category="linking" focus="anyURI" rootType="cgm" testType="BE" BENumber="07">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="linking" focus="selectName" BENumber="06"/>
+  
+   <Next category="linking" focus="multiLink" BENumber="08"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="3-shape">.cgm</srcFile>
+    <!-- Note - link is intra-file -->
+    
+      <dstFile>.cgm</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Lightweight first test of viewer conformance to the
+requirement that the first
+parameter of 'linkuri' is "any valid URI".</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>linkuri-destination-anyuri</ta-id>
+         <ta-id>picbehav-default-to-html</ta-id>
+         <ta-id>picbehav-to-other</ta-id>
+         <ta-id>objbehav-default</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+WebCGM requires that the URI (first) parameter of the 'linkuri' 
+APS attribute be any valid URI (under RFC-3986).  Other URIs in this
+(BE) test suite are (almost) all simple references to a local file in
+the local directory.  This first
+Basic Effectivity test of URL variations will simply test a couple
+of likely and useful variations:  a full URI reference to a remote
+Web site; and, a fragment-only id reference to an object in the same
+picture.
+    </Paragraph>
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a red rectangle, a magenta circle, 
+and a cyan triangle, all with thick black borders.
+The red rectangle object (APS) contains a hyperlink 
+the CGM Open home page, http://www.cgmopen.org.
+The magenta circle object (APS) contains a hyperlink to the third (cyan
+triangle) object, the URL consisting only of "#" followed by the
+object's id, "thirdObject".
+    </Paragraph>
+    
+      <Paragraph>
+Both hyperlinks comprise a 'linkuri' APS attribute, with the URL in the
+first parameter, and the second (Link Title) and third (Behavior)
+parameters null.
+Because the Behavior parameter is null, its default value of "_self" is
+used, in which case the content of the destination URI should replace
+the initial WebCGM picture in the right-hand frame.
+    </Paragraph>
+    
+      <Paragraph>
+A mouse click anywhere over the red rectangle (labelled "first object")
+should cause the CGM Open home page to appear in the right frame.  The
+"Back" button should cause the original WebCGM instance to be displayed
+again in the right frame.  (However, this is not a pass/fail criterion
+of the test, and if it doesn't work, then the test will have to be
+reloaded in order to execute the other link.)
+   </Paragraph>
+    
+      <Paragraph>
+A mouse click anywhere over the magenta circle (labelled "second object")
+should cause the initial WebCGM instance to be redisplayed in the right-hand 
+frame, but with the target object (cyan triangle, labelled "third object")
+highlighted and zoomed.  
+<em>(Note. You should be able to use the viewer's zoom-pan
+controls to zoom out and get a full-picture view, but this is not a
+pass/fail criterion of this test.)</em>
+The "Back" button should cause the original WebCGM instance 
+to be displayed again in the right frame.  (However, this is not a pass/fail criterion
+of the test, and if it doesn't work, then the test will have to be
+reloaded in order to execute the other link.)
+   </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of
+how the target WebCGM picture should appear in the right-hand frame, 
+upon execution of the hyperlink attached to the magenta circle ("second
+object").  There should be no significant visual deviation between the 
+reference image of the left frame and the view in the right frame after 
+link activation, except for
+the method of highlighting the cyan triangle ("third object").  One
+valid method is shown -- outline the object in red.  Any other visual 
+highlighting method -- e.g., changing the color of the whole object -- 
+is equally acceptable. 
+    </Paragraph>
+    
+      <Paragraph>
+WARNING. Depending on how intra-picture links are implemented by the
+viewer, this test could be affected by the "#" 
+fragment browser bug.
+(See http://www.cgmopen.org/technical/bho/index.html).
+    </Paragraph>
+
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

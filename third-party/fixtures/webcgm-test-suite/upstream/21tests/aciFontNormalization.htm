@@ -1,0 +1,53 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: aciHatchStyleDef
+Version: $Version$
+Creator: Don Larson
+Description: test ACI Font Normalization
+
+Source: WebCGM 2.1 9.3.2.2 
+
+Revision History:
+2009-02-09 DL Initial version
+2009-09-02 DL revised test comments
+
+-->
+<html>
+<head>
+<title>aciFontNormalization Test Page</title>
+<script language="JavaScript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciFontNormalization.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciFontNormalization  Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="360" height="360"></object>
+    </td>
+    <td><img id="reference" src="aciFontNormalization.png"></img>
+    </td>
+  </tr>
+</table>
+
+<p>This tests ACI file font name normalization. The CGM file displayed on the left contains a fontlist with 3 variations of "TimeRoman" and 3 text elements which reference each of these font names. The ACI file substitutes "Arial" for all 3 fonts even though the exact name differs. The image on the right shows how the CGM should be rendered if the font normalization works correctly.</p>
+</body>
+</html>

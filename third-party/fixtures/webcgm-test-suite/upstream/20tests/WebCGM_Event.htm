@@ -1,0 +1,227 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: WebCGM_Event
+Version: $Version$
+Creator: Ulrich
+Description: Test the WebCGMEvent interface
+Source: WebCGM 2.0 5.7.9
+Revision History:
+   rb, 30.11.2005: use globale variable to hold WebCGMDocument
+   rb, 02.12.2005: Test 2: replaced VDC with NVDC coordinates 
+
+-->
+<!-- modfied: rb, 30.11.2005: use globale variable to hold WebCGMDocument --><!-- modfied: rb, 02.12.2005: Test 2: replaced VDC with NVDC coordinates -->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>WebCGMEvent Test Page</title>
+<script type="text/ecmascript">
+    var cgmDoc  = new Object();
+
+    function handleClick(evt)
+    {
+        try
+        {
+            if( evt.target.apsId == "grobject_rect_1" )
+            {
+                alert( "You have clicked on grobject_rect_1" );
+            }
+            else if( evt.target.apsId == "grobject_rect_2" && evt.ctrlKey )
+            {
+                alert( "ClientX = " + evt.clientX + "  ClientY = " + evt.clientY );
+            }
+            else if( evt.target.apsId == "grobject_circle_2" && evt.numPressed == 2 && evt.button == 2 )
+            {
+                alert( "You have clicked on grobject_circle_2" );
+            }
+        }
+        catch(e)
+        {
+            alert( e );
+        }
+    }
+
+    function handleMDown(evt)
+    {
+        try
+        {
+            if( evt.target.apsId == "grobject_polycircle_1" && evt.shiftKey )
+            {
+                alert( "You have clicked on grobject_polycircle_1" );
+            }
+        }
+        catch(e)
+        {
+            alert( e );
+        }
+    }
+
+    function handleMOver(evt)
+    {
+        try
+        {
+            if( evt.target.apsId == "grobject_circle_1" )
+            {
+                alert( "You have clicked on grobject_circle_1" );
+            }
+        }
+        catch(e)
+        {
+            alert( e );
+        }
+    }
+
+    function handleMUp(evt)
+    {
+        try
+        {
+            if( evt.target.apsId == "grobject_polycircle_2" && evt.altKey )
+            {
+                alert( "You have clicked on grobject_polycircle_2" );
+            }
+        }
+        catch(e)
+        {
+            alert( e );
+        }
+    }
+
+    function addHandlers()
+    {
+        try
+        {
+            cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+            cgmDoc.src = 'WebCGM_Event.cgm';
+            cgmDoc.addEventListener ("click", handleClick);
+            cgmDoc.addEventListener ("mousedown", handleMDown);
+            cgmDoc.addEventListener ("mouseover", handleMOver);
+            cgmDoc.addEventListener ("mouseup", handleMUp);
+        }
+        catch(e2)
+        {
+            alert( e2 );
+        }
+    }
+
+</script>
+  </head>
+
+  <body onload="addHandlers();">
+    <h1>WebCGMEvent Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="WebCGM_Event.png"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Left-click on left black rectangle</td>
+
+        <td>Test for "Click" event</td>
+
+        <td>Displays message box with APS ID of the target
+        object</td>
+
+        <td>Passed if "You have clicked on grobject_rect_1" is
+        shown on screen</td>
+      </tr>
+
+      <tr>
+        <td>Press "Ctrl" and left-click on right black
+        rectangle</td>
+
+        <td>Test for "Ctrl + Click" event</td>
+
+        <td>Displays message box with x/y location of mouse
+        click</td>
+        <!-- rb, 02.12.2005: replaced VDC with NVDC coordinates -->
+        <!--  <td>Passed if "ClientX = xxx   ClientY = yyy" is shown on screen and if the displayed values are in the range of "119.98 <= xxx <= 194.22" and "55.15 <= yyy <= 130.68"</td> -->
+
+        <td>Passed if "ClientX = xxx ClientY = yyy" is shown on
+        screen and if the displayed values are in the range of
+        "85.62 &lt;= xxx &lt;= 159.87" and "1.07 &lt;= yyy &lt;=
+        76.56"</td>
+      </tr>
+
+      <tr>
+        <td>Press "Shift" and left-click on orange polygon</td>
+
+        <td>Test for "Shift + Mousedown" event</td>
+
+        <td>Displays message box with APS ID of the target
+        object</td>
+
+        <td>Passed if "You have clicked on grobject_polycircle_1"
+        is shown on screen upon pressing the left mouse button</td>
+      </tr>
+
+      <tr>
+        <td>Press "Alt" and left-click on blue polygon</td>
+
+        <td>Test for "Alt + Mouseup" event</td>
+
+        <td>Displays message box with APS ID of the target
+        object</td>
+
+        <td>Passed if "You have clicked on grobject_polycircle_2"
+        is shown on screen upon releasing the left mouse
+        button</td>
+      </tr>
+
+      <tr>
+        <td>Move mouse on top of left beige ellipse</td>
+
+        <td>Test for "Mouseover" event</td>
+
+        <td>Displays message box with APS ID of the target
+        object</td>
+
+        <td>Passed if "You have clicked on grobject_circle_1" is
+        shown on screen upon moving the mouse cursor on top of the
+        object</td>
+      </tr>
+
+      <tr>
+        <td>Double click with right mouse button on right beige
+        ellipse</td>
+
+        <td>Test for "NumPressed + Button" event attributes</td>
+
+        <td>Displays message box with APS ID of the target
+        object</td>
+
+        <td>Passed if "You have clicked on grobject_circle_2" is
+        shown on screen</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

@@ -1,0 +1,18 @@
+<webcgm id="root-cgm" version="2.0" filename="xcf-styles.cgm" xmlns="http://www.cgmopen.org/schema/webcgm/" intensity="75%">
+  <bindByName apstargetname="line 4" text-size="150%"/>
+  <bindByName apstargetname="line 2" text-size="15"/>
+  <bindByName apstargetname="line 3" text-size="inherit"/>
+  <bindByName apstargetname="grayboxes" fill-color="inherit"/>
+  <bindByName apstargetname="gray_25" fill-color="#808080"/>
+  <bindByName apstargetname="line 1" intensity="25%"/>
+  <bindByName apstargetname="line 5" intensity="inherit"/>
+  <bindByName apstargetname="grayboxes" stroke-color="#000070"/>
+  <bindByName apstargetname="grayboxes" stroke-weight="2"/>
+  <bindByName apstargetname="gray_25" stroke-color="0%"/>
+  <bindByName apstargetname="line 4" text-color="#FFFFFF"/>
+  <bindByName apstargetname="line 2" text-color="inherit"/>
+  <bindByName apstargetname="line 3" text-color="25%"/>
+  <bindByName apstargetname="line 1" text-font="Arial"/>
+  <bindByName apstargetname="line 5" text-font="courier New"/>
+  <bindByName apstargetname="DOM" raster-intensity="50%"/>
+</webcgm>

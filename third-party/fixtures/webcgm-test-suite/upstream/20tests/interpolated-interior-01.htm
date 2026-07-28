@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!-- 
+Basic test of interpolated interior: 
+parallel style, 1 stage, white at one corner of a rectangle
+to black at the diagonally opposite corner.
+
+Author: Lofton Henderson, 
+w/ help from Don Larson &amp; Mark Meier (Larson Software Technology).
+Latest Revision:  2006-04-10 
+-->
+
+<html>
+  <!-- 
+  Basic test of interpolated interior: 
+  parallel style, 1 stage, white at one corner of a rectangle
+  to black at the diagonally opposite corner.
+
+  Author: Lofton Henderson, 
+  w/ help from Don Larson &amp; Mark Meier (Larson Software Technology).
+  Latest Revision:  2006-04-10 
+  -->
+
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>Interopolated Interior Test Page #1</title>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'interpolated-interior-01.cgm';">
+    <h1>Interopolated Interior Test Page #1</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="450" height=
+        "450">
+        </object> </td>
+
+        <td><img id="reference" src="interpolated-interior-01.png"
+        width="450" height="450"> </td>
+      </tr>
+    </table>
+
+    <table>
+      <caption>
+        interpolated-interior-01 test - This test is passed if both
+        images look alike.
+      </caption>
+    </table>
+  </body>
+</html>
+

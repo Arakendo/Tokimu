@@ -1,0 +1,59 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: zCompress
+Version: $Version$
+Creator: Don Larson
+Description: test for loading a compressed CGM file
+
+Source: WebCGM 2.1 6.2
+Revision History:
+2008-09-01 DL Initial Version
+
+-->
+<html>
+
+<head>
+<title>zCompress</title>
+<script type="text/ecmascript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'zCompress.cgz';
+			var cgmPic	= cgmDoc.firstPicture;
+			try
+			{
+				// cgmPic.setView( no way to create a WebCGMRect! );
+				;
+			}
+			catch(t1)
+			{
+;			}
+		}
+		catch(e)
+		{
+;		}
+	}
+
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>zCompress</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object>
+    </td>
+    <td><img id="reference" src="zCompress.png" alt="zCompress.png">
+    </td>
+  </tr>
+</table>
+
+<p>Result should match reference image</p></body>
+</html>

@@ -1,0 +1,10 @@
+<?xml version = "1.0" ?>
+<!DOCTYPE webcgmConfig PUBLIC "-//OASIS//DTD WebCGM 2.1 Config//EN" "http://docs.oasis-open.org/webcgm/v2.1/webcgmConfig21.dtd">
+<webcgmConfig>
+  <defaultAttributes>
+    <edgeCap edgeCapInd="2" edgeDashInd="3" /> 
+    <edgeJoin edgeJoinInd="4" />
+  </defaultAttributes>
+</webcgmConfig>
+
+

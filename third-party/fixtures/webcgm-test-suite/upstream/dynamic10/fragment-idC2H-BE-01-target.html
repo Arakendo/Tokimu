@@ -1,0 +1,161 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>HTML target file for linking-basicC2H-BE-02</title>
+  <meta name="GENERATOR" content="amaya V4.3.2">
+</head>
+
+<body>
+<p style="font-size: 14pt"><span style="font-size: 14pt"><strong>3.1.2.2
+Picture Behaviors</strong>          </span><br/>
+[<strong>Caveat:</strong>  this text is old WebCGM 1.0 text (test should be updated.)]</p>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">Picture behaviors
+describe to the viewer how to display the picture, which is the target of a
+hyperlink. Picture behaviors are based on the syntax and semantics of " Frame
+Target Names" defined in the HTML 4.0 Specification. </span></p>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">The reserved names
+listed below describe the various picture behaviors. All other Picture
+Behavior values shall be valid Frame Target Names as described in the HTML 4.0
+specification.  </span><span style="font-size: 14pt">Frame Target Names must
+begin with an alphabetic character (a-zA-Z). </span></p>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">In what follows, the
+following conventions apply:</span></p>
+<ul>
+  <li>"viewer" refers collectively to a browser and/or a CGM viewer (e.g.,
+    plugin). The logical result is described, not the method of              
+    achieving the result (which in general will require action by browser or
+    viewer or both.)</li>
+  <li>"content" refers to either source or destination or a link, and is
+    either a picture (CGM) or a document (HTML), depending upon the
+    formulation of the particular link.<span style="font-size: 14pt">
+  </span></li>
+</ul>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">The following Picture
+Behavior values, except for _replace, are defined per HTML 4.0: </span></p>
+<dl>
+  <dt>_blank</dt>
+    <dd>The viewer shall load the designated content in a new, unnamed
+    window.</dd>
+  <dt>_self</dt>
+    <dd>The viewer shall load the content in the same frame as the one
+      containing the content that refers to this target.</dd>
+  <dt>_parent</dt>
+    <dd>The viewer shall load the content into the immediate FRAMESET parent
+      of the current frame in which the current content is              
+      displayed. This value is equivalent to "_self" if the current frame has
+      no parent.</dd>
+  <dt> _replace</dt>
+    <dd>The viewer shall replace the current CGM picture by the designated CGM
+      picture in the same rectangular area in the same frame as the picture
+      which refers to this target.</dd>
+  <dt>_top</dt>
+    <dd>The viewer shall load the content into the full, original window (thus
+      canceling all other frames). This value is equivalent to _self if the
+      current frame has no parent.</dd>
+</dl>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">If the picture
+behavior value is any valid name string other than the above reserved names,
+(it begins with an alphabetic character (a-zA-Z)), remove the existing content
+(picture or document) from the frame whose name matches the string and display
+the specified content in the specified frame. If no frame exists by the
+specified name, the viewer shall load the designated content (picture or
+document) in a new window with the specified name.           </span></p>
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">In the case that a
+link is HTML to CGM, the picture behavior should not be included in any
+fragment specification. Rather, the effect should be achieved with HTML TARGET
+attribute on the link specification in the HTML, per the specifications in the
+HTML 4.0 Recommendation. CGM viewers shall ignore picture behavior
+specifications in URI fragments which are part of links from non-CGM content. 
+         </span></p>
+
+
+<p style="font-size: 14pt"><span style="font-size: 14pt">The following table
+summarizes the rules for other link types, CGM-to-HTML and CGM-to-CGM:
+</span></p>
+
+<p><a id="linkRulesTable" name="linkRulesTable">
+Here's the anchor (followed by a table).<br/>
+[<strong>Caveat:</strong>  this text is old WebCGM 1.0 text (test should be updated).]
+</a></p>
+
+<table border="1"
+summary="This table defines how the six legal picture behavior values, occuring                    either on URI fragments or as the parameter of the 'linkuri' attribute, are                    interpreted for the CGM-to-HTML and CGM-to-CGM link configurations.">
+  <caption><strong>Picture behaviors and different source-to-destination data
+  types.</strong></caption>
+  <colgroup><col width="10%" /><col width="40%" /><col width="40%"
+  /></colgroup>
+  <tbody>
+    <tr>
+      <th align="center" scope="col">Behavior</th>
+      <th align="center" scope="col">CGM-to-HTML</th>
+      <th align="center" scope="col">CGM-to-CGM</th>
+    </tr>
+    <tr>
+      <td>_blank</td>
+      <td>The viewer shall load the designated document in a new, unnamed
+        window.</td>
+      <td>The viewer shall load the designated picture in a new, unnamed
+        window.</td>
+    </tr>
+    <tr>
+      <td>_self</td>
+      <td>The viewer shall load the document in the same frame as the one
+        containing the CGM picture that refers to this target. This is the
+        default for CGM-to-HTML links.</td>
+      <td>The viewer shall load the picture in the same frame as the one
+        containing the CGM picture that refers to this target.</td>
+    </tr>
+    <tr>
+      <td>_parent</td>
+      <td>The viewer shall load the document into the immediate FRAMESET
+        parent of the current frame in which the current picture is
+        displayed. This value is equivalent to _self if the current frame has
+        no parent.</td>
+      <td>The viewer shall load the picture into the immediate FRAMESET
+        parent of the current frame in which the current picture is
+        displayed. This value is equivalent to "_self" if the current frame
+        has no parent.</td>
+    </tr>
+    <tr>
+      <td>_replace</td>
+      <td>Not applicable. Default to _self.</td>
+      <td>The viewer shall display the designated CGM picture in the same
+        rectangular area in the same frame as the picture which refers to
+        this target. If the ending resource (CGM) is the same as the linking
+        resource, the viewer does not reload the resource. This is the
+        default behavior for CGM-to-CGM links.</td>
+    </tr>
+    <tr>
+      <td>_top</td>
+      <td>The viewer shall load the document into the full, original window
+        (thus canceling all other frames). This value is equivalent to _self
+        if the current frame has no parent.</td>
+      <td>The viewer shall load the picture into the full, original window
+        (thus canceling all other frames). This value is equivalent to _self
+        if the current frame has no parent.</td>
+    </tr>
+    <tr>
+      <td>target</td>
+      <td>The viewer shall load the document into the frame identified by
+        "target". If no matching frame can be found, the viewer shall load
+        the designated content document in a new window with the specified
+        name.</td>
+      <td>The viewer shall load the picture into the frame identified by
+        "target". If no matching frame can be found, the viewer shall load
+        the designated content document in a new window with the specified
+        name.</td>
+    </tr>
+  </tbody>
+</table>
+
+
+</body>
+</html>

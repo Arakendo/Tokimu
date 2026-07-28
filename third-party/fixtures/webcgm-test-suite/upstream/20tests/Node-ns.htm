@@ -1,0 +1,262 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: Node-ns
+Version: $Version$
+Creator: Benoit
+Description: Test WebCGMNode and namespaces.
+Source: WebCGM 2.0 5.7.4
+Revision History:
+2005-07-21 Benoit
+    removed hasAttributeNS test since it was removed from the WebCGM DOM
+-->
+
+<html>
+  <!-- Benoit, 2005-07-21: removed hasAttributeNS test since it was removed from the WebCGM DOM -->
+
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>WebCGMNode, NS methods Test Page</title>
+<script type="text/ecmascript">
+    function OnBtnDOM()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            cgmPic.applyCompanionFile("Node-ns.xml");
+            result  = document.getElementById("_2");
+            result.style.color = "#00A000";
+            try
+            {
+                var att = cgmPic.getAppStructureById("elem1").getAttributeNS("http://www.example.org","att");
+                var att2 = cgmPic.getAppStructureById("para1").getAttributeNS("http://www.example.org","att2");
+                if( att == "a namespace attribute" && att2 == "another namespace attribute")
+                {
+                  result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                    throw "wrong getAttributeNS";
+                }
+            }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+
+            result  = document.getElementById("_3");
+            result.style.color = "#00A000";
+            try
+            {
+                var el = cgmPic.getAppStructureById("elem1");
+                var pa = cgmPic.getAppStructureById("para1");
+                el.setAttributeNS("http://www.example.org","test:att","not a new attribute");
+                pa.setAttributeNS("http://www.example.org","test:att3","a new attribute");
+
+                var res_el = el.getAttributeNS("http://www.example.org","att");
+                var res_pa = pa.getAttributeNS("http://www.example.org","att3");
+                if( res_el == "not a new attribute" && res_pa == "a new attribute" )
+                {
+                  result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                  throw "wrong setAttributeNS";
+                }
+            }
+            catch(t3)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t3;
+            }
+
+            result  = document.getElementById("_4");
+            result.style.color = "#00A000";
+            try
+            {
+                var pa = cgmPic.getAppStructureById("para1");
+                var elems = pa.getElementsByTagNameNS("http://www.example.org", "el");
+                if( elems.count == 2 )
+                {
+                  if( elems.item(0).firstChild.nodeValue == "This is the first child of \"para1\"" )
+                  {
+                    if( elems.item(1).firstChild.nodeValue == "This is the last child of \'para1\'" )
+                    {
+                      result.firstChild.nodeValue = "Passed!";
+                    }
+                    else
+                    {
+                      throw "wrong item(1)";
+                    }
+                  }
+                  else
+                  {
+                    throw "wrong item(0)";
+                  }
+                }
+                else
+                {
+                  throw "wrong getElementsByTagNameNS";
+                }
+            }
+            catch(t4)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+            
+            result  = document.getElementById("_5");
+            result.style.color = "#00A000";
+            try
+            {
+                var pa = cgmPic.getAppStructureById("para1");
+                var elems = pa.getElementsByTagNameNS("http://www.example.org", "el");
+                if( elems.count == 2 )
+                {
+<!-- Fix 2005-09-01, "" to "http://www.example.org" -->
+<!-- Fix 2005-09-06, reverted bac to "", "http://www.example.org" was wrong according to the XML namespace specification -->
+                  if( elems.item(0).getAttributeNS("","att3") == "no prefix" )
+                  {
+                        result.firstChild.nodeValue = "Passed!";      
+                  }
+                  else
+                  {
+                    throw "getAttributeNS";
+                  }
+                }
+                else
+                {
+                  throw "wrong getElementsByTagNameNS";
+                }
+            }
+            catch(t5)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t5;
+            }
+            result  = document.getElementById("_6");
+            result.style.color = "#00A000";
+            try
+            {
+                var at = cgmPic.getAttributeNS("http://www.example.org","att");
+                var el = cgmPic.lastChild.localName;
+
+                if( at == "ns attribute on root element" && el == "root" )
+                {
+                  result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                  throw "metadata on root element";
+                }
+            }
+            catch(t6)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t6;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("_2");
+            n.style.color = "#FF0000";
+            document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'node-ns.cgm'; OnBtnDOM();">
+    <h1>WebCGMNode, NS methods Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="node-ns.png"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>getAttributeNS:</td>
+
+        <td id="_2">NA</td>
+
+        <td>Getting namespace attributes from 'grobject' and 'para'
+        APS.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>setAttributeNS:</td>
+
+        <td id="_3">NA</td>
+
+        <td>Setting existing and non-existing attribute
+        values.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>getElementsByTagNameNS:</td>
+
+        <td id="_4">NA</td>
+
+        <td>Expected to get a node list of 'test:el' elements.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>getAttributeNS(null...):</td>
+
+        <td id="_5">NA</td>
+
+        <td>
+        </td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>getAttributeNS on root element</td>
+
+        <td id="_6">NA</td>
+
+        <td>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+

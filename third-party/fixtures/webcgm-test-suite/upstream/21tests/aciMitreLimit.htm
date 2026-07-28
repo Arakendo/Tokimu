@@ -1,0 +1,57 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: aciMitreLimit
+Version: $Version$
+Creator: Don Larson
+Description: test mitre limits metafile default
+
+Source: WebCGM 2.1 9.6
+Revision History:
+2008-09-01 DL Initial Version
+2009-02-05 DL Updated
+2009-09-02 DL revised test comments
+    
+-->
+
+<html>
+
+<head>
+<title>aciMitreLimit Test Page</title>
+<script type="text/ecmascript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciMitreLimit.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciMitreLimit Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object>
+    </td>
+    <td><img id="reference" src="aciMitreLimit.png" alt="aciMitreLimit.png">
+    </td>
+  </tr>
+</table>
+
+<p>This test uses the ACI file to modify the default (32767) Mitre Limit attribute. The target CGM contains 2 polylines. The MitreLimit of the topmost polyline is defaulted while the other at the bottom is set explicitly to 1 in the CGM file. The ACI for this test should set the default Mitre Limit to 1 which will cause the topmost polyline to be displayed with a Mitre Limit of 1. The bottom polyline should remain unchanged by the ACI file.  
+
+The image on the right shows the CGM rendered as it should appear after the default Mitre Limit is set by the ACI file.</p></body>
+</html>

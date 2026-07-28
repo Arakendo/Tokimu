@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setGetStrokeType
+Version: $Version$
+Creator: Forrest Carpenter
+Description: tests stroke type (APS level)
+
+Source: WebCGM 2.1 5.7.6
+Revision History:
+2008-09-01 PH Initial Version
+2009-01-27 PH Changed script type to text/ecmascript
+2009-03-03 PH Changed reference CGM and image
+2009-04-20 PH Fixed HTML errors 
+2009-08-30 FC Removed text, line, and image from the CGM file.
+
+-->
+
+<html>
+
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<title>APS Stroke Type Property Test Page</title>
+<script type="text/ecmascript">
+
+
+function test1() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s1");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      gr.setStyleProperty("stroke-type","2");
+    } 
+    catch (t1) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t1;
+    }
+    document.getElementById("i2").disabled = false;
+  } 
+  catch (e1) {
+    var n = document.getElementById("s1");
+    n.style.color = "#FF0000";
+    document.getElementById("s1").firstChild.nodeValue = "Failed, test not executed! Error: " + e1;
+  }
+}
+
+function test2() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s2");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      var v = gr.getStyleProperty("stroke-type");
+    } 
+    catch (t2) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t2;
+    }
+    result.firstChild.nodeValue = v;
+    document.getElementById("i3").disabled = false;
+  } 
+  catch (e2) {
+    var n = document.getElementById("s2");
+    n.style.color = "#FF0000";
+    document.getElementById("s2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2;
+  }
+}
+
+function test3() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s3");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      gr.setStyleProperty("stroke-type","solid");
+    } 
+    catch (t3) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t3;
+    }
+    document.getElementById("i4").disabled = false;
+  } 
+  catch (e3) {
+    var n = document.getElementById("s3");
+    n.style.color = "#FF0000";
+    document.getElementById("s3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3;
+  }
+}
+
+function test4() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s4");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      var v = gr.getStyleProperty("stroke-type");
+    } 
+    catch (t4) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t4;
+    }
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e4) {
+    var n = document.getElementById("s4");
+    n.style.color = "#FF0000";
+    document.getElementById("s4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4;
+  }
+}
+
+</script>
+</head>
+<body
+   onload="document.getElementById('ivx1').getWebCGMDocument().src='setGetStrokeType.cgm';">
+   <h1>APS Style Property Stroke Type Test Page</h1>
+<table border="1" rules="cols">
+    <tr style="text-align:center;">
+        <th>Source image</th>
+        <th>Reference image before style changes</th>
+    </tr>
+    <tr>
+        <td><object id="ivx1"
+            type="image/cgm;Version=4;ProfileId=WebCGM" width="480"
+	    height="360"></object></td>
+      <td><img src="setGetStrokeType.png" alt="reference image"></td>
+    </tr>
+</table>
+
+<table border="1">
+    <caption><em>Test results</em></caption>
+    <tr>
+        <td>Test</td>
+        <td>Purpose</td>
+        <td>Test Result</td>
+        <td>Comments</td>
+    </tr>
+ 
+ 
+    <tr>
+      <td><input id="i1" type="button" value="Start 1"
+	  name="btn1" onClick="test1()"></td>
+	<td>Set Stroke Type</td>
+      <td id="s1">NA</td>
+	<td>Passed if stroke type of right line and rectangle changes to 2 (dashed)</td>
+    </tr>
+    <tr>
+      <td><input id="i2" disabled type="button" value="Start 2"
+	  name="btn2" onClick="test2()"></td>
+	<td>Get Stroke Type</td>
+      <td id="s2">NA</td>
+	<td>Passed if test result is 2.</td>
+    </tr>
+   <tr>
+      <td><input id="i3" disabled type="button" value="Start 3"
+	  name="btn3" onClick="test3()"></td>
+	<td>Set Stroke Type</td>
+      <td id="s3">NA</td>
+	<td>Passed if stroke type of right line and rectangle changes to solid (1)</td>
+    </tr>
+    <tr>
+      <td><input id="i4" disabled type="button" value="Start 4"
+	  name="btn4" onClick="test4()"></td>
+	<td>Get Stroke Type</td>
+      <td id="s4">NA</td>
+	<td>Passed if test result is 1.</td>
+    </tr>
+
+   
+</table>
+
+</body>
+</html>

@@ -1,0 +1,3 @@
+<webcgm id="root-cgm" version="2.0" filename="Node-metadata.cgm" xmlns="http://www.cgmopen.org/schema/webcgm/" xmlns:test="http://www.example.org">
+  <bindById apsid="elem1" test:att="a namespace attribute"/>
+</webcgm>

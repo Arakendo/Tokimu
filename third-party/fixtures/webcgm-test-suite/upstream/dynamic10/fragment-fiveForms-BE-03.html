@@ -1,0 +1,43 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>HTML test root file for fragment-fiveForms-BE-01.</title>
+  <meta name="GENERATOR" content="amaya 8.3, see http://www.w3.org/Amaya/">
+</head>
+
+<body>
+<p>The WebCGM specification defines a "fragment syntax" for associating
+additional information with the URI destinations of hyperlinks -- picture and
+object selection, and picture and object behaviors.  In full, a WebCGM
+hyperlink might look like:</p>
+
+<p>&lt;uri-of-target&gt;#&lt;fragment-specification&gt;</p>
+
+<p>There are five allowable forms for the fragment specification:</p>
+<ol>
+  <li>picture-term.object-term ("." seperates the two fully specified
+  terms);</li>
+  <li>picture-term (the object term defaults);</li>
+  <li>object-term (the picture term defaults);</li>
+  <li>picid.objid (picture and object behaviors default);</li>
+  <li>objid (everything defaults except the object id).</li>
+</ol>
+
+<p>Previous BE tests in this test suite have tested all forms except for 3
+and 4 above.  To test fragment forms 3 and 4:</p>
+<ul>
+  <li><a
+    href="fragment-fiveForms-BE-03-target1.cgm#id(rightCylinder,full+newHighlight)">Click
+    to activate link with "#object-term" fragment.</a></li>
+  <li><a
+    href="fragment-fiveForms-BE-03-target2.cgm#Picture_1.rightCylinder">Click
+    to activate link with "#picid.objid" fragment.</a></li>
+</ul>
+
+<p>[1st href:
+"fragment-fiveForms-BE-03-target1.cgm#id(rightCylinder,full+newHighlight)"]<br>
+[2nd href: "fragment-fiveForms-BE-03-target2.cgm#Picture_1.rightCylinder"]</p>
+</body>
+</html>

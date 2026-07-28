@@ -1,0 +1,52 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: aciHatchStyleDef
+Version: $Version$
+Creator: Don Larson
+Description: test ACI maplist element
+
+Source: WebCGM 2.1 - 9.3.2.2
+Revision History:
+2009-04-20 DL Initial version
+2009-09-02 DL revised test comments
+
+-->
+
+<html>
+<head>
+<title>aciForceSubstitution Test Page</title>
+<script type="text/ecmascript">
+	function test1()
+	{
+		try
+		{
+			var cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'aciForceSubstitution.cgm';
+			var cgmPic	= cgmDoc.firstPicture;
+		}
+		catch(e)
+		{
+			alert ("Failed to load");
+		}
+	}
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>aciForceSubstitution Test Page</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="360" height="360"></object>
+    </td>
+    <td><img id="reference" src="aciForceSubstitution.png" alt="aciForceSubstitution.png">
+    </td>
+  </tr>
+</table>
+
+<p>This test uses the ACI file to substitute a font. The CGM file displayed on the left contains 2 restricted text elements. The text at the top uses a font named "Helvetica" and the other uses "Times-Roman" The ACI file substitutes "Courier New" for the font named Helvetica. The image on the right shows how the CGM should be rendered with the substitution.</p></body>
+</html>

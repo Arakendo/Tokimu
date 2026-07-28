@@ -1,0 +1,267 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: AppStructure-layername
+Version: $Version$
+Creator: Don
+Description: This test retrieves the layername attirubte
+             of an APS structure.
+Source: WebCGM 2.0 5.7.6
+Revision History:
+2005-06-13 Ralf
+    added else, set not allowed
+2005-06-13 Ralf
+    typo: "visibilty"
+2005-06-13 Ralf
+    switched "off" and "on"
+2005-09-09 Don
+    eliminated set and remove layername
+--><!-- Ralf, 05-06-13, added else, set not allowed -->
+<!-- Ralf, 05-06-13, typo: "visibilty" -->
+<!-- Ralf, 05-06-13, switched "off" and "on" -->
+<!-- Don,  09sep2005, eliminated set and remove layername -->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>AppStructure, layername Test Page</title>
+<script type="text/ecmascript">
+    function OnBtnDOM()
+    // Test get layernname
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_1");
+            result.style.color = "#00A000";
+            try
+            {
+                var gr = cgmPic.getAppStructureById("fleet");
+                var i = gr.getAppStructureAttr("layername");
+                if( i == "fleet")
+                {
+                  result.firstChild.nodeValue = "Passed!";
+                    }
+                else
+                {
+                  throw "incorrect layername value";
+                }
+            }
+            catch(t1)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t1;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("_1");
+            n.style.color = "#FF0000";
+            document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+
+    // Test layernname of a grobject in a layer
+    function test2()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_2");
+            try
+            {
+                var gr = cgmPic.getAppStructureById("plane_1");
+                var i = gr.getAppStructureAttr("layername");
+                result.firstChild.nodeValue = "NA";
+                if( i == "")
+                {
+                  result.firstChild.nodeValue = "Passed!";
+                    }
+                else
+                {
+                  throw "layername is not inherited by grobject";
+                }
+            }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+            document.getElementById("i3").disabled = false;
+        }
+        catch(e2)
+        {
+            var n = document.getElementById("_2");
+            n.style.color = "#FF0000";
+            document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2.description;
+        }
+    }
+
+    // Test set layername
+    function test3()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_3");
+            try
+            {
+              var gr = cgmPic.getAppStructureById("fleet");
+              result.firstChild.nodeValue = "NA";
+
+              var i = gr.getAppStructureAttr("layername");
+              if (i == "fleet")
+              {
+                  result.firstChild.nodeValue = "Passed!";
+              }
+            }
+            catch(t3)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t3;
+            }
+            document.getElementById("i4").disabled = false;
+        }
+        catch(e3)
+        {
+            var n = document.getElementById("_3");
+            n.style.color = "#FF0000";
+            document.getElementById("_3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3.description;
+        }
+    }
+
+    // Try changing visibility of a layer
+    function test4()
+    {
+        try
+        {
+            var cgmDoc  = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic  = cgmDoc.firstPicture;
+            var result  = document.getElementById("_4");
+            try
+            {
+                var gr = cgmPic.getAppStructureById("plane");
+                var gr2 = cgmPic.getAppStructureById("fleet");
+
+<!-- Ralf, 05-06-13, typo: "visibilty" -->
+                gr.setAppStructureAttr("visibility", "off");
+                gr2.setAppStructureAttr("visibility", "on");
+
+                var i = gr.getAppStructureAttr("visibility");
+                var i2 = gr2.getAppStructureAttr("visibility");
+
+<!-- Ralf, 05-06-13, switched "off" and "on" -->
+                if( i == "off" && i2 == "on" )
+                {
+                    result.style.color = "#00A000";
+                    result.firstChild.nodeValue = "Passed!";
+                }
+                else
+                {
+                    throw "wrong visibility value";
+                }
+            }
+            catch(t4)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+        }
+        catch(e4)
+        {
+            var n = document.getElementById("_4");
+            n.style.color = "#FF0000";
+            document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4.description;
+        }
+    }
+
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'AppStructure-layername.cgm'; OnBtnDOM();">
+    <h1>AppStructure, layername Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="AppStructure-layername.png">
+        </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>get initial 'layername' values:</td>
+
+        <td id="_1">NA</td>
+
+        <td>Passed if layername returned is 'fleet'</td>
+      </tr>
+
+      <tr>
+        <td><input type="button" value="Start 2" name="btn2"
+        onclick="test2()"></td>
+
+        <td>get 'layername' of a grobject within the 'fleet'
+        layer:</td>
+
+        <td id="_2">NA</td>
+
+        <td>Passed if the layername returned is empty.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" disabled type="button" value="Start 3"
+        name="btn3" onclick="test3()"></td>
+
+        <td>get 'layername'</td>
+
+        <td id="_3">NA</td>
+
+        <td>Passed if layername not set.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i4" disabled type="button" value="Start 4"
+        name="btn4" onclick="test4()"></td>
+
+        <td>change layer visibilty</td>
+
+        <td id="_4">NA</td>
+
+        <td>Passed if the center layer named plane' becomes
+        invisable</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

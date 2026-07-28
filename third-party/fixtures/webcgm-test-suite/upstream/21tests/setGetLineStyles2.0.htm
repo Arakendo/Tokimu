@@ -1,0 +1,235 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setGetLineStyles2.0
+Version: $Version$
+Creator: Forrest Carpenter
+Description: tests WebCGM2.0 line styles (picture and APS level)
+
+Source: WebCGM 2.1 5.7.5 and 5.7.6
+Revision History:
+2008-09-01 PH Initial Version
+2009-01-27 PH Changed script type to text/ecmascript    
+2009-03-03 PH Changed reference CGM
+2009-03-05 FC Changed Web 2.0 to WebCGM 2.1
+2009-04-20 PH Fixed HTML errors
+2009-08-30 FC Removed text and image from the CGM file.
+-->
+<html>
+
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<title>Stroke Styles Test Page</title>
+<script type="text/ecmascript">
+
+function test1() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s1");
+    try {
+      cgmPic.setStyleProperty("stroke-color","#FF0000");
+      cgmPic.setStyleProperty("stroke-weight","200%");
+    } 
+    catch (t1) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t1;
+    }
+    document.getElementById("i2").disabled = false;
+  } 
+  catch (e1) {
+    var n = document.getElementById("s1");
+    n.style.color = "#FF0000";
+    document.getElementById("s1").firstChild.nodeValue = "Failed, test not executed! Error: " + e1;
+  }
+}
+
+function test2() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s2");
+    try {
+      var v = cgmPic.getStyleProperty("stroke-color");
+    } 
+    catch (t2) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t2;
+    }
+    document.getElementById("i3").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e2) {
+    var n = document.getElementById("s2");
+    n.style.color = "#FF0000";
+    document.getElementById("s2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2;
+  }
+}
+
+function test3() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s3");
+    try {
+      var v = cgmPic.getStyleProperty("stroke-weight");
+    } 
+    catch (t3) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t3;
+    }
+    document.getElementById("i4").disabled = false;
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e3) {
+    var n = document.getElementById("s3");
+    n.style.color = "#FF0000";
+    document.getElementById("s3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3;
+  }
+}
+
+function test4() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s4");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      gr.setStyleProperty("stroke-color","#00FF00");
+      gr.setStyleProperty("stroke-weight","400%");
+    } 
+    catch (t4) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t4;
+    }
+    document.getElementById("i5").disabled = false;
+  } 
+  catch (e4) {
+    var n = document.getElementById("s4");
+    n.style.color = "#FF0000";
+    document.getElementById("s4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4;
+  }
+}
+
+function test5() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s5");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      var v = gr.getStyleProperty("stroke-color");
+    } 
+    catch (t5) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t5;
+    }
+    result.firstChild.nodeValue = v;
+    document.getElementById("i6").disabled = false;
+  } 
+  catch (e5) {
+    var n = document.getElementById("s5");
+    n.style.color = "#FF0000";
+    document.getElementById("s5").firstChild.nodeValue = "Failed, test not executed! Error: " + e5;
+  }
+}
+
+function test6() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var result = document.getElementById("s6");
+    try {
+      var gr = cgmPic.getAppStructureById("sdi-1");
+      var v = gr.getStyleProperty("stroke-weight");
+    } 
+    catch (t6) {
+      result.style.color = "#FF0000";
+      result.firstChild.nodeValue = "Failed! Error: " + t6;
+    }
+    result.firstChild.nodeValue = v;
+  } 
+  catch (e6) {
+    var n = document.getElementById("s6");
+    n.style.color = "#FF0000";
+    document.getElementById("s6").firstChild.nodeValue = "Failed, test not executed! Error: " + e6;
+  }
+}
+
+
+
+
+</script>
+</head>
+<body
+   onload="document.getElementById('ivx1').getWebCGMDocument().src='setGetLineStyles2.0.cgm';">
+   <h1>Property Stroke Style Test Page</h1>
+<table border="1" rules="cols">
+    <tr style="text-align:center;">
+        <th>Source image</th>
+        <th>Reference image before style changes</th>
+    </tr>
+    <tr>
+        <td><object id="ivx1"
+            type="image/cgm;Version=4;ProfileId=WebCGM" width="480"
+	    height="360"></object></td>
+      <td><img src="setGetLineStyles2.0.png" alt="reference image"></td>
+    </tr>
+</table>
+
+<table border="1">
+    <caption><em>Test results</em></caption>
+    <tr>
+        <td>Test</td>
+        <td>Purpose</td>
+        <td>Test Result</td>
+        <td>Comments</td>
+    </tr>
+    <tr>
+      <td><input id="i1" type="button" value="Start 1"
+            name="btn1" onClick="test1()"></td>
+	<td>Set Picture Stroke Color and Weight</td>
+        <td id="s1">NA</td>
+	<td>Passed if lines and rectangles in the picture strokes change to red and 200%.</td>
+    </tr>
+    <tr>
+        <td><input id="i2" disabled type="button" value="Start 2"
+            name="btn2" onClick="test2()"></td>
+	<td>Get Picture Stroke Color</td>
+        <td id="s2">NA</td>
+	<td>Passed if test result is #FF0000.</td>
+    </tr>
+    <tr>
+      <td><input id="i3" disabled type="button" value="Start 3"
+	  name="btn3" onClick="test3()"></td>
+      <td>Get Picture Stroke Size</td>
+      <td id="s3">NA</td>
+      <td>Passed if test result is 200%.</td>
+    </tr>
+ 
+   <tr>
+      <td><input id="i4" disabled type="button" value="Start 4"
+            name="btn4" onClick="test4()"></td>
+	<td>Set APS Stroke Color and Weight</td>
+        <td id="s4">NA</td>
+	<td>Passed if only the line and rectangle on the right side of picture strokes change to green and 400%.</td>
+    </tr>
+    <tr>
+        <td><input id="i5" disabled type="button" value="Start 5"
+            name="btn5" onClick="test5()"></td>
+	<td>Get APS Stroke Color</td>
+        <td id="s5">NA</td>
+	<td>Passed if test result is #00FF00.</td>
+    </tr>
+    <tr>
+      <td><input id="i6" disabled type="button" value="Start 6"
+	  name="btn6" onClick="test6()"></td>
+      <td>Get APS Stroke Size</td>
+      <td id="s6">NA</td>
+      <td>Passed if test result is 400%.</td>
+    </tr>
+ 
+
+</table>
+
+</body>
+</html>

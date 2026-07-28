@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- fragment-idC2H-BE-01.xml                                              --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         fragment-idC2H-BE-01.                                         --><!--                                                                       --><!-- Author : Lofton Henderson, 29-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  29-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="fragment" focus="idC2H" rootType="cgm" testType="BE" BENumber="01">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="behavior" focus="objViewContext" BENumber="07"/>
+  
+   <Next category="fragment" focus="multiPic" BENumber="02"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="circ-rect">.cgm</srcFile>
+    
+      <dstFile cgmType="">-target.html</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test fragment syntax in a CGM-to-HTML link, from a Application Structure with 
+linkuri APS Attribute within the CGM, to a named anchor within a HTML document.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>linkuri-destination-param</ta-id>
+         <ta-id>linkuri-destination-anyuri</ta-id>
+         <ta-id>linkuri-behavior-noncgm</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display a 
+CGM containing a simple picture with a cyan-filled square
+on the left and a magenta-filled circle on the right, both with thick
+black borders.  The square is within an Application Structure that contains 
+a single APS Attribute of type 'linkuri'.  The first parameter points to a 
+local HTML file, and has a simple "#" fragment consisting only of
+an ID corresponding to a named anchor in the HTML file.  The 
+2nd parameters of the 'linkuri' is null, and the 3rd (Behavior) parameter is
+"_self" (this is identical to the default value of the Behavior
+parameter for CGM-to-HTML links).
+    </Paragraph>
+    
+      <Paragraph>
+To execute the hyperlink, move the mouse anywhere over the square and
+click the left mouse button.
+Correct viewer handling of the link will result in the text 
+of the end of the target HTML file replacing the CGM picture
+in the right-hand frame.  
+    </Paragraph>
+    
+      <Paragraph>
+You should be able to use the browser "Back" and "Forward" buttons to go 
+back and forth between the HTML view and the WebCGM view in the right-hand frame.
+Note, however, that this latter normal behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for this test.
+    </Paragraph>
+    
+      <Paragraph>
+Viewers are required to give visual feedback to the user that a successful 
+pick has occurred, and an indication of the particular object which has 
+been picked. The exact method of feedback is viewer dependent.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of the 
+HTML text which should appear in the right-hand frame upon
+activating the link in the WebCGM instance.  Note that there may be
+variations in the visual style of the displayed HTML text, depending
+upon the browser used.  It is not a pass/fail criterion of this test
+that the visual style of the displayed HTML text exactly match the
+reference.  It is a key criterion of this test that the phrase
+"Here's the anchor (followed by a table)" appears in the displayed
+HTML text.
+    </Paragraph>
+    
+ 
+   </OperatorScript>
+
+
+</CGMTestCase>

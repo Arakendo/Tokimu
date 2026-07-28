@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<webcgm version="2.0" xmlns="http://www.cgmopen.org/schema/webcgm/">
+ <bindById apsid="wall" pattern-index="2"/>
+ <bindById apsid="opening" pattern-index="1"/>
+ <bindById apsid="wheel" stroke-type="1"/>
+ <bindById apsid="offset" stroke-offset="12.5%"/>
+ <bindById apsid="edge" edge-visibility="off"/>
+ <bindById apsid="edge" interior-style="3"/>
+ <bindById apsid="edge" hatch-index="1"/>
+</webcgm>

@@ -1,0 +1,5 @@
+<webcgm id="root-cgm" version="2.0" filename="Node-metadata.cgm" xmlns="http://www.cgmopen.org/schema/webcgm/" xmlns:test="http://www.example.org" xmlns:extra="http://www.example.com">
+  <bindById apsid="elem1">
+      <test:elem anAttribute="#ff0000">Text before anchor<test:a>Anchor</test:a>Text after anchor</test:elem>
+  </bindById>
+</webcgm>

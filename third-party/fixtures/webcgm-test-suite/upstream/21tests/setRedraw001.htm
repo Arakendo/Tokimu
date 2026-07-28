@@ -1,0 +1,119 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: setRedraw001
+Version: $Version$
+Creator: Benoit Bezaire
+Description: Tests the setRedraw() method using ecmascript timers
+
+Source: WebCGM 2.1 5.7.3
+Revision History:
+2008-11-25 BB Initial Version
+2009-05-13 RO Fixed HTML errors and corrected the above metadata.
+
+-->
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<title>setRedraw</title>
+<script type="text/ecmascript">
+    var step = 10;
+    var offset = 25; /// 255 / step
+    var t;
+    var cgmDoc;
+    var cgmPic;
+    var topRect;
+    var bottomRect;
+    var r = 0;
+    var count = 1;
+
+    function timedCount()
+    {
+        if( count < (step+1) )
+        {
+            if( topRect )
+            {
+                var col = "#";
+                
+                r = r + offset;
+                col = col + r.toString(16) + "0000";
+                topRect.setStyleProperty("fill-color",col);
+            }
+            count=count+1;
+            t=setTimeout("timedCount()",200);
+        }
+        else
+        {
+			count = 1;
+			r = 0;
+            clearTimeout(t);
+			cgmDoc.setRedraw("disableAll");
+			timedCount2();
+        }
+    }
+
+    function timedCount2()
+    {
+        if( count < (step+1) )
+        {
+            if( bottomRect )
+            {
+                var col = "#";
+                
+                r = r + offset;
+                col = col + r.toString(16) + r.toString(16) + "00";
+                bottomRect.setStyleProperty("fill-color",col);
+            }
+            count=count+1;
+            t=setTimeout("timedCount2()",200);
+        }
+        else
+        {
+			cgmDoc.setRedraw("enableAll");
+            clearTimeout(t);
+        }
+    }
+
+	function test1()
+	{
+		try
+		{
+			cgmDoc	= document.getElementById("ivx1").getWebCGMDocument();
+			cgmDoc.src= 'setRedraw001.cgm';
+			cgmPic	= cgmDoc.firstPicture;
+			topRect = cgmPic.getAppStructureById("above");
+			bottomRect = cgmPic.getAppStructureById("below");
+			try
+			{
+				timedCount();
+			}
+			catch(t1)
+			{
+;			}
+		}
+		catch(e)
+		{
+;		}
+	}
+
+
+</script>
+</head>
+
+<body onload="test1();">
+<h1>setRedraw</h1>
+<table border="1" rules="cols">
+  <tr style="text-align:center;">
+    <th>Source image</th>
+    <th>Reference image</th>
+  </tr>
+  <tr>
+    <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object>
+    </td>
+    <td><img alt="Reference image" id="reference" src="setRedraw001.png">
+    </td>
+  </tr>
+</table>
+
+<p>The top rectangle should gradually go from black to red (takes a total of two seconds). Two seconds after the top rectangle is completely red, the bottom rectangle should switch from black to yellow (no intermediate steps).</p></body>
+</html>

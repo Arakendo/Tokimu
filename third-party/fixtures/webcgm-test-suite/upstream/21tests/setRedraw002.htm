@@ -1,0 +1,151 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: WebCGM Picture highlight & setRedraw
+Version: $Version$
+Creator: Ulrich Laesche
+Description: Turn on and off highlights while testing the setRedraw function
+Source: WebCGM 2.1, section 5.7.3
+Revision History:
+2009-04-24: Ulrich Laesche: Initial Version of Test
+2009-08-25: Ulrich Laesche: Extended Comments in HTML File
+-->
+
+<html> <head> <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebCGMPicture Highlight and setRedraw Test Page</title>
+<script type="text/ecmascript">
+
+<!--The following 3 functions in this test always contain a pair of calls to the functions "Redraw/enable" and "Redraw/disable".  This leads to an execution of the pending actions (upon "enable") and an immediate pending of further actions on the next call ("disable").  Thus, the steps in this test will always be executed upon activating the next step.-->
+
+function sethighlight( res, obj, type) {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var apObj = cgmPic.getAppStructuresByName(obj);
+    cgmDoc.setRedraw("enableAll");
+    cgmDoc.setRedraw("disableAll");
+    cgmPic.highlight(apObj, type );
+  } catch(e) {
+    var n = document.getElementById(res);
+    n.style.color = "#FF0000";
+    n.firstChild.nodeValue = "Failed, test not executed! Error: " + e;
+  }
+}
+
+function sethighlight2( res, obj1, obj2) {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    var nlist = cgmPic.getAppStructuresByName(obj1);
+    var obj = cgmPic.getAppStructuresByName(obj2).item(0);
+    nlist.appendItem(obj);
+    cgmDoc.setRedraw("enableAll");
+    cgmDoc.setRedraw("disableAll");
+    cgmPic.highlight(nlist, "add");
+  } catch(e) {
+    var n = document.getElementById(res);
+    n.style.color = "#FF0000";
+    n.firstChild.nodeValue = "Failed, test not executed! Error: " + e;
+  }
+}
+
+function clearhighlight( res) {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    var cgmPic = cgmDoc.firstPicture;
+    cgmDoc.setRedraw("enableAll");
+    cgmDoc.setRedraw("disableAll");
+    cgmPic.clearHighlight();
+  } catch(e) {
+    var n = document.getElementById(res);
+    n.style.color = "#FF0000";
+    n.firstChild.nodeValue = "Failed, test not executed! Error: " + e;
+  }
+}
+
+<!-- This is the last call in this test and thus only contains the "Redraw/enable" call, no "Redraw/disable" -->
+
+function enableAction() {
+  try {
+    var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+    cgmDoc.setRedraw("enableAll");
+  } catch(e) {
+    var n = document.getElementById(b_6);
+    n.style.color = "#FF0000";
+    n.firstChild.nodeValue = "Failed, test not executed! Error: " + e;
+  }
+}
+</script>
+</head>
+
+<body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src='setRedraw002.cgm';">
+  <h1>WebCGMPicture Highlight Test Page</h1>
+
+  <table border="1" rules="cols">
+    <tr style="text-align:center;">
+      <th>Source image</th>
+      <th>Reference image</th>
+    </tr>
+
+    <tr>
+      <td><object id="ivx1" type="image/cgm;Version=4;ProfileId=WebCGM" width="480" height="360"></object></td>
+      <td><img src="setRedraw002.png" alt="reference image"></td>
+    </tr>
+  </table>
+
+  <table width="800" border="1">
+    <caption>
+      <em>Test results</em>
+    </caption>
+
+    <tr>
+      <td width="100">Initiate Test</td>
+      <td width="250">Purpose</td>
+      <td width="70">Test Result</td>
+      <td>Comments</td>
+    </tr>
+
+    <tr>
+      <td><input type="button" value="Step 1" onclick="sethighlight('b_1','ObjectB', 'add' )"></td>
+      <td>Execution of Step 1 must be pending.</td>
+      <td id="b_1">NA</td>
+      <td>No action should happen at this point.  The execution of a step will always happen when clicking on the next step.  I.e., step 1 will be executed upon clicking on step 2, step 2 will be executed upon clicking on step 3, etc.</td>
+    </tr>
+
+    <tr>
+      <td><input type="button" value="Step 2" onclick="sethighlight('b_2','ObjectC', 'add' )"></td>
+      <td>Execute Step 1: Highlight Circle B.</td>
+      <td id="b_2">NA</td>
+      <td>Passed if B is highlighted.</td>
+    </tr>
+
+    <tr>
+      <td><input type="button" value="Step 3" onclick="clearhighlight('b_3')"></td>
+	<td>Execute Step 2: Highlight Circle C.</td>
+      <td id="b_3">NA</td>
+	<td>Passed if B, C and D are highlighted.</td>
+    </tr>
+
+    <tr>
+      <td><input type="button" value="Step 4" onclick="sethighlight2('b_4','ObjectA','ObjectB')"></td>
+      <td>Execute Step 3: Clear highlights.</td>
+      <td id="b_4">NA</td>
+	<td>Passed if highlight is removed.</td>
+    </tr>
+
+    <tr>
+      <td><input type="button" value="Step 5" onclick="sethighlight('b_5','ObjectC', 'new' )"></td>
+	<td>Execute Step 4: Highlight Circle A and B.</td>
+      <td id="b_5">NA</td>
+	<td>Passed if A and B are highlighted.</td>
+    </tr>
+
+    <tr>
+      <td><input type="button" value="Step 6" onclick="enableAction()"></td>
+	<td>Execute Step 5: Highlight circle C and D using new highlight.</td>
+      <td id="b_6">NA</td>
+	<td>Passed if C and D are highlighted.</td>
+    </tr>
+  </table>
+</body>
+</html>

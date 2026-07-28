@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>Release Notes for WebCGM 2.1 TS</title>
+  <meta content="amaya 8.3, see http://www.w3.org/Amaya/">
+</head>
+
+<body>
+<h1 align="center"><span style="text-decoration: underline">Release
+Notes</span></h1>
+
+<h1 align="center"><span style="text-decoration: underline">WebCGM 2.1 Test
+Suite</span></h1>
+<hr>
+
+<h3><span style="text-decoration: underline">19 April 2010</span></h3>
+
+<p>Here are the tests that have changed since the previous publication.</p>
+<ul>
+  <li>Fixed <a
+    href="http://lists.oasis-open.org/archives/cgmo-webcgm/200910/msg00006.html">bug
+    in rotateAnimation</a> (the rotation point and the query results should
+    be NVDC).</li>
+  <li>Before completion of <a
+    href="http://docs.oasis-open.org/webcgm/v2.1/os/webcgm-v2.1-index.html">WebCGM
+    2.1 OS</a> and <a
+    href="http://www.w3.org/TR/2010/REC-webcgm21-20100301/">WebCGM REC</a>,
+    some features were removed, and the associated tests are now dropped from
+    this TS release:
+    <ul>
+      <li>transformXCF</li>
+      <li>aciHatchStyleDef</li>
+    </ul>
+  </li>
+  <li>In addition, aciLineAttr, aciEdgeAttr were edited to remove the Line
+    Type Continuation and Edge Type Continuation subtests (because the
+    associated functionality was similarly removed from the final
+  standards).</li>
+  <li>Clarification: Node-metadata.html was in fact fixed in the 05 October
+    2009 TS release (see below).</li>
+</ul>
+
+<h3><span style="text-decoration: underline">05 October 2009</span></h3>
+
+<p>More than half of the tests have had changes -- corrections and
+improvements -- since the previous publication. Please consult the
+documentation header of the test's HTML file to determine whether it has
+changed, and how. (Or compare its date in the ZIP file to the below previous
+publication date.)</p>
+
+<p>Specific changes since the previous version:</p>
+<ul>
+  <li>following TS freeze for publication, a <a
+    href="http://lists.oasis-open.org/archives/cgmo-webcgm/200910/msg00006.html">bug
+    has been reported in rotateAnimation</a>: the rotation point and the
+    query results should be NVDC.</li>
+  <li>setGetFillOffset has been removed and replaced with the new test
+    setGetFillOffset2, which isolates the feature-under-test better.</li>
+  <li>spXCF is a new test that tests XCF-interface access to the new Style
+    Property features of 2.1.</li>
+  <li>transformXCF is a new test that tests XCF-interface access to the new
+    transform features of 2.1.</li>
+</ul>
+
+<p>In addition, note:</p>
+<ul>
+  <li>an error is <a
+    href="http://lists.oasis-open.org/archives/cgmo-webcgm/200906/msg00007.html">reported
+    and confirmed</a> in the 2.0 test, Node-metadata.html.</li>
+</ul>
+
+<h3><span style="text-decoration: underline">02 July 2009</span></h3>
+
+<p>This first public release of the full 2.1 test suite
+(webcgm21-ts-20090702.zip) incorporates the add-on module of 2.1-specific
+tests, integrated with the long-standing public release versions of the
+WebCGM 2.0 Test Suite.</p>
+
+<p>A number of anomolies should be observed, which are planned for correction
+in future releases:</p>
+<ul>
+  <li>See the <a href="Overview.html#About">Test versions discussion</a>,
+    about the tests' "'ProfileEd"' identifiers, in <a>Overview.html</a>.</li>
+  <li>There are formal errors in some of the older CGMs, but the tests are
+    good and useful. ("Formal errors" means that the MetaCheck verifier will
+    declare violations of rules of WebCGM and/or CGM:1999, but the nature of
+    those violations would not affect any known viewer implementation.)</li>
+  <li>See the "<a href="Overview.html#Caveats">Caveats</a>" section of <a
+    href="Overview.html">Overview.html</a>.</li>
+  <li>The 2.0 test bug of <a
+    href="http://lists.oasis-open.org/archives/cgmo-webcgm/200812/msg00005.html">this
+    email thread</a> is has been fixed in the node-metadata test.</li>
+</ul>
+<hr>
+For an all-versions introduction the WebCGM Test suite, <a
+href="Overview.html">see Overview.html</a>.</body>
+</html>

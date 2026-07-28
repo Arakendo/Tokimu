@@ -1,0 +1,412 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: Node-aps
+Version: $Version$
+Creator: Benoit
+Description: 
+
+Source: WebCGM 2.0 5.7.4
+Revision History:
+-->
+
+<html>
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>WebCGMNode and AppStructure Test Page</title>
+<script type="text/ecmascript">
+    function OnBtnDOM()
+    {
+        try
+        {
+            var cgmDoc = document.getElementById("ivx1").getWebCGMDocument();
+            var cgmPic = cgmDoc.firstPicture;
+
+            var result = document.getElementById("_1");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("elem1");
+                if( apsNode.nodeType == 2 )
+                {
+                    if( apsNode.nodeName == "grobject" )
+                    {
+                        if( apsNode.nodeValue == "" )
+                        {
+                            result.firstChild.nodeValue = "Passed!";
+                        }
+                        else
+                        {
+                            throw "wrong nodeValue";
+                        }
+                    }
+                    else
+                    {
+                        throw "wrong nodeName";
+                    }
+                }
+                else
+                {
+                    throw "wrong nodeType";
+                }
+            }
+            catch(t1)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t1;
+            }
+
+            result = document.getElementById("_2");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("IsoG1");
+                if( apsNode.parentNode == cgmPic.getAppStructureById("IsoL1") )
+                {
+                    if( apsNode.ownerPicture == cgmDoc.firstPicture )
+                    {
+                        result.firstChild.nodeValue = "Passed!";
+                    }
+                    else
+                    {
+                        throw "wrong ownerPicture";
+                    }
+                }
+                else
+                {
+                    throw "wrong parentNode";
+                }
+            }
+            catch(t2)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t2;
+            }
+
+            result = document.getElementById("_3");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("IsoG3");
+                if( apsNode.hasChildNodes() == true )
+                {
+                    var childList = apsNode.childNodes;
+                    if( childList.item(0) == cgmPic.getAppStructureById("IsoG4") )
+                    {
+                        result.firstChild.nodeValue = "Passed!";
+                    }
+                    else
+                    {
+                        throw "wrong childNodes";
+                    }
+                }
+                else
+                {
+                  throw "wrong hasChildNodes";
+                }
+            }
+            catch(t3)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t3;
+            }
+
+            result = document.getElementById("_4");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("IsoL1");
+                if( apsNode.firstChild == cgmPic.getAppStructureById("elem1") )
+                {
+                    if( apsNode.lastChild == cgmPic.getAppStructureById("IsoG3") )
+                    {
+                        result.firstChild.nodeValue = "Passed!";
+                    }
+                    else
+                    {
+                        throw "wrong lastChild";
+                    }
+                }
+                else
+                {
+                    throw "wrong firstChild";
+                }
+            }
+            catch(t4)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t4;
+            }
+
+            result = document.getElementById("_5");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("IsoG2");
+                if( apsNode.nextSibling == cgmPic.getAppStructureById("IsoG3") )
+                {
+                    if( apsNode.previousSibling == cgmPic.getAppStructureById("IsoG1") )
+                    {
+                            result.firstChild.nodeValue = "Passed!";
+                    }
+                    else
+                    {
+                        throw "wrong previousSibling";
+                    }
+                }
+                else
+                {
+                    throw "wrong nextSibling";
+                }
+            }
+            catch(t5)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t5;
+            }
+
+            result = document.getElementById("_6");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("elem1");
+                if( apsNode.hasAttributes() == true )
+                {
+                    if( apsNode.getAppStructureAttr("screentip") == "Has attributes" )
+                    {
+                            result.firstChild.nodeValue = "Passed!";
+                    }
+                    else
+                    {
+                        throw "wrong attributes";
+                    }
+                }
+                else
+                {
+                  throw "wrong hasAttributes";
+                }
+            }
+            catch(t6)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t6;
+            }
+
+            result = document.getElementById("_7");
+            result.style.color = "#00A000";
+            try
+            {
+                var apsNode = cgmPic.getAppStructureById("elem1");
+                if( apsNode.namespaceURI == "" )
+                {
+                    if ( apsNode.localName == "" )
+                    {
+                        if( apsNode.prefix == "" )
+                        {
+                            result.firstChild.nodeValue = "Passed!";
+                        }
+                        else
+                        {
+                            throw "wrong prefix";
+                        }
+                    }
+                    else
+                    {
+                        throw "wrong localName";
+                    }
+                }
+                else
+                {
+                    throw "wrong namespaceURI";
+                }
+            }
+            catch(t7)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t7;
+            }
+
+            result = document.getElementById("_8");
+            result.style.color = "#00A000";
+            try
+            {
+                cgmPic.applyCompanionFile("node-aps.xml");
+                var parentNode = cgmPic.getAppStructureById("elem1");
+                var alist = parentNode.attributes;
+                var num = alist.count;
+                var i;
+                var a;
+                for( i = 0; i < num; i++ )
+                {
+                    a = alist.item(i);
+                    if( a.nodeName == "test:att" )
+                    {
+                        break;
+                    }
+                }
+                if( a.namespaceURI == "http://www.example.org" )
+                {
+                    if( a.localName == "att" )
+                    {
+                        if( a.prefix == "test" )
+                        {
+                            result.firstChild.nodeValue = "Passed!";
+                        }
+                        else
+                        {
+                            throw "wrong prefix";
+                        }
+                    }
+                    else
+                    {
+                        throw "wrong localName";
+                    }
+                }
+                else
+                {
+                  throw "wrong namespaceURI";
+                }
+            }
+            catch(t8)
+            {
+                result.style.color = "#FF0000";
+                result.firstChild.nodeValue = "Failed! Error: " + t8;
+            }
+        }
+        catch(e)
+        {
+            var n = document.getElementById("_1");
+            n.style.color = "#FF0000";
+            document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+        }
+    }
+</script>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'node-aps.cgm'; OnBtnDOM();">
+    <h1>WebCGMNode and AppStructure Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="node-aps.png"> </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>nodeName, nodeType, nodeValue:</td>
+
+        <td id="_1">NA</td>
+
+        <td>Test is looking for a nodeName of 'grobject', a
+        nodeType of '2' and nodeValue of 'null'</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>parentNode, ownerPicture:</td>
+
+        <td id="_2">NA</td>
+
+        <td>WebCGMMetafile.firstPicture should be the same object
+        than .ownerPicture; for APS with id 'IsoG1' parentNode
+        should be 'IsoL1'</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>hasChildNodes, childNodes:</td>
+
+        <td id="_3">NA</td>
+
+        <td>APS with id 'IsoG3' has two children 'IsoG4' &amp;
+        'IsoG5'.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>firstChild, lastChild:</td>
+
+        <td id="_4">NA</td>
+
+        <td>APS with id 'IsoL1' has firstChild 'elem1' and last
+        child 'IsoG3'.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>previousSibling, nextSibling:</td>
+
+        <td id="_5">NA</td>
+
+        <td>APS with id 'IsoG2' has previous sibling 'IsoG1' and
+        nextSibling 'IsoG3'.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>hasAttributes, attributes:</td>
+
+        <td id="_6">NA</td>
+
+        <td>APS with id 'elem1' has attributes; test against
+        screentip "Has attributes".</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>namespaceURI, prefix, localName:</td>
+
+        <td id="_7">NA</td>
+
+        <td>These parameters have a null value for
+        AppStructure.</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>(namespace attribute) namespaceURI, prefix,
+        localName:</td>
+
+        <td id="_8">NA</td>
+
+        <td>Incomplete: Copied from node-attr sample.</td>
+      </tr>
+    </table>
+  </body>
+</html>
+

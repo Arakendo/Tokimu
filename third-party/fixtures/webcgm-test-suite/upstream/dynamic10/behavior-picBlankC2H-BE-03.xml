@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- behavior-picBlankC2H-BE-03.xml                                        --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         behavior-picBlankC2H-BE-03.                                   --><!--                                                                       --><!-- Author : Lofton Henderson, 23-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  23-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="behavior" focus="picBlankC2H" rootType="cgm" testType="BE" BENumber="03">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="behavior" focus="picReplaceC2C" BENumber="02"/>
+  
+   <Next category="behavior" focus="picTargetC2H" BENumber="04"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="3-shape">.cgm</srcFile>
+    
+      <dstFile cgmType="">-target.html</dstFile>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test viewer capility to recognize and effect picture behavior 
+request on a basic CGM-to-HTML link, for behavior "_blank".</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>picbehav-blank-to-html</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+The cyan circle object (APS) contains a hyperlink 
+to a local HTML file instance.
+The hyperlink is a 'linkuri' APS attribute, and the picture 
+behavior "_blank" is contained in the 3rd ("Behavior") parameter of
+the 'linkuri' attribute.
+    </Paragraph>
+    
+      <Paragraph>
+A mouse click anywhere over the cyan circle (labelled "second object")
+should cause the hyperlink to be executed.  This should result in a 
+new window being opened and the target HTML text to be displayed
+in the new window.  Details of the size of the new window 
+are unspecified in WebCGM 1.0.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of
+the text content of the HTML file that should appear in the new window, 
+that is opened upon execution of the link.  The size and shape
+of the window may vary, and are not part of the pass/fail criteria 
+of this test.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

@@ -1,0 +1,940 @@
+<html>
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   
+      <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><style type="text/css">
+         <!--
+      h2, h3, h4 {color: #0000ff}
+      div.c2 {text-align: center}
+      h4.c1 {text-align: right}
+      th {bgcolor: "#ffff00"}
+    --></style><title>WebCGM test assertions tables</title>
+      <base href="http://www.w3.org/TR/2001/REC-WebCGM-20011217/">
+   </head>
+   <body>
+      <h4 class="c1">WebCGM Test Assertions<br class="break">
+         30 August 2002
+      </h4>
+      <h4>Notes on the Test Assertion (TS) tables:</h4>
+      <ul>
+         <li>The test assertions are from WebCGM 2nd Rel.;</li>
+         <li>TAs as they are found in the WebCGM text; </li>
+         <li>note they become viewer TAs (if not already) by combining with Generic CGM:1999 
+            "do it all and do it right"; 
+         </li>
+         <li>in some such cases, text in "[...]" clarifies what is the requirement on the viewer;</li>
+         <li>in some cases, TAs are paraphrased for brevity/clarity; </li>
+         <li>the precise text will be found near the "Spec References";</li>
+         <li>partial extraction -- substantial but not complete;</li>
+         <li>sometimes compound TAs (could be factored); </li>
+         <li>generally avoided purely syntactic (WebCGM content) unless obvious testable impact on viewer -- focus on viewer;</li>
+      </ul>
+      <div class="c2">
+         <h4>URI Fragment</h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="picobj-addr-uri-fragment" name="picobj-addr-uri-fragment">picobj-addr-uri-fragment</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.p4</a></td>
+                  <td>Picture and object (APS) addressing
+                     within a WebCGM uses URI fragments: base URI, followed by "#",
+                     followed by any legal fragment specification according to the
+                     WebCGM fragment EBNF. [Note. This decomposes into a series
+                     of full-syntax-support test requirements, dependent upon the
+                     components and allowable variations of the EBNF. Later, specific
+                     TRs should be considered to supersede this.]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="ebnf-five-frag-forms" name="ebnf-five-frag-forms">ebnf-five-frag-forms</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.ln1</a></td>
+                  <td>[from EBNF] there are 5 fragment variations: picterm "."
+                     objterm | picterm | objterm | picid "." objid | objid
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="ebnf-two-picterm-forms" name="ebnf-two-picterm-forms">ebnf-two-picterm-forms</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.ln2</a></td>
+                  <td>[from EBNF] there are 2 picterm picture-selection
+                     variations: pictureid | pictsequence, respectively containing the
+                     (string) id or (numeric) picture sequence number, plus an optional
+                     picture behavior value.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="ebnf-need-detailed-syntax" name="ebnf-need-detailed-syntax">ebnf-need-detailed-syntax</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2</a></td>
+                  <td>[from EBNF] there is additional EBNF syntax description
+                     for pictureid, pictsequence, ..., down to picid, which is not
+                     yet extracted into these test assertions.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="ebnf-six-picbehav-options" name="ebnf-six-picbehav-options">ebnf-six-picbehav-options</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.ln5</a></td>
+                  <td>[from EBNF] there are 6 picture behavior options: _blank |
+                     _self | _parent | _replace | _top | target
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="ebnf-two-objterm-forms" name="ebnf-two-objterm-forms">ebnf-two-objterm-forms</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.ln10</a></td>
+                  <td>[from EBNF] there are 2 objterm object-selection
+                     variations: objectid | objectname, respectively containing the
+                     (string) APS 'id' parameter or (string) picture sequence number,
+                     plus an optional object behavior value.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="ebnf-three-objbehav-options" name="ebnf-three-objbehav-options">ebnf-three-objbehav-options</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_2">3.1.1.2.ln13</a></td>
+                  <td>[from EBNF] there are 3 object behavior options:
+                     "view_context" | "highlight" | "highlight_all"
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="frag-char-repertiore" name="frag-char-repertiore">frag-char-repertiore</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_3">3.1.1.3</a></td>
+                  <td>[Need to extract new TAs from new 3.1.1.3.]</td>
+               </tr>
+               <tr>
+                  <td><a id="non-ascii-in-uri" name="non-ascii-in-uri">non-ascii-in-uri</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_1_4">3.1.1.4.p2</a></td>
+                  <td>A WebCGM processor shall interpret a non-ASCII character in a URI 
+                     by representing the character in UTF-8 as one or more bytes, and then escaping 
+                     these bytes with the URI escaping mechanism (i.e., by converting each byte 
+                     to %HH, where HH is the hexadecimal notation of the byte value).
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picid-is-begpic-id" name="picid-is-begpic-id">picid-is-begpic-id</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_1">3.1.2.1.p1</a></td>
+                  <td>picid option is id parameter in the BEGIN PICTURE element. If
+                     the metafile does not contain a picture with matching id, the first
+                     picture in the metafile is chosen.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picseqno-is-pic-seqno" name="picseqno-is-pic-seqno">picseqno-is-pic-seqno</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_1">3.1.2.1.p2</a></td>
+                  <td>picseqno option is the sequence number of the picture to be
+                     viewed. "1" is the first picture, "2" is the second picture, etc.
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picseqno-exceeds" name="picseqno-exceeds">picseqno-exceeds</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_1">3.1.2.1.p2.s3</a></td>
+                  <td>If picseqno exceeds the number of pictures in the metafile, the
+                     last picture is displayed
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-keyword-or-frame" name="picbehav-keyword-or-frame">picbehav-keyword-or-frame</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p2</a></td>
+                  <td>If the picture behavior is not one of the 5 reserved keywords
+                     as defined in HTML 4.0, _blank | _self | _parent | _replace | _top,
+                     then it shall be a valid Frame Target Name, which begin with
+                     [A-Za-z].
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-blank" name="picbehav-blank">picbehav-blank</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p4</a></td>
+                  <td>[If picture behavior is _blank,] the viewer shall load the
+                     designated content in a new, unnamed window.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-self" name="picbehav-self">picbehav-self</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p5</a></td>
+                  <td>[If picture behavior is _self,] the viewer shall load the
+                     content in the same frame as the one containing the content
+                     that refers to this target.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-parent" name="picbehav-parent">picbehav-parent</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p6</a></td>
+                  <td>[If picture behavior is _parent,] the viewer shall load the
+                     content into the immediate FRAMESET parent of the current frame in
+                     which the current content is displayed. This value is equivalent to
+                     "_self" if the current frame has no parent.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-replace" name="picbehav-replace">picbehav-replace</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p7</a></td>
+                  <td>[If picture behavior is _replace,] the viewer shall replace the
+                     current CGM picture by the designated CGM picture in the same
+                     rectangular area in the same frame as the picture which refers to
+                     this target. Applicable only to CGM-to-CGM links [...]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-replace-default" name="picbehav-replace-default">picbehav-replace-default</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p7</a></td>
+                  <td>this [_replace] is the default behavior for such [CGM-to-CGM] links. </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-top" name="picbehav-top">picbehav-top</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p8</a></td>
+                  <td>[If picture behavior is _top,] the viewer shall load the
+                     content into the full, original window (thus canceling all other
+                     frames). This value is equivalent to _self if the current frame has
+                     no parent.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-frame" name="picbehav-frame">picbehav-frame</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p9.s1</a></td>
+                  <td>If the picture behavior value is any valid name string other 
+                     than the above reserved names, (it begins with an alphabetic character (a-zA-Z)),
+                     remove the existing content (picture or document) from the frame whose
+                     name matches the string and display the specified content in the
+                     specified frame. 
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-frame-no" name="picbehav-frame-no">picbehav-frame-no</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p9.s2</a></td>
+                  <td>[If the picture behavior value is a valid framename,]
+                     If no frame exists by the specified name, the viewer shall 
+                     load the designated content (picture or document) in a new
+                     window with the specified name.
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-blank-to-html" name="picbehav-blank-to-html">picbehav-blank-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r1.c1</a></td>
+                  <td>[If picture behavior is _blank,] The viewer shall load the designated
+                     document in a new, unnamed window.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-blank-to-cgm" name="picbehav-blank-to-cgm">picbehav-blank-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r1.c2</a></td>
+                  <td>[If picture behavior is _blank,] The viewer shall load the designated
+                     picture in a new, unnamed window.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-self-to-html" name="picbehav-self-to-html">picbehav-self-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r2.c1</a></td>
+                  <td>[If picture behavior is _self,] The viewer shall load the document in the
+                     same frame as the one containing the CGM picture that refers to this target.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-self-to-cgm" name="picbehav-self-to-cgm">picbehav-self-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r2.c2</a></td>
+                  <td>[If picture behavior is _self,] The viewer shall load the picture in the
+                     same frame as the one containing the CGM picture that refers to this target.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-parent-to-html" name="picbehav-parent-to-html">picbehav-parent-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r3.c1</a></td>
+                  <td>[If picture behavior is _parent,] the viewer shall load the
+                     document into the immediate FRAMESET parent of the current frame in
+                     which the current content is displayed. This value is equivalent to
+                     "_self" if the current frame has no parent.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-parent-to-cgm" name="picbehav-parent-to-cgm">picbehav-parent-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r3.c2</a></td>
+                  <td>[If picture behavior is _parent,] the viewer shall load the
+                     picture into the immediate FRAMESET parent of the current frame in
+                     which the current content is displayed. This value is equivalent to
+                     "_self" if the current frame has no parent.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-replace-to-html" name="picbehav-replace-to-html">picbehav-replace-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r4.c1</a></td>
+                  <td>[If picture behavior is _replace,] Not applicable. Default to_self.</td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-replace-to-cgm" name="picbehav-replace-to-cgm">picbehav-replace-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r4.c2</a></td>
+                  <td>[If picture behavior is _replace,] The viewer shall replace the current picture by
+                     the designated picture in the same rectangular area in the same frame or 
+                     window as the picture which refers to this target. 
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-default-to-html" name="picbehav-default-to-html">picbehav-default-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r2.c1</a></td>
+                  <td>[picture behavior _self,] This is the default behavior for CGM-to-HTML links.</td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-default-to-cgm" name="picbehav-default-to-cgm">picbehav-default-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r4.c2</a></td>
+                  <td>[picture behavior _replace,] This is the default for CGM-to-CGM links.</td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-top-to-html" name="picbehav-top-to-html">picbehav-top-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r5.c1</a></td>
+                  <td>[If picture behavior is _top,] The viewer shall load the document into
+                     the full, original window (thus canceling all other frames). This value is 
+                     equivalent to _self if the current frame has no parent.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-top-to-cgm" name="picbehav-top-to-cgm">picbehav-top-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r5.c2</a></td>
+                  <td>[If picture behavior is _top,] The viewer shall load the picture into
+                     the full, original window (thus canceling all other frames). This value is 
+                     equivalent to _self if the current frame has no parent.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-frame-to-html" name="picbehav-frame-to-html">picbehav-frame-to-html</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r6.c1</a></td>
+                  <td>[If picture behavior is valid framename target,] 
+                     The viewer shall load the document into the frame identified 
+                     by "target". If no matching frame can be found, the viewer shall 
+                     load the designated content document in a new window with the
+                     specified name. 
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-frame-to-cgm" name="picbehav-frame-to-cgm">picbehav-frame-to-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.tbl.r6.c2</a></td>
+                  <td>[If picture behavior is valid framename target,] 
+                     The viewer shall load the picture into the frame identified 
+                     by "target". If no matching frame can be found, the viewer shall 
+                     load the designated content document in a new window with the
+                     specified name. 
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="picbehav-other" name="picbehav-other">picbehav-other</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_2">3.1.2.2.p8</a></td>
+                  <td>Link interactions between CGM and non-CGM mime 
+                     types other than HTML follow the same rules as CGM and HTML interactions. 
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objid-aps-id-param" name="objid-aps-id-param">objid-aps-id-param</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_3">3.1.2.3.p1</a></td>
+                  <td>objid option is the id parameter of an APS element of type
+                     'grobject', 'para' or 'subpara' to be selected. If no match is
+                     found in the picture, no object is selected.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objname-apsattr-name" name="objname-apsattr-name">objname-apsattr-name</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_3">3.1.2.3.p2.s1</a></td>
+                  <td>objname option is the value of a 'name' APS attribute in an APS
+                     element of type 'grobject', 'para', or 'subpara'. The first object
+                     in the picture which contains a name attribute with a matching
+                     value is selected.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objname-nomatch" name="objname-nomatch">objname-nomatch</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_3">3.1.2.3.p2.s3</a></td>
+                  <td>objname option is the value of a 'name' APS attribute in an APS
+                     element of type 'grobject', 'para', or 'subpara'. If no match is
+                     found in the picture, no grobject is selected.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objname-multimatch" name="objname-multimatch">objname-multimatch</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_3">3.1.2.3.p2.s4</a></td>
+                  <td>objname option is the value of a 'name' APS attribute in an APS
+                     element of type 'grobject', 'para', or 'subpara'. If more than one
+                     match is found in the picture the 'highlight_all' behavior can be
+                     used to highlight all selected objects.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objbehav-viewcontext-vc" name="objbehav-viewcontext-vc">objbehav-viewcontext-vc</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_4">3.1.2.4.p1.s1</a></td>
+                  <td>If the objbehavior value is view_context, and if a
+                     'ViewContext' attribute exists for a selected object APS, the
+                     viewer shall display only the rectangular region of the picture
+                     defined in the ViewContext attribute, and highlight the
+                     object.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objbehav-viewcontext-novc" name="objbehav-viewcontext-novc">objbehav-viewcontext-novc</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_4">3.1.2.4.p1.s2</a></td>
+                  <td>If the objbehavior value is view_context, and if no
+                     'ViewContext' attribute exists for a selected object APS, the
+                     highlight behavior shall be implemented.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objbehav-default" name="objbehav-default">objbehav-default</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_4">3.1.2.4.p1.s3</a></td>
+                  <td>highlight is the default object behavior that viewers shall use
+                     in the absence of explicit object behavior specification in the
+                     fragment
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objbehav-highlight" name="objbehav-highlight">objbehav-highlight</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_4">3.1.2.4.p2</a></td>
+                  <td>If the objbehavior value is highlight, the viewer shall
+                     highlight the first object selected and ignore the ViewContext
+                     attribute, if present
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="objbehav-highlight-all" name="objbehav-highlight-all">objbehav-highlight-all</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_4">3.1.2.4.p3</a></td>
+                  <td>If the objbehavior value is highlight_all, the viewer shall
+                     highlight all objects selected.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="zoom-and-pan" name="zoom-and-pan">zoom-and-pan</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_1_2_5">3.1.2.5</a></td>
+                  <td>viewers which operate in an interaction-capable environment
+                     shall have zoom and pan controls available to the user. 
+                  </td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="c2">
+         <h4>'grobject' and Attributes<br class="break">
+            (Attributes: region, viewcontext, linkURI, screentip, name)
+         </h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="grobject-content-model" name="grobject-content-model">grobject-content-model</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p1.s3</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_3">3.3</a></td>
+                  <td>'Grobject' APSs may contain any CGM graphical content allowed
+                     by this profile, may contain the other APSs of type grobject and
+                     para, and may contain APS attributes region, viewcontext, linkURI,
+                     screentip, and name.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="grobject-pick-identify" name="grobject-pick-identify">grobject-pick-identify</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p1.s2</a></td>
+                  <td>The [grobject] object is geometrically identified for pick purposes
+                     either by the set of primitives enclosed between the BEGIN APS and
+                     END APS elements (if any), or by the spatial region associated with
+                     the 'region' APS Attribute (if present).
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-link-noregion" name="pick-link-noregion">pick-link-noregion</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li1.s1</a></td>
+                  <td>[Viewer pick behavior] If the object contains at least one 'linkuri' 
+                     attribute but no 'region' attribute, 
+                     then the object is selected by a click anywhere on the drawn 
+                     primitives of the object [and the viewer shall execute the link]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-fill-primitive" name="pick-fill-primitive">pick-fill-primitive</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li1.s2</a></td>
+                  <td>[Viewer pick behavior] for filled-area primitives this ["click anywhere on
+                     the drawn primitives"] includes: the edge, if edge visibility is 'on'; 
+                     the interior, if the interior style is other than 'empty' or 'hollow'; 
+                     and, the boundary, for interior 
+                     style 'hollow'
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-obj-noprimitives" name="pick-obj-noprimitives">pick-obj-noprimitives</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li2.s2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p1</a></td>
+                  <td>[Viewer pick behavior] If the  
+                     object [contains at least 1 linkuri and no region and] does not contain 
+                     any graphical primitives no further action is required.  
+                     [TA footnote: non-action is not explicitly mandated.]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-obj-multi-link" name="pick-obj-multi-link">pick-obj-multi-link</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li2.s3</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p1</a></td>
+                  <td>[Viewer pick behavior] If the object [contains no region, 
+                     and visible graphical primitives and] contains 
+                     more than one 'linkuri' attribute, 
+                     the user shall be given a choice of which URI to navigate
+                     [if a successful pick occurs].
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-link-region" name="pick-link-region">pick-link-region</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li3.s1</a></td>
+                  <td>[Viewer pick behavior] If the object contains a 'region' attribute and contains at 
+                     least one 'linkuri' attribute, then the 'region' shall be used for selection.
+                     [Can be picked regardless whether it contains no graphical primitives.] 
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-multi-link-region" name="pick-multi-link-region">pick-multi-link-region</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li3.s2</a></td>
+                  <td>[Viewer pick behavior] If the object [contains a 'region' attribute and] contains more 
+                     than one 'linkuri' attribute, [then the 'region' shall be used for selection and] 
+                     the user shall be given a choice of which URI to navigate [in the case
+                     of a successful pick.]  [Can be picked regardless whether it 
+                     contains no graphical primitives.] 
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-nolink-region" name="pick-nolink-region">pick-nolink-region</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.li3.s1</a></td>
+                  <td>If the object contains a 'region' attribute 
+                     but no 'linkuri' attributes no further action is required [in
+                     the case of a successful pick].
+                     [TA footnote: non-action is not explicitly mandated.] 
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="N498-obsolete" name="N498-obsolete">N498-obsolete</a></td>
+                  <td><a href="">
+                        
+                        </a></td>
+                  <td>Viewer pick behavior. If the object contains visible graphical
+                     primitives, no 'region' attribute, and more than one LinkURI
+                     attribute, a click on non-transparent areas of the graphical
+                     elements of the object selects the object, and the viewer shall
+                     give the user a choice of which URI to navigate, and shall cause
+                     the selected link to be navigated.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="N515-obsolete" name="N515-obsolete">N515-obsolete</a></td>
+                  <td><a href="">
+                        
+                        </a></td>
+                  <td>Viewer pick behavior. If the object contains a 'region'
+                     attribute and contains one LinkURI attribute, the object is
+                     selected by a user click within the 'region', and the viewer shall
+                     cause the link to be navigated.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="N534-obsolete" name="N534-obsolete">N534-obsolete</a></td>
+                  <td><a href="">
+                        
+                        </a></td>
+                  <td>Viewer pick behavior. If the object contains a 'region'
+                     attribute and contains more than one LinkURI attribute, the object
+                     is selected by a user click within the 'region', and the viewer
+                     shall give the user a choice of which link to navigate, and the
+                     viewer shall cause the selected link to be navigated.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="N553-obsolete" name="N553-obsolete">N553-obsolete</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p2.n4</a><br class="break"><a href="">3.2.2.1.s1</a></td>
+                  <td>Viewer pick behavior. If the object contains a 'region'
+                     attribute but no LinkURI attributes, then no viewer action is
+                     required upon user click. [Spec, note: non-action is not explicitly
+                     mandated.]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-multi-aps" name="pick-multi-aps">pick-multi-aps</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p3.li6</a></td>
+                  <td>[Viewer pick behavior] If the pick has selected more than one
+                     APS (and each contains a linkURI), and the APSs are not nested,
+                     then the APS with the highest pick priority is the one whose
+                     picking region (geometry or 'region' attribute) occurs latest in
+                     the picture.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-multi-aps-nested" name="pick-multi-aps-nested">pick-multi-aps-nested</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p3.li7</a></td>
+                  <td>[Viewer pick behavior] If a user pick has selected more than one
+                     APS (and each contains a linkURI), and the APSs are nested, the
+                     user shall be given a choice of which URI to negotiate
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="pick-visual-feedback" name="pick-visual-feedback">pick-visual-feedback</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p4.s1</a></td>
+                  <td>[Viewer pick behavior] Viewers shall give visual feedback to the
+                     user that a successful pick has occurred, and an indication of the
+                     particular object (or region) which has been picked.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="aps-target-viewcontext" name="aps-target-viewcontext">aps-target-viewcontext</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p5.bl1</a></td>
+                  <td>[If an APS is the target of a link, either from within the
+                     picture or from content external to the picture, and] if the object
+                     contains a 'viewcontext' attribute, the viewer shall fit the view
+                     context into the viewer's display rectangle and create a new
+                     display inside this rectangle. [if behavior is view_context]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="aps-target-novc-region" name="aps-target-novc-region">aps-target-novc-region</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p5.b2</a></td>
+                  <td>[If an APS is the target of a link, either from within the
+                     picture or from content external to the picture, and] if the object
+                     does not contain a 'viewcontext' attribute, but contains a 'region'
+                     attribute, the viewer shall move the object into view and indicate
+                     visually that the region is the target of the link. The resulting 
+                     view is a full-picture view, not a zoomed view. 
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="aps-target-novc-noregion" name="aps-target-novc-noregion">aps-target-novc-noregion</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_1">3.2.1.1.p5.b3</a></td>
+                  <td>[If an APS is the target of a link, either from within the
+                     picture or from content external to the picture, and] if the object
+                     contains neither a view context nor a region attribute, the viewer
+                     shall move the object into view and indicate visually that the
+                     graphical primitives of the grobject are the target of the
+                     link.  The resulting view is a full-picture view, not a zoomed view.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="simple-regions-defn" name="simple-regions-defn">simple-regions-defn</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_1">3.2.2.1.p1.s2</a></td>
+                  <td>Simple regions of type rectangle, ellipse, polygon, and
+                     continuous polybezier can be defined [with the 'region' APS
+                     attribute (per SDR syntax of 3.2.2.1)]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="complex-regions" name="complex-regions">complex-regions</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_1">3.2.2.1.p1.s3</a></td>
+                  <td>Complex regions which comprise a collection of simple regions
+                     can be defined [with the 'region' APS attribute (per SDR syntax of
+                     3.2.2.1).] Their semantics (subregions, and interior/exterior
+                     definition) are identical to those of the CGM element CLOSED
+                     FIGURE.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="implicit-region-closure" name="implicit-region-closure">implicit-region-closure</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_1">3.2.2.1.p4</a></td>
+                  <td>For polygon and polybezier regions, closure is implicit (if the
+                     last given point does not match the first, then the viewer closes
+                     the region with a straight line segment from the last to the
+                     first).
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="multi-simple-regions" name="multi-simple-regions">multi-simple-regions</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_1">3.2.2.1.p4</a></td>
+                  <td>In the case that there are multiple simple regions, m&gt;1, 
+                     then the individual simple regions each correspond to a REGION in the
+                     sense of the CGM CLOSED FIGURE element.
+                     
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="viewcontext-aps-attr" name="viewcontext-aps-attr">viewcontext-aps-attr</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_2">3.2.2.2.p1.s1</a></td>
+                  <td>The 'ViewContext' APS Attribute provides specification to
+                     viewers of the initial view of an object, when the viewer has been
+                     directed to navigate to the graphical object which contains this
+                     attribute.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="viewcontext-empty-aps" name="viewcontext-empty-aps">viewcontext-empty-aps</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_2">3.2.2.2.p1.s2</a></td>
+                  <td>A 'ViewContext' APS Attribute may be contained within an
+                     otherwise empty APS, in which case the APS provides only a viewport
+                     specification.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="linkuri-destination-param" name="linkuri-destination-param">linkuri-destination-param</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p2.s2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p3.s1</a></td>
+                  <td>[of the three strings in linkuri parameter] 
+                     The first string is the link destination, a URI [...]
+                     The destination of a link is specified by a Uniform Resource Identifier,
+                     or URI.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="linkuri-destination-anyuri" name="linkuri-destination-anyuri">linkuri-destination-anyuri</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p2.s2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p3.s1</a></td>
+                  <td>[For the linkuri first sub-parameter] 
+                     Any valid URL under the specifications of RFC-2396 is a valid value of
+                     this parameter.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="linkuri-title-param" name="linkuri-title-param">linkuri-title-param</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p2.s2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p3.s1</a></td>
+                  <td>[of the three strings in linkuri parameter] 
+                     the second string (possibly null) is a Link Title parameter, [...]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="linkuri-behavior-noncgm" name="linkuri-behavior-noncgm">linkuri-behavior-noncgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p4</a></td>
+                  <td>[of the three strings in linkuri parameter] the third string is 
+                     (possibly null) the Behavior [...]
+                     The Behavior string defines picture behavior associated with the link. 
+                     The values and meanings are as defined in 3.1.2.2. 
+                     In cases that the destination is not CGM media type, the 3rd parameter, Behavior, 
+                     shall be used if picture behavior is to be specified for the
+                     link (there is no other option).
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="linkuri-behavior-cgm" name="linkuri-behavior-cgm">linkuri-behavior-cgm</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_3">3.2.2.3.p4.s4</a></td>
+                  <td>[of the three strings in linkuri parameter] the third string is 
+                     (possibly null) the Behavior [...]
+                     The Behavior string defines picture behavior associated with the link. 
+                     The values and meanings are as defined in 3.1.2.2. 
+                     [...]The Behavior string may also be used for links to CGM 
+                     media types, and is the preferred method.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="screentip-apsattr" name="screentip-apsattr">screentip-apsattr</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_6">3.2.2.6.p1</a></td>
+                  <td>A 'ScreenTip' APS Attribute may occur [...] within any APS of
+                     type 'grobject', 'para', 'subpara', and there shall be at most one occurrence within any
+                     particular APS.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="screentip-display" name="screentip-display">screentip-display</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_6">3.2.2.6.p3</a></td>
+                  <td>Viewers shall be capable of displaying the screen tip, if one
+                     is defined for a graphical object, visible to the user when the
+                     cursor passes over the graphical object, in the common style of Web
+                     browsers.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="name-apsattr" name="name-apsattr">name-apsattr</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_7">3.2.2.7.p1.s1</a></td>
+                  <td>The 'name' APS Attribute defines a "common name", not
+                     necessarily unique, associated with an object. 
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="name-multiple" name="name-multiple">name-multiple</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_7">3.2.2.7.p1.s4</a></td>
+                  <td>Multiple 'name' attributes may be contained within a single APS. </td>
+               </tr>
+               <tr>
+                  <td><a id="name-viewer" name="name-viewer">name-viewer</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_2_7">3.2.2.7.p3.s3</a></td>
+                  <td>The object can optionally be addressed by the value of the 'name' attribute.
+                     
+                  </td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="c2">
+         <h4>'layer' and Attributes<br class="break">
+            (attributes: layername, layerdescription)
+         </h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="layer-aps-definition" name="layer-aps-definition">layer-aps-definition</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_2">3.2.1.2.p1.s1</a></td>
+                  <td>'layer' APS declares that the graphical content within this APS
+                     and any valid nested APS ('grobject' and 'para', but not 'layer')
+                     belong to the layer identified by the contained 'layername' APS
+                     attribute.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="layer-attribute-rqts" name="layer-attribute-rqts">layer-attribute-rqts</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_2">3.2.1.2.p1.s2</a></td>
+                  <td>Each 'layer' APS shall contain exactly one 'layername' APS
+                     attribute and also may contain one 'layerdesc' APS
+                     attribute.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="viewer-inform-layer" name="viewer-inform-layer">viewer-inform-layer</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_2">3.2.1.2.p2.s1</a></td>
+                  <td>Viewers shall provide functionality to inform users of the
+                     presence of layers, their names and descriptions.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="toggle-layer-visibility" name="toggle-layer-visibility">toggle-layer-visibility</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_2">3.2.1.2.p2.s2</a></td>
+                  <td>Viewers shall provide functionality to selectively turn on and
+                     off the visibility of layers.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="layer-view-options" name="layer-view-options">layer-view-options</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_2">3.2.1.2.p2.s3</a></td>
+                  <td>Viewer may, but are not required to, provide additional
+                     functionality for the view manipulation and browsing of
+                     layers.
+                  </td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="c2">
+         <h4>'para' and Attributes<br class="break">
+            (Attributes: region, viewcontext, linkuri, screentip,
+            content)
+         </h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="para-content-model" name="para-content-model">para-content-model</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_3">3.2.1.3.p1.s3</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_3">3.3</a></td>
+                  <td>'Para' APSs may contain any CGM graphical content allowed by
+                     this profile, may contain 'subpara' APS, and may contain APS
+                     attributes, region, viewcontext, linkuri, screentip, and
+                     content. [sec 3.3, normative content model]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="para-search-priority" name="para-search-priority">para-search-priority</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_3">3.2.1.3.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_8">3.2.2.8.p1.s1</a></td>
+                  <td>[If viewers support searching,] search-match priority shall be:
+                     'para' with matching 'content' (1st priority match); 'para' without
+                     'content' but with recognizable single-element RESTRICTED TEXT
+                     match (2nd priority match); or, single-element RESTRICTED TEXT
+                     match, outside of any 'para' (3rd priority match).
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="para-viewer-rqts-set" name="para-viewer-rqts-set">para-viewer-rqts-set</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_3">3.2.1.3.p3</a></td>
+                  <td>In other respects, e.g., picking and link navigation, 
+                     the viewer behavior of 'para' is identical to that of 'grobject'. [See
+                     3.2.1.1.]
+                     [NOTE: This statement causes
+                     inclusion here, for 'para', of all of the TRs for 'grobject',
+                     except for the first, which is the Content Model, and except for
+                     the last, that para's are not addressable by 'name' APS
+                     attribute.]
+                  </td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="c2">
+         <h4>'subpara' and Attributes<br class="break">
+            (Attributes: region, viewcontext, linkURI, screentip,
+            content)
+         </h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="subpara-content-model" name="subpara-content-model">subpara-content-model</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_4">3.2.1.4.p2.s1</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_3">3.3</a></td>
+                  <td>'Subpara' APSs may contain any CGM graphical content allowed by
+                     this profile, may not contain any nested APS, and may contain APS
+                     attributes, region, viewcontext, linkuri, screentip, and
+                     content.
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="subpara-viewer-rqts-set" name="subpara-viewer-rqts-set">subpara-viewer-rqts-set</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_4">3.2.1.4.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_1_3">3.2.1.3.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_8">3.2.2.8.p1.s1</a></td>
+                  <td>Viewer behavior. See ... 'para'. 
+                     [This statement causes inclusion here, for 'subpara', of all of the TAs
+                     for 'para', which are all the TAs for 'grobject', 
+                     except for the first, which is the Content Model,
+                     and except for the last, that subpara's are not addressable by
+                     'name' APS attribute.]
+                  </td>
+               </tr>
+               <tr>
+                  <td><a id="subpara-search-priority" name="subpara-search-priority">subpara-search-priority</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1_4">3.2.1.4.p2</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_1_3">3.2.1.3.p2</a></td>
+                  <td>Viewer behavior. See ... 'para'. 
+                     [This statement causes inclusion 
+                     here, for 'subpara', of the single TA
+                     for 'para' search priority, 'para-search-priority'.]
+                  </td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="c2">
+         <h4>General/Miscellaneous</h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="OBJECT tag" name="OBJECT%20tag">OBJECT tag</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_2_1">3.2.1.p1.s1</a><br class="break"><a href="REC-03-CGM-IC.html#webcgm_3_2_2_9">3.2.2.9.p1.s1</a></td>
+                  <td>APS types 'grobject', 'layer', 'para', 'subpara' shall be
+                     supported by viewers. No other APS types are allowed in
+                     WebCGM.
+                  </td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="c2">
+         <h4>OBJECT tag</h4>
+         <table border="1">
+            <tbody>
+               <tr>
+                  <th bgcolor="#ffff00">TA identifier</th>
+                  <th bgcolor="#ffff00">WebCGM<br class="break">reference
+                  </th>
+                  <th bgcolor="#ffff00">Test Assertions</th>
+               </tr>
+               <tr>
+                  <td><a id="object-tag-rqts" name="object-tag-rqts">object-tag-rqts</a></td>
+                  <td><a href="REC-03-CGM-IC.html#webcgm_3_4">3.4</a></td>
+                  <td>There are some TAs for OBJECT tag, sec 3.4.</td>
+               </tr>
+            </tbody>
+         </table>
+      </div>
+   </body>
+</html>

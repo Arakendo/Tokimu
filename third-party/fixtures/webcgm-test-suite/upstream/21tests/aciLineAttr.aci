@@ -1,0 +1,10 @@
+<?xml version = "1.0" ?>
+<!DOCTYPE webcgmConfig PUBLIC "-//OASIS//DTD WebCGM 2.1 Config//EN" "http://docs.oasis-open.org/webcgm/v2.1/webcgmConfig21.dtd">
+<webcgmConfig>
+  <defaultAttributes>
+    <lineCap lineCapInd="2" lineDashInd="3" /> 
+    <lineJoin lineJoinInd="4" />
+  </defaultAttributes>
+</webcgmConfig>
+
+

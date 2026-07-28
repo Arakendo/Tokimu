@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "source": {
+    "suite": "WebCGM 2.1 Test Suite",
+    "release": "1.2",
+    "release_date": "2010-04-19",
+    "profile": "Mixed WebCGM 1.0, 2.0, and 2.1 source material",
+    "index_url": "https://docs.oasis-open.org/webcgm/test-materials/webcgm21ts/webcgm21-ts-index.html",
+    "archive_url": "https://docs.oasis-open.org/webcgm/test-materials/webcgm21ts/webcgm21-ts-20100419.zip",
+    "archive_name": "webcgm21-ts-20100419.zip",
+    "retrieved_utc": "2026-07-28",
+    "sha256": "d540a452d989091db3abd83724ab9d0d9730f57ad792f4db85a04d93103063c9"
+  },
+  "methodology": {
+    "nist_report": "NISTIR 5146",
+    "url": "https://www.nist.gov/publications/detailed-design-specification-conformance-testing-computer-graphics-metafile-cgm",
+    "role": "Historical conformance-test design evidence, not an executable fixture source"
+  },
+  "layout": {
+    "extracted_root": "upstream/",
+    "inventory": "inventory.json",
+    "selection": "selected/selection-v1.toml",
+    "license_material": "upstream/copyright-license.html"
+  },
+  "selection_rule": "Select bounded static WebCGM 1.0 geometry cases before dynamic, DOM, hyperlink, text, or raster behavior.",
+  "validation_boundary": {
+    "authoritative": "decode, CGM semantic, vector, and mesh artifacts",
+    "complementary": "upstream reference PNG images",
+    "excluded_from_v1": [
+      "dynamic tests",
+      "DOM and scripting",
+      "hyperlinks",
+      "text rendering",
+      "cell arrays and raster data",
+      "XCF",
+      "browser harness behavior"
+    ]
+  },
+  "notice": "The extracted upstream tree is preserved verbatim. The suite permits use, copying, and distribution with attribution and prohibits modifications or derivatives; see upstream/copyright-license.html."
+}

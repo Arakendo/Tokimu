@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Language" content="en-us">
+<title>fragment-fiveForms-BE-03</title>
+<link rel="prev" href="fragment-multiPic-BE-02-dyn.html">
+<link rel="next" href="interact-pick-BE-01-dyn.html">
+<link rel="child" href="toc-fiveForms-BE-03-dyn.html">
+<link rel="contents" href="fragment-fiveForms-DT-03-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     --></style>
+</head>
+<body>
+<div class="navbar" align="center"><p>
+<a target="_top" href="fragment-multiPic-BE-02-dyn.html">previous</a> &nbsp;<a target="_top" href="interact-pick-BE-01-dyn.html">next</a> &nbsp;<a target="_top" href="fragment-fiveForms-BE-03-dyn.html">parent</a> &nbsp;<a target="_top" href="fragment-fiveForms-BE-03-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p></div>
+<p>Test Purpose: Test that viewer implements the five variations
+on the allowable form of the &quot;#&quot; fragment for links.</p>
+<p>
+At the start of the test, the right-hand frame should display 
+some HTML text containing two strings, 
+&quot;Click to activate link with &quot;#object-term&quot; fragment.&quot; and
+&quot;Click to activate link with &quot;#picid.objid&quot; fragment.&quot;
+Each has a hyperlink that points to a local WebCGM instance,
+that contains a single picture with a pair of cylinder objects.
+    </p>
+<p>
+In order to avoid the browser &quot;#&quot; fragment bug, the two links actually
+point into two identical copies of the file, with different filenames.
+(The same target file could be used for the two links, and the browser bug
+avoided, if another link to a different file were activated between
+the two test links.)
+Clicking on either hyperlink should cause the WebCGM picture 
+to be displayed in the right hand frame, in place of the HTML text,
+and the right hand cylinder to be highlighted.  The exact method of 
+highlighting is viewer dependent.
+    </p>
+<p>
+You should be able to use the browser &quot;Back&quot; and &quot;Forward&quot; buttons to go 
+back and forth between the HTML view and the WebCGM view in the right-hand frame.
+(Note, however, that this latter normal behavior is not part of the WebCGM
+standard, and it is not a pass/fail criterion for WebCGM viewers for
+this test.)  If the &quot;Back&quot; button does not work properly, you will
+need to reload the test in order to access the other hyperlink.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of a 
+correct rendering of how the target WebCGM instance should appear in the 
+right-hand frame after activating the first link in the HTML source instance.
+Activating the second link should result in a highlighted, zoomed view of the right-hand
+cylinder.
+Otherwise there should be no significant visual deviation between the reference 
+image of the left frame and the view in the right frame after link activation, 
+except for the method of object highlighting.  The reference image shows
+one valid method -- the border is outlined in red.  Any other visual
+highlighting method -- e.g., changing the color of the whole object -- 
+is equally acceptable.  
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

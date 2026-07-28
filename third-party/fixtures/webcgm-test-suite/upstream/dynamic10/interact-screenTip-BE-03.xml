@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><!-- ===================================================================== --><!--                                                                       --><!-- interact-screenTip-BE-03.xml                                          --><!--                                                                       --><!-- This is the XML description for WebCGM Test Case                      --><!--         interact-screenTip-BE-03.                                     --><!--                                                                       --><!-- Author : Lofton Henderson, 31-May-2001                                --><!--                                                                       --><!-- History:                                                              --><!--  31-May-2001 - LH: created.                                           --><!--                                                                       --><!-- ===================================================================== -->
+<CGMTestCase category="interact" focus="screenTip" rootType="cgm" testType="BE" BENumber="03">
+
+<!-- For BE-01, 'Previous' elt. should target different category/focus -->
+<!-- For BE-last, 'Next' elt. should target different category/focus -->
+
+  
+   <Previous category="interact" focus="pickRegion" BENumber="02"/>
+  
+   <Next category="otherAPS" focus="para" BENumber="01"/>
+  
+   <Parent category="toc"/>
+  
+   <Child testType="DT" DTNumber="01"/>
+
+  <!-- Source and destination files -->
+  <!-- Default content mode: suffix for TC name -->
+  
+   <fileSet>
+    
+      <srcFile cgmType="four-cyl">.cgm</srcFile>
+    
+      <dstFile cgmType=""/>
+  
+   </fileSet>
+
+  
+   <TestPurpose>Test that the viewer handles 'screentip'
+APS attributes correctly.</TestPurpose>
+  
+   <Traceability>
+      <TestAssertions taFile="">
+         <ta-id>screentip-apsattr</ta-id>
+         <ta-id>screentip-display</ta-id>
+      </TestAssertions>
+      <SpecLink>...xpath or addressable anchor...</SpecLink>
+      <TestRequirement>...excerpt, the "TR"...</TestRequirement>
+   </Traceability>...xpath or addressable anchor...
+  
+
+  <OperatorScript>
+    
+    
+      <Paragraph>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with four cylindrical objects (APS's of type 'grobject'), two 
+large ones (right and left), and two smaller ones (top and bottom).
+Each of the large cylinders, and the top-side small cylinder, contain
+'screentip' APS attributes.
+The top-side small cylinder also contains a 'linkuri' element (to
+a non-existent destination file).
+The bottom small cylinder contains no APS attributes of any type.
+    </Paragraph>
+    
+      <Paragraph>
+Viewers are required to display the screen tip when the mouse
+passes over its containing object (APS).
+The exact style and placement of the screen tip display are
+viewer dependent, but WebCGM 1.0 suggests the style of popular Web
+browsers.
+    </Paragraph>
+    
+      <Paragraph>
+The initial view in the left-hand frame is a PNG reference image of
+a valid viewer response to mouseover on the left-side cylinder -- the
+display of the text "Large left-side cylinder" as a screen tip when 
+the mouse was placed over the cylinder.  The other screen tips should
+contain the text "Large right-side cylinder" and "Small top-side cylinder".
+The highlighting of the object is an additional valid, 
+but non-required, viewer response to the mouseover.
+    </Paragraph>
+  
+   </OperatorScript>
+
+
+</CGMTestCase>

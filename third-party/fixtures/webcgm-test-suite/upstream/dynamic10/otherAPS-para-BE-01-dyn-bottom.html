@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Language" content="en-us">
+<title>otherAPS-para-BE-01</title>
+<link rel="prev" href="interact-screenTip-BE-03-dyn.html">
+<link rel="next" href="otherAPS-para-BE-02-dyn.html">
+<link rel="child" href="toc-para-BE-01-dyn.html">
+<link rel="contents" href="otherAPS-para-DT-01-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     --></style>
+</head>
+<body>
+<div class="navbar" align="center"><p>
+<a target="_top" href="interact-screenTip-BE-03-dyn.html">previous</a> &nbsp;<a target="_top" href="otherAPS-para-BE-02-dyn.html">next</a> &nbsp;<a target="_top" href="otherAPS-para-BE-01-dyn.html">parent</a> &nbsp;<a target="_top" href="otherAPS-para-BE-01-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p></div>
+<p>Test Purpose: Test basic correct viewer handling of 'para' APS
+and associated attributes.</p>
+<p>
+At the start of the test, the right-hand frame should display a 
+CGM containing a simple picture with a &quot;paragraph&quot; of blue text
+and a second &quot;paragraph&quot; of green text.  
+Each paragraph is actually four individual restricted text elements, 
+enclosed in an APS of type 'para'.
+    </p>
+<p>
+The blue paragraph's 'para' contains no APS attributes except for a single
+'linkuri' to another local CGM instance.  The green paragraph's 'para'
+contains the same 'linkuri', and also an instance of each legal 'para'
+APS attribute.  In particular, it contains a 'region' as indicated by
+the dashed drawn rectangle, and a 'viewcontext' as indicated by the
+dotted drawn rectangle.
+The 'linkuri' instances both have null values for their 2nd (Link Title)
+and 3rd (Behavior) parameters.
+    </p>
+<p>
+To execute the hyperlink from the blue 'para', move the mouse over the displayed
+text and click.  The hyperlink should only be activated by clicking within
+the extent of a text string.
+The hyperlink from the green 'para' should be executed by clicking anywhere
+within the rectangle corresponding to the 'region' attribute.
+In both cases, the CGM instance in the right-hand frame should be replaced by 
+the target CGM instance, containing three simple colored shapes.
+The object labelled &quot;second object&quot; should be highlighted in some way.
+The method of highlighting is viewer dependent.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of the 
+target PNG image which should appear in the right-hand frame upon
+activating either link in the WebCGM source instance.  There should be no
+significant visual deviation between the reference image of the left
+frame and the view in the right frame after link activation, 
+except for the method of object highlighting. 
+The reference image shows one valid method -- the border is outlined in red. 
+Any other visual highlighting method -- e.g., changing the 
+color of the whole object -- would be equally acceptable. 
+    </p>
+<p>
+You should be able to use the browser &quot;Back&quot; and &quot;Forward&quot; 
+buttons to go back and forth between the target WebCGM 
+picture the source HTML text in the right-hand frame. 
+Note, however, that this latter normal browser behavior 
+is not part of the WebCGM standard, and it is not a pass/fail 
+criterion for WebCGM viewers for this test.
+If it doesn't work, use &quot;Reload&quot; or &quot;Refresh&quot; between link
+executions, or go the table of contents and back.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

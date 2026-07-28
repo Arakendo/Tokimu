@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>behavior-picTargetC2H-BE-04</title>
+<link rel="prev" href="behavior-picBlankC2H-BE-03-dyn.html">
+<link rel="next" href="behavior-objHighlight-BE-05-dyn.html">
+<link rel="child" href="toc-picTargetC2H-BE-04-dyn.html">
+<link rel="contents" href="behavior-picTargetC2H-DT-04-dyn.html">
+<link rel="contents" href="dynamic-TOC.html">
+<style><!--
+        .verdana0    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 200%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+        .verdana1    { font-family: Verdana; 
+                       font-size: 10pt; 
+                       word-spacing: 0; 
+                       line-height: 100%;
+                       text-align: Left; 
+                       margin-top: 0; 
+                       margin-bottom: 0 }
+     -->
+</style>
+</head>
+<body>
+<div class="navbar" align="center">
+<p>
+<a target="_top" href="behavior-picBlankC2H-BE-03-dyn.html">previous</a> &nbsp;<a target="_top" href="behavior-objHighlight-BE-05-dyn.html">next</a> &nbsp;<a target="_top" href="behavior-picTargetC2H-BE-04-dyn.html">parent</a> &nbsp;<a target="_top" href="behavior-picTargetC2H-BE-04-dyn.html">child</a> &nbsp;<a target="_top" href="dynamic-TOC.html">contents</a>
+</p>
+</div>
+<p>Test Purpose: Test viewer capility to recognize and effect picture behavior 
+request on a basic CGM-to-HTML link, for target-frame behavior.</p>
+<p>
+At the start of the test, the right-hand frame should display
+a WebCGM instance containing a simple picture
+with three objects:  a magenta rectangle, a cyan circle, 
+and a red triangle, all with thick black borders.
+The magenta rectangle object (APS) contains a hyperlink 
+to a local HTML file instance.
+The hyperlink is a 'linkuri' APS attribute, and the frame 
+name "referenceFrame" is contained in the 3rd ("Behavior") 
+parameter of the 'linkuri' attribute.
+    </p>
+<p>
+A mouse click anywhere over the magenta rectangle (labelled "first object")
+should cause the hyperlink to be executed.  This should result in 
+the target HTML text being displayed in the left-hand frame.
+    </p>
+<p>
+The initial view in the left-hand frame is a PNG reference image of
+the text content of the HTML file that should appear in the left-hand frame, 
+upon execution of the link.  I.e., the execution of the link will overwrite
+the reference image with the HTML target text.
+The initial reference image has "-- PNG Reference --" written over it
+in red, to distinguish it from the HTML text which should appear after
+link execution. 
+The style and layout of the HTML text may vary from the reference image, 
+and are not part of the pass/fail criteria of this test.
+    </p>
+<P>
+Caveat:  Production problems have caused the reference images of this
+Release 1.0 to show inaccurate text extents in some
+labels and in the legend box.  Text size/extent should NOT be considered
+as a verdict criterion of these dynamic tests of this test suite
+release.
+</P>
+</body>
+</html>

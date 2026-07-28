@@ -1,0 +1,2322 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<TestSuite>
+	<Version Name="1">
+		<CGMCategory Name="Cell Array Element">
+			<CGMElement Name="Cell Array"></CGMElement>
+			<TestCase Name="CELARY01">
+				<CGMPurpose>Implement run length cell array, black and white CELL ARRAY primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a 4-cell CELL ARRAY appears in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each cell is "colored" as labeled.</CheckPoint>
+				</CheckPoints>
+		</TestCase>
+		<TestCase Name="CELARY02">
+				<CGMPurpose>Implement packed list, color CELL ARRAY primitive with 16 bit local colour precision (COLOUR PRECISION = 8 bit)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a 9-cell CELL ARRAY appears in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each cell is "colored" as labeled in the reference grid.</CheckPoint>
+				</CheckPoints>
+		</TestCase>
+		<TestCase Name="CELARY03">
+				<CGMPurpose>Test effect of run length CELL ARRAY orientation by manipulating P, Q, and R corner points</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a 9-cell CELL ARRAY appears in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each cell is "colored" as labeled in the reference grid.</CheckPoint>
+				</CheckPoints>
+		</TestCase>
+		<TestCase Name="CELARY04">
+				<CGMPurpose>Test effect of run length CELL ARRAY orientation by manipulating P, Q, and R corner points</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a 9-cell CELL ARRAY appears in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each cell is "colored" as labeled in the reference grid.</CheckPoint>
+				</CheckPoints>
+		</TestCase>
+		<TestCase Name="CELARY05">
+				<CGMPurpose>Test effect of packed list CELL ARRAY orientation by manipulating P, Q, and R corner points; 16 bit local colour precision.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a 9-cell CELL ARRAY appears in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each cell is "colored" as labeled in the reference grid.</CheckPoint>
+				</CheckPoints>
+		</TestCase>
+		<TestCase Name="CELARY06">
+				<CGMPurpose>Implement large CELL ARRAY</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify in comparison to the reference picture, that a filled soda glass appears as shown.</CheckPoint>
+				</CheckPoints>
+		</TestCase>
+		<TestCase Name="CELARY07">
+				<CGMPurpose>Implement large CELL ARRAY</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CELARY07.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CELARY07 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify in comparison to the reference picture, that a soda can appears as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Colour">
+			<CGMElement Name="Colour Value Extent, Colour Precision, Background Colour, Transparency, Colour Table, and Metafile Descriptor with Color Levels"></CGMElement>
+			<TestCase Name="COLVAL01">
+				<CGMPurpose>Implement COLOUR VALUE EXTENT with 8 bit COLOUR PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret COLVAL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLVAL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 rectangles are drawn.</CheckPoint>
+					<CheckPoint>4 Verify that the left-most rectangle is filled in solid white.</CheckPoint>
+					<CheckPoint>5 Verify that the right-most rectangle is filled in solid black.</CheckPoint>
+					<CheckPoint>6 Verify that the other 4 rectangles are filled in shades of gray that get darker from left to right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLVAL02">
+				<CGMPurpose>Implement COLOUR VALUE EXTENT with 8 bit COLOUR PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret COLVAL02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLVAL02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 rectangles are drawn.</CheckPoint>
+					<CheckPoint>4 Verify that the left-most rectangle is filled in solid white.</CheckPoint>
+					<CheckPoint>5 Verify that the right-most rectangle is filled in solid black.</CheckPoint>
+					<CheckPoint>6 Verify that the other 4 rectangles are filled in shades of gray that get darker from left to right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLVAL03">
+				<CGMPurpose>Implement COLOUR VALUE EXTENT with 16 bit COLOUR PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret COLVAL03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLVAL03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 rectangles are drawn in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that the left-most rectangle is filled in solid white.</CheckPoint>
+					<CheckPoint>5 Verify that the right-most rectangle is filled in solid black.</CheckPoint>
+					<CheckPoint>6 Verify that the other 4 rectangles are filled in shades of gray that get darker from left to right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLVAL04">
+				<CGMPurpose>Implement COLOUR VALUE EXTENT with 16 bit COLOUR PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLVAL04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLVAL04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 rectangles are drawn.</CheckPoint>
+					<CheckPoint>4 Verify that the left-most rectangle is filled in solid white.</CheckPoint>
+					<CheckPoint>5 Verify that the right-most rectangle is filled in solid black.</CheckPoint>
+					<CheckPoint>6 Verify that the other 4 rectangles are filled in shades of gray that get darker from left to right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="BGCOLR01">
+				<CGMPurpose>Implement BACKGROUND COLOUR as white</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BGCOLR01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BGCOLR01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn over a white background from the lower left starting above the test case identification string to the upper right hand corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="BGCOLR02">
+				<CGMPurpose>Implement BACKGROUND COLOUR as black</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BGCOLR02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BGCOLR02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a white rectangle containing the identification string is drawn across the bottom of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that a white line is drawn over a black background from the lower left starting above the test case identification string to the upper right hand corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="BGCOLR03">
+				<CGMPurpose>Test effect of BACKGROUND COLOUR and Colour Index 0 (in Picture Body).</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BGCOLR03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BGCOLR03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 2 diagonal black lines are drawn, from corner to corner. One line extends to the bottom of the picture, the other ends above the test case identification string.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLTAB01">
+				<CGMPurpose>Implement COLOUR TABLE with 256 entries, use indices 241, 242</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLTAB01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLTAB01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "White text" appears on the left side of the picture overlaid on a black rectangle.</CheckPoint>
+					<CheckPoint>4 Verify that the string "Black text" appears on the right side of the picture overlaid on a white rectangle.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLTAB02">
+				<CGMPurpose>Test effect of redefinition of colour indicies.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLTAB02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLTAB02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the colors of the 2 circles are different and appear as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLLVL01">
+				<CGMPurpose>Implement METAFILE DESCRIPTOR with Monochrome Conformance Level</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLLVL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLLVL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains a white rectangle and white text on a black background.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLLVL02">
+				<CGMPurpose>Implement METAFILE DESCRIPTOR with Monochrome Conformance Level</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLLVL02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLLVL02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains a black rectangle and black text on a white background.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLLVL03">
+				<CGMPurpose>Implement METAFILE DESCRIPTOR with Color Conformance Level</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLLVL03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLLVL03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 vertical rectangular strips which when read as newspaper columns are 'colored' (starting from bottom left to top): white and varying shades of gray from lighter to darker.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLLVL04">
+				<CGMPurpose>Implement METAFILE DESCRIPTOR with Color Conformance Level</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLLVL04.CGM</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLLVL04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 256 colored squares, with the 4 corners colored white (the background color).</CheckPoint>
+					<CheckPoint>4 Verify by comparison with the reference picture, that the colors are as shown. (Due to the lack of calibration, the exact colors may differ. (The colors in the rendered picture should be 'close' to those of the reference picture.)</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Coordinate System">
+			<CGMElement Name="VDC Extent with different precisions and axes"></CGMElement>
+			<TestCase Name="VDCEXT01">
+				<CGMPurpose>Implement integer VDC EXTENT with inverted y axis</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCEXT01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT01 appears at the upper left of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn from the lower left corner to the upper right corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCEXT02">
+				<CGMPurpose>Implement VDC INTEGER PRECISION and "normal" VDC EXTENT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCEXT02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the VDC Extent (i.e. drawing area) is enclosed by a black rectangle.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCEXT03">
+				<CGMPurpose>Implement integer VDC EXTENT with inverted x axis</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCEXT03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn from the lower left starting above the identification string to the upper right corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCEXT04">
+				<CGMPurpose>Implement integer VDC EXTENT with inverted x and y axes</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret VDCEXT04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT04 appears at the upper left of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn from the lower left to the upper right corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCEXT05">
+				<CGMPurpose>Implement real VDC EXTENT.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCEXT05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the VDC Extent (i.e. drawing area) is enclosed by a black rectangle.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCEXT06">
+				<CGMPurpose>Implement real VDC EXTENT with inverted x axis.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCEXT06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 2 black lines are drawn:</CheckPoint>
+					<SubPoint>- vertically down the center of the picture,</SubPoint>
+					<SubPoint>- from the lower left to the upper right corner of the picture.</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCEXT07">
+				<CGMPurpose>Implement real VDC EXTENT with inverted x and y axes.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCEXT07.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCEXT07 appears at the upper left of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 2 diagonal black lines are drawn, from corner to corner as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCTST01">
+				<CGMPurpose>Test effect of VDC EXTENT with inverted y axis on arc sense of ELLIPTICAL ARC, CIRCULAR ARC CENTER,and CIRCULAR ARC 3 POINT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ARCTST01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ARCTST01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that 3 different arcs are drawn in the positions shown.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the arc path.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCTST02">
+				<CGMPurpose>Test effect of VDC EXTENT with inverted x axis on arc sense of ELLIPTICAL ARC, CIRCULAR ARC CENTER,and CIRCULAR ARC 3 POINT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ARCTST02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ARCTST02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that 3 different arcs are drawn in the positions shown.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the arc path.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCTST03">
+				<CGMPurpose>Test effect of VDC EXTENT with inverted x and y axes on arc sense of ELLIPTICAL ARC, CIRCULAR ARC CENTER, and CIRCULAR ARC 3 POINT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ARCTST03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ARCTST03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that 3 different arcs are drawn in the positions shown.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the arc path.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCTST04">
+				<CGMPurpose>Test effect of VDC EXTENT with inverted y axis on arc sense of ELLIPTICAL ARC CLOSE, CIRCULAR ARC CENTER CLOSE, and CIRCULAR ARC 3 POINT CLOSE</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ARCTST04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ARCTST04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that 3 different closed arcs are drawn in the positions shown.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the arc path.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCTST05">
+				<CGMPurpose>Test effect of VDC EXTENT with inverted x axis on arc sense of ELLIPTICAL ARC CLOSE, CIRCULAR ARC CENTER CLOSE, and CIRCULAR ARC 3 POINT CLOSE</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ARCTST05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ARCTST05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that 3 different closed arcs are drawn in the positions shown.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the arc path.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCTST06">
+				<CGMPurpose>Test effect of VDC EXTENT with inverted x and y axes on arc sense of ELLIPTICAL ARC CLOSE, CIRCULAR ARC CENTER CLOSE, and CIRCULAR ARC 3 POINT CLOSE</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ARCTST06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ARCTST06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that 3 different closed arcs are drawn in the positions shown.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the arc path.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Degeneracies">
+			<CGMElement Name="Line, Fill-Area Primatives, Elliptical Arc, Size and Width equal to zero"></CGMElement>
+			<TestCase Name="DGNTST01">
+				<CGMPurpose>Implement geometric degeneracy for line primitive, where entire locus is a single point.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DGNTST01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DGNTST01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the 3 graphical primitives are drawn in the positions (centered on the cross-hairs), styles, sizes, and colors (yellow, green and black) as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="DGNTST02">
+				<CGMPurpose>Implement zero area degeneracy for filled-area primitive (circle) with edge visibility on.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DGNTST02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DGNTST02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the the graphical primitive is drawn as a magenta dot constrained within the reference box.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="DGNTST03">
+				<CGMPurpose>Implement zero area degeneracies for filled-area primitives, with edge visibility off.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DGNTST03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DGNTST03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each degenerate fill-area is drawn with the fill and edge colors: clockwise from upper-left a black, vertical line; black dot; green dot; green, horizontal line; magenta vertical line.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="DGNTST04">
+				<CGMPurpose>Interpret geometric degeneracy for elliptical arc primitive, where start and end vectors = 0</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DGNTST04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DGNTST04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that two rows of graphical primitives are drawn.</CheckPoint>
+					<CheckPoint>4 Verify that the top row contains two circles and an ellipse.</CheckPoint>
+					<CheckPoint>5 Verify that the bottom row contains two circles and an ellipse, all with radius drawn.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="DGNTST06">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ARCFUL01">
+				<CGMPurpose>Test elliptical arcs with coincident start and end rays.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ZEROSZ01">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Descriptor Elements">
+			<CGMElement Name="Metafile Version, Metafile Description, Metafile Elements List"></CGMElement>
+			<TestCase Name="MFDESC01">
+				<CGMPurpose>Implement METAFILE DESCRIPTION when "ProfileId:ATA GRAPHICS.GREXCHANGE ProfileEd:2.3 ColourClass: monochrome" keywords are randomly embedded in the string.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file MFDESC01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing MFDESC01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a "Smiley Face with a winking eye" are drawn and all lines are the same width and in the linetype shown (i.e., dashed smile and dotted eye).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="MFELLS01">
+				<CGMPurpose>Implement METAFILE ELEMENT LIST with every element explicity listed.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file MFELLS01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing MFELLS01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn from the lower left starting above the test case identification to the upper right corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="MFELLS02">
+				<CGMPurpose>Implement METAFILE ELEMENT LIST with Drawing Set.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file MFELLS02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing MFELLS02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn from the lower left starting above the test case identification to the upper right corner of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Escape Element">
+			<CGMElement Name="Escape"></CGMElement>
+			<TestCase Name="ESCAPE01">
+				<CGMPurpose>Implement ESCAPE 22 (transparent cell colour) with a fill pattern.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ESCAPE01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ESCAPE01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the colours underneath the patterned circle (i.e., cyan rectangle with red diagonal hatch) shows through the patterned circle, as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ESCAPE02">
+				<CGMPurpose>Implement ESCAPE 22 (transparent cell colour) with a cell array.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ESCAPE02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ESCAPE02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the colours underneath the cell array (i.e., red cross hatch) shows through the cells of the cell array, as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Fonts and Character Sets">
+			<CGMElement Name="Font List, Text Font Index, Character Set List"></CGMElement>
+			<CatNote Name="Due to the availability of fonts and permissibility of font substitution, a font may be substituted with a visually similar and metrically equivalent font."></CatNote>
+			<CatNote Name="The source of the metrics for the fonts can be found in the Model Profile defined in ISO 8632:1992 Amendment 1."></CatNote>
+			<TestCase Name="FNTLST01">
+				<CGMPurpose>Support "TIMES" font.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 4 text strings appear visually the same as the reference picture, with the heights and text extents as indicated by the reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FNTLST02">
+				<CGMPurpose>Support "HELVETICA" font..</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 4 text strings appear visually the same as the reference picture, with the heights and text extents as indicated by the reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FNTLST03">
+				<CGMPurpose>Support "COURIER" font with TEXT and RESTRICTED TEXT.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 8 text strings appear visually the same as the reference picture, with the heights and text extents as indicated by the reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FNTLST04">
+				<CGMPurpose>Support FONT LIST with upper and lowercase font names.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 4 text strings appear visually the same as the reference picture, with the heights and text extents as indicated by the reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FNTLST05">
+				<CGMPurpose>Support FONT LIST with 32 entries, using "random" indices 30, 11, 21, 32, 4.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 5 text strings appear visually the same as the reference picture, with the heights and text extents as indicated by the reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FNTLST06">
+				<CGMPurpose>Support FONT LIST with repeated font name in list.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 16 text strings are all the same and appear visually the same as the reference picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FNTLST07">
+				<CGMPurpose>Support FONT LIST with 256 entries using indices 1-256</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FNTLST07.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FNTLST07 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that all text strings appear visually the same as the reference picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CHRSET01">
+				<CGMPurpose>Support CHARACTER SET LIST, ISO 8859-1.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CHRSET01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CHRSET01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the characters and numeric values (i.e., set of glyphs and coded representations) are as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CHRSET02">
+				<CGMPurpose>Support CHARACTER SET LIST, ISO 8859-1 (96-CHAR G-SET, tail sequence A)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CHRSET02.CGM</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CHRSET02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the characters and numeric values (i.e., set of glyphs and coded representations) are as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Marker Element">
+			<CGMElement Name="Polymarker, Marker Type, Marker Size, Marker Colour, and Marker Position"></CGMElement>
+			<TestCase Name="POLYMK01">
+				<CGMPurpose>Test geometric integrity of POLYMARKER with marker types 1-5, centered on a specification point.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYMK01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYMK01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 5 polymarkers: a white dot; a black plus, asterisk, circle, and cross.</CheckPoint>
+					<CheckPoint>4 Verify that each polymarker is centered on the reference lines.</CheckPoint>
+					<CheckPoint>5 Verify that the dot marker is displayed as a "polypoint", (i.e., the smallest visible point on the display surface).</CheckPoint>
+					<CheckPoint>6 Verify that all the polymarkers, except the dot, are the same size.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYMK02">
+				<CGMPurpose>Implement MARKER COLOUR with different MARKER TYPES</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYMK02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYMK02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 5 polymarkers: a yellow dot, blue plus, green asterisk, red circle, and black cross.</CheckPoint>
+					<CheckPoint>4 Verify that the dot marker is displayed as a "polypoint", (i.e., the smallest visible point on the display surface).</CheckPoint>
+					<CheckPoint>5 Verify that all the polymarkers, except the dot, are the same size.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYMK03">
+				<CGMPurpose>Implement POLYMARKER with maximum number of points (4096) </CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYMK03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYMK03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that the picture contains a spiral consisting of polymarkers.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Order and Encoding Features">
+			<CGMElement Name="Order of Elements"></CGMElement>
+			<TestCase  Name="DESORD01">
+				<CGMPurpose>Interpret "random" ordering of Metafile Descriptor and Picture Descriptor elements</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DESORD01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DESORD01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that a black zigzag is drawn as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ALLELM01">
+				<CGMPurpose>Interpret all graphical elements.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ALLELM01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ALLELM01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that 18 graphical primitives (19 items, 3 markers = 1 item) are drawn in the position, size, and colors as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="NOGTXT01">
+				<CGMPurpose>Support maximum string length for non-graphical text.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file NOGTXT01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing NOGTXT01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that 3 graphical primitives are drawn in the positions and sizes as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Precisions">
+			<TestCase Name="REALPR01">
+				<CGMPurpose>Implement REAL PRECISION fixed point format (1,16,16)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file REALPR01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing REALPR01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 3 vertical lines appear on the left side of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that 3 asterisks appear on the right side of the picture.</CheckPoint>
+					<CheckPoint>5 Verify that each line is twice the width of the line to its left.</CheckPoint>
+					<CheckPoint>6 Verify that each asterisk is twice the size of the asterisk to its left.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="REALPR02">
+				<CGMPurpose>Implement REAL PRECISION floating point format (0,9,23)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file REALPR02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing REALPR02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 3 vertical lines appear on the left side of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that 3 asterisks appear on the right side of the picture.</CheckPoint>
+					<CheckPoint>5 Verify that each line is twice the width of the line to its left.</CheckPoint>
+					<CheckPoint>6 Verify that each asterisk is twice the size of the asterisk to its left.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLRPR01">
+				<CGMPurpose>Implement 8 bit COLOUR PRECISION and 8 bit COLOUR INDEX PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLRPR01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLRPR01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a white rectangle with a black edge appears on the left side of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that a black rectangle with a black edge appears on the right side of the picture. (The black edge should be indistinguishable from the interior).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLRPR02">
+				<CGMPurpose>Implement 8 bit COLOUR PRECISION and 16 bit COLOUR INDEX PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLRPR02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLRPR02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a white rectangle with a black edge appears on the left side of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that a black rectangle with a black edge appears on the right side of the picture. The black edge should be indistinguishable from the interior).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLIPR01">
+				<CGMPurpose>Implement 16 Bit COLOR PRECISION and 8 Bit COLOR INDEX PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLIPR01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLIPR01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a white rectangle with a black edge appears on the left side of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that a black rectangle with a black edge appears on the right side of the picture. (The black edge should be indistinguishable from the interior).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="COLIPR02">
+				<CGMPurpose>Implement 16 Bit COLOR PRECISION and 16 Bit COLOR INDEX PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file COLIPR02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing COLIPR02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a white rectangle with a black edge appears on the left side of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that a black rectangle with a black edge appears on the right side of the picture. (The black edge should be indistinguishable from the interior).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCINT01">
+				<CGMPurpose>Implement 32 Bit VDC INTEGER PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCINT01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCINT01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a black line is drawn from the lower left corner to the upper right corner of the picture, crossing through the identification string.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCRPR01">
+				<CGMPurpose>Implement 32-bit fixed point (1,16,16) VDC REAL PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCRPR01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCRPR01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a horizontal black line is drawn across the center of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="VDCRPR02">
+				<CGMPurpose>Implement 32-bit floating point (0,9,23) VDC REAL PRECISION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file VDCRPR02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing VDCRPR02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a horizontal black line is drawn across the center of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Schematics">
+			<CGMElement Name="Schematic Files"></CGMElement> 
+			<TestCase Name="SCHEMA01">
+				<CGMPurpose>Implement schematic drawing</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SCHEMA01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SCHEMA01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SCHEMA02">
+				<CGMPurpose>Implement schematic drawing</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SCHEMA02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SCHEMA02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SCHEMA03">
+				<CGMPurpose>Implement schematic drawing with embedded raster image (large run length cell array)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SCHEMA03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SCHEMA03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Metafile Size">
+			<CGMElement Name="Metafiles larger than 1/2 megabyte"></CGMElement>
+			<TestCase Name="BIGCGM02">
+				<CGMPurpose>Interpret large metafile (greater than 1 MB)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BIGCGM02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BIGCGM02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown (a valve).</CheckPoint>
+ 				</CheckPoints>
+ 	 		</TestCase>		
+			<TestCase Name="BIGCGM04">
+				<CGMPurpose>Interpret large metafile (greater than 7 MB)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BIGCGM04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BIGCGM04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown (a side view of motor with text).</CheckPoint>
+ 				</CheckPoints>
+  			</TestCase>	
+			<TestCase Name="BIGCGM05">
+				<CGMPurpose>Interpret large metafile (greater than 10 MB)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BIGCGM05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BIGCGM05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown (airplane frame).</CheckPoint>
+ 				</CheckPoints>
+  			</TestCase>	
+            </CGMCategory>
+		<CGMCategory Name = "Modes">
+			<CGMElement Name="Scaling Mode, Colour Selection Mode, and"></CGMElement>
+			<CGMElement Name="Line, Marker, Edge Specification Modes"></CGMElement>
+			<TestCase Name="SCLMOD01">
+				<CGMPurpose>Implement metric SCALING MODE for calibration</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SCLMOD01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SCLMOD01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by measurement that a 4cm x 4cm square is drawn.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="DIRCOL01">
+				<CGMPurpose>Implement COLOUR SELECTION MODE = 'direct'</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DIRCOL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DIRCOL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that the picture contains 4 over-lapped objects.</CheckPoint>
+					<SubPoint>From back to front these are:</SubPoint>
+					<SubPoint>(1) a white filled rectangle with a black edge</SubPoint>
+					<SubPoint>(2) a black diagonal line</SubPoint>
+					<SubPoint>(3) a black filled rectangle with a white edge</SubPoint>
+					<SubPoint>(4) a white diagonal line.</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SPECMD01">
+				<CGMPurpose>Implement absolute LINE WIDTH, MARKER SIZE, and EDGE WIDTH SPECIFICATION MODES</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SPECMD01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SPECMD01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 3 overlapping polylines are centered on the horizontal reference line (drawn under the polylines).</CheckPoint>
+					<CheckPoint>4 Verify by measurement that the widths of the overlapping polylines match the lengths of the vertical reference lines.</CheckPoint>
+					<CheckPoint>5 Verify that 3 overlaid rectangles are centered on the horizonal reference line (drawn through the bottom edge).</CheckPoint>
+					<CheckPoint>6 Verify by measurement that the widths of the overlapping edges match the lengths of the vertical reference lines.</CheckPoint>
+					<CheckPoint>7 Verify that 3 circle markers are centered on the horizonal reference line.</CheckPoint>
+					<CheckPoint>8 Verify by measurement that the size of the markers match the lengths of the vertical reference lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SPECMD02">
+				<CGMPurpose>Implement scaled LINE WIDTH, MARKER SIZE, and EDGE WIDTH SPECIFICATION MODES</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SPECMD02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SPECMD02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the 3 overlapping polylines are centered on the horizontal reference line (i.e.,line with "nominal" width).</CheckPoint>
+					<CheckPoint>4 Verify by comparison that the widths of the overlapping polylines are in the ratio 1:2:4 from the longest line to the shortest line.</CheckPoint>
+					<CheckPoint>5 Verify that the bottom edges of the 3 overlaid rectangles are centered on the reference line.</CheckPoint>
+					<CheckPoint>6 Verify by comparison that the widths of the overlapping edges are in the ratio 1:2:4 from longest to shortest.</CheckPoint>
+					<CheckPoint>7 Verify that the 4 circle markers are centered on the reference line.</CheckPoint>
+					<CheckPoint>8 Verify that a marker of "nominal" size is located at the left end of the line.</CheckPoint>
+					<CheckPoint>9 Verify by comparison that the widths of the 3 non-nominal markers are in the ratio 1:2:4 from left to right.</CheckPoint> 
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Text Elements">
+			<CGMElement Name="Text, Restricted Text, Append Text,"></CGMElement>
+			<CGMElement Name="Character Spacing, Text Colour, Character Height,"></CGMElement>
+			<CGMElement Name="Character Orientation, Text Path, Text Alignment, Text Colour"></CGMElement>
+			<CatNote Name="The text restriction method, 'boxed-cap', shall be used for strings specified with RESTRICTED TEXT. With boxed-cap, the baseline to capline distance of the text string exactly fills the text restriction area in the vertical direction and the width of the string exactly fits the area in the horizontal direction. "></CatNote>
+			<TestCase Name="RESTXT01"> 
+				<CGMPurpose>Implement RESTRICTED TEXT primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file RESTXT01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing RESTXT01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "Restricted text gjhi" lies within the rectangle, as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="RESTXT02"> 
+				<CGMPurpose>Implement RESTRICTED TEXT primitive with adjusted attributes</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file RESTXT02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing RESTXT02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that two text strings reading "Restricted text gjhi" are as shown.</CheckPoint>
+					<CheckPoint>4 Verify that one of the text strings is contained within the box formed by the reference lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="APNTXT01"> 
+				<CGMPurpose>Implement APPEND TEXT primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file APNTXT01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing APNTXT01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "Restricted text gjhi" lies within the rectangle.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="APNTXT02"> 
+				<CGMPurpose>Implement APPEND TEXT with changed attributes: TEXT FONT INDEX, CHARACTER HEIGHT, TEXT COLOUR and APPEND TEXT.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file APNTXT02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing APNTXT02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the top string, "TEXT FONT INDEX change" lies within the rectangle.</CheckPoint>
+					<CheckPoint>4 For the top string, verify that "TEXT FONT" is written in a different font than "INDEX change".</CheckPoint>
+					<CheckPoint>5 For the middle string, verify that "CHARACTER HEIGHT" is half as large as "change".</CheckPoint>
+					<CheckPoint>6 For the bottom string, verify that "TEXT COLOUR" is green, "CHANGE" is cyan, and "AGAIN" is red.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ROTTXT01"> 
+				<CGMPurpose>Implement CHARACTER ORIENTATION to rotate TEXT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ROTTXT01.CGM.</CheckPoint> 
+					<CheckPoint>2 Verify that the test case identification string containing ROTTXT01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "0 degree rotation" is positioned as shown; along the horizontal reference line and starting at the intersection of the 2 reference lines.</CheckPoint>
+					<CheckPoint>4 Verify that the string "90 degree rotation" is positioned as shown; along the vertical line and starting at the intersection of the 2 reference lines.</CheckPoint>
+					<CheckPoint>5 Verify the string "180 degree rotation" is positioned up-side down as shown; along the horizontal line and starting at the intersection of the 2 reference lines.</CheckPoint>
+					<CheckPoint>6 Verify that the string "270 degree rotation" is positioned as shown; along the vertical line and starting at the intersection of the 2 reference lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ROTTXT02"> 
+				<CGMPurpose>Implement CHARACTER ORIENTATION to rotate RESTRICTED TEXT and APPEND TEXT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ROTTXT02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ROTTXT02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "29 degree restricted" is positioned as shown, between the dotted and solid diagonal lines and starting at the intersection of 2 solid reference lines.</CheckPoint>
+					<CheckPoint>4 Verify that the string "270 degree rotation" is positioned as shown, between the dotted and solid diagonal lines and starting at the intersection of 2 solid reference lines.</CheckPoint>
+					<CheckPoint>5 Verify that the string "Restricted+appended" is positioned as shown, between the dotted and solid diagonal lines and starting at the intersection of 2 solid reference lines.</CheckPoint>
+					<CheckPoint>6 Verify that the string "Restricted+appended" is positioned up-side down as shown, between the dotted and solid diagonal lines and starting at the intersection of 2 solid reference lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTPTH01"> 
+				<CGMPurpose>Implement all TEXT PATH values</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTPTH01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTPTH01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "Text Path Right" is positioned as shown, right of the vertical line, with the base of its characters along the horizontal line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>3a Verify that the writing direction is left to right.</CheckPoint>
+					<CheckPoint>4 Verify that the string "Text Path Left" is positioned as shown, left of the vertical line, with the base of its characters aligned with the horizontal line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>4a Verify that the writing direction is right to left.</CheckPoint>
+					<CheckPoint>5 Verify that the string "Text Path Up" is positioned as shown, above the horizontal line, with its characters centered along the vertical line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>5a Verify that the writing direction is bottom to top.</CheckPoint>
+					<CheckPoint>6 Verify that the string "Text Path Down" is positioned as shown, below the horizontal line, with its characters center-aligned with the vertical line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>6a Verify that the writing direction is top to bottom.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTPTH02"> 
+				<CGMPurpose>Implement TEXT PATH with rotated RESTRICTED TEXT and APPEND TEXT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTPTH02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTPTH02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the string "Text Path Down" is positioned as shown, below the horizontal line, with the base of its characters aligned with the vertical line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>3a Verity that the writing direction is top to bottom.</CheckPoint>
+					<CheckPoint>4 Verify that the string "Text Path Left", is positioned left of the vertical line, with the base of its characters aligned with the horizontal line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>4a Verify that the writing direction is right to left.</CheckPoint>
+					<CheckPoint>5 Verify that the string "90 degree path Left" is positioned as shown, below the horizontal line, with the base of its characters aligned with the vertical line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>5a Verify that the writing direction is right to left, rotated 90º.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTPTH03"> 
+				<CGMPurpose>Test effect of VDC EXTENT with inverted x and y axes on  RESTRICTED TEXT with different TEXT PATH and CHARACTER ORIENTATION combinations.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTPTH03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTPTH03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the text string "Normal text" is positioned as shown, right of the vertical line, with the base of its characters aligned with the horizontal line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>4 Verify that the text string "Inverted Text" is positioned up-side down as shown, left of the vertical line, with the base of its characters aligned with the horizontal line and starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>5 Verify that the string "Left path" is positioned as shown, right of the vertical line, with the base of its characters aligned with the horizontal line and placed up-side down and backwards, starting at the intersection of the 2 lines.</CheckPoint>
+					<CheckPoint>6 Verify that the string "Down" is positioned as shown, above the horizontal line, with its characters center-aligned with the vertical line, and placed up-side down, starting at the intersection of the 2 lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN01"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X".</Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN01.CGM.</CheckPoint> 
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is to the left, base of the "T" as indicated by the intersection of the "X" and the dotted line; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN02"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT and TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X".</Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is to the right, base of the "T" as indicated by the intersection of the "X" and the dotted line; and text path = left.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN03"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT and TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X".</Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is to the center, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = up.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN04"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT and TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is to the center,top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The lines are above the "T" and do not touch the "T").</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN05"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is to the left of the "T", 2/3 up from the base as indicated by the intersection of the "X" and the dotted line; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN06"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is along the base of the string as indicated by the intersection of the "X" and the dotted line; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN07"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN07.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN07 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point is to the left, top of the "T" as indicated by the intersection of the "X" and the dotted line; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN08"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN08.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN08 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the left, base of the "g" as indicated by the intersection of the "X" and the dotted lines; and text path = left.</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the left, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = right</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN09"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN09.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN09 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is centered along the base of the string as indicated by the intersection of the "X" and the dotted lines; and text path = left</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is centered along the base of the string as indicated by the intersection of the "X" and the dotted lines; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN10"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN10.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN10 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the right, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = left.</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the right, base of the "g" as indicated by the intersection of the "X" and the dotted lines; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN11"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN11.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN11 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the left, base of the "T" as indicated by the intersection of the "X" and the dotted lines and text path = up</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the left, top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "T" should not touch the horizontal line).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN12"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN12.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN12 appears at the bottom of the picture</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the center, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = up</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the center, top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "T" should not touch the horizontal line).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN13"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN13.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN13 appears at the bottom of the picture</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the right, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = up</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the right, top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "T" should not touch the horizontal line).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN14"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN14.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN14 appears at the bottom of the picture</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the right, top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = left. (The "T" should not touch the horizontal line).</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the left, top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = right. (The "T" should not touch the horizontal line).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN15"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN15.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN15 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the right, cap of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = left. (The "T" and "S" touch the horizontal line).</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the left, cap of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = right. (The "T" and "S" touch the horizontal line).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN16"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN16.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN16 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the right and ½ way up the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = left.</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the left and ½ way up the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN17"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN17.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN17 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the right, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = left.</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the left, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN18"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN18.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN18 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the top string is to the right, bottom of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = left. (The string and line do not touch).</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the bottom string is to the left, bottom of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = right. (The string and line do not touch).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN19"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN19.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN19 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the center, top of the "g" as indicated by the intersection of the "X" and the dotted lines; and text path = up. (The "X" and line are above the "g" and not touching the "g").</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the center, top of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "X" and line are above the "T" and not touching the "T").</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN20"> 
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN20.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN20 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the center, cap of the "g" as indicated by the intersection of the "X" and the dotted lines; and text path = up.</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the center, cap of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "T" touches the horizontal line at the "X").</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN21"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN21.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN21 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string bisects the string in half as indicated by the intersection of the "X" and the dotted lines; and text path = up. (The "middle" of the string may differ from that of the reference picture).</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string bisects the string in half as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "middle" of the string may differ from that of the reference picture).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN22"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN22.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN22 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the center, base of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = up.</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the center, base of the "g" as indicated by the intersection of the "X" and the dotted lines; and text path = down. (The "g" touches the horizontal line at the "X").</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTALN23"> 
+				<Note>References to the "X" (marker with marker type 5) refer to the marker position and not the legs of the "X". </Note>
+				<CGMPurpose>Test geometric integrity of TEXT ALIGNMENT varying the TEXT PATH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTALN23.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTALN23 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the position point of the left string is to the center, bottom of the "T" as indicated by the intersection of the "X" and the dotted lines; and text path = up. (The "T" does not touch the horizontal line).</CheckPoint>
+					<CheckPoint>4 Verify that the position point of the right string is to the center, bottom of the "g" as indicated by the intersection of the "X" and the dotted lines; and text path = down.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTLEN01"> 
+				<CGMPurpose>Support for maximum string length for graphical text. Coded with short form string count</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTLEN01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTLEN01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a 254 character text string is drawn that begins with "A123456789" and ends with "Z123". (The string may be truncated if small enough fonts are not available. Indicate if truncation occurs.)</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TXTCOL01"> 
+				<CGMPurpose>Test for ability to implement TEXT COLOUR with varying FONT TYPES and attribute changes</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file TXTCOL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing TXTCOL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that seven lines of text appear in the order of red, yellow, green, cyan, blue, magenta, and rainbow (compare with reference picture for font types).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CHRSPA01"> 
+				<CGMPurpose>Test geometric integrity of CHARACTER SPACING</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CHRSPA01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CHRSPA01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 5 text strings are drawn each with a different character spacing as shown.</CheckPoint>
+					<CheckPoint>4 Measure the distance between reference lines "a" and "c". For the top string, verify that this 5 times this "measured distance" of space is added between each pair of adjacent characters.</CheckPoint>
+					<CheckPoint>5 For the second string, verify that the "measured distance" of space is added between each pair of adjacent characters.</CheckPoint>
+					<CheckPoint>6 Measure the distance between reference lines "a" and "b". For the fourth string, verify that this "measured distance" is removed from each pair of adjacent characters.</CheckPoint>
+					<CheckPoint>7 For the bottom string, verify that the characters overlap.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CHRHGT01"> 
+				<CGMPurpose>Test geometric integrity of CHARACTER HEIGHT</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CHRHGT01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CHRHGT01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 4 text strings.</CheckPoint>
+					<CheckPoint>4 Verify by eye, that the string "Height 100" is twice as large as "Height 50"; "Height 50" is twice as large as "Height 25"; and "Height 25" is 2½ times larger than "Height 10".</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CHRHTLN"> 
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CHRORI01"> 
+				<CGMPurpose>Interpret CHARACTER ORIENTATION with positive and negative character up vectors</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CHRORI01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CHRORI01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison to the reference picture, that the word "BCK" slants to the left and the word "FWD" slants to the right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name = "Fill-Area Elements">
+			<CGMElement Name="Polygon, Polygon Set, Rectangle, Circle, Circular Arc 3 Point Close, Circular Arc Center Close, Ellipse, Elliptical Arc Close, Interior Style, Fill Colour, Hatch Index, Pattern Index, Edge Type, Edge Width, Edge Colour, Edge Visibility"></CGMElement>
+			<CatNote Name="The profile requires Version 1 and Version 2 edge cap and edge join to be chosen from styles 2-4 of the edge cap and edge join elements. However, the edge cap or edge join must be used consistently and in accordance with the methods defined in ISO 8632. "></CatNote>
+			<CatNote Name ="For the mitre join style, if the line segments meet at a very sharp angle, the mitre may be truncated to form a flat bevel. (See Mitre Limit in the CGM standard for more information.)"></CatNote>
+			<CatNote Name="For hatch styles 1..5, the distance between hatch lines (i.e., hatch gap width) is not specified. The hatch lines may be very tight or loose, but must be equally spaced."></CatNote>
+			<TestCase Name="POLYGN01">
+				<CGMPurpose>Implement POLYLINE with maximum number of points (4096)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYGN01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYGN01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains a spiral with a horizontal line extending from the center to the outside with an appearance that matches that in the reference picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYGN02">
+				<CGMPurpose>Test geometric integrity of POLYGON primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYGN02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYGN02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that all vertices intersect the "+" reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYGN03">
+				<CGMPurpose>Test geometric integrity of POLYGON and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYGN03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYGN03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each "+" mark is centered on the edge at each vertex.</CheckPoint>
+					<CheckPoint>4 Verify that the edge join styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 Verify that the edge is centered on the middle reference line and exactly fills the space between the 2 outer lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYGN04">
+				<CGMPurpose>Test interior of POLYGON primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYGN04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYGN04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains a spiral of alternating black and white bands and a horizontal line extending from the center to the outside with an appearance that matches that in the reference picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="PLGSET01">
+				<CGMPurpose>Implement POLYGON SET primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PLGSET01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PLGSET01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a triangle with a triangular cut-out appears in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that the visibility of the edges are as shown: for the "outer" triangle, left and bottom edges are visible; for the "inner" triangle, left and right edges are visible.</CheckPoint>
+					<CheckPoint>5 Verify that the "outer" triangle is filled with a positive/negative crosshatch.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="PLGSET02">
+				<CGMPurpose>Test geometric integrity of POLYGON SET primitive and edge visibility</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PLGSET02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PLGSET02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the polygon set does NOT appear as closed figures and the visibility of the edges are as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the vertices of the polygon set intersect at the "+" reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="PLGSET03">
+				<CGMPurpose>Test geometric integrity of POLYGON SET primitive with different edge flags</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PLGSET03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PLGSET03 appears at the bottom of the picture.</CheckPoint>					
+					<CheckPoint>3 Verify that 4 of the vertices of the polygon set intersect the 4 "+" reference marks.</CheckPoint>
+					<CheckPoint>4 Verify that the visibility of the edges are as shown: for the top triangle, right and bottom edges are visible; for the bottom triangle, left and top edges are visible.</CheckPoint>
+					<CheckPoint>5 Verify that the triangles are filled with a vertical/horizontal crosshatch.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="PLGSET04">
+				<CGMPurpose>Test geometric integrity of POLYGON SET primitive with different edge flags</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PLGSET04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PLGSET04 appears at the bottom of the picture.</CheckPoint> 
+					<CheckPoint>3 Verify that 4 of the vertices of the polygon set intersect the 4 "+" reference marks.</CheckPoint>
+					<CheckPoint>4 Verify that the visibility of the edges are as shown: for the top triangle, left edge is visible; for the bottom triangle, right edge is visible.</CheckPoint>
+					<CheckPoint>5 Verify that the triangles are filled with a vertical/horizontal crosshatch.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="PLGSET05">
+				<CGMPurpose>Test geometric integrity of POLYGON SET and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PLGSET05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PLGSET05 appears at the bottom of the picture.</CheckPoint> 
+					<CheckPoint>3 Verify that each "+" mark is centered on the edge at each vertex.</CheckPoint> 
+					<CheckPoint>4 Verify that the edge join styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 Verify that the edge is centered on the middle reference line and exactly fills the space between the 2 outer lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="PLGSET06">
+				<CGMPurpose>Interpret multiple overlapping polygon sets, with implicit close.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PLGSET06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PLGSET05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a rectangle with a green edge appears with 4 quadrants filled clockwise from upper left magenta, white, magenta, white.</CheckPoint>
+					<CheckPoint>4 Verify that the a second rectangle appears centered in the first rectangle, with filled edge alternating colors white and magenta starting from upper left quadrant. Verify that green rectangle overlaps the first rectangle on the right corner.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="RCTNGL01">
+				<CGMPurpose>Implement and test geometric integrity of RECTANGLE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file RCTNGL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing RCTNGL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the vertices of each of the 4 rectangles intersect the "X" reference marks.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="RCTNGL02">
+				<CGMPurpose>Implement and test geometric integrity of RECTANGLE and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file RCTNGL02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing RCTNGL02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each white reference "+" mark is centered on the edge of the rectangles at each vertex.</CheckPoint>
+					<CheckPoint>4 Verify that the edge join styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 For the left rectangle, verify that the left edge is centered on the white line and exactly fills the space between the 2 outer black lines.</CheckPoint>
+					<CheckPoint>6 For the left rectangle, verify that the bottom edge is centered on the white line and exactly fills the space between the 2 outer black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CIRCLE01">
+				<CGMPurpose>Implement CIRCLE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CIRCLE01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CIRCLE01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the circle is inscribed in the square.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CIRCLE02">
+				<CGMPurpose>Test geometric integrity of CIRCLE primitive and edge location</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CIRCLE02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CIRCLE02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the circle is inscribed in the square.</CheckPoint>
+					<CheckPoint>4 Verify that each "+" reference mark is centered directly over the circle edge.</CheckPoint>
+					<CheckPoint>5 Verify that the diagonal lines bisect the circle evenly, and that the intersection of the diagonal lines with the circle edge is at a "+" reference mark.</CheckPoint> 
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CIRCLE03">
+				<CGMPurpose>Test geometric integrity of CIRCLE and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CIRCLE03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CIRCLE03 appears at the bottom of the picture. </CheckPoint>					<CheckPoint>3 Verify that the center of the circle is at the intersection of the dotted diagonal and vertical lines.</CheckPoint>
+					<CheckPoint>4 Verify that the 4 white "+" reference marks are centered on the circle edge.</CheckPoint>
+					<CheckPoint>5 Where the black and white lines are collinear and meet, verify that this marks the center of the top edge and that the edge exactly fills the space between the 2 outer black lines.</CheckPoint>
+					<CheckPoint>6 Where the black and white lines are collinear and meet, verify that this marks the center of the left edge and that the edge exactly fills the space between the 2 outer black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CRAR3C01">
+				<CGMPurpose>Implement CIRCULAR ARC 3 POINT CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRAR3C01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRAR3C01 appears at the bottom f the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that each of the 8 closed circular arcs start and end at the dotted reference lines and has the correct arc sense. (Additional reference is provided by the dot-edged circle).</CheckPoint>
+					<CheckPoint>4 Verify that each closed circular arc is drawn with closure and interior style:</CheckPoint>
+					<SubPoint>row 1: solid chord, pattern pie, solid pie, hollow pie</SubPoint>
+					<SubPoint>row 2: hatch chord, empty pie, pattern pie, solid chord</SubPoint>
+					<SubPoint>(Reference lines appear in the hatched closed circular arc).</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CRAR3C02">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC 3 POINT CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRAR3C02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRAR3C02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains a chord-closed circular arc. The arc begins and ends at the intersection of the arc and the horizontal and vertical reference lines. The center of the arc is at the intersection of the dotted reference lines.</CheckPoint>
+					<CheckPoint>4 Verify that each of the 4 "+" reference marks is centered on the arc's edge. (The 2 end marks overlap the reference lines).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CRAR3C03">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC 3 POINT CLOSE and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRAR3C03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRAR3C03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the chord-closed circular arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines. (The edge join may extend beyond the start/end vectors, depending on the edge join style).</CheckPoint>
+					<CheckPoint>4 Verify that the edge join styles are the same at each end.</CheckPoint>
+					<CheckPoint>5 Verify that 2 white "+" reference marks are centered on the arc's edge.</CheckPoint>
+					<CheckPoint>6 Where the black and white solid lines are collinear and meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space between the outer 2 black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CRARCC01">
+				<CGMPurpose>Implement CIRCULAR ARC CENTER CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRARCC01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRARCC01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that each of the 8 closed circular arcs start and end at the dotted reference lines and has the correct arc sense. (Additional reference is provided by the dot-edged circle).</CheckPoint>
+					<CheckPoint>4 Verify that each closed circular arc is drawn with closure and interior style:</CheckPoint>
+					<SubPoint>row 1: empty chord, hatch pie, solid pie, solid chord</SubPoint>
+					<SubPoint>row 2: pattern pie, hollow chord, solid chord, hatch pie</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CRARCC02">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC CENTER CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRARCC02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRARCC02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the chord-closed circular arc starts and ends at the dotted reference lines, has the correct arc sense, and its center is at the intersection of the reference lines.</CheckPoint>
+					<CheckPoint>4 Verify that each of the 4 "+" marks is aligned directly over the arc path. (The 2 end marks overlap the reference lines).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CRARCC03">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC CENTER CLOSE and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRARCC03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRARCC03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the chord-closed circular arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines. (The edge join may extend beyond the start/end vectors, depending on the edge join style).</CheckPoint>
+					<CheckPoint>4 Verify that the edge join styles are the same at each end.</CheckPoint>
+					<CheckPoint>5 Verify that 2 white "+" reference marks are centered on the arc's edge.</CheckPoint>
+					<CheckPoint>6 Where the black and white solid lines are collinear and meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space between the outer 2 black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELLIPS01">
+				<CGMPurpose>Implement ELLIPSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLIPS01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLIPS01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 4 ellipses appears inscribed in its respective bounding box.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELLIPS02">
+				<CGMPurpose>Test geometric integrity of ELLIPSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLIPS02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLIPS02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the two ellipses appear inscribed in their respective bounding boxes.</CheckPoint>
+					<CheckPoint>4 Verify that the "+" reference marks are centered directly over each of the ellipse's edges.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELLIPS03">
+				<CGMPurpose>Test geometric integrity of ELLIPSE and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLIPS03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLIPS03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the dotted reference lines bisect the ellipse into 4 equal sections (at 0, 90, 180, and 270).</CheckPoint>
+					<CheckPoint>4 Verify that the center of the ellipse is at the intersection of the dotted reference lines.</CheckPoint>
+					<CheckPoint>5 Verify that 4 white "+" marks are centered on the top edge of the ellipse and that 4 white "+" marks intersect the outer and inner rim of the bottom edge.</CheckPoint>
+					<CheckPoint>6 Where the white line intersects the dotted reference line, verify that this marks the center of the top edge and that the edge exactly fills the space between the 2 black reference lines.</CheckPoint>
+					<CheckPoint>7 Where the white line intersects the dotted reference line, verify that this marks the center of the left side and that the edge exactly fills the space between the 2 black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELARCC01">
+				<CGMPurpose>Implement ELLIPTICAL ARC CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELARCC01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing the ELARCC01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference that each of the 16 closed elliptical arcs start and end at the reference lines and has the correct arc sense.</CheckPoint>
+					<CheckPoint>4 Verify that each closed elliptical arc is drawn with closure and interior style:</CheckPoint>
+					<SubPoint>row 1: empty chord, hatch pie, pattern pie, solid chord</SubPoint>
+					<SubPoint>row 2: hollow chord, pattern pie, solid chord, empty chord</SubPoint>
+					<SubPoint>row 3: hatch pie, solid pie, pattern pie, hollow chord</SubPoint>
+					<SubPoint>row 4: hatch chord, solid chord, pattern pie, empty pie</SubPoint>
+					<SubPoint>(Reference lines show through the hollow and hatch filled interiors).</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELARCC02">
+				<CGMPurpose>Implement rotated ELLIPTICAL ARC CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELARCC02.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELARCC02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 4 elliptical arcs start and end at the dotted reference lines and has the correct arc sense.</CheckPoint>
+					<CheckPoint>4 Verify that each closed elliptical arc is drawn with closure and interior style:</CheckPoint>
+					<SubPoint>row 1: empty chord, pattern pie</SubPoint>
+					<SubPoint>row 2: solid pie, hatch chord</SubPoint>
+					<SubPoint>(Reference lines may show through hatch filled interiors).</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELARCC03">
+				<CGMPurpose>Implement skewed ELLIPTICAL ARC CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELARCC03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELARCC03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 2 elliptical arcs start and end at the dotted reference lines and has the correct arc sense.</CheckPoint>
+					<CheckPoint>4 Verify that each closed elliptical arc is drawn with closure and interior style:</CheckPoint>
+					<SubPoint>row 1: pattern pie</SubPoint>
+					<SubPoint>row 2: solid chord</SubPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELARCC04">
+				<CGMPurpose>Test geometric integrity of ELLIPTICAL ARC CLOSE primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELARCC04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELARCC04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the elliptical arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines.</CheckPoint>
+					<CheckPoint>4 Verify that each of the 4 "+" reference marks is centered on the arc's edge. (The 2 end marks overlap the reference lines).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELARCC05">
+				<CGMPurpose>Test geometric integrity of ELLIPTICAL ARC CLOSE and EDGE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELARCC05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELARCC05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the elliptical arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines. (The edge join may extend beyond the start/end vectors, depending on the edge join style).</CheckPoint>
+					<CheckPoint>4 Verify that the edge join styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 Verify that 2 white "+" reference marks are centered on the arc's edge.</CheckPoint>
+					<CheckPoint>6 Where the black and white solid lines are collinear and meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space between the outer 2 black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL01">
+				<CGMPurpose>Implement INTERIOR STYLE solid</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file INTSTL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing INTSTL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 fill-area elements appear in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each solid fill-area element in the top row is drawn with edge visibility on, and fill and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Fill Colour</TD><TD>Edge Colour</TD></Row>	
+						<Row><TD>Rectangle</TD><TD>white</TD><TD>black</TD></Row>
+						<Row><TD>Polygon</TD><TD>black</TD><TD>red</TD></Row>	
+						<Row><TD>Circle</TD><TD>red</TD><TD>green</TD></Row>
+					</SubTable>
+					<CheckPoint>5 Verify that each solid fill-area element in the bottom row is drawn with edge visibility off, and fill and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Fill Colour</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>green</TD><TD>blue</TD></Row>
+						<Row><TD>Polygon</TD><TD>blue</TD><TD>yellow</TD></Row>
+						<Row><TD>Circle</TD><TD>yellow</TD><TD>magenta</TD></Row>
+					</SubTable>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL02">
+				<CGMPurpose>Implement INTERIOR STYLE hollow</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file INTSTL02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing INTSTL02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 fill-area elements appear in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each hollow fill-area element in the top row is drawn with edge visibility on,and fill and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Fill Colour</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>white</TD><TD>black</TD></Row>
+						<Row><TD>Polygon</TD><TD>black</TD><TD>red</TD></Row>	
+						<Row><TD>Circle</TD><TD>red</TD><TD>green</TD></Row>
+					</SubTable>
+					<SubPoint>(Boundary may be visible under the edge).</SubPoint>
+					<CheckPoint>5 Verify that each hollow fill-area element in the bottom row is drawn with edge visibility off, and fill and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Fill Colour</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>green</TD><TD>blue</TD></Row>
+						<Row><TD>Polygon</TD><TD>blue</TD><TD>yellow</TD></Row>
+						<Row><TD>Circle</TD><TD>yellow</TD><TD>magenta</TD></Row>
+					</SubTable>	
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL03">
+				<CGMPurpose>Implement INTERIOR STYLE empty</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file INTSTL03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing INTSTL03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 3 fill-area elements appear at the top portion of the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each fill-area element is drawn with edge visibility on, empty fill-area, and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>black</TD></Row>
+						<Row><TD>Polygon</TD><TD>red</TD></Row>
+						<Row><TD>Circle</TD><TD>green</TD></Row>
+					</SubTable>
+					<SubPoint>(The fill color is not used).</SubPoint>
+					<CheckPoint>5 Verify that no fill-area elements appear in the bottom portion of the picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL04">
+				<CGMPurpose>Implement INTERIOR STYLE hatch</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file INTSTL04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing INTSTL04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 fill-area elements with hatch styles: horizontal which appears invisible, vertical, positive slope, negative slope, horizontal/vertical cross, and positive/negative slope.</CheckPoint>
+					<CheckPoint>4 Verify that each hatch fill-area element in the top row is drawn with edge visibility on, and fill and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Fill Colour</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>white</TD><TD>black</TD></Row>
+						<Row><TD>Polygon</TD><TD>black</TD><TD>red</TD></Row>
+						<Row><TD>Circle</TD><TD>red</TD><TD>green</TD></Row>
+					</SubTable>
+					<CheckPoint>5 Verify that each hatch fill-area element in the bottom row is drawn with edge visibility off, and fill and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Fill Colour</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>green</TD><TD>blue</TD></Row>
+						<Row><TD>Polygon</TD><TD>blue</TD><TD>yellow</TD></Row>
+						<Row><TD>Circle</TD><TD>yellow</TD><TD>magenta</TD></Row>
+					</SubTable>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL05">
+				<CGMPurpose>Implement INTERIOR STYLE pattern</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file INTSTL05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing INTSTL05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 fill-area elements with patterns as shown in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each pattern fill-area element in the top row is drawn with edge visibility on, and pattern and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Pattern</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>cyan/white</TD><TD>black</TD></Row>
+						<Row><TD>Polygon</TD><TD>magenta/white</TD><TD>red</TD></Row>
+						<Row><TD>Circle</TD><TD>yellow/white</TD><TD>green</TD></Row>
+					</SubTable>
+					<CheckPoint>5 Verify that each fill-area element in the bottom row is drawn with edge visibility off, and pattern and edge colors:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Pattern</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Rectangle</TD><TD>blue/white</TD><TD>blue</TD></Row>
+						<Row><TD>Polygon</TD><TD>green/white</TD><TD>yellow</TD></Row>
+						<Row><TD>Circle</TD><TD>red/cyan</TD><TD>magenta</TD></Row>
+					</SubTable>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL06"> 
+				<CGMPurpose>Interpret INTERIOR STYLE pattern and inverted VDC extent</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file INTSTL06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing INTSTL06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 6 fill-area elements appear in the picture.</CheckPoint>
+					<CheckPoint>4 Verify that each pattern fill-area element in the top row is drawn with edge visibility off, and pattern and edge colours:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Pattern</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Circle</TD><TD>red/cyan</TD><TD>black</TD></Row>
+						<Row><TD>Polygon</TD><TD>green/white</TD><TD>yellow</TD></Row>
+						<Row><TD>Rectangle</TD><TD>blue/white</TD><TD>blue</TD></Row>
+					</SubTable>
+					<CheckPoint>5 Verify that each pattern fill-area element in the bottom row is drawn with edge visibility on, and pattern and edge colours:</CheckPoint>
+					<SubTable>
+						<Row><TD></TD><TD>Pattern</TD><TD>Edge Colour</TD></Row>
+						<Row><TD>Circle</TD><TD>yellow/white</TD><TD>green</TD></Row>
+						<Row><TD>Polygon</TD><TD>magenta/white</TD><TD>red</TD></Row>
+						<Row><TD>Rectangle</TD><TD>cyan/white</TD><TD>black</TD></Row>
+					</SubTable>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL07"> 
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="INTSTL08"> 
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="EDGSTL01">
+				<CGMPurpose>Implement EDGE TYPEs 1-5</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file EDGSTL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing EDGSTL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 5 rectangles with edge type: solid, dash, dot, dash-dot, dash-dot-dot.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="EDGCOL01">
+				<CGMPurpose>Implement EDGE COLOUR</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file EDGCOL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing EDGCOL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 5 rectangles with edge colors: white (not visible), green, black, blue, red, and yellow.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Pattern Table">
+               <CGMElement Name="Pattern Table"></CGMElement> 
+			<TestCase Name="PATTBL01">
+				<CGMPurpose>Interpret PATTERN TABLE with maximum number of pattern definitions </CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PATTBL01.CGM. </CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PATTBL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that an 8 x 8 matrix containing 64 patterns appears similar to the reference picture.</CheckPoint>
+					<CheckPoint>4 Verify in comparison to the reference picture that all patterns are as shown.</CheckPoint>
+  					<CheckPoint>5 Verify that a text string is written across the matrix from the bottom left corner to the top right corner.</CheckPoint>
+				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="PATTBL02">
+				<CGMPurpose>Interpret PATTERN TABLE with varying nx/ny</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file PATTBL02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing PATTBL02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that an 3 x 3 matrix containing 9 patterns appears similar to the reference picture.</CheckPoint>
+					<CheckPoint>4 Verify in comparison to the reference picture, that all patterns and labels are as shown.</CheckPoint>
+	  			</CheckPoints>
+  			</TestCase>	
+		</CGMCategory>
+		<CGMCategory Name="Line Elements">
+            	<CGMElement Name="Polyline, Disjoint Polyline, Circular Arc, Elliptical Arc, Hyperbolic Arc,"></CGMElement> 
+			<CGMElement Name="Parabolic Arc, Polybezier Curves, Non-Uniform B-Spline Curves,"></CGMElement>
+			<CGMElement Name="Line Type, Line Width, Line Colour"></CGMElement>
+               	<CatNote Name="The profile requires Version 1 and Version 2 line cap and line join to be chosen from styles 2-4 of the line cap and line join elements. However, the line cap or line join must be used consistently and in accordance with the methods defined in ISO 8632. "></CatNote>
+			<CatNote Name ="For the mitre join style, if the line segments meet at a very sharp angle, the mitre may be truncated to form a flat bevel. (See Mitre Limit in the CGM standard for more information.)"></CatNote>
+			<TestCase Name="CIRARC01">
+				<CGMPurpose>Implement CIRCULAR ARC CENTER primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CIRARC01.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CIRARC01 appears at the bottome of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 8 circular arcs start and end at the dotted reference lines and has the correct arc sense. (Additional reference is provided by the dot-edged circle).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CIRARC02">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC CENTER primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CIRARC02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CIRARC02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the circular arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines and "+".</CheckPoint>
+					<CheckPoint>4 Verify that each of the 4 "+" marks is aligned directly over the arc path. (The 2 end marks overlap the reference lines).</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="CIRARC03">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC CENTER and LINE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CIRARC03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CIRARC03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the circular arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines and "+".</CheckPoint>
+					<CheckPoint>4 Verify that the line cap styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 Verify that 2 white "+" reference marks are centered in the arc's edge.</CheckPoint>
+					<CheckPoint>6 Where the black and white solid lines are collinear and meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space  between the outer 2 black lines.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="LINSTL01">
+				<CGMPurpose>Implement LINE TYPE 1, solid</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point solid polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point solid polylines in the lower portion of the picture as shown.</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL02">
+				<CGMPurpose>Implement LINE TYPE 2, dash</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point dashed polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point dashed polylines in the lower portion of the picture as shown.</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL03">
+				<CGMPurpose>Implement LINE TYPE 3, dot</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point dotted polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point dotted polylines in the lower portion of the picture as shown.</CheckPoint>
+    				</CheckPoints>
+			</TestCase>
+			<TestCase Name="LINSTL04">
+				<CGMPurpose>Implement LINE TYPE 4, dash-dot</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point dash-dotted polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point dash-dotted polylines in the lower portion of the picture as shown.</CheckPoint>
+	    			</CheckPoints>
+			</TestCase>
+			<TestCase Name="LINSTL05">
+				<CGMPurpose>Implement LINE TYPE 5, dash-dot-dot</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point dash-dot-dot polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point dash-dot-dot polylines in the lower portion of the picture as shown.</CheckPoint>
+  				</CheckPoints>
+			</TestCase>
+  			<TestCase Name="LINSTL06">
+				<CGMPurpose>Implement LINE TYPE 6, single arrow</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point arrow polylines in the upper portion of the picture and that line end treatments are applied to the correct end as shown.</CheckPoint> 
+					<CheckPoint>4 Verify that the picture contains 2 4-point single arrow polylines in the lower portion of the picture and that line end treatments are applied to the correct end as shown.</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL07">
+				<CGMPurpose>Implement LINE TYPE 7, single dot</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL07.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL07 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point dot polylines in the upper portion of the picture and that line end treatments are applied to the correct end as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point dot polylines in the lower portion of the picture as shown and that line end treatments are applied to the correct end as shown.</CheckPoint>
+				</CheckPoints>  
+  			</TestCase>
+			<TestCase Name="LINSTL08">
+				<CGMPurpose>Implement LINE TYPE 8, double arrow</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL08.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL08 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point double arrow polylines in the upper portion of the picture and that line end treatments are applied at both ends as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point double arrow polylines in the lower portion of the picture and that line end treatments are applied at both ends as shown.</CheckPoint>
+					<CheckPoint>5 Verify that arrows are not drawn at the interior vertices of the four point polylines.</CheckPoint>
+  				</CheckPoints>
+			</TestCase>
+	 		<TestCase Name="LINSTL09">
+				<CGMPurpose>Implement LINE TYPE 9, stitch</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL09.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL09 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point stitch polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point stitch polylines in the lower portion of the picture as shown.</CheckPoint>
+					<CheckPoint>5 Verify that the dashes and spaces are of equal length.</CheckPoint>
+  				</CheckPoints>
+			</TestCase>
+			<TestCase Name="LINSTL10">
+				<CGMPurpose>Implement LINE TYPE 10, chain</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL10.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL10 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point chain polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point chain polylines in the lower portion of the picture as shown.</CheckPoint> 
+					<CheckPoint>5 Verify that the line type consists of long and short dashes and not dashes.</CheckPoint>
+	  			</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL11">
+				<CGMPurpose>Implement LINE TYPE 11, center</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL11.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL11 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point center polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point center polylines in the lower portion of the picture as shown.</CheckPoint>
+					<CheckPoint>5 Verify that the line type consists of long and short dashes.</CheckPoint>
+					<CheckPoint>6 Verify that each line starts and ends with a long dash.</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL12">
+				<CGMPurpose>Implement LINE TYPE 12, hidden</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL12.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL15 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point hidden polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point hidden polylines in the lower portion of the picture as shown.</CheckPoint>
+					<CheckPoint>5 Verify that the line type consists of equally spaced dashes.</CheckPoint>
+					<CheckPoint>6 Verify that each line starts and ends with a complete dash.</CheckPoint>
+					<CheckPoint>7 Verify dashes join at the corners of the four point polylines.</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL13">
+				<CGMPurpose>Implement LINE TYPE 13, phantom</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL13.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL13 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point phantom polylines in the upper portion of the picture as shown.</CheckPoint>
+					<CheckPoint>4 Verify that the picture contains 2 4-point phantom polylines in the lower portion of the picture as shown.</CheckPoint>
+					<CheckPoint>5 Verify that the line type consists of 1 long and 2 short dashes.</CheckPoint>
+					<CheckPoint>6 Verify that each line starts and ends with a long dash.</CheckPoint>
+	  			</CheckPoints>
+  			</TestCase>
+			<TestCase Name="LINSTL14">
+				<CGMPurpose>Implement LINE TYPE 14, break style 1</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL14.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL14 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point break style polylines in the upper portion of the picture as shown.</CheckPoint>
+	  			</CheckPoints>
+  			</TestCase>
+  			<TestCase Name="LINSTL15">
+				<CGMPurpose>Implement LINE TYPE 15, break style 2</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINSTL15.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINSTL15 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 6 2-point break style 2 polylines in the upper portion of the picture as shown. (Other than there must be at least 1 "zig-zag", there are not requirements on the number or size of the "zig-zags").</CheckPoint>
+	  			</CheckPoints>
+			</TestCase>
+  			<TestCase Name="LINCOL01">
+				<CGMPurpose>Implement LINE COLOUR</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file LINCOL01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing LINCOL01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the picture contains 5 lines with colors (top to bottom) black, red, green, blue, yellow.</CheckPoint> 
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="ELLARC01">
+				<CGMPurpose>Implement ELLIPTICAL ARC primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLARC01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLARC01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 16 elliptical arcs start and end at the reference lines and has the correct arc sense.</CheckPoint>
+	  			</CheckPoints>
+  			</TestCase>
+  			<TestCase Name="ELLARC02">
+				<CGMPurpose>Implement rotated ELLIPTICAL ARC primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLARC02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLARC02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 4 elliptical arcs start and end at the reference lines and has the correct arc sense.</CheckPoint>
+	  			</CheckPoints>
+  			</TestCase>
+			<TestCase Name="ELLARC03">
+				<CGMPurpose>Implement skewed ELLIPTICAL ARC primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLARC03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLARC03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3. Verify that each of the 2 elliptical arcs start and end at the reference lines and has the correct arc sense.</CheckPoint>
+				</CheckPoints>
+ 			</TestCase>
+			<TestCase Name="ELLARC04">
+				<CGMPurpose>Test geometric integrity of ELLIPTICAL ARC primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLARC04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLARC04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the elliptical arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines and "+".</CheckPoint>
+					<CheckPoint>4 Verify that each of the 4 "+" marks is aligned directly over the arc path. (The end mark overlaps the reference line).</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="ELLARC05">
+				<CGMPurpose>Test geometric integrity of ELLIPTICAL ARC and LINE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file ELLARC05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing ELLARC05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the elliptical arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines and "+".</CheckPoint>
+					<CheckPoint>4 Verify that the line cap styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 Verify that 2 white "+" reference marks are centered in the arc's edge.</CheckPoint>
+					<CheckPoint>6 Where the black and white solid lines are collinear and meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space between the outer 2 black lines.</CheckPoint>
+	  			</CheckPoints>
+			</TestCase>
+			<TestCase Name="DPLYLN01">
+				<CGMPurpose>Test geometric integrity of DISJOINT POLYLINE, varying the number of points, LINE TYPE, and line placement.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file DPLYLN01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing DPLYLN01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the left side of the picture contains:</CheckPoint>
+					<SubPoint>a) 3 vertical lines;</SubPoint>
+					<SubPoint>b) 3 diagonal lines;</SubPoint>
+					<SubPoint>c) 3 horizontal lines with disjoint segments as shown;</SubPoint>
+					<SubPoint>d) a thick horizontal line and a dot of the same width.</SubPoint>
+					<CheckPoint>4 Verify that the right side of the picture contains:</CheckPoint>
+					<SubPoint>a) 5 horizontal lines (linetypes 1-5) with disjoint segments as shown;</SubPoint>
+					<SubPoint>b) 3 vertical lines with disjoint segments as shown.</SubPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="CRARC301">
+				<CGMPurpose>Implement CIRCULAR ARC 3 POINT primitive and arc sense direction</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRARC301.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRARC301 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture that each of the 8 circular arcs start and end at the dotted reference lines and has the correct arc sense. (Additional reference is provided by the dot-edged circle).</CheckPoint>
+ 				</CheckPoints> 
+  			</TestCase>
+			<TestCase Name="CRARC302">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC 3 POINT primitive</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRARC302.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRARC302 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the circular arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines and "+".</CheckPoint>
+					<CheckPoint>4 Verify that each of the 4 "+" marks is aligned directly over the arc path. (The 2 end marks overlap the reference lines).</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name ="CRARC303">
+				<CGMPurpose>Test geometric integrity of CIRCULAR ARC 3 POINT and LINE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file CRARC303.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing CRARC303 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the circular arc starts and ends at the dotted reference lines and its center is at the intersection of the reference lines and "+". (The line cap may extend beyond the start/end vectors, depending on the line cap style).</CheckPoint>
+					<CheckPoint>4 Verify that the line cap styles are the same at the endpoints.</CheckPoint>
+					<CheckPoint>5 Verify that 2 white "+" reference marks are centered in the arc's edge.</CheckPoint>
+					<CheckPoint>6 Where the black and white solid lines are collinear and meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space between the outer 2 black lines.</CheckPoint>
+				</CheckPoints>  
+  			</TestCase>
+			<TestCase Name="POLYLN01">
+            		<CGMPurpose>Implement POLYLINE with maximum number of points (4096)</CGMPurpose>
+                    	<CheckPoints>
+                        	<CheckPoint>1  Interpret file POLYLN01.CGM.</CheckPoint>
+                         	<CheckPoint>2  Verify that the test case identification string containing POLYLN01 appears at the bottom of the picture.</CheckPoint>
+                        	<CheckPoint>3  Verify that the picture contains the basic shape with an appearance matching that in the reference picture</CheckPoint>
+                   	</CheckPoints>
+                  </TestCase>
+			<TestCase Name="POLYLN02">
+				<CGMPurpose>Implement POLYLINE with line types 1-5</CGMPurpose> 
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYLN02.CGM.</CheckPoint> 
+					<CheckPoint>2 Verify that the test case identification string containing POLYLN02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that each of the 5 line styles is rendered as: solid, dash, dot, dash-dot, and dash-dot-dot.</CheckPoint>
+  				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYLN03">
+				<CGMPurpose>Test geometric integrity of POLYLINEs centered on the geometric locus</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYLN03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYLN03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that each set of polylines is bisected lengthwise, and are drawn in the position and widths as shown.</CheckPoint> 
+				</CheckPoints> 
+	  		</TestCase>
+			<TestCase Name="POLYLN04">
+				<CGMPurpose>Test geometric integrity of POLYLINE LINE WIDTH</CGMPurpose> 
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYLN04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYLN04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the upper left portion of the picture contains 4 "V-shaped" brackets. Verify that no visible lines connect the brackets.</CheckPoint>
+					<CheckPoint>4 Verify by comparison with the reference picture, that the lower right portion of the picture contains 4 rows of lines and that each appears as 2 disjoint segments. No visible lines connect the "disjoint" segments.</CheckPoint>
+				</CheckPoints>   
+			</TestCase>
+             </CGMCategory>
+             <CGMCategory Name="Clipping">
+                  <CGMElement Name="Clip Indicator, Clip Rectangle, Line Clipping Mode"></CGMElement>
+                  <CatNote Name="For CLIPNG01...04 test cases, the line width is twice the edge."></CatNote>
+                 	<TestCase Name="CLIPNG01">
+                      	<CGMPurpose>Implement clipping: CLIP RECTANGLE = VDC EXTENT, CLIP INDICATOR = 'off'</CGMPurpose> 
+                      	<CheckPoints>
+       				<CheckPoint>1 Interpret file CLIPNG01.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case identification string containing CLIPNG01 appears at the bottom of the picture.</CheckPoint>
+                            	<CheckPoint>3 Verify by comparison with the reference picture, that the 5 graphical primitives are drawn in the positions, styles, sizes, and colors as shown.</CheckPoint> 
+                       	</CheckPoints>
+                  </TestCase>
+                  <TestCase Name="CLIPNG02">
+                       	<CGMPurpose>Implement clipping: CLIP RECTANGLE = VDC EXTENT, CLIP INDICATOR = 'on'</CGMPurpose> 
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file CLIPNG02.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case identification string containing CLIPNG02 appears at the bottom of the picture.</CheckPoint>
+                            	<CheckPoint>3 Verify by comparison with the reference picture, that the 5 graphical primitives are drawn in the positions, styles, sizes, and colors as shown. (Nothing is clipped.) </CheckPoint> 
+                       	</CheckPoints>
+                  </TestCase>
+                  <TestCase Name="CLIPNG03">
+                       	<CGMPurpose>Implement clipping: CLIP RECTANGLE = subset of VDC EXTENT, CLIP INDICATOR = 'off'</CGMPurpose>
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file CLIPNG03.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case identification string containing CLIPNG03 appears at the bottom of the picture.</CheckPoint>
+                            	<CheckPoint>3 Verify by comparison with the reference picture, that the 5 graphical primitives are drawn in the positions, styles, sizes, and colors as shown.</CheckPoint>
+                       	</CheckPoints>
+                  </TestCase>
+                  <TestCase Name ="CLIPNG04">
+                       	<CGMPurpose>Implement clipping: CLIP RECTANGLE = subset of VDC EXTENT, CLIP INDICATOR = 'on'</CGMPurpose>
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file CLIPNG04.CGM.</CheckPoint> 
+                            	<CheckPoint>2 Verify that the test case identification string containing CLIPNG04 appears at the bottom of the picture.</CheckPoint>
+                            	<CheckPoint>3 Verify by comparison with the reference picture, that the left side of the 5 graphical primitives as well as the bottom of the cell array, are clipped as shown.</CheckPoint>
+                            	<CheckPoint>4 Verify by comparison with the reference picture, that the 5 graphical primitives are drawn in the positions, styles, sizes, and colors as shown.</CheckPoint>
+                       	</CheckPoints>
+                  </TestCase>
+             </CGMCategory>
+             <CGMCategory Name="Defaults">
+			<CGMElement Name="Metafile Defaults Replacement, Defaults for each class"></CGMElement>
+                  <TestCase Name="DEFVAL01">
+                       	<CGMPurpose>Interpret minimal metafile, drawing one graphical primitive from each class using default values</CGMPurpose>
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file DEFVAL01.CGM.</CheckPoint>
+                            	<CheckPoint>Default background and foreground colors are device dependent. Thus, reference picture may appear with inversed color scheme.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case identification string containing DEFVAL01 appears at the bottom of the picture.</CheckPoint>
+                            	<CheckPoint>3 Verify that 4 graphical primitives are drawn to scale.</CheckPoint>
+                            	<CheckPoint>4 Verify by comparison with the reference picture, that the polyline is drawn in the position, width, and foreground color shown.</CheckPoint>
+                            	<CheckPoint>5 Verify by comparison with the reference picture, that the asterisk polymarkers are all the same size and are drawn in the position and foreground color shown.</CheckPoint>
+                            	<CheckPoint>6 Verify by comparison with the reference picture, that the rectangle is drawn in the position, size, and foreground color as shown.</CheckPoint>
+                            	<CheckPoint>7 Verify by comparison with the reference picture, that the cell array is drawn in the position and size and colors as shown.</CheckPoint>
+                       	</CheckPoints>
+                  </TestCase>
+                  <TestCase Name="MDRTST01">
+                       	<CGMPurpose>Implement single METAFILE DEFAULTS REPLACEMENT to redefine single element</CGMPurpose>
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file MDRTST01.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case identification string containing MDRTST01 appears at the bottom of the picture.</CheckPoint> 
+                            	<CheckPoint>3 Verify that a circle marker appears in the center of the picture. (Use the dotted reference lines to locate the center).</CheckPoint>
+                       	</CheckPoints>
+                  </TestCase>
+                  <TestCase Name="MDRTST02">
+                       	<CGMPurpose>Implement two METAFILE DEFAULTS REPLACEMENT to redefine multiple elements</CGMPurpose>
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file MDRTST02.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case identification string containing MDRTST02 appears at the bottom of the picture.</CheckPoint>
+                            	<CheckPoint>3 Verify by comparison with the reference picture, that the left side of the 5 graphical primitives as well as the bottom of the cell array are clipped.</CheckPoint>
+                            	<CheckPoint>4 Verify that each graphical primitive is drawn in the position and color as follows:</CheckPoint>
+                            	<SubPoint>-red dashed polyline,</SubPoint>
+                            	<SubPoint>-green circle polymarkers,</SubPoint>
+                            	<SubPoint>-blue text,</SubPoint> 
+                            	<SubPoint>-yellow rectangle with magenta edge,</SubPoint>
+                            	<SubPoint>-green/blue/yellow/magenta cell array.</SubPoint>
+                       	</CheckPoints>
+                  </TestCase>
+             </CGMCategory>
+             <CGMCategory Name="Empty Pictures">
+			<CGMElement Name="Primitives outside parameters, no primitives"></CGMElement>
+                  <TestCase Name ="EMTPCT01">
+                       	<CGMPurpose>Interpret metafile with graphical primitives outside the clip rectangle</CGMPurpose>
+                        <CheckPoints>
+                            	<CheckPoint>1 Interpret file EMTPCT01.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case produces an empty picture.</CheckPoint>
+                       	</CheckPoints>
+                   </TestCase>
+                   <TestCase Name = "EMTPCT02">
+                        <CGMPurpose>Interpret metafile with no graphical primitives</CGMPurpose>
+                       	<CheckPoints>
+                            	<CheckPoint>1 Interpret file EMTPCT02.CGM.</CheckPoint>
+                            	<CheckPoint>2 Verify that the test case produces an empty picture.</CheckPoint>
+                       	</CheckPoints>
+                  </TestCase>
+             </CGMCategory>
+        </Version>
+        <Version Name="2">
+		<CGMCategory Name="Begin/End Figure Element">
+			<CGMElement Name="BEGIN/END FIGURE, CONNECTING EDGE, NEW REGION"></CGMElement>
+			<TestCase Name="FIGURE01"> 
+				<CGMPurpose>Implement Closed Figures (BEGIN/END FIGURE) using line elements, with and without CONNECTING EDGE</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE01.CGM.</CheckPoint> 
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a triangle appears with the heading "no connecting edge" and has red positive/negative crosshatch.</CheckPoint>
+					<CheckPoint>4 Verify that a black edge is visible from points P1 to P2 and from P2 to P3 and that no edge is visible from P3 to P1.</CheckPoint>
+					<CheckPoint>5 Verify that a second triangle appears with the caption "with connecting edge" with red positive/negative crosshatch and all edges are visible from P1 to P2, P2 to P3 and from P3 to P1.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FIGURE02"> 
+				<CGMPurpose>Implement Closed Figure (BEGIN/END FIGURE) using line primitives and implicit boundaries</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE02.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 2 figures appear side by side both with green edges from points P1 to P2 and P3 to P4.</CheckPoint>
+					<CheckPoint>4 Verify in comparison to the reference picture that the figure on the left has solid interior style with fill colour black.</CheckPoint>
+					<CheckPoint>5 Verify that the figure on the right appears as a "bowtie".</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FIGURE03">
+				<CGMPurpose>Implement Closed Figure (BEGIN/END FIGURE) using fill areas with CONNECTING EDGE and NEW REGION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify in comparison to the reference picture that 2 figures appear in the style, size, colour and position as shown.(Straight left edges are dashed.)</CheckPoint>
+					<CheckPoint>4 Verify that each primitive contains edge attributes as shown in comparison with the reference picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FIGURE04">
+				<CGMPurpose>Implement Closed Figure (BEGIN/END FIGURE) using POLYLINES with NEW REGION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a triangle appears within a triangle.</CheckPoint>
+					<CheckPoint>4 Verify that the visibility of the edges are shown: for the outside triangle the left and bottom edge are visible; for the inside triangle all edges are visible.</CheckPoint>
+					<CheckPoint>5 Verify that the outer triangle is filled with left/right crosshatch.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FIGURE05">
+				<CGMPurpose>Implement Closed Figure using CIRCULAR ARCS and NEW REGION</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that a circle appears within a circle.</CheckPoint>
+					<CheckPoint>4 Verify that the edge is visible for both circles.</CheckPoint>
+					<CheckPoint>5 Verify that outer circle is filled with left/right crosshatch.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FIGURE06">
+				<CGMPurpose>Implement Closed Figure (BEGIN/END FIGURE) with multiple POLYGONS and NEW REGIONS</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that five pentagons (5 sided figures) appear within a larger pentagon.</CheckPoint>
+					<CheckPoint>4 Verify that the interior pentagons appear at each of the vertices of the larger (exterior) pentagon.</CheckPoint>
+					<CheckPoint>5 Verify that the outer pentagon is filled with left/right crosshatch.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="FIGURE07"> 
+				<CGMPurpose>Implement Closed Figure (BEGIN/END FIGURE) with multiple graphical elements</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file FIGURE07.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing FIGURE07 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that 11 graphical primitives appear in the position, size, style and colour as shown.</CheckPoint>
+					<CheckPoint>4 Verify that all elements have solid interior style, blue fill colour, and red edge colour.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+            <CGMCategory Name="Clipping">
+                  <CGMElement Name="Clip Indicator, Clip Rectangle, Line Clipping Mode"></CGMElement>
+                  <TestCase Name="CLIPNG05">
+                       	<CGMPurpose>Interpret CLIPPING in multiple areas</CGMPurpose> 
+                       	<CheckPoints>
+                            	<CheckPoint>1.  Interpret file CLIPNG05.CGM</CheckPoint>
+                            	<CheckPoint>2.  Verify that the test case identification string containing CLIPNG05 partially appears at the bottom of the picture within the "Second Clip" rectangle.</CheckPoint>
+                            	<CheckPoint>3.  Verify by comparison with the reference picture that the rectangle labeled "First Clip" contains a diagonal line from bottom to the left edge.</CheckPoint>
+                            	<CheckPoint>4.  Verify by comparison with the reference picture that a rectangle labeled "Second Clip" contains a diagonal line from the right to the top edge.</CheckPoint>
+              		</CheckPoints>
+                  </TestCase>
+            </CGMCategory>
+		<CGMCategory Name="Colour">
+			<CGMElement Name="Colour Value Extent, Colour Precision, Background"></CGMElement>
+			<CGMElement Name="Colour, Transparency, Colour Table, and"></CGMElement>
+			<CGMElement Name="Metafile Descriptor with Color Levels"></CGMElement>
+			<TestCase Name="BGCOLR04">
+				<CGMPurpose>Set BACKGROUND COLOUR with Colour Index=0 (in Picture Description)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BGCOLR04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BGCOLR04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 2 diagonal black lines are drawn, from corner to corner, as shown in the reference picture.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name = "Modes">
+			<CGMElement Name = "Scaling Mode, Colour Selection Mode, and"></CGMElement>
+			<CGMElement Name= "Line, Marker, Edge Specification Modes"></CGMElement>
+			<TestCase Name="COLRMD01">
+				<CGMPurpose>Set COLOUR SELECTION MODE in the picture body and picture descriptor to "direct" then "index"</CGMPurpose>
+				<CheckPoints> 
+                        	<CheckPoint>1 Interpret file COLRMD01.CGM.</CheckPoint>
+                        	<CheckPoint>2 Verify that the test case identification string containing COLRMD01 appears at the bottom of the picture.</CheckPoint>
+                        	<CheckPoint>3 Verify that a 9-cell CELL ARRAY appears on the left side of the picture bounded by a black outline and fill colours as shown (w, bla, r, g, blu, y, m, c, w).</CheckPoint>
+                      		<CheckPoint>4 Verify that a magenta rectangle with no visible edge is drawn.</CheckPoint>
+                     		<CheckPoint>5 Verify that a vertical yellow line is drawn and overlaps the magenta rectangle.</CheckPoint>
+                     		<CheckPoint>6 Verify that a green rectangle with red edge is drawn over the yellow line.</CheckPoint>
+                      		<CheckPoint>7 Verify that the identification string is green.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name ="COLRMD02">
+				<CGMPurpose>Interpret COLOUR SELECTION MODE alternating between direct and indexed colour and resetting the COLOUR TABLE</CGMPurpose>
+				<CheckPoints>
+                    		<CheckPoint>1 Interpret file COLRMD02.CGM.</CheckPoint>
+                    		<CheckPoint>2 Verify that the test case identification string containing COLRMD02 appears at the bottom of the picture.</CheckPoint>
+                    		<CheckPoint>3 Verify that 3 rows and 3 columns of primitives appear as shown (zigzag line, diamond, diamond with edge).</CheckPoint>
+                    		<CheckPoint>4 Verify that all primitives appear in the colour indicated.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SPECMD03">
+				<CGMPurpose>Set SPECIFICATION MODE in picture descriptor and picture body alternating between "scaled" and "absolute"</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SPECMD03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SPECMD03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>Reading from top to bottom:</CheckPoint>
+					<CheckPoint>3 Verify that 1 wide polyline is drawn.</CheckPoint>
+					<CheckPoint>4 Verify that 3 overlapping rectangles are horizontally centered with respect to each other and their edge widths are in the ratio 1:2:4 from outermost to innermost.</CheckPoint>
+					<CheckPoint>5 Verify that 1 wide polyline is drawn over the bottom of the 3 overlapping rectangles.</CheckPoint>
+					<CheckPoint>6 Verify that an "X" polymarker is clipped along the left side and is centered on the left end of the reference line.</CheckPoint>
+					<CheckPoint>7 Verify that 3 overlapping polylines are drawn, on top of a reference line (which may not be visible to the naked eye).</CheckPoint>
+					<CheckPoint>8 Verify that the polylines are centered on the reference line and their widths are in the ratio 1:2:4.</CheckPoint>
+					<CheckPoint>9 Verify that 3 overlapping rectangles are horizontally centered on each other and the reference line at the bottom.</CheckPoint>
+					<CheckPoint>10 Verify that the edge width of the rectangles are in the ratio of 1:2:4.</CheckPoint>
+					<CheckPoint>11 Verify that a marker of "nominal" size is located at the left end of the line.</CheckPoint>
+					<CheckPoint>12 Verify by comparison that the size of the 3 non-nominal markers are in the ratio 1:2:4 from left to right.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SPECMD04">
+				<CGMPurpose>Set SPECIFICATION MODE, alternating modes and resetting values for LINE WIDTH, EDGE WIDTH, and MARKER size</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SPECMD04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SPECMD04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 3 rows of elements appear as a line, a marker, and a polygon with edge on.</CheckPoint>
+					<CheckPoint>4 Verify that the elements in the top and middle rows appear in the size and width shown (size/width = 1.0.)</CheckPoint>
+					<CheckPoint>5 Verify that the elements in the bottom row appear in the size/width shown (size/width = 50.)</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+	</Version>
+	<Version Name ="3">
+		<CGMCategory Name="Tile Array Elements">
+			<TestCase Name="TABTNL01">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="TABTNL02">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Line Elements">
+			<TestCase Name="POLYBZ01">
+				<CGMPurpose>Interpret POLYBEZIER with Continuity Indicator = discontinuous</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYBZ01.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYBZ01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 7 polybezier curves and 1 degenerate polybezier (appears as a line) are drawn.</CheckPoint>
+					<CheckPoint>4 Verify that the * polymarkers appear on each of the curves, indicating the start/end points and the curvature.</CheckPoint>
+				</CheckPoints>
+				<Note>Note:  5 polybeziers consist of a single bezier curve, the other 3 consist of 2 bezier curves.</Note>
+			</TestCase>
+			<TestCase Name="POLYBZ02"> 
+				<CGMPurpose>Interpret POLYBEZIER with Continuity Indicator = continuous</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYBZ02.CGM</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYBZ02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 7 polybezier curves and 1 degenerate polybezier (appears as a line) are drawn.</CheckPoint>
+					<CheckPoint>4 Verify that the * polymarkers appear on each of the curves, indicating the start/end points and the curvature.</CheckPoint>
+				</CheckPoints>
+				<Note>Note:  5 polybeziers consist of a single bezier curve, the other 3 consist of 2 bezier curves.</Note>
+			</TestCase>
+			<TestCase Name="POLYBZ03"> 
+				<CGMPurpose>Interpret POLYBEZIER and LINE WIDTH centered on the geometric locus</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYBZ03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYBZ03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 3 POLYBEZIER elements appear (2 are discontinuous, the middle one is continuous); each defining 1 curve.</CheckPoint>
+					<CheckPoint>4 Verify that the line cap styles are the same at each vertex.</CheckPoint>
+					<CheckPoint>5 Where the black reference lines and the ends of the curves meet, verify that this intersection marks the center of the edge and that the edge exactly fills the space between the outer 2 black lines.</CheckPoint>
+  				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="POLYBZ04">
+				<CGMPurpose>Interpret POLYBEZIER with successive curves and LINE COLOUR</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYBZ04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYBZ04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that the top line consists of 25 green  polybezier curves (the loops).</CheckPoint>
+					<CheckPoint>4 Verify that the top line consists of 25 red polybezier curves (the loops).</CheckPoint>
+					<CheckPoint>5 Verity that both lines are identical with the exception of colour.</CheckPoint>
+  				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYBZ05">
+				<CGMPurpose>Interpret POLYBEZIER with maximum number of points (4096)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYBZ05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYBZ05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify in comparison to the reference picture, that the polybezier curves form a red spiral.  (The continuity indicator is discontinuous.  There are actually 1024 curves).</CheckPoint>
+  				</CheckPoints>
+			</TestCase>
+			<TestCase Name="POLYBZ06">
+				<CGMPurpose>Interpret POLYBEZIER with various line attributes</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file POLYGB06.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing POLYBZ06 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that 4 POLYBEZIER curves appear from top to bottom as:</CheckPoint>
+					<SubTable>
+						<Row><TD>POLYBEZIER</TD><TD>LINE TYPE</TD><TD>LINE WIDTH</TD><TD>LINE COLOUR</TD><TD>LINE CAP</TD></Row> 
+						<Row><TD>1</TD><TD>solid</TD><TD>broad(=25)</TD><TD>magenta</TD><TD>butt/butt</TD></Row>
+						<Row><TD>2</TD><TD>dash-dot</TD><TD>narrow(=2)</TD><TD>blue</TD><TD>round/match</TD></Row>
+						<Row><TD>3</TD><TD>dash</TD><TD>narrow (=2)</TD><TD>green</TD><TD>round/match</TD></Row>
+						<Row><TD>4</TD><TD>solid</TD><TD>broad (=25)</TD><TD>red</TD><TD>round/match</TD></Row>
+					</SubTable>
+				</CheckPoints>
+				<Note>Note:  Check line cap of the solid line types.</Note>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name = "Modes">
+			<CGMElement Name = "Scaling Mode, Colour Selection Mode, and"></CGMElement>
+			<CGMElement Name= "Line, Marker, Edge Specification Modes"></CGMElement>
+			<TestCase Name="SPECMD05">
+				<CGMPurpose>Interpret LINE WIDTH SPECIFICATION MODES, set to "scaled", "fractional", "millimeter", and "absolute"</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SPECMD05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SPECMD05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify that four polylines appear with butt line cap, in line styles solid, dash, dot, dash dot.</CheckPoint>
+					<CheckPoint>4 Verify that the line widths appear as shown, specified by modes "mm", "fractional", "absolute", and "scaled."</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Line/Edge Caps and Joins">
+			<CGMElement Name="Line Cap,Line Join, and Mitre Limit"></CGMElement>
+			<TestCase Name="LINCAP01">
+				<CGMPurpose>Interpret LINE CAP, with dash cap indicator = 'unspecified'</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1. Interpret file LINCAP01.CGM.</CheckPoint>
+					<CheckPoint>2. Verify that the test case identification string containing LINCAP01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3. Verify that row 1 contains a rounded line cap at the ends of all the line segments.</CheckPoint>
+					<CheckPoint>4. Verify that row 2 contains a butt line cap at the ends of all the line segments.</CheckPoint>
+					<CheckPoint>5. Verify that row 3 contains a projected square line cap at the end of all the line segments.</CheckPoint>
+				</CheckPoints>
+				<Note>NOTE: </Note>
+			</TestCase>
+			<TestCase Name="LINCAP02">
+				<CGMPurpose>Interpret LINE CAP, setting values for the line cap and dash cap indicators.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1. Interpret file LINCAP02.CGM.</CheckPoint>
+					<CheckPoint>2. Verify that the test case identification string containing LINCAP02 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3. Verify that all rows have two dashed polylines each and that all have the line cap and dash cap as indicated.</CheckPoint>
+				</CheckPoints>
+				<Note>NOTE: </Note>
+			</TestCase>
+			<TestCase Name="LNJOIN01">
+				<CGMPurpose>Implement LINE JOIN and LINE WIDTH</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1. Interpret file LNJOIN01.CGM.</CheckPoint>
+					<CheckPoint>2. Verify that the test case identification string containing LNJOIN01 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3. Verify that three polylines appear with the line joins indicated.</CheckPoint>
+				</CheckPoints>
+				<Note>NOTE: </Note>
+			</TestCase>
+			<TestCase Name="MITRLM01">
+				<CGMPurpose>Implement MITRE LIMIT with varying limits.</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1. Interpret file MITRLM01.CGM.</CheckPoint>
+					<CheckPoint>2. Verify that the test case identification string containing MITRLM01appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3. Verify that 20 polylines appear with the correct line joins, using the reference lines (thin black, red, and blue) as guides.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+		<CGMCategory Name="Line Style Definition">
+  			<TestCase Name="LINSTD01">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+	  			</CheckPoints>
+			</TestCase>
+  			<TestCase Name="LINSTD02">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+	  			</CheckPoints>
+			</TestCase>
+  			<TestCase Name="LINSTD03">
+				<CGMPurpose>...TBD...</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>...TBD...</CheckPoint>
+	  			</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+          	<CGMCategory Name="Metafile Size">	 
+			<TestCase Name="BIGCGM01">
+				<CGMPurpose>Interpret large metafile (greater than 1/2 MB) </CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BIGCGM01.CGM. </CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BIGCGM01 appears at the bottom of the picture.</CheckPoint>
+				<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown (a tractor).</CheckPoint>
+				</CheckPoints>
+  			</TestCase>
+			<TestCase Name="BIGCGM03">
+				<CGMPurpose>Interpret large metafile (greater than 4 MB)</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file BIGCGM03.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing BIGCGM03 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown (a motor).</CheckPoint>
+ 				</CheckPoints>
+	  		</TestCase>
+      	</CGMCategory>
+		<CGMCategory Name="Schematics">
+			<TestCase Name="SCHEMA04">
+				<CGMPurpose>Implement schematic drawing</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SCHEMA04.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SCHEMA04 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+			<TestCase Name="SCHEMA05">
+				<CGMPurpose>Implement schematic drawing</CGMPurpose>
+				<CheckPoints>
+					<CheckPoint>1 Interpret file SCHEMA05.CGM.</CheckPoint>
+					<CheckPoint>2 Verify that the test case identification string containing SCHEMA05 appears at the bottom of the picture.</CheckPoint>
+					<CheckPoint>3 Verify by comparison with the reference picture, that the picture is drawn as shown.</CheckPoint>
+				</CheckPoints>
+			</TestCase>
+		</CGMCategory>
+	</Version>
+</TestSuite>

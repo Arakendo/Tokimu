@@ -1,0 +1,78 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test:     utf16-chinese-v10
+Author:   Lofton Henderson
+Created:  06 January 2006
+Description: static test of unicode UTF16, with the WebCGM 1.0 designation tail.
+Credits:  based on CGM supplied by SDI (Forrest Carpenter).
+Revised: 
+ 
+          09-Mar-2006: CGM fixed (proper use of QUOTE in MetDesc).
+          01-Mar-2006: Font Properties data completed.
+          11-Jan-2006: (incomplete) Font Properties added.
+          06-Jan-2006: first version.
+
+Notes:
+It is a WebCGM 1.0 file == uses the WebCGM 1.0 'tail' sequence 
+in the Character Set List.  Encoding is UTF16, for both non-graphical 
+(SF) text and graphical (S) text.       
+
+-->
+
+<html>
+  <!--
+  Test:     utf16-chinese-v10
+  Author:   Lofton Henderson
+  Created:  06 January 2006
+  Credits:  based on CGM supplied by SDI (Forrest Carpenter).
+  Revised: 
+   
+            09-Mar-2006: CGM fixed (proper use of QUOTE in MetDesc).
+            01-Mar-2006: Font Properties data completed.
+            11-Jan-2006: (incomplete) Font Properties added.
+            06-Jan-2006: first version.
+
+  Notes:
+  It is a WebCGM 1.0 file == uses the WebCGM 1.0 'tail' sequence 
+  in the Character Set List.  Encoding is UTF16, for both non-graphical 
+  (SF) text and graphical (S) text.       
+
+  -->
+
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <meta http-equiv="Content-Type" content="">
+
+    <title>Chinese UTF16 Unicode Test (WebCGM 1.0 CSL tail)</title>
+  </head>
+
+  <body onload=
+  "document.getElementById('ivx1').getWebCGMDocument().src= 'utf16-chinese-v10.cgm';">
+    <h2>Chinese UTF16 Unicode Test<br>
+    (WebCGM 1.0 CSL tail)</h2>
+
+    <table border="1" rules="cols">
+      <tbody>
+        <tr style="text-align:center;">
+          <th>Source image</th>
+
+          <th>Reference image</th>
+        </tr>
+
+        <tr>
+          <td><object id="ivx1" type=
+          "image/cgm;Version=4;ProfileId=WebCGM" width="400"
+          height="400">
+          </object> </td>
+
+          <td><img id="reference" src="utf16-chinese-v10.png"
+          width="400" alt=
+          "Reference image for Chinese unicode WebCGM test."></td>
+        </tr>
+      </tbody>
+    </table>
+    Chinese unicode test - This test is passed if both images look
+    alike.
+  </body>
+</html>
+

@@ -1,0 +1,430 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+Test: AppStructure-region
+Version: $Version$
+Creator: Lofton Henderson
+Date: 11 May 2005
+Description: This is a WebCGM DOM test 
+that evaluates the region attribute at the AppStructure level.
+Source: WebCGM 2.0 5.7.6
+Note:
+  This initial version uses simple, rectangular region.  It assumes
+  "simple string" coding, as opposed to a one-substring delimited
+  string.  I.e., the string content is:  1 x1 y1 x2 y2 , where 
+  the xi and yi are NVDC numbers and all numbers are wsp separated.
+  (Simple string versus delimited string for simple region was
+  an open WebCGM issue when the test was first written.)        
+Credits:  based on AppStructure-viewcontext (which was derived 
+          from Benoit's AppStructure-interactivity)
+Revision History:
+2006-19-05 Lofton 
+    wrong apsid in test4, s/plane_1/fleet/.
+-->
+
+<html>
+  <!--
+      Author:   Lofton Henderson
+      Created:  11 May 2005
+      Credits:  based on AppStructure-viewcontext (which was derived 
+                from Benoit's AppStructure-interactivity)
+      Revised:  
+          20 May 2005: wrong apsid in test4, s/plane_1/fleet/.
+
+      Notes:
+          This initial version uses simple, rectangular region.  It assumes
+          "simple string" coding, as opposed to a one-substring delimited
+          string.  I.e., the string content is:  1 x1 y1 x2 y2 , where 
+          the xi and yi are NVDC numbers and all numbers are wsp separated.
+          (Simple string versus delimited string for simple region is
+          an open WebCGM issue now.)        
+    -->
+
+  <head>
+    <meta name="generator" content="HTML Tidy, see www.w3.org">
+    <title>AppStructure, region Test Page</title>
+<script type="text/ecmascript">
+
+  var passedGet = false;     // record whether 1st getAppStructureAttr test passed.
+
+  function OnBtnDOM()
+  {
+     try
+     {
+        // open the CGM for the test (via <object> element).
+        document.getElementById('ivx1').getWebCGMDocument().src= 'AppStructure-region.cgm';
+
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var regFleet = "1 96.0 11.0 158.0 59.0";       // initial region on fleet (nvdc).
+        var result   = document.getElementById("_1");
+
+        try
+        {
+           var gr  = cgmPic.getAppStructureById("big_plane");
+           var gr1 = cgmPic.getAppStructureById("fleet"); 
+           var r  = gr.getAppStructureAttr("region");      // should be empty initially.
+           var r1 = gr1.getAppStructureAttr("region");     // should be regFleet initially.
+
+           if( regEqual(r, "") && regEqual(r1, regFleet) )
+           {
+             result.style.color = "#00A000";
+             result.firstChild.nodeValue = "Passed!";
+             passedGet = true;
+           }
+           else
+           {
+             throw "wrong region value";
+           }
+        }
+        catch(t1)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t1;
+        }
+     }
+     catch(e)
+     {
+        var n = document.getElementById("_1");
+        n.style.color = "#FF0000";
+        document.getElementById("_1").firstChild.nodeValue = "Failed, test not executed! Error: " + e.description;
+     }
+  }
+
+  function test2()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var setRegion_big = "1 50.0 20.0 88.0 51.0";      // to-be-set (nvdc) for big_plane's unspecified region.
+        var result   = document.getElementById("_2");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("big_plane");
+           gr.setAppStructureAttr("region", setRegion_big);
+
+           result.style.color = "#FFA200";
+           result.firstChild.nodeValue = "No errors.";
+
+        }
+        catch(t2)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t2;
+        }
+        document.getElementById("i3").disabled = false;       // enable test3 button.
+     }
+     catch(e2)
+     {
+        var n = document.getElementById("_2");
+        n.style.color = "#FF0000";
+        document.getElementById("_2").firstChild.nodeValue = "Failed, test not executed! Error: " + e2.description;
+     }      
+  }
+
+  function test3()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var resetFleet = "1 96.0 0.0 158.0 69.0";       // enlarge region (nvdc) on fleet.
+        var result   = document.getElementById("_3");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("fleet");
+           gr.setAppStructureAttr("region", resetFleet);
+
+           result.style.color = "#FFA200";
+           result.firstChild.nodeValue = "No errors.";
+        }
+        catch(t3)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t3;
+        }
+        document.getElementById("i4").disabled = false;
+     }
+     catch(e3)
+     {
+        var n = document.getElementById("_3");
+        n.style.color = "#FF0000";
+        document.getElementById("_3").firstChild.nodeValue = "Failed, test not executed! Error: " + e3.description;
+     }
+  }
+
+  function test4()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var setRegion_big = "1 50.0 20.0 88.0 51.0";      // earlier-set big_plane region (nvdc).
+        var resetFleet = "1 96.0 0.0 158.0 69.0";        // earlier-reset fleet region (nvdc).
+
+        var result   = document.getElementById("_4");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("fleet");
+           var r = gr.getAppStructureAttr("region");
+           var gr2 = cgmPic.getAppStructureById("big_plane");
+           var r2 = gr2.getAppStructureAttr("region");
+           if( regEqual(r, resetFleet) && regEqual(r2, setRegion_big) )
+           {
+              result.style.color = "#00A000";
+              result.firstChild.nodeValue = "Passed!";
+           }
+           else
+           {
+              throw "wrong region value(s)";
+           }
+        }
+        catch(t4)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t4;
+        }
+        document.getElementById("i5").disabled = false;
+     }
+     catch(e4)
+     {
+        var n = document.getElementById("_4");
+        n.style.color = "#FF0000";
+        document.getElementById("_4").firstChild.nodeValue = "Failed, test not executed! Error: " + e4.description;
+     }      
+  }
+
+  function test5()
+  {
+     try
+     {
+        var cgmDoc   = document.getElementById("ivx1").getWebCGMDocument();
+        var cgmPic   = cgmDoc.firstPicture;
+
+        var result   = document.getElementById("_5");
+        try
+        {
+           var gr = cgmPic.getAppStructureById("plane_1");
+           var gr2 = cgmPic.getAppStructureById("big_plane");
+           gr.removeAppStructureAttr("region");
+           gr2.removeAppStructureAttr("region");
+
+           result.style.color = "#FFA200";
+           result.firstChild.nodeValue = "No errors.";
+
+           if (passedGet)
+           {
+              var r  = gr.getAppStructureAttr("region");
+              var r2 = gr2.getAppStructureAttr("region");
+
+              if( regEqual(r, "") && regEqual(r2, "") )
+              {
+                 result.style.color = "#00A000";
+                 result.firstChild.nodeValue = "Passed!";
+              }
+              else
+              {
+                throw "region values not removed";
+              }
+           }
+        }
+        catch(t5)
+        {
+           result.style.color = "#FF0000";
+           result.firstChild.nodeValue = "Failed! Error: " + t5;
+        }
+     }
+     catch(e5)
+     {
+        var n = document.getElementById("_5");
+        n.style.color = "#FF0000";
+        document.getElementById("_5").firstChild.nodeValue = "Failed, test not executed! Error: " + e5.description;
+     }      
+  }
+
+  function regEqual(reg1, reg2)
+  {
+     // Test whether 2 region DOMstrings are "equal" -- 
+     // either both are empty, or their respective numbers 
+     // agree (to within 0.05 for nvdc).  Only works now for
+     // simple region (rect, polygon, ...), and 
+     // simple-string coding (as opposed to delimited 
+     // string coding (WebCGM 5.5) with one sub-string.
+     // DOMstring numbers in the string must be wsp separated. 
+
+ 
+     if (reg1 == "" && reg2 == "") return true;
+     if (reg1 == "" || reg2 == "") return false;
+
+     var wsp = /[\x20\x09\0D\x0A]+/;      // regex for 'whitespace' delimiter
+
+     var sp1 = reg1.split(wsp);
+     var sp2 = reg2.split(wsp);
+     if (sp1.length != sp2.length) return false;
+     for (i=0; i<sp1.length; i++)
+        if (Math.round((sp1[i]-sp2[i])*10) != 0) return false;
+     return true;    
+  }
+
+</script>
+  </head>
+
+  <body onload="OnBtnDOM();">
+    <h1>AppStructure, region Test Page</h1>
+
+    <table border="1" rules="cols">
+      <tr style="text-align:center;">
+        <th>Source image</th>
+
+        <th>Reference image</th>
+      </tr>
+
+      <tr>
+        <td><object id="ivx1" type=
+        "image/cgm;Version=4;ProfileId=WebCGM" width="480" height=
+        "360">
+        </object> </td>
+
+        <td><img id="reference" src="AppStructure-region.png">
+        </td>
+      </tr>
+    </table>
+
+    <table border="1">
+      <caption>
+        <em>Test results</em>
+      </caption>
+
+      <tr>
+        <td>Initiate Test</td>
+
+        <td>Purpose</td>
+
+        <td>Test Result</td>
+
+        <td>Comments</td>
+      </tr>
+
+      <tr>
+        <td>Done on load</td>
+
+        <td>Get initial 'region' values</td>
+
+        <td id="_1">NA</td>
+
+        <td>"Passed" if getAppStructureAttr values are correct. See
+        <a href="#note-1">Note 1</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input type="button" value="Start 2" name="btn2"
+        onclick="test2()"></td>
+
+        <td>Set initially-unspecified 'region' (big plane).</td>
+
+        <td id="_2">NA</td>
+
+        <td>"No errors" if no error executing setAppStructureAttr.
+        See <a href="#note-2">Note 2</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i3" disabled type="button" value="Start 3"
+        name="btn3" onclick="test3()"></td>
+
+        <td>Reset already-specified 'region' (fleet).</td>
+
+        <td id="_3">NA</td>
+
+        <td>"No errors" if no error executing setAppStructureAttr.
+        See <a href="#note-3">Note 3</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i4" disabled type="button" value="Start 4"
+        name="btn4" onclick="test4()"></td>
+
+        <td>Retrieve current 'region' values.</td>
+
+        <td id="_4">NA</td>
+
+        <td>"Passed" if getAppStructureAttr values are correct. See
+        <a href="#note-4">Note 4</a>.</td>
+      </tr>
+
+      <tr>
+        <td><input id="i5" disabled type="button" value="Start 5"
+        name="btn5" onclick="test5()"></td>
+
+        <td>Remove 'viewcontext' attributes:</td>
+
+        <td id="_5">NA</td>
+
+        <td>See <a href="#note-5">Note 5</a> to interpret
+        result.</td>
+      </tr>
+    </table>
+
+    <p><a id="note-1" name="note-1"><strong>Note 1.</strong></a> At
+    test start, a 'region' APS Attribute on the fleet of six small
+    planes has extent as indicated by the larger dashed rectangle.
+    There is no 'region' on big_plane initially. The first (onload)
+    test is passed if the getApsStructureAttr values are correct
+    for fleet and big_plane objects. To visually verify viewer
+    behavior, look at screentips. The screentip "Fleet" should be
+    seen with the cursor anywhere in the fleet region (larger
+    dashed rectangle), other than directly on a small plane. No
+    screentip should be seen with the cursor around the big_plane,
+    other than over the big_plane.</p>
+
+    <p><strong>Caveat!</strong> <em>Visual viewer result does not
+    imply the same DOM-specific test result. For example, the DOM
+    can be correct, but visual viewer behavior incorrect.</em></p>
+
+    <p><a id="note-2" name="note-2"><strong>Note 2.</strong></a>
+    "No errors" only means that there were no exceptions upon test
+    execution. Test 4 can numerically verify that correct values
+    were set, assuming that test 1 (getAppStructureAttr) passed.
+    For visual viewer verification that the initial value (no
+    'region') was replaced on big_plane, look at its screentip.
+    "Big Plane" should be seen with the cursor anywhere in the
+    phantom (dash-dot-dot) rectangle.</p>
+
+    <p><a id="note-3" name="note-3"><strong>Note 3.</strong></a>
+    "No errors" only means that there were no exceptions upon test
+    execution. Test 4 can numerically verify that correct values
+    were set, assuming that test 1 (getAppStructureAttr) passed.
+    For visual viewer verification that the initial value (larger
+    dashed rectangle) is replaced on fleet, look at screentip. The
+    new region is enlarged vertically to the VDC Extent, so you
+    should see the "Fleet" screentip with cursor above and below
+    the larger dashed rectangle.</p>
+
+    <p><a id="note-4" name="note-4"><strong>Note 4.</strong></a>
+    "Passed" means that getAppStructureAttr returned the same
+    'region' values on fleet and big_plane as were set in tests 2
+    and 3.</p>
+
+    <p><a id="note-5" name="note-5"><strong>Note 5.</strong></a>
+    Interpretation of Test Result:</p>
+
+    <ul>
+      <li>"No errors" only means that there were no exceptions upon
+      removeAppStructureAttr execution. (You will only see this
+      result if Test 1 failed; else getAppStructureAttr will be
+      used to verify, and you will see one of the next two...)</li>
+
+      <li>"Passed" means that getAppStructureAttr indicates
+      successful removal. (This will only be tried if Test 1
+      passed.)</li>
+
+      <li>"Failed" means that getAppStructureAttr indicates failed
+      removal. (This will only be tried if Test 1 passed.)</li>
+    </ul>
+  </body>
+</html>
+
