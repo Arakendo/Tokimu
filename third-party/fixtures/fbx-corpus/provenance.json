@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "source": {
+    "repository": "https://github.com/ufbx/ufbx.git",
+    "revision": "fcc5d6ba444cfd3eb80677dba5e37e493941abe5",
+    "tag_at_selection": "v0.23.0",
+    "retrieved_utc": "2026-07-28"
+  },
+  "license": {
+    "upstream_notice": "upstream/LICENSE",
+    "upstream_notice_sha256": "e52669716973273fb77033552cf6d8dbb88d3dad8600fa4d78088a5f92b3fd65",
+    "upstream_options": [
+      "MIT",
+      "Unlicense"
+    ],
+    "selected_option": "MIT"
+  },
+  "layout": {
+    "upstream": "upstream/",
+    "selection": "selected/selection-v1.toml",
+    "feature_matrix": "selected/feature-matrix.md",
+    "inventory": "inventory.json"
+  },
+  "acquisition": "Selected tracked files are copied byte-for-byte from the pinned ufbx revision. The complete repository and the separate multi-gigabyte public dataset are not vendored.",
+  "validation_boundary": {
+    "authoritative": "source identity, bytes, encoding/version inventory, checksums, and case intent",
+    "not_yet_claimed": [
+      "FBX decoding",
+      "source object graph interpretation",
+      "Tokimu imported-model lowering",
+      "mesh equivalence",
+      "animation equivalence",
+      "visual equivalence",
+      "Autodesk conformance"
+    ]
+  }
+}

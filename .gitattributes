@@ -1,2 +1,5 @@
 # The WebCGM upstream tree is verified as a byte-identical extracted fixture.
 third-party/fixtures/webcgm-test-suite/upstream/** -text
+
+# FBX corpus files, reference meshes, and notices are verified byte-for-byte.
+third-party/fixtures/fbx-corpus/upstream/** -text

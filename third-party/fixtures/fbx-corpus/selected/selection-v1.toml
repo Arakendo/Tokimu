@@ -1,0 +1,327 @@
+selection = "v1"
+suite = "ufbx repository test data"
+revision = "fcc5d6ba444cfd3eb80677dba5e37e493941abe5"
+source_root = "../upstream"
+license = "MIT"
+
+[[case]]
+id = "maya-cube-6100-ascii"
+logical_scene = "maya-cube"
+source = "data/maya_cube_6100_ascii.fbx"
+source_sha256 = "4e1ec3f897355493283ede194721d98bbf11ec3088e1233b50942c30cead23c2"
+dependencies = ["data/maya_cube.obj"]
+dependency_sha256 = ["3a3f936f1719a3f375d8eb07c94e36db96b61dd7ec9ca6081a502f64b9e33b2f"]
+exporter = "maya"
+encoding = "ascii"
+fbx_version = 6100
+capability = ["ascii", "static-mesh", "hierarchy", "legacy-version"]
+reason = "Provides a minimal legacy ASCII scene paired with binary and newer-version exports."
+expected = "valid-source"
+
+[[case]]
+id = "maya-cube-6100-binary"
+logical_scene = "maya-cube"
+source = "data/maya_cube_6100_binary.fbx"
+source_sha256 = "2917bf0fd29ccb3922133893c283c9c66235eae6ac6a7562a89f8f4b00d65df8"
+dependencies = ["data/maya_cube.obj"]
+dependency_sha256 = ["3a3f936f1719a3f375d8eb07c94e36db96b61dd7ec9ca6081a502f64b9e33b2f"]
+exporter = "maya"
+encoding = "binary"
+fbx_version = 6100
+capability = ["binary", "static-mesh", "hierarchy", "32-bit-node-header"]
+reason = "Provides the minimal legacy binary source for initial bounded record decoding."
+expected = "valid-source"
+
+[[case]]
+id = "maya-cube-7500-ascii"
+logical_scene = "maya-cube"
+source = "data/maya_cube_7500_ascii.fbx"
+source_sha256 = "00a26466be678131f143a1fa29804eab09a7520f40787c7dc51f5b4bb9e6b98c"
+dependencies = ["data/maya_cube.obj"]
+dependency_sha256 = ["3a3f936f1719a3f375d8eb07c94e36db96b61dd7ec9ca6081a502f64b9e33b2f"]
+exporter = "maya"
+encoding = "ascii"
+fbx_version = 7500
+capability = ["ascii", "static-mesh", "hierarchy", "current-version"]
+reason = "Pairs the same logical cube with the 7500 ASCII syntax."
+expected = "valid-source"
+
+[[case]]
+id = "maya-cube-7500-binary"
+logical_scene = "maya-cube"
+source = "data/maya_cube_7500_binary.fbx"
+source_sha256 = "d80844d7978fd3dc49d779e098fd2ea8a1524ad125c88939edba70ca3eb9d13c"
+dependencies = ["data/maya_cube.obj"]
+dependency_sha256 = ["3a3f936f1719a3f375d8eb07c94e36db96b61dd7ec9ca6081a502f64b9e33b2f"]
+exporter = "maya"
+encoding = "binary"
+fbx_version = 7500
+capability = ["binary", "static-mesh", "hierarchy", "64-bit-node-header"]
+reason = "Provides the modern binary counterpart for node-header and semantic comparisons."
+expected = "valid-source"
+
+[[case]]
+id = "maya-cube-7500-big-endian-binary"
+logical_scene = "maya-cube"
+source = "data/maya_cube_big_endian_7500_binary.fbx"
+source_sha256 = "b926696d1d8ef9d63dd56f089b79613d52886b4a0443e75161662d24233e663b"
+dependencies = ["data/maya_cube_big_endian.obj"]
+dependency_sha256 = ["3a3f936f1719a3f375d8eb07c94e36db96b61dd7ec9ca6081a502f64b9e33b2f"]
+exporter = "maya"
+encoding = "binary"
+fbx_version = 7500
+capability = ["binary", "big-endian-array-data", "static-mesh"]
+reason = "Pressures explicit endian handling without changing the logical scene."
+expected = "valid-source"
+
+[[case]]
+id = "blender-uv-sets-6100-ascii"
+logical_scene = "blender-uv-sets"
+source = "data/blender_279_uv_sets_6100_ascii.fbx"
+source_sha256 = "f9ae60a878c941cc59b8972c5406dacac1cc1223cd5e80d491136ec129964912"
+dependencies = []
+dependency_sha256 = []
+exporter = "blender"
+encoding = "ascii"
+fbx_version = 6100
+capability = ["ascii", "uv-sets", "layer-element-mapping"]
+reason = "Exercises UV layer interpretation in legacy ASCII form."
+expected = "valid-source"
+
+[[case]]
+id = "blender-uv-sets-7400-binary"
+logical_scene = "blender-uv-sets"
+source = "data/blender_279_uv_sets_7400_binary.fbx"
+source_sha256 = "bdc7b61a24bed071b8dd97fb2f5029bdec8d1418490d27eb79ff3839b0e46c6b"
+dependencies = []
+dependency_sha256 = []
+exporter = "blender"
+encoding = "binary"
+fbx_version = 7400
+capability = ["binary", "uv-sets", "layer-element-mapping"]
+reason = "Provides an encoding/version counterpart for UV source semantics."
+expected = "valid-source"
+
+[[case]]
+id = "blender-instancing-7400-binary"
+logical_scene = "blender-instancing"
+source = "data/blender_293_instancing_7400_binary.fbx"
+source_sha256 = "825abc205df1c0b9cb118128e3b45b4c5c1d8e6bf5a62a6034b1e0ebb78939a7"
+dependencies = ["data/blender_293_instancing.obj"]
+dependency_sha256 = ["c67c0a252ca27d9097427a84de12aa39be05f3576cea56c9d5ee1f26b179f48a"]
+exporter = "blender"
+encoding = "binary"
+fbx_version = 7400
+capability = ["binary", "shared-geometry", "node-transforms"]
+reason = "Exercises multiple source nodes connected to shared geometry."
+expected = "valid-source"
+
+[[case]]
+id = "blender-y-up-7400-binary"
+logical_scene = "blender-y-up"
+source = "data/blender_340_y_up_7400_binary.fbx"
+source_sha256 = "86cbc4ccdffecc94ffc1140319f028b85cef165445bdbc9c9ee64009483c3d13"
+dependencies = ["data/blender_340_y_up.obj"]
+dependency_sha256 = ["5ce0bf0557e4afd2dfb7d3780bdb017bfcf467dda4221d982c1708d0c68c9c7f"]
+exporter = "blender"
+encoding = "binary"
+fbx_version = 7400
+capability = ["binary", "axis-system", "y-up"]
+reason = "Records Y-up source-axis pressure before normalization."
+expected = "valid-source"
+
+[[case]]
+id = "blender-z-up-7400-binary"
+logical_scene = "blender-z-up"
+source = "data/blender_340_z_up_7400_binary.fbx"
+source_sha256 = "6573c345bcf70dad2f5d7b4a2cc3b64123da93e5dea938c2223607f661ddaf34"
+dependencies = ["data/blender_340_z_up.obj"]
+dependency_sha256 = ["f6b2efce9351addd426b94ab968c548cbb2569328f7a6696a760e5d9a3297ae6"]
+exporter = "blender"
+encoding = "binary"
+fbx_version = 7400
+capability = ["binary", "axis-system", "z-up"]
+reason = "Records Z-up source-axis pressure as an independent scene."
+expected = "valid-source"
+
+[[case]]
+id = "max-gltf-material-7700-ascii"
+logical_scene = "max-gltf-material"
+source = "data/max_gltf_material_7700_ascii.fbx"
+source_sha256 = "349d3c9fccfc549d583b2769b18b734893f53771904d3a3ace084388dd13fb57"
+dependencies = []
+dependency_sha256 = []
+exporter = "3ds-max"
+encoding = "ascii"
+fbx_version = 7700
+capability = ["ascii", "materials", "pbr-source-properties"]
+reason = "Provides modern material-property pressure without defining Tokimu material semantics."
+expected = "valid-source"
+
+[[case]]
+id = "max-gltf-material-7700-binary"
+logical_scene = "max-gltf-material"
+source = "data/max_gltf_material_7700_binary.fbx"
+source_sha256 = "8e29caf9b7d1c9de101a73d8b1cbbc34ad933a8c366749ed0dbbab94762558f9"
+dependencies = []
+dependency_sha256 = []
+exporter = "3ds-max"
+encoding = "binary"
+fbx_version = 7700
+capability = ["binary", "materials", "pbr-source-properties"]
+reason = "Pairs modern material source semantics with binary encoding."
+expected = "valid-source"
+
+[[case]]
+id = "max-unicode-7500-ascii"
+logical_scene = "max-unicode"
+source = "data/max_unicode_7500_ascii.fbx"
+source_sha256 = "ebae84edfdd2d122bf39b5e1493385de8a288900652eb2b8654f558d5e841a4e"
+dependencies = []
+dependency_sha256 = []
+exporter = "3ds-max"
+encoding = "ascii"
+fbx_version = 7500
+capability = ["ascii", "unicode-names", "source-identity"]
+reason = "Exercises non-ASCII source names and string preservation."
+expected = "valid-source"
+
+[[case]]
+id = "max-unicode-7500-binary"
+logical_scene = "max-unicode"
+source = "data/max_unicode_7500_binary.fbx"
+source_sha256 = "f71c4c7a0d3dde0f1af155dbe18dda90df642cb3e48af459b7a1becb729c7e04"
+dependencies = []
+dependency_sha256 = []
+exporter = "3ds-max"
+encoding = "binary"
+fbx_version = 7500
+capability = ["binary", "unicode-names", "source-identity"]
+reason = "Pairs Unicode source identity with binary string decoding."
+expected = "valid-source"
+
+[[case]]
+id = "max2009-cube-animation-5800-ascii"
+logical_scene = "max2009-cube-animation"
+source = "data/max2009_cube_anim_5800_ascii.fbx"
+source_sha256 = "65e7ebbc56b35bb4661780cbabcdbeb9a223ec83ab8a5bb48e49d38c31d6fc26"
+dependencies = ["data/max2009_cube_anim_15.obj", "data/max2009_cube_anim_45.obj"]
+dependency_sha256 = ["224d4b5c0f5026c93b24e2f50794e5c462ff6ef9d45f2368691b3577b74416f1", "f3e6d8372a5458fbead304155e11d078f54a9bafda5380f37f3d835fc9b0bc6a"]
+exporter = "3ds-max"
+encoding = "ascii"
+fbx_version = 5800
+capability = ["ascii", "animation", "legacy-version"]
+reason = "Exercises legacy animation records with two sampled reference meshes."
+expected = "valid-source"
+
+[[case]]
+id = "max2009-cube-animation-5800-binary"
+logical_scene = "max2009-cube-animation"
+source = "data/max2009_cube_anim_5800_binary.fbx"
+source_sha256 = "d2d089b574c5dea247a9e6bb3709659dd56d392335c0d3060422722ec4aa444b"
+dependencies = ["data/max2009_cube_anim_15.obj", "data/max2009_cube_anim_45.obj"]
+dependency_sha256 = ["224d4b5c0f5026c93b24e2f50794e5c462ff6ef9d45f2368691b3577b74416f1", "f3e6d8372a5458fbead304155e11d078f54a9bafda5380f37f3d835fc9b0bc6a"]
+exporter = "3ds-max"
+encoding = "binary"
+fbx_version = 5800
+capability = ["binary", "animation", "legacy-version"]
+reason = "Provides an equivalent legacy binary animation source."
+expected = "valid-source"
+
+[[case]]
+id = "max-transformed-skin-7500-ascii"
+logical_scene = "max-transformed-skin"
+source = "data/max_transformed_skin_7500_ascii.fbx"
+source_sha256 = "767a44f9d499d1997dc157f9cd8bd156fdb958047906dfb19032fb2a6a86746f"
+dependencies = ["data/max_transformed_skin_5.obj", "data/max_transformed_skin_15.obj"]
+dependency_sha256 = ["b594791d9963c8762fd340279cbedbecd69d355e4ec00f6723472f78edf14887", "2fd61d8435c27190f4b4391224255943e0893a736733a71471c21c9bd4269f4d"]
+exporter = "3ds-max"
+encoding = "ascii"
+fbx_version = 7500
+capability = ["ascii", "skeleton", "skinning", "transforms"]
+reason = "Exercises transformed skin clusters with sampled reference geometry."
+expected = "valid-source"
+
+[[case]]
+id = "max-transformed-skin-7500-binary"
+logical_scene = "max-transformed-skin"
+source = "data/max_transformed_skin_7500_binary.fbx"
+source_sha256 = "bc2a6b22eb3ac80704e7484b853d24aa50cf5c1de8ab7e9a225a837290a6a5a4"
+dependencies = ["data/max_transformed_skin_5.obj", "data/max_transformed_skin_15.obj"]
+dependency_sha256 = ["b594791d9963c8762fd340279cbedbecd69d355e4ec00f6723472f78edf14887", "2fd61d8435c27190f4b4391224255943e0893a736733a71471c21c9bd4269f4d"]
+exporter = "3ds-max"
+encoding = "binary"
+fbx_version = 7500
+capability = ["binary", "skeleton", "skinning", "transforms"]
+reason = "Provides the equivalent binary deformation source."
+expected = "valid-source"
+
+[[case]]
+id = "blender-static-blend-shape-7400-binary"
+logical_scene = "blender-static-blend-shape"
+source = "data/blender_331_static_blend_shape_7400_binary.fbx"
+source_sha256 = "e917f88d7b3a77d01139a933c2265f88c16a7c963c4305bc30c0ae61015c984b"
+dependencies = ["data/blender_331_static_blend_shape.obj"]
+dependency_sha256 = ["7ff0b3626976e37fc39b25c9224f4dff925e08212b9f1cb551345ce39faa2193"]
+exporter = "blender"
+encoding = "binary"
+fbx_version = 7400
+capability = ["binary", "blend-shape", "morph-target"]
+reason = "Exercises one static shape channel and target correspondence."
+expected = "valid-source"
+
+[[case]]
+id = "blender-shape-weight-animation-7400-binary"
+logical_scene = "blender-shape-weight-animation"
+source = "data/blender440_shape_weight_anim_7400_binary.fbx"
+source_sha256 = "f96f2d4888931414457a2020bd07e380ec9f4f47ec21c40e71a34f99ccc2dd99"
+dependencies = ["data/blender440_shape_weight_anim_5.obj", "data/blender440_shape_weight_anim_15.obj", "data/blender440_shape_weight_anim_25.obj"]
+dependency_sha256 = ["2177d3281cb5987c0234300a44206d88591f4eff4bb7c1fb19b22509c2069015", "e0e3a9cf6fcda87cc966698a0f232471f7f579eb2b99725ac8fd8743172666e2", "595523ed22dbccef3c35fa294bf0a37cb67fd64cb68c7691e5777af77bec048b"]
+exporter = "blender"
+encoding = "binary"
+fbx_version = 7400
+capability = ["binary", "blend-shape", "animation"]
+reason = "Exercises animated blend-shape weights with three sampled references."
+expected = "valid-source"
+
+[[case]]
+id = "synthetic-truncated-quoted-string"
+logical_scene = "invalid-truncated-quoted-string"
+source = "data/synthetic_truncated_quot_fail_7500_ascii.fbx"
+source_sha256 = "41addcfd65df83120a897cfb9f9c564f6bdd3a77487eb4c794d3013be741c43a"
+dependencies = []
+dependency_sha256 = []
+exporter = "synthetic"
+encoding = "ascii"
+fbx_version = 7500
+capability = ["ascii", "truncated-token", "bounded-failure"]
+reason = "Requires deterministic rejection of a truncated quoted token."
+expected = "invalid-source"
+
+[[case]]
+id = "synthetic-non-finite-values"
+logical_scene = "invalid-non-finite-values"
+source = "data/synthetic_bad_inf_nan_fail_7700_ascii.fbx"
+source_sha256 = "c8a49b218ae1f3fac439a810867285c009eba6c16537cc2de1365b44c7913b87"
+dependencies = []
+dependency_sha256 = []
+exporter = "synthetic"
+encoding = "ascii"
+fbx_version = 7700
+capability = ["ascii", "non-finite-number", "bounded-failure"]
+reason = "Requires explicit rejection of non-finite source values."
+expected = "invalid-source"
+
+[[case]]
+id = "synthetic-broken-skin-cluster"
+logical_scene = "invalid-broken-skin-cluster"
+source = "data/synthetic_broken_cluster_7500_ascii.fbx"
+source_sha256 = "7d8882e5f7d66b75ded527300a5a56bb4ee1b08e3e950e502ad221ea1c163e76"
+dependencies = []
+dependency_sha256 = []
+exporter = "synthetic"
+encoding = "ascii"
+fbx_version = 7500
+capability = ["ascii", "skinning", "broken-reference", "bounded-failure"]
+reason = "Requires a structured source-graph or deformation diagnostic."
+expected = "invalid-source"

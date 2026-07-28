@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "source_revision": "fcc5d6ba444cfd3eb80677dba5e37e493941abe5",
+  "source_repository_inventory": {
+    "fbx_files": 1456,
+    "fbx_bytes": 45918954,
+    "root_data_fbx_files": 683,
+    "nested_fbx_files": 773,
+    "encoding_filename_inventory": {
+      "ascii": 398,
+      "binary": 309,
+      "unclassified_fuzz_or_generated": 749
+    },
+    "version_filename_inventory": {
+      "2000": 2,
+      "3000": 1,
+      "5000": 4,
+      "5800": 8,
+      "6100": 200,
+      "7100": 16,
+      "7200": 4,
+      "7300": 3,
+      "7400": 85,
+      "7500": 180,
+      "7700": 201,
+      "8000": 2
+    },
+    "notes": [
+      "Counts include 24 generated Blender axis cases and 749 nested fuzz cases.",
+      "Filename classification is an acquisition inventory, not semantic validation.",
+      "The separate 4.7 GB ufbx public dataset is outside this denominator."
+    ]
+  },
+  "selection_v1": {
+    "fbx_cases": 23,
+    "logical_scenes": 14,
+    "dependency_files": 13,
+    "ascii_cases": 10,
+    "binary_cases": 13,
+    "exporter_classes": 4,
+    "fbx_versions": [
+      5800,
+      6100,
+      7400,
+      7500,
+      7700
+    ],
+    "expected_valid": 20,
+    "expected_invalid": 3
+  }
+}
