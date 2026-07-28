@@ -101,7 +101,8 @@ Current validation snapshot:
   tests (206 in `ui-tools`, 14 in the corpus runner);
 - `cargo run -p presentation-geometry-corpus -- compare-all` matches all 60
   registered structural goldens;
-- 48 registered cases carry W3C provenance, including four verbatim source/XML
+- 50 SVG cases are registered: 47 retain W3C source provenance and 3 are
+  explicitly local derived diagnostics; these include four verbatim source/XML
   profile exclusions and deliberately reduced, structurally admitted geometry
   fixtures;
 - these results validate Tokimu's bounded presentation-geometry profile, not

@@ -3,9 +3,12 @@
 ## Status
 
 Implementation in progress. The experiment boundary, provider-neutral outline
-contract, font-to-vector adapter, bounded general-fill path, and positioned
-glyph tessellation helper are implemented. A rendered raster-versus-vector
-corpus proof and cost/readability measurements remain open.
+contract, font-to-vector adapter, bounded general-fill path, positioned glyph
+tessellation helper, side-by-side font corpus, and printable glyph-map vector
+proof are implemented. The latest `hello-ui-text-vectors` review found no
+readily discernible glyph defects in the admitted printable profile. Cost,
+small-size readability, native-curve pressure, broader scripts, shaping, and
+promotion remain open; the rendered corpus proof itself is no longer missing.
 
 ## Purpose
 

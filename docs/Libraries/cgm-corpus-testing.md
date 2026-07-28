@@ -2,11 +2,12 @@
 
 ## Status
 
-Acquisition and v1 selection setup are complete. WebCGM 2.1 Test Suite Release
-1.2 is pinned from the dated OASIS archive with provenance, exact archive and
-selected-case hashes, a generated inventory, and a 15-case geometry-first
-selection. No CGM parser, importer, or first-party capability has been admitted
-yet.
+As of 2026-07-28, acquisition and v1 selection setup are complete. WebCGM 2.1
+Test Suite Release 1.2 is pinned from the dated OASIS archive with provenance,
+exact archive and selected-case hashes, a generated inventory, and a 15-case
+geometry-first selection. Offline verification reproduces 955 files, 353 CGM
+files, 341 reference PNGs, and all 15 selected cases. No CGM parser, importer,
+or first-party capability has been admitted yet.
 
 This plan begins after the current SVG presentation-geometry work is stable
 enough that a new producer can exercise the shared boundary without obscuring
@@ -476,7 +477,7 @@ Acceptance criteria:
 
 - [x] Re-running preparation either reproduces the same fixture identity or
       fails with a useful mismatch diagnostic.
-- [ ] The inventory supplies stable denominators for total cases, source CGM
+- [x] The inventory supplies stable denominators for total cases, source CGM
       files, geometry-relevant cases, and encodings.
 - [x] Upstream source files are byte-identical to the pinned archive.
 - [x] The preparation script does not rewrite selected manifests or reviewed
@@ -498,7 +499,7 @@ Deliverables:
 Acceptance criteria:
 
 - [x] Every selected case has one authoritative upstream source.
-- [ ] Selection and coverage counts are reproducible from the inventory.
+- [x] Selection and coverage counts are reproducible from the inventory.
 - [x] Text, raster, DOM, hyperlink, and interaction cases are not reported as
       geometry failures.
 - [x] No derived fixture is counted as another unique upstream case.
@@ -800,6 +801,7 @@ Until then, CGM remains an evidence-producing external format adapter.
 
 ## References
 
+- `docs/Libraries/README.md`
 - `docs/Conversations/cgm corpus tests.md`
 - `docs/Libraries/w3c-svg-corpus-testing.md`
 - `docs/Libraries/khronos-gltf-corpus-testing.md`

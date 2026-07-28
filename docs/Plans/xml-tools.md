@@ -2,11 +2,15 @@
 
 ## Status
 
-Implementation in progress. Slice 0 has an initial local fixture baseline and
-Slice 1 has established the incubating crate, parser-neutral diagnostic core,
-and bounded input contract. The first consumer remains the SVG corpus/import
-path. XML parsing, document modeling, XPath, XSLT, and XSD are separate
-graduation steps rather than one up-front standards implementation.
+Implementation in progress. Slices 1 through 6 now have executable evidence:
+the incubating crate, bounded parser-neutral events, immutable documents, SVG
+migration, hostile-input hardening, a pinned four-case W3C smoke profile, and a
+second independent consumer are implemented. AR-0003 records the current XML
+document boundary. Remaining gates include runtime WASM execution, an
+independent differential implementation with inspectable disagreement
+artifacts, broader standards inventory, and any separately earned XPath, XSLT,
+or XSD extension. Those standards remain independent graduation tracks rather
+than one up-front XML stack.
 
 ### Current Progress
 

@@ -25,21 +25,85 @@ if ($actualHash -ne $expectedHash) {
 }
 
 $sourceRoot = Join-Path $fixtureRoot "upstream\svg"
-$ids = Select-String -LiteralPath $manifestPath -Pattern '^id\s*=\s*"([^"]+)"' |
-    ForEach-Object { $_.Matches[0].Groups[1].Value }
-if ($ids.Count -eq 0) {
+$manifestLines = Get-Content -LiteralPath $manifestPath
+$entries = @()
+$kind = $null
+
+foreach ($line in $manifestLines) {
+    if ($line -match '^\[\[(case|derived_case|local_case)\]\]') {
+        $kind = $Matches[1]
+        continue
+    }
+
+    if ($line -match '^id\s*=\s*"([^"]+)"') {
+        if ($null -eq $kind) {
+            throw "Selection case ID appears before a case section: $line"
+        }
+
+        $entries += [pscustomobject]@{
+            Kind = $kind
+            Id = $Matches[1]
+            Upstream = $null
+        }
+        continue
+    }
+
+    if ($line -match '^upstream\s*=\s*"([^"]+)"') {
+        if ($entries.Count -eq 0) {
+            throw "Selection upstream reference appears before a case ID: $line"
+        }
+
+        $entries[-1].Upstream = $Matches[1]
+    }
+}
+
+if ($entries.Count -eq 0) {
     throw "Selection manifest contains no cases: $manifestPath"
 }
 
-$missing = @($ids | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sourceRoot $_)) })
-if ($missing.Count -gt 0) {
-    throw "Selection references missing upstream SVG files: $($missing -join ', ')"
+$derivedRoot = Join-Path $fixtureRoot "selected\derived"
+$missingSources = @()
+$missingDerived = @()
+$representedSources = @()
+
+foreach ($entry in $entries) {
+    if ($entry.Kind -eq "case") {
+        $representedSources += $entry.Id
+        if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot $entry.Id))) {
+            $missingSources += $entry.Id
+        }
+        continue
+    }
+
+    if ($entry.Kind -eq "derived_case") {
+        if ([string]::IsNullOrWhiteSpace($entry.Upstream)) {
+            throw "Derived case '$($entry.Id)' does not record an upstream source"
+        }
+        if ($entry.Upstream -ne "derived-local") {
+            $representedSources += $entry.Upstream
+            if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot $entry.Upstream))) {
+                $missingSources += $entry.Upstream
+            }
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $derivedRoot $entry.Id))) {
+            $missingDerived += $entry.Id
+        }
+    }
 }
 
-$svgCount = @(Get-ChildItem -LiteralPath $sourceRoot -File -Filter "*.svg").Count
+if ($missingSources.Count -gt 0) {
+    $uniqueMissing = $missingSources | Sort-Object -Unique
+    throw "Selection references missing upstream SVG files: $($uniqueMissing -join ', ')"
+}
+
+if ($missingDerived.Count -gt 0) {
+    throw "Selection references missing derived SVG files: $($missingDerived -join ', ')"
+}
+
+$svgCount = @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter "*.svg").Count
 $pngRoot = Join-Path $fixtureRoot "upstream\png"
 $pngCount = if (Test-Path -LiteralPath $pngRoot) {
-    @(Get-ChildItem -LiteralPath $pngRoot -File -Filter "*.png").Count
+    @(Get-ChildItem -LiteralPath $pngRoot -Recurse -File -Filter "*.png").Count
 } else {
     0
 }
@@ -49,4 +113,7 @@ Write-Host "  fixture: $fixtureRoot"
 Write-Host "  archive sha256: $actualHash"
 Write-Host "  upstream SVG files: $svgCount"
 Write-Host "  upstream PNG files: $pngCount"
-Write-Host "  selected SVG cases: $($ids.Count)"
+Write-Host "  selected manifest entries: $($entries.Count)"
+Write-Host "  source cases: $(@($entries | Where-Object Kind -eq 'case').Count)"
+Write-Host "  derived cases: $(@($entries | Where-Object Kind -eq 'derived_case').Count)"
+Write-Host "  unique represented conformance SVGs: $(@($representedSources | Sort-Object -Unique).Count)"

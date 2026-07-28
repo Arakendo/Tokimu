@@ -13,8 +13,18 @@ than silently treating the plan as authority.
 - [Font Outlines Through Vector Presentation](font-outline-vector-presentation.md)
 - [Presentation Geometry Corpus Harness](presentation-geometry-corpus-harness.md)
 - [Native Execution and Multithreading](native-execution-and-multithreading.md)
-- [Networking and Transport Spike](networking-and-transport.md)
 - [XML Tools Incubation Library](xml-tools.md)
+
+## Completed Spikes
+
+- [Networking and Transport Spike](networking-and-transport.md)
+
+## External Corpus Plans
+
+External corpus acquisition, coverage, and validation plans live under
+[`docs/Libraries`](../Libraries/README.md). That index records their measured
+status and common quality requirements. Implementation plans should link to the
+relevant library document instead of duplicating mutable fixture counts.
 
 ## Plan Requirements
 

@@ -22,10 +22,28 @@ independent, standards-based input.
 glTF and GLB are source formats. They must not become Tokimu's canonical model
 representation.
 
+## Goals
+
+- Preserve a pinned, dependency-complete Khronos selection.
+- Validate containers, accessors, topology, scenes, transforms, and selected
+  animation evidence at distinct stages.
+- Lower source data into provider-neutral evidence before renderer submission.
+- Compare future glTF and FBX results without either format defining the model.
+- Report logical-model, source-variant, feature, and executable coverage
+  separately.
+
+## Non-Goals
+
+- Complete glTF conformance or extension coverage.
+- Making `gltf-corpus` a production importer by default.
+- Exposing glTF JSON, accessor, extension, or provider types to renderers.
+- Treating a plausible render as proof of source or transform correctness.
+- Admitting a first-party model capability from one importer alone.
+
 ## Current Status
 
-As of 2026-07-27, the first source-structural slice is acquired and pinned to
-Khronos `glTF-Sample-Assets` revision
+As of 2026-07-28, the first source-structural and bounded-decoder slices are
+implemented and pinned to Khronos `glTF-Sample-Assets` revision
 `2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf`.
 
 | Measure | Count | Percentage | Meaning |
@@ -34,8 +52,9 @@ Khronos `glTF-Sample-Assets` revision
 | Logical upstream models represented | 6 | Denominator inventory pending | `Triangle`, `Box`, `BoxTextured`, `MeshPrimitiveModes`, `MultipleScenes`, and `SimpleMeshes` are registered |
 | Source variants structurally inspected | 6 / 6 selected | **100% of v1 selection** | JSON/external-buffer and GLB framing are validated; MeshPrimitiveModes records every core primitive mode |
 | Variants with geometry accessors decoded | 5 / 6 selected | **83% of v1 selection** | Triangle geometry decodes for five cases; MeshPrimitiveModes stops at a verified unsupported-topology boundary rather than silently dropping modes |
-| Variants lowered into Tokimu model/mesh data | 0 / 6 | **0%** | Canonical model and mesh lowering remain unimplemented |
-| Focused GLB boundary examples | 1 | Not a corpus-coverage metric | `hello-glb` proves source identity and renderer ownership boundaries |
+| Variants lowered into a shared first-party Tokimu model | 0 / 6 | **0%** | `DecodedModel` remains corpus-owned incubation evidence |
+| Focused GLB boundary examples | 2 | Not a corpus-coverage metric | `hello-glb` adapts a Khronos box into renderer-neutral `Mesh`; `hello-hole-punch` exercises local meshopt and animation evidence |
+| Focused `gltf-corpus` tests | 17 / 17 | **100% of current tests** | 9 unit tests and 8 Khronos-selection integration tests |
 
 The official importer progress number is therefore:
 
@@ -43,7 +62,7 @@ The official importer progress number is therefore:
 6 source variants structurally inspected
 5 source variants decoded into corpus-owned primitive evidence
 1 source variant stops at an explicit unsupported-topology boundary
-0 source variants lowered into Tokimu model or mesh data
+0 source variants lowered into a shared first-party Tokimu model capability
 ```
 
 A repository-wide percentage cannot be calculated honestly until the logical
@@ -322,13 +341,110 @@ finite local transforms, and deterministic world-transform traversals.
 `MeshPrimitiveModes` additionally records all seven core primitive modes at
 the source-inspection boundary and proves that the first unsupported mode
 (`POINTS`) emits an explicit diagnostic rather than silently disappearing. The
-decoder still does not produce Tokimu model, scene, or mesh data. The bounded
+decoder still does not produce a shared first-party Tokimu model or scene
+resource; examples adapt its corpus-owned evidence into the current `Mesh`
+contract. The bounded
 `hole_punch1.glb` animation corpus additionally proves a narrow
 `EXT_meshopt_compression` importer profile: `ATTRIBUTES` and `TRIANGLES`
 views, plus the `EXPONENTIAL` post-filter, reconstruct logical GLB buffers
 before ordinary accessor decoding. It also admits finite, strictly ordered
 linear translation tracks as decoded importer evidence. Meshopt remains an
 external importer mechanism; the renderer and runtime do not depend on it.
+
+## Implementation Slices
+
+### Slice 0: Acquire And Select
+
+Deliverables:
+
+- [x] Pin a Khronos revision and preserve selected model subtrees.
+- [x] Record provenance, dependencies, reasons, and expected boundaries.
+- [x] Add offline fixture verification and a feature matrix.
+- [ ] Inventory every logical model and source variant at the pinned revision.
+
+Acceptance criteria:
+
+- [x] Selected bytes and dependencies verify without network access.
+- [x] Logical models and source variants are reported separately.
+- [ ] Repository-wide coverage can be reproduced from a pinned inventory.
+
+### Slice 1: Inspect Containers And Documents
+
+Deliverables:
+
+- [x] Validate glTF JSON and GLB headers, lengths, and chunk ordering.
+- [x] Inventory buffers, views, accessors, scenes, nodes, meshes, materials,
+      textures, images, extensions, and primitive modes.
+- [x] Preserve unsupported topology as a structured boundary.
+
+Acceptance criteria:
+
+- [x] All six selected variants reach deterministic structural inspection.
+- [x] Malformed references and container bounds fail explicitly.
+- [x] Inspection performs no rendering.
+
+### Slice 2: Decode Bounded Geometry And Scenes
+
+Deliverables:
+
+- [x] Decode bounded positions, normals, UVs, scalar indices, and triangle
+      primitives.
+- [x] Decode roots, child links, TRS or matrix transforms, and world traversal.
+- [x] Validate finite values, counts, bounds, strides, and index ranges.
+- [x] Decode five selected variants; reject unsupported primitive modes.
+
+Acceptance criteria:
+
+- [x] Five selected cases produce deterministic corpus-owned model evidence.
+- [x] Scene cycles and invalid references fail before lowering.
+- [x] glTF-native objects do not enter renderer contracts.
+
+### Slice 3: Prove Renderer And Animation Boundaries
+
+Deliverables:
+
+- [x] Adapt the Khronos box into the current renderer-neutral `Mesh`.
+- [x] Exercise multiple meshes and transforms with `hello-hole-punch`.
+- [x] Decode one narrow linear translation-track profile.
+- [x] Exercise one bounded `EXT_meshopt_compression` profile.
+
+Acceptance criteria:
+
+- [x] Rendering receives Tokimu mesh data rather than glTF objects.
+- [x] Animation state and held clip results remain application/runtime owned.
+- [x] Meshopt remains importer-side and optional.
+
+### Slice 4: Establish Canonical Model Evidence
+
+Deliverables:
+
+- [ ] Define provider-neutral model, node, mesh-reference, material-reference,
+      and animation artifacts shared by more than one importer.
+- [ ] Lower selected glTF cases into those artifacts.
+- [ ] Compare equivalent glTF and FBX cases without source-format fields.
+- [ ] Emit deterministic stage reports and fingerprints.
+
+Acceptance criteria:
+
+- [ ] At least two independent importers pressure every proposed shared field.
+- [ ] Source transforms and extensions remain inspectable before normalization.
+- [ ] No first-party model capability is admitted solely from glTF evidence.
+
+### Slice 5: Expand And Harden
+
+Deliverables:
+
+- [ ] Add small batches for textures/materials, animation forms, skinning,
+      morph targets, sparse accessors, and selected extensions.
+- [ ] Add malformed, unsupported, and differential cases.
+- [ ] Record runtime, allocation, and artifact-size budgets.
+
+Acceptance criteria:
+
+- [ ] Every batch has a named feature and owning diagnostic stage.
+- [ ] Unsupported cases remain visible and filterable.
+- [ ] Passing counts are not substituted for pinned-revision coverage.
+- [ ] Structural validation remains headless and deterministic.
 
 ## Current Exclusions
 
@@ -406,8 +522,33 @@ Repeated pressure from glTF, OBJ, CAD, procedural geometry, and future physics
 meshes may justify shared first-party model or mesh contracts. That decision
 requires architectural review; the corpus itself does not admit a capability.
 
+## Completion Criteria
+
+The bounded glTF corpus is healthy when:
+
+- fixture identity and dependencies verify offline;
+- selected cases have deterministic structural and decoder results;
+- malformed and unsupported features stop at named stages;
+- source variants, logical models, examples, and passing tests are reported
+  separately;
+- renderer submission receives only Tokimu-owned geometry;
+- broader coverage can expand without making glTF the canonical model.
+
+## Graduation Criteria
+
+Promotion beyond `examples/lib-example/gltf-corpus` requires:
+
+- at least one non-example consumer;
+- importer-neutral model contracts pressured by another source format;
+- stable lifecycle, diagnostics, and asset-reference semantics;
+- no glTF parser, extension, or provider types in public Tokimu model APIs;
+- an architectural review that distinguishes importer admission from model,
+  mesh, material, and animation capability admission.
+
 ## References
 
+- `docs/Libraries/README.md`
+- `docs/Libraries/fbx-corpus-testing.md`
 - `docs/Libraries/w3c-svg-corpus-testing.md`
 - `docs/testing-strategy.md`
 - `docs/roadmap.md`

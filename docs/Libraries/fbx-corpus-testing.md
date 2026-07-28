@@ -2,10 +2,11 @@
 
 ## Status
 
-Corpus acquisition and selection v1 are complete. Tokimu now contains 23
-checksum-pinned FBX cases representing 14 logical scenes from the `ufbx`
-repository at tag `v0.23.0`. Tokimu does not yet contain an FBX decoder,
-importer, or admitted FBX capability.
+As of 2026-07-28, corpus acquisition and selection v1 are complete. Tokimu now
+contains 23 checksum-pinned FBX cases representing 14 logical scenes from the
+`ufbx` repository at tag `v0.23.0`, with 13 verified external dependencies.
+Tokimu does not yet contain an FBX decoder, importer, or admitted FBX
+capability.
 
 Unlike SVG and glTF, FBX does not appear to have a public standards-owned
 conformance suite with stable expected results. The first work is therefore to
@@ -890,6 +891,7 @@ Until then, FBX remains an evidence-producing external format adapter.
 
 ## References
 
+- `docs/Libraries/README.md`
 - `docs/Conversations/FBX Corpus Tests.md`
 - `docs/Libraries/khronos-gltf-corpus-testing.md`
 - `docs/Libraries/cgm-corpus-testing.md`

@@ -1,5 +1,14 @@
 # W3C SVG Corpus Testing
 
+## Status
+
+Active and structurally validated as of 2026-07-28. The pinned archive,
+selection manifest, derived fixtures, focused tests, and all 60 presentation
+geometry goldens verify locally. The manifest contains 62 entries representing
+40 unique upstream conformance documents; 50 SVG cases are currently
+registered in the runner. This remains a bounded geometry profile, not SVG 1.1
+conformance.
+
 ## Purpose
 
 Tokimu uses a deliberately selected subset of the W3C SVG 1.1 Second Edition
@@ -18,6 +27,23 @@ This is an engineering corpus, not a claim of complete W3C conformance. Its
 purpose is to expose parser, lowering, topology, tessellation, and renderer
 boundary problems using independent, standards-based input.
 
+## Goals
+
+- Preserve a pinned, verifiable standards corpus.
+- Add high-return geometry cases in small, diagnosable batches.
+- Keep XML, SVG semantics, vector geometry, and rendering failures distinct.
+- Validate structural artifacts before relying on pixels.
+- Report source coverage, selected cases, and runner status separately.
+
+## Non-Goals
+
+- Complete SVG 1.1 browser or W3C conformance.
+- Making SVG Tokimu's canonical vector model.
+- Treating reference images as structural truth.
+- Admitting DOM, scripting, animation, text, filters, or every paint feature
+  through geometry work.
+- Bulk-registering fixtures whose failures cannot be localized.
+
 ## Upstream Fixtures
 
 The verbatim upstream fixture set is stored at:
@@ -26,7 +52,9 @@ The verbatim upstream fixture set is stored at:
 third-party/fixtures/w3c-svg-1.1-2nd-edition/upstream/
 ```
 
-The current upstream archive contains **1,139 SVG documents**.
+The preserved archive contains **1,139 SVG files** across its conformance
+documents, harness, resources, and support material. The coverage denominator
+is the **525 conformance SVG documents** under `upstream/svg`.
 
 The selected cases and their provenance are recorded in:
 
@@ -44,19 +72,25 @@ The upstream copy remains intact. Derived fixtures are intentionally reduced
 to the geometry needed to test a capability, so unsupported document-level
 features do not get mistaken for geometry failures.
 
+Archive identity and W3C copyright material are recorded in
+`provenance.json` and `LICENSES/`. Redistribution must preserve that material;
+the existence of a public test URL is not treated as a license substitute.
+
 ## Current Coverage
 
-As of 2026-07-27:
+As of 2026-07-28:
 
 | Measure | Count | Percentage | Meaning |
 | --- | ---: | ---: | --- |
-| Unique upstream SVG documents represented | 37 / 1,139 | **3.25%** | The clean fixture-coverage metric |
-| Registered W3C-labelled corpus cases | 50 / 1,139 | **4.39%** | Includes derived cases and four local diagnostic cases; not a unique-file metric |
+| Unique upstream conformance documents represented by the manifest | 40 / 525 | **7.62%** | The clean upstream fixture-coverage metric |
+| Selection manifest entries | 62 | Not a coverage percentage | 16 source entries and 46 derived entries |
+| Registered SVG runner cases | 50 | Not a coverage percentage | 47 cases retain upstream provenance and 3 are local derived diagnostics |
+| Registered structural goldens, all producers | 60 / 60 | **100% of reviewed goldens** | Includes glyph, synthetic, Lucide, SVG, and UI cases |
 
-The **3.25% figure is the official progress number** for upstream fixture
-coverage. The 50 registered cases are useful for tracking the corpus runner,
-but they must not be reported as 40 unique upstream documents because some
-cases are derived from the same source and some are local derived fixtures.
+The **7.62% figure is the official progress number** for upstream fixture
+coverage. Manifest entries, runner cases, and passing goldens are useful
+operational measures, but none may be substituted for unique upstream
+coverage.
 
 The current registry is defined in:
 
@@ -114,6 +148,12 @@ document coverage.
 
 ## Validation Command
 
+Verify archive identity, upstream references, and derived fixture presence:
+
+```powershell
+pwsh -NoProfile -File .\scripts\verify-w3c-svg-fixtures.ps1
+```
+
 Run the corpus library tests with:
 
 ```powershell
@@ -130,6 +170,12 @@ Build and run the corpus example when visual or artifact output is needed:
 
 ```powershell
 cargo run -p presentation-geometry-corpus
+```
+
+Compare every reviewed structural golden without rewriting it:
+
+```powershell
+cargo run -p presentation-geometry-corpus -- compare-all
 ```
 
 Structural artifacts are authoritative for geometry validation. Saved CPU
@@ -160,7 +206,7 @@ total upstream SVG documents
 For the current selection:
 
 ```text
-37 / 1,139 x 100 = 3.25%
+40 / 525 x 100 = 7.62%
 ```
 
 Do not use the number of passing cases as a substitute for coverage. A larger
@@ -229,3 +275,49 @@ Renderer
 If repeated independent consumers demonstrate that a boundary is stable, the
 finding can proceed through architectural review before any capability is
 promoted or extracted into a crate.
+
+## Completion Criteria
+
+The current corpus profile is considered healthy when:
+
+- the archive hash and all manifest references verify offline;
+- every admitted source, derived, and local case has an explicit classification;
+- structural tests and reviewed goldens pass without rewriting artifacts;
+- unsupported SVG semantics stop at a named diagnostic boundary;
+- unique upstream coverage, manifest entries, and runner cases are reported
+  separately;
+- ordinary validation requires no network, window, or GPU.
+
+## Next Coverage Targets
+
+Highest-return additions remain:
+
+1. transformed and non-uniform stroke-width behavior;
+2. nested and multi-contour clipping;
+3. more independent fill-rule and self-intersection documents;
+4. viewport units, physical sizing, and preserve-aspect-ratio combinations;
+5. paint-server boundaries such as gradients, admitted only after geometry and
+   compositing ownership are explicit.
+
+## Graduation Criteria
+
+The SVG adapter or shared geometry extracted from this corpus may graduate
+beyond example-side incubation only when:
+
+- at least one non-example consumer needs the stable contract;
+- another independent geometry producer preserves the same ownership boundary;
+- SVG document semantics and XML parser types remain outside vector and
+  renderer APIs;
+- diagnostics, lifecycle, and unsupported-feature policy are stable;
+- Architectural Review explicitly recommends admission.
+
+The W3C corpus validates the boundary but cannot admit a capability by itself.
+
+## References
+
+- `docs/Libraries/README.md`
+- `docs/Plans/presentation-geometry-corpus-harness.md`
+- `docs/Plans/xml-tools.md`
+- `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
+- `third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/selection-v1.toml`
+- `third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/feature-matrix.md`

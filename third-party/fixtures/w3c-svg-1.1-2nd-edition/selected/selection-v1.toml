@@ -279,7 +279,7 @@ expected = "expected-invalid-input"
 
 [[derived_case]]
 id = "shapes-line-02-stroke-geometry.svg"
-upstream = "shapes-line-02-t.svg"
+upstream = "shapes-line-02-f.svg"
 capability = ["line", "polyline", "path", "stroke", "caps", "joins"]
 reason = "Preserves line, polyline, and curved open-path stroke intent as the first explicit stroke-expansion corpus boundary."
 expected = "structural-pass"
