@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/coords-trans-04-stroke-geometry",
+    "input_hash": "fnv1a64:3e8b48abb2485eea",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/coords-trans-04-stroke-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill+stroke-v1",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.2518844,
+      -0.12171552
+    ],
+    [
+      0.23276575,
+      0.21458335
+    ]
+  ],
+  "triangle_count": 53,
+  "degenerate_triangles": 0,
+  "total_area": 0.019350879,
+  "canonical_triangle_hash": "fnv1a64:8516566292f27b9a"
+}

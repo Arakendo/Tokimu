@@ -314,6 +314,48 @@ fn vector_document_adapter_preserves_open_and_multiple_contours() {
 }
 
 #[test]
+fn svg_fill_view_implicitly_closes_open_subpaths_without_changing_strokes() {
+    let records = parse_svg_document_vector_records(
+        r#"<svg><polyline points="0,0 12,12 24,0" fill="black" stroke="black"/></svg>"#,
+        8,
+        [0.0, 0.0, 24.0, 24.0],
+    )
+    .expect("filled polyline should parse");
+
+    assert_eq!(records.len(), 1);
+    assert!(!records[0].path.contours[0].closed);
+    assert!(records[0].path_for_fill().contours[0].closed);
+}
+
+#[test]
+fn svg_fill_view_omits_open_subpaths_that_cannot_enclose_area() {
+    let records = parse_svg_document_vector_records(
+        r#"<svg><line x1="0" y1="0" x2="24" y2="24" stroke="black"/></svg>"#,
+        8,
+        [0.0, 0.0, 24.0, 24.0],
+    )
+    .expect("line should parse with its SVG default fill intent");
+
+    assert!(records[0].fill);
+    assert!(!records[0].path.contours[0].closed);
+    assert_eq!(records[0].path.contours[0].points.len(), 2);
+    assert!(records[0].path_for_fill().contours.is_empty());
+}
+
+#[test]
+fn vector_records_accept_the_bounded_w3c_named_color_palette() {
+    let records = parse_svg_document_vector_records(
+        r#"<svg><path d="M0 0H1V1H0Z" fill="gold"/><path d="M2 0H3V1H2Z" fill="lime"/><path d="M4 0H5V1H4Z" fill="purple"/><path d="M6 0H7V1H6Z" fill="orange"/><path d="M8 0H9V1H8Z" fill="cyan"/><path d="M10 0H11V1H10Z" fill="magenta"/><path d="M12 0H13V1H12Z" fill="yellow"/></svg>"#,
+        8,
+        [0.0, 0.0, 13.0, 1.0],
+    )
+    .expect("the selected W3C named colors should remain bounded but supported");
+
+    assert_eq!(records.len(), 7);
+    assert!(records.iter().all(|record| record.fill));
+}
+
+#[test]
 fn vector_document_adapter_handles_primitive_elements() {
     let paths = parse_svg_document_vector_paths(
             r#"<svg><circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="6" ry="4"/><rect x="2" y="3" width="5" height="6"/><line x1="0" y1="0" x2="24" y2="24"/></svg>"#,
@@ -545,6 +587,37 @@ fn vector_records_preserve_bounded_solid_paint_and_current_color() {
     assert_eq!(
         records[1].stroke_color,
         Some(SvgColor::Rgba([1.0, 0.0, 0.0, 1.0]))
+    );
+}
+
+#[test]
+fn inherited_current_color_re_resolves_after_a_descendant_color_override() {
+    let records = parse_svg_document_vector_records(
+        r#"<svg><g color="green" fill="currentColor" stroke="currentColor">
+                <path d="M0 0 L2 0 L2 2 Z"/>
+                <path color="blue" d="M3 0 L5 0 L5 2 Z"/>
+            </g></svg>"#,
+        8,
+        [0.0, 0.0, 10.0, 10.0],
+    )
+    .expect("currentColor should resolve after inherited color changes");
+
+    assert_eq!(records.len(), 2);
+    assert_eq!(
+        records[0].fill_color,
+        Some(SvgColor::Rgba([0.0, 0.5, 0.0, 1.0]))
+    );
+    assert_eq!(
+        records[0].stroke_color,
+        Some(SvgColor::Rgba([0.0, 0.5, 0.0, 1.0]))
+    );
+    assert_eq!(
+        records[1].fill_color,
+        Some(SvgColor::Rgba([0.0, 0.0, 1.0, 1.0]))
+    );
+    assert_eq!(
+        records[1].stroke_color,
+        Some(SvgColor::Rgba([0.0, 0.0, 1.0, 1.0]))
     );
 }
 
@@ -862,7 +935,7 @@ fn clip_path_references_report_missing_and_multiple_geometry() {
 #[test]
 fn local_use_reuses_a_previously_defined_geometry_record() {
     let records = parse_svg_document_vector_records(
-        r##"<svg viewBox="0 0 10 10">
+        r##"<svg xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10">
                 <defs><rect id="box" x="1" y="2" width="4" height="3"/></defs>
                 <use href="#box"/>
                 <rect x="1" y="2" width="4" height="3"/>
@@ -890,6 +963,39 @@ fn local_xlink_use_reuses_a_geometric_definition() {
 
     assert_eq!(records.len(), 1);
     assert!(records[0].path.bounds().is_some());
+}
+
+#[test]
+fn local_use_applies_x_and_y_placement_without_mutating_definition_style() {
+    let records = parse_svg_document_vector_records(
+        r##"<svg xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10">
+                <defs><rect id="box" x="1" y="2" width="4" height="3"/></defs>
+                <use href="#box" x="2" y="3"/>
+                <use xlink:href="#box" x="5" y="1"/>
+            </svg>"##,
+        8,
+        [0.0, 0.0, 10.0, 10.0],
+    )
+    .expect("local use placement should lower");
+
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0].source_bounds, Some(([3.0, 5.0], [7.0, 8.0])));
+    assert_eq!(records[1].source_bounds, Some(([6.0, 3.0], [10.0, 6.0])));
+    let assert_bounds = |actual: Option<([f32; 2], [f32; 2])>, expected: [[f32; 2]; 2]| {
+        let (min, max) = actual.expect("placed local use should retain bounds");
+        for (actual, expected) in [min, max].into_iter().zip(expected) {
+            assert!(
+                (actual[0] - expected[0]).abs() < 0.0001,
+                "actual={actual:?}, expected={expected:?}"
+            );
+            assert!(
+                (actual[1] - expected[1]).abs() < 0.0001,
+                "actual={actual:?}, expected={expected:?}"
+            );
+        }
+    };
+    assert_bounds(records[0].path.bounds(), [[-0.2, -0.3], [0.2, 0.0]]);
+    assert_bounds(records[1].path.bounds(), [[0.1, -0.1], [0.5, 0.2]]);
 }
 
 #[test]

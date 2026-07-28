@@ -4,7 +4,7 @@ use crate::{
     fixture_paths::find_lucide_corpus_root,
     geometry::{format_mesh_summary, validate_mesh},
     reports::failed_stage,
-    svg_support::{summarize_paths, tessellate_closed_fills},
+    svg_support::{summarize_paths, tessellate_svg_fills},
     xml_stage::inspect_xml_stage,
     CaseReport, CorpusCase, CorpusStage, StageReport, StageStatus, SvgCase,
 };
@@ -147,7 +147,7 @@ pub fn run_svg_case(case: SvgCase) -> CaseReport {
         status: StageStatus::Ready,
         summary: summarize_paths(case.description, &paths),
     });
-    let fill_meshes = tessellate_closed_fills(&records, "SVG");
+    let fill_meshes = tessellate_svg_fills(&records, "SVG");
     let validation = validate_mesh(&fill_meshes.triangles);
     report.diagnostics.extend(fill_meshes.diagnostics);
     if fill_meshes.fill_paths == 0 {

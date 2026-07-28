@@ -36,6 +36,38 @@ impl SvgVectorRecord {
             source_span,
         }
     }
+
+    /// Returns the path as SVG fill painting sees it.
+    ///
+    /// SVG fills implicitly close every open subpath with enough distinct
+    /// vertices to enclose area, while strokes retain the source path's open
+    /// endpoints so cap semantics remain observable. A `line` therefore keeps
+    /// its default fill intent but supplies no fill geometry, as SVG painting
+    /// cannot fill a two-point subpath. The provider-neutral `VectorPath`
+    /// keeps source topology and this adapter supplies the paint-specific view.
+    pub fn path_for_fill(&self) -> crate::VectorPath {
+        crate::VectorPath::new(
+            self.path
+                .contours
+                .iter()
+                .filter(|contour| has_three_distinct_points(&contour.points))
+                .map(|contour| crate::VectorContour::new(contour.points.clone(), true))
+                .collect(),
+        )
+    }
+}
+
+fn has_three_distinct_points(points: &[[f32; 2]]) -> bool {
+    let mut distinct = Vec::with_capacity(3);
+    for point in points {
+        if !distinct.contains(point) {
+            distinct.push(*point);
+            if distinct.len() == 3 {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// The limited inherited SVG presentation profile currently admitted by the
@@ -47,6 +79,11 @@ pub(super) struct SvgPresentationState {
     pub(super) fill_color: Option<SvgColor>,
     pub(super) stroke_color: Option<SvgColor>,
     pub(super) color: SvgColor,
+    // Keep `currentColor` as inherited paint intent until a record is emitted.
+    // A descendant may change `color` without restating its inherited fill or
+    // stroke, which must then resolve against the descendant's color value.
+    pub(super) fill_uses_current_color: bool,
+    pub(super) stroke_uses_current_color: bool,
     pub(super) fill_opacity: f32,
     pub(super) stroke_opacity: f32,
     pub(super) opacity: f32,
@@ -69,6 +106,8 @@ impl Default for SvgPresentationState {
             fill_color: Some(SvgColor::Rgba([0.0, 0.0, 0.0, 1.0])),
             stroke_color: None,
             color: SvgColor::Rgba([0.0, 0.0, 0.0, 1.0]),
+            fill_uses_current_color: false,
+            stroke_uses_current_color: false,
             fill_opacity: 1.0,
             stroke_opacity: 1.0,
             opacity: 1.0,
@@ -91,18 +130,26 @@ impl SvgPresentationState {
         if let Some(value) = svg_attribute_value(attributes, "color") {
             if value != "inherit" {
                 next.color = parse_svg_color(value)?;
+                if next.fill_uses_current_color {
+                    next.fill_color = Some(next.color);
+                }
+                if next.stroke_uses_current_color {
+                    next.stroke_color = Some(next.color);
+                }
             }
         }
         if let Some(value) = svg_attribute_value(attributes, "fill") {
             if value != "inherit" {
                 next.fill_color = parse_svg_paint(value, next.color)?;
                 next.fill = next.fill_color.is_some();
+                next.fill_uses_current_color = value.eq_ignore_ascii_case("currentcolor");
             }
         }
         if let Some(value) = svg_attribute_value(attributes, "stroke") {
             if value != "inherit" {
                 next.stroke_color = parse_svg_paint(value, next.color)?;
                 next.stroke = next.stroke_color.is_some();
+                next.stroke_uses_current_color = value.eq_ignore_ascii_case("currentcolor");
             }
         }
         if let Some(value) = svg_attribute_value(attributes, "fill-opacity") {
@@ -222,6 +269,15 @@ fn parse_svg_color(value: &str) -> Result<SvgColor, String> {
         "red" => [1.0, 0.0, 0.0, 1.0],
         "green" => [0.0, 0.5, 0.0, 1.0],
         "blue" => [0.0, 0.0, 1.0, 1.0],
+        // Keep this intentionally bounded, but cover the basic CSS color names
+        // used by the pinned W3C-derived geometry fixtures.
+        "yellow" => [1.0, 1.0, 0.0, 1.0],
+        "lime" => [0.0, 1.0, 0.0, 1.0],
+        "cyan" => [0.0, 1.0, 1.0, 1.0],
+        "magenta" => [1.0, 0.0, 1.0, 1.0],
+        "purple" => [0.5, 0.0, 0.5, 1.0],
+        "orange" => [1.0, 165.0 / 255.0, 0.0, 1.0],
+        "gold" => [1.0, 215.0 / 255.0, 0.0, 1.0],
         "transparent" => [0.0, 0.0, 0.0, 0.0],
         value if value.len() == 4 && value.starts_with('#') => [
             hex_component(&value[1..2])?,

@@ -21,13 +21,13 @@
     },
     {
       "stage": "vector",
-      "status": "ready",
-      "summary": "W3C-derived odd polygon coordinate handling paths=4 contours=4 points=14 closed_contours=2"
+      "status": "expected-failure",
+      "summary": "expected invalid SVG input: SVG semantic error at Some(XmlSpan { source: XmlSourceId(2), start: 127, end: 209 }): SVG polyline points attribute requires an even number of coordinates"
     },
     {
       "stage": "mesh",
-      "status": "ready",
-      "summary": "closed_paths=2 open_paths=2 triangles=2 vertices=6 finite=true complete=true degenerate=0 area=0.040509"
+      "status": "expected-failure",
+      "summary": "not attempted after expected vector-boundary failure"
     }
   ],
   "diagnostics": []

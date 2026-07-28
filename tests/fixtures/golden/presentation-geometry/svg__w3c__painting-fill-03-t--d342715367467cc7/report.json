@@ -22,12 +22,12 @@
     {
       "stage": "vector",
       "status": "expected-failure",
-      "summary": "expected SVG-profile exclusion: SVG semantic error at Some(XmlSpan { source: XmlSourceId(2), start: 1867, end: 1873 }): SVG element 'defs' is outside the admitted importer profile"
+      "summary": "expected SVG-profile exclusion: SVG semantic error at Some(XmlSpan { source: XmlSourceId(2), start: 2179, end: 2214 }): SVG element 'text' is outside the admitted importer profile"
     },
     {
       "stage": "mesh",
       "status": "expected-failure",
-      "summary": "not attempted after expected SVG-profile exclusion"
+      "summary": "not attempted after expected vector-boundary failure"
     }
   ],
   "diagnostics": []

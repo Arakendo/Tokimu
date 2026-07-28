@@ -75,7 +75,7 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
     let records = match parse_svg_document_vector_records_from_xml_events(
         &xml.events,
         12,
-        SvgViewportSource::Caller([0.0, 0.0, 480.0, 360.0]),
+        SvgViewportSource::DocumentViewBox,
     ) {
         Ok(records) => records,
         Err(error)

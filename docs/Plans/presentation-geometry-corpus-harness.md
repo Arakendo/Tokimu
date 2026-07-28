@@ -54,6 +54,59 @@ hardcoded clamp, with a sharp-join regression proving that the style changes
 the produced geometry. Round joins use a signed shortest arc so right-hand
 turns do not accidentally sweep the long way around.
 
+The W3C-derived `paths-data-10` reduction now complements the existing open
+stroke fixture with six triangular paths: three open paths and three explicitly
+closed paths. It records butt, round, and square caps alongside round, bevel,
+and miter joins in one structural case. Its reviewed mesh contains six fill
+paths, six stroke paths, and 98 finite non-degenerate triangles. This is
+focused evidence for the current stroke boundary, not a claim of complete SVG
+stroke conformance.
+
+The W3C-derived `shapes-polyline-02` reduction found and closed an SVG paint
+semantic gap: open `polyline` and `path` contours remain open for stroke caps,
+but must be implicitly closed for fill painting. `SvgVectorRecord::path_for_fill`
+now supplies that fill-only view above provider-neutral `VectorPath`. The
+reviewed case retains four open source contours while producing two fill paths,
+four stroke paths, and 32 finite non-degenerate triangles. This keeps SVG
+semantics in lowering rather than leaking them into generic vector geometry.
+
+The related `shapes-line-01` case established the complementary rule: SVG
+elements can retain inherited fill intent while still supplying no fill geometry
+when their subpaths have fewer than three distinct points. The fill-only view
+now omits those non-enclosing contours, so line primitives do not create false
+fill-tessellation diagnostics or artifact failures; their stroke geometry
+remains independently observable. The reviewed W3C registry is currently 48
+cases, with `compare-all` matching every structural golden snapshot.
+
+SVG vector artifacts now record bounded fill, stroke, opacity, and stroke-width
+intent by source record beside contours and mesh evidence. This keeps imported
+paint semantics observable without claiming SVG compositing in the geometry or
+renderer layers. The new W3C-derived `painting-fill-04` reduction proves nested
+fill, stroke, and stroke-width inheritance independently of the earlier group
+fixture. The W3C-derived `painting-fill-02` reduction independently proves
+that `fill="currentColor"` resolves from inherited and child-local `color`
+values before the vector artifact records paint intent.
+The W3C-derived `painting-stroke-08` reduction records an in-range
+`stroke-opacity` sequence as paint intent only; it deliberately does not claim
+alpha compositing or out-of-range opacity clamping.
+
+The bounded named-color profile now also admits the basic CSS names exercised
+by the selected W3C reductions: `yellow`, `lime`, `cyan`, `magenta`, `purple`,
+`orange`, and `gold`. This remains an explicit fixture-driven subset rather
+than a claim of general CSS color parsing.
+
+Current validation snapshot:
+
+- `cargo test -p ui-tools -p presentation-geometry-corpus` passes 220 focused
+  tests (206 in `ui-tools`, 14 in the corpus runner);
+- `cargo run -p presentation-geometry-corpus -- compare-all` matches all 60
+  registered structural goldens;
+- 48 registered cases carry W3C provenance, including four verbatim source/XML
+  profile exclusions and deliberately reduced, structurally admitted geometry
+  fixtures;
+- these results validate Tokimu's bounded presentation-geometry profile, not
+  SVG 1.1 conformance as a whole.
+
 ## Purpose
 
 Build a focused corpus harness that captures and validates every stage between
@@ -613,8 +666,9 @@ Current presentation precedence boundary:
 - `<use href="#id">` and namespaced `xlink:href` now resolve previously parsed
   geometric definitions into provider-neutral vector records.
 - Missing, duplicate, cyclic, and non-geometric targets produce explicit SVG
-  diagnostics; use-site transforms, coordinates, paint overrides, and external
-  references remain outside this initial profile.
+  diagnostics; bounded local use-site `x`/`y` placement is admitted, while
+  arbitrary transforms, paint overrides, and external references remain
+  outside this initial profile.
 
 ##### Priority 3: Presentation Attributes, Inheritance, And Reuse
 
@@ -634,12 +688,15 @@ style system.
 - [x] Resolve local fragment references for a bounded `<use href="#...">`
       profile.
 - [x] Diagnose missing, duplicate, or cyclic references explicitly.
+- [x] Add a reduced W3C-derived fixture that proves local `href` and
+      `xlink:href` geometry reuse while `defs` remains non-rendering storage.
 - [ ] Keep external references and general CSS selectors outside the initial
       profile.
 
 High-value shapes and methods:
 
-- one definition reused at multiple use sites without use-site transforms;
+- one definition reused at multiple use sites, including bounded `x`/`y`
+  placement but without use-site transforms;
 - nested groups overriding one inherited property at a time;
 - `fill="none"` with a visible stroke;
 - group opacity combined with element opacity;
@@ -1113,7 +1170,7 @@ Implementation evidence:
 - `bless <case-id>` is the only command that writes a reviewed report fixture;
 - fixture directory keys include a stable case-ID hash so case-sensitive IDs
   such as `glyph/inter/K` and `glyph/inter/k` remain distinct on Windows;
-- current reviewed snapshots cover all twenty-nine registered cases;
+- current reviewed snapshots cover all 62 registered cases;
 - snapshots preserve stage selection, stage status, summaries, and diagnostics,
   while leaving raw mesh and image artifacts available for later specialized
   comparisons.
@@ -1170,11 +1227,30 @@ Current evidence:
   paths and 53 finite mesh triangles with zero degenerates; the case deliberately
   preserves the current uniform normalized-width limitation for non-uniform
   transforms;
+- `coords-trans-05-reflection-geometry.svg` proves that a negative-scale
+  orientation reversal and a non-zero root `viewBox` origin still produce
+  finite, non-degenerate fill geometry;
+- W3C corpus cases now lower using each document's declared root `viewBox`
+  rather than the former shared caller viewport, making authored coordinate
+  systems part of the structural evidence;
 - `shapes-line-02-stroke-geometry.svg` records line, polyline, and open-path
   stroke expansion through the shared cap/join boundary;
+- `paths-data-10-stroke-geometry.svg` adds W3C-derived open-versus-closed
+  triangular paths across butt/round/square caps and miter/bevel/round joins;
+  its reviewed structural mesh contains 98 finite non-degenerate triangles;
+- `shapes-polyline-02-geometry.svg` proves SVG's implicit fill closure for
+  open polyline and path contours without changing the source topology used by
+  stroke lowering; its reviewed mesh contains two fill paths, four stroke
+  paths, and 32 finite non-degenerate triangles;
 - `shapes-line-03-dash-geometry.svg` records dashed line, cubic, and polyline
   meshes with dash phase applied before cap/join expansion and zero recorded
   degenerates;
+- `struct-use-01-geometry.svg` proves one bounded local `<use>` profile:
+  geometric definitions remain non-rendering in `defs`, while `href` and
+  `xlink:href` resolve into ordinary closed presentation records;
+- `struct-use-01-placement-geometry.svg` independently proves local `href`
+  and `xlink:href` placement through use-site `x`/`y` coordinates while
+  leaving style shadowing and arbitrary transforms explicitly unsupported;
 - `clip-rect-geometry.svg` exercises the complete admitted rectangular clip
   path from XML/source through clip metadata and structural fill intersection;
   the resulting mesh is bounded to the clip rectangle rather than merely
@@ -1185,6 +1261,13 @@ Current evidence:
 - `clip-transformed-polygon-geometry.svg` exercises a one-level transformed
   convex clip and confirms the transform is applied before structural
   intersection;
+- `masking-path-01-circle-clip-geometry.svg` independently proves that a
+  circular clip lowered through the normal SVG primitive path reaches the
+  shared convex intersection stage rather than being reported as an unclipped
+  rectangular fill;
+- `masking-path-02-curve-clip-geometry.svg` proves the same admitted
+  intersection boundary receives a closed cubic fill only after its curves
+  flatten, keeping curve lowering and convex clipping jointly observable;
 - document viewBox tests cover centered meet, explicit xMinYMin alignment,
   `preserveAspectRatio="none"`, and explicit rejection of slice mode;
 - SVG artifact generation now uses the same stroke expansion path as runtime
@@ -1220,10 +1303,10 @@ Deferral decision:
 Current W3C evidence:
 
 - `svg/w3c/painting-fill-03-t` records source/XML evidence and an expected
-  SVG-profile exclusion at `defs`, preserving its fill-rule provenance without
+  SVG-profile exclusion at `text`, preserving its fill-rule provenance without
   counting it as a structural pass;
 - `svg/w3c/paths-data-16-t` records source/XML evidence and an expected
-  SVG-profile exclusion at `defs`, preserving its implicit-path provenance
+  SVG-profile exclusion at `text`, preserving its implicit-path provenance
   without counting it as a structural pass;
 - `svg/w3c/struct-group-01-t` records source/XML evidence and an expected
   SVG-profile exclusion at `defs`, preserving its group/inheritance provenance
@@ -1248,6 +1331,16 @@ Current W3C evidence:
 - `svg/w3c-derived/coords-trans-02-group-geometry` retains nested groups,
   inherited fill, and translation/scale/rotation composition in an explicitly
   labeled reduced fixture and reaches a non-degenerate fill mesh;
+- `svg/w3c-derived/painting-fill-04-inheritance-geometry` independently
+  retains nested fill, stroke, and stroke-width inheritance with direct child
+  overrides; its `vector.json` records imported paint intent separately from
+  the structural mesh;
+- `svg/w3c-derived/painting-fill-02-current-color-geometry` independently
+  proves inherited and child-local `color` resolution for
+  `fill="currentColor"`, with resolved values recorded in `vector.json`;
+- `svg/w3c-derived/painting-stroke-08-opacity-geometry` records the admitted
+  in-range stroke-opacity sequence in `vector.json` without treating CPU/GPU
+  alpha compositing or out-of-range opacity clamping as geometry guarantees;
 - `svg/w3c-derived/paths-data-03-arcs-geometry` retains closed absolute and
   relative elliptical-arc geometry from an upstream negative-test source;
   it reaches mesh while preserving its current degenerate-triangle count as
@@ -1255,15 +1348,17 @@ Current W3C evidence:
 - `svg/w3c-derived/shapes-polygon-01-geometry` retains two filled polygon
   contours and reaches a finite, non-degenerate mesh;
 - `svg/w3c-derived/shapes-polyline-01-geometry` retains two open polyline
-  contours as vector evidence and records the expected no-fill mesh boundary;
+  contours as vector evidence and reaches a finite stroke-only mesh without
+  inventing fill geometry;
 - `svg/w3c-derived/shapes-rect-01-geometry` exercises filled and rounded
   rectangular primitives and reaches a finite fill mesh;
 - `svg/w3c-derived/shapes-circle-01-geometry` exercises filled circle
   primitives and reaches a finite fill mesh;
 - `svg/w3c-derived/shapes-ellipse-01-geometry` exercises circular and
   non-circular ellipse radii and reaches a finite fill mesh;
-- `svg/w3c-derived/shapes-line-01-geometry` preserves open line primitives as
-  vector evidence and records the expected no-fill mesh boundary;
+- `svg/w3c-derived/shapes-line-01-geometry` preserves three open line
+  primitives, omits their non-enclosing fill views, and reaches a finite
+  stroke-only mesh;
 - `svg/w3c-derived/paths-data-04-geometry` exercises explicit `M`, `L`, and
   `Z` commands with nested contours and reaches a finite fill mesh;
 - `svg/w3c-derived/paths-data-06-geometry` exercises absolute and relative
@@ -1271,7 +1366,8 @@ Current W3C evidence:
 - `svg/w3c-derived/paths-data-08-geometry` exercises implicit line pairs after
   `M` and nested fill contours and reaches a finite fill mesh;
 - `svg/w3c-derived/paths-data-13-geometry` exercises repeated arguments after
-  `H` and `V` and preserves the expected open-path/no-fill boundary;
+  `H` and `V` and reaches a finite stroke-only mesh while retaining its open
+  source topology;
 - `svg/w3c-derived/paths-data-14-geometry` exercises relative implicit line
   pairs after `m` and nested relative subpaths and reaches a finite fill mesh;
 - `svg/w3c-derived/shapes-rect-02-geometry` exercises rounded-rectangle
@@ -1292,14 +1388,16 @@ Current W3C evidence:
   path through vector and mesh stages;
 - SVG records now preserve importer-owned `fill` and `stroke` intent while the
   shared `VectorPath` contract remains paint-neutral;
-- the W3C runner sends only closed records marked for fill into the shared
-  fill tessellator, leaving stroke-only geometry as explicit non-fill evidence;
+- the W3C runner preserves source contour closure for stroke lowering, while
+  `SvgVectorRecord::path_for_fill` supplies SVG's implicit closure only to the
+  fill tessellator; this keeps open caps observable while allowing filled
+  `polyline` and open `path` subpaths to produce their required fill geometry;
 - the selected W3C-derived polygon case with an odd trailing coordinate is
   classified as expected invalid input; the importer rejects it before vector
   lowering instead of silently truncating malformed source data;
-- stroke-only Lucide cases follow the same boundary: source, XML, and vector
-  evidence are retained while the mesh stage records an expected limitation
-  rather than misclassifying absent fill geometry as a tessellation failure;
+- stroke-only SVG cases follow the same boundary: source, XML, and vector
+  evidence are retained while open non-enclosing subpaths skip fill tessellation
+  and contribute only their admitted stroke geometry;
 - W3C profile exclusions emit source, XML, report, and stage-graph artifacts
   only; stale vector, mesh, fingerprint, contour, and mesh-view artifacts are
   cleared so an earlier structural run cannot be mistaken for current evidence;
@@ -1338,8 +1436,10 @@ Current review result:
 - vector remains incubating and no new first-party crate is admitted;
 - W3C/resvg differential coverage, a production consumer, and the decision
   whether the runner itself should graduate remain promotion-relevant gaps;
-  W3C structural evidence remains deferred until an upstream fixture fits the
-  admitted SVG profile or the profile deliberately expands.
+- verbatim W3C structural evidence remains deferred until an upstream fixture
+  fits the admitted SVG profile or the profile deliberately expands; reduced
+  fixtures already provide separately labeled structural evidence for the
+  admitted geometry subset.
 
 ## First Working Milestone
 

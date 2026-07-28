@@ -38,9 +38,52 @@ fn svg_use_has_unadmitted_overrides(attributes: &[XmlAttribute]) -> bool {
         let local_name = attribute.name.local_name.as_str();
         local_name != "href"
             && local_name != "id"
+            && local_name != "x"
+            && local_name != "y"
             && (attribute.name.namespace_uri.is_none()
                 || attribute.name.namespace_uri.as_deref() == Some("http://www.w3.org/1999/xlink"))
     })
+}
+
+fn translate_bounds(bounds: Bounds, delta: [f32; 2]) -> Bounds {
+    bounds.map(|(min, max)| {
+        (
+            [min[0] + delta[0], min[1] + delta[1]],
+            [max[0] + delta[0], max[1] + delta[1]],
+        )
+    })
+}
+
+fn translate_path(path: &crate::VectorPath, delta: [f32; 2]) -> crate::VectorPath {
+    crate::VectorPath::new(
+        path.contours
+            .iter()
+            .map(|contour| {
+                crate::VectorContour::new(
+                    contour
+                        .points
+                        .iter()
+                        .map(|point| [point[0] + delta[0], point[1] + delta[1]])
+                        .collect(),
+                    contour.closed,
+                )
+            })
+            .collect(),
+    )
+}
+
+fn translate_use_record(
+    record: &mut SvgVectorRecord,
+    source_delta: [f32; 2],
+    normalized_delta: [f32; 2],
+) {
+    record.path = translate_path(&record.path, normalized_delta);
+    record.clip_path = record
+        .clip_path
+        .as_ref()
+        .map(|path| translate_path(path, normalized_delta));
+    record.source_bounds = translate_bounds(record.source_bounds, source_delta);
+    record.transformed_bounds = translate_bounds(record.transformed_bounds, source_delta);
 }
 
 fn active_clip_path_id(element_stack: &[SvgSemanticFrame]) -> Option<String> {
@@ -306,6 +349,29 @@ pub fn parse_svg_document_vector_records_from_xml_events(
                 return Err(SvgImportDiagnostic::svg(Some(element.span), message));
             };
             let mut reused = record;
+            // This deliberately admits only the SVG <use> placement attributes.
+            // Style overrides and arbitrary use-site transforms remain outside the
+            // local-fragment profile because they require shadow-tree semantics.
+            let source_delta = [
+                svg_number_attribute(attributes, "x")
+                    .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?
+                    .unwrap_or(0.0),
+                svg_number_attribute(attributes, "y")
+                    .map_err(|message| SvgImportDiagnostic::svg(Some(element.span), message))?
+                    .unwrap_or(0.0),
+            ];
+            let normalized_origin =
+                normalize_svg_point_with_aspect([0.0, 0.0], view_box, preserve_aspect_ratio);
+            let normalized_position =
+                normalize_svg_point_with_aspect(source_delta, view_box, preserve_aspect_ratio);
+            translate_use_record(
+                &mut reused,
+                source_delta,
+                [
+                    normalized_position[0] - normalized_origin[0],
+                    normalized_position[1] - normalized_origin[1],
+                ],
+            );
             reused.source_span = element.span;
             if render_geometry {
                 paths.push((element.span.start, reused));

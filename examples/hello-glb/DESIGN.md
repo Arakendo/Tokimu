@@ -4,7 +4,7 @@
 | --- | --- |
 | Purpose | Demonstrate Tokimu-owned GLB asset identity and render it through engine-owned mesh data |
 | Primary Proof | The example can carry a `.glb` source through the asset system without the renderer owning file-format meaning |
-| Secondary Proof | Tokimu can load a model-shaped scene and keep the render seam format-agnostic |
+| Secondary Proof | A pinned Khronos `Box.glb` decodes into Tokimu-owned geometry while the render seam stays format-agnostic |
 | Non-Goals | Full glTF coverage, animation import, material authoring, or a general asset pipeline |
 
 ## Purpose
@@ -20,7 +20,8 @@ for the asset seam.
 
 ## What It Proves
 
-- Tokimu can track a GLB source through the asset system
+- Tokimu can decode a real GLB source into Tokimu-owned mesh data
+- Tokimu can track that GLB source through the asset system
 - Asset identity can stay separate from renderer-owned mesh truth
 - A model-shaped scene can be shown without exposing file-format concerns to the renderer
 - Repeated uploads still preserve Tokimu ownership boundaries
@@ -30,20 +31,21 @@ for the asset seam.
 
 The first version should use a simple model presentation:
 
-- one main model mesh or model proxy loaded from the Tokimu asset path
+- one main model mesh decoded from the pinned Khronos `Box.glb` fixture
 - a floor or backdrop so the model has context
 - a slow orbit camera so the object can be inspected
 - a small title or status readout that names the GLB source being proved
 
 ## GLB Approach
 
-Tokimu's current asset layer can already track asset identity and source labels,
-so this example should treat `cube.glb` or a similar sample model as an asset
-entry first and a renderable mesh second.
+`hello-glb` uses the format-specific `gltf-corpus` helper to decode the pinned
+Khronos `Box.glb` fixture. The example expands its indexed triangle data into
+the renderer's current non-indexed `Mesh` contract before upload.
 
 That keeps the implementation honest: the GLB file remains a source of asset
 meaning, while Tokimu-owned mesh data becomes the actual render input. The
-renderer stays format-agnostic.
+renderer stays format-agnostic. This is an example-level importer proof, not a
+canonical model resource, material pipeline, or general asset pipeline.
 
 ## Architecture Boundaries
 

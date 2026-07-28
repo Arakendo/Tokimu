@@ -26,8 +26,8 @@
     },
     {
       "stage": "mesh",
-      "status": "expected-failure",
-      "summary": "no closed fill paths; stroke-only geometry is outside W3C v1 mesh scope"
+      "status": "ready",
+      "summary": "closed_paths=0 stroke_paths=2 open_paths=2 triangles=18 vertices=54 finite=true complete=true degenerate=0 area=0.003150"
     }
   ],
   "diagnostics": []

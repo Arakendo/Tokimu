@@ -31,17 +31,18 @@ Khronos `glTF-Sample-Assets` revision
 | Measure | Count | Percentage | Meaning |
 | --- | ---: | ---: | --- |
 | Pinned Khronos sample-asset revision | 1 / 1 | **100%** | The v1 source revision is recorded locally |
-| Logical upstream models represented | 3 | Denominator inventory pending | `Triangle`, `Box`, and `BoxTextured` are registered |
-| Source variants structurally inspected | 3 / 3 selected | **100% of v1 selection** | JSON/external-buffer and GLB framing are validated |
-| Variants with geometry accessors decoded | 3 / 3 selected | **100% of v1 selection** | Positions and indices decode for all selected cases; Box variants also decode normals and BoxTextured decodes UVs |
-| Variants lowered into Tokimu model/mesh data | 0 / 3 | **0%** | Canonical model and mesh lowering remain unimplemented |
+| Logical upstream models represented | 6 | Denominator inventory pending | `Triangle`, `Box`, `BoxTextured`, `MeshPrimitiveModes`, `MultipleScenes`, and `SimpleMeshes` are registered |
+| Source variants structurally inspected | 6 / 6 selected | **100% of v1 selection** | JSON/external-buffer and GLB framing are validated; MeshPrimitiveModes records every core primitive mode |
+| Variants with geometry accessors decoded | 5 / 6 selected | **83% of v1 selection** | Triangle geometry decodes for five cases; MeshPrimitiveModes stops at a verified unsupported-topology boundary rather than silently dropping modes |
+| Variants lowered into Tokimu model/mesh data | 0 / 6 | **0%** | Canonical model and mesh lowering remain unimplemented |
 | Focused GLB boundary examples | 1 | Not a corpus-coverage metric | `hello-glb` proves source identity and renderer ownership boundaries |
 
 The official importer progress number is therefore:
 
 ```text
-3 source variants structurally inspected
-3 source variants decoded into corpus-owned primitive evidence
+6 source variants structurally inspected
+5 source variants decoded into corpus-owned primitive evidence
+1 source variant stops at an explicit unsupported-topology boundary
 0 source variants lowered into Tokimu model or mesh data
 ```
 
@@ -51,25 +52,24 @@ Once recorded, those coverage denominators must remain tied to that revision.
 
 ## Existing Evidence
 
-`examples/hello-glb` is the current architectural boundary proof. It:
+`examples/hello-glb` is the current executable GLB boundary proof. It:
 
-- records `models/cube.glb` as Tokimu-owned asset source identity;
-- builds Tokimu-owned mesh data;
+- records the pinned Khronos `Box.glb` source as Tokimu-owned asset identity;
+- decodes its triangle primitive through the format-specific `gltf-corpus`
+  helper;
+- expands its indexed positions and normals into the renderer's current
+  non-indexed Tokimu-owned `Mesh` contract;
 - submits that mesh without exposing GLB meaning to the renderer;
 - keeps simulation and rendering ownership separate.
 
-It does **not** currently read or parse `models/cube.glb`. The visible model is
-a procedural Tokimu cube. The example must not be counted as an imported GLB
-corpus case until real source bytes pass through a glTF importer.
+It does **not** admit canonical glTF/GLB importer semantics, model resources,
+materials, textures, or a general asset pipeline. The renderer still receives
+only Tokimu `Mesh` geometry. This example is evidence for the importer boundary,
+not an importer-capability admission.
 
 This distinction is intentional:
 
 ```text
-Current proof:
-GLB source identity -> Tokimu asset identity
-Tokimu procedural mesh -> renderer
-
-Future importer proof:
 GLB bytes -> glTF importer -> Tokimu model/mesh -> renderer
 ```
 
@@ -151,7 +151,8 @@ be verified against the pinned upstream revision before admission.
 | Indexed mesh | Box or equivalent | shared vertices, triangle winding, normals |
 | Binary container | GLB variant of the minimal box | GLB chunks, offsets, embedded buffer |
 | Texture coordinates | BoxTextured or equivalent | UV attributes and image references |
-| Multiple primitives | SimpleMeshes or equivalent | primitive separation and material slots |
+| Multiple primitives | MeshPrimitiveModes or equivalent | primitive separation and explicit unsupported-topology evidence |
+| Shared mesh instances | SimpleMeshes | two nodes referencing one mesh and TRS transforms |
 | Node hierarchy | a small hierarchical model | local/world transforms and traversal |
 | Materials | a small PBR sample | provider-neutral material lowering |
 | Animation | AnimatedCube or equivalent | channels, samplers, time bounds |
@@ -313,9 +314,21 @@ optional `FLOAT VEC3` normals, optional `FLOAT VEC2` `TEXCOORD_0` streams,
 and unsigned scalar indices. It validates buffer-view bounds, byte offsets and
 strides, finite values, attribute counts, index ranges, triangle counts, and
 computed bounds. `BoxTextured` also verifies that a required external PNG can
-be pinned and retained as source evidence; image, sampler, and material
-lowering remain deferred. The decoder still does not produce Tokimu model/mesh
-data.
+be pinned and retained as source evidence. The inspector records PBR
+base-color factors and material-to-texture-to-image references, validates those
+references, and stops before image, sampler, material, or renderer lowering.
+Source-level scenes decode root nodes, child links,
+finite local transforms, and deterministic world-transform traversals.
+`MeshPrimitiveModes` additionally records all seven core primitive modes at
+the source-inspection boundary and proves that the first unsupported mode
+(`POINTS`) emits an explicit diagnostic rather than silently disappearing. The
+decoder still does not produce Tokimu model, scene, or mesh data. The bounded
+`hole_punch1.glb` animation corpus additionally proves a narrow
+`EXT_meshopt_compression` importer profile: `ATTRIBUTES` and `TRIANGLES`
+views, plus the `EXPONENTIAL` post-filter, reconstruct logical GLB buffers
+before ordinary accessor decoding. It also admits finite, strictly ordered
+linear translation tracks as decoded importer evidence. Meshopt remains an
+external importer mechanism; the renderer and runtime do not depend on it.
 
 ## Current Exclusions
 
@@ -326,11 +339,13 @@ The following are currently unimplemented or explicitly deferred:
 - sparse accessors and general accessor/component combinations;
 - canonical indexed-mesh import beyond corpus-owned decoded evidence;
 - tangent, color, joint, and weight streams in the imported path;
-- scene and node hierarchy import;
+- canonical scene and node hierarchy import;
 - material, texture, sampler, and image import;
-- animation, skeleton, skinning, and morph-target import;
+- rotation, scale, weights, cubic interpolation, skeleton, skinning, and
+  morph-target import beyond the admitted linear translation-track evidence;
 - cameras and lights from glTF;
-- compression and mesh extensions such as Draco or meshopt;
+- compression and mesh extensions beyond the admitted
+  `EXT_meshopt_compression` profile, including Draco;
 - extension negotiation and required-extension policy;
 - reference-viewer image comparison;
 - complete glTF conformance.

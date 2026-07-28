@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "svg/w3c-derived/shapes-polyline-02-geometry",
+  "producer": "svg/w3c-derived",
+  "selected_stages": [
+    "source",
+    "xml",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=shapes-polyline-02-geometry.svg bytes=558 source=W3C SVG 1.1 2nd Edition derived geometry/shapes-polyline-02-geometry.svg"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=18 elements=5/5 text=7 comments=1 processing_instructions=0 roots=2 document_element=true"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "W3C-derived polyline and path-equivalence geometry paths=4 contours=4 points=18 closed_contours=0"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "closed_paths=2 stroke_paths=4 open_paths=2 triangles=32 vertices=96 finite=true complete=true degenerate=0 area=0.078758"
+    }
+  ],
+  "diagnostics": []
+}

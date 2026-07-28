@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/masking-path-01-circle-clip-geometry",
+    "input_hash": "fnv1a64:e11f2198994a33a1",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/masking-path-01-circle-clip-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill+stroke-v1",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.16666666,
+      -0.16666669
+    ],
+    [
+      0.1666667,
+      0.16666666
+    ]
+  ],
+  "triangle_count": 14,
+  "degenerate_triangles": 0,
+  "total_area": 0.08504077,
+  "canonical_triangle_hash": "fnv1a64:928eb01b0554f12d"
+}

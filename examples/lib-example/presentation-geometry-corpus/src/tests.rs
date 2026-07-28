@@ -99,7 +99,7 @@ fn synthetic_svg_namespace_case_ignores_foreign_local_name_collisions() {
 
 #[test]
 fn w3c_cases_are_registered_for_golden_comparison() {
-    assert_eq!(w3c_svg_cases().len(), 40);
+    assert_eq!(w3c_svg_cases().len(), 50);
     for case in w3c_svg_cases() {
         let corpus_case = CorpusCase::W3cSvg(*case);
         assert!(all_cases().contains(&corpus_case));
@@ -122,13 +122,13 @@ fn w3c_profile_exclusions_are_explicitly_classified() {
         .iter()
         .filter(|case| case.source == W3cSvgSource::DerivedProfileFixture)
         .collect::<Vec<_>>();
-    assert_eq!(derived.len(), 36);
+    assert_eq!(derived.len(), 46);
     assert_eq!(
         derived
             .iter()
             .filter(|case| case.expectation == W3cSvgExpectation::StructuralPass)
             .count(),
-        35
+        45
     );
     assert_eq!(
         derived

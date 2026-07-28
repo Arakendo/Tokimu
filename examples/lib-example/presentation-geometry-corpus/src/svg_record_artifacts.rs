@@ -4,22 +4,19 @@ use crate::{
     artifact_io::write_json,
     artifacts::{
         ArtifactAlgorithms, ArtifactEnvelope, ClipPathArtifact, GraphArtifact, GraphEdge,
-        GraphNode, MeshArtifact, MeshFingerprint, VectorArtifact, VectorContourArtifact,
-        XmlArtifact,
+        GraphNode, MeshArtifact, MeshFingerprint, PaintArtifact, VectorArtifact,
+        VectorContourArtifact, XmlArtifact,
     },
     evidence::{canonical_triangle_hash, fnv1a64, segment_intersections},
     geometry::{
         bounds_of_points, contours_svg, mesh_svg, signed_area, union_bounds, validate_mesh,
     },
     svg_artifact_cleanup::remove_stale_artifact,
-    svg_support::tessellate_svg_strokes,
+    svg_support::{tessellate_svg_fills, tessellate_svg_strokes},
     xml_stage::XmlStageInspection,
 };
 use std::{fs, path::PathBuf};
-use ui_tools::{
-    clip_path_to_convex_polygon, is_convex_polygon_clip, tessellate_general_fill_with_rule,
-    SvgFillRule, SvgVectorRecord, VectorFillRule, VectorPath,
-};
+use ui_tools::{is_convex_polygon_clip, SvgColor, SvgVectorRecord, VectorPath};
 
 pub(crate) fn write_svg_record_artifacts(
     case_id: &str,
@@ -34,52 +31,37 @@ pub(crate) fn write_svg_record_artifacts(
         .iter()
         .map(|record| record.path.clone())
         .collect::<Vec<_>>();
-    // Only convex clips on closed fills have a structural intersection path
+    // Only convex clips on SVG fill views have a structural intersection path
     // today. Do not emit an unclipped mesh for other clip combinations.
     let has_unresolved_clips = records.iter().any(|record| {
         record.clip_path.as_ref().is_some_and(|clip| {
             !record.fill
-                || !record.path.contours.iter().all(|contour| contour.closed)
+                || record.stroke
+                || !record
+                    .path_for_fill()
+                    .contours
+                    .iter()
+                    .all(|contour| contour.closed)
                 || !is_convex_polygon_clip(clip)
         })
     });
-    let mut triangles = Vec::new();
-    let mut fill_paths = 0;
-    if !has_unresolved_clips {
-        for record in &records {
-            if record.fill && record.path.contours.iter().all(|contour| contour.closed) {
-                let path = match record.clip_path.as_ref() {
-                    Some(clip) => clip_path_to_convex_polygon(&record.path, clip)
-                        .map_err(|error| format!("SVG clip intersection failed: {error}"))?,
-                    None => record.path.clone(),
-                };
-                let rule = match record.fill_rule {
-                    SvgFillRule::NonZero => VectorFillRule::NonZero,
-                    SvgFillRule::EvenOdd => VectorFillRule::EvenOdd,
-                };
-                let mut path_triangles = tessellate_general_fill_with_rule(&path, rule)
-                    .map_err(|error| format!("SVG mesh tessellation failed: {error}"))?;
-                if !path_triangles.is_empty() {
-                    fill_paths += 1;
-                    triangles.append(&mut path_triangles);
-                }
-            }
-        }
+    let fill_meshes = (!has_unresolved_clips)
+        .then(|| tessellate_svg_fills(&records, "SVG artifact"))
+        .unwrap_or_default();
+    if !fill_meshes.diagnostics.is_empty() {
+        return Err(fill_meshes.diagnostics.join("; "));
     }
     let stroke_meshes = if has_unresolved_clips {
         Default::default()
     } else {
-        let stroke_records = records
-            .iter()
-            .filter(|record| record.clip_path.is_none())
-            .cloned()
-            .collect::<Vec<_>>();
-        tessellate_svg_strokes(&stroke_records, stroke_scale, "SVG artifact")
+        tessellate_svg_strokes(&records, stroke_scale, "SVG artifact")
     };
     if !stroke_meshes.diagnostics.is_empty() {
         return Err(stroke_meshes.diagnostics.join("; "));
     }
+    let fill_paths = fill_meshes.fill_paths;
     let stroke_paths = stroke_meshes.stroke_paths;
+    let mut triangles = fill_meshes.triangles;
     triangles.extend(stroke_meshes.triangles);
     let root = PathBuf::from("target/presentation-geometry-corpus").join(case_id);
     fs::create_dir_all(&root).map_err(|error| format!("create artifact directory: {error}"))?;
@@ -121,6 +103,21 @@ pub(crate) fn write_svg_record_artifacts(
                 closed: contour.closed,
                 signed_area: signed_area(&contour.points),
                 points: contour.points.clone(),
+            })
+            .collect(),
+        paint_records: records
+            .iter()
+            .enumerate()
+            .map(|(record_index, record)| PaintArtifact {
+                record_index,
+                fill: record.fill,
+                stroke: record.stroke,
+                fill_color: svg_color_components(record.fill_color),
+                stroke_color: svg_color_components(record.stroke_color),
+                fill_opacity: record.fill_opacity,
+                stroke_opacity: record.stroke_opacity,
+                opacity: record.opacity,
+                stroke_width: record.stroke_width,
             })
             .collect(),
         intersections: paths.iter().flat_map(segment_intersections).collect(),
@@ -222,4 +219,8 @@ pub(crate) fn write_svg_record_artifacts(
     )
     .map_err(|error| format!("write SVG contour artifact: {error}"))?;
     Ok(root)
+}
+
+fn svg_color_components(color: Option<SvgColor>) -> Option<[f32; 4]> {
+    color.map(|SvgColor::Rgba(components)| components)
 }

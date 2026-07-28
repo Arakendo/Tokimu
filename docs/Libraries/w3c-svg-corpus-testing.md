@@ -50,11 +50,11 @@ As of 2026-07-27:
 
 | Measure | Count | Percentage | Meaning |
 | --- | ---: | ---: | --- |
-| Unique upstream SVG documents represented | 32 / 1,139 | **2.81%** | The clean fixture-coverage metric |
-| Registered W3C-labelled corpus cases | 40 / 1,139 | **3.51%** | Includes derived cases and four local diagnostic cases; not a unique-file metric |
+| Unique upstream SVG documents represented | 37 / 1,139 | **3.25%** | The clean fixture-coverage metric |
+| Registered W3C-labelled corpus cases | 50 / 1,139 | **4.39%** | Includes derived cases and four local diagnostic cases; not a unique-file metric |
 
-The **2.81% figure is the official progress number** for upstream fixture
-coverage. The 40 registered cases are useful for tracking the corpus runner,
+The **3.25% figure is the official progress number** for upstream fixture
+coverage. The 50 registered cases are useful for tracking the corpus runner,
 but they must not be reported as 40 unique upstream documents because some
 cases are derived from the same source and some are local derived fixtures.
 
@@ -76,6 +76,9 @@ The current selection prioritizes high-return geometry and pipeline features:
 - polygons, polylines, lines, rectangles, rounded rectangles, circles, and ellipses;
 - even-odd and non-zero fill evidence;
 - nested groups and presentation inheritance;
+- inherited fill, stroke, and stroke-width overrides through nested groups;
+- `currentColor` fill resolution through inherited and local `color` values;
+- in-range stroke-opacity resolution as renderer-independent paint intent;
 - transform composition and transform order;
 - open-path stroke intent, without claiming complete stroke expansion;
 - parser-neutral XML, vector, mesh, and mesh-fingerprint artifacts where the
@@ -157,7 +160,7 @@ total upstream SVG documents
 For the current selection:
 
 ```text
-32 / 1,139 x 100 = 2.81%
+37 / 1,139 x 100 = 3.25%
 ```
 
 Do not use the number of passing cases as a substitute for coverage. A larger
@@ -169,13 +172,16 @@ upstream documents.
 The following remain outside the current structural geometry profile or are
 explicitly deferred:
 
-- clip paths;
+- nested, concave, multi-contour, and stroke clip paths; the current profile
+  admits one local convex geometric clip for closed fill geometry;
 - gradients;
 - masks;
 - filters;
 - text and font rendering as SVG document features;
 - animation, DOM, and scripting;
-- complete stroke expansion, cap, and join behavior;
+- transformed/non-uniform-viewport stroke-width conformance; the current
+  profile admits bounded solid and dashed strokes with butt/round/square caps
+  and miter/bevel/round joins;
 - full W3C reference-image comparison.
 
 An exclusion is intentional when the corpus records why the feature is not

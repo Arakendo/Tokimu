@@ -6,7 +6,10 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{glb::parse_glb, gltf::ensure_version_2, CorpusError, CorpusResult, GltfSummary};
+use crate::{
+    glb::parse_glb, gltf::ensure_version_2, scene::decode_scenes, CorpusError, CorpusResult,
+    DecodedNode, DecodedScene, GltfSummary,
+};
 
 const MODE_TRIANGLES: u32 = 4;
 const COMPONENT_U8: u32 = 5_121;
@@ -38,10 +41,31 @@ pub struct DecodedPrimitive {
     pub bounds: DecodedBounds,
 }
 
+/// A bounded glTF animation profile retained as importer evidence.
+///
+/// The current corpus admits finite, monotonically ordered translation keys.
+/// Rotation, scale, weights, and interpolation modes beyond linear remain
+/// explicit future work.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct DecodedTranslationChannel {
+    pub node: usize,
+    pub times: Vec<f32>,
+    pub translations: Vec<[f32; 3]>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct DecodedAnimation {
+    pub name: Option<String>,
+    pub channels: Vec<DecodedTranslationChannel>,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct DecodedModel {
     pub summary: GltfSummary,
+    pub nodes: Vec<DecodedNode>,
+    pub scenes: Vec<DecodedScene>,
     pub primitives: Vec<DecodedPrimitive>,
+    pub animations: Vec<DecodedAnimation>,
 }
 
 pub fn decode_gltf(bytes: &[u8], base_path: impl AsRef<Path>) -> CorpusResult<DecodedModel> {
@@ -79,6 +103,7 @@ pub fn decode_glb_file(path: impl AsRef<Path>) -> CorpusResult<DecodedModel> {
 fn decode_document(root: &Value, buffers: &[Vec<u8>]) -> CorpusResult<DecodedModel> {
     let summary = GltfSummary::from_root(root);
     let meshes = array(root, "meshes")?;
+    let (nodes, scenes) = decode_scenes(root, meshes.len())?;
     let mut primitives = Vec::new();
 
     for (mesh_index, mesh) in meshes.iter().enumerate() {
@@ -182,10 +207,92 @@ fn decode_document(root: &Value, buffers: &[Vec<u8>]) -> CorpusResult<DecodedMod
         }
     }
 
+    let animations = decode_translation_animations(root, buffers, nodes.len())?;
+
     Ok(DecodedModel {
         summary,
+        nodes,
+        scenes,
         primitives,
+        animations,
     })
+}
+
+fn decode_translation_animations(
+    root: &Value,
+    buffers: &[Vec<u8>],
+    node_count: usize,
+) -> CorpusResult<Vec<DecodedAnimation>> {
+    let animations = root
+        .get("animations")
+        .and_then(Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    animations
+        .iter()
+        .enumerate()
+        .map(|(animation_index, animation)| {
+            let samplers = array(animation, "samplers")?;
+            let channels = array(animation, "channels")?
+                .iter()
+                .enumerate()
+                .map(|(channel_index, channel)| {
+                    let target = channel.get("target").and_then(Value::as_object).ok_or_else(|| {
+                        invalid(format!("animation {animation_index} channel {channel_index} has no target"))
+                    })?;
+                    let path = target.get("path").and_then(Value::as_str).unwrap_or_default();
+                    if path != "translation" {
+                        return Err(CorpusError::UnsupportedAccessor(format!(
+                            "animation {animation_index} channel {channel_index} targets `{path}`; only translation is admitted"
+                        )));
+                    }
+                    let node = index_value(target.get("node"), "animation target node")?;
+                    if node >= node_count {
+                        return Err(invalid(format!(
+                            "animation {animation_index} channel {channel_index} references missing node {node}"
+                        )));
+                    }
+                    let sampler_index = index_value(channel.get("sampler"), "animation sampler")?;
+                    let sampler = samplers.get(sampler_index).ok_or_else(|| {
+                        invalid(format!("animation {animation_index} channel {channel_index} references missing sampler {sampler_index}"))
+                    })?;
+                    let interpolation = sampler.get("interpolation").and_then(Value::as_str).unwrap_or("LINEAR");
+                    if interpolation != "LINEAR" {
+                        return Err(CorpusError::UnsupportedAccessor(format!(
+                            "animation {animation_index} sampler {sampler_index} uses `{interpolation}` interpolation; only LINEAR is admitted"
+                        )));
+                    }
+                    let times = read_scalar_f32(
+                        root,
+                        buffers,
+                        index_value(sampler.get("input"), "animation input accessor")?,
+                        "animation input",
+                    )?;
+                    let translations = read_vec3_f32(
+                        root,
+                        buffers,
+                        index_value(sampler.get("output"), "animation output accessor")?,
+                        "animation translation output",
+                    )?;
+                    if times.is_empty() || times.len() != translations.len() {
+                        return Err(invalid(format!(
+                            "animation {animation_index} channel {channel_index} has {} times and {} translations",
+                            times.len(), translations.len()
+                        )));
+                    }
+                    if times.windows(2).any(|pair| pair[1] <= pair[0]) {
+                        return Err(invalid(format!(
+                            "animation {animation_index} channel {channel_index} key times are not strictly increasing"
+                        )));
+                    }
+                    Ok(DecodedTranslationChannel { node, times, translations })
+                })
+                .collect::<CorpusResult<Vec<_>>>()?;
+            Ok(DecodedAnimation {
+                name: animation.get("name").and_then(Value::as_str).map(str::to_owned),
+                channels,
+            })
+        })
+        .collect()
 }
 
 fn load_gltf_buffers(root: &Value, base_path: &Path) -> CorpusResult<Vec<Vec<u8>>> {
@@ -209,25 +316,175 @@ fn load_gltf_buffers(root: &Value, base_path: &Path) -> CorpusResult<Vec<Vec<u8>
 }
 
 fn load_glb_buffers(root: &Value, binary_chunk: Option<&[u8]>) -> CorpusResult<Vec<Vec<u8>>> {
-    array(root, "buffers")?
-        .iter()
-        .enumerate()
-        .map(|(index, buffer)| {
-            if let Some(uri) = buffer.get("uri").and_then(Value::as_str) {
-                return Err(CorpusError::UnsupportedBufferUri(uri.to_owned()));
+    let buffers = array(root, "buffers")?;
+    let binary =
+        binary_chunk.ok_or_else(|| invalid("GLB declares a buffer but has no BIN chunk"))?;
+    let mut resolved = Vec::with_capacity(buffers.len());
+
+    for (index, buffer) in buffers.iter().enumerate() {
+        if let Some(uri) = buffer.get("uri").and_then(Value::as_str) {
+            return Err(CorpusError::UnsupportedBufferUri(uri.to_owned()));
+        }
+
+        if index == 0 {
+            validate_buffer_length(buffer, index, Path::new("<glb-bin>"), binary.len())?;
+            resolved.push(binary.to_vec());
+            continue;
+        }
+
+        let byte_length = buffer
+            .get("byteLength")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| invalid(format!("buffer {index} has no byteLength")))?;
+        let byte_length = usize::try_from(byte_length)
+            .map_err(|_| invalid(format!("buffer {index} exceeds addressable memory")))?;
+        resolved.push(vec![0; byte_length]);
+    }
+
+    decode_meshopt_buffer_views(root, &mut resolved)?;
+    Ok(resolved)
+}
+
+/// Reconstruct the bounded `EXT_meshopt_compression` profile used by the
+/// hole-punch corpus asset. Compressed views remain an importer detail: once
+/// reconstructed, ordinary accessors consume the declared logical buffer.
+fn decode_meshopt_buffer_views(root: &Value, buffers: &mut [Vec<u8>]) -> CorpusResult<()> {
+    for (view_index, view) in array(root, "bufferViews")?.iter().enumerate() {
+        let Some(extension) = view
+            .get("extensions")
+            .and_then(|extensions| extensions.get("EXT_meshopt_compression"))
+        else {
+            continue;
+        };
+
+        let destination_buffer = index_value(view.get("buffer"), "bufferView buffer")?;
+        let destination_offset =
+            extension_optional_usize(view.get("byteOffset"), "bufferView byteOffset")?
+                .unwrap_or_default();
+        let destination_length =
+            extension_required_usize(view.get("byteLength"), "bufferView byteLength")?;
+        let destination_end = destination_offset
+            .checked_add(destination_length)
+            .ok_or_else(|| invalid(format!("bufferView {view_index} output range overflows")))?;
+
+        let source_buffer = index_value(extension.get("buffer"), "meshopt source buffer")?;
+        let source_offset =
+            extension_optional_usize(extension.get("byteOffset"), "meshopt byteOffset")?
+                .unwrap_or_default();
+        let source_length =
+            extension_required_usize(extension.get("byteLength"), "meshopt byteLength")?;
+        let source_end = source_offset.checked_add(source_length).ok_or_else(|| {
+            invalid(format!(
+                "bufferView {view_index} compressed range overflows"
+            ))
+        })?;
+        let count = extension_required_usize(extension.get("count"), "meshopt count")?;
+        let stride = extension_required_usize(extension.get("byteStride"), "meshopt byteStride")?;
+        let expected_length = count
+            .checked_mul(stride)
+            .ok_or_else(|| invalid(format!("bufferView {view_index} decoded length overflows")))?;
+        if expected_length != destination_length {
+            return Err(invalid(format!(
+                "bufferView {view_index} decoded length {expected_length} does not match declared {destination_length}"
+            )));
+        }
+
+        let source = buffers
+            .get(source_buffer)
+            .and_then(|buffer| buffer.get(source_offset..source_end))
+            .ok_or_else(|| {
+                invalid(format!(
+                    "bufferView {view_index} compressed data exceeds buffer {source_buffer}"
+                ))
+            })?
+            .to_vec();
+        let destination = buffers
+            .get_mut(destination_buffer)
+            .and_then(|buffer| buffer.get_mut(destination_offset..destination_end))
+            .ok_or_else(|| {
+                invalid(format!(
+                    "bufferView {view_index} output exceeds buffer {destination_buffer}"
+                ))
+            })?;
+
+        let mode = extension
+            .get("mode")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid(format!("bufferView {view_index} meshopt mode is missing")))?;
+        let status = match mode {
+            "ATTRIBUTES" => unsafe {
+                meshopt::ffi::meshopt_decodeVertexBuffer(
+                    destination.as_mut_ptr().cast(),
+                    count,
+                    stride,
+                    source.as_ptr(),
+                    source.len(),
+                )
+            },
+            "TRIANGLES" => {
+                let index_size = destination_length
+                    .checked_div(count)
+                    .filter(|size| *size == 2 || *size == 4)
+                    .ok_or_else(|| {
+                        invalid(format!(
+                            "bufferView {view_index} meshopt triangle index width is unsupported"
+                        ))
+                    })?;
+                unsafe {
+                    meshopt::ffi::meshopt_decodeIndexBuffer(
+                        destination.as_mut_ptr().cast(),
+                        count,
+                        index_size,
+                        source.as_ptr(),
+                        source.len(),
+                    )
+                }
             }
-            if index != 0 {
-                return Err(invalid(
-                    "only buffer 0 may resolve to the admitted GLB BIN chunk",
-                ));
+            other => {
+                return Err(CorpusError::UnsupportedAccessor(format!(
+                    "bufferView {view_index} uses unsupported EXT_meshopt_compression mode {other}"
+                )));
             }
-            let bytes = binary_chunk
-                .ok_or_else(|| invalid("GLB declares a buffer but has no BIN chunk"))?
-                .to_vec();
-            validate_buffer_length(buffer, index, Path::new("<glb-bin>"), bytes.len())?;
-            Ok(bytes)
-        })
-        .collect()
+        };
+        if status != 0 {
+            return Err(invalid(format!(
+                "bufferView {view_index} meshopt decode failed with status {status}"
+            )));
+        }
+
+        match extension.get("filter").and_then(Value::as_str) {
+            None | Some("NONE") => {}
+            Some("EXPONENTIAL") => unsafe {
+                meshopt::ffi::meshopt_decodeFilterExp(
+                    destination.as_mut_ptr().cast(),
+                    count,
+                    stride,
+                );
+            },
+            Some(filter) => {
+                return Err(CorpusError::UnsupportedAccessor(format!(
+                    "bufferView {view_index} uses unsupported EXT_meshopt_compression filter {filter}"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn extension_required_usize(value: Option<&Value>, description: &str) -> CorpusResult<usize> {
+    let value = value
+        .and_then(Value::as_u64)
+        .ok_or_else(|| invalid(format!("{description} is missing or invalid")))?;
+    usize::try_from(value).map_err(|_| invalid(format!("{description} exceeds addressable memory")))
+}
+
+fn extension_optional_usize(
+    value: Option<&Value>,
+    description: &str,
+) -> CorpusResult<Option<usize>> {
+    value
+        .map(|value| extension_required_usize(Some(value), description))
+        .transpose()
 }
 
 fn validate_buffer_length(
@@ -307,6 +564,35 @@ fn read_vec2_f32(
                 )));
             }
             Ok(value)
+        })
+        .collect();
+    values
+}
+
+fn read_scalar_f32(
+    root: &Value,
+    buffers: &[Vec<u8>],
+    accessor_index: usize,
+    semantic: &str,
+) -> CorpusResult<Vec<f32>> {
+    let view = AccessorView::new(root, buffers, accessor_index)?;
+    if view.component_type != COMPONENT_F32 || view.accessor_type != "SCALAR" {
+        return Err(CorpusError::UnsupportedAccessor(format!(
+            "{semantic} accessor {accessor_index} must be FLOAT SCALAR, got component {} {}",
+            view.component_type, view.accessor_type
+        )));
+    }
+    let values = view
+        .elements(4)?
+        .map(|element| {
+            let value = read_f32(element?, 0)?;
+            if value.is_finite() {
+                Ok(value)
+            } else {
+                Err(invalid(format!(
+                    "{semantic} accessor {accessor_index} contains a non-finite value"
+                )))
+            }
         })
         .collect();
     values

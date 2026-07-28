@@ -47,3 +47,60 @@ capability = [
 reason = "Exercises FLOAT VEC2 TEXCOORD_0 decoding while retaining image and material references as source evidence."
 expected = "source-structural-pass"
 source_sha256 = "1e9003a4a2a8822ff60da529357bd8e4dec4a59b1a479017993e7e2ad5fcebef"
+
+[[case]]
+id = "mesh-primitive-modes-gltf"
+logical_model = "MeshPrimitiveModes"
+source = "Models/MeshPrimitiveModes/glTF/MeshPrimitiveModes.gltf"
+dependencies = ["Models/MeshPrimitiveModes/glTF/buffer.bin"]
+dependency_sha256 = ["4369522e5929bed650242fea069c687aa2ea1230caa61c378610b2154c1048d7"]
+capability = [
+    "gltf-json",
+    "external-buffer",
+    "primitive-topology-inventory",
+    "points-lines-triangles",
+    "unsupported-topology-diagnostic",
+]
+reason = "Records all core primitive modes as source evidence and proves that non-triangle modes stop at an explicit decoder boundary."
+expected = "source-structural-pass; triangle-only-decode-rejects-first-unsupported-mode"
+source_sha256 = "2a8b3209c25e2fca5105539136a05f42d170767f0eb16148cd3825758e5ee977"
+
+[[case]]
+id = "multiple-scenes-gltf"
+logical_model = "MultipleScenes"
+source = "Models/MultipleScenes/glTF/MultipleScenes.gltf"
+dependencies = [
+    "Models/MultipleScenes/glTF/MultipleScenes_triangle.bin",
+    "Models/MultipleScenes/glTF/MultipleScenes_square.bin",
+]
+dependency_sha256 = [
+    "898ed7f560dca9907a80c98be57fbbc0f3a092d2e3683b964ffcfa75c549ac62",
+    "2d73fc484aab11784e8773862e69b28cb7e0d7d1aadac6032ceea7c490cfd15e",
+]
+capability = [
+    "gltf-json",
+    "multiple-external-buffers",
+    "multiple-scenes",
+    "multiple-meshes",
+    "scene-selection",
+]
+reason = "Exercises two independent scene roots, two meshes, and two external buffers without lowering a canonical scene."
+expected = "source-structural-pass"
+source_sha256 = "ae2aac8c01c8e9acd588d699fa6fceebb8ba1b5c2b5cc4a9c7ed64c60f356348"
+
+[[case]]
+id = "simple-meshes-gltf"
+logical_model = "SimpleMeshes"
+source = "Models/SimpleMeshes/glTF/SimpleMeshes.gltf"
+dependencies = ["Models/SimpleMeshes/glTF/SimpleMeshes.bin"]
+dependency_sha256 = ["63b006e58bdbc47206ea303ef2f630139e39a0c52a8454745ff6eb4f32df8365"]
+capability = [
+    "gltf-json",
+    "external-buffer",
+    "shared-mesh-instance",
+    "scene-multiple-roots",
+    "trs-transform",
+]
+reason = "Exercises two nodes sharing one mesh, including a translated TRS instance, without promoting source nodes to a canonical scene model."
+expected = "source-structural-pass"
+source_sha256 = "9c750a9e6a9ed3ba782b99c733a8280e57e45299b37627c16e9270705aa58342"

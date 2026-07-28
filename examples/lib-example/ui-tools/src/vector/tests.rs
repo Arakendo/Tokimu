@@ -75,6 +75,29 @@ fn convex_clip_intersects_a_triangle() {
 }
 
 #[test]
+fn convex_clip_intersects_a_many_sided_circle_approximation() {
+    let path = PathBuilder::new().rect([-2.0, -2.0], [4.0, 4.0]).build();
+    let clip = VectorPath::new(vec![VectorContour::new(
+        (0..16)
+            .map(|index| {
+                let angle = index as f32 * std::f32::consts::TAU / 16.0;
+                [angle.cos(), angle.sin()]
+            })
+            .collect(),
+        true,
+    )]);
+
+    let clipped = clip_path_to_convex_polygon(&path, &clip)
+        .expect("a convex circular approximation should clip a rectangle");
+    let points = &clipped.contours[0].points;
+    assert!(points.len() >= 16);
+    assert!(points
+        .iter()
+        .all(|point| point[0].abs() <= 1.001 && point[1].abs() <= 1.001));
+    assert!(clipped.bounds().is_some());
+}
+
+#[test]
 fn convex_clip_rejects_concave_clip_geometry() {
     let path = PathBuilder::new().rect([0.0, 0.0], [4.0, 4.0]).build();
     let clip = VectorPath::new(vec![VectorContour::new(

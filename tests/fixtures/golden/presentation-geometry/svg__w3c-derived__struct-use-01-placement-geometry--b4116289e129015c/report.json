@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "svg/w3c-derived/struct-use-01-placement-geometry",
+  "producer": "svg/w3c-derived",
+  "selected_stages": [
+    "source",
+    "xml",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=struct-use-01-placement-geometry.svg bytes=465 source=W3C SVG 1.1 2nd Edition derived geometry/struct-use-01-placement-geometry.svg"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=19 elements=5/5 text=8 comments=1 processing_instructions=0 roots=2 document_element=true"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "W3C-derived local href and xlink:href placement through x and y paths=2 contours=2 points=8 closed_contours=2"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "closed_paths=2 stroke_paths=0 open_paths=0 triangles=4 vertices=12 finite=true complete=true degenerate=0 area=0.031250"
+    }
+  ],
+  "diagnostics": []
+}

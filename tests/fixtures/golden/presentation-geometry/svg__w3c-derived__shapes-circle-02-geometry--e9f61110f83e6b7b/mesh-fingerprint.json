@@ -8,22 +8,22 @@
     "source": "W3C SVG 1.1 2nd Edition derived geometry/shapes-circle-02-geometry.svg",
     "algorithms": {
       "flatten": "svg-path-flatten-v1:subdivisions=12",
-      "tessellator": "ui-tools-general-fill",
+      "tessellator": "ui-tools-general-fill+stroke-v1",
       "fill_rule": "per-record SVG fill-rule"
     }
   },
   "bounds": [
     [
       -0.5833333,
-      0.19444445
+      0.062500015
     ],
     [
-      0.3333333,
-      0.6111111
+      0.33333337,
+      0.37500003
     ]
   ],
   "triangle_count": 56,
   "degenerate_triangles": 0,
-  "total_area": 0.113387674,
-  "canonical_triangle_hash": "fnv1a64:2feb15636d3ec295"
+  "total_area": 0.08504077,
+  "canonical_triangle_hash": "fnv1a64:a6edd4778125d0f1"
 }

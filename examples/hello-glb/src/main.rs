@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{io, path::PathBuf, sync::Arc};
 
+use gltf_corpus::{decode_glb_file, DecodedPrimitive};
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
@@ -14,6 +15,8 @@ const FLOOR_MESH: MeshHandle = MeshHandle(2);
 const MODEL_MATERIAL: MaterialHandle = MaterialHandle(1);
 const FLOOR_MATERIAL: MaterialHandle = MaterialHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
+const KHRONOS_BOX_SOURCE: &str =
+    "third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb";
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -33,6 +36,7 @@ struct HelloGlbApp {
     elapsed_seconds: f64,
     pipeline: PipelineHandle,
     assets: AssetStore,
+    model_mesh: Mesh,
 }
 
 impl Default for HelloGlbApp {
@@ -44,6 +48,7 @@ impl Default for HelloGlbApp {
             elapsed_seconds: 0.0,
             pipeline: PipelineHandle(0),
             assets: AssetStore::default(),
+            model_mesh: Mesh::default(),
         }
     }
 }
@@ -74,7 +79,7 @@ impl HelloGlbApp {
             return Ok(FrameOutcome::Continue);
         };
 
-        renderer.upload_mesh(MODEL_MESH, &build_model_mesh(seconds));
+        renderer.upload_mesh(MODEL_MESH, &transform_model_mesh(&self.model_mesh, seconds));
         renderer.upload_mesh(FLOOR_MESH, &build_floor_mesh(seconds));
 
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
@@ -121,8 +126,9 @@ impl PlatformEventHandler for HelloGlbApp {
         self.window_size = [size.width.max(1) as f32, size.height.max(1) as f32];
         self.window = Some(window.clone());
 
+        self.model_mesh = load_khronos_box_mesh()?;
         self.assets
-            .allocate_with_source::<Mesh, _>("models/cube.glb");
+            .allocate_with_source::<Mesh, _>(KHRONOS_BOX_SOURCE);
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_material(
@@ -161,7 +167,51 @@ impl PlatformEventHandler for HelloGlbApp {
     }
 }
 
-fn build_model_mesh(seconds: f32) -> Mesh {
+fn load_khronos_box_mesh() -> PlatformResult<Mesh> {
+    let path = khronos_box_path();
+    let model = decode_glb_file(&path)?;
+    let primitive = model.primitives.first().ok_or_else(|| {
+        io::Error::other("Khronos Box GLB decoded without a renderable primitive")
+    })?;
+    indexed_primitive_to_mesh(primitive)
+}
+
+fn khronos_box_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(KHRONOS_BOX_SOURCE)
+}
+
+fn indexed_primitive_to_mesh(primitive: &DecodedPrimitive) -> PlatformResult<Mesh> {
+    if primitive.normals.len() != primitive.positions.len() {
+        return Err(io::Error::other(format!(
+            "primitive has {} positions but {} normals",
+            primitive.positions.len(),
+            primitive.normals.len()
+        ))
+        .into());
+    }
+
+    let mut positions = Vec::with_capacity(primitive.indices.len());
+    let mut normals = Vec::with_capacity(primitive.indices.len());
+    for index in &primitive.indices {
+        let index = *index as usize;
+        positions.push(*primitive.positions.get(index).ok_or_else(|| {
+            io::Error::other(format!(
+                "primitive index {index} is outside decoded positions"
+            ))
+        })?);
+        normals.push(*primitive.normals.get(index).ok_or_else(|| {
+            io::Error::other(format!(
+                "primitive index {index} is outside decoded normals"
+            ))
+        })?);
+    }
+
+    Ok(Mesh::new(positions, normals))
+}
+
+fn transform_model_mesh(model: &Mesh, seconds: f32) -> Mesh {
     let wobble = (seconds * 1.4).sin() * 0.06;
     let twist = seconds * 0.18;
     let transform = Mat4::from_rotation_y(twist)
@@ -173,19 +223,21 @@ fn build_model_mesh(seconds: f32) -> Mesh {
         ))
         * Mat4::from_translation(Vec3::new(0.0, 0.35, 0.0));
     let normal_transform = transform.inverse().transpose();
-    let base = Mesh::cube();
-
     Mesh::new(
-        base.positions
-            .into_iter()
+        model
+            .positions
+            .iter()
+            .copied()
             .map(|position| {
                 transform
                     .transform_point3(Vec3::from_array(position))
                     .to_array()
             })
             .collect(),
-        base.normals
-            .into_iter()
+        model
+            .normals
+            .iter()
+            .copied()
             .map(|normal| {
                 normal_transform
                     .transform_vector3(Vec3::from_array(normal))

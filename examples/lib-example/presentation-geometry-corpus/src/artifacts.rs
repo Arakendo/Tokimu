@@ -89,8 +89,28 @@ pub struct VectorArtifact {
     pub transformed_bounds: Option<([f32; 2], [f32; 2])>,
     pub bounds: Option<([f32; 2], [f32; 2])>,
     pub contours: Vec<VectorContourArtifact>,
+    /// Producer-level paint intent is recorded beside geometry rather than
+    /// being folded into a renderer or tessellation artifact.
+    pub paint_records: Vec<PaintArtifact>,
     pub intersections: Vec<SegmentIntersectionArtifact>,
     pub clips: Vec<ClipPathArtifact>,
+}
+
+/// Bounded paint semantics preserved by an importer for corpus review.
+///
+/// These values describe source intent only. They do not claim that the mesh
+/// artifact has performed SVG compositing or renderer blending.
+#[derive(Clone, Debug, Serialize)]
+pub struct PaintArtifact {
+    pub record_index: usize,
+    pub fill: bool,
+    pub stroke: bool,
+    pub fill_color: Option<[f32; 4]>,
+    pub stroke_color: Option<[f32; 4]>,
+    pub fill_opacity: f32,
+    pub stroke_opacity: f32,
+    pub opacity: f32,
+    pub stroke_width: f32,
 }
 
 #[derive(Clone, Debug, Serialize)]

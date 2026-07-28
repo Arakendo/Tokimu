@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "case_id": "svg/w3c-derived/coords-trans-05-reflection-geometry",
+  "producer": "svg/w3c-derived",
+  "selected_stages": [
+    "source",
+    "xml",
+    "vector",
+    "mesh"
+  ],
+  "stages": [
+    {
+      "stage": "source",
+      "status": "ready",
+      "summary": "file=coords-trans-05-reflection-geometry.svg bytes=488 source=W3C SVG 1.1 2nd Edition derived geometry/coords-trans-05-reflection-geometry.svg"
+    },
+    {
+      "stage": "xml",
+      "status": "ready",
+      "summary": "events=16 elements=4/4 text=7 comments=1 processing_instructions=0 roots=2 document_element=true"
+    },
+    {
+      "stage": "vector",
+      "status": "ready",
+      "summary": "W3C-derived reflected geometry with a non-zero root viewBox origin paths=2 contours=3 points=12 closed_contours=3"
+    },
+    {
+      "stage": "mesh",
+      "status": "ready",
+      "summary": "closed_paths=2 stroke_paths=0 open_paths=0 triangles=12 vertices=36 finite=true complete=true degenerate=0 area=0.281667"
+    }
+  ],
+  "diagnostics": []
+}

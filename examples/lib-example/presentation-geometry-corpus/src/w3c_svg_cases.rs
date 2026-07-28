@@ -4,7 +4,7 @@ use crate::{
     fixture_paths::{find_w3c_fixture_root, w3c_source_label, w3c_svg_source_path},
     geometry::{format_mesh_summary, validate_mesh},
     reports::failed_stage,
-    svg_support::{summarize_paths, tessellate_closed_fills, tessellate_svg_strokes},
+    svg_support::{summarize_paths, tessellate_svg_fills, tessellate_svg_strokes},
     xml_stage::inspect_xml_stage,
     CaseReport, CorpusCase, CorpusStage, StageReport, StageStatus, W3cSvgCase, W3cSvgExpectation,
 };
@@ -74,7 +74,9 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
     let records = match parse_svg_document_vector_records_from_xml_events(
         &xml.events,
         12,
-        SvgViewportSource::Caller([0.0, 0.0, 480.0, 360.0]),
+        // W3C cases are documents, not embedded icon fragments. Their root
+        // viewBox is the authored coordinate contract under test.
+        SvgViewportSource::DocumentViewBox,
     ) {
         Ok(records) if !records.is_empty() => {
             if case.expectation == W3cSvgExpectation::UnsupportedProfile {
@@ -136,7 +138,7 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
         status: StageStatus::Ready,
         summary: summarize_paths(case.description, &paths),
     });
-    let mut fill_meshes = tessellate_closed_fills(&records, "W3C SVG");
+    let mut fill_meshes = tessellate_svg_fills(&records, "W3C SVG");
     let stroke_meshes = tessellate_svg_strokes(&records, 1.0 / 480.0, "W3C SVG");
     fill_meshes
         .triangles
@@ -149,8 +151,7 @@ pub fn run_w3c_svg_case(case: W3cSvgCase) -> CaseReport {
         report.stages.push(StageReport {
             stage: CorpusStage::Mesh,
             status: StageStatus::ExpectedFailure,
-            summary: "no closed fill paths; stroke-only geometry is outside W3C v1 mesh scope"
-                .to_owned(),
+            summary: "no admitted fill or stroke paths produced mesh geometry".to_owned(),
         });
     } else if !validation.finite || !validation.complete_triangles {
         let message = format!(

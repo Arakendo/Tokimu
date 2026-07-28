@@ -1,9 +1,10 @@
 //! Shared SVG record analysis used by provider-specific corpus runners.
 
 use ui_tools::{
-    tessellate_general_fill_with_rule, tessellate_stroke_with_style, SvgFillRule, SvgStrokeLinecap,
-    SvgStrokeLinejoin, SvgVectorRecord, VectorFillRule, VectorPath, VectorStrokeCap,
-    VectorStrokeJoin, VectorStrokeStyle,
+    clip_path_to_convex_polygon, is_convex_polygon_clip, tessellate_general_fill_with_rule,
+    tessellate_stroke_with_style, SvgFillRule, SvgStrokeLinecap, SvgStrokeLinejoin,
+    SvgVectorRecord, VectorFillRule, VectorPath, VectorStrokeCap, VectorStrokeJoin,
+    VectorStrokeStyle,
 };
 
 #[derive(Debug, Default)]
@@ -34,7 +35,12 @@ pub(crate) fn summarize_paths(description: &str, paths: &[VectorPath]) -> String
     )
 }
 
-pub(crate) fn tessellate_closed_fills(
+/// Tessellates SVG fill paint using SVG's implicit subpath closure rule.
+///
+/// Source paths remain unmodified for stroke lowering. `SvgVectorRecord`
+/// supplies a fill-only view so the shared vector layer never needs to know
+/// SVG paint semantics.
+pub(crate) fn tessellate_svg_fills(
     records: &[SvgVectorRecord],
     diagnostic_context: &str,
 ) -> SvgFillMeshes {
@@ -46,20 +52,47 @@ pub(crate) fn tessellate_closed_fills(
     };
 
     for record in records {
-        if !record.fill || !record.path.contours.iter().all(|contour| contour.closed) {
+        if !record.fill {
             continue;
         }
+        let fill_path = record.path_for_fill();
+        if fill_path.contours.is_empty() {
+            continue;
+        }
+        let fill_path = match record.clip_path.as_ref() {
+            Some(clip)
+                if fill_path.contours.iter().all(|contour| contour.closed)
+                    && is_convex_polygon_clip(clip) =>
+            {
+                match clip_path_to_convex_polygon(&fill_path, clip) {
+                    Ok(path) => path,
+                    Err(error) => {
+                        result.diagnostics.push(format!(
+                            "{diagnostic_context} fill clip intersection failed: {error}"
+                        ));
+                        continue;
+                    }
+                }
+            }
+            Some(_) => {
+                result.diagnostics.push(format!(
+                    "{diagnostic_context} fill clip requires one convex closed clip and closed fill contours"
+                ));
+                continue;
+            }
+            None => fill_path,
+        };
         let fill_rule = match record.fill_rule {
             SvgFillRule::NonZero => VectorFillRule::NonZero,
             SvgFillRule::EvenOdd => VectorFillRule::EvenOdd,
         };
-        match tessellate_general_fill_with_rule(&record.path, fill_rule) {
+        match tessellate_general_fill_with_rule(&fill_path, fill_rule) {
             Ok(mut triangles) => {
                 result.triangles.append(&mut triangles);
                 result.fill_paths += 1;
             }
             Err(error) => result.diagnostics.push(format!(
-                "closed {diagnostic_context} path fill tessellation failed: {error}"
+                "{diagnostic_context} path fill tessellation failed: {error}"
             )),
         }
     }
@@ -87,6 +120,12 @@ pub(crate) fn tessellate_svg_strokes(
 
     for record in records {
         if !record.stroke {
+            continue;
+        }
+        if record.clip_path.is_some() {
+            result.diagnostics.push(format!(
+                "{diagnostic_context} stroke clipping is outside the current structural profile"
+            ));
             continue;
         }
         let cap = match record.stroke_linecap {

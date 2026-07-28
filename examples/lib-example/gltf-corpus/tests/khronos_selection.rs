@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use gltf_corpus::{
-    decode_glb_file, decode_gltf_file, inspect_glb_file, inspect_gltf_file, GlbChunkKind,
+    decode_glb_file, decode_gltf_file, inspect_glb_file, inspect_gltf_file, CorpusError,
+    GlbChunkKind,
 };
 
 #[test]
@@ -42,6 +43,18 @@ fn box_glb_has_valid_json_and_binary_chunks() {
     assert_eq!(inspection.summary.accessors, 3);
     assert_eq!(inspection.summary.buffer_views, 2);
     assert_eq!(inspection.summary.materials, 1);
+    let material_path = root.join("upstream/Models/Box/glTF/Box.gltf");
+    let material_inspection = inspect_gltf_file(material_path).expect("Box glTF should inspect");
+    assert_eq!(material_inspection.materials.len(), 1);
+    assert_eq!(
+        material_inspection.materials[0].name.as_deref(),
+        Some("Red")
+    );
+    assert_eq!(
+        material_inspection.materials[0].base_color_factor,
+        Some([0.8, 0.0, 0.0, 1.0])
+    );
+    assert_eq!(material_inspection.materials[0].base_color_texture, None);
 }
 
 #[test]
@@ -85,7 +98,7 @@ fn box_positions_normals_and_indices_decode() {
 fn box_textured_positions_normals_indices_and_uvs_decode() {
     let root = fixture_root();
     let path = root.join("upstream/Models/BoxTextured/glTF/BoxTextured.gltf");
-    let model = decode_gltf_file(path).expect("BoxTextured should decode");
+    let model = decode_gltf_file(&path).expect("BoxTextured should decode");
 
     assert_eq!(model.primitives.len(), 1);
     let primitive = &model.primitives[0];
@@ -108,6 +121,106 @@ fn box_textured_positions_normals_indices_and_uvs_decode() {
             .fold(f32::NEG_INFINITY, f32::max),
         6.0
     );
+
+    let inspection = inspect_gltf_file(&path).expect("BoxTextured should inspect");
+    assert_eq!(inspection.materials.len(), 1);
+    assert_eq!(inspection.materials[0].name.as_deref(), Some("Texture"));
+    assert_eq!(inspection.materials[0].base_color_texture, Some(0));
+    assert_eq!(inspection.textures.len(), 1);
+    assert_eq!(inspection.textures[0].source, Some(0));
+    assert_eq!(inspection.images.len(), 1);
+    assert_eq!(
+        inspection.images[0].uri.as_deref(),
+        Some("CesiumLogoFlat.png")
+    );
+
+    assert_eq!(model.nodes.len(), 2);
+    assert_eq!(model.nodes[0].children, [1]);
+    assert_eq!(model.nodes[1].mesh, Some(0));
+    assert_eq!(model.scenes.len(), 1);
+    assert_eq!(model.scenes[0].roots, [0]);
+    assert_eq!(
+        model.scenes[0]
+            .traversal
+            .iter()
+            .map(|entry| entry.node)
+            .collect::<Vec<_>>(),
+        [0, 1]
+    );
+    assert_eq!(
+        model.scenes[0].traversal[1].world_transform,
+        model.nodes[0].local_transform
+    );
+}
+
+#[test]
+fn multiple_scenes_decode_independent_meshes_buffers_and_transforms() {
+    let root = fixture_root();
+    let path = root.join("upstream/Models/MultipleScenes/glTF/MultipleScenes.gltf");
+    let model = decode_gltf_file(path).expect("MultipleScenes should decode");
+
+    assert_eq!(model.primitives.len(), 2);
+    assert_eq!(model.primitives[0].location.mesh, 0);
+    assert_eq!(model.primitives[0].positions.len(), 3);
+    assert_eq!(model.primitives[0].indices.len(), 3);
+    assert_eq!(model.primitives[1].location.mesh, 1);
+    assert_eq!(model.primitives[1].positions.len(), 4);
+    assert_eq!(model.primitives[1].indices.len(), 6);
+
+    assert_eq!(model.scenes.len(), 2);
+    assert_eq!(model.scenes[0].roots, [0]);
+    assert_eq!(model.scenes[1].roots, [1]);
+    assert_eq!(model.scenes[0].traversal[0].world_transform[12], 0.0);
+    assert_eq!(model.scenes[1].traversal[0].world_transform[12], 0.0);
+}
+
+#[test]
+fn simple_meshes_decodes_shared_mesh_instances_and_trs_translation() {
+    let root = fixture_root();
+    let path = root.join("upstream/Models/SimpleMeshes/glTF/SimpleMeshes.gltf");
+    let model = decode_gltf_file(path).expect("SimpleMeshes should decode");
+
+    assert_eq!(model.primitives.len(), 1);
+    assert_eq!(model.nodes.len(), 2);
+    assert_eq!(model.nodes[0].mesh, Some(0));
+    assert_eq!(model.nodes[1].mesh, Some(0));
+    assert_eq!(model.scenes.len(), 1);
+    assert_eq!(model.scenes[0].roots, [0, 1]);
+    assert_eq!(model.scenes[0].traversal.len(), 2);
+    assert_eq!(model.scenes[0].traversal[0].world_transform[12], 0.0);
+    assert_eq!(model.scenes[0].traversal[1].world_transform[12], 1.0);
+}
+
+#[test]
+fn mesh_primitive_modes_preserve_source_topology_and_reject_unsupported_lowering() {
+    let root = fixture_root();
+    let path = root.join("upstream/Models/MeshPrimitiveModes/glTF/MeshPrimitiveModes.gltf");
+    let inspection = inspect_gltf_file(&path).expect("MeshPrimitiveModes should inspect");
+
+    assert_eq!(inspection.summary.meshes, 7);
+    assert_eq!(inspection.summary.primitives, 7);
+    assert_eq!(inspection.primitive_topologies.len(), 7);
+    assert_eq!(
+        inspection
+            .primitive_topologies
+            .iter()
+            .map(|topology| topology.mode)
+            .collect::<Vec<_>>(),
+        [0, 1, 2, 3, 4, 5, 6]
+    );
+    assert_eq!(
+        inspection
+            .primitive_topologies
+            .iter()
+            .map(|topology| (topology.mesh, topology.primitive))
+            .collect::<Vec<_>>(),
+        [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0)]
+    );
+
+    let error = decode_gltf_file(path).expect_err("POINTS must not silently lower as triangles");
+    assert!(matches!(error, CorpusError::UnsupportedAccessor(_)));
+    assert!(error.to_string().contains("mode 0"));
+    assert!(error.to_string().contains("only TRIANGLES is admitted"));
 }
 
 fn fixture_root() -> PathBuf {

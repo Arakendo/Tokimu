@@ -127,8 +127,8 @@ expected = "structural-pass"
 id = "shapes-polyline-01-geometry.svg"
 upstream = "shapes-polyline-01-t.svg"
 capability = ["polyline", "open-path", "stroke-intent"]
-reason = "Retains open polyline geometry as vector evidence; stroke expansion remains outside the current mesh scope."
-expected = "vector-pass-no-fill-mesh"
+reason = "Retains open polyline geometry, omits its non-enclosing fill view, and proves shared stroke expansion."
+expected = "structural-pass"
 
 [[derived_case]]
 id = "shapes-rect-01-geometry.svg"
@@ -155,8 +155,8 @@ expected = "structural-pass"
 id = "shapes-line-01-geometry.svg"
 upstream = "shapes-line-01-t.svg"
 capability = ["line", "open-path", "stroke-intent"]
-reason = "Retains open line primitives as vector evidence; stroke expansion remains outside the current mesh scope."
-expected = "vector-pass-no-fill-mesh"
+reason = "Retains open line primitives, omits their non-enclosing fill views, and proves shared stroke expansion."
+expected = "structural-pass"
 
 [[derived_case]]
 id = "paths-data-04-geometry.svg"
@@ -282,7 +282,49 @@ id = "shapes-line-02-stroke-geometry.svg"
 upstream = "shapes-line-02-t.svg"
 capability = ["line", "polyline", "path", "stroke", "caps", "joins"]
 reason = "Preserves line, polyline, and curved open-path stroke intent as the first explicit stroke-expansion corpus boundary."
-expected = "vector-pass-stroke-mesh-deferred"
+expected = "structural-pass"
+
+[[derived_case]]
+id = "struct-use-01-geometry.svg"
+upstream = "struct-use-01-t.svg"
+capability = ["defs", "use", "xlink-href", "local-reference", "non-rendering-definition"]
+reason = "Exercises bounded local href and xlink:href reuse of geometric definitions while ensuring defs storage does not render by itself."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "struct-use-01-placement-geometry.svg"
+upstream = "struct-use-01-t.svg"
+capability = ["defs", "use", "href", "xlink-href", "local-reference", "x", "y", "placement"]
+reason = "Exercises local href and xlink:href placement through use-site x/y coordinates while intentionally excluding use-site style overrides and arbitrary transforms."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "masking-path-01-circle-clip-geometry.svg"
+upstream = "masking-path-01-b.svg"
+capability = ["clip-path", "circle", "rect", "convex-intersection", "user-space-clip"]
+reason = "Retains one user-space circular clip and a rectangular target so clipping reuses the normal circle/vector lowering path before convex structural intersection."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "masking-path-02-curve-clip-geometry.svg"
+upstream = "masking-path-02-b.svg"
+capability = ["clip-path", "rect", "cubic-path", "closed-fill", "convex-intersection", "user-space-clip"]
+reason = "Retains a user-space rectangular clip and a cubic closed fill so clipping is validated after curve flattening and before fill tessellation."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "paths-data-10-stroke-geometry.svg"
+upstream = "paths-data-10-t.svg"
+capability = ["path-data", "open-path", "closed-path", "stroke", "caps", "joins"]
+reason = "Retains open and closed triangular path geometry across butt, round, and square caps plus miter, bevel, and round joins."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "shapes-polyline-02-geometry.svg"
+upstream = "shapes-polyline-02-t.svg"
+capability = ["polyline", "path-equivalence", "open-stroke", "implicit-fill-closure"]
+reason = "Compares polyline syntax with equivalent path syntax while exercising open strokes and filled open contours that require implicit fill closure."
+expected = "structural-pass"
 
 [[derived_case]]
 id = "coords-trans-03-elementary-geometry.svg"
@@ -292,10 +334,38 @@ reason = "Retains elementary and nested coordinate transforms as closed fill geo
 expected = "structural-pass"
 
 [[derived_case]]
+id = "coords-trans-05-reflection-geometry.svg"
+upstream = "coords-trans-03-t.svg"
+capability = ["transform", "negative-scale", "reflection", "orientation-reversal", "non-zero-viewbox", "multiple-contours"]
+reason = "Isolates orientation-reversing negative scale and a non-zero root viewBox origin so lowering, fill-rule handling, and tessellation cannot rely on positive winding or an origin at zero."
+expected = "structural-pass"
+
+[[derived_case]]
 id = "struct-group-01-inheritance-geometry.svg"
 upstream = "struct-group-01-t.svg"
 capability = ["nested-groups", "presentation-inheritance", "fill", "stroke", "fill-rule", "multiple-contours"]
 reason = "Retains group-level paint inheritance and child overrides as provider-neutral geometry records, including an even-odd nested contour and stroke-only intent."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "painting-fill-04-inheritance-geometry.svg"
+upstream = "painting-fill-04-t.svg"
+capability = ["nested-groups", "presentation-inheritance", "fill", "stroke", "stroke-width", "child-override"]
+reason = "Retains the upstream nested fill, stroke, and stroke-width inheritance cases while removing labels, framing, and text outside the bounded geometry profile."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "painting-fill-02-current-color-geometry.svg"
+upstream = "painting-fill-02-t.svg"
+capability = ["current-color", "presentation-inheritance", "fill", "stroke", "child-override"]
+reason = "Retains the upstream currentColor fill cases through inherited group color and a local child color override while removing labels, framing, and text outside the bounded geometry profile."
+expected = "structural-pass"
+
+[[derived_case]]
+id = "painting-stroke-08-opacity-geometry.svg"
+upstream = "painting-stroke-08-t.svg"
+capability = ["stroke", "stroke-width", "stroke-opacity"]
+reason = "Retains only the upstream in-range stroke-opacity sequence so resolved paint intent is observable without claiming alpha compositing or out-of-range clamping behavior."
 expected = "structural-pass"
 
 [[derived_case]]

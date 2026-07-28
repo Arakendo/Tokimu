@@ -315,7 +315,9 @@ fn positioned_inter_a_remains_filled_at_example_scale() {
         .tessellate_positioned_glyph(positioned, 96.0, 1.0 / 600.0, [0.0, 0.0], 0.18 / 600.0)
         .expect("example-scale A fill");
     assert!(triangles.len() >= 3 * 20, "A lost geometry at output scale");
-    assert!(triangles.iter().all(|point| point.iter().all(|value| value.is_finite())));
+    assert!(triangles
+        .iter()
+        .all(|point| point.iter().all(|value| value.is_finite())));
 }
 
 #[test]

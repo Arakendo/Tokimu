@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120">
+  <!--
+    Derived from upstream/svg/painting-stroke-08-t.svg.
+    This keeps only in-range stroke-opacity values as resolved paint intent.
+    The upstream fixture's out-of-range clamping and visual compositing are
+    intentionally outside the structural geometry profile.
+  -->
+  <g fill="none" stroke="blue" stroke-width="10">
+    <path stroke-opacity="0.2" d="M20 20 H220"/>
+    <path stroke-opacity="0.4" d="M20 45 H220"/>
+    <path stroke-opacity="0.6" d="M20 70 H220"/>
+    <path stroke-opacity="0.8" d="M20 95 H220"/>
+  </g>
+</svg>

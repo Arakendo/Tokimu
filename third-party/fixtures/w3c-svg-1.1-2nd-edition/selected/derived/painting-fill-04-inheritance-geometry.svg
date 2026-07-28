@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180">
+  <!--
+    Derived from upstream/svg/painting-fill-04-t.svg.
+    This retains only nested paint inheritance and child overrides; labels,
+    text, framing, and the upstream font fixture are intentionally omitted.
+  -->
+  <g fill="blue" stroke="purple" stroke-width="5" transform="translate(15 10)">
+    <rect x="0" y="0" width="70" height="45"/>
+    <rect x="85" y="0" width="70" height="45"/>
+    <rect x="0" y="58" width="70" height="45" fill="yellow" stroke-width="2"/>
+    <rect x="85" y="58" width="70" height="45" stroke="yellow"/>
+    <g fill="yellow">
+      <rect x="0" y="116" width="70" height="45"/>
+      <rect x="85" y="116" width="70" height="45"/>
+    </g>
+  </g>
+</svg>

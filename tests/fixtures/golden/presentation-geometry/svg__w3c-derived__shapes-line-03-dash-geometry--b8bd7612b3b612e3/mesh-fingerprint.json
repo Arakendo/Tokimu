@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/shapes-line-03-dash-geometry",
+    "input_hash": "fnv1a64:e4932c08f3e851e8",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/shapes-line-03-dash-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill+stroke-v1",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.39999998,
+      -0.26185858
+    ],
+    [
+      0.40000004,
+      0.24375002
+    ]
+  ],
+  "triangle_count": 10,
+  "degenerate_triangles": 0,
+  "total_area": 0.050144,
+  "canonical_triangle_hash": "fnv1a64:04181bc9632fa4b6"
+}

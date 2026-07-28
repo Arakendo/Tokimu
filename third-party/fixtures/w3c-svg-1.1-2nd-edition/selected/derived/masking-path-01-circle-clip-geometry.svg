@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120">
+  <!-- Derived from upstream/svg/masking-path-01-b.svg.
+       Retains a single user-space circular clip and one rectangular target. -->
+  <defs>
+    <clipPath id="circle-clip">
+      <circle cx="120" cy="60" r="40"/>
+    </clipPath>
+  </defs>
+  <rect x="20" y="20" width="200" height="80" fill="orange"
+        clip-path="url(#circle-clip)"/>
+</svg>

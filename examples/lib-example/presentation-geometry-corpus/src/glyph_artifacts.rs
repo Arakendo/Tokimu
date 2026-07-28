@@ -107,6 +107,7 @@ pub fn write_glyph_artifacts(case: GlyphCase) -> Result<PathBuf, String> {
                 points: contour.points.clone(),
             })
             .collect(),
+        paint_records: Vec::new(),
         intersections: segment_intersections(&path),
         clips: Vec::new(),
     };

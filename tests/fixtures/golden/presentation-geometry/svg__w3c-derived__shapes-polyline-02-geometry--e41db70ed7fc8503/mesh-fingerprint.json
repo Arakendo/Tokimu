@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/shapes-polyline-02-geometry",
+    "input_hash": "fnv1a64:d7f1141688433533",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/shapes-polyline-02-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill+stroke-v1",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.45465845,
+      -0.25494105
+    ],
+    [
+      0.33419088,
+      0.21164617
+    ]
+  ],
+  "triangle_count": 32,
+  "degenerate_triangles": 0,
+  "total_area": 0.07875791,
+  "canonical_triangle_hash": "fnv1a64:e2b431edc6d46b60"
+}

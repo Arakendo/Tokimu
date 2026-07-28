@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 20 120 80">
+  <!--
+    Derived from upstream/svg/coords-trans-03-t.svg.
+    This isolates orientation-reversing transform composition and a non-zero
+    root viewBox origin from the source fixture's labels and framing.
+  -->
+  <g transform="translate(200 0) scale(-1 1)">
+    <path fill="#3978c7" d="M 60 30 H 120 V 80 H 60 Z M 78 46 H 102 V 64 H 78 Z"/>
+    <polygon fill="#d04a9b" points="130,32 154,54 130,76 106,54"/>
+  </g>
+</svg>

@@ -101,7 +101,7 @@ const SYNTHETIC_SVG_CASES: [SyntheticSvgCase; 1] = [SyntheticSvgCase::new(
     r#"<s:svg xmlns:s="http://www.w3.org/2000/svg" xmlns:foreign="urn:tokimu:foreign" viewBox="0 0 24 24"><foreign:path d="M 0 0 H 24 V 24 H 0 Z"/><s:path d="M 2 2 H 22 V 22 H 2 Z"/></s:svg>"#,
 )];
 
-const W3C_SVG_CASES: [W3cSvgCase; 40] = [
+const W3C_SVG_CASES: [W3cSvgCase; 50] = [
     W3cSvgCase::expected_unsupported_profile(
         "svg/w3c/painting-fill-03-t",
         "painting-fill-03-t.svg",
@@ -188,6 +188,16 @@ const W3C_SVG_CASES: [W3cSvgCase; 40] = [
         "W3C-derived line, polyline, and open-path stroke intent",
     ),
     W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/paths-data-10-stroke-geometry",
+        "paths-data-10-stroke-geometry.svg",
+        "W3C-derived open and closed path cap and join geometry",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/shapes-polyline-02-geometry",
+        "shapes-polyline-02-geometry.svg",
+        "W3C-derived polyline and path-equivalence geometry",
+    ),
+    W3cSvgCase::derived_profile_fixture(
         "svg/w3c-derived/coords-trans-03-elementary-geometry",
         "coords-trans-03-elementary-geometry.svg",
         "W3C-derived elementary and nested transform composition",
@@ -196,6 +206,11 @@ const W3C_SVG_CASES: [W3cSvgCase; 40] = [
         "svg/w3c-derived/coords-trans-04-stroke-geometry",
         "coords-trans-04-stroke-geometry.svg",
         "W3C-derived transformed open stroke geometry",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/coords-trans-05-reflection-geometry",
+        "coords-trans-05-reflection-geometry.svg",
+        "W3C-derived reflected geometry with a non-zero root viewBox origin",
     ),
     W3cSvgCase::derived_profile_fixture(
         "svg/w3c-derived/shapes-line-03-dash-geometry",
@@ -221,6 +236,21 @@ const W3C_SVG_CASES: [W3cSvgCase; 40] = [
         "svg/w3c-derived/struct-group-01-inheritance-geometry",
         "struct-group-01-inheritance-geometry.svg",
         "W3C-derived group paint inheritance and child overrides",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/painting-fill-04-inheritance-geometry",
+        "painting-fill-04-inheritance-geometry.svg",
+        "W3C-derived nested fill, stroke, and stroke-width inheritance",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/painting-fill-02-current-color-geometry",
+        "painting-fill-02-current-color-geometry.svg",
+        "W3C-derived currentColor fill resolution through inherited and local color",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/painting-stroke-08-opacity-geometry",
+        "painting-stroke-08-opacity-geometry.svg",
+        "W3C-derived in-range stroke-opacity paint intent",
     ),
     W3cSvgCase::derived_profile_fixture(
         "svg/w3c-derived/paths-data-04-geometry",
@@ -297,6 +327,26 @@ const W3C_SVG_CASES: [W3cSvgCase; 40] = [
         "shapes-ellipse-02-geometry.svg",
         "W3C-derived ellipse default-coordinate behavior",
     ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/struct-use-01-geometry",
+        "struct-use-01-geometry.svg",
+        "W3C-derived bounded local href and xlink:href geometry reuse",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/struct-use-01-placement-geometry",
+        "struct-use-01-placement-geometry.svg",
+        "W3C-derived local href and xlink:href placement through x and y",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/masking-path-01-circle-clip-geometry",
+        "masking-path-01-circle-clip-geometry.svg",
+        "W3C-derived user-space circular clip intersection for a rectangular target",
+    ),
+    W3cSvgCase::derived_profile_fixture(
+        "svg/w3c-derived/masking-path-02-curve-clip-geometry",
+        "masking-path-02-curve-clip-geometry.svg",
+        "W3C-derived cubic closed fill clipped by a user-space rectangle",
+    ),
     W3cSvgCase::expected_invalid_input(
         "svg/w3c-derived/shapes-polygon-03-geometry",
         "shapes-polygon-03-geometry.svg",
@@ -306,7 +356,7 @@ const W3C_SVG_CASES: [W3cSvgCase; 40] = [
 
 const UI_CASES: [UiCase; 1] = [UiCase::new("ui/panel-surface", "default panel surface")];
 
-const ALL_CASES: [CorpusCase; 52] = [
+const ALL_CASES: [CorpusCase; 62] = [
     CorpusCase::Glyph(GLYPH_CASES[0]),
     CorpusCase::Glyph(GLYPH_CASES[1]),
     CorpusCase::Glyph(GLYPH_CASES[2]),
@@ -358,6 +408,16 @@ const ALL_CASES: [CorpusCase; 52] = [
     CorpusCase::W3cSvg(W3C_SVG_CASES[37]),
     CorpusCase::W3cSvg(W3C_SVG_CASES[38]),
     CorpusCase::W3cSvg(W3C_SVG_CASES[39]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[40]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[41]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[42]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[43]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[44]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[45]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[46]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[47]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[48]),
+    CorpusCase::W3cSvg(W3C_SVG_CASES[49]),
     CorpusCase::Ui(UI_CASES[0]),
 ];
 

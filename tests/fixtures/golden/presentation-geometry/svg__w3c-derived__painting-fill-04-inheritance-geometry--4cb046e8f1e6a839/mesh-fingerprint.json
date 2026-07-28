@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "schema": 1,
+    "artifact": "mesh",
+    "producer": "svg/w3c-derived",
+    "case_id": "svg/w3c-derived/painting-fill-04-inheritance-geometry",
+    "input_hash": "fnv1a64:dfd7a1a7d4f82dbd",
+    "source": "W3C SVG 1.1 2nd Edition derived geometry/painting-fill-04-inheritance-geometry.svg",
+    "algorithms": {
+      "flatten": "svg-path-flatten-v1:subdivisions=12",
+      "tessellator": "ui-tools-general-fill+stroke-v1",
+      "fill_rule": "per-record SVG fill-rule"
+    }
+  },
+  "bounds": [
+    [
+      -0.44270834,
+      -0.34270835
+    ],
+    [
+      0.2135417,
+      0.33854172
+    ]
+  ],
+  "triangle_count": 60,
+  "degenerate_triangles": 0,
+  "total_area": 0.38203135,
+  "canonical_triangle_hash": "fnv1a64:3f8014e4f4077766"
+}

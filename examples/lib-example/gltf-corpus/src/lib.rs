@@ -8,13 +8,18 @@ mod decode;
 mod error;
 mod glb;
 mod gltf;
+mod scene;
 mod summary;
 
 pub use decode::{
-    decode_glb, decode_glb_file, decode_gltf, decode_gltf_file, DecodedBounds, DecodedModel,
-    DecodedPrimitive, PrimitiveLocation,
+    decode_glb, decode_glb_file, decode_gltf, decode_gltf_file, DecodedAnimation, DecodedBounds,
+    DecodedModel, DecodedPrimitive, DecodedTranslationChannel, PrimitiveLocation,
 };
 pub use error::{CorpusError, CorpusResult};
 pub use glb::{inspect_glb, inspect_glb_file, GlbChunk, GlbChunkKind, GlbInspection};
-pub use gltf::{inspect_gltf, inspect_gltf_file, BufferReference, GltfInspection, ResolvedBuffer};
+pub use gltf::{
+    inspect_gltf, inspect_gltf_file, BufferReference, GltfInspection, ImageReference,
+    MaterialReference, PrimitiveTopology, ResolvedBuffer, TextureReference,
+};
+pub use scene::{DecodedNode, DecodedScene, DecodedSceneNode, TransformMatrix};
 pub use summary::GltfSummary;

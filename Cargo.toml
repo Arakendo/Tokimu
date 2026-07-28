@@ -29,6 +29,7 @@ members = [
     "examples/hello-vector-draw",
     "examples/hello-svg",
     "examples/hello-glb",
+    "examples/hello-hole-punch",
     "examples/hello-2d-physics",
     "examples/ui/hello-ui",
     "examples/ui/hello-ui-button",

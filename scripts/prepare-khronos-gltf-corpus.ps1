@@ -39,7 +39,26 @@ $files = @(
     "Models/BoxTextured/README.md",
     "Models/BoxTextured/glTF/BoxTextured.gltf",
     "Models/BoxTextured/glTF/BoxTextured0.bin",
-    "Models/BoxTextured/glTF/CesiumLogoFlat.png"
+    "Models/BoxTextured/glTF/CesiumLogoFlat.png",
+    "Models/MeshPrimitiveModes/LICENSE.md",
+    "Models/MeshPrimitiveModes/metadata.json",
+    "Models/MeshPrimitiveModes/README.body.md",
+    "Models/MeshPrimitiveModes/README.md",
+    "Models/MeshPrimitiveModes/glTF/MeshPrimitiveModes.gltf",
+    "Models/MeshPrimitiveModes/glTF/buffer.bin",
+    "Models/SimpleMeshes/LICENSE.md",
+    "Models/SimpleMeshes/metadata.json",
+    "Models/SimpleMeshes/README.body.md",
+    "Models/SimpleMeshes/README.md",
+    "Models/SimpleMeshes/glTF/SimpleMeshes.gltf",
+    "Models/SimpleMeshes/glTF/SimpleMeshes.bin",
+    "Models/MultipleScenes/LICENSE.md",
+    "Models/MultipleScenes/metadata.json",
+    "Models/MultipleScenes/README.body.md",
+    "Models/MultipleScenes/README.md",
+    "Models/MultipleScenes/glTF/MultipleScenes.gltf",
+    "Models/MultipleScenes/glTF/MultipleScenes_triangle.bin",
+    "Models/MultipleScenes/glTF/MultipleScenes_square.bin"
 )
 
 foreach ($relativePath in $files) {

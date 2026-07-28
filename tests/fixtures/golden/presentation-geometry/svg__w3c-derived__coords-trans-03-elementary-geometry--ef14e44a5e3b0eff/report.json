@@ -27,7 +27,7 @@
     {
       "stage": "mesh",
       "status": "ready",
-      "summary": "closed_paths=8 open_paths=0 triangles=16 vertices=48 finite=true complete=true degenerate=0 area=0.026585"
+      "summary": "closed_paths=8 stroke_paths=0 open_paths=0 triangles=16 vertices=48 finite=true complete=true degenerate=0 area=0.019939"
     }
   ],
   "diagnostics": []

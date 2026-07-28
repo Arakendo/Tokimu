@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120">
+  <!-- Derived from upstream/svg/masking-path-02-b.svg.
+       Retains a user-space rectangular clip and a cubic closed fill. -->
+  <defs>
+    <clipPath id="rect-clip">
+      <rect x="65" y="25" width="110" height="70"/>
+    </clipPath>
+  </defs>
+  <path d="M 10 96 C 58 -8 179 150 230 24 L 230 110 L 10 110 Z"
+        fill="#4169e1" clip-path="url(#rect-clip)"/>
+</svg>

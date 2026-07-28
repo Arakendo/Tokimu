@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120">
+  <!--
+    Derived from upstream/svg/painting-fill-02-t.svg.
+    This retains only currentColor resolution through inherited and local
+    color values. Text, framing, and the upstream font fixture are omitted.
+  -->
+  <g color="green" fill="currentColor" stroke="black" stroke-width="4">
+    <rect x="15" y="25" width="80" height="70"/>
+    <rect x="145" y="25" width="80" height="70" color="blue"/>
+  </g>
+</svg>
