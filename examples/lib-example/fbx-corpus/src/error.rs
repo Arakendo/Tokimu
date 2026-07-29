@@ -57,6 +57,12 @@ pub enum FbxError {
         expected: usize,
         actual: usize,
     },
+    #[error("invalid FBX source graph at byte {offset}: {reason}")]
+    SourceGraph { offset: usize, reason: String },
+    #[error("invalid FBX geometry at byte {offset}: {reason}")]
+    Geometry { offset: usize, reason: String },
+    #[error("unsupported FBX transform at byte {offset}: {reason}")]
+    Transform { offset: usize, reason: String },
     #[error("failed to serialize FBX source-record artifact: {0}")]
     Serialize(#[from] serde_json::Error),
 }

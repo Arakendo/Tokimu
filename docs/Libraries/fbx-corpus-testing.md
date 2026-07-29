@@ -533,54 +533,87 @@ Evidence:
 
 ### Slice 3: Resolve Objects And Connections
 
+Status: complete on 2026-07-29 for the selected source-graph profile.
+
 Deliverables:
 
-- [ ] Decode the minimal `Objects` and `Connections` profile used by the v1
+- [x] Decode the minimal `Objects` and `Connections` profile used by the v1
       static-mesh case.
-- [ ] Preserve stable source IDs, object classes, names, and connection types.
-- [ ] Build an inspectable source scene graph.
-- [ ] Detect missing targets, duplicate IDs, and hierarchy cycles.
-- [ ] Emit `objects.json`, `connections.json`, and `source-scene.json`.
+- [x] Preserve stable source IDs, object classes, names, and connection types.
+- [x] Build an inspectable source scene graph.
+- [x] Detect missing targets, duplicate IDs, and hierarchy cycles.
+- [x] Emit `objects.json`, `connections.json`, and `source-scene.json`.
 
 Acceptance criteria:
 
-- [ ] One mesh node and its geometry connection are reconstructed.
-- [ ] Source graph errors identify IDs, classes, and source offsets.
-- [ ] Connection order does not silently redefine semantic ownership.
-- [ ] No FBX-native object escapes the importer boundary.
+- [x] One mesh node and its geometry connection are reconstructed.
+- [x] Source graph errors identify IDs, classes, and source offsets.
+- [x] Connection order does not silently redefine semantic ownership.
+- [x] No FBX-native object escapes the importer boundary.
+
+Evidence:
+
+- `FbxSourceObject`, `FbxConnection`, and `FbxSourceSceneNode` are
+  corpus-owned source evidence, not Tokimu scene contracts.
+- The selected Maya 7500 cube reconstructs `Model`, `Geometry`, and `OO`
+  connections into a deterministic source-scene artifact.
+- Duplicate source IDs, missing connection targets, conflicting model parents,
+  and model-hierarchy cycles fail with their owning source offsets.
+- Object, connection, and source-scene JSON artifacts are independently
+  serializable for later corpus reports.
 
 ### Slice 4: Lower Static Geometry
 
+Status: complete on 2026-07-29 for the selected static-mesh profile.
+
 Deliverables:
 
-- [ ] Decode control points and polygon vertex indices.
-- [ ] Preserve polygon boundaries before triangulation.
-- [ ] Decode one normal and one UV mapping/reference profile.
-- [ ] Lower geometry into corpus-owned imported-model evidence.
-- [ ] Emit mesh, attribute, topology, and bounds artifacts.
+- [x] Decode control points and polygon vertex indices.
+- [x] Preserve polygon boundaries before triangulation.
+- [x] Decode normal and UV mapping/reference metadata without promoting
+      FBX-specific attribute semantics.
+- [x] Lower geometry into corpus-owned imported-model evidence.
+- [x] Emit mesh, topology, and bounds artifacts; attribute data remains part
+      of the mesh evidence.
 
 Acceptance criteria:
 
-- [ ] One selected mesh reaches finite indexed geometry.
-- [ ] Polygon and attribute indices are in range.
-- [ ] Mapping and reference modes are preserved or rejected explicitly.
-- [ ] Bounds contain every decoded position.
-- [ ] The renderer receives no FBX path, object, or connection type.
+- [x] The selected Maya 7500 cube reaches finite indexed geometry.
+- [x] Polygon and decoded normal/UV attribute indices are range-checked.
+- [x] Mapping and reference modes are preserved as source metadata; no
+      unimplemented mode is silently applied.
+- [x] Bounds contain every decoded control-point position.
+- [x] The renderer receives no FBX path, object, connection, or mesh type.
+
+Evidence:
+
+- `fbx-corpus` now retains control points, source polygons, deterministic
+  triangle-fan evidence, optional normal/UV source layers, and finite bounds.
+- The selected Maya 7500 cube is decoded through binary records and the source
+  graph into this provider-neutral evidence in an integration test.
+- This is intentionally not a Tokimu model or renderer mesh contract. Normal
+  and UV mapping semantics remain source evidence until a later consumer
+  proves a canonical imported-model attribute contract.
 
 ### Slice 5: Resolve Hierarchy And Transforms
 
+Status: in progress on 2026-07-29. The selected Maya 7500 cube now proves
+deterministic local TRS and parent-world composition; axis comparison,
+normalization, and extended transform semantics remain open.
+
 Deliverables:
 
-- [ ] Decode local translation, rotation, and scale.
-- [ ] Compose parent-child world transforms.
-- [ ] Record source axes, handedness, units, and normalization.
+- [x] Decode local translation, XYZ Euler rotation, and scale.
+- [x] Compose parent-child world transforms.
+- [x] Record source-axis and unit metadata without silently normalizing it.
 - [ ] Add pivot, pre/post rotation, and geometric-transform cases
       incrementally.
 - [ ] Compare a shared hierarchy case with glTF canonical evidence.
 
 Acceptance criteria:
 
-- [ ] Local and world transforms are finite and deterministic.
+- [x] Local and world transforms are finite and deterministic for the selected
+      Maya 7500 cube.
 - [ ] Axis and unit conversion is explicit and testable.
 - [ ] Source transform details do not leak into renderer contracts.
 - [ ] Unsupported transform semantics stop before producing misleading world
