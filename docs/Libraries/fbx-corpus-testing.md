@@ -502,21 +502,34 @@ Acceptance criteria:
 
 ### Slice 2: Decode A Minimal Binary FBX
 
+Status: complete on 2026-07-29 for the selected binary syntax profile.
+
 Deliverables:
 
-- [ ] Create `examples/lib-example/fbx-corpus`.
-- [ ] Validate the binary signature and supported version.
-- [ ] Decode bounded node records, property arrays, strings, and raw values.
-- [ ] Preserve source offsets and record hierarchy.
-- [ ] Add truncated, oversized, invalid-offset, and unsupported-version tests.
+- [x] Create `examples/lib-example/fbx-corpus`.
+- [x] Validate the binary signature and supported version.
+- [x] Decode bounded node records, property arrays, strings, and raw values.
+- [x] Preserve source offsets and record hierarchy.
+- [x] Add truncated, oversized, invalid-offset, and unsupported-version tests.
 
 Acceptance criteria:
 
-- [ ] One minimal fixture decodes into a deterministic source-record artifact.
-- [ ] Invalid lengths, offsets, and arrays cannot panic or read out of bounds.
-- [ ] Unsupported versions stop with a structured diagnostic.
-- [ ] Decoding performs no rendering and creates no Tokimu model objects.
-- [ ] Repeated runs produce identical source fingerprints.
+- [x] One minimal fixture decodes into a deterministic source-record artifact.
+- [x] Invalid lengths, offsets, and arrays cannot panic or read out of bounds.
+- [x] Unsupported versions stop with a structured diagnostic.
+- [x] Decoding performs no rendering and creates no Tokimu model objects.
+- [x] Repeated runs produce identical source fingerprints.
+
+Evidence:
+
+- The selected Maya 6100 and 7500 binary cube fixtures exercise both 32-bit
+  and 64-bit node headers.
+- The decoder preserves record names, offsets, declared ends, properties, and
+  child hierarchy in serializable source evidence.
+- Compressed property arrays are decoded through bounded zlib input and checked
+  against their declared element width.
+- Unit coverage rejects invalid signatures, unsupported versions, truncated
+  headers, out-of-range record ends, oversized inputs, and oversized arrays.
 
 ### Slice 3: Resolve Objects And Connections
 

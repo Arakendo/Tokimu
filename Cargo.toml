@@ -64,6 +64,7 @@ members = [
     "examples/lib-example/screenshot",
     "examples/lib-example/network-tools",
     "examples/lib-example/cgm-corpus",
+    "examples/lib-example/fbx-corpus",
     "examples/lib-example/gltf-corpus",
     "examples/lib-example/presentation-geometry-corpus",
     "examples/lib-example/performance-diagnostics-corpus",
