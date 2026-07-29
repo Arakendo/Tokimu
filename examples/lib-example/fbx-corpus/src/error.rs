@@ -63,6 +63,8 @@ pub enum FbxError {
     Geometry { offset: usize, reason: String },
     #[error("unsupported FBX transform at byte {offset}: {reason}")]
     Transform { offset: usize, reason: String },
+    #[error("invalid FBX material evidence at byte {offset}: {reason}")]
+    Material { offset: usize, reason: String },
     #[error("failed to serialize FBX source-record artifact: {0}")]
     Serialize(#[from] serde_json::Error),
 }

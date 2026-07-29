@@ -6,6 +6,7 @@
 mod binary;
 mod error;
 mod geometry;
+mod material;
 mod source;
 mod transform;
 
@@ -17,6 +18,10 @@ pub use error::{FbxError, FbxResult};
 pub use geometry::{
     bounds_json, lower_static_geometry, meshes_json, topology_json, FbxBounds, FbxGeometryEvidence,
     FbxNormalLayer, FbxPolygon, FbxStaticMesh, FbxUvLayer,
+};
+pub use material::{
+    material_bindings_json, material_objects_json, resolve_materials, FbxMaterialBinding,
+    FbxMaterialEvidence, FbxMaterialProperty, FbxSourceMaterial, FbxSourceTexture,
 };
 pub use source::{
     connections_json, objects_json, resolve_source_scene, source_scene_json, FbxConnection,

@@ -623,9 +623,13 @@ Acceptance criteria:
 
 ### Slice 6: Add Materials And Textures
 
+Status: in progress on 2026-07-29. The selected 3ds Max binary material
+fixture proves bounded material properties and connection evidence. Polygon
+slots, texture asset resolution, and shading interpretation remain deferred.
+
 Deliverables:
 
-- [ ] Decode one bounded material and texture-reference profile.
+- [x] Decode one bounded material and texture-reference source profile.
 - [ ] Preserve polygon material assignments.
 - [ ] Resolve external texture dependencies through Tokimu asset identity.
 - [ ] Record unsupported shading models and layered textures.
@@ -635,8 +639,18 @@ Acceptance criteria:
 
 - [ ] One multi-material mesh preserves its slot assignments.
 - [ ] Missing textures fail at asset resolution, not rendering.
-- [ ] FBX material classes do not become Tokimu material semantics.
-- [ ] Renderer-native resources are absent from importer artifacts.
+- [x] FBX material classes do not become Tokimu material semantics.
+- [x] Renderer-native resources are absent from importer artifacts.
+
+Current evidence:
+
+- `FbxMaterialEvidence` preserves source material IDs, names, classes,
+  finite scalar/text property values, texture filenames when present, and the
+  relevant connection records.
+- The selected 3ds Max 7700 binary material fixture resolves deterministically
+  with at least one material and at least one material-related binding.
+- The evidence deliberately does not assign Tokimu PBR meanings to FBX
+  property names or create renderer resources.
 
 ### Slice 7: Add Animation
 
