@@ -16,7 +16,7 @@ encoding = "ascii"
 fbx_version = 6100
 capability = ["ascii", "static-mesh", "hierarchy", "legacy-version"]
 reason = "Provides a minimal legacy ASCII scene paired with binary and newer-version exports."
-expected = "valid-source"
+expected = "valid-records"
 
 [[case]]
 id = "maya-cube-6100-binary"
@@ -85,8 +85,8 @@ exporter = "blender"
 encoding = "ascii"
 fbx_version = 6100
 capability = ["ascii", "uv-sets", "layer-element-mapping"]
-reason = "Exercises UV layer interpretation in legacy ASCII form."
-expected = "valid-source"
+reason = "Exercises legacy ASCII UV records; name-based Connect graph interpretation remains deferred."
+expected = "valid-records"
 
 [[case]]
 id = "blender-uv-sets-7400-binary"
@@ -212,7 +212,7 @@ encoding = "ascii"
 fbx_version = 5800
 capability = ["ascii", "animation", "legacy-version"]
 reason = "Exercises legacy animation records with two sampled reference meshes."
-expected = "valid-source"
+expected = "valid-records"
 
 [[case]]
 id = "max2009-cube-animation-5800-binary"
@@ -226,7 +226,7 @@ encoding = "binary"
 fbx_version = 5800
 capability = ["binary", "animation", "legacy-version"]
 reason = "Provides an equivalent legacy binary animation source."
-expected = "valid-source"
+expected = "unsupported-source"
 
 [[case]]
 id = "max-transformed-skin-7500-ascii"

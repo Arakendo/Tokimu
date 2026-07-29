@@ -16,6 +16,10 @@ pub enum FbxError {
     },
     #[error("invalid binary FBX signature")]
     InvalidSignature,
+    #[error("invalid ASCII FBX syntax at byte {offset}: {reason}")]
+    AsciiSyntax { offset: usize, reason: String },
+    #[error("unsupported binary FBX byte-order marker 0x{marker:02x}")]
+    UnsupportedByteOrder { marker: u8 },
     #[error("unsupported binary FBX version {version}")]
     UnsupportedVersion { version: u32 },
     #[error("FBX record count exceeds the configured limit of {limit}")]
@@ -65,6 +69,12 @@ pub enum FbxError {
     Transform { offset: usize, reason: String },
     #[error("invalid FBX material evidence at byte {offset}: {reason}")]
     Material { offset: usize, reason: String },
+    #[error("invalid FBX animation evidence at byte {offset}: {reason}")]
+    Animation { offset: usize, reason: String },
+    #[error("invalid FBX skinning evidence at byte {offset}: {reason}")]
+    Skinning { offset: usize, reason: String },
+    #[error("invalid FBX morph evidence at byte {offset}: {reason}")]
+    Morph { offset: usize, reason: String },
     #[error("failed to serialize FBX source-record artifact: {0}")]
     Serialize(#[from] serde_json::Error),
 }

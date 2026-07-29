@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FbxBinaryDocument, FbxError, FbxProperty, FbxRecord, FbxResult};
+use crate::{FbxError, FbxProperty, FbxRecord, FbxRecordDocument, FbxResult};
 
 /// Provider-local object evidence resolved from the binary `Objects` record.
 ///
@@ -54,7 +54,7 @@ pub struct FbxSourceScene {
     pub diagnostics: Vec<FbxSourceDiagnostic>,
 }
 
-pub fn resolve_source_scene(document: &FbxBinaryDocument) -> FbxResult<FbxSourceScene> {
+pub fn resolve_source_scene(document: &impl FbxRecordDocument) -> FbxResult<FbxSourceScene> {
     let objects_record = unique_top_level_record(document, "Objects")?;
     let connections_record = unique_top_level_record(document, "Connections")?;
     let (objects, diagnostics) = decode_objects(objects_record)?;
@@ -65,7 +65,7 @@ pub fn resolve_source_scene(document: &FbxBinaryDocument) -> FbxResult<FbxSource
     let nodes = build_scene_nodes(&objects, &connections)?;
 
     Ok(FbxSourceScene {
-        source_fingerprint: document.source_fingerprint.clone(),
+        source_fingerprint: document.source_fingerprint().to_owned(),
         objects,
         connections,
         nodes,
@@ -86,10 +86,13 @@ pub fn source_scene_json(scene: &FbxSourceScene) -> FbxResult<String> {
 }
 
 fn unique_top_level_record<'a>(
-    document: &'a FbxBinaryDocument,
+    document: &'a impl FbxRecordDocument,
     name: &str,
 ) -> FbxResult<&'a FbxRecord> {
-    let mut matches = document.records.iter().filter(|record| record.name == name);
+    let mut matches = document
+        .records()
+        .iter()
+        .filter(|record| record.name == name);
     let Some(record) = matches.next() else {
         return Err(graph_error(
             0,
@@ -343,6 +346,7 @@ fn graph_error(offset: usize, reason: impl Into<String>) -> FbxError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FbxBinaryDocument;
 
     #[test]
     fn reconstructs_model_geometry_and_parent_links() {
@@ -404,6 +408,7 @@ mod tests {
     fn document(objects: Vec<FbxRecord>, connections: Vec<FbxRecord>) -> FbxBinaryDocument {
         FbxBinaryDocument {
             version: 7400,
+            byte_order: crate::FbxByteOrder::LittleEndian,
             records: vec![
                 FbxRecord {
                     name: "Objects".into(),

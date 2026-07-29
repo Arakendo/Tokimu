@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    FbxBinaryDocument, FbxConnection, FbxError, FbxProperty, FbxRecord, FbxResult, FbxSourceScene,
+    FbxConnection, FbxError, FbxGeometryEvidence, FbxProperty, FbxRecord, FbxRecordDocument,
+    FbxResult, FbxSourceScene,
 };
 
 /// Source-level material evidence. These records intentionally preserve FBX
@@ -58,8 +59,20 @@ pub struct FbxMaterialBinding {
     pub source_offset: usize,
 }
 
+/// A material-slot assignment resolved only for the `ByPolygon` or `AllSame`
+/// `IndexToDirect` source profiles. It is imported-model evidence, not a
+/// renderer material binding.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FbxMaterialSlotAssignment {
+    pub geometry_id: i64,
+    pub model_id: i64,
+    pub material_ids: Vec<i64>,
+    pub polygon_material_slots: Vec<u32>,
+    pub source_offset: usize,
+}
+
 pub fn resolve_materials(
-    document: &FbxBinaryDocument,
+    document: &impl FbxRecordDocument,
     scene: &FbxSourceScene,
 ) -> FbxResult<FbxMaterialEvidence> {
     let objects = top_level(document, "Objects")?;
@@ -145,6 +158,139 @@ pub fn material_bindings_json(evidence: &FbxMaterialEvidence) -> FbxResult<Strin
     Ok(serde_json::to_string_pretty(&evidence.bindings)?)
 }
 
+pub fn resolve_material_slots(
+    scene: &FbxSourceScene,
+    geometry: &FbxGeometryEvidence,
+) -> FbxResult<Vec<FbxMaterialSlotAssignment>> {
+    let model_materials = material_ids_by_model(scene)?;
+
+    let mut assignments = Vec::new();
+    for mesh in &geometry.meshes {
+        let Some(layer) = &mesh.material_layer else {
+            continue;
+        };
+        if layer.reference != "IndexToDirect" {
+            return Err(material_error(
+                mesh.source_offset,
+                format!(
+                    "geometry {} uses unsupported material reference mode {}/{}",
+                    mesh.source_id, layer.mapping, layer.reference
+                ),
+            ));
+        }
+        for node in scene
+            .nodes
+            .iter()
+            .filter(|node| node.geometry_ids.contains(&mesh.source_id))
+        {
+            let ids = model_materials
+                .get(&node.source_id)
+                .cloned()
+                .unwrap_or_default();
+            if ids.is_empty() {
+                return Err(material_error(
+                    node.source_offset,
+                    format!(
+                        "model {} references material-layer geometry {} without material bindings",
+                        node.source_id, mesh.source_id
+                    ),
+                ));
+            }
+            let source_slots = match layer.mapping.as_str() {
+                "ByPolygon" if layer.indices.len() == mesh.polygons.len() => layer.indices.clone(),
+                "AllSame" if layer.indices.len() == 1 => {
+                    vec![layer.indices[0]; mesh.polygons.len()]
+                }
+                "ByPolygon" => {
+                    return Err(material_error(
+                        mesh.source_offset,
+                        format!(
+                            "geometry {} has {} material slots for {} polygons",
+                            mesh.source_id,
+                            layer.indices.len(),
+                            mesh.polygons.len()
+                        ),
+                    ))
+                }
+                mapping => {
+                    return Err(material_error(
+                        mesh.source_offset,
+                        format!(
+                            "geometry {} uses unsupported material mapping `{mapping}`",
+                            mesh.source_id
+                        ),
+                    ))
+                }
+            };
+            let polygon_material_slots = source_slots
+                .iter()
+                .map(|index| {
+                    let index = usize::try_from(*index).map_err(|_| {
+                        material_error(mesh.source_offset, "negative material slot index")
+                    })?;
+                    if index >= ids.len() {
+                        return Err(material_error(
+                            mesh.source_offset,
+                            format!(
+                                "polygon material slot {index} exceeds {} bound materials",
+                                ids.len()
+                            ),
+                        ));
+                    }
+                    Ok(index as u32)
+                })
+                .collect::<FbxResult<Vec<_>>>()?;
+            assignments.push(FbxMaterialSlotAssignment {
+                geometry_id: mesh.source_id,
+                model_id: node.source_id,
+                material_ids: ids,
+                polygon_material_slots,
+                source_offset: mesh.source_offset,
+            });
+        }
+    }
+    Ok(assignments)
+}
+
+/// FBX material slots are indexed through their `Connections` record order.
+/// Preserve that source order instead of sorting by object ID, which would
+/// make a deterministic but semantically incorrect slot table.
+fn material_ids_by_model(scene: &FbxSourceScene) -> FbxResult<BTreeMap<i64, Vec<i64>>> {
+    let material_ids = scene
+        .objects
+        .iter()
+        .filter(|object| object.kind == "Material")
+        .map(|object| object.source_id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut model_materials = BTreeMap::<i64, Vec<i64>>::new();
+    for connection in &scene.connections {
+        if connection.relation == "OO"
+            && material_ids.contains(&connection.child_id)
+            && scene
+                .nodes
+                .iter()
+                .any(|node| node.source_id == connection.parent_id)
+        {
+            let materials = model_materials.entry(connection.parent_id).or_default();
+            if materials.contains(&connection.child_id) {
+                return Err(material_error(
+                    connection.source_offset,
+                    format!(
+                        "model {} repeats material connection for source ID {}",
+                        connection.parent_id, connection.child_id
+                    ),
+                ));
+            }
+            materials.push(connection.child_id);
+        }
+    }
+    Ok(model_materials)
+}
+
+pub fn material_slots_json(assignments: &[FbxMaterialSlotAssignment]) -> FbxResult<String> {
+    Ok(serde_json::to_string_pretty(assignments)?)
+}
+
 fn decode_properties(record: &FbxRecord) -> FbxResult<Vec<FbxMaterialProperty>> {
     let Some(properties) = record
         .children
@@ -221,9 +367,9 @@ fn binding(connection: &FbxConnection) -> FbxMaterialBinding {
     }
 }
 
-fn top_level<'a>(document: &'a FbxBinaryDocument, name: &str) -> FbxResult<&'a FbxRecord> {
+fn top_level<'a>(document: &'a impl FbxRecordDocument, name: &str) -> FbxResult<&'a FbxRecord> {
     document
-        .records
+        .records()
         .iter()
         .find(|record| record.name == name)
         .ok_or_else(|| material_error(0, format!("missing top-level `{name}` record")))
@@ -247,6 +393,16 @@ fn material_error(offset: usize, reason: impl Into<String>) -> FbxError {
 mod tests {
     use super::*;
 
+    fn source_object(id: i64, kind: &str) -> crate::FbxSourceObject {
+        crate::FbxSourceObject {
+            source_id: id,
+            kind: kind.into(),
+            name: format!("{kind}-{id}"),
+            class: String::new(),
+            source_offset: id as usize,
+        }
+    }
+
     #[test]
     fn preserves_supported_source_property_values() {
         let values = [FbxProperty::F64(1.0), FbxProperty::String("Lambert".into())]
@@ -261,5 +417,44 @@ mod tests {
                 FbxMaterialValue::Text("Lambert".into())
             ]
         );
+    }
+
+    #[test]
+    fn preserves_material_connection_order_for_slot_tables() {
+        let scene = FbxSourceScene {
+            source_fingerprint: "test".into(),
+            objects: vec![
+                source_object(30, "Model"),
+                source_object(100, "Material"),
+                source_object(10, "Material"),
+            ],
+            connections: vec![
+                FbxConnection {
+                    relation: "OO".into(),
+                    child_id: 100,
+                    parent_id: 30,
+                    property: None,
+                    source_offset: 1,
+                },
+                FbxConnection {
+                    relation: "OO".into(),
+                    child_id: 10,
+                    parent_id: 30,
+                    property: None,
+                    source_offset: 2,
+                },
+            ],
+            nodes: vec![crate::FbxSourceSceneNode {
+                source_id: 30,
+                name: "model".into(),
+                class: String::new(),
+                parent_model_id: None,
+                geometry_ids: vec![],
+                source_offset: 0,
+            }],
+            diagnostics: vec![],
+        };
+
+        assert_eq!(material_ids_by_model(&scene).unwrap()[&30], vec![100, 10]);
     }
 }

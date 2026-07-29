@@ -524,6 +524,15 @@ Evidence:
 
 - The selected Maya 6100 and 7500 binary cube fixtures exercise both 32-bit
   and 64-bit node headers.
+- The selected Maya 7500 big-endian-array counterpart proves that the declared
+  byte-order marker controls binary headers, scalar properties, and decoded
+  array elements before the same finite static-geometry boundary is reached.
+- The selected 3ds Max 7500 binary and ASCII Unicode fixtures preserve
+  non-ASCII source object names through source-scene evidence without making
+  source identity a Tokimu model contract.
+- The selected Blender 2.79 binary UV fixture preserves finite UV values with
+  their FBX mapping and reference labels; those labels remain source metadata
+  until a format-neutral attribute contract earns admission.
 - The decoder preserves record names, offsets, declared ends, properties, and
   child hierarchy in serializable source evidence.
 - Compressed property arrays are decoded through bounded zlib input and checked
@@ -591,15 +600,19 @@ Evidence:
   triangle-fan evidence, optional normal/UV source layers, and finite bounds.
 - The selected Maya 7500 cube is decoded through binary records and the source
   graph into this provider-neutral evidence in an integration test.
+- The selected Blender 2.79 binary UV-set fixture preserves finite UV values
+  and their FBX mapping/reference labels as source metadata; it does not yet
+  define a Tokimu vertex-attribute contract.
 - This is intentionally not a Tokimu model or renderer mesh contract. Normal
   and UV mapping semantics remain source evidence until a later consumer
   proves a canonical imported-model attribute contract.
 
 ### Slice 5: Resolve Hierarchy And Transforms
 
-Status: in progress on 2026-07-29. The selected Maya 7500 cube now proves
-deterministic local TRS and parent-world composition; axis comparison,
-normalization, and extended transform semantics remain open.
+Status: in progress on 2026-07-29. The selected Maya 7500 cube proves
+deterministic local TRS and parent-world composition, while selected Blender
+Y-up and Z-up fixtures preserve their distinct source axes and unit metadata.
+Axis normalization and extended transform semantics remain open.
 
 Deliverables:
 
@@ -621,19 +634,28 @@ Acceptance criteria:
 - [ ] Equivalent FBX and glTF cases can be compared without format-native
       fields.
 
+Evidence: selected Blender Y-up and Z-up binary fixtures preserve distinct,
+complete finite source-axis tuples and positive unit-scale metadata. This is
+evidence for recording source convention, not for silently converting either
+fixture into a Tokimu coordinate convention.
+
 ### Slice 6: Add Materials And Textures
 
 Status: in progress on 2026-07-29. The selected 3ds Max binary material
-fixture proves bounded material properties and connection evidence. Polygon
-slots, texture asset resolution, and shading interpretation remain deferred.
+fixture proves bounded material properties, texture-reference paths,
+connection evidence, and an `AllSame` material slot profile. Multi-material
+selection, texture asset resolution, and shading interpretation remain
+deferred.
 
 Deliverables:
 
 - [x] Decode one bounded material and texture-reference source profile.
-- [ ] Preserve polygon material assignments.
+- [x] Preserve polygon material assignments for `ByPolygon` and `AllSame`
+      `IndexToDirect` source layers.
 - [ ] Resolve external texture dependencies through Tokimu asset identity.
 - [ ] Record unsupported shading models and layered textures.
-- [ ] Emit material and texture-reference artifacts.
+- [x] Emit material, texture-reference, connection, and material-slot
+      artifacts.
 
 Acceptance criteria:
 
@@ -648,76 +670,177 @@ Current evidence:
   finite scalar/text property values, texture filenames when present, and the
   relevant connection records.
 - The selected 3ds Max 7700 binary material fixture resolves deterministically
-  with at least one material and at least one material-related binding.
+  with material properties, texture filenames or relative paths, and
+  property-qualified material bindings.
+- Its `AllSame/IndexToDirect` material layer expands one validated source slot
+  across the mesh polygons. The slot table preserves `Connections` source
+  order rather than sorting material IDs; duplicate bindings and unsupported
+  mapping/reference pairs fail at the material-evidence boundary.
 - The evidence deliberately does not assign Tokimu PBR meanings to FBX
   property names or create renderer resources.
+- Texture references remain source evidence. Missing-file behavior belongs to a
+  later Tokimu asset-resolution boundary rather than FBX decoding or rendering.
 
 ### Slice 7: Add Animation
 
+Status: in progress. The selected Blender 4.4 blend-shape fixture now resolves
+provider-local animation stacks, layers, curve nodes, curves, ordered native
+FBX tick times, finite key values, optional raw per-key attribute flags, and a
+source target/property connection.
+This is source interpretation evidence only; it does not yet define Tokimu
+clip, interpolation, or playback semantics. The selected legacy Max animation
+fixture reports its actual unsupported version-3000 header deterministically
+before semantic lowering.
+
 Deliverables:
 
-- [ ] Decode one animation stack, layer, curve node, curve, and key profile.
-- [ ] Preserve time bounds and interpolation intent.
+- [x] Decode one animation stack, layer, curve node, curve, and key profile.
+- [x] Preserve ordered native key times and finite key values for source
+      inspection.
+- [x] Preserve raw interpolation attributes when an exporter provides them,
+      without assuming a per-key encoding; evaluate source time bounds
+      separately.
 - [ ] Lower one translation or rotation channel into Tokimu-owned animation
       evidence.
 - [ ] Add layered and held-position cases separately.
-- [ ] Emit animation summaries and sampled validation artifacts.
+- [x] Emit deterministic provider-local animation summaries.
+- [ ] Emit sampled validation artifacts.
 
 Acceptance criteria:
 
-- [ ] Keys are finite, ordered, and attached to a valid target property.
-- [ ] Clip identity and source layer structure remain inspectable.
+- [x] Keys are finite, ordered, and attached to a resolved source target
+      property.
+- [x] Clip identity and source layer structure remain inspectable.
 - [ ] Playback does not silently reset state between source clips.
 - [ ] Runtime animation code depends on Tokimu contracts, not FBX objects.
 
 ### Slice 8: Add Skinning And Blend Shapes
 
+Status: in progress. The selected 3ds Max 7500 transformed-skin binary fixture
+now resolves provider-local `Skin` and `Cluster` deformers, their geometry and
+joint-model connections, paired control-point index/weight data, and finite
+`Transform`/`TransformLink` bind matrices. This preserves source evidence only;
+it does not define Tokimu skeleton, inverse-bind, weight-normalization, or
+runtime deformation contracts. The selected Blender 3.31 static blend-shape
+fixture now resolves `BlendShape`, `BlendShapeChannel`, and `Shape` target
+connections with validated control-point position vectors. The selected
+broken-cluster ASCII fixture now proves that bounded syntax, source-graph
+resolution, and static geometry can succeed before the skinning stage
+deterministically rejects a cluster without a joint-model connection. The
+selected 3ds Max 7500 ASCII/binary transformed-skin pair also agrees on
+cluster control-point influences, source weights within f32/decimal tolerance,
+and order-independent skeleton relationships after excluding encoding-local
+source-label spelling. The Blender 4.4 animated-shape fixture also proves that
+animation-curve and morph-target source evidence can coexist without either
+layer evaluating or depending on the other.
+
 Deliverables:
 
-- [ ] Decode one skeleton and skin cluster profile.
-- [ ] Resolve joint hierarchy, inverse bind data, and vertex influences.
-- [ ] Decode one blend-shape target and channel.
-- [ ] Validate weight normalization and target correspondence.
-- [ ] Emit skin, skeleton, and morph artifacts.
+- [x] Decode one skin and multi-cluster profile.
+- [x] Resolve source joint-model links, bind matrices, and vertex influences.
+- [x] Decode one static blend-shape target and channel.
+- [x] Validate target correspondence against the base control-point domain.
+- [x] Aggregate and validate selected cross-cluster source weight totals.
+- [x] Emit deterministic provider-local skin and cluster artifacts.
+- [x] Emit deterministic provider-local morph artifacts.
+- [x] Emit provider-local skeleton artifacts.
+- [x] Keep valid ASCII syntax distinct from later broken-cluster skinning
+      diagnostics.
+- [x] Compare one valid ASCII skin profile with its binary peer.
+- [x] Retain and compare selected cluster `Link_Mode` presence and value without
+      evaluating it.
 
 Acceptance criteria:
 
-- [ ] Joint and control-point references are valid and deterministic.
-- [ ] Unsupported link modes and deformation profiles are explicit.
-- [ ] Morph deltas match the base geometry domain.
+- [x] Selected joint and control-point references are valid and deterministic.
+- [x] Selected cross-cluster source totals remain finite and do not exceed the
+      fixture's expected normalized range; other FBX link modes remain
+      source-specific future evidence.
+- [x] Selected cluster link-mode presence and values are explicit provider-local
+      evidence; unsupported evaluation profiles remain outside this corpus layer.
+- [x] Selected morph position-vector pairs match the base geometry domain.
+- [x] A valid ASCII fixture with a missing cluster-to-model relation fails at
+      skinning rather than parsing or source-graph resolution.
+- [x] One paired ASCII/binary skin profile agrees on influence and hierarchy
+      observations without treating source ordering, label spelling, or f32
+      storage precision as semantic differences.
 - [ ] FBX deformation objects do not enter renderer contracts.
+
+Evidence: the selected transformed-skin fixture emits deterministic source
+`LimbNode` joint evidence with only source-parent relationships and the skin
+cluster IDs that reference each joint. It does not evaluate a pose, normalize
+bind transforms, or define a Tokimu skeleton contract.
 
 ### Slice 9: Add ASCII FBX
 
+Status: complete for the bounded v1 syntax slice. A bounded ASCII record reader
+now produces the same
+provider-local source-record shape for the selected Maya 7500 cube. The paired
+binary and ASCII exports resolve comparable object, connection, and node
+structure plus identical static cube geometry and source-transform values while
+retaining their distinct raw labels, IDs, and offsets. Selected truncated-string
+and non-finite-number fixtures reject with byte-offset syntax diagnostics. The
+selected Blender 6100 legacy ASCII UV fixture also decodes its UV source arrays,
+but retains its name-based `Connect` graph as explicit deferred source-graph
+evidence rather than being misrepresented as numeric-object semantics.
+The selected Maya 6100 ASCII cube likewise preserves its older wrapped numeric
+lists and inline mesh records while leaving its named `Connect` graph at the
+same explicit record-level boundary.
+The selected 3ds Max 5800 ASCII animation fixture preserves legacy `Takes`,
+`Channel`, and raw `Key` records, but its top-level model layout remains
+outside the modern `Objects`/numeric-connection source-graph contract.
+The selected 3ds Max Unicode ASCII fixture also preserves UTF-8 quoted source
+names through the same source-scene boundary as its binary peer. The paired
+3ds Max 7700 material fixtures likewise agree on provider-local material,
+texture, and binding counts while preserving the checkerboard texture
+reference; `Content: , "..."` remains an explicit empty source field rather
+than a material interpretation rule.
+The selected 3ds Max 5.8 legacy animation pair is intentionally split by its
+actual source boundary: the bounded binary reader rejects its legacy header,
+while the ASCII reader preserves legacy animation records but stops before the
+modern `Objects`/numeric-connection source graph.
+
 Deliverables:
 
-- [ ] Decode a minimal ASCII fixture into the same source-record model.
-- [ ] Preserve textual source spans and diagnostics.
-- [ ] Compare binary and ASCII exports of one logical scene.
-- [ ] Add malformed token, nesting, number, string, and array cases.
-- [ ] Keep syntax decoding separate from semantic graph interpretation.
+- [x] Decode a minimal ASCII fixture into the same source-record model.
+- [x] Preserve textual source spans and bounded syntax diagnostics.
+- [x] Compare binary and ASCII exports of one logical scene.
+- [x] Preserve UTF-8 quoted source identity in a selected ASCII/binary pair.
+- [x] Compare one ASCII/binary material source profile without admitting
+      material semantics.
+- [x] Classify selected legacy 5.8 ASCII animation as valid-records evidence
+      and its binary peer as deterministic unsupported-source evidence.
+- [x] Add malformed token, nesting, number, string, and array cases.
+- [x] Keep syntax decoding separate from semantic graph interpretation.
 
 Acceptance criteria:
 
-- [ ] Equivalent binary and ASCII cases reach comparable source semantics.
-- [ ] Syntax-specific details stop before canonical model lowering.
-- [ ] Invalid text input cannot cause unbounded allocation or recursion.
-- [ ] ASCII support does not weaken binary decoder diagnostics.
+- [x] Equivalent binary and ASCII cases reach comparable source semantics.
+- [x] Syntax-specific details stop before canonical model lowering.
+- [x] Invalid text input cannot cause unbounded allocation or recursion.
+- [x] ASCII support does not weaken binary decoder diagnostics.
 
 ### Slice 10: Differential And Visual Evidence
+
+Status: in progress. The paired Maya 7500 ASCII/binary cube now emits a
+provider-local static-observation comparison report with a versioned schema and
+algorithm identity. It compares source graph shape, static mesh topology and
+attributes, axes, and transform values while deliberately excluding encoding-
+local labels, IDs, offsets, and fingerprints. A synthetic altered control point
+proves that the report identifies the geometry observation that diverges first.
 
 Deliverables:
 
 - [ ] Add an optional `ufbx` comparison adapter if licensing and build
       boundaries remain acceptable.
-- [ ] Define a normalized comparison schema.
-- [ ] Record implementation and algorithm identities.
+- [x] Define a normalized comparison schema.
+- [x] Record implementation and algorithm identities.
 - [ ] Save deterministic structural and visual artifacts.
 - [ ] Keep native-window screenshots separately labeled as manual evidence.
 
 Acceptance criteria:
 
-- [ ] Differential results identify the first differing observation.
+- [x] Differential results identify the first differing observation.
 - [ ] `ufbx` is absent from ordinary engine dependency graphs.
 - [ ] Comparison disagreement is not automatically classified as a Tokimu bug.
 - [ ] Images never replace source, model, transform, or mesh assertions.

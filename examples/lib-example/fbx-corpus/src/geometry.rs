@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{FbxBinaryDocument, FbxError, FbxProperty, FbxRecord, FbxResult, FbxSourceScene};
+use crate::{FbxError, FbxProperty, FbxRecord, FbxRecordDocument, FbxResult, FbxSourceScene};
 
 /// Corpus-owned static geometry evidence. It deliberately retains polygon
 /// topology before deriving renderer-friendly triangles.
@@ -19,6 +19,7 @@ pub struct FbxStaticMesh {
     pub triangles: Vec<[u32; 3]>,
     pub normal_layer: Option<FbxNormalLayer>,
     pub uv_layer: Option<FbxUvLayer>,
+    pub material_layer: Option<FbxMaterialLayer>,
     pub bounds: FbxBounds,
 }
 
@@ -43,6 +44,16 @@ pub struct FbxUvLayer {
     pub indices: Option<Vec<u32>>,
 }
 
+/// FBX polygon-material source data. The importer preserves it independently
+/// from a material interpretation so slot lowering can validate its own
+/// mapping profile later.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct FbxMaterialLayer {
+    pub mapping: String,
+    pub reference: String,
+    pub indices: Vec<i32>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct FbxBounds {
     pub min: [f64; 3],
@@ -50,7 +61,7 @@ pub struct FbxBounds {
 }
 
 pub fn lower_static_geometry(
-    document: &FbxBinaryDocument,
+    document: &impl FbxRecordDocument,
     scene: &FbxSourceScene,
 ) -> FbxResult<FbxGeometryEvidence> {
     let objects = top_level_record(document, "Objects")?;
@@ -167,6 +178,12 @@ fn decode_mesh(source_id: i64, name: &str, record: &FbxRecord) -> FbxResult<FbxS
         .find(|child| child.name == "LayerElementUV")
         .map(decode_uv_layer)
         .transpose()?;
+    let material_layer = record
+        .children
+        .iter()
+        .find(|child| child.name == "LayerElementMaterial")
+        .map(decode_material_layer)
+        .transpose()?;
 
     Ok(FbxStaticMesh {
         source_id,
@@ -177,7 +194,25 @@ fn decode_mesh(source_id: i64, name: &str, record: &FbxRecord) -> FbxResult<FbxS
         triangles,
         normal_layer,
         uv_layer,
+        material_layer,
         bounds: bounds(&control_points),
+    })
+}
+
+fn decode_material_layer(record: &FbxRecord) -> FbxResult<FbxMaterialLayer> {
+    let mapping = string_property(record, "MappingInformationType")?;
+    let reference = string_property(record, "ReferenceInformationType")?;
+    let indices = i32_array(record, "Materials")?;
+    if indices.iter().any(|index| *index < 0) {
+        return Err(geometry_error(
+            record.source_offset,
+            "Materials contains a negative material slot index",
+        ));
+    }
+    Ok(FbxMaterialLayer {
+        mapping,
+        reference,
+        indices,
     })
 }
 
@@ -393,9 +428,12 @@ fn property_i32_array(record: &FbxRecord, index: usize, label: &str) -> FbxResul
     }
 }
 
-fn top_level_record<'a>(document: &'a FbxBinaryDocument, name: &str) -> FbxResult<&'a FbxRecord> {
+fn top_level_record<'a>(
+    document: &'a impl FbxRecordDocument,
+    name: &str,
+) -> FbxResult<&'a FbxRecord> {
     document
-        .records
+        .records()
         .iter()
         .find(|record| record.name == name)
         .ok_or_else(|| geometry_error(0, format!("missing top-level `{name}` record")))
@@ -430,7 +468,7 @@ fn geometry_error(offset: usize, reason: impl Into<String>) -> FbxError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{FbxConnection, FbxSourceObject, FbxSourceScene};
+    use crate::{FbxBinaryDocument, FbxConnection, FbxSourceObject, FbxSourceScene};
 
     #[test]
     fn triangulates_and_preserves_a_quad_polygon() {
@@ -493,6 +531,7 @@ mod tests {
         };
         FbxBinaryDocument {
             version: 7400,
+            byte_order: crate::FbxByteOrder::LittleEndian,
             records: vec![FbxRecord {
                 name: "Objects".into(),
                 source_offset: 0,

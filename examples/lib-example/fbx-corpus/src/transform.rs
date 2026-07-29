@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FbxBinaryDocument, FbxError, FbxProperty, FbxRecord, FbxResult, FbxSourceScene};
+use crate::{FbxError, FbxProperty, FbxRecord, FbxRecordDocument, FbxResult, FbxSourceScene};
 
 /// Corpus-owned transform evidence for the intentionally narrow FBX v1
 /// profile: local translation, XYZ Euler rotation, and scale.
@@ -39,7 +39,7 @@ pub struct FbxNodeTransform {
 }
 
 pub fn resolve_transforms(
-    document: &FbxBinaryDocument,
+    document: &impl FbxRecordDocument,
     scene: &FbxSourceScene,
 ) -> FbxResult<FbxTransformEvidence> {
     let objects = top_level(document, "Objects")?;
@@ -217,9 +217,9 @@ fn resolve_world(
     Ok(matrix)
 }
 
-fn decode_axis_metadata(document: &FbxBinaryDocument) -> FbxResult<FbxAxisMetadata> {
+fn decode_axis_metadata(document: &impl FbxRecordDocument) -> FbxResult<FbxAxisMetadata> {
     let Some(global) = document
-        .records
+        .records()
         .iter()
         .find(|record| record.name == "GlobalSettings")
     else {
@@ -308,9 +308,9 @@ fn number_property(record: &FbxRecord, index: usize) -> FbxResult<f64> {
     Ok(value)
 }
 
-fn top_level<'a>(document: &'a FbxBinaryDocument, name: &str) -> FbxResult<&'a FbxRecord> {
+fn top_level<'a>(document: &'a impl FbxRecordDocument, name: &str) -> FbxResult<&'a FbxRecord> {
     document
-        .records
+        .records()
         .iter()
         .find(|record| record.name == name)
         .ok_or_else(|| transform_error(0, format!("missing top-level `{name}` record")))

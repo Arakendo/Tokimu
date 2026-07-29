@@ -5,8 +5,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{FbxError, FbxResult};
 
-const BINARY_MAGIC: &[u8; 23] = b"Kaydara FBX Binary  \0\x1a\0";
+const BINARY_PREFIX: &[u8; 22] = b"Kaydara FBX Binary  \0\x1a";
 const HEADER_BYTES: usize = 27;
+
+/// Byte order declared by a binary FBX header.
+///
+/// This is retained as source-format evidence. It does not affect any
+/// Tokimu-owned model contract.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FbxByteOrder {
+    LittleEndian,
+    BigEndian,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FbxLimits {
@@ -34,10 +45,30 @@ impl Default for FbxLimits {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct FbxBinaryDocument {
     pub version: u32,
+    pub byte_order: FbxByteOrder,
     pub records: Vec<FbxRecord>,
     pub footer_offset: usize,
     pub source_bytes: usize,
     pub source_fingerprint: String,
+}
+
+/// Common record access shared by bounded FBX syntax decoders.
+///
+/// This is provider-local corpus plumbing. It deliberately exposes source
+/// records rather than defining a Tokimu asset or scene contract.
+pub trait FbxRecordDocument {
+    fn records(&self) -> &[FbxRecord];
+    fn source_fingerprint(&self) -> &str;
+}
+
+impl FbxRecordDocument for FbxBinaryDocument {
+    fn records(&self) -> &[FbxRecord] {
+        &self.records
+    }
+
+    fn source_fingerprint(&self) -> &str {
+        &self.source_fingerprint
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -88,11 +119,16 @@ pub fn decode_binary_fbx(bytes: &[u8], limits: FbxLimits) -> FbxResult<FbxBinary
             limit: limits.max_input_bytes,
         });
     }
-    if bytes.get(..BINARY_MAGIC.len()) != Some(BINARY_MAGIC) {
+    if bytes.get(..BINARY_PREFIX.len()) != Some(BINARY_PREFIX) {
         return Err(FbxError::InvalidSignature);
     }
+    let byte_order = match read_u8(bytes, BINARY_PREFIX.len(), "FBX byte-order marker")? {
+        0 => FbxByteOrder::LittleEndian,
+        1 => FbxByteOrder::BigEndian,
+        marker => return Err(FbxError::UnsupportedByteOrder { marker }),
+    };
 
-    let version = read_u32(bytes, BINARY_MAGIC.len(), "FBX version")?;
+    let version = read_u32(bytes, BINARY_PREFIX.len() + 1, byte_order, "FBX version")?;
     if !matches!(
         version,
         5800 | 6100 | 7100 | 7200 | 7300 | 7400 | 7500 | 7700
@@ -109,6 +145,7 @@ pub fn decode_binary_fbx(bytes: &[u8], limits: FbxLimits) -> FbxResult<FbxBinary
         properties: 0,
         wide_offsets,
         sentinel_bytes,
+        byte_order,
     };
     let mut cursor = HEADER_BYTES;
     let mut records = Vec::new();
@@ -123,6 +160,7 @@ pub fn decode_binary_fbx(bytes: &[u8], limits: FbxLimits) -> FbxResult<FbxBinary
 
     Ok(FbxBinaryDocument {
         version,
+        byte_order,
         records,
         footer_offset: cursor,
         source_bytes: bytes.len(),
@@ -130,8 +168,13 @@ pub fn decode_binary_fbx(bytes: &[u8], limits: FbxLimits) -> FbxResult<FbxBinary
     })
 }
 
-pub fn source_records_json(document: &FbxBinaryDocument) -> FbxResult<String> {
-    Ok(serde_json::to_string_pretty(document)?)
+/// Serializes provider-local source records as deterministic inspection evidence.
+///
+/// The artifact deliberately excludes decoder-specific metadata such as binary
+/// byte order and footer position so every bounded source encoding can emit the
+/// same record-level diagnostic shape.
+pub fn source_records_json(document: &impl FbxRecordDocument) -> FbxResult<String> {
+    Ok(serde_json::to_string_pretty(document.records())?)
 }
 
 struct DecodeState<'a> {
@@ -141,6 +184,7 @@ struct DecodeState<'a> {
     properties: usize,
     wide_offsets: bool,
     sentinel_bytes: usize,
+    byte_order: FbxByteOrder,
 }
 
 impl DecodeState<'_> {
@@ -161,13 +205,26 @@ impl DecodeState<'_> {
         let (end_offset, property_count, property_byte_length, name_length, header_bytes) =
             if self.wide_offsets {
                 (
-                    usize_from_u64(read_u64(self.bytes, *cursor, "record end offset")?, *cursor)?,
                     usize_from_u64(
-                        read_u64(self.bytes, *cursor + 8, "record property count")?,
+                        read_u64(self.bytes, *cursor, self.byte_order, "record end offset")?,
+                        *cursor,
+                    )?,
+                    usize_from_u64(
+                        read_u64(
+                            self.bytes,
+                            *cursor + 8,
+                            self.byte_order,
+                            "record property count",
+                        )?,
                         *cursor + 8,
                     )?,
                     usize_from_u64(
-                        read_u64(self.bytes, *cursor + 16, "record property length")?,
+                        read_u64(
+                            self.bytes,
+                            *cursor + 16,
+                            self.byte_order,
+                            "record property length",
+                        )?,
                         *cursor + 16,
                     )?,
                     read_u8(self.bytes, *cursor + 24, "record name length")? as usize,
@@ -175,9 +232,19 @@ impl DecodeState<'_> {
                 )
             } else {
                 (
-                    read_u32(self.bytes, *cursor, "record end offset")? as usize,
-                    read_u32(self.bytes, *cursor + 4, "record property count")? as usize,
-                    read_u32(self.bytes, *cursor + 8, "record property length")? as usize,
+                    read_u32(self.bytes, *cursor, self.byte_order, "record end offset")? as usize,
+                    read_u32(
+                        self.bytes,
+                        *cursor + 4,
+                        self.byte_order,
+                        "record property count",
+                    )? as usize,
+                    read_u32(
+                        self.bytes,
+                        *cursor + 8,
+                        self.byte_order,
+                        "record property length",
+                    )? as usize,
                     read_u8(self.bytes, *cursor + 12, "record name length")? as usize,
                     13,
                 )
@@ -363,7 +430,7 @@ impl DecodeState<'_> {
 
         Ok(decoded
             .chunks_exact(T::BYTE_WIDTH)
-            .map(T::from_le_bytes)
+            .map(|bytes| T::from_bytes(bytes, self.byte_order))
             .collect())
     }
 
@@ -400,45 +467,75 @@ impl DecodeState<'_> {
     }
 
     fn take_i16(&self, cursor: &mut usize, end: usize) -> FbxResult<i16> {
-        Ok(i16::from_le_bytes(
-            self.take_bytes(cursor, end, 2)?.try_into().unwrap(),
-        ))
+        Ok(match self.byte_order {
+            FbxByteOrder::LittleEndian => {
+                i16::from_le_bytes(self.take_bytes(cursor, end, 2)?.try_into().unwrap())
+            }
+            FbxByteOrder::BigEndian => {
+                i16::from_be_bytes(self.take_bytes(cursor, end, 2)?.try_into().unwrap())
+            }
+        })
     }
 
     fn take_u32(&self, cursor: &mut usize, end: usize) -> FbxResult<u32> {
-        Ok(u32::from_le_bytes(
-            self.take_bytes(cursor, end, 4)?.try_into().unwrap(),
-        ))
+        Ok(match self.byte_order {
+            FbxByteOrder::LittleEndian => {
+                u32::from_le_bytes(self.take_bytes(cursor, end, 4)?.try_into().unwrap())
+            }
+            FbxByteOrder::BigEndian => {
+                u32::from_be_bytes(self.take_bytes(cursor, end, 4)?.try_into().unwrap())
+            }
+        })
     }
 
     fn take_i32(&self, cursor: &mut usize, end: usize) -> FbxResult<i32> {
-        Ok(i32::from_le_bytes(
-            self.take_bytes(cursor, end, 4)?.try_into().unwrap(),
-        ))
+        Ok(match self.byte_order {
+            FbxByteOrder::LittleEndian => {
+                i32::from_le_bytes(self.take_bytes(cursor, end, 4)?.try_into().unwrap())
+            }
+            FbxByteOrder::BigEndian => {
+                i32::from_be_bytes(self.take_bytes(cursor, end, 4)?.try_into().unwrap())
+            }
+        })
     }
 
     fn take_i64(&self, cursor: &mut usize, end: usize) -> FbxResult<i64> {
-        Ok(i64::from_le_bytes(
-            self.take_bytes(cursor, end, 8)?.try_into().unwrap(),
-        ))
+        Ok(match self.byte_order {
+            FbxByteOrder::LittleEndian => {
+                i64::from_le_bytes(self.take_bytes(cursor, end, 8)?.try_into().unwrap())
+            }
+            FbxByteOrder::BigEndian => {
+                i64::from_be_bytes(self.take_bytes(cursor, end, 8)?.try_into().unwrap())
+            }
+        })
     }
 
     fn take_f32(&self, cursor: &mut usize, end: usize) -> FbxResult<f32> {
-        Ok(f32::from_le_bytes(
-            self.take_bytes(cursor, end, 4)?.try_into().unwrap(),
-        ))
+        Ok(match self.byte_order {
+            FbxByteOrder::LittleEndian => {
+                f32::from_le_bytes(self.take_bytes(cursor, end, 4)?.try_into().unwrap())
+            }
+            FbxByteOrder::BigEndian => {
+                f32::from_be_bytes(self.take_bytes(cursor, end, 4)?.try_into().unwrap())
+            }
+        })
     }
 
     fn take_f64(&self, cursor: &mut usize, end: usize) -> FbxResult<f64> {
-        Ok(f64::from_le_bytes(
-            self.take_bytes(cursor, end, 8)?.try_into().unwrap(),
-        ))
+        Ok(match self.byte_order {
+            FbxByteOrder::LittleEndian => {
+                f64::from_le_bytes(self.take_bytes(cursor, end, 8)?.try_into().unwrap())
+            }
+            FbxByteOrder::BigEndian => {
+                f64::from_be_bytes(self.take_bytes(cursor, end, 8)?.try_into().unwrap())
+            }
+        })
     }
 }
 
 trait FbxArrayElement: Sized {
     const BYTE_WIDTH: usize;
-    fn from_le_bytes(bytes: &[u8]) -> Self;
+    fn from_bytes(bytes: &[u8], byte_order: FbxByteOrder) -> Self;
 }
 
 macro_rules! array_element {
@@ -446,8 +543,12 @@ macro_rules! array_element {
         impl FbxArrayElement for $type {
             const BYTE_WIDTH: usize = $width;
 
-            fn from_le_bytes(bytes: &[u8]) -> Self {
-                <$type>::from_le_bytes(bytes.try_into().unwrap())
+            fn from_bytes(bytes: &[u8], byte_order: FbxByteOrder) -> Self {
+                let bytes = bytes.try_into().unwrap();
+                match byte_order {
+                    FbxByteOrder::LittleEndian => <$type>::from_le_bytes(bytes),
+                    FbxByteOrder::BigEndian => <$type>::from_be_bytes(bytes),
+                }
             }
         }
     };
@@ -461,7 +562,7 @@ array_element!(i64, 8);
 impl FbxArrayElement for bool {
     const BYTE_WIDTH: usize = 1;
 
-    fn from_le_bytes(bytes: &[u8]) -> Self {
+    fn from_bytes(bytes: &[u8], _byte_order: FbxByteOrder) -> Self {
         bytes[0] != 0
     }
 }
@@ -469,7 +570,7 @@ impl FbxArrayElement for bool {
 impl FbxArrayElement for u8 {
     const BYTE_WIDTH: usize = 1;
 
-    fn from_le_bytes(bytes: &[u8]) -> Self {
+    fn from_bytes(bytes: &[u8], _byte_order: FbxByteOrder) -> Self {
         bytes[0]
     }
 }
@@ -481,18 +582,32 @@ fn read_u8(bytes: &[u8], offset: usize, context: &'static str) -> FbxResult<u8> 
         .ok_or(FbxError::Truncated { offset, context })
 }
 
-fn read_u32(bytes: &[u8], offset: usize, context: &'static str) -> FbxResult<u32> {
+fn read_u32(
+    bytes: &[u8],
+    offset: usize,
+    byte_order: FbxByteOrder,
+    context: &'static str,
+) -> FbxResult<u32> {
     let end = checked_add(offset, 4, offset, context)?;
-    Ok(u32::from_le_bytes(
-        slice(bytes, offset, end, context)?.try_into().unwrap(),
-    ))
+    let bytes = slice(bytes, offset, end, context)?.try_into().unwrap();
+    Ok(match byte_order {
+        FbxByteOrder::LittleEndian => u32::from_le_bytes(bytes),
+        FbxByteOrder::BigEndian => u32::from_be_bytes(bytes),
+    })
 }
 
-fn read_u64(bytes: &[u8], offset: usize, context: &'static str) -> FbxResult<u64> {
+fn read_u64(
+    bytes: &[u8],
+    offset: usize,
+    byte_order: FbxByteOrder,
+    context: &'static str,
+) -> FbxResult<u64> {
     let end = checked_add(offset, 8, offset, context)?;
-    Ok(u64::from_le_bytes(
-        slice(bytes, offset, end, context)?.try_into().unwrap(),
-    ))
+    let bytes = slice(bytes, offset, end, context)?.try_into().unwrap();
+    Ok(match byte_order {
+        FbxByteOrder::LittleEndian => u64::from_le_bytes(bytes),
+        FbxByteOrder::BigEndian => u64::from_be_bytes(bytes),
+    })
 }
 
 fn slice<'a>(
@@ -544,6 +659,8 @@ mod tests {
 
     use super::*;
 
+    const LITTLE_ENDIAN_HEADER_PREFIX: &[u8; 23] = b"Kaydara FBX Binary  \0\x1a\0";
+
     #[test]
     fn rejects_invalid_signature() {
         assert!(matches!(
@@ -576,7 +693,7 @@ mod tests {
 
     #[test]
     fn rejects_truncated_record_header() {
-        let mut bytes = Vec::from(*BINARY_MAGIC);
+        let mut bytes = Vec::from(*LITTLE_ENDIAN_HEADER_PREFIX);
         bytes.extend_from_slice(&7400_u32.to_le_bytes());
         bytes.extend_from_slice(&[1, 2, 3]);
         assert!(matches!(
@@ -587,7 +704,7 @@ mod tests {
 
     #[test]
     fn rejects_record_end_outside_input() {
-        let mut bytes = Vec::from(*BINARY_MAGIC);
+        let mut bytes = Vec::from(*LITTLE_ENDIAN_HEADER_PREFIX);
         bytes.extend_from_slice(&7400_u32.to_le_bytes());
         bytes.extend_from_slice(&u32::MAX.to_le_bytes());
         bytes.extend_from_slice(&0_u32.to_le_bytes());
@@ -638,6 +755,57 @@ mod tests {
     }
 
     #[test]
+    fn decodes_big_endian_header_and_property_array() {
+        let values = [3_i32, 5, 8];
+        let mut property = vec![b'i'];
+        property.extend_from_slice(&(values.len() as u32).to_be_bytes());
+        property.extend_from_slice(&0_u32.to_be_bytes());
+        property.extend_from_slice(&((values.len() * 4) as u32).to_be_bytes());
+        property.extend(values.iter().flat_map(|value| value.to_be_bytes()));
+
+        let document = decode_binary_fbx(
+            &big_endian_document_with_record(7400, "Array", 1, &property),
+            FbxLimits::default(),
+        )
+        .unwrap();
+
+        assert_eq!(document.byte_order, FbxByteOrder::BigEndian);
+        assert_eq!(
+            document.records[0].properties,
+            vec![FbxProperty::I32Array(values.to_vec())]
+        );
+    }
+
+    #[test]
+    fn decodes_compressed_big_endian_property_array() {
+        let values = [3_i32, 5, 8];
+        let raw = values
+            .iter()
+            .flat_map(|value| value.to_be_bytes())
+            .collect::<Vec<_>>();
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&raw).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut property = vec![b'i'];
+        property.extend_from_slice(&(values.len() as u32).to_be_bytes());
+        property.extend_from_slice(&1_u32.to_be_bytes());
+        property.extend_from_slice(&(compressed.len() as u32).to_be_bytes());
+        property.extend_from_slice(&compressed);
+
+        let document = decode_binary_fbx(
+            &big_endian_document_with_record(7400, "Array", 1, &property),
+            FbxLimits::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            document.records[0].properties,
+            vec![FbxProperty::I32Array(values.to_vec())]
+        );
+    }
+
+    #[test]
     fn rejects_oversized_property_array() {
         let mut property = vec![b'i'];
         property.extend_from_slice(&2_u32.to_le_bytes());
@@ -660,7 +828,7 @@ mod tests {
     }
 
     fn document_with_version(version: u32) -> Vec<u8> {
-        let mut bytes = Vec::from(*BINARY_MAGIC);
+        let mut bytes = Vec::from(*LITTLE_ENDIAN_HEADER_PREFIX);
         bytes.extend_from_slice(&version.to_le_bytes());
         bytes.resize(HEADER_BYTES + if version >= 7500 { 25 } else { 13 }, 0);
         bytes
@@ -673,13 +841,35 @@ mod tests {
         properties: &[u8],
     ) -> Vec<u8> {
         assert!(version < 7500, "test helper uses the 32-bit record profile");
-        let mut bytes = Vec::from(*BINARY_MAGIC);
+        let mut bytes = Vec::from(*LITTLE_ENDIAN_HEADER_PREFIX);
         bytes.extend_from_slice(&version.to_le_bytes());
 
         let end_offset = HEADER_BYTES + 13 + name.len() + properties.len();
         bytes.extend_from_slice(&(end_offset as u32).to_le_bytes());
         bytes.extend_from_slice(&property_count.to_le_bytes());
         bytes.extend_from_slice(&(properties.len() as u32).to_le_bytes());
+        bytes.push(name.len() as u8);
+        bytes.extend_from_slice(name.as_bytes());
+        bytes.extend_from_slice(properties);
+        bytes.extend_from_slice(&[0; 13]);
+        bytes
+    }
+
+    fn big_endian_document_with_record(
+        version: u32,
+        name: &str,
+        property_count: u32,
+        properties: &[u8],
+    ) -> Vec<u8> {
+        assert!(version < 7500, "test helper uses the 32-bit record profile");
+        let mut bytes = BINARY_PREFIX.to_vec();
+        bytes.push(1);
+        bytes.extend_from_slice(&version.to_be_bytes());
+
+        let end_offset = HEADER_BYTES + 13 + name.len() + properties.len();
+        bytes.extend_from_slice(&(end_offset as u32).to_be_bytes());
+        bytes.extend_from_slice(&property_count.to_be_bytes());
+        bytes.extend_from_slice(&(properties.len() as u32).to_be_bytes());
         bytes.push(name.len() as u8);
         bytes.extend_from_slice(name.as_bytes());
         bytes.extend_from_slice(properties);
