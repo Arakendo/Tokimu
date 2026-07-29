@@ -8,6 +8,8 @@ mod artifact_io;
 mod artifacts;
 mod cases;
 mod catalog;
+mod cgm_artifacts;
+mod cgm_cases;
 mod evidence;
 mod fixture_paths;
 mod generated_cases;
@@ -29,19 +31,22 @@ mod w3c_svg_cases;
 mod xml_stage;
 
 pub use artifacts::{
-    ArtifactAlgorithms, ArtifactEnvelope, GraphArtifact, GraphEdge, GraphNode, ImageFingerprint,
-    MeshArtifact, MeshFingerprint, MeshValidation, OutlineArtifact, OutlineContourArtifact,
-    OutlineSegmentArtifact, SegmentIntersectionArtifact, SvgProfileExclusionArtifact,
-    VectorArtifact, VectorContourArtifact, XmlArtifact,
+    ArtifactAlgorithms, ArtifactEnvelope, CgmArtifact, CgmPrimitiveSourceArtifact, GraphArtifact,
+    GraphEdge, GraphNode, ImageFingerprint, MeshArtifact, MeshFingerprint, MeshValidation,
+    OutlineArtifact, OutlineContourArtifact, OutlineSegmentArtifact, SegmentIntersectionArtifact,
+    SvgProfileExclusionArtifact, VectorArtifact, VectorContourArtifact, VectorFingerprint,
+    XmlArtifact,
 };
 pub use cases::{
-    CorpusCase, GlyphCase, SvgCase, SyntheticCase, SyntheticSvgCase, UiCase, W3cSvgCase,
+    CgmCase, CorpusCase, GlyphCase, SvgCase, SyntheticCase, SyntheticSvgCase, UiCase, W3cSvgCase,
     W3cSvgExpectation, W3cSvgSource,
 };
 pub use catalog::{
-    all_cases, find_case, find_glyph_case, glyph_cases, run_case, svg_cases, synthetic_cases,
-    synthetic_svg_cases, ui_cases, w3c_svg_cases,
+    all_cases, cgm_cases, find_case, find_glyph_case, glyph_cases, run_case, svg_cases,
+    synthetic_cases, synthetic_svg_cases, ui_cases, w3c_svg_cases,
 };
+pub use cgm_artifacts::write_cgm_artifacts;
+pub use cgm_cases::run_cgm_case;
 pub use generated_cases::run_generated_case;
 pub use glyph_artifacts::write_glyph_artifacts;
 pub use glyph_cases::run_glyph_case;
@@ -356,7 +361,86 @@ const W3C_SVG_CASES: [W3cSvgCase; 50] = [
 
 const UI_CASES: [UiCase; 1] = [UiCase::new("ui/panel-surface", "default panel surface")];
 
-const ALL_CASES: [CorpusCase; 62] = [
+const CGM_CASES: [CgmCase; 15] = [
+    CgmCase::source_only(
+        "cgm/webcgm/element-inventory",
+        "ALLELM01.cgm",
+        "WebCGM selected metafile and element inventory",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/vdc-extent",
+        "VDCEXT01.cgm",
+        "WebCGM selected VDC extent and scaling descriptor",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/polyline",
+        "POLYLN01.cgm",
+        "WebCGM selected polyline",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/polygon",
+        "POLYGN01.cgm",
+        "WebCGM selected polygon",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/rectangle",
+        "RCTNGL01.cgm",
+        "WebCGM selected rectangle",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/circle",
+        "CIRCLE01.cgm",
+        "WebCGM selected circle",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/ellipse",
+        "ELLIPS01.cgm",
+        "WebCGM selected ellipse",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/circular-arc",
+        "CIRARC01.cgm",
+        "WebCGM selected open circular arc",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/elliptical-arc",
+        "ELLARC01.cgm",
+        "WebCGM selected open elliptical arc",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/interior-style",
+        "INTSTL01.cgm",
+        "WebCGM selected interior-style source state",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/line-cap",
+        "LINCAP01.cgm",
+        "WebCGM selected line-cap source state",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/line-join",
+        "LNJOIN01.cgm",
+        "WebCGM selected line-join source state",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/clip-controls",
+        "CLIPNG01.cgm",
+        "WebCGM selected clipping source controls",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/direct-colors",
+        "COLRMD01.cgm",
+        "WebCGM selected direct-color source state",
+    ),
+    CgmCase::expected_unsupported_lowering(
+        "cgm/webcgm/polygon-set",
+        "PLGSET01.cgm",
+        "WebCGM selected polygon-set source topology",
+        "polygon-set point/flag topology",
+    ),
+];
+
+const ALL_CASES: [CorpusCase; 77] = [
     CorpusCase::Glyph(GLYPH_CASES[0]),
     CorpusCase::Glyph(GLYPH_CASES[1]),
     CorpusCase::Glyph(GLYPH_CASES[2]),
@@ -419,6 +503,21 @@ const ALL_CASES: [CorpusCase; 62] = [
     CorpusCase::W3cSvg(W3C_SVG_CASES[48]),
     CorpusCase::W3cSvg(W3C_SVG_CASES[49]),
     CorpusCase::Ui(UI_CASES[0]),
+    CorpusCase::Cgm(CGM_CASES[0]),
+    CorpusCase::Cgm(CGM_CASES[1]),
+    CorpusCase::Cgm(CGM_CASES[2]),
+    CorpusCase::Cgm(CGM_CASES[3]),
+    CorpusCase::Cgm(CGM_CASES[4]),
+    CorpusCase::Cgm(CGM_CASES[5]),
+    CorpusCase::Cgm(CGM_CASES[6]),
+    CorpusCase::Cgm(CGM_CASES[7]),
+    CorpusCase::Cgm(CGM_CASES[8]),
+    CorpusCase::Cgm(CGM_CASES[9]),
+    CorpusCase::Cgm(CGM_CASES[10]),
+    CorpusCase::Cgm(CGM_CASES[11]),
+    CorpusCase::Cgm(CGM_CASES[12]),
+    CorpusCase::Cgm(CGM_CASES[13]),
+    CorpusCase::Cgm(CGM_CASES[14]),
 ];
 
 #[cfg(test)]

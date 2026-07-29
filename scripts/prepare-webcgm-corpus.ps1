@@ -65,6 +65,135 @@ function Get-TreeHash {
     }
 }
 
+function Get-WebCgmCaseClassification {
+    param([Parameter(Mandatory)][string]$RelativePath)
+
+    $path = $RelativePath.Replace("\\", "/").ToLowerInvariant()
+    $file = [IO.Path]::GetFileNameWithoutExtension($path)
+
+    if ($file -eq "allelm01") {
+        return [ordered]@{
+            category = "support"
+            rule = "static-element-inventory"
+            reason = "Broad element inventory retained for structural inspection, not geometry coverage."
+        }
+    }
+    if ($path -match "/removed-from-" -or $file -match "target|old$|org$|test$") {
+        return [ordered]@{
+            category = "support"
+            rule = "support-derivative"
+            reason = "Named as an upstream target, historical, or comparison helper."
+        }
+    }
+
+    if ($path.StartsWith("dynamic10/")) {
+        if ($file -match "link") {
+            return [ordered]@{
+                category = "hyperlink"
+                rule = "dynamic-linking"
+                reason = "Dynamic WebCGM linking scenario."
+            }
+        }
+        if ($file -match "interact|behavior|fragment|focus") {
+            return [ordered]@{
+                category = "interaction"
+                rule = "dynamic-interaction"
+                reason = "Dynamic WebCGM behavior or interaction scenario."
+            }
+        }
+        return [ordered]@{
+            category = "profile"
+            rule = "dynamic-profile"
+            reason = "Dynamic WebCGM profile scenario outside current geometry scope."
+        }
+    }
+
+    if ($path.StartsWith("20tests/")) {
+        if ($file -match "appstructure|node|nodelist|webcgm_event|object_behaviors|picture-highlight|region_clip|stylepropert|xcf") {
+            return [ordered]@{
+                category = "dom"
+                rule = "webcgm-dom"
+                reason = "WebCGM application structure, DOM, or XCF scenario."
+            }
+        }
+        if ($file -match "text|utf") {
+            return [ordered]@{
+                category = "text"
+                rule = "webcgm-text"
+                reason = "Text encoding, text-on-path, or text content scenario."
+            }
+        }
+        if ($file -match "nurbs|nubs|interpolated|transp") {
+            return [ordered]@{
+                category = "geometry"
+                rule = "webcgm-geometry"
+                reason = "Geometry or presentation-geometry scenario."
+            }
+        }
+        return [ordered]@{
+            category = "profile"
+            rule = "webcgm-profile"
+            reason = "WebCGM profile scenario outside current geometry scope."
+        }
+    }
+
+    if ($path.StartsWith("21tests/")) {
+        if ($file -match "animation|aps|setview|setredraw|getobject|alphaescape") {
+            return [ordered]@{
+                category = "interaction"
+                rule = "webcgm-interaction"
+                reason = "WebCGM animation, view, redraw, or object interaction scenario."
+            }
+        }
+        if ($file -match "font|text|substring") {
+            return [ordered]@{
+                category = "text"
+                rule = "webcgm-text"
+                reason = "Text, font, or text-substring scenario."
+            }
+        }
+        if ($file -match "cell") {
+            return [ordered]@{
+                category = "raster"
+                rule = "webcgm-raster"
+                reason = "Cell-array or raster-color scenario."
+            }
+        }
+        return [ordered]@{
+            category = "profile"
+            rule = "webcgm-profile"
+            reason = "WebCGM profile scenario outside current geometry scope."
+        }
+    }
+
+    if ($file -match "celary") {
+        return [ordered]@{
+            category = "raster"
+            rule = "static-cell-array"
+            reason = "Static CGM cell-array scenario."
+        }
+    }
+    if ($file -match "txt|chr|font|apntxt") {
+        return [ordered]@{
+            category = "text"
+            rule = "static-text"
+            reason = "Static CGM text or character-attribute scenario."
+        }
+    }
+    if ($file -match "escape|schema|specmd|mfd|mfell|defval|desord|dgntst|realpr|vdc|col|tab|patt") {
+        return [ordered]@{
+            category = "profile"
+            rule = "static-profile"
+            reason = "Static CGM descriptor, precision, color, or profile scenario."
+        }
+    }
+    return [ordered]@{
+        category = "geometry"
+        rule = "static-geometry-default"
+        reason = "Static CGM primitive or presentation-geometry scenario."
+    }
+}
+
 function Get-WebCgmInventory {
     param([Parameter(Mandatory)][string]$Root)
 
@@ -140,6 +269,32 @@ function Get-WebCgmInventory {
             } |
             Sort-Object
     )
+    $categoryOrder = @(
+        "geometry",
+        "text",
+        "raster",
+        "dom",
+        "hyperlink",
+        "interaction",
+        "profile",
+        "support"
+    )
+    $categoryCounts = [ordered]@{}
+    foreach ($category in $categoryOrder) {
+        $categoryCounts[$category] = 0
+    }
+    $classifiedCases = @(
+        foreach ($sourcePath in $sourceCgmPaths) {
+            $classification = Get-WebCgmCaseClassification -RelativePath $sourcePath
+            $categoryCounts[$classification.category]++
+            [ordered]@{
+                source = $sourcePath
+                category = $classification.category
+                rule = $classification.rule
+                reason = $classification.reason
+            }
+        }
+    )
 
     return [ordered]@{
         schema = 1
@@ -172,6 +327,16 @@ function Get-WebCgmInventory {
         modules = $moduleCounts
         static_case_ids = $staticCaseIds
         source_cgm_paths = $sourceCgmPaths
+        classification = [ordered]@{
+            schema = 1
+            policy = (
+                "Every CGM source receives one conservative category from its " +
+                "upstream module and stable filename evidence. Categories guide " +
+                "corpus scope; they are not a conformance classification."
+            )
+            categories = $categoryCounts
+            cases = $classifiedCases
+        }
     }
 }
 

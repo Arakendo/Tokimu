@@ -557,9 +557,17 @@ Owns asset loading and management:
 * loaders
 * provider abstraction over file, network, embedded, and generated sources
 * asset storage and lifetime
+* provider-neutral lifecycle observations over stable asset identity
 * hot reload later
 * embedded asset bundles later
 * WASM-friendly asset fetch abstraction
+
+Lifecycle observations may report allocation, preparation, replacement, and
+release when those transitions are factual. Replacement advances a generation
+without changing the logical asset identity. Bytes, durations, and dependency
+facts remain absent unless the owning producer can measure them honestly.
+Loader, platform, importer, and renderer-native objects must not enter this
+contract.
 
 See [on-assets.md](Conversations/on-assets.md) for the importer-oriented
 boundary between asset translation and rendering.
@@ -1414,6 +1422,14 @@ Tokimu should expose structured diagnostics:
 * frame timing
 * system timing later
 * WASM console bridge
+
+Performance measurements originate in the adapter that owns the relevant
+mechanism, such as runtime frame timing, UI layout, or renderer submission.
+The engine kernel owns the provider-neutral diagnostic vocabulary, bounded
+capture, budget classification, and degraded/recovered state transitions. A
+performance warning should represent sustained budget pressure rather than
+emit once per slow observation, and applications must opt into explicit
+budgets rather than inherit an assumed frame-rate target.
 
 Native logging:
 

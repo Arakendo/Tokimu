@@ -647,5 +647,2139 @@
     "static10/VDCRPR01.cgm",
     "static10/VDCRPR02.cgm",
     "static10/ZEROSZ01.cgm"
-  ]
+  ],
+  "classification": {
+    "schema": 1,
+    "policy": "Every CGM source receives one conservative category from its upstream module and stable filename evidence. Categories guide corpus scope; they are not a conformance classification.",
+    "categories": {
+      "geometry": 129,
+      "text": 56,
+      "raster": 8,
+      "dom": 25,
+      "hyperlink": 5,
+      "interaction": 22,
+      "profile": 87,
+      "support": 21
+    },
+    "cases": [
+      {
+        "source": "20tests/AppAttContent.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "20tests/AppStructure-interactivity.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-layerdesc.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-layername.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-linkuri.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-name.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-region.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-screentip.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-viewcontext.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-visibility.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/AppStructure-visibility2.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/CGM_Metafile.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "20tests/gr-interactivity.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "20tests/interpolated-interior-01.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/interpolated-interior-02.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/Node-aps.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Node-attr.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Node-metadata.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Node-ns.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Node-pict.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Node-text.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/NodeList.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/NUBS01.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/NUBS02.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/NURBS01.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/NURBS02.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/object_behaviors.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Picture-highlight.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/region_clip.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/StyleProperties-aps.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/StyleProperties-picture.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/StyleProperty-inherit.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/Text-On-Path-cases.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/transp01.cgm",
+        "category": "geometry",
+        "rule": "webcgm-geometry",
+        "reason": "Geometry or presentation-geometry scenario."
+      },
+      {
+        "source": "20tests/utf16-chinese-v10.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/utf16-chinese-v20.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/utf16-japanese-v10.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/utf16-sf-apsid-01.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/utf16-sf-name-01.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/utf8-chinese-v10.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/utf8-chinese-v20.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text encoding, text-on-path, or text content scenario."
+      },
+      {
+        "source": "20tests/WebCGM_Event.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "20tests/xcf-styles.cgm",
+        "category": "dom",
+        "rule": "webcgm-dom",
+        "reason": "WebCGM application structure, DOM, or XCF scenario."
+      },
+      {
+        "source": "21tests/aciDefaultFont.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/aciEdgeAttr.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/aciFontNormalization.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/aciForceSubstitution.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/aciGenericFonts.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/aciLineAttr.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/aciLineEdgeTypeDef.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/aciMapListOrder.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/aciMitreLimit.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/aciRestrictedTextType.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/aciSimpleFontSubstitution.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/alphaEscape.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/getObjectExtent.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/getObjectExtentTransformed.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/lineAnimation.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/lineOffset.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/removed-from-TS21/aciHatchStyleDef.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "21tests/removed-from-TS21/transformXCF.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "21tests/removed-from-TS21/transformXCF2.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "21tests/rotateAnimation.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/rotateAPS.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/scaleAPS.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/setGetBGColor.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetEdgeVisibility.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetFillOffset2.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetFillStyles2.0.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetHatchIndex.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetInteriorStyle.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetLineStyles2.0.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetPatternIndex.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetStrokeOffset.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetStrokeType.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/setGetTextStyles.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/setRedraw001.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/setRedraw002.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/setView001.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/setView002.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/spXCF.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/style.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "21tests/subString.cgm",
+        "category": "text",
+        "rule": "webcgm-text",
+        "reason": "Text, font, or text-substring scenario."
+      },
+      {
+        "source": "21tests/transCellColor.cgm",
+        "category": "raster",
+        "rule": "webcgm-raster",
+        "reason": "Cell-array or raster-color scenario."
+      },
+      {
+        "source": "21tests/transformAnimation.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/transformAPS.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/translateAnimation.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/translateAPS.cgm",
+        "category": "interaction",
+        "rule": "webcgm-interaction",
+        "reason": "WebCGM animation, view, redraw, or object interaction scenario."
+      },
+      {
+        "source": "21tests/zCompress.cgm",
+        "category": "profile",
+        "rule": "webcgm-profile",
+        "reason": "WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "dynamic10/behavior-objHighlight-BE-05-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/behavior-objHighlightAll-BE-06-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/behavior-objViewContext-BE-07-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/behavior-picBlankC2C-BE-01-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/behavior-picBlankC2C-BE-01.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/behavior-picBlankC2H-BE-03.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/behavior-picReplaceC2C-BE-02-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/behavior-picReplaceC2C-BE-02.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/behavior-picTargetC2H-BE-04.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/fragment-fiveForms-BE-03-target1.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/fragment-fiveForms-BE-03-target2.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/fragment-idC2H-BE-01.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/interact-pick-BE-01.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/interact-pickRegion-BE-02.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/interact-screenTip-BE-03.cgm",
+        "category": "interaction",
+        "rule": "dynamic-interaction",
+        "reason": "Dynamic WebCGM behavior or interaction scenario."
+      },
+      {
+        "source": "dynamic10/linking-anyURI-BE-07.cgm",
+        "category": "hyperlink",
+        "rule": "dynamic-linking",
+        "reason": "Dynamic WebCGM linking scenario."
+      },
+      {
+        "source": "dynamic10/linking-anyURI-BE-07org.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/linking-basicC2C-BE-03-target-old.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/linking-basicC2C-BE-03-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/linking-basicC2C-BE-03.cgm",
+        "category": "hyperlink",
+        "rule": "dynamic-linking",
+        "reason": "Dynamic WebCGM linking scenario."
+      },
+      {
+        "source": "dynamic10/linking-basicC2H-BE-02.cgm",
+        "category": "hyperlink",
+        "rule": "dynamic-linking",
+        "reason": "Dynamic WebCGM linking scenario."
+      },
+      {
+        "source": "dynamic10/linking-basicC2P-BE-04.cgm",
+        "category": "hyperlink",
+        "rule": "dynamic-linking",
+        "reason": "Dynamic WebCGM linking scenario."
+      },
+      {
+        "source": "dynamic10/linking-basicH2C-BE-01-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/linking-multiLink-BE-08.cgm",
+        "category": "hyperlink",
+        "rule": "dynamic-linking",
+        "reason": "Dynamic WebCGM linking scenario."
+      },
+      {
+        "source": "dynamic10/linking-selectId-BE-05-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/linking-selectName-BE-06-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/otherAPS-para-BE-01-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/otherAPS-para-BE-01-test.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/otherAPS-para-BE-01.cgm",
+        "category": "profile",
+        "rule": "dynamic-profile",
+        "reason": "Dynamic WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "dynamic10/otherAPS-para-BE-02-target.cgm",
+        "category": "support",
+        "rule": "support-derivative",
+        "reason": "Named as an upstream target, historical, or comparison helper."
+      },
+      {
+        "source": "dynamic10/otherAPS-para-BE-02.cgm",
+        "category": "profile",
+        "rule": "dynamic-profile",
+        "reason": "Dynamic WebCGM profile scenario outside current geometry scope."
+      },
+      {
+        "source": "static10/ALLELM01.cgm",
+        "category": "support",
+        "rule": "static-element-inventory",
+        "reason": "Broad element inventory retained for structural inspection, not geometry coverage."
+      },
+      {
+        "source": "static10/APNTXT01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/APNTXT02.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/ARCFUL01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ARCTST01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ARCTST02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ARCTST03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ARCTST04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ARCTST05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ARCTST06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/BGCOLR01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/BGCOLR02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/BGCOLR03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/BGCOLR04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/BIGCGM01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/BIGCGM02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/BIGCGM03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/bigcgm04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/bigcgm05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CELARY01.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CELARY02.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CELARY03.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CELARY04.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CELARY05.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CELARY06.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CELARY07.cgm",
+        "category": "raster",
+        "rule": "static-cell-array",
+        "reason": "Static CGM cell-array scenario."
+      },
+      {
+        "source": "static10/CHRHGT01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/CHRHTLN.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/CHRORI01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/CHRSET01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/CHRSET02.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/CHRSPA01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/CIRARC01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CIRARC02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CIRARC03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CIRCLE01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CIRCLE02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CIRCLE03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CLIPNG01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CLIPNG02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CLIPNG03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CLIPNG04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CLIPNG05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/COLIPR01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLIPR02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLLVL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLLVL02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLLVL03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLLVL04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLRMD01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLRMD02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLRPR01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLRPR02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLTAB01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLTAB02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLVAL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLVAL02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLVAL03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/COLVAL04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/CRAR3C01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRAR3C02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRAR3C03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRARC301.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRARC302.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRARC303.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRARCC01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRARCC02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/CRARCC03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/DEFVAL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DESORD01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DGNTST01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DGNTST02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DGNTST03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DGNTST04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DGNTST05.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DGNTST06.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DIRCOL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/DPLYLN01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/EDGCOL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/edgstl01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELARCC01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELARCC02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELARCC03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELARCC04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELARCC05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLARC01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLARC02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLARC03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLARC04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLARC05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLIPS01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLIPS02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ELLIPS03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/EMTPCT01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/EMTPCT02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/ESCAPE01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/ESCAPE02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/FIGURE01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FIGURE02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FIGURE03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FIGURE04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FIGURE05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FIGURE06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FIGURE07.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/FNTLST07.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL07.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/INTSTL08.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINCAP01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINCAP02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINCOL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/LINSTD01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTD02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTD03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL07.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL08.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL09.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL10.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL11.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL12.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL13.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL14.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LINSTL15.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/LNJOIN01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/MDRTST01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/MDRTST02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/MFDESC01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/MFELLS01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/MFELLS02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/MITRLM01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/NOGTXT01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/PATTBL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/PATTBL02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/PLGSET01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/PLGSET02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/PLGSET03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/PLGSET04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/PLGSET05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/PLGSET06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/polybz01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/polybz02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/polybz03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYBZ04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYBZ05.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYBZ06.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYGN01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYGN02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYGN03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYGN04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYLN01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYLN02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYLN03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYLN04.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYMK01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYMK02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/POLYMK03.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/RCTNGL01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/RCTNGL02.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/REALPR01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/REALPR02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/RESTXT01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/RESTXT02.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/ROTTXT01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/ROTTXT02.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/SCHEMA01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SCHEMA02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SCHEMA03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SCHEMA04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SCHEMA05.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SCLMOD01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      },
+      {
+        "source": "static10/SPECMD01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SPECMD02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SPECMD03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SPECMD04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/SPECMD05.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/TABTNL01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/TABTNL02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/TXTALN01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN02.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN03.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN04.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN05.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN06.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN07.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN08.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN09.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN10.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN11.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN12.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN13.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN14.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN15.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN16.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN17.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN18.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN19.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN20.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN21.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN22.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTALN23.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTCOL01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTLEN01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTPTH01.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTPTH02.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/TXTPTH03.cgm",
+        "category": "text",
+        "rule": "static-text",
+        "reason": "Static CGM text or character-attribute scenario."
+      },
+      {
+        "source": "static10/VDCEXT01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCEXT02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCEXT03.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCEXT04.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCEXT05.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCEXT06.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCEXT07.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCINT01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCRPR01.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/VDCRPR02.cgm",
+        "category": "profile",
+        "rule": "static-profile",
+        "reason": "Static CGM descriptor, precision, color, or profile scenario."
+      },
+      {
+        "source": "static10/ZEROSZ01.cgm",
+        "category": "geometry",
+        "rule": "static-geometry-default",
+        "reason": "Static CGM primitive or presentation-geometry scenario."
+      }
+    ]
+  }
 }

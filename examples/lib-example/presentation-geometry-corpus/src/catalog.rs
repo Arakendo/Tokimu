@@ -1,10 +1,10 @@
 //! Corpus catalog access, lookup, and producer dispatch.
 
 use crate::{
-    run_glyph_case, run_svg_case, run_synthetic_case, run_synthetic_svg_case, run_ui_case,
-    run_w3c_svg_case, CaseReport, CorpusCase, GlyphCase, SvgCase, SyntheticCase, SyntheticSvgCase,
-    UiCase, W3cSvgCase, ALL_CASES, GLYPH_CASES, SVG_CASES, SYNTHETIC_CASES, SYNTHETIC_SVG_CASES,
-    UI_CASES, W3C_SVG_CASES,
+    run_cgm_case, run_glyph_case, run_svg_case, run_synthetic_case, run_synthetic_svg_case,
+    run_ui_case, run_w3c_svg_case, CaseReport, CgmCase, CorpusCase, GlyphCase, SvgCase,
+    SyntheticCase, SyntheticSvgCase, UiCase, W3cSvgCase, ALL_CASES, CGM_CASES, GLYPH_CASES,
+    SVG_CASES, SYNTHETIC_CASES, SYNTHETIC_SVG_CASES, UI_CASES, W3C_SVG_CASES,
 };
 
 pub fn glyph_cases() -> &'static [GlyphCase] {
@@ -35,6 +35,10 @@ pub fn ui_cases() -> &'static [UiCase] {
     &UI_CASES
 }
 
+pub fn cgm_cases() -> &'static [CgmCase] {
+    &CGM_CASES
+}
+
 pub fn all_cases() -> &'static [CorpusCase] {
     &ALL_CASES
 }
@@ -61,5 +65,6 @@ pub fn run_case(case: CorpusCase) -> CaseReport {
         CorpusCase::SyntheticSvg(case) => run_synthetic_svg_case(case),
         CorpusCase::W3cSvg(case) => run_w3c_svg_case(case),
         CorpusCase::Ui(case) => run_ui_case(case),
+        CorpusCase::Cgm(case) => run_cgm_case(case),
     }
 }

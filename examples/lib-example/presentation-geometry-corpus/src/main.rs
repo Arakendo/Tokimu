@@ -2,8 +2,8 @@ use std::process::ExitCode;
 
 use presentation_geometry_corpus::{
     all_cases, bless_case, compare_case, find_case, run_case, run_generated_case,
-    write_glyph_artifacts, write_svg_artifacts, write_synthetic_svg_artifacts, write_w3c_artifacts,
-    CaseReport, CorpusCase,
+    write_cgm_artifacts, write_glyph_artifacts, write_svg_artifacts, write_synthetic_svg_artifacts,
+    write_w3c_artifacts, CaseReport, CorpusCase,
 };
 
 fn main() -> ExitCode {
@@ -151,6 +151,15 @@ fn main() -> ExitCode {
             }
             if let CorpusCase::SyntheticSvg(svg) = case {
                 match write_synthetic_svg_artifacts(svg) {
+                    Ok(path) => println!("  artifacts: {}", path.display()),
+                    Err(error) => {
+                        eprintln!("  artifact error: {error}");
+                        return ExitCode::from(1);
+                    }
+                }
+            }
+            if let CorpusCase::Cgm(cgm) = case {
+                match write_cgm_artifacts(cgm) {
                     Ok(path) => println!("  artifacts: {}", path.display()),
                     Err(error) => {
                         eprintln!("  artifact error: {error}");

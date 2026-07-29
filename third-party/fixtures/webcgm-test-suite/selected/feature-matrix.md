@@ -7,22 +7,24 @@ artifact stages exist.
 | Capability | Selected cases | Current status | Intended first evidence |
 | --- | --- | --- | --- |
 | Pinned source provenance | All 15 | Fixture ready | Archive and tree hashes |
-| Binary encoding signature | All 15 | Inventory ready | Bounded element headers |
-| Metafile and picture lifecycle | `ALLELM01` | Not implemented | `decode.json`, `cgm.json` |
-| VDC extent and normalization | `VDCEXT01` | Not implemented | finite normalized bounds |
-| Polyline | `POLYLN01` | Not implemented | open vector and stroke mesh |
-| Polygon | `POLYGN01` | Not implemented | closed vector and fill mesh |
-| Rectangle | `RCTNGL01` | Not implemented | primitive bounds and fill mesh |
-| Circle | `CIRCLE01` | Not implemented | curved contour and fill mesh |
-| Ellipse | `ELLIPS01` | Not implemented | oriented curved contour |
-| Circular arc | `CIRARC01` | Deferred | endpoints, direction, closure |
-| Elliptical arc | `ELLARC01` | Deferred | axes, endpoints, closure |
-| Polygon set | `PLGSET01` | Deferred | contour and visibility topology |
-| Interior style | `INTSTL01` | Deferred | resolved fill state |
-| Line caps | `LINCAP01` | Deferred | provider-neutral cap intent |
-| Line joins | `LNJOIN01` | Deferred | provider-neutral join intent |
-| Clipping | `CLIPNG01` | Deferred | resolved clip rectangle |
-| Color selection mode | `COLRMD01` | Deferred | resolved paint intent |
+| Binary encoding signature | All 15 | Lifecycle decoded | Bounded element headers |
+| Metafile and picture lifecycle | All 15 | Lifecycle decoded | Inspectable elements and picture boundaries |
+| Element inventory | `ALLELM01` | Source-only corpus case | broad lifecycle and element-count evidence without geometric lowering |
+| VDC type, precision, scaling, and extent | `VDCEXT01` | Source-only corpus case | source-ordered VDC corners and picture-local descriptor state |
+| VDC normalization | `VDCEXT01` | Helper decoded; source-only corpus case | source-order unit-square mapping; primitive consumer pending |
+| Polyline | `POLYLN01` | Source-to-vector corpus case | open `VectorContour`; stroke mesh pending |
+| Polygon | `POLYGN01` | Source-to-vector corpus case | closed `VectorContour`; fill mesh pending |
+| Rectangle | `RCTNGL01` | Source-to-vector corpus case | closed `VectorContour`; fill mesh pending |
+| Circle | `CIRCLE01` | Source-to-vector corpus case | deterministic source-VDC flattening; fill mesh pending |
+| Ellipse | `ELLIPS01` | Source-to-vector corpus case | source conjugate-diameter flattening; fill mesh pending |
+| Circular arc | `CIRARC01` | Source-to-vector corpus case | open counter-clockwise sweep; closure and stroke mesh pending |
+| Elliptical arc | `ELLARC01` | Source-to-vector corpus case | open conjugate-diameter sweep; closure and stroke mesh pending |
+| Polygon set | `PLGSET01` | Expected source-to-vector boundary | ordered 16-bit point records with visible/invisible/close-edge semantics; corpus runner reports the provider-neutral topology boundary explicitly |
+| Interior style | `INTSTL01` | Source-to-vector corpus case | active source state retained beside finite vector paths; provider-neutral fill intent pending |
+| Line caps | `LINCAP01` | Source-to-vector corpus case | active source state retained beside finite vector paths; provider-neutral cap intent pending |
+| Line joins | `LNJOIN01` | Source-to-vector corpus case | active source state retained beside finite vector paths; provider-neutral join intent pending |
+| Clipping | `CLIPNG01` | Source-to-vector corpus case | ordered clip controls retained beside finite vector paths; provider-neutral clipping deferred |
+| Color selection mode | `COLRMD01` | Source-to-vector corpus case | picture-local raw direct/indexed colours retained beside finite vector paths |
 | Reference image identity | All 15 | Fixture ready | complementary PNG hash |
 | Text | None | Explicitly excluded | future text service boundary |
 | Cell arrays and raster | None | Explicitly excluded | future raster boundary |
@@ -38,9 +40,15 @@ one-to-one.
 ```text
 15 selected unmodified static CGM sources
 15 selected reference PNGs
-0 decoded cases
-0 semantic cases
-0 vector cases
+15 lifecycle-decoded cases
+15 descriptor-decoded cases
+15 selected cases inspect explicit source-state attributes where present
+Selected primitive records snapshot active explicit presentation state
+5 primitive semantic cases
+7 vector-lowered primitive families
+2 source-only corpus-runner cases
+12 source-to-vector corpus-runner passes
+1 expected source-to-vector topology boundary
 0 mesh cases
 0 conformance claims
 ```

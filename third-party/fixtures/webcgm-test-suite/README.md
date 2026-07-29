@@ -12,7 +12,7 @@ selection is limited to bounded static geometry evidence.
 
 ```text
 upstream/                 Verbatim extracted archive contents
-inventory.json            Generated source and encoding inventory
+inventory.json            Generated source, encoding, and scope classification inventory
 selected/                 Versioned Tokimu selection and capability matrix
 provenance.json           Source, release, retrieval, and checksum metadata
 ```
@@ -44,4 +44,7 @@ pwsh -NoProfile -File .\scripts\verify-webcgm-corpus.ps1
 
 The preparation script downloads the immutable dated release, verifies its
 archive checksum, refuses to replace a differing reviewed upstream tree, and
-regenerates `inventory.json`.
+regenerates `inventory.json`. Each CGM source receives one conservative
+scope category (`geometry`, `text`, `raster`, `dom`, `hyperlink`,
+`interaction`, `profile`, or `support`) based on upstream module and stable
+filename evidence. This is a corpus-planning aid, not a conformance claim.

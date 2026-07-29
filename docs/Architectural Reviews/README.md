@@ -160,3 +160,7 @@ across unrelated decisions.
 - [AR-0004: Networking Transport Seam](AR-0004-networking-transport-seam.md)
   — Deferred; bounded observation transport remains example-side until a real
   provider or non-example consumer proves capability admission
+- [AR-0005: Runtime Observation and Performance Telemetry](AR-0005-runtime-observation-and-performance-telemetry.md)
+  — Incubating; narrow kernel performance diagnostics are accepted by ADR-0007
+  while aggregation, resource attribution, and broader observation ownership
+  remain under review

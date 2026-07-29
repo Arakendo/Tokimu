@@ -172,6 +172,77 @@ pub struct UiCase {
     pub description: &'static str,
 }
 
+/// A pinned WebCGM source fixture admitted for structural producer evidence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CgmCase {
+    pub id: &'static str,
+    pub file_name: &'static str,
+    pub description: &'static str,
+    pub expectation: CgmExpectation,
+}
+
+impl CgmCase {
+    pub const fn new(id: &'static str, file_name: &'static str, description: &'static str) -> Self {
+        Self {
+            id,
+            file_name,
+            description,
+            expectation: CgmExpectation::VectorPass,
+        }
+    }
+
+    pub const fn expected_unsupported_lowering(
+        id: &'static str,
+        file_name: &'static str,
+        description: &'static str,
+        kind: &'static str,
+    ) -> Self {
+        Self {
+            id,
+            file_name,
+            description,
+            expectation: CgmExpectation::ExpectedUnsupportedLowering { kind },
+        }
+    }
+
+    /// Registers a fixture whose current value is source-format evidence only.
+    ///
+    /// This is intentionally not an expected vector failure: no vector
+    /// lowering was requested for the case, so the selected pipeline ends at
+    /// inspection rather than claiming an unimplemented geometric contract.
+    pub const fn source_only(
+        id: &'static str,
+        file_name: &'static str,
+        description: &'static str,
+    ) -> Self {
+        Self {
+            id,
+            file_name,
+            description,
+            expectation: CgmExpectation::SourceOnly,
+        }
+    }
+
+    pub(crate) const fn selected_stages(self) -> &'static [CorpusStage] {
+        match self.expectation {
+            CgmExpectation::SourceOnly => &CGM_SOURCE_STAGES,
+            CgmExpectation::VectorPass | CgmExpectation::ExpectedUnsupportedLowering { .. } => {
+                &CGM_STAGES
+            }
+        }
+    }
+}
+
+/// The selected CGM profile may intentionally stop before a source primitive
+/// has a provider-neutral representation. This preserves the diagnostic
+/// boundary as corpus evidence instead of omitting the fixture entirely.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CgmExpectation {
+    SourceOnly,
+    VectorPass,
+    ExpectedUnsupportedLowering { kind: &'static str },
+}
+
 impl UiCase {
     pub const fn new(id: &'static str, description: &'static str) -> Self {
         Self { id, description }
@@ -186,6 +257,7 @@ pub enum CorpusCase {
     SyntheticSvg(SyntheticSvgCase),
     W3cSvg(W3cSvgCase),
     Ui(UiCase),
+    Cgm(CgmCase),
 }
 
 impl CorpusCase {
@@ -197,6 +269,7 @@ impl CorpusCase {
             Self::SyntheticSvg(case) => case.id,
             Self::W3cSvg(case) => case.id,
             Self::Ui(case) => case.id,
+            Self::Cgm(case) => case.id,
         }
     }
 
@@ -205,6 +278,7 @@ impl CorpusCase {
             Self::Glyph(_) => &GLYPH_STAGES,
             Self::Svg(_) | Self::SyntheticSvg(_) | Self::W3cSvg(_) => &SVG_STAGES,
             Self::Synthetic(_) | Self::Ui(_) => &PATH_STAGES,
+            Self::Cgm(case) => case.selected_stages(),
         }
     }
 }
@@ -223,3 +297,5 @@ pub(crate) const SVG_STAGES: [CorpusStage; 4] = [
     CorpusStage::Vector,
     CorpusStage::Mesh,
 ];
+pub(crate) const CGM_STAGES: [CorpusStage; 2] = [CorpusStage::Source, CorpusStage::Vector];
+pub(crate) const CGM_SOURCE_STAGES: [CorpusStage; 1] = [CorpusStage::Source];

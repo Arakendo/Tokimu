@@ -40,6 +40,37 @@ pub(crate) fn canonical_triangle_hash(triangles: &[[f32; 2]]) -> String {
     format!("fnv1a64:{hash:016x}")
 }
 
+/// Produces a stable, order-preserving fingerprint for source-to-vector
+/// lowering. Contour order and open/closed topology are retained deliberately:
+/// they are semantic evidence before any mesh implementation is selected.
+pub(crate) fn canonical_path_hash(paths: &[&VectorPath]) -> String {
+    let mut hash = 0xcbf29ce484222325;
+    for path in paths {
+        for contour in &path.contours {
+            hash_byte(&mut hash, u8::from(contour.closed));
+            hash_bytes(&mut hash, &(contour.points.len() as u64).to_le_bytes());
+            for point in &contour.points {
+                let point = canonical_point(*point);
+                hash_bytes(&mut hash, &point[0].to_bits().to_le_bytes());
+                hash_bytes(&mut hash, &point[1].to_bits().to_le_bytes());
+            }
+        }
+        hash_byte(&mut hash, 0xff);
+    }
+    format!("fnv1a64:{hash:016x}")
+}
+
+fn hash_byte(hash: &mut u64, byte: u8) {
+    *hash ^= u64::from(byte);
+    *hash = hash.wrapping_mul(0x100000001b3);
+}
+
+fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        hash_byte(hash, *byte);
+    }
+}
+
 fn canonical_point(point: [f32; 2]) -> [f32; 2] {
     [quantize_coordinate(point[0]), quantize_coordinate(point[1])]
 }

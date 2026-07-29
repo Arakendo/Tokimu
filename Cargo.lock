@@ -250,6 +250,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "cgm-corpus"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 1.0.69",
+ "ui-tools",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,6 +679,15 @@ version = "0.1.0"
 dependencies = [
  "tokimu",
  "tokimu-core",
+ "ui-tools",
+]
+
+[[package]]
+name = "hello-cgm"
+version = "0.1.0"
+dependencies = [
+ "cgm-corpus",
+ "tokimu",
  "ui-tools",
 ]
 
@@ -1666,6 +1684,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
+name = "performance-diagnostics-corpus"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokimu-assets",
+ "tokimu-core",
+ "tokimu-render",
+]
+
+[[package]]
 name = "pin-project"
 version = "1.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1727,6 +1756,7 @@ checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
 name = "presentation-geometry-corpus"
 version = "0.1.0"
 dependencies = [
+ "cgm-corpus",
  "screenshot",
  "serde",
  "serde_json",

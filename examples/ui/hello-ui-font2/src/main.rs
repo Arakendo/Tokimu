@@ -438,11 +438,13 @@ impl PlatformEventHandler for App {
         let stats = renderer.present()?;
         if self.reported_frames < 2 {
             println!(
-                "hello-ui-font2 render stats: frame={}, draw_calls={}, mesh_uploads={}, mesh_replacements={}",
+                "hello-ui-font2 render stats: frame={}, frame_draw_calls={}, frame_mesh_uploads={}, frame_mesh_replacements={}, lifetime_mesh_uploads={}, lifetime_mesh_replacements={}",
                 self.reported_frames + 1,
-                stats.draw_calls,
-                stats.mesh_uploads,
-                stats.mesh_replacements
+                stats.frame.draw_calls,
+                stats.frame.mesh_uploads,
+                stats.frame.mesh_replacements,
+                stats.lifetime.mesh_uploads,
+                stats.lifetime.mesh_replacements
             );
             self.reported_frames += 1;
         }

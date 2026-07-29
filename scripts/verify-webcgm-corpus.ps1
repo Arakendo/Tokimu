@@ -82,6 +82,40 @@ if ($pngFiles.Count -ne $inventory.totals.reference_png_files) {
     throw "Inventory PNG count does not match upstream"
 }
 
+$classification = $inventory.classification
+if (-not $classification -or $classification.schema -ne 1) {
+    throw "Inventory is missing classification schema 1"
+}
+$expectedCategories = @(
+    "geometry",
+    "text",
+    "raster",
+    "dom",
+    "hyperlink",
+    "interaction",
+    "profile",
+    "support"
+)
+foreach ($category in $expectedCategories) {
+    if ($null -eq $classification.categories.$category) {
+        throw "Inventory classification is missing category: $category"
+    }
+}
+$classifiedCases = @($classification.cases)
+if ($classifiedCases.Count -ne $cgmFiles.Count) {
+    throw "Inventory classification count does not match upstream CGM files"
+}
+$classifiedSources = @($classifiedCases | ForEach-Object source | Sort-Object -Unique)
+if ($classifiedSources.Count -ne $cgmFiles.Count) {
+    throw "Inventory classification does not assign every CGM source exactly once"
+}
+$classifiedTotal = @($expectedCategories | ForEach-Object {
+    [int]$classification.categories.$_
+} | Measure-Object -Sum).Sum
+if ($classifiedTotal -ne $cgmFiles.Count) {
+    throw "Inventory category totals do not match upstream CGM files"
+}
+
 $caseMatches = [regex]::Matches(
     $manifest,
     '(?ms)^\[\[case\]\]\s*(.*?)(?=^\[\[case\]\]|\z)'
@@ -151,5 +185,6 @@ Write-Host "  release: $($provenance.source.release)"
 Write-Host "  upstream tree sha256: $actualTreeHash"
 Write-Host "  files: $($files.Count)"
 Write-Host "  CGM files: $($cgmFiles.Count)"
+Write-Host "  geometry-classified CGM files: $($classification.categories.geometry)"
 Write-Host "  reference PNG files: $($pngFiles.Count)"
 Write-Host "  selected cases: $($caseMatches.Count)"

@@ -92,6 +92,7 @@ fn generate_detailed_artifacts(case: CorpusCase) -> Result<Option<PathBuf>, Stri
         CorpusCase::Svg(svg) => write_svg_artifacts(svg).map(Some),
         CorpusCase::SyntheticSvg(svg) => write_synthetic_svg_artifacts(svg).map(Some),
         CorpusCase::W3cSvg(w3c) => write_w3c_artifacts(w3c).map(Some),
+        CorpusCase::Cgm(cgm) => crate::write_cgm_artifacts(cgm).map(Some),
         CorpusCase::Synthetic(_) | CorpusCase::Ui(_) => Ok(None),
     }
 }

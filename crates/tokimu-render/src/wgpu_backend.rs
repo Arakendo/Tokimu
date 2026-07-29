@@ -1,7 +1,7 @@
 use crate::{
     Camera, CameraHandle, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
-    PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderStats, Renderable,
-    RenderableHandle, Renderer, Texture, TextureHandle,
+    PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderFrameCpuTimings,
+    RenderStats, Renderable, RenderableHandle, Renderer, Texture, TextureHandle,
 };
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -9,6 +9,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use raw_window_handle::{WebCanvasWindowHandle, WebDisplayHandle};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use thiserror::Error;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
@@ -87,7 +88,7 @@ struct SurfaceState {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 struct GpuInstanceUniform {
     translation: [f32; 2],
     scale: [f32; 2],
@@ -96,18 +97,30 @@ struct GpuInstanceUniform {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 struct GpuCameraUniform {
     view_projection: [[f32; 4]; 4],
+}
+
+struct GpuInstanceBinding {
+    uniform: GpuInstanceUniform,
+    _buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
+}
+
+struct GpuCameraBinding {
+    uniform: GpuCameraUniform,
+    _buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
 }
 
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub struct WgpuBackend {
-    draw_calls: u32,
-    mesh_uploads: u32,
-    mesh_replacements: u32,
+    stats: crate::renderer::RenderStatsTracker,
     queued_draws: Vec<QueuedDraw>,
+    instance_bindings: Vec<GpuInstanceBinding>,
+    camera_bindings: HashMap<CameraHandle, GpuCameraBinding>,
     meshes: HashMap<MeshHandle, GpuMesh>,
     materials: HashMap<MaterialHandle, GpuMaterial>,
     pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
@@ -158,10 +171,10 @@ impl WgpuBackend {
             .map_err(|error| WgpuBackendError::DeviceRequest(error.to_string()))?;
 
         Ok(Self {
-            draw_calls: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
+            stats: crate::renderer::RenderStatsTracker::default(),
             queued_draws: Vec::new(),
+            instance_bindings: Vec::new(),
+            camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
             pipelines: HashMap::new(),
@@ -227,10 +240,10 @@ impl WgpuBackend {
         surface.configure(&device, &config);
 
         Ok(Self {
-            draw_calls: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
+            stats: crate::renderer::RenderStatsTracker::default(),
             queued_draws: Vec::new(),
+            instance_bindings: Vec::new(),
+            camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
             pipelines: HashMap::new(),
@@ -311,10 +324,10 @@ impl WgpuBackend {
         surface.configure(&device, &config);
 
         Ok(Self {
-            draw_calls: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
+            stats: crate::renderer::RenderStatsTracker::default(),
             queued_draws: Vec::new(),
+            instance_bindings: Vec::new(),
+            camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
             pipelines: HashMap::new(),
@@ -385,9 +398,7 @@ impl WgpuBackend {
     }
 
     pub fn upload_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) {
-        if self.meshes.contains_key(&handle) {
-            self.mesh_replacements = self.mesh_replacements.saturating_add(1);
-        }
+        let replaced_existing = self.meshes.contains_key(&handle);
         let vertices: Vec<GpuVertex> = mesh
             .positions
             .iter()
@@ -410,7 +421,7 @@ impl WgpuBackend {
                 vertex_count: mesh.vertex_count(),
             },
         );
-        self.mesh_uploads = self.mesh_uploads.saturating_add(1);
+        self.stats.record_mesh_upload(replaced_existing);
     }
 
     /// Uploads an RGBA8 image for future texture-backed pipelines.
@@ -700,15 +711,18 @@ impl WgpuBackend {
     }
 
     pub fn present(&mut self) -> Result<RenderStats, WgpuBackendError> {
-        let stats = self.end_frame();
         let Some(surface_state) = self.surface_state.as_ref() else {
-            return Ok(stats);
+            return Ok(self.end_frame());
         };
 
+        let surface_acquire_start = Instant::now();
         let frame = surface_state
             .surface
             .get_current_texture()
             .map_err(|error| WgpuBackendError::SurfaceAcquire(error.to_string()))?;
+        let surface_acquire_call = surface_acquire_start.elapsed();
+
+        let resource_preparation_start = Instant::now();
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -717,10 +731,7 @@ impl WgpuBackend {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("tokimu-clear-pass"),
             });
-        let mut instance_buffers = Vec::with_capacity(self.queued_draws.len());
-        let mut instance_bind_groups = Vec::with_capacity(self.queued_draws.len());
-
-        for draw in &self.queued_draws {
+        for (index, draw) in self.queued_draws.iter().enumerate() {
             let (rotation_sin, rotation_cos) = draw.instance.rotation.sin_cos();
             let uniform = GpuInstanceUniform {
                 translation: draw.instance.translation,
@@ -728,25 +739,89 @@ impl WgpuBackend {
                 rotation: [rotation_sin, rotation_cos],
                 _padding: [0.0, 0.0],
             };
-            let buffer = self
-                ._device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("tokimu-instance-uniform-buffer"),
-                    contents: bytemuck::bytes_of(&uniform),
-                    usage: wgpu::BufferUsages::UNIFORM,
+
+            if index == self.instance_bindings.len() {
+                let buffer = self
+                    ._device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("tokimu-instance-uniform-buffer"),
+                        contents: bytemuck::bytes_of(&uniform),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    });
+                let bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("tokimu-instance-bind-group"),
+                    layout: &surface_state.instance_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buffer.as_entire_binding(),
+                    }],
                 });
-            let bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("tokimu-instance-bind-group"),
-                layout: &surface_state.instance_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }],
-            });
-            instance_buffers.push(buffer);
-            instance_bind_groups.push(bind_group);
+                self.instance_bindings.push(GpuInstanceBinding {
+                    uniform,
+                    _buffer: buffer,
+                    bind_group,
+                });
+                self.stats.record_binding_allocation();
+            } else if self.instance_bindings[index].uniform != uniform {
+                let binding = &mut self.instance_bindings[index];
+                self._queue
+                    .write_buffer(&binding._buffer, 0, bytemuck::bytes_of(&uniform));
+                binding.uniform = uniform;
+                self.stats.record_uniform_buffer_write();
+            }
         }
 
+        let camera_handles = self
+            .queued_draws
+            .iter()
+            .map(|draw| draw.camera.unwrap_or(self.active_camera))
+            .collect::<std::collections::HashSet<_>>();
+        for camera_handle in camera_handles {
+            let camera = self
+                .cameras
+                .get(&camera_handle)
+                .copied()
+                .unwrap_or_default();
+            let uniform = GpuCameraUniform {
+                view_projection: (camera.projection * camera.view).to_cols_array_2d(),
+            };
+            if let Some(binding) = self.camera_bindings.get_mut(&camera_handle) {
+                if binding.uniform != uniform {
+                    self._queue
+                        .write_buffer(&binding._buffer, 0, bytemuck::bytes_of(&uniform));
+                    binding.uniform = uniform;
+                    self.stats.record_uniform_buffer_write();
+                }
+            } else {
+                let buffer = self
+                    ._device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("tokimu-camera-uniform-buffer"),
+                        contents: bytemuck::bytes_of(&uniform),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    });
+                let bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("tokimu-camera-bind-group"),
+                    layout: &surface_state.camera_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buffer.as_entire_binding(),
+                    }],
+                });
+                self.camera_bindings.insert(
+                    camera_handle,
+                    GpuCameraBinding {
+                        uniform,
+                        _buffer: buffer,
+                        bind_group,
+                    },
+                );
+                self.stats.record_binding_allocation();
+            }
+        }
+        let resource_preparation = resource_preparation_start.elapsed();
+
+        let command_encoding_start = Instant::now();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("tokimu-clear-pass"),
@@ -775,7 +850,7 @@ impl WgpuBackend {
                 timestamp_writes: None,
             });
 
-            if stats.draw_calls > 0 {
+            if self.stats.has_frame_draws() {
                 for (index, draw) in self.queued_draws.iter().enumerate() {
                     let gpu_mesh = self
                         .meshes
@@ -790,30 +865,11 @@ impl WgpuBackend {
                         .get(&draw.pipeline)
                         .ok_or(WgpuBackendError::MissingPipeline(draw.pipeline.0))?;
                     let camera_handle = draw.camera.unwrap_or(self.active_camera);
-                    let camera = self
-                        .cameras
+                    let camera_bind_group = &self
+                        .camera_bindings
                         .get(&camera_handle)
-                        .copied()
-                        .unwrap_or_default();
-                    let camera_uniform = GpuCameraUniform {
-                        view_projection: (camera.projection * camera.view).to_cols_array_2d(),
-                    };
-                    let camera_buffer =
-                        self._device
-                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: Some("tokimu-camera-uniform-buffer"),
-                                contents: bytemuck::bytes_of(&camera_uniform),
-                                usage: wgpu::BufferUsages::UNIFORM,
-                            });
-                    let camera_bind_group =
-                        self._device.create_bind_group(&wgpu::BindGroupDescriptor {
-                            label: Some("tokimu-camera-bind-group"),
-                            layout: &surface_state.camera_bind_group_layout,
-                            entries: &[wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: camera_buffer.as_entire_binding(),
-                            }],
-                        });
+                        .expect("camera binding prepared before render pass")
+                        .bind_group;
                     if let Some(viewport) = draw.viewport {
                         render_pass.set_scissor_rect(
                             viewport.x.max(0.0) as u32,
@@ -830,20 +886,33 @@ impl WgpuBackend {
                         );
                     }
                     render_pass.set_pipeline(pipeline);
-                    render_pass.set_bind_group(2, &camera_bind_group, &[]);
+                    render_pass.set_bind_group(2, camera_bind_group, &[]);
                     render_pass.set_bind_group(0, &gpu_material.bind_group, &[]);
-                    render_pass.set_bind_group(1, &instance_bind_groups[index], &[]);
+                    render_pass.set_bind_group(1, &self.instance_bindings[index].bind_group, &[]);
                     render_pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
                     render_pass.draw(0..gpu_mesh.vertex_count, 0..1);
                 }
             }
         }
+        let command_buffer = encoder.finish();
+        let command_encoding = command_encoding_start.elapsed();
 
-        drop(instance_buffers);
+        let queue_submit_start = Instant::now();
+        self._queue.submit(std::iter::once(command_buffer));
+        let queue_submit_call = queue_submit_start.elapsed();
 
-        self._queue.submit(std::iter::once(encoder.finish()));
+        let surface_present_start = Instant::now();
         frame.present();
-        Ok(stats)
+        let surface_present_call = surface_present_start.elapsed();
+
+        self.stats.record_frame_cpu_timings(RenderFrameCpuTimings {
+            surface_acquire_call: Some(surface_acquire_call),
+            resource_preparation: Some(resource_preparation),
+            command_encoding: Some(command_encoding),
+            queue_submit_call: Some(queue_submit_call),
+            surface_present_call: Some(surface_present_call),
+        });
+        Ok(self.end_frame())
     }
 }
 
@@ -857,11 +926,12 @@ impl Renderer for WgpuBackend {
     }
 
     fn begin_frame(&mut self) {
-        self.draw_calls = 0;
+        self.stats.begin_frame();
         self.queued_draws.clear();
     }
 
     fn submit(&mut self, commands: &[RenderCommand]) {
+        self.stats.record_submit_call();
         if let Some(clear_color) = commands.iter().find_map(|command| match command {
             RenderCommand::Clear(clear) => Some(clear.color),
             RenderCommand::DrawMesh(_) => None,
@@ -896,23 +966,21 @@ impl Renderer for WgpuBackend {
                 }
             }));
 
-        self.draw_calls += commands
-            .iter()
-            .filter(|command| {
-                matches!(
-                    command,
-                    RenderCommand::DrawMesh(_) | RenderCommand::DrawRenderable(_)
-                )
-            })
-            .count() as u32;
+        self.stats.record_draw_calls(
+            commands
+                .iter()
+                .filter(|command| {
+                    matches!(
+                        command,
+                        RenderCommand::DrawMesh(_) | RenderCommand::DrawRenderable(_)
+                    )
+                })
+                .count() as u32,
+        );
     }
 
     fn end_frame(&mut self) -> RenderStats {
-        RenderStats {
-            draw_calls: self.draw_calls,
-            mesh_uploads: self.mesh_uploads,
-            mesh_replacements: self.mesh_replacements,
-        }
+        self.stats.snapshot()
     }
 }
 

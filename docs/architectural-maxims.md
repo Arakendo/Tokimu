@@ -89,6 +89,29 @@ clearer boundaries.
 
 Retirement should be guided by evidence rather than attachment.
 
+## Observation And Diagnostics
+
+### Measure facts where knowledge lives.
+
+The capability or mechanism that owns a fact should measure it.
+
+Shared diagnostics may capture and communicate that measurement, but should not
+reconstruct domain or provider knowledge from a distance.
+
+### Observation does not invent policy.
+
+A measurement describes what happened.
+
+Budgets, severity, and acceptability depend on application and target policy and
+must remain explicit.
+
+### Diagnose from evidence, not suspicion.
+
+Metrics should name what was measured rather than what is assumed to be wrong.
+
+Causal claims require retained observations and honest attribution across the
+relevant ownership boundaries.
+
 ## Simplicity
 
 ### Prefer composition over promotion.

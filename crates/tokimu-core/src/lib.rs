@@ -13,7 +13,10 @@ pub mod time;
 pub mod world;
 
 pub use component::Component;
-pub use diagnostics::Diagnostics;
+pub use diagnostics::{
+    DiagnosticKind, DiagnosticRecord, DiagnosticSeverity, Diagnostics, PerformanceBudget,
+    PerformanceMonitor, PerformanceObservation, PerformanceUnit,
+};
 pub use entity::EntityId;
 pub use event::Event;
 pub use relation::Relation;

@@ -392,7 +392,7 @@ impl PlatformEventHandler for HelloTriangleApp {
                     state.target_position[0],
                     state.target_position[1],
                     state.motion_phase,
-                stats.draw_calls,
+                stats.frame.draw_calls,
             ),
         );
         if round_complete {
@@ -423,7 +423,7 @@ impl PlatformEventHandler for HelloTriangleApp {
                         state.accent_color()[2],
                         state.accent_color()[3],
                     ),
-                    stats.draw_calls
+                    stats.frame.draw_calls
                 ),
             );
             self.logged_backend = true;

@@ -94,6 +94,11 @@ Tonesu projects.
   coordination native Tokimu concerns while keeping concrete thread, worker,
   and executor mechanisms in runtime/platform adapters. It does not admit
   parallel `World` mutation.
+- `ADR-0007-kernel-performance-diagnostics.md` makes bounded structured
+  diagnostic capture and sustained performance-budget transitions
+  kernel-native. Producers own measurements, applications and tools supply
+  budgets and policy, and presentation remains outside the kernel. It does not
+  admit a general profiler, aggregation service, or asset-cost model.
 
 ## AI Implementation Principles
 

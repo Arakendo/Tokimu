@@ -293,14 +293,22 @@ impl PlatformEventHandler for HelloUiBoxApp {
         self.frame_count = self.frame_count.saturating_add(1);
         if !self.stats_reported {
             println!(
-                "hello-ui-box first-frame stats: draw_calls={}, cumulative_mesh_uploads={}, mesh_replacements={}",
-                stats.draw_calls, stats.mesh_uploads, stats.mesh_replacements
+                "hello-ui-box first-frame stats: frame_draw_calls={}, frame_mesh_uploads={}, frame_mesh_replacements={}, lifetime_mesh_uploads={}, lifetime_mesh_replacements={}",
+                stats.frame.draw_calls,
+                stats.frame.mesh_uploads,
+                stats.frame.mesh_replacements,
+                stats.lifetime.mesh_uploads,
+                stats.lifetime.mesh_replacements
             );
             self.stats_reported = true;
         } else if self.frame_count == 2 {
             println!(
-                "hello-ui-box second-frame stats: draw_calls={}, cumulative_mesh_uploads={}, mesh_replacements={}",
-                stats.draw_calls, stats.mesh_uploads, stats.mesh_replacements
+                "hello-ui-box second-frame stats: frame_draw_calls={}, frame_mesh_uploads={}, frame_mesh_replacements={}, lifetime_mesh_uploads={}, lifetime_mesh_replacements={}",
+                stats.frame.draw_calls,
+                stats.frame.mesh_uploads,
+                stats.frame.mesh_replacements,
+                stats.lifetime.mesh_uploads,
+                stats.lifetime.mesh_replacements
             );
         }
         Ok(FrameOutcome::Continue)

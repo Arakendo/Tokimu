@@ -1,4 +1,5 @@
 use super::*;
+use crate::cases::{CgmExpectation, CGM_SOURCE_STAGES, CGM_STAGES};
 
 #[test]
 fn initial_cases_are_deterministic_and_stage_order_is_stable() {
@@ -149,6 +150,240 @@ fn ui_cases_have_stable_ids() {
 }
 
 #[test]
+fn cgm_cases_are_registered_at_their_honest_stage_boundary() {
+    assert_eq!(cgm_cases().len(), 15);
+    for case in cgm_cases() {
+        let corpus_case = CorpusCase::Cgm(*case);
+        assert!(all_cases().contains(&corpus_case));
+        assert_eq!(find_case(case.id), Some(corpus_case));
+
+        let report = run_cgm_case(*case);
+        assert!(report.passed(), "{report:#?}");
+        assert_eq!(report.producer, "cgm/webcgm");
+        assert!(report.stages[0].summary.contains("elements="));
+        assert!(report.stages[0].summary.contains("stateful-primitives="));
+        if case.expectation == CgmExpectation::SourceOnly {
+            assert_eq!(report.selected_stages, vec![CorpusStage::Source]);
+            assert_eq!(report.stages.len(), 1);
+        } else {
+            assert_eq!(report.stages[1].stage, CorpusStage::Vector);
+            assert!(matches!(
+                report.stages[1].status,
+                StageStatus::Ready | StageStatus::ExpectedFailure
+            ));
+        }
+    }
+}
+
+#[test]
+fn cgm_source_only_cases_preserve_inventory_and_vdc_evidence() {
+    let inventory = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/element-inventory")
+        .expect("element inventory case should be registered");
+    let inventory_report = run_cgm_case(inventory);
+    assert!(inventory_report.passed(), "{inventory_report:#?}");
+    assert_eq!(inventory_report.stages.len(), 1);
+    assert!(inventory_report.stages[0].summary.contains("elements="));
+
+    let vdc_extent = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/vdc-extent")
+        .expect("VDC extent case should be registered");
+    let extent_report = run_cgm_case(vdc_extent);
+    assert!(extent_report.passed(), "{extent_report:#?}");
+    assert_eq!(extent_report.stages.len(), 1);
+    assert!(extent_report.stages[0]
+        .summary
+        .contains("vdc-extent-pictures=1"));
+    assert!(extent_report.stages[0]
+        .summary
+        .contains("metric-scaling-pictures=1"));
+}
+
+#[test]
+fn cgm_non_vector_cases_write_source_artifacts_without_fabricating_vectors() {
+    let source_only = cgm_cases()[0];
+    let source_root = crate::write_cgm_artifacts(source_only).expect("write source-only artifacts");
+    assert!(source_root.join("source.cgm").is_file());
+    assert!(source_root.join("cgm.json").is_file());
+    assert!(source_root.join("graph.json").is_file());
+    assert!(!source_root.join("vector.json").exists());
+    assert!(!source_root.join("vector-fingerprint.json").exists());
+
+    let polygon_set = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/polygon-set")
+        .expect("polygon-set case should be registered");
+    let polygon_root =
+        crate::write_cgm_artifacts(polygon_set).expect("write expected-boundary source artifacts");
+    assert!(!polygon_root.join("vector.json").exists());
+    assert!(!polygon_root.join("vector-fingerprint.json").exists());
+    let graph = std::fs::read_to_string(polygon_root.join("graph.json"))
+        .expect("read expected-boundary graph artifact");
+    assert!(graph.contains("expected-failure"));
+    assert!(graph.contains("not-produced"));
+}
+
+#[test]
+fn cgm_vector_artifacts_emit_repeatable_structural_fingerprints() {
+    let case = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/circle")
+        .expect("circle case should be registered");
+
+    let root = crate::write_cgm_artifacts(case).expect("write first CGM vector artifacts");
+    let first = std::fs::read_to_string(root.join("vector-fingerprint.json"))
+        .expect("read first CGM vector fingerprint");
+    crate::write_cgm_artifacts(case).expect("write second CGM vector artifacts");
+    let second = std::fs::read_to_string(root.join("vector-fingerprint.json"))
+        .expect("read second CGM vector fingerprint");
+
+    assert_eq!(
+        first, second,
+        "CGM vector artifact fingerprint must be repeatable"
+    );
+    assert!(first.contains("canonical_path_hash"));
+}
+
+#[test]
+fn cgm_source_only_artifact_writing_clears_stale_vector_evidence() {
+    let source_only = cgm_cases()[0];
+    let root = std::path::PathBuf::from("target/presentation-geometry-corpus").join(source_only.id);
+    std::fs::create_dir_all(&root).expect("create source-only artifact directory");
+    for file_name in ["vector.json", "vector-fingerprint.json"] {
+        std::fs::write(root.join(file_name), "stale")
+            .unwrap_or_else(|error| panic!("seed stale {file_name}: {error}"));
+    }
+
+    let root = crate::write_cgm_artifacts(source_only).expect("write source-only CGM artifacts");
+    assert!(!root.join("vector.json").exists());
+    assert!(!root.join("vector-fingerprint.json").exists());
+}
+
+#[test]
+fn cgm_polygon_set_is_an_explicit_expected_vector_boundary() {
+    let polygon_set = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/polygon-set")
+        .expect("polygon-set case should be registered");
+    let report = run_cgm_case(polygon_set);
+
+    assert!(report.passed(), "{report:#?}");
+    assert_eq!(report.stages[1].status, StageStatus::ExpectedFailure);
+    assert!(report.stages[1]
+        .summary
+        .contains("polygon-set point/flag topology"));
+}
+
+#[test]
+fn cgm_runner_source_stage_reports_state_and_clip_observations() {
+    let direct_color = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/direct-colors")
+        .expect("direct-color case should be registered");
+    let direct_report = run_cgm_case(direct_color);
+    assert!(direct_report.stages[0]
+        .summary
+        .contains("stateful-primitives=1"));
+
+    let clipping = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/clip-controls")
+        .expect("clip-control case should be registered");
+    let clip_report = run_cgm_case(clipping);
+    assert!(clip_report.stages[0]
+        .summary
+        .contains("clip-rectangle-primitives=9"));
+}
+
+#[test]
+fn cgm_artifacts_preserve_source_and_vector_evidence() {
+    let root = crate::write_cgm_artifacts(cgm_cases()[4]).expect("write CGM artifacts");
+
+    for artifact in [
+        "source.cgm",
+        "cgm.json",
+        "vector.json",
+        "vector-fingerprint.json",
+        "graph.json",
+    ] {
+        assert!(root.join(artifact).is_file(), "missing {artifact}");
+    }
+
+    let graph = std::fs::read_to_string(root.join("graph.json")).expect("read graph artifact");
+    assert!(graph.contains("expected-failure"));
+    assert!(graph.contains("vector.json"));
+
+    let cgm = std::fs::read_to_string(root.join("cgm.json")).expect("read CGM artifact");
+    let cgm: serde_json::Value = serde_json::from_str(&cgm).expect("parse CGM artifact");
+    let primitives = cgm["primitives"]
+        .as_array()
+        .expect("CGM artifact should retain primitive source snapshots");
+    assert_eq!(
+        primitives.len(),
+        cgm["primitive_count"]
+            .as_u64()
+            .expect("CGM artifact should declare a primitive count") as usize
+    );
+    let attribute_count = cgm["attribute_count"]
+        .as_u64()
+        .expect("CGM artifact should declare an attribute count");
+    assert!(primitives.iter().all(|primitive| {
+        primitive["attribute_count"]
+            .as_u64()
+            .is_some_and(|count| count <= attribute_count)
+            && primitive.get("state").is_some()
+            && primitive.get("controls").is_some()
+    }));
+}
+
+#[test]
+fn cgm_source_artifacts_preserve_state_oriented_fixture_evidence() {
+    let direct_color = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/direct-colors")
+        .expect("direct-color case should be registered");
+    let direct_root =
+        crate::write_cgm_artifacts(direct_color).expect("write direct-color artifacts");
+    let direct: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(direct_root.join("cgm.json")).expect("read direct-color artifact"),
+    )
+    .expect("parse direct-color artifact");
+    assert!(direct["primitives"].as_array().is_some_and(|primitives| {
+        primitives.iter().any(|primitive| {
+            primitive["state"]["line_color"]["kind"] == "direct"
+                || primitive["state"]["fill_color"]["kind"] == "direct"
+        })
+    }));
+
+    let clipping = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/clip-controls")
+        .expect("clip-control case should be registered");
+    let clip_root = crate::write_cgm_artifacts(clipping).expect("write clip-control artifacts");
+    let clip: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(clip_root.join("cgm.json")).expect("read clip-control artifact"),
+    )
+    .expect("parse clip-control artifact");
+    assert!(clip["primitives"].as_array().is_some_and(|primitives| {
+        primitives.iter().all(|primitive| {
+            primitive["controls"]["clip_rectangle"].is_object()
+                && primitive["controls"]["clip_indicator"] == "off"
+        })
+    }));
+}
+
+#[test]
 fn producer_stage_selection_is_explicit() {
     assert_eq!(
         CorpusCase::Glyph(glyph_cases()[0]).selected_stages(),
@@ -165,6 +400,14 @@ fn producer_stage_selection_is_explicit() {
     assert_eq!(
         CorpusCase::W3cSvg(w3c_svg_cases()[0]).selected_stages(),
         &SVG_STAGES
+    );
+    assert_eq!(
+        CorpusCase::Cgm(cgm_cases()[0]).selected_stages(),
+        &CGM_SOURCE_STAGES
+    );
+    assert_eq!(
+        CorpusCase::Cgm(cgm_cases()[2]).selected_stages(),
+        &CGM_STAGES
     );
 }
 

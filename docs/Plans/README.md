@@ -14,6 +14,7 @@ than silently treating the plan as authority.
 - [Presentation Geometry Corpus Harness](presentation-geometry-corpus-harness.md)
 - [Native Execution and Multithreading](native-execution-and-multithreading.md)
 - [XML Tools Incubation Library](xml-tools.md)
+- [Performance Diagnostics and Runtime Observation](performance-diagnostics-and-runtime-observation.md)
 
 ## Completed Spikes
 

@@ -5,6 +5,10 @@
 
 use serde::Serialize;
 
+use cgm_corpus::{
+    CgmClipIndicator, CgmPictureControlState, CgmPresentationState, CgmPrimitiveKind, CgmVdcExtent,
+};
+
 #[derive(Clone, Debug, Serialize)]
 pub struct ArtifactEnvelope {
     pub schema: u32,
@@ -45,6 +49,41 @@ pub struct XmlArtifact {
     pub processing_instructions: usize,
     pub document_roots: usize,
     pub has_document_element: bool,
+}
+
+/// Parser and source-state evidence for a pinned CGM fixture.
+///
+/// This remains separate from `VectorArtifact`: CGM element lifecycle and
+/// presentation state are source-format evidence, not vector contracts.
+#[derive(Clone, Debug, Serialize)]
+pub struct CgmArtifact {
+    pub metadata: ArtifactEnvelope,
+    pub metafile_name: String,
+    pub picture_name: String,
+    pub source_bytes: usize,
+    pub element_count: usize,
+    pub primitive_count: usize,
+    pub attribute_count: usize,
+    /// Source-format snapshots for every primitive in the picture. These make
+    /// CGM state inheritance and control boundaries inspectable without
+    /// leaking source concepts into `VectorArtifact`.
+    pub primitives: Vec<CgmPrimitiveSourceArtifact>,
+    /// Source-format controls are recorded as evidence only. They do not imply
+    /// that the provider-neutral vector artifact has applied a clip.
+    pub clip_rectangle: Option<CgmVdcExtent>,
+    pub clip_indicator: Option<CgmClipIndicator>,
+    pub diagnostic_count: usize,
+}
+
+/// Source-only evidence active at one CGM primitive boundary.
+#[derive(Clone, Debug, Serialize)]
+pub struct CgmPrimitiveSourceArtifact {
+    pub source_element: usize,
+    pub source_offset: usize,
+    pub attribute_count: usize,
+    pub kind: CgmPrimitiveKind,
+    pub state: CgmPresentationState,
+    pub controls: CgmPictureControlState,
 }
 
 /// Structural evidence for an SVG fixture that is valid XML but intentionally
@@ -94,6 +133,20 @@ pub struct VectorArtifact {
     pub paint_records: Vec<PaintArtifact>,
     pub intersections: Vec<SegmentIntersectionArtifact>,
     pub clips: Vec<ClipPathArtifact>,
+}
+
+/// Order-preserving structural identity for provider-neutral vector paths.
+///
+/// Unlike mesh fingerprints, vector contour order is significant because it
+/// records the producer's source order and contour topology before any
+/// tessellator is involved.
+#[derive(Clone, Debug, Serialize)]
+pub struct VectorFingerprint {
+    pub metadata: ArtifactEnvelope,
+    pub path_count: usize,
+    pub contour_count: usize,
+    pub point_count: usize,
+    pub canonical_path_hash: String,
 }
 
 /// Bounded paint semantics preserved by an importer for corpus review.

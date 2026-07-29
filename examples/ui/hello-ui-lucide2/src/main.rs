@@ -230,17 +230,19 @@ impl PlatformEventHandler for App {
         self.frame_count = self.frame_count.saturating_add(1);
         if !self.stats_reported {
             println!(
-                "hello-ui-lucide2 first-frame stats: draw_calls={}, cumulative_mesh_uploads={}, icons={}",
-                stats.draw_calls,
-                stats.mesh_uploads,
+                "hello-ui-lucide2 first-frame stats: frame_draw_calls={}, frame_mesh_uploads={}, lifetime_mesh_uploads={}, icons={}",
+                stats.frame.draw_calls,
+                stats.frame.mesh_uploads,
+                stats.lifetime.mesh_uploads,
                 self.meshes.len()
             );
             self.stats_reported = true;
         } else if self.frame_count == 2 {
             println!(
-                "hello-ui-lucide2 second-frame stats: draw_calls={}, cumulative_mesh_uploads={}, icons={}",
-                stats.draw_calls,
-                stats.mesh_uploads,
+                "hello-ui-lucide2 second-frame stats: frame_draw_calls={}, frame_mesh_uploads={}, lifetime_mesh_uploads={}, icons={}",
+                stats.frame.draw_calls,
+                stats.frame.mesh_uploads,
+                stats.lifetime.mesh_uploads,
                 self.meshes.len()
             );
         }

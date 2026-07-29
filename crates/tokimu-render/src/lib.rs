@@ -21,7 +21,9 @@ pub use material::Material;
 pub use mesh::Mesh;
 pub use pipeline::{Pipeline, PipelineKind, PipelineRegistry};
 pub use renderable::Renderable;
-pub use renderer::{RenderStats, Renderer};
+pub use renderer::{
+    RenderFrameCpuTimings, RenderFrameStats, RenderLifetimeStats, RenderStats, Renderer,
+};
 pub use resources::{
     CameraHandle, MaterialHandle, MeshHandle, PipelineHandle, RenderableHandle, TextureHandle,
 };

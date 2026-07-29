@@ -7,7 +7,7 @@ use tokimu::{
     PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
     Renderer, WgpuBackend, WindowConfig,
 };
-use tokimu_assets::AssetStore;
+use tokimu_assets::{AssetLifecycleObservation, AssetStore};
 use tokimu_core::math::{Mat4, Vec3};
 
 const MODEL_MESH: MeshHandle = MeshHandle(1);
@@ -36,6 +36,7 @@ struct HelloGlbApp {
     elapsed_seconds: f64,
     pipeline: PipelineHandle,
     assets: AssetStore,
+    asset_lifecycle: Vec<AssetLifecycleObservation>,
     model_mesh: Mesh,
 }
 
@@ -48,6 +49,7 @@ impl Default for HelloGlbApp {
             elapsed_seconds: 0.0,
             pipeline: PipelineHandle(0),
             assets: AssetStore::default(),
+            asset_lifecycle: Vec::new(),
             model_mesh: Mesh::default(),
         }
     }
@@ -127,8 +129,21 @@ impl PlatformEventHandler for HelloGlbApp {
         self.window = Some(window.clone());
 
         self.model_mesh = load_khronos_box_mesh()?;
-        self.assets
-            .allocate_with_source::<Mesh, _>(KHRONOS_BOX_SOURCE);
+        let (model_asset, allocated) = self
+            .assets
+            .allocate_with_source_observed::<Mesh, _>(KHRONOS_BOX_SOURCE);
+        let prepared = self.assets.mark_prepared(model_asset)?;
+        self.asset_lifecycle.extend([allocated, prepared]);
+        for observation in &self.asset_lifecycle {
+            println!(
+                "hello-glb asset lifecycle {}: asset={} generation={} kind={:?} source={}",
+                observation.sequence,
+                observation.asset_id.0,
+                observation.generation,
+                observation.kind,
+                observation.source.as_deref().unwrap_or("<unknown>"),
+            );
+        }
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_material(

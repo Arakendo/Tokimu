@@ -2,12 +2,71 @@
 
 ## Status
 
-As of 2026-07-28, acquisition and v1 selection setup are complete. WebCGM 2.1
-Test Suite Release 1.2 is pinned from the dated OASIS archive with provenance,
-exact archive and selected-case hashes, a generated inventory, and a 15-case
-geometry-first selection. Offline verification reproduces 955 files, 353 CGM
-files, 341 reference PNGs, and all 15 selected cases. No CGM parser, importer,
-or first-party capability has been admitted yet.
+As of 2026-07-28, acquisition, v1 selection, and the first bounded binary
+inspection slice are complete. WebCGM 2.1 Test Suite Release 1.2 is pinned from
+the dated OASIS archive with provenance, exact archive and selected-case
+hashes, a generated inventory, and a 15-case geometry-first selection. Offline
+verification reproduces 955 files, 353 CGM files, 341 reference PNGs, and all
+15 selected cases. The example-side `cgm-corpus` library decodes binary element
+framing, metafile/picture lifecycle, and the initial VDC descriptor profile for
+all 15 selected fixtures. The resolved profile preserves integer VDC type and
+precision, color precisions, picture scaling mode, color selection mode,
+source-ordered VDC extent, explicit selected line/fill/edge attribute
+mutations, and picture-body clipping controls. Every decoded primitive carries
+a deterministic snapshot of the explicit source attributes and controls active
+at its position. Colour attributes retain
+direct or indexed source bytes until a later CGM paint-resolution slice; CGM
+standard defaults, bundles, palettes, and renderer style conversion remain
+deliberately unresolved. No CGM importer or first-party capability has been
+admitted yet.
+
+`examples/hello-cgm` is the first visible consumer. It loads `POLYLN01.cgm`
+through `cgm-corpus` and presents source identity, lifecycle, VDC descriptor
+state, explicit attribute and primitive counts, element-class counts, and
+source order. The adapter currently lowers the selected polyline, polygon,
+rectangle, circle, ellipse, open circular-arc, and open elliptical-arc forms
+into provider-neutral paths; mesh and renderer evidence remain deliberately
+absent.
+
+The same seven selected primitive fixtures are registered in
+`presentation-geometry-corpus` as `source -> vector` cases. The harness
+consumes only `cgm-corpus` inspection and lowering results, so no binary CGM
+parser or source-format terminology is duplicated in the shared corpus runner.
+For example, `cgm/webcgm/ellipse` currently reports 27 finite lowered
+primitives, 27 contours, and 180 flattened points; `cgm/webcgm/circular-arc`
+reports 31 finite open paths; and `cgm/webcgm/elliptical-arc` reports 55. This
+is structural source-to-vector evidence only; it is not CGM fill, stroke,
+mesh, or image evidence.
+
+All 15 selected fixtures are now registered in the runner at their honest
+stage boundary. `ALLELM01` stops at `source` as broad lifecycle and element
+inventory evidence, while `VDCEXT01` stops at `source` as VDC descriptor
+evidence. The other thirteen cases proceed to their source-to-vector boundary.
+A source report records decoded element, picture, primitive, and attribute
+counts, together with the number of primitives that carry explicit state, an
+enabled clip indicator, or a clip rectangle. It also records how many pictures
+declare a VDC extent or metric scaling mode. These are observations of CGM
+source state, not claims that the shared vector layer has resolved CGM paint,
+clipping, or coordinate-normalization behavior. For example, `CLIPNG01`
+currently reports nine primitives with an inherited clip rectangle while its
+vector stage still reports only finite provider-neutral paths.
+
+`PLGSET01` is also registered as an expected source-to-vector boundary. It
+retains its six source point/edge records, then reports
+`polygon-set point/flag topology` as an intentional unsupported lowering
+instead of being silently omitted or coerced into an ordinary polygon.
+
+Each passing CGM corpus invocation now writes `source.cgm`, `cgm.json`, and
+`graph.json` below `target/presentation-geometry-corpus/<case-id>/`. A
+`vector.json` exists only for a successful source-to-vector case. Source-only
+and expected-boundary cases therefore preserve their valid inspection evidence
+without fabricating vector output; an expected boundary records its vector node
+as `expected-failure` and `not-produced`. Successful vector cases record
+`mesh` as an expected non-production state until CGM source paint can be
+resolved into provider-neutral fill and edge intent without guessing defaults.
+These artifacts preserve the pinned source hash, decoder counts, normalization
+and flattening identity, and the first intentional boundary at which the
+pipeline stops.
 
 This plan begins after the current SVG presentation-geometry work is stable
 enough that a new producer can exercise the shared boundary without obscuring
@@ -230,16 +289,47 @@ The current acquisition and selection baseline is:
 353 acquired CGM source files
 341 acquired reference PNG files
 232 published static case IDs
+129 geometry-classified CGM files
 15 selected unmodified static cases
-0 decoded cases
-0 lowered cases
+12 selected geometry-classified cases
+15 lifecycle-decoded cases
+15 corpus-runner cases
+2 source-only corpus-runner cases
+12 source-to-vector corpus-runner passes
+1 expected source-to-vector topology boundary
 0 conformance claims
 ```
 
 The 15 selected cases represent 4.2% of the 353 CGM files in the archive.
 This is a source-file ratio, not the geometry-selection metric and not a
-conformance score. The geometry-relevant denominator remains pending full
-classification of the upstream suite.
+conformance score. The 12 selected geometry-classified cases represent 9.3%
+of the current 129-case geometry denominator; this remains scope evidence,
+not a conformance score.
+
+The generated `inventory.json` classifies every source CGM file once using
+its upstream module plus stable filename evidence. The classification is a
+scope map, not a conformance judgment: it separates geometry pressure from
+text, raster, DOM, hyperlink, interaction, profile, and support material.
+Unknown semantics remain conservatively classified as profile or support
+rather than being counted as geometry.
+
+The geometry-relevant denominator is the generated
+`inventory.json.classification.categories.geometry` count. Re-run
+`scripts/prepare-webcgm-corpus.ps1` to regenerate this evidence from the
+pinned archive.
+
+Current generated classification totals:
+
+| Category | CGM sources | Scope |
+| --- | ---: | --- |
+| Geometry | 129 | Primitive and presentation-geometry pressure |
+| Text | 56 | Character, font, encoding, and text scenarios |
+| Raster | 8 | Cell arrays and raster-color scenarios |
+| DOM | 25 | WebCGM structure, node, and XCF scenarios |
+| Hyperlink | 5 | WebCGM linking scenarios |
+| Interaction | 22 | Dynamic, animation, view, and interaction scenarios |
+| Profile | 87 | Descriptors and profile-specific behavior outside v1 geometry |
+| Support | 21 | Inventory, target, historical, or comparison helpers |
 
 ## First Selection Profile
 
@@ -359,7 +449,7 @@ Reuse the stage-aware artifacts already established by
 source metadata
 decode.json
 cgm.json
-vector.json
+vector.json when lowering succeeds
 mesh.json
 mesh-fingerprint.json
 graph.json
@@ -413,6 +503,11 @@ The importer must not:
 
 Unsupported cases should still emit source, provenance, decode, graph, and
 report artifacts when those stages are valid.
+
+The current runner follows this rule for the selected v1 profile: source-only
+cases emit `source.cgm`, `cgm.json`, and `graph.json`; the polygon-set boundary
+also records an expected non-produced vector graph node; and only successful
+lowerings write `vector.json`.
 
 ## Implementation Location
 
@@ -487,7 +582,7 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Classify upstream cases as geometry, text, raster, DOM, hyperlink,
+- [x] Classify upstream cases as geometry, text, raster, DOM, hyperlink,
       profile, interaction, or support material.
 - [x] Create `selection-v1.toml`.
 - [x] Create `feature-matrix.md`.
@@ -508,76 +603,141 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Create `examples/lib-example/cgm-corpus`.
-- [ ] Detect and admit one verified fixture encoding.
-- [ ] Decode bounded element headers, lengths, partitions, parameters, and
+- [x] Create `examples/lib-example/cgm-corpus`.
+- [x] Detect and admit one verified fixture encoding.
+- [x] Decode bounded element headers, lengths, partitions, parameters, and
       source offsets.
-- [ ] Decode the minimal metafile and picture lifecycle.
-- [ ] Preserve unsupported elements as structured diagnostics.
-- [ ] Add malformed, truncated, oversized, and unsupported-encoding tests.
+- [x] Decode the minimal metafile and picture lifecycle.
+- [x] Preserve unsupported elements as structured diagnostics.
+- [x] Add malformed, truncated, oversized, and unsupported-encoding tests.
 
 Acceptance criteria:
 
-- [ ] One selected fixture decodes deterministically into inspectable elements.
-- [ ] Invalid lengths and partitions cannot panic or read out of bounds.
-- [ ] Unknown and unsupported elements identify class, ID, picture, and source
+- [x] One selected fixture decodes deterministically into inspectable elements.
+- [x] Invalid lengths and partitions cannot panic or read out of bounds.
+- [x] Unknown and unsupported elements identify class, ID, picture, and source
       offset where available.
-- [ ] Other encodings fail explicitly.
-- [ ] Decoding performs no rendering and creates no `VectorPath`.
+- [x] Other encodings fail explicitly.
+- [x] Decoding performs no rendering and creates no `VectorPath`.
 
 ### Slice 4: Resolve CGM State And Coordinates
 
 Deliverables:
 
-- [ ] Decode the required VDC type, precision, extent, scaling, and color
-      descriptors for selected cases.
-- [ ] Model metafile, picture, and picture-body state transitions.
-- [ ] Resolve line, edge, fill, color, and clipping attributes needed by v1.
-- [ ] Reset state at documented lifecycle boundaries.
-- [ ] Record normalization and source-to-presentation transforms.
+- [~] Decode the required VDC type, precision, extent, scaling, and color
+      descriptors for selected cases. Integer VDC type/precision, color
+      precisions, picture scaling mode, color selection mode, and source VDC
+      extent are inspected; color value extent and normalization remain
+      pending.
+- [~] Model metafile, picture, and picture-body state transitions. Picture
+      descriptors attach to the lifecycle model, and every primitive captures
+      an explicit CGM presentation-state snapshot; standard defaults, bundles,
+      and palette resolution remain pending.
+- [~] Resolve line, edge, fill, color, and clipping attributes needed by v1.
+      The selected line width/color, interior style, fill color, edge
+      width/color/visibility, line cap, and line join records are preserved as
+      picture-local source-state mutations and snapshots. `CLIP RECTANGLE` and
+      `CLIP INDICATOR` are preserved as distinct picture-body control state
+      and snapshotted with later primitives; they are not yet applied to vector
+      geometry. Colour tables, palettes, standard defaults, and
+      provider-neutral paint resolution remain pending.
+- [~] Reset descriptor state at documented lifecycle boundaries. A two-picture
+      fixture verifies that VDC extent, color-selection mode, and explicit line
+      width do not leak into the second picture; clip-state evidence remains
+      pending.
+- [~] Record normalization and source-to-presentation transforms. The
+      descriptor model exposes a renderer-independent source-order
+      VDC-to-unit-square normalization helper, and the admitted primitive
+      adapter consumes it after resolving source-space primitive semantics.
 
 Acceptance criteria:
 
-- [ ] Selected primitives carry deterministic resolved state.
-- [ ] Two pictures cannot leak style or clipping state into one another.
-- [ ] Unsupported precision and color models fail at the CGM semantic stage.
-- [ ] Normalization produces finite coordinates and preserves orientation.
-- [ ] Renderer dimensions do not influence semantic interpretation.
+- [x] Selected primitives carry deterministic explicit source-state snapshots;
+      provider-neutral paint resolution remains deferred.
+- [x] Two pictures cannot leak explicit style or clipping state into one
+      another in the bounded binary decoder tests.
+- [x] Unsupported precision and color models fail at the CGM semantic stage.
+      Real VDC coordinates, non-16-bit integer VDC precision, and non-8-bit
+      direct/indexed colour precision return explicit semantic diagnostics
+      before primitive or paint interpretation.
+- [x] Normalization produces finite coordinates and preserves orientation.
+      The VDC helper preserves source corner ordering, rejects degenerate
+      extents, and uses wide intermediate arithmetic so full signed coordinate
+      ranges cannot overflow before producing finite normalized coordinates.
+- [x] Renderer dimensions do not influence semantic interpretation. VDC
+      normalization accepts only source extent and source point inputs; the
+      focused regression coverage has no renderer or window dependency.
 
 ### Slice 5: Lower Basic Primitives
 
 Deliverables:
 
-- [ ] Lower polyline, polygon, rectangle, circle, and ellipse.
-- [ ] Preserve open versus closed source topology.
+- [x] Lower polyline, polygon, rectangle, circle, ellipse, and bounded open
+      circular and elliptical arcs. The seven admitted forms now
+      lower to the shared `VectorPath` contract. Circle and ellipse flattening
+      are deterministic in source VDC space before normalization; ellipses use
+      their CGM conjugate-diameter endpoints.
+- [~] Preserve open versus closed source topology. The admitted straight forms
+      retain explicit topology in the CGM adapter and `VectorContour`.
 - [ ] Keep fill and edge intent distinct.
 - [ ] Reuse shared vector curves, flattening, fill, and stroke contracts where
       they already exist.
-- [ ] Emit `cgm.json` and `vector.json`.
+- [x] Emit `cgm.json` and `vector.json` through the shared corpus artifact
+      writer. The records preserve CGM source evidence separately from the
+      provider-neutral lowered paths.
 
 Acceptance criteria:
 
-- [ ] At least five semantically distinct selected cases reach vector evidence.
-- [ ] Primitive bounds and contour counts match expected structural evidence.
-- [ ] No CGM element names or profile types enter shared vector contracts.
-- [ ] Unsupported primitives emit explicit diagnostics without being dropped.
-- [ ] Repeated runs produce identical normalized vector fingerprints.
+- [x] At least five semantically distinct selected cases reach vector evidence.
+      `POLYLN01`, `POLYGN01`, `RCTNGL01`, `CIRCLE01`, `ELLIPS01`, `CIRARC01`,
+      and `ELLARC01` lower deterministically with finite paths and structural
+      bounds.
+- [~] Primitive bounds and contour counts match expected structural evidence.
+      The selected paths now assert finite bounds, topology, and deterministic
+      circle/ellipse contour counts; fixture-specific expected bounds remain
+      pending artifact emission.
+- [x] No CGM element names or profile types enter shared vector contracts. CGM
+      state, provenance, and primitive topology remain on `CgmVectorPrimitive`;
+      the shared value is only `ui_tools::VectorPath`.
+- [x] Unsupported primitives emit explicit diagnostics without being dropped.
+      `PLGSET01` reaches an expected `UnsupportedPrimitiveLowering` boundary
+      whose source evidence remains available in `cgm.json`.
+- [x] Repeated runs produce identical normalized vector fingerprints. The
+      corpus emits an order-preserving `vector-fingerprint.json` beside every
+      admitted `vector.json`, and focused coverage re-emits a selected case to
+      prove byte-identical structural evidence.
 
 ### Slice 6: Add Arcs, Polygon Sets, And Clipping
 
 Deliverables:
 
-- [ ] Lower selected circular and elliptical arc forms.
-- [ ] Preserve arc direction and closure semantics.
-- [ ] Interpret one bounded polygon-set profile.
-- [ ] Lower one admitted clipping-rectangle profile.
-- [ ] Add focused synthetic cases for ambiguous or malformed boundaries exposed
-      by upstream inputs.
+- [x] Lower selected open circular and elliptical arc forms through the CGM
+      adapter. `CIRARC01` resolves center/start/end/radius; `ELLARC01` resolves
+      conjugate diameters with start/end vectors.
+- [~] Preserve arc direction and closure semantics. The admitted open forms
+      sweep counter-clockwise with endpoint-inclusive deterministic samples;
+      arc-close variants remain deferred.
+- [~] Preserve one bounded polygon-set source profile. `PLGSET01` now decodes
+      its ordered 16-bit VDC point records with explicit `visible`,
+      `invisible`, `close-visible`, and `close-invisible` edge semantics.
+      Vector lowering rejects the profile explicitly until its multi-boundary
+      topology can be modeled without treating it as an ordinary polygon.
+- [~] Preserve one admitted clipping-rectangle profile. `CLIPNG01` decodes
+      `CLIP RECTANGLE` and `CLIP INDICATOR` into explicit CGM control state;
+      semantic clipping remains deferred until source paint and edge behavior
+      can lower honestly into a provider-neutral clip contract.
+- [x] Add focused synthetic cases for ambiguous or malformed boundaries exposed
+      by upstream inputs. Partial polygon-set records and unknown clip
+      indicators fail during CGM decoding before any vector geometry exists.
 
 Acceptance criteria:
 
-- [ ] Arc endpoints, direction, closure, and bounds are structurally asserted.
-- [ ] Polygon-set topology is preserved or rejected explicitly.
+- [x] Arc endpoints, direction, closure, and bounds are structurally asserted.
+      `CIRARC01` verifies the counter-clockwise source sweep and its endpoint
+      samples; `ELLARC01` verifies its source-derived conjugate-basis
+      endpoints remain inside finite lowered bounds.
+- [x] Polygon-set topology is rejected explicitly until its point/flag
+      semantics can be preserved.
 - [ ] Clipped output remains within the resolved clip region.
 - [ ] Synthetic diagnostics do not increase upstream coverage.
 - [ ] Geometry failures remain attributable to CGM lowering, vector, or mesh.
@@ -586,18 +746,31 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Register CGM cases with `presentation-geometry-corpus`.
-- [ ] Emit mesh, fingerprint, graph, report, contour, and mesh-view artifacts.
-- [ ] Record decoder, normalizer, flattening, stroke, and tessellator algorithm
-      identities.
+- [x] Register twelve admitted primitive and source-state passes plus one
+      expected polygon-set topology boundary with
+      `presentation-geometry-corpus`. Mesh-stage registration waits for
+      resolved provider-neutral paint intent.
+- [x] Emit `source.cgm`, `cgm.json`, `vector.json`, and `graph.json` for each
+      admitted source-to-vector case. `cgm.json` includes source-only
+      primitive snapshots (kind, active attributes, and controls), while
+      `vector.json` remains provider-neutral. `graph.json` explicitly marks
+      mesh as not produced while paint intent remains unresolved.
+- [~] Record decoder, normalizer, flattening, stroke, and tessellator algorithm
+      identities. Source/vector artifacts record input hash and CGM flattening;
+      stroke and tessellator identities remain intentionally unavailable until
+      a paint-to-mesh slice is admitted.
 - [ ] Add structural assertions for finite geometry, indices, degenerates,
       bounds, contours, and components.
-- [ ] Clear stale downstream artifacts after an earlier-stage failure.
+- [x] Clear stale downstream artifacts after an earlier-stage failure. Source
+      and expected-boundary cases remove stale `vector.json` and
+      `vector-fingerprint.json` before writing their honest graph boundary.
 
 Acceptance criteria:
 
 - [ ] At least one open stroke and one closed fill reach finite mesh evidence.
-- [ ] The first divergent stage is visible in `graph.json` and `report.json`.
+- [x] The first intentional downstream boundary is visible in `graph.json`.
+      Current cases end at provider-neutral vectors and label mesh as an
+      expected non-production state; a full failure report remains pending.
 - [ ] Ordinary corpus runs do not mutate reviewed golden artifacts.
 - [ ] Golden updates are explicit and case-scoped.
 - [ ] The corpus harness contains no duplicate CGM parser or lowering logic.

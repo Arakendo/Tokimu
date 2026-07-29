@@ -1,7 +1,10 @@
 use crate::{
     plugin::Plugin, tick_fixed_updates, RunLoopDiagnostics, RunLoopSummary, RuntimeConfig,
 };
-use tokimu_core::{Diagnostics, FrameOutcome, Schedule, System, SystemRegistry, World};
+use tokimu_core::{
+    Diagnostics, FrameOutcome, PerformanceBudget, PerformanceMonitor, PerformanceUnit, Schedule,
+    System, SystemRegistry, World,
+};
 use tokimu_input::{InputEvent, InputState};
 
 #[derive(Debug)]
@@ -13,6 +16,7 @@ pub struct App {
     pub systems: SystemRegistry,
     pub config: RuntimeConfig,
     pub input: InputState,
+    frame_time_monitor: Option<PerformanceMonitor>,
     accumulator_seconds: f64,
     elapsed_seconds: f64,
 }
@@ -27,6 +31,7 @@ impl Default for App {
             systems: SystemRegistry::default(),
             config: RuntimeConfig::default(),
             input: InputState::default(),
+            frame_time_monitor: None,
             accumulator_seconds: 0.0,
             elapsed_seconds: 0.0,
         }
@@ -115,6 +120,9 @@ impl App {
             tick_fixed_updates(self.config, self.accumulator_seconds, frame_delta_seconds);
         self.accumulator_seconds = summary.accumulator_seconds;
         self.run_loop_diagnostics.record_frame(summary);
+        if let Some(monitor) = self.frame_time_monitor.as_mut() {
+            monitor.observe(frame_delta_seconds, &mut self.diagnostics);
+        }
 
         for _ in 0..summary.fixed_updates {
             on_fixed_update(&mut self.world);
@@ -179,6 +187,28 @@ impl App {
     pub fn run_loop_diagnostics(&self) -> &RunLoopDiagnostics {
         &self.run_loop_diagnostics
     }
+
+    pub fn set_frame_time_warning_budget(
+        &mut self,
+        budget_seconds: f64,
+        required_consecutive_violations: u32,
+    ) -> &mut Self {
+        self.frame_time_monitor = Some(PerformanceMonitor::new(
+            PerformanceBudget::new(
+                "runtime",
+                "frame time",
+                budget_seconds,
+                PerformanceUnit::Seconds,
+            )
+            .with_required_consecutive_violations(required_consecutive_violations),
+        ));
+        self
+    }
+
+    pub fn clear_frame_time_warning_budget(&mut self) -> &mut Self {
+        self.frame_time_monitor = None;
+        self
+    }
 }
 
 #[cfg(test)]
@@ -203,6 +233,30 @@ mod tests {
         assert_eq!(diagnostics.last_frame_delta_seconds(), 1.0);
         assert_eq!(diagnostics.max_frame_delta_seconds(), 1.0);
         assert_eq!(diagnostics.last_summary(), Some(summary));
+    }
+
+    #[test]
+    fn configured_frame_budget_emits_structured_performance_diagnostics() {
+        let mut app = App::default();
+        app.set_frame_time_warning_budget(0.020, 2);
+
+        app.tick(0.030);
+        assert!(app.diagnostics.records().is_empty());
+        app.tick(0.040);
+
+        assert_eq!(app.diagnostics.records().len(), 1);
+        assert_eq!(
+            app.diagnostics.records()[0].kind,
+            tokimu_core::DiagnosticKind::PerformanceBudgetExceeded
+        );
+        assert_eq!(
+            app.diagnostics.records()[0]
+                .performance
+                .as_ref()
+                .expect("performance evidence")
+                .observed,
+            0.040
+        );
     }
 
     #[test]
