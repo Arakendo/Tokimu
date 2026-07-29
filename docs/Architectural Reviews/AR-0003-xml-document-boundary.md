@@ -14,7 +14,7 @@
 ## Architectural Question
 
 Should parser-neutral, bounded XML event, document, namespace, span, and
-diagnostic semantics graduate from `examples/lib-example/xml-tools` into a
+diagnostic semantics graduate from `corpus/lib/xml-tools` into a
 first-party Tokimu capability, or remain an example-side provider boundary
 until stronger independent consumer evidence exists?
 
@@ -130,7 +130,7 @@ has a named consumer. This review does not admit a general document model.
 
 ## Disposition
 
-Incubating. Keep `xml-tools` in `examples/lib-example` and use its
+Incubating. Keep `xml-tools` in `corpus/lib` and use its
 parser-neutral contracts for additional concrete import or tooling consumers.
 Do not extract a crate or alter accepted engine boundaries until the missing
 evidence is intentionally reviewed.
@@ -196,10 +196,10 @@ remain separately scoped extension tracks.
 ## References
 
 - `docs/Plans/xml-tools.md`
-- `examples/lib-example/xml-tools/DESIGN.md`
-- `examples/lib-example/xml-tools/src/lib.rs`
-- `examples/lib-example/xml-tools/tests/w3c_selection.rs`
-- `examples/lib-example/ui-tools/src/svg.rs`
-- `examples/hello-xml-inspect/`
+- `corpus/lib/xml-tools/DESIGN.md`
+- `corpus/lib/xml-tools/src/lib.rs`
+- `corpus/lib/xml-tools/tests/w3c_selection.rs`
+- `corpus/lib/ui-tools/src/svg.rs`
+- `corpus/hello-xml-inspect/`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`

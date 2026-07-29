@@ -66,7 +66,7 @@ positioned glyph run
 Tokimu already has independent corpus pressure from UI surfaces, SVG documents,
 Lucide icons, TTF/OTF font examples, and provider-neutral text contracts. UI
 surfaces and SVG/icons currently converge on the vector implementation
-incubating in `examples/lib-example/ui-tools`.
+incubating in `corpus/lib/ui-tools`.
 
 Ordinary monochrome TTF/OTF glyphs commonly contain quadratic or cubic outline
 contours. Those contours are another plausible consumer of provider-neutral
@@ -95,7 +95,7 @@ ADR-0004 remains authoritative:
 - parser-native font objects and renderer-native resources do not leak through
   author-facing contracts.
 
-This work initially incubates in `examples/lib-example/ui-tools` and the font
+This work initially incubates in `corpus/lib/ui-tools` and the font
 corpus examples. It does not immediately create `tokimu-vector`, change the
 accepted crate graph, or make the base font provider depend on a renderer.
 
@@ -694,9 +694,9 @@ images and backend screenshots must remain labeled as different evidence. A
 future presentation-diagnostics AR may define a shared capture and diff
 contract if multiple corpus examples need it.
 
-`examples/ui/hello-ui-font2/comparison-notes.md` is the review template for
+`corpus/ui/hello-ui-font2/comparison-notes.md` is the review template for
 recording one run without promoting image capture into a shared service.
-The incubating `examples/lib-example/screenshot` helper now centralizes CPU
+The incubating `corpus/lib/screenshot` helper now centralizes CPU
 RGBA8 validation, deterministic BMP writing, and review manifests for future
 corpus consumers; it deliberately does not capture GPU surfaces.
 Its focused tests also verify the BMP signature, top-down row orientation, and
@@ -775,8 +775,8 @@ crate or the mandatory Tokimu text path.
 - `docs/Plans/ui-box-vector-presentation.md`
 - `docs/Notes/text-corpus-v1-validation.md`
 - `docs/testing-strategy.md`
-- `examples/lib-example/ui-tools`
-- `examples/ui/hello-ui-font`
-- `examples/ui/hello-ui-font2`
-- `examples/ui/hello-ui-font2/DESIGN.md`
-- `examples/ui/hello-ui-lucide2`
+- `corpus/lib/ui-tools`
+- `corpus/ui/hello-ui-font`
+- `corpus/ui/hello-ui-font2`
+- `corpus/ui/hello-ui-font2/DESIGN.md`
+- `corpus/ui/hello-ui-lucide2`

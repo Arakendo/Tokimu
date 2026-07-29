@@ -14,7 +14,7 @@
 ## Architectural Question
 
 Should the incubating observation envelope, codec, sequence policy, and
-framed-byte transport seam graduate from `examples/lib-example/network-tools`
+framed-byte transport seam graduate from `corpus/lib/network-tools`
 into a first-party `tokimu-net` capability, or remain example-side until a
 real application or provider proves the missing lifecycle and authority
 semantics?
@@ -142,7 +142,7 @@ does not support a generic envelope or movement abstraction.
 
 ## Disposition
 
-Deferred. Keep `network-tools` in `examples/lib-example` as a focused,
+Deferred. Keep `network-tools` in `corpus/lib` as a focused,
 provider-neutral incubation seam. Do not create `tokimu-net`, select a socket
 library, add an async runtime, or generalize networking/publishing/replay into
 a movement capability based on this evidence alone.
@@ -210,10 +210,10 @@ than an engine-core dependency.
 - `docs/Plans/networking-and-transport.md`
 - `docs/Notes/networking-transport-baseline.md`
 - `docs/Notes/networking-transport-constraints.md`
-- `examples/lib-example/network-tools/`
-- `examples/hello-network-loopback/`
-- `examples/hello-network-client-server/`
-- `examples/hello-fps-web/OBSERVATION-PROTOCOL.md`
+- `corpus/lib/network-tools/`
+- `corpus/hello-network-loopback/`
+- `corpus/hello-network-client-server/`
+- `corpus/hello-fps-web/OBSERVATION-PROTOCOL.md`
 - `docs/ADR/ADR-0001-engine-boundaries.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`

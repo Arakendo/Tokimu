@@ -32,19 +32,9 @@ authoring slices.
 * Foundational services: `tokimu-render`, `tokimu-platform`, `tokimu-assets`,
   `tokimu-input`
 * Authoring/runtime bridges: `tokimu-ts-frontend`, `tokimu-wasm`
-* Examples: `hello-window`, `hello-triangle`, `hello-3d-mono`,
-  `hello-3d-stereo`, `hello-rule-model`, `hello-3d-openxr`, `hello-snake`,
-  `hello-pacman`, `hello-space-invaders`, `hello-missile-command`,
-  `hello-asteroids`, `hello-fps-web`, `hello-cad`, `hello-vector-draw`,
-  `hello-svg`, `hello-glb`, `hello-2d-physics`, `hello-ui`, `hello-shader`,
-  `ui/hello-ui-button`, `ui/hello-ui-box`, `ui/hello-ui-card`,
-  `ui/hello-ui-toolbar`, `ui/hello-ui-panel`, `ui/hello-ui-theme`,
-  `ui/hello-ui-text`,
-  `ui/hello-ui-layout`, `ui/hello-ui-state`, `ui/hello-ui-input`,
-  `ui/hello-ui-inspector`, `ui/hello-ui-scroll`, `ui/hello-ui-animation`,
-  `ui/hello-ui-dialog`, `ui/hello-ui-icons`, `ui/hello-ui-dashboard`,
-  `lib-example/ui-tools`,
-  `lib-example/ui-framework`
+* Architectural corpus: `corpus/` with focused `hello-*` proofs, grouped UI
+  entries under `corpus/ui/`, incubating shared support under `corpus/lib/`,
+  and first-party evidence assets under `corpus/assets/`
 * Frontends: `frontends/` with `tokimu`, `@tokimu/rules`, and example packages
 
 See the [documentation map](docs/README.md) for the distinction between

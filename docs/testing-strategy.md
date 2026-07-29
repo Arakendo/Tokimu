@@ -91,7 +91,7 @@ Location:
 
 ```text
 crates/<crate>/src/*.rs
-examples/lib-example/<library>/src/*.rs
+corpus/lib/<library>/src/*.rs
 ```
 
 Use `#[cfg(test)]` modules for local invariants and implementation-adjacent
@@ -250,8 +250,8 @@ should not rely on a human closing a window during the default test suite.
 Location:
 
 ```text
-examples/hello-*/
-examples/ui/hello-ui-*/
+corpus/hello-*/
+corpus/ui/hello-ui-*/
 ```
 
 Architectural corpus examples ask:
@@ -290,7 +290,7 @@ External corpora should be pinned and documented. Generated working copies may
 live under `target/`, while small stable regression fixtures may be checked into
 the owning test package when their license and provenance are recorded.
 
-The files under `examples/Assets/` are example material and mesh/shader texture
+The files under `corpus/assets/` are example material and mesh/shader texture
 inputs. They are not automatically golden outputs.
 
 ## 4. Golden and Snapshot Validation

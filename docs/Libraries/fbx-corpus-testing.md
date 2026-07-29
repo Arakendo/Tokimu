@@ -506,7 +506,7 @@ Status: complete on 2026-07-29 for the selected binary syntax profile.
 
 Deliverables:
 
-- [x] Create `examples/lib-example/fbx-corpus`.
+- [x] Create `corpus/lib/fbx-corpus`.
 - [x] Validate the binary signature and supported version.
 - [x] Decode bounded node records, property arrays, strings, and raw values.
 - [x] Preserve source offsets and record hierarchy.
@@ -1061,7 +1061,7 @@ This plan is complete when:
 ## Graduation Criteria
 
 FBX importer support should be considered for promotion beyond
-`examples/lib-example` only when:
+`corpus/lib` only when:
 
 - at least one non-example application needs FBX import;
 - public semantic contracts have survived both FBX and another importer;
@@ -1082,5 +1082,5 @@ Until then, FBX remains an evidence-producing external format adapter.
 - `docs/roadmap.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
-- `examples/lib-example/gltf-corpus`
+- `corpus/lib/gltf-corpus`
 - `ufbx`: `https://github.com/ufbx/ufbx`

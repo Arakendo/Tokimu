@@ -277,7 +277,7 @@ world becomes a document.
 Illustrative corpus progression:
 
 ```text
-examples/
+corpus/
   S0001_transform_motion/
   S0002_parent_child_entity/
   S0003_collision_event/
@@ -1550,7 +1550,7 @@ tokimu/
 │       └── src/
 │           └── lib.rs
 │
-├── examples/
+├── corpus/
 │   ├── hello-window/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs
@@ -1653,7 +1653,7 @@ crates/
 frontends/              # TypeScript authoring packages (npm workspace)
   tokimu/               # import anchor / stable re-export surface
   rules/                # @tokimu/rules  -> tokimu-rule model
-  examples/             # authored content using the authoring packages
+  corpus/             # authored content using the authoring packages
   ...                   # future domains only when concrete examples earn them
 ```
 
@@ -1676,9 +1676,9 @@ members = [
     "crates/tokimu-assets",
     "crates/tokimu-input",
     "crates/tokimu-wasm",
-    "examples/hello-window",
-    "examples/hello-triangle",
-    "examples/hello-ui"
+    "corpus/hello-window",
+    "corpus/hello-triangle",
+    "corpus/hello-ui"
 ]
 
 [workspace.package]
@@ -1703,7 +1703,7 @@ web-sys = "0.3"
 js-sys = "0.3"
 ```
 
-`examples/wasm-demo` is intentionally not listed as a Cargo workspace member,
+`corpus/wasm-demo` is intentionally not listed as a Cargo workspace member,
 because it is a browser host surface for the WASM build rather than a Rust
 crate in its own right.
 
@@ -1995,7 +1995,7 @@ Acceptance criteria:
 Observed spike result:
 
 * The first replication unit is an application-owned, versioned, sequenced
-  observation snapshot. `examples/lib-example/network-tools` incubates only
+  observation snapshot. `corpus/lib/network-tools` incubates only
   bounded envelope, codec, sequence, and framed-byte transport semantics.
 * `hello-network-loopback`, `hello-network-client-server`, and `hello-fps-web`
   are independent example callers. The client/server corpus proves

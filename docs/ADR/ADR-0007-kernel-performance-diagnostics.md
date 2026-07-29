@@ -154,4 +154,4 @@ preserve the provider-neutral contract.
 - `docs/ADR/ADR-0006-native-execution-policy.md`
 - `crates/tokimu-core/src/diagnostics.rs`
 - `crates/tokimu-runtime/src/app.rs`
-- `examples/hello-cgm/`
+- `corpus/hello-cgm/`

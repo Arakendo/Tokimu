@@ -214,7 +214,7 @@ follow-up optimization evidence, not missing counter semantics.
       controls the mechanism.
 - [x] The corpus can detect a deliberately reintroduced per-draw allocation.
 
-`examples/lib-example/performance-diagnostics-corpus` now owns the shared
+`corpus/lib/performance-diagnostics-corpus` now owns the shared
 example-side setup for nine deterministic cases:
 
 ```text
@@ -487,4 +487,4 @@ This plan is complete when:
 - `crates/tokimu-runtime/src/app.rs`
 - `crates/tokimu-render/src/renderer.rs`
 - `crates/tokimu-render/src/wgpu_backend.rs`
-- `examples/hello-cgm/`
+- `corpus/hello-cgm/`

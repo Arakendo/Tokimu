@@ -212,7 +212,7 @@ canonicalized and what remains semantically significant.
 
 ### Incubate Before Promotion
 
-The harness begins under `examples/lib-example/`. It must not create a
+The harness begins under `corpus/lib/`. It must not create a
 first-party `tokimu-corpus` or `tokimu-vector` crate until repeated independent
 use establishes stable ownership and public contracts.
 
@@ -248,7 +248,7 @@ contracts.
 Incubate shared runner and artifact code at:
 
 ```text
-examples/lib-example/presentation-geometry-corpus/
+corpus/lib/presentation-geometry-corpus/
 ```
 
 Keep compact source cases and reviewed expected artifacts under the workspace
@@ -265,7 +265,7 @@ tests/fixtures/
     golden/
         presentation-geometry/
 
-examples/lib-example/presentation-geometry-corpus/
+corpus/lib/presentation-geometry-corpus/
     DESIGN.md
     src/
 ```
@@ -469,7 +469,7 @@ question rather than an implied responsibility of this plan.
 
 ### `render.bmp`
 
-Use the existing `examples/lib-example/screenshot` helper for deterministic CPU
+Use the existing `corpus/lib/screenshot` helper for deterministic CPU
 RGBA8 artifacts. Label these as source-buffer artifacts. They do not establish
 GPU framebuffer equivalence.
 
@@ -958,7 +958,7 @@ Implementation evidence:
 
 ### Slice 2: Add The Incubating Runner
 
-- [x] Create `examples/lib-example/presentation-geometry-corpus`.
+- [x] Create `corpus/lib/presentation-geometry-corpus`.
 - [x] Implement initial case IDs, glyph inputs, diagnostics, and reports.
 - [x] Run selected cases sequentially and deterministically.
 - [x] Allow selecting one case for rapid investigation.
@@ -1109,7 +1109,7 @@ Implementation evidence:
   pixel hash alongside the mesh fingerprint;
 - native-window capture remains an external/manual workflow and is still
   separate from CPU image evidence; its labeling convention is documented in
-  `examples/lib-example/screenshot/manual/`.
+  `corpus/lib/screenshot/manual/`.
 
 Validation:
 
@@ -1548,7 +1548,7 @@ This plan is complete when:
 ## Graduation Criteria
 
 The corpus harness should be considered for promotion beyond
-`examples/lib-example` only when:
+`corpus/lib` only when:
 
 - multiple independent corpus examples depend on stable case and artifact
   contracts;
@@ -1568,8 +1568,8 @@ Until then, it remains evidence-producing example support.
 - `docs/testing-strategy.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0004-foundational-presentation-text-and-icons.md`
-- `examples/lib-example/ui-tools`
-- `examples/lib-example/screenshot`
-- `examples/ui/hello-ui-text-vectors`
-- `examples/ui/hello-ui-font2`
-- `examples/ui/hello-ui-lucide2`
+- `corpus/lib/ui-tools`
+- `corpus/lib/screenshot`
+- `corpus/ui/hello-ui-text-vectors`
+- `corpus/ui/hello-ui-font2`
+- `corpus/ui/hello-ui-lucide2`

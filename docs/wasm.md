@@ -25,7 +25,7 @@ automatic `wasm_bindgen(start)` hook that installs Tokimu input bridging on a
 canvas, but it is still a narrow spike and not yet the full browser runtime
 path.
 
-The `examples/wasm-demo` page now loads that bootstrap from a browser host
+The `corpus/wasm-demo` page now loads that bootstrap from a browser host
 loop scaffold, and the loop itself is owned by Rust through `tokimu-wasm`, so
 the seam is exercised by an actual HTML entry point with shared input-driven
 canvas feedback even though the full runtime remains pending.

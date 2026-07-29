@@ -384,4 +384,4 @@ This review should advance or be re-scoped when:
 - `crates/tokimu-core/src/diagnostics.rs`
 - `crates/tokimu-runtime/src/app.rs`
 - `crates/tokimu-render/src/renderer.rs`
-- `examples/hello-cgm/`
+- `corpus/hello-cgm/`

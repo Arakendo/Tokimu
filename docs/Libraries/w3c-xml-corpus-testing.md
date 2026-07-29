@@ -167,7 +167,7 @@ Acceptance criteria:
 - [x] Extension technologies remain replaceable and consumer-driven.
 - [x] Architectural Review records the current incubation disposition.
 
-Progress: `examples/hello-xml-inspect` consumes only the parser-neutral
+Progress: `corpus/hello-xml-inspect` consumes only the parser-neutral
 document and diagnostic contracts. `AR-0003-xml-document-boundary.md` records
 that two example-side consumers preserve the boundary but do not yet justify a
 first-party crate.
@@ -189,7 +189,7 @@ against the pinned archive rather than test pass counts.
 
 ## Graduation Criteria
 
-Promotion beyond `examples/lib-example/xml-tools` requires:
+Promotion beyond `corpus/lib/xml-tools` requires:
 
 - a non-example consumer that needs the parser-neutral contracts;
 - stable lifecycle, diagnostics, limits, and source-identity semantics;

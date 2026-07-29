@@ -125,4 +125,4 @@ Tonesu projects.
 - `crates/tokimu-input` — normalized input state
 - `crates/tokimu-wasm` — WASM entry surface
 - `crates/tokimu` — public facade crate
-- `examples/` — architecture-driving demos, not throwaway samples
+- `corpus/` — architecture-driving demos, not throwaway samples

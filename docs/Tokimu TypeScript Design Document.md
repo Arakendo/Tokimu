@@ -220,7 +220,7 @@ lowering rules.
   tokimu            (import anchor)                tokimu-ts-frontend  (host: validate + lower)
     └─ @tokimu/rules (authoring API + types)   →   tokimu-rule         (semantic rule model)
     └─ @tokimu/…     (future domains)               tokimu-runtime      (executes lowered systems)
-  examples/          (authored content)             tokimu-core         (world truth; TS-unaware)
+  corpus/          (authored content)             tokimu-core         (world truth; TS-unaware)
 ```
 
 The arrow is one-directional: authored TypeScript lowers *into* engine-owned
@@ -418,7 +418,7 @@ frontends/
         execution.ts        # ExecutionMode, mirrors tokimu-rule
         primitives.ts       # rule(), query(), signal(), relation(), command(), RuleContext
         runtime.ts          # runtimeAction(), loweredRule() convenience shapes
-    examples/               # authored content that consumes the authoring packages
+    corpus/               # authored content that consumes the authoring packages
       package.json
       tsconfig.json
       src/

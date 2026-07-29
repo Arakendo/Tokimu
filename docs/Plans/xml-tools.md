@@ -15,7 +15,7 @@ than one up-front XML stack.
 ### Current Progress
 
 - Initial XML fixture baseline recorded under `tests/fixtures/xml/`.
-- `examples/lib-example/xml-tools` builds without rendering, platform,
+- `corpus/lib/xml-tools` builds without rendering, platform,
   filesystem, browser, SVG, or Tokimu engine dependencies. Its selected parser
   dependency remains private behind parser-neutral `xml-tools` types.
 - Source IDs, half-open spans, options, safe resource limits, and stable
@@ -46,7 +46,7 @@ than one up-front XML stack.
 Create an incubating Rust library at:
 
 ```text
-examples/lib-example/xml-tools/
+corpus/lib/xml-tools/
 ```
 
 The library will provide a deterministic, bounded, native/WASM-compatible XML
@@ -81,10 +81,10 @@ SvgVectorRecord
 VectorPath -> mesh
 ```
 
-## Why `examples/lib-example/xml-tools`
+## Why `corpus/lib/xml-tools`
 
 The existing repository convention places shared incubating implementations
-under `examples/lib-example/`. `xml-tools` belongs there while its parser-
+under `corpus/lib/`. `xml-tools` belongs there while its parser-
 neutral API, consumers, and eventual ownership are still being discovered.
 
 Its location records incubation rather than architectural ownership. Promotion
@@ -163,7 +163,7 @@ No parser-native node, token, error, or iterator type may appear in the public
 parser implementation
         |
         v
-examples/lib-example/xml-tools
+corpus/lib/xml-tools
         |
         +--------------------+--------------------+
         |                    |                    |
@@ -660,7 +660,7 @@ also preserve the XML stage that precedes semantic lowering.
 
 Deliverables:
 
-- [x] Create `examples/lib-example/xml-tools` as a Rust library.
+- [x] Create `corpus/lib/xml-tools` as a Rust library.
 - [x] Add it explicitly to the workspace.
 - [x] Add `DESIGN.md` describing its primary proof and incubation status.
 - [x] Implement source IDs, spans, options, limits, and structured diagnostics.
@@ -831,7 +831,7 @@ Acceptance criteria:
 - [x] Normal smoke and selected runs do not rewrite reviewed expectations.
 
 Progress: the first explicit selected-manifest runner now lives in
-`examples/lib-example/xml-tools/tests/w3c_selection.rs`. It is intentionally
+`corpus/lib/xml-tools/tests/w3c_selection.rs`. It is intentionally
 ignored by the default test path and runs with:
 
 ```text
@@ -885,7 +885,7 @@ Acceptance criteria:
 - [x] Architectural Review records whether `xml-tools` remains example-side or
   graduates and names the evidence supporting that disposition.
 
-Progress: `examples/hello-xml-inspect` is a base-example command-line
+Progress: `corpus/hello-xml-inspect` is a base-example command-line
 inspection utility independent of SVG. It reads a checked-in fixture or an
 explicit application-owned file path, then consumes only `XmlDocument`,
 `XmlNodeKind`, expanded names, attributes, source spans, and `XmlDiagnostic`.
@@ -1160,7 +1160,7 @@ an explicit scoped resolver for any later external resource support.
 
 The initial XML phase is complete when:
 
-- `examples/lib-example/xml-tools` exists and has a documented standards
+- `corpus/lib/xml-tools` exists and has a documented standards
   profile;
 - native and WASM use the same Rust parsing path;
 - structured XML events and diagnostics are bounded and parser-neutral;
@@ -1184,15 +1184,15 @@ Promotion beyond example-side incubation requires:
 
 ## References
 
-- `examples/lib-example/ui-tools/src/svg.rs`
-- `examples/lib-example/presentation-geometry-corpus/`
+- `corpus/lib/ui-tools/src/svg.rs`
+- `corpus/lib/presentation-geometry-corpus/`
 - `docs/Plans/presentation-geometry-corpus-harness.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
 - `docs/Conversations/xml corpus.md`
 - `.workbench/Todos/svg-xml-tools-pipeline.md`
 - `docs/testing-strategy.md`
 - `docs/example-philosophy.md`
-- `examples/README.md`
+- `corpus/README.md`
 - `docs/ADR/ADR-0001-engine-boundaries.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`

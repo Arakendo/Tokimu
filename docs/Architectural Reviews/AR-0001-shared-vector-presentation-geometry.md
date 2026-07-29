@@ -114,7 +114,7 @@ SVG importer     -----------------------> VectorPath -> tessellator
 Vector geometry  -> renderer-neutral mesh data -> renderer adapter
 ```
 
-The first implementation remains in `examples/lib-example/ui-tools`. No new
+The first implementation remains in `corpus/lib/ui-tools`. No new
 engine crate is admitted by this review.
 
 ## Alternatives Considered

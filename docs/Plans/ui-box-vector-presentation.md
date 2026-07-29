@@ -69,7 +69,7 @@ Current constraints include:
 
 ## Architectural Position
 
-This work incubates in `examples/lib-example/ui-tools` until the geometry
+This work incubates in `corpus/lib/ui-tools` until the geometry
 semantics have at least two independent consumers and survive corpus pressure.
 It does not immediately create `tokimu-vector` or change the accepted engine
 crate graph.
@@ -652,8 +652,8 @@ evidence-backed implementation inside `ui-tools`, not an admitted engine crate.
 - `docs/ADR/ADR-0004-foundational-presentation-text-and-icons.md`
 - `docs/Architectural Reviews/README.md`
 - `docs/testing-strategy.md`
-- `examples/lib-example/ui-tools/src/draw.rs`
-- `examples/lib-example/ui-tools/src/svg.rs`
-- `examples/ui/hello-ui-box`
-- `examples/ui/hello-ui-lucide2`
+- `corpus/lib/ui-tools/src/draw.rs`
+- `corpus/lib/ui-tools/src/svg.rs`
+- `corpus/ui/hello-ui-box`
+- `corpus/ui/hello-ui-lucide2`
 - `crates/tokimu-render/src/wgpu_backend.rs`

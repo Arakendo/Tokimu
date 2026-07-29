@@ -12,7 +12,7 @@
 > The workspace reflects semantic ownership, not implementation convenience.
 
 Tokimu now has enough architectural guidance to say more than "put Rust crates
-under `crates/` and examples under `examples/`." The kernel principles,
+under `crates/` and examples under `corpus/`." The kernel principles,
 semantic-kernel map, and capability-backend model together imply a stable
 workspace taxonomy:
 
@@ -164,10 +164,10 @@ surface over Tokimu-owned semantics.
 Examples remain architecture-driving proofs, not dumping grounds for ad hoc
 integrations.
 
-- `examples/hello-window`
-- `examples/hello-triangle`
-- `examples/hello-asteroids`
-- future capability proofs such as `examples/hello-geometry-profile` only after
+- `corpus/hello-window`
+- `corpus/hello-triangle`
+- `corpus/hello-asteroids`
+- future capability proofs such as `corpus/hello-geometry-profile` only after
   the matching capability crate exists
 
 When a capability crate lands, the first backend proof should be paired with one
@@ -227,10 +227,10 @@ tokimu/
 │   └── packages/
 │       ├── tokimu/
 │       ├── rules/
-│       ├── examples/
+│       ├── corpus/
 │       └── ...
 │
-├── examples/
+├── corpus/
 │   ├── hello-window/
 │   ├── hello-triangle/
 │   ├── hello-rule-model/
@@ -331,7 +331,7 @@ The current workspace does not need a mass move now.
 
 Recommended sequencing:
 
-1. Keep the current `crates/`, `examples/`, and `frontends/` split.
+1. Keep the current `crates/`, `corpus/`, and `frontends/` split.
 2. Continue treating `tokimu-render`, `tokimu-platform`, `tokimu-assets`, and
    `tokimu-input` as foundational services rather than misclassifying them as
    backend adapters.

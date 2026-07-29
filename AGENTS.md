@@ -36,8 +36,9 @@ update the SDD or add an ADR rather than letting code and docs drift apart.
 These habits are intentionally borrowed from the better parts of the Tosumu and
 Tonesu projects.
 
-- Examples before abstractions. Let `hello-window`, `hello-triangle`, and later
-  demos shape the engine more than speculative framework design.
+- Corpus evidence before abstractions. Let `hello-window`, `hello-triangle`,
+  and later focused corpus entries shape the engine more than speculative
+  framework design.
 - Stabilize traits and public abstractions only after real callers exist. Do
   not generalize early because an API "might" be useful.
 - Prefer plain English names for crates, types, functions, and comments. The
@@ -162,4 +163,4 @@ Tonesu projects.
 - `crates/tokimu-input` — normalized input state
 - `crates/tokimu-wasm` — WASM entry surface
 - `crates/tokimu` — public facade crate
-- `examples/` — architecture-driving demos, not throwaway samples
+- `corpus/` — architecture-driving executable evidence, not throwaway samples

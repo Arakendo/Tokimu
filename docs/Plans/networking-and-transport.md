@@ -282,13 +282,13 @@ should ask whether the shared result is:
 Incubate the first reusable seam under:
 
 ```text
-examples/lib-example/network-tools/
+corpus/lib/network-tools/
 ```
 
 Exercise it with:
 
 ```text
-examples/hello-network-loopback/
+corpus/hello-network-loopback/
 ```
 
 After the loopback proof is stable, adapt `hello-fps-web` as the second caller.
@@ -320,7 +320,7 @@ Acceptance criteria:
 
 Deliverables:
 
-- [x] Create `examples/lib-example/network-tools`.
+- [x] Create `corpus/lib/network-tools`.
 - [x] Define protocol version, schema identity, sequence, message kind, and
   bounded payload.
 - [x] Add one explicit codec for the proof.
@@ -582,6 +582,6 @@ Architectural Review.
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
 - `docs/Conversations/multithreading.md`
-- `examples/hello-fps-web/DESIGN.md`
-- `examples/hello-fps-web/src/main.rs`
-- `examples/hello-fps-web/web/src/protocol.ts`
+- `corpus/hello-fps-web/DESIGN.md`
+- `corpus/hello-fps-web/src/main.rs`
+- `corpus/hello-fps-web/web/src/protocol.ts`

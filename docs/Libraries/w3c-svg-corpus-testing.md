@@ -95,7 +95,7 @@ coverage.
 The current registry is defined in:
 
 ```text
-examples/lib-example/presentation-geometry-corpus/src/lib.rs
+corpus/lib/presentation-geometry-corpus/src/lib.rs
 ```
 
 ## What We Test Today

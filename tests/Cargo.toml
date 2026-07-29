@@ -6,4 +6,4 @@ license.workspace = true
 publish = false
 
 [dependencies]
-presentation-geometry-corpus = { path = "../examples/lib-example/presentation-geometry-corpus" }
+presentation-geometry-corpus = { path = "../corpus/lib/presentation-geometry-corpus" }

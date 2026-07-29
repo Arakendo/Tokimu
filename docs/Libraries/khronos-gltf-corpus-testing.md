@@ -71,7 +71,7 @@ Once recorded, those coverage denominators must remain tied to that revision.
 
 ## Existing Evidence
 
-`examples/hello-glb` is the current executable GLB boundary proof. It:
+`corpus/hello-glb` is the current executable GLB boundary proof. It:
 
 - records the pinned Khronos `Box.glb` source as Tokimu-owned asset identity;
 - decodes its triangle primitive through the format-specific `gltf-corpus`
@@ -536,7 +536,7 @@ The bounded glTF corpus is healthy when:
 
 ## Graduation Criteria
 
-Promotion beyond `examples/lib-example/gltf-corpus` requires:
+Promotion beyond `corpus/lib/gltf-corpus` requires:
 
 - at least one non-example consumer;
 - importer-neutral model contracts pressured by another source format;
@@ -555,5 +555,5 @@ Promotion beyond `examples/lib-example/gltf-corpus` requires:
 - `docs/Conversations/GLB Model Data.md`
 - `docs/Conversations/3D vector reusability.md`
 - `docs/Conversations/3d formats.md`
-- `examples/hello-glb/DESIGN.md`
-- `examples/hello-glb/src/main.rs`
+- `corpus/hello-glb/DESIGN.md`
+- `corpus/hello-glb/src/main.rs`

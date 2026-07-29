@@ -20,7 +20,7 @@ standard defaults, bundles, palettes, and renderer style conversion remain
 deliberately unresolved. No CGM importer or first-party capability has been
 admitted yet.
 
-`examples/hello-cgm` is the first visible consumer. It loads `POLYLN01.cgm`
+`corpus/hello-cgm` is the first visible consumer. It loads `POLYLN01.cgm`
 through `cgm-corpus` and presents source identity, lifecycle, VDC descriptor
 state, explicit attribute and primitive counts, element-class counts, and
 source order. The adapter currently lowers the selected polyline, polygon,
@@ -514,19 +514,19 @@ lowerings write `vector.json`.
 Incubate reusable CGM parsing and lowering under:
 
 ```text
-examples/lib-example/cgm-corpus/
+corpus/lib/cgm-corpus/
 ```
 
 Register CGM presentation cases through:
 
 ```text
-examples/lib-example/presentation-geometry-corpus/
+corpus/lib/presentation-geometry-corpus/
 ```
 
 Add a focused visual browser only after structural artifacts are useful:
 
 ```text
-examples/ui/hello-ui-cgm/
+corpus/ui/hello-ui-cgm/
 ```
 
 Do not create `tokimu-cgm` during this plan.
@@ -603,7 +603,7 @@ Acceptance criteria:
 
 Deliverables:
 
-- [x] Create `examples/lib-example/cgm-corpus`.
+- [x] Create `corpus/lib/cgm-corpus`.
 - [x] Detect and admit one verified fixture encoding.
 - [x] Decode bounded element headers, lengths, partitions, parameters, and
       source offsets.
@@ -960,7 +960,7 @@ This plan is complete when:
 ## Graduation Criteria
 
 The CGM importer or corpus support should be considered for promotion beyond
-`examples/lib-example` only when:
+`corpus/lib` only when:
 
 - at least one non-example consumer needs CGM import;
 - public semantic contracts have survived independent fixtures and another
@@ -982,7 +982,7 @@ Until then, CGM remains an evidence-producing external format adapter.
 - `docs/testing-strategy.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
-- `examples/lib-example/presentation-geometry-corpus`
+- `corpus/lib/presentation-geometry-corpus`
 - CGM Open WebCGM test resources:
   `https://www.cgmopen.org/resources/test/`
 - NISTIR 5146:

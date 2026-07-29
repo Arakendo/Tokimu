@@ -102,7 +102,7 @@ text/icon renderer adapters
 ```
 
 The names above describe ownership direction, not an immediate crate split.
-`examples/lib-example/ui-tools` remains the evidence layer while the APIs are
+`corpus/lib/ui-tools` remains the evidence layer while the APIs are
 proven by independent corpus examples.
 
 ## Current Implementation Status

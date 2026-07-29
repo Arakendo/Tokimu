@@ -104,7 +104,7 @@ itself.
 
 ### Practical rule
 
-If a corpus is proving architecture, keep it in `examples/`.
+If a corpus is proving architecture, keep it in `corpus/`.
 If a corpus is proving implementation resilience, keep it under `third-party/`
 and treat it as a pinned reference set.
 
