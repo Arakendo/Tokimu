@@ -16,6 +16,14 @@ async function collectFiles(directory) {
   return nested.flat();
 }
 
+function documentationPages(files) {
+  return files.filter(
+    (file) =>
+      file.endsWith(".html")
+      && !path.relative(siteRoot, file).startsWith(`assets${path.sep}islands${path.sep}`),
+  );
+}
+
 function htmlAttribute(source, relation, attribute) {
   const tags = source.match(/<(?:link|meta)\b[^>]*>/gi) ?? [];
   const tag = tags.find((candidate) => relation.test(candidate));
@@ -68,7 +76,7 @@ test("generated site has GitHub Pages identity files", async () => {
 
 test("every generated page has canonical metadata and a description", async () => {
   const files = await collectFiles(siteRoot);
-  const pages = files.filter((file) => file.endsWith(".html"));
+  const pages = documentationPages(files);
   assert.ok(pages.length >= 10, "expected the complete documentation site");
 
   for (const page of pages) {
@@ -82,7 +90,7 @@ test("every generated page has canonical metadata and a description", async () =
 
 test("every generated page preserves the static accessibility shell", async () => {
   const files = await collectFiles(siteRoot);
-  const pages = files.filter((file) => file.endsWith(".html"));
+  const pages = documentationPages(files);
 
   for (const page of pages) {
     const source = await readFile(page, "utf8");
@@ -122,7 +130,7 @@ test("every generated page preserves the static accessibility shell", async () =
 
 test("generated internal links and linked assets resolve", async () => {
   const files = await collectFiles(siteRoot);
-  const pages = files.filter((file) => file.endsWith(".html"));
+  const pages = documentationPages(files);
   const failures = [];
 
   for (const page of pages) {
@@ -143,5 +151,7 @@ test("homepage remains useful without JavaScript", async () => {
   assert.match(source, /Build interactive systems around/);
   assert.match(source, /Asset observation workbench/);
   assert.match(source, /Rust owns parsing and vector lowering/);
+  assert.match(source, /Asteroid field/);
+  assert.match(source, /Rust owns the field; the browser owns/);
   assert.doesNotMatch(source, /WASM planned/);
 });

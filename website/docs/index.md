@@ -50,6 +50,46 @@ description: Tokimu is a Rust-native runtime for interactive engines, simulation
   <div><span>04</span><strong>Explicit limits</strong><p>Deferred means deferred.</p></div>
 </section>
 
+## Enter the asteroid field
+
+This playable consumer corpus runs Tokimu's game state, collision rules, score,
+waves, and particle events in Rust/WASM. TypeScript translates browser input
+and presents the resulting snapshots on Canvas without owning the simulation.
+
+<section
+  class="island-stage asteroids-island"
+  data-tokimu-island="asteroids-game"
+  data-state="idle"
+  aria-labelledby="asteroids-game-title"
+>
+  <div class="island-fallback">
+    <p class="eyebrow">Playable evidence / on demand</p>
+    <h3 id="asteroids-game-title">Asteroid field</h3>
+    <p>
+      Activate a bounded Tokimu WASM game. Rust owns the field; the browser owns
+      input and pixels. The static explanation remains available if the
+      interactive payload cannot run.
+    </p>
+    <button class="button button-primary" type="button" data-island-action="activate">
+      Enter asteroid field
+    </button>
+    <button class="button button-secondary" type="button" data-island-action="reset" hidden>
+      Leave field
+    </button>
+  </div>
+  <div class="island-mount" data-island-mount hidden></div>
+  <div class="island-status" role="status" aria-live="polite">
+    <span data-island-status-state>Idle</span>
+    <span data-island-status-detail>No game payload loaded</span>
+  </div>
+  <script type="application/json" data-island-config>
+    {
+      "schema": 1,
+      "activation": "explicit"
+    }
+  </script>
+</section>
+
 ## One runtime, many expressions
 
 Tokimu is designed around a reusable engine kernel rather than one application

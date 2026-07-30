@@ -808,6 +808,24 @@ th {
   min-width: 0;
 }
 
+.asteroids-island {
+  grid-template-columns: 1fr auto;
+  min-height: 28rem;
+}
+
+.asteroids-island .island-mount {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.asteroids-frame {
+  display: block;
+  width: 100%;
+  height: clamp(34rem, 68vw, 50rem);
+  border: 0;
+  background: #03090b;
+}
+
 .asset-evidence {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);

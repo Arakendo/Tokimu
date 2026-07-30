@@ -10,7 +10,10 @@ test("the homepage keeps useful evidence content without the interactive bundle"
 
   assert.match(source, /Asset observation workbench/);
   assert.match(source, /Rust owns parsing and vector lowering/);
+  assert.match(source, /Asteroid field/);
+  assert.match(source, /Rust owns the field; the browser owns/);
   assert.match(source, /data-island-action="activate"/);
   assert.match(source, /data-island-mount hidden/);
   assert.match(source, /No engine payload loaded/);
+  assert.match(source, /No game payload loaded/);
 });

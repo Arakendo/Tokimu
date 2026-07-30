@@ -30,10 +30,17 @@ npm install
 pwsh -NoProfile -File .\scripts\build-interactive.ps1
 ```
 
-The interactive build compiles the TypeScript browser adapter, reuses the
-ASP.NET asset-workbench Rust/WASM engine, and refreshes the committed generated
-assets under `docs/assets/islands/asset-observation`. Ordinary MkDocs builds do
-not require Rust, Cargo, or `wasm-bindgen`.
+The interactive build compiles the TypeScript browser adapters and refreshes
+two committed evidence payloads:
+
+- the ASP.NET asset-workbench Rust/WASM engine under
+  `docs/assets/islands/asset-observation`; and
+- the playable Asteroids Rust/WASM consumer under
+  `docs/assets/islands/asteroids-game`.
+
+Ordinary MkDocs builds do not require Rust, Cargo, or `wasm-bindgen`. Publishing
+through GitHub Actions does rebuild both payloads and rejects drift in their
+committed TypeScript adapters.
 
 Generated output is written to `target/website` and is not committed.
 

@@ -51,3 +51,4 @@ extra_css:
 extra_javascript:
   - javascripts/islands.js
   - javascripts/asset-observation.js
+  - javascripts/asteroids-game.js

@@ -228,10 +228,10 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Register an `asteroids-game` island with the shared lifecycle loader.
-- [ ] Add a website page with durable static fallback content.
-- [ ] Extend the interactive build to publish generated bindings.
-- [ ] Record payload sizes and lifecycle evidence.
+- [x] Register an `asteroids-game` island with the shared lifecycle loader.
+- [x] Add a website page with durable static fallback content.
+- [x] Extend the interactive build to publish generated bindings.
+- [x] Record payload sizes and lifecycle evidence.
 
 Acceptance criteria:
 
@@ -239,6 +239,16 @@ Acceptance criteria:
 - Activation initializes WASM once.
 - Reset and navigation release every listener and animation frame.
 - Failure leaves the static explanation available.
+
+Implementation evidence:
+
+- The committed website payload is approximately 201 KiB across the standalone
+  document, styles, TypeScript host, generated bindings, and Rust/WASM module.
+- The shared website island controller owns explicit activation and page/reset
+  teardown; the adapter releases the embedded browsing context by navigating it
+  to `about:blank` before removal.
+- The static homepage explanation remains visible until activation succeeds and
+  is restored after reset.
 
 ### Slice 3: Gameplay And Effects Pass
 

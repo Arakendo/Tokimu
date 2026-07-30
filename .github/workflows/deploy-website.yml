@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - ".github/workflows/deploy-website.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "corpus/consumers/tokimu-website-asteroids/**"
+      - "corpus/lib/particle-tools/**"
       - "website/**"
   workflow_dispatch:
 
@@ -34,7 +38,14 @@ jobs:
         run: python -m pip install -r website/requirements.txt
 
       - name: Install interactive-source dependencies
-        run: npm ci --prefix website
+        run: |
+          npm ci --prefix website
+          npm ci --prefix corpus/consumers/tokimu-website-asteroids
+
+      - name: Prepare Rust WebAssembly tools
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli --version 0.2.126 --locked
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -42,14 +53,19 @@ jobs:
       - name: Typecheck and compile interactive source
         run: |
           npm run typecheck --prefix website
-          npm run build --prefix website
-          git diff --exit-code -- website/docs/javascripts/asset-observation.js
+          npm run typecheck --prefix corpus/consumers/tokimu-website-asteroids
+          pwsh -NoProfile -File website/scripts/build-interactive.ps1
+          git diff --exit-code -- \
+            website/docs/javascripts/asset-observation.js \
+            website/docs/javascripts/asteroids-game.js \
+            website/docs/assets/islands/asteroids-game/asteroids.js
 
       - name: Test interactive island contract
         run: >-
           node --test
           website/tests/islands.test.mjs
           website/tests/asset-observation.test.mjs
+          website/tests/asteroids-island.test.mjs
           website/tests/static-fallback.test.mjs
           website/tests/svg-evidence.test.mjs
           website/tests/cgm-evidence.test.mjs

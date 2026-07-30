@@ -1,0 +1,173 @@
+:root {
+  color: #e8f2f3;
+  background: #061012;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(rgba(70, 132, 137, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(70, 132, 137, 0.09) 1px, transparent 1px),
+    radial-gradient(circle at 70% 20%, #10292b 0, #061012 48%);
+  background-size: 40px 40px, 40px 40px, auto;
+}
+
+button,
+kbd {
+  font: inherit;
+}
+
+.game-shell {
+  width: min(1120px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid #36585b;
+  background: rgba(5, 14, 16, 0.92);
+  box-shadow: 12px 12px 0 rgba(19, 49, 52, 0.54);
+}
+
+.game-header,
+.game-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 3.4rem);
+  font-weight: 400;
+}
+
+.eyebrow,
+.status,
+.hud {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: #72e6d5;
+  font-size: 0.72rem;
+}
+
+.status {
+  max-width: 42ch;
+  color: #9fb7b9;
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.viewport-shell {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 18px 0;
+  overflow: hidden;
+  border: 1px solid #315053;
+  background: #03090b;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.hud {
+  position: absolute;
+  inset: 18px 20px auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  pointer-events: none;
+  color: #9fb7b9;
+  font-size: clamp(0.62rem, 1.4vw, 0.8rem);
+}
+
+.hud strong {
+  color: #f1faf9;
+}
+
+.curtain {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  background: rgba(2, 8, 10, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.curtain[hidden] {
+  display: none;
+}
+
+.curtain h2 {
+  font-family: Georgia, serif;
+  font-size: clamp(2.2rem, 8vw, 5rem);
+  font-weight: 400;
+}
+
+.game-footer {
+  color: #9fb7b9;
+  font-size: 0.78rem;
+}
+
+kbd,
+button {
+  border: 1px solid #71d8ca;
+  color: #dffbf6;
+  background: #0c2527;
+}
+
+kbd {
+  padding: 2px 5px;
+}
+
+button {
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+  outline: 2px solid #f1bd57;
+  outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  .game-shell {
+    width: 100vw;
+    min-height: 100vh;
+    padding: 14px;
+    border-inline: 0;
+  }
+
+  .game-header,
+  .game-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .status {
+    text-align: left;
+  }
+}
