@@ -28,11 +28,15 @@ evidence. It is not yet a packaged end-user engine distribution.
   </article>
   <article>
     <span>03</span>
-    <h3>Read the source</h3>
-    <p>Build the Rust workspace and run a focused corpus entry from the repository.</p>
-    <a href="https://github.com/Arakendo/Tokimu">Open the repository ↗</a>
+    <h3>Understand authoring</h3>
+    <p>See how TypeScript is intended to author high-level content without becoming a second engine.</p>
+    <a href="../architecture/rust-and-typescript/">Rust and TypeScript →</a>
   </article>
 </div>
+
+For current implementation work, build the Rust workspace and run focused
+corpus entries from the
+[source repository](https://github.com/Arakendo/Tokimu).
 
 ## Current workspace
 
@@ -52,6 +56,11 @@ tokimu            public facade
 The `corpus/` tree contains architecture-driving executable evidence, including
 focused proofs, external data corpora, shared incubating support, and
 application-shaped consumers.
+
+The separate `frontends/` workspace contains the early TypeScript authoring
+packages. Those packages describe authored intent and lower toward
+language-neutral Rust models; core engine crates do not depend on npm or a
+JavaScript runtime.
 
 ## Build the workspace
 

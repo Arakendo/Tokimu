@@ -46,6 +46,12 @@ absorbing them into the engine. A game, CAD workbench, robotics dashboard, or
 technical simulator may own very different domain meaning while sharing the
 same runtime services.
 
+Tokimu is a Rust engine with an intended
+[TypeScript-first authoring surface](rust-and-typescript.md). TypeScript gives
+authors syntax, types, and tooling; it lowers into or communicates through
+Tokimu-owned semantic contracts rather than becoming an alternate runtime
+kernel.
+
 <div class="quote-panel">
   <span>Architectural maxim</span>
   <blockquote>Own meaning. Delegate implementation.</blockquote>
@@ -56,6 +62,7 @@ same runtime services.
 The repository currently treats these documents as architectural truth:
 
 - [Software Design Document](https://github.com/Arakendo/Tokimu/blob/main/docs/Tokimu%20Software%20Design%20Document.md)
+- [TypeScript Design Document](https://github.com/Arakendo/Tokimu/blob/main/docs/Tokimu%20TypeScript%20Design%20Document.md)
 - [Kernel Principles](https://github.com/Arakendo/Tokimu/blob/main/docs/kernel-principles.md)
 - [Semantic Kernel Map](https://github.com/Arakendo/Tokimu/blob/main/docs/semantic-kernel-map.md)
 - [Architectural Maxims](https://github.com/Arakendo/Tokimu/blob/main/docs/architectural-maxims.md)

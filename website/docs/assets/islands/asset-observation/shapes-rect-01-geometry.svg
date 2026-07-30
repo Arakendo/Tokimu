@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <!-- Derived from upstream/svg/shapes-rect-01-t.svg. -->
+  <rect fill="#d04a9b" x="30" y="46" width="50" height="80"/>
+  <rect fill="#d04a9b" x="130" y="46" width="50" height="80" rx="18" ry="18"/>
+  <rect fill="#35b878" x="250" y="196" width="50" height="80" rx="20" ry="30"/>
+  <rect fill="#35b878" x="350" y="196" width="50" height="80"/>
+</svg>

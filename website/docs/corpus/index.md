@@ -40,9 +40,10 @@ The repository currently carries or plans bounded evidence for:
 - FBX fixtures;
 - font outlines and glyph providers.
 
-Coverage is meaningful only with a declared profile and denominator. This site
-will publish generated coverage reports after their source revision, schema,
-and stale-evidence behavior are integrated.
+Coverage is meaningful only with a declared profile and denominator. The first
+published record is the [W3C SVG evidence page](../formats/svg.md), whose
+coverage values are checked against the repository's authoritative library
+record so stale claims fail validation.
 
 ## Structural evidence first
 

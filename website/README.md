@@ -23,6 +23,18 @@ Build the static output:
 .\.venv\Scripts\python.exe -m mkdocs build -f mkdocs.yml --strict
 ```
 
+Build the optional Tokimu-powered evidence island:
+
+```powershell
+npm install
+pwsh -NoProfile -File .\scripts\build-interactive.ps1
+```
+
+The interactive build compiles the TypeScript browser adapter, reuses the
+ASP.NET asset-workbench Rust/WASM engine, and refreshes the committed generated
+assets under `docs/assets/islands/asset-observation`. Ordinary MkDocs builds do
+not require Rust, Cargo, or `wasm-bindgen`.
+
 Generated output is written to `target/website` and is not committed.
 
 The generated root includes:

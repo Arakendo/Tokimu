@@ -33,8 +33,26 @@ jobs:
       - name: Install website dependencies
         run: python -m pip install -r website/requirements.txt
 
+      - name: Install interactive-source dependencies
+        run: npm ci --prefix website
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
+      - name: Typecheck and compile interactive source
+        run: |
+          npm run typecheck --prefix website
+          npm run build --prefix website
+          git diff --exit-code -- website/docs/javascripts/asset-observation.js
+
+      - name: Test interactive island contract
+        run: >-
+          node --test
+          website/tests/islands.test.mjs
+          website/tests/asset-observation.test.mjs
+          website/tests/static-fallback.test.mjs
+          website/tests/svg-evidence.test.mjs
+          website/tests/authoring-boundary.test.mjs
 
       - name: Build website
         run: python -m mkdocs build -f website/mkdocs.yml --strict

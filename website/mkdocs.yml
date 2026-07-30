@@ -22,11 +22,15 @@ nav:
       - Known Limitations: known-limitations.md
   - Architecture:
       - Architecture Overview: architecture/index.md
+      - Rust And TypeScript: architecture/rust-and-typescript.md
       - How Decisions Are Made: architecture/decisions.md
   - Capabilities: capabilities/index.md
   - Roadmap: roadmap.md
   - Corpus:
       - Evidence And Coverage: corpus/index.md
+      - W3C SVG Evidence: formats/svg.md
+  - Lab:
+      - Interactive Island Contract: lab/island-contract.md
 
 markdown_extensions:
   - admonition
@@ -45,3 +49,4 @@ extra_css:
 
 extra_javascript:
   - javascripts/islands.js
+  - javascripts/asset-observation.js

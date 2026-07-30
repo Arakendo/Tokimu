@@ -57,6 +57,10 @@ genre. Games are important, but the same runtime concepts should also support
 technical simulators, creative tools, industrial dashboards, and other
 interactive systems.
 
+The engine is Rust-native. Its intended high-level authoring experience is
+TypeScript-first: authors work through typed domain packages while Tokimu keeps
+the resulting meaning language-neutral and engine-owned.
+
 <div class="card-grid">
   <article class="feature-card">
     <span class="card-index">A</span>
@@ -97,22 +101,41 @@ contracts cleanly.
 
 ## The first public instrument
 
-<section class="island-stage" data-tokimu-island="asset-observation" data-state="idle">
+<section
+  class="island-stage"
+  data-tokimu-island="asset-observation"
+  data-state="idle"
+  aria-labelledby="asset-observation-title"
+>
   <div class="island-fallback">
-    <p class="eyebrow">Interactive evidence / scaffolded</p>
-    <h3>Asset observation workbench</h3>
+    <p class="eyebrow">Interactive evidence / available</p>
+    <h3 id="asset-observation-title">Asset observation workbench</h3>
     <p>
-      This region will mount a bounded Tokimu WASM consumer. Until that consumer
-      is integrated, the static explanation remains the authoritative content.
+      Activate a bounded Tokimu WASM consumer to inspect a known W3C SVG fixture.
+      Rust owns parsing and vector lowering; the browser only presents the
+      provider-neutral observation.
     </p>
-    <button class="button button-disabled" type="button" disabled>
-      WASM consumer pending
+    <button class="button button-primary" type="button" data-island-action="activate">
+      Inspect known fixture
+    </button>
+    <button class="button button-secondary" type="button" data-island-action="reset" hidden>
+      Reset instrument
     </button>
   </div>
+  <div class="island-mount" data-island-mount hidden></div>
   <div class="island-status" role="status" aria-live="polite">
-    <span>Idle</span>
-    <span>No engine payload loaded</span>
+    <span data-island-status-state>Idle</span>
+    <span data-island-status-detail>No engine payload loaded</span>
   </div>
+  <script type="application/json" data-island-config>
+    {
+      "schema": 1,
+      "fixture": "asset-observation-v1",
+      "fixtureName": "shapes-rect-01-geometry.svg",
+      "activation": "explicit",
+      "maxBytes": 8388608
+    }
+  </script>
 </section>
 
 <div class="next-step">

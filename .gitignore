@@ -24,6 +24,7 @@ __pycache__/
 /pkg/
 **/pkg/
 *.wasm
+!website/docs/assets/islands/**/*.wasm
 
 # Editor / OS
 .DS_Store

@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Proposed |
+| Status | Active |
 | Canonical domain | `tokimuengine.org` |
 | Supporting domains | `tokimuengine.com`, `tokimuengine.net` |
 | Scope | Public project website, documentation publishing, and bounded Tokimu-powered interactive evidence |
@@ -444,67 +444,76 @@ status label.
 
 #### Deliverables
 
-- [ ] Define the declarative HTML marker or custom-element contract used to
+- [x] Define the declarative HTML marker or custom-element contract used to
       mount a Tokimu island.
-- [ ] Define island lifecycle states: idle, loading, ready, unsupported, failed,
+- [x] Define island lifecycle states: idle, loading, ready, unsupported, failed,
       and unmounted.
-- [ ] Define structured configuration and evidence inputs.
-- [ ] Add lazy loading and explicit activation.
-- [ ] Add teardown, listener cleanup, and resource release.
-- [ ] Add static fallback content inside each mount region.
+- [x] Define structured configuration and evidence inputs.
+- [x] Add lazy loading and explicit activation.
+- [x] Add teardown, listener cleanup, and resource release.
+- [x] Add static fallback content inside each mount region.
 
 #### Acceptance Criteria
 
-- [ ] Multiple islands can exist without global-state collisions.
-- [ ] An island can mount and unmount repeatedly without duplicate listeners.
-- [ ] Failure is visible, bounded, and does not damage page navigation.
-- [ ] The static fallback remains readable before and after failure.
-- [ ] The island does not require private Tokimu APIs.
+- [x] Multiple islands can exist without global-state collisions.
+- [x] An island can mount and unmount repeatedly without duplicate listeners.
+- [x] Failure is visible, bounded, and does not damage page navigation.
+- [x] The static fallback remains readable before and after failure.
+- [x] The island does not require private Tokimu APIs.
 
 ### Slice 4: First Tokimu-Powered Evidence Page
 
 #### Deliverables
 
-- [ ] Reuse a bounded asset-workbench flow through public or explicitly
+- [x] Reuse a bounded asset-workbench flow through public or explicitly
       incubating WASM APIs.
-- [ ] Include one known fixture with static expected evidence.
-- [ ] Support optional local file selection under explicit size limits.
-- [ ] Present observation, preview, diagnostics, and deferred semantics.
-- [ ] Add reset behavior.
-- [ ] Add a no-WASM or unsupported-browser state.
+- [x] Include one known fixture with static expected evidence.
+- [x] Support optional local file selection under explicit size limits.
+- [x] Present observation, preview, diagnostics, and deferred semantics.
+- [x] Add reset behavior.
+- [x] Add a no-WASM or unsupported-browser state.
 
 #### Acceptance Criteria
 
-- [ ] The known fixture produces the expected provider-neutral observation.
-- [ ] TypeScript does not parse the source format.
-- [ ] User-selected bytes are not uploaded.
-- [ ] Malformed or excessive input fails with a bounded diagnostic.
-- [ ] The page remains useful when WASM cannot initialize.
-- [ ] Preview dimensions remain bounded as diagnostics change.
+- [x] The known fixture produces the expected provider-neutral observation.
+- [x] TypeScript does not parse the source format.
+- [x] User-selected bytes are not uploaded.
+- [x] Malformed or excessive input fails with a bounded diagnostic.
+- [x] The page remains useful when WASM cannot initialize.
+- [x] Preview dimensions remain bounded as diagnostics change.
 
 ### Slice 5: Website Consumer Corpus
 
 #### Deliverables
 
-- [ ] Create `corpus/consumers/tokimu-website` after the first island proves the
+- [x] Create `corpus/consumers/tokimu-website` after the first island proves the
       category.
-- [ ] Add a `DESIGN.md` with consumer tier and ownership boundaries.
-- [ ] Add deterministic semantic checks for the known fixture.
-- [ ] Add a WASM build and TypeScript typecheck.
-- [ ] Add a static-page smoke test that runs without the interactive bundle.
-- [ ] Record direct public and incubating dependencies.
+- [x] Add a `DESIGN.md` with consumer tier and ownership boundaries.
+- [x] Add deterministic semantic checks for the known fixture.
+- [x] Add a WASM build and TypeScript typecheck.
+- [x] Add a static-page smoke test that runs without the interactive bundle.
+- [x] Record direct public and incubating dependencies.
 
 #### Acceptance Criteria
 
-- [ ] The website consumes Tokimu as a bounded downstream application.
-- [ ] Incubating dependencies are labeled and do not appear as stable public
+- [x] The website consumes Tokimu as a bounded downstream application.
+- [x] Incubating dependencies are labeled and do not appear as stable public
       guarantees.
-- [ ] Static and interactive validation can fail independently.
-- [ ] Application meaning remains outside browser rendering and importer
+- [x] Static and interactive validation can fail independently.
+- [x] Application meaning remains outside browser rendering and importer
       providers.
-- [ ] The consumer can identify the first failing composition boundary.
+- [x] The consumer can identify the first failing composition boundary.
 
 ### Slice 6: Evidence And Capability Pages
+
+#### Progress
+
+- The first format record now publishes the bounded W3C SVG geometry profile.
+- Website validation compares its official `40 / 525 (7.62%)` coverage claim
+  and evidence date with `docs/Libraries/w3c-svg-corpus-testing.md`.
+- The page labels structural, deterministic CPU, WASM semantic, and browser
+  visual evidence separately.
+- Additional format pages and a general generated-report pipeline remain open.
 
 #### Deliverables
 
