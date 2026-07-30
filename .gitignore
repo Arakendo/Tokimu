@@ -12,6 +12,8 @@ node_modules/
 # Generated browser bundles and wasm-bindgen output for ASP.NET consumer corpus.
 **/wwwroot/app/
 **/wwwroot/tokimu/
+**/bin/
+**/obj/
 
 # WebAssembly / wasm-pack
 /pkg/
