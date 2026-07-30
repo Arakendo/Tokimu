@@ -10,7 +10,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 #[cfg(target_arch = "wasm32")]
 use raw_window_handle::{WebCanvasWindowHandle, WebDisplayHandle};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use thiserror::Error;
 #[cfg(target_arch = "wasm32")]
@@ -131,6 +131,38 @@ struct GpuCameraBinding {
 
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+fn install_backend_diagnostic_sink(device: &wgpu::Device) -> Arc<Mutex<Vec<String>>> {
+    let messages = Arc::new(Mutex::new(Vec::new()));
+    let sink = Arc::clone(&messages);
+    device.on_uncaptured_error(Box::new(move |error| {
+        let mut messages = match sink.lock() {
+            Ok(messages) => messages,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        messages.push(format!("WebGPU backend validation failed: {error}"));
+    }));
+    messages
+}
+
+fn drain_backend_diagnostic_messages(
+    messages: &Mutex<Vec<String>>,
+) -> Vec<tokimu_core::DiagnosticRecord> {
+    let mut messages = match messages.lock() {
+        Ok(messages) => messages,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    std::mem::take(&mut *messages)
+        .into_iter()
+        .map(|message| {
+            tokimu_core::DiagnosticRecord::error(
+                tokimu_core::DiagnosticKind::BackendError,
+                "tokimu-render.wgpu",
+                message,
+            )
+        })
+        .collect()
+}
+
 pub struct WgpuBackend {
     stats: crate::renderer::RenderStatsTracker,
     queued_draws: Vec<QueuedDraw>,
@@ -150,6 +182,7 @@ pub struct WgpuBackend {
     _queue: wgpu::Queue,
     adapter_info: wgpu::AdapterInfo,
     surface_state: Option<SurfaceState>,
+    backend_diagnostic_messages: Arc<Mutex<Vec<String>>>,
 }
 
 impl WgpuBackend {
@@ -185,6 +218,7 @@ impl WgpuBackend {
             .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await
             .map_err(|error| WgpuBackendError::DeviceRequest(error.to_string()))?;
+        let backend_diagnostic_messages = install_backend_diagnostic_sink(&device);
 
         Ok(Self {
             stats: crate::renderer::RenderStatsTracker::default(),
@@ -205,6 +239,7 @@ impl WgpuBackend {
             _queue: queue,
             adapter_info,
             surface_state: None,
+            backend_diagnostic_messages,
         })
     }
 
@@ -232,6 +267,7 @@ impl WgpuBackend {
             .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await
             .map_err(|error| WgpuBackendError::DeviceRequest(error.to_string()))?;
+        let backend_diagnostic_messages = install_backend_diagnostic_sink(&device);
         let capabilities = surface.get_capabilities(&adapter);
         let format = capabilities
             .formats
@@ -284,6 +320,7 @@ impl WgpuBackend {
                 material_bind_group_layout,
                 instance_bind_group_layout,
             }),
+            backend_diagnostic_messages,
         })
     }
 
@@ -317,6 +354,7 @@ impl WgpuBackend {
             .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await
             .map_err(|error| WgpuBackendError::DeviceRequest(error.to_string()))?;
+        let backend_diagnostic_messages = install_backend_diagnostic_sink(&device);
         let capabilities = surface.get_capabilities(&adapter);
         let format = capabilities
             .formats
@@ -369,6 +407,7 @@ impl WgpuBackend {
                 material_bind_group_layout,
                 instance_bind_group_layout,
             }),
+            backend_diagnostic_messages,
         })
     }
 
@@ -653,7 +692,13 @@ impl WgpuBackend {
         handle: PipelineHandle,
         pipeline: &Pipeline,
     ) -> Result<(), WgpuBackendError> {
-        pipeline.validate()?;
+        if let Err(error) = pipeline.validate() {
+            self.record_backend_diagnostic(format!(
+                "pipeline `{}` declaration was rejected before backend compilation: {error}",
+                pipeline.label
+            ));
+            return Err(error.into());
+        }
         let Some(surface_state) = self.surface_state.as_ref() else {
             return Ok(());
         };
@@ -730,10 +775,34 @@ impl WgpuBackend {
         &mut self,
         pipeline: &Pipeline,
     ) -> Result<PipelineHandle, WgpuBackendError> {
-        pipeline.validate()?;
+        if let Err(error) = pipeline.validate() {
+            self.record_backend_diagnostic(format!(
+                "pipeline `{}` declaration was rejected before backend compilation: {error}",
+                pipeline.label
+            ));
+            return Err(error.into());
+        }
         let handle = self.pipeline_registry.register(pipeline);
         self.upload_pipeline(handle, pipeline)?;
         Ok(handle)
+    }
+
+    /// Drains renderer-adapter diagnostics without exposing backend-native error types.
+    ///
+    /// WebGPU shader and pipeline validation can be reported after a synchronous
+    /// pipeline creation call returns. The backend records those messages in its
+    /// error callback and presents them here as Tokimu diagnostics for callers to
+    /// route alongside their own application diagnostics.
+    pub fn drain_diagnostics(&self) -> Vec<tokimu_core::DiagnosticRecord> {
+        drain_backend_diagnostic_messages(&self.backend_diagnostic_messages)
+    }
+
+    fn record_backend_diagnostic(&self, message: impl Into<String>) {
+        let mut messages = match self.backend_diagnostic_messages.lock() {
+            Ok(messages) => messages,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        messages.push(message.into());
     }
 
     pub fn pipeline_handle(&self, label: &str) -> Option<PipelineHandle> {
@@ -1344,8 +1413,29 @@ fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
 
 #[cfg(test)]
 mod tests {
-    use super::derived_material_key;
+    use super::{derived_material_key, drain_backend_diagnostic_messages};
     use crate::{Color, MaterialHandle, MaterialOverride};
+    use std::sync::Mutex;
+
+    #[test]
+    fn backend_diagnostic_sink_drains_into_tokimu_records() {
+        let messages = Mutex::new(vec!["shader validation failed".to_owned()]);
+
+        let diagnostics = drain_backend_diagnostic_messages(&messages);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].kind,
+            tokimu_core::DiagnosticKind::BackendError
+        );
+        assert_eq!(
+            diagnostics[0].severity,
+            tokimu_core::DiagnosticSeverity::Error
+        );
+        assert_eq!(diagnostics[0].source, "tokimu-render.wgpu");
+        assert_eq!(diagnostics[0].message, "shader validation failed");
+        assert!(drain_backend_diagnostic_messages(&messages).is_empty());
+    }
 
     #[test]
     fn derived_material_keys_reuse_identical_overrides_and_split_distinct_ones() {

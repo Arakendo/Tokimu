@@ -12,6 +12,7 @@ pub enum DiagnosticSeverity {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DiagnosticKind {
     Message,
+    BackendError,
     PerformanceBudgetExceeded,
     PerformanceRecovered,
 }
@@ -52,6 +53,21 @@ pub struct DiagnosticRecord {
 }
 
 impl DiagnosticRecord {
+    pub fn error(
+        kind: DiagnosticKind,
+        source: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            sequence: 0,
+            severity: DiagnosticSeverity::Error,
+            kind,
+            source: source.into(),
+            message: message.into(),
+            performance: None,
+        }
+    }
+
     fn message(source: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             sequence: 0,
@@ -334,5 +350,20 @@ mod tests {
         assert_eq!(diagnostics.records()[0].sequence(), 1);
         assert_eq!(diagnostics.records()[1].sequence(), 2);
         assert_eq!(diagnostics.dropped_records(), 1);
+    }
+
+    #[test]
+    fn creates_structured_backend_error_records() {
+        let record = DiagnosticRecord::error(
+            DiagnosticKind::BackendError,
+            "tokimu-render.wgpu",
+            "pipeline compilation failed",
+        );
+
+        assert_eq!(record.severity, DiagnosticSeverity::Error);
+        assert_eq!(record.kind, DiagnosticKind::BackendError);
+        assert_eq!(record.source, "tokimu-render.wgpu");
+        assert_eq!(record.message, "pipeline compilation failed");
+        assert_eq!(record.performance, None);
     }
 }

@@ -321,9 +321,10 @@ Deliverables:
       with a deterministic white fallback texture when source material has none.
       Custom WGSL declarations must supply source and non-empty entry points.
 - [x] Preserve current built-in pipelines through explicit descriptors.
-- [ ] Surface backend WGSL compilation and pipeline validation failures through
-      Tokimu diagnostics. Provider-neutral declaration failures are now
-      returned before backend submission.
+- [x] Surface backend WGSL compilation and pipeline validation failures through
+      Tokimu diagnostics. The wgpu adapter queues uncaptured backend errors and
+      exposes them through `WgpuBackend::drain_diagnostics`; provider-neutral
+      declaration failures are also returned before backend submission.
 
 Acceptance criteria:
 
