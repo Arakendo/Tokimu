@@ -419,7 +419,7 @@ ahead-of-time frontend that lowers into it, never a runtime transpiler.
 - [ ] Define a Tokimu-owned shader/material semantic model that both WGSL and a
   future TS frontend lower into (land this before the TS frontend, mirroring the
   rule-model-before-frontend ordering in M9)
-- [ ] Prototype a `@tokimu/shaders` package exposing a restricted, typed shading
+- [ ] Prototype a `@tokimu/shader` package exposing a restricted, typed shading
   API (vertex/fragment entry points, uniforms, samplers, vector/matrix math,
   deterministic control flow) that lowers ahead of time to WGSL
 - [ ] Reuse the `tokimu-ts-frontend` lowering host and its diagnostics rather
@@ -428,7 +428,7 @@ ahead-of-time frontend that lowers into it, never a runtime transpiler.
 - [ ] Support only an explicit subset and reject host-dependent features (ambient
   I/O, DOM, `async`/`Promise`, `fetch`, `eval`), the same way the rule frontend
   does
-- [ ] Prove parity: one shader authored in `@tokimu/shaders` lowers to WGSL that
+- [ ] Prove parity: one shader authored in `@tokimu/shader` lowers to WGSL that
   renders identically to a hand-written WGSL equivalent
 - [ ] Keep this gated behind the WGSL path and the rule-model lowering work — it
   is a phase-3 ahead-of-time frontend, not an embedded runtime shader compiler
@@ -460,7 +460,7 @@ Further candidates grounded in the v0 primitives (`signal()`, `relation()`,
 `command()`) and existing crates:
 
 - `@tokimu/materials` → shader/material model: material definitions and bound
-  data that pair with `@tokimu/shaders` and lower to the same pipeline model
+  data that pair with `@tokimu/shader` and lower to the same pipeline model
 - `@tokimu/commands` → command model: the M12 text/MUD command surface (look,
   list, step, emit, why) authored via the `command()` primitive
 - `@tokimu/signals` + `@tokimu/relations` → signal and relationship models:
@@ -518,7 +518,7 @@ frontend package targets it (same rule-model-before-frontend ordering as M9).
 - [ ] One shared id/naming scheme across scenes, assets, rules, and render
   resources so a frontend uses one addressing model, not five
 
-### Shaders and materials (backs `@tokimu/shaders`, `@tokimu/materials`)
+### Shaders and materials (backs `@tokimu/shader`, `@tokimu/materials`)
 
 - [ ] Material parameter schema: extend `Material` beyond label + base color to a
   set of typed, named parameters (floats, vec2/3/4, colors, texture slots) so a
@@ -531,7 +531,7 @@ frontend package targets it (same rule-model-before-frontend ordering as M9).
 - [ ] Vertex layout descriptor: describe vertex inputs as data (currently the
   pipeline hardcodes a single `vec2` position layout) so an authored shader can
   declare its inputs and the engine can validate them against a mesh
-- [ ] These four are the engine substrate the `@tokimu/shaders` lowering targets;
+- [ ] These four are the engine substrate the `@tokimu/shader` lowering targets;
   WGSL stays the engine-owned target
 
 ### Meshes and model loading (backs the GLB proof and 3D)

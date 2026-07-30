@@ -627,4 +627,40 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn corpus_boundaries_fail_at_their_owning_stage() {
+        let app = HelloGlbApp::default();
+        let unknown_target = PresentationTargetId::new(
+            PresentationTargetKind::MeshPrimitive,
+            "khronos-box/node/99/mesh/99/primitive/99",
+        )
+        .unwrap();
+        assert!(matches!(
+            app.presentation.resolve(&unknown_target),
+            Err(presentation_control::PresentationControlError::UnknownTarget { .. })
+        ));
+
+        let other_definition = MaterialDefinition::solid_color(
+            MaterialDefinitionId::new("hello-glb-other").unwrap(),
+            Color::rgb(1.0, 1.0, 1.0),
+        );
+        let other_instance = MaterialInstance::from_definition(&other_definition);
+        assert!(matches!(
+            app.model_material_definition
+                .lower_to_legacy_material(&other_instance, "invalid-material"),
+            Err(tokimu::MaterialModelError::DefinitionMismatch { .. })
+        ));
+
+        let invalid_pipeline =
+            Pipeline::custom_wgsl_with_entry_points("missing-source", "", "vs_main", "fs_main");
+        assert!(matches!(
+            invalid_pipeline.validate(),
+            Err(tokimu::PipelineValidationError::MissingCustomShaderSource { .. })
+        ));
+
+        let resolved = app.presentation.resolve(&app.model_target).unwrap();
+        let output = app.presentation_artifact_json(resolved).unwrap();
+        assert!(output.contains("\"resolvedPresentation\""));
+    }
 }

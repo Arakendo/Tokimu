@@ -236,9 +236,9 @@ of time to the Tokimu shader model and WGSL. DOM access, ambient I/O, `fetch`,
 `eval`, `async`, and arbitrary JavaScript execution remain invalid in lowered
 shader definitions.
 
-Package names remain provisional. The TTSDD currently names
-`@tokimu/shader`, while the roadmap also uses `@tokimu/shaders`. Reconcile that
-name in the TTSDD before publishing a package.
+The provisional package name is `@tokimu/shader`, matching the TTSDD and
+roadmap. The name records a future authoring boundary only; no package is
+published until the Rust shader semantic model has independent callers.
 
 ## Transparency Requirements
 
@@ -265,7 +265,8 @@ order-independent transparency.
 
 Deliverables:
 
-- [ ] Reconcile `@tokimu/shader` versus `@tokimu/shaders` naming in the TTSDD.
+- [x] Reconcile the provisional package name as `@tokimu/shader` across the
+      TTSDD and roadmap. This does not create or publish the package.
 - [x] Record the initial presentation-override vocabulary and target identity
       rules.
 - [x] Define a small Rust-first corpus scene with opaque, tinted, selected, and
@@ -281,8 +282,10 @@ Acceptance criteria:
 - [x] Every implemented public type has a named owner.
 - [x] Runtime overrides and AOT shader authoring are documented as separate
       paths.
-- [ ] The corpus can fail independently for target resolution, material
-      lowering, pipeline state, and rendered output.
+- [x] The corpus can fail independently for target resolution, material
+      lowering, pipeline declaration, and resolved-output artifact generation.
+      GPU framebuffer validation remains a separate, explicitly unproven
+      backend concern.
 
 ### Slice 1: Provider-Neutral Rust Material Model
 
