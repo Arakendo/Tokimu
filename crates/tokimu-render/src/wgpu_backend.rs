@@ -1,8 +1,9 @@
 use crate::{
     BlendMode, Camera, CameraHandle, Color, ColorWriteMask, CullMode, DepthTest, Instance2d,
     Material, MaterialHandle, MaterialOverride, Mesh, MeshHandle, Pipeline, PipelineHandle,
-    PipelineKind, PipelineRegistry, PipelineRenderState, RenderCommand, RenderFrameCpuTimings,
-    RenderStats, Renderable, RenderableHandle, Renderer, Texture, TextureHandle,
+    PipelineKind, PipelineRegistry, PipelineRenderState, PipelineValidationError, RenderCommand,
+    RenderFrameCpuTimings, RenderStats, Renderable, RenderableHandle, Renderer, Texture,
+    TextureHandle,
 };
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -40,6 +41,8 @@ pub enum WgpuBackendError {
     MissingRenderable(u64),
     #[error("texture handle {0} has not been uploaded")]
     MissingTexture(u64),
+    #[error("invalid pipeline declaration: {0}")]
+    InvalidPipeline(#[from] PipelineValidationError),
 }
 
 #[repr(C)]
@@ -650,6 +653,7 @@ impl WgpuBackend {
         handle: PipelineHandle,
         pipeline: &Pipeline,
     ) -> Result<(), WgpuBackendError> {
+        pipeline.validate()?;
         let Some(surface_state) = self.surface_state.as_ref() else {
             return Ok(());
         };
@@ -709,34 +713,13 @@ impl WgpuBackend {
                 pipeline
                     .shader_source
                     .as_deref()
-                    .or_else(|| pipeline.kind.default_shader_source())
-                    .unwrap_or(Pipeline::default_2d_shader_source()),
+                    .expect("validated custom WGSL pipelines always contain shader source"),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
                 pipeline.render_state,
             ),
         };
 
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
-        self.pipeline_registry
-            .register_with_handle(handle, pipeline);
         self.pipeline_registry
             .register_with_handle(handle, pipeline);
         self.pipelines.insert(handle, compiled);
@@ -747,6 +730,7 @@ impl WgpuBackend {
         &mut self,
         pipeline: &Pipeline,
     ) -> Result<PipelineHandle, WgpuBackendError> {
+        pipeline.validate()?;
         let handle = self.pipeline_registry.register(pipeline);
         self.upload_pipeline(handle, pipeline)?;
         Ok(handle)

@@ -114,6 +114,24 @@ pub enum PipelineRenderStateError {
     DepthWriteWithoutDepthTest,
 }
 
+/// A pipeline declaration that cannot be submitted to a renderer backend.
+///
+/// This validates provider-neutral declaration facts only. Backend-specific WGSL
+/// compilation and capability validation remain renderer adapter work.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum PipelineValidationError {
+    #[error("custom WGSL pipeline `{label}` is missing shader source")]
+    MissingCustomShaderSource { label: String },
+    #[error("pipeline `{label}` has an empty {stage} entry point")]
+    EmptyEntryPoint { label: String, stage: &'static str },
+    #[error("pipeline `{label}` has an invalid render state: {source}")]
+    InvalidRenderState {
+        label: String,
+        #[source]
+        source: PipelineRenderStateError,
+    },
+}
+
 impl PipelineKind {
     pub fn default_entry_points(self) -> (&'static str, &'static str) {
         ("vs_main", "fs_main")
@@ -320,6 +338,45 @@ impl Pipeline {
         self.render_state = render_state;
         Ok(self)
     }
+
+    /// Validates the provider-neutral declaration before backend submission.
+    ///
+    /// All current built-in pipelines share the material binding schema of a
+    /// color, texture, and sampler. A material without a texture is compatible:
+    /// renderer adapters bind a deterministic white fallback texture.
+    pub fn validate(&self) -> Result<(), PipelineValidationError> {
+        self.render_state.validate().map_err(|source| {
+            PipelineValidationError::InvalidRenderState {
+                label: self.label.clone(),
+                source,
+            }
+        })?;
+
+        if self.vertex_entry_point.trim().is_empty() {
+            return Err(PipelineValidationError::EmptyEntryPoint {
+                label: self.label.clone(),
+                stage: "vertex",
+            });
+        }
+        if self.fragment_entry_point.trim().is_empty() {
+            return Err(PipelineValidationError::EmptyEntryPoint {
+                label: self.label.clone(),
+                stage: "fragment",
+            });
+        }
+        if self.kind == PipelineKind::CustomWgsl2d
+            && self
+                .shader_source
+                .as_deref()
+                .is_none_or(|source| source.trim().is_empty())
+        {
+            return Err(PipelineValidationError::MissingCustomShaderSource {
+                label: self.label.clone(),
+            });
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -482,6 +539,32 @@ mod tests {
             .expect_err("invalid render state must be rejected");
 
         assert_eq!(error, PipelineRenderStateError::DepthWriteWithoutDepthTest);
+    }
+
+    #[test]
+    fn rejects_custom_pipelines_without_a_shader_before_backend_submission() {
+        let pipeline = Pipeline::new("missing-custom-source", PipelineKind::CustomWgsl2d);
+
+        assert_eq!(
+            pipeline.validate(),
+            Err(PipelineValidationError::MissingCustomShaderSource {
+                label: "missing-custom-source".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_empty_stage_entry_points_before_backend_submission() {
+        let mut pipeline = Pipeline::new("empty-entry", PipelineKind::SolidColor2d);
+        pipeline.fragment_entry_point.clear();
+
+        assert_eq!(
+            pipeline.validate(),
+            Err(PipelineValidationError::EmptyEntryPoint {
+                label: "empty-entry".to_owned(),
+                stage: "fragment",
+            })
+        );
     }
 
     #[test]

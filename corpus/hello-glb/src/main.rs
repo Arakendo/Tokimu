@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf, sync::Arc};
+use std::{fs, io, path::PathBuf, sync::Arc};
 
 use gltf_corpus::{decode_glb_file, DecodedPrimitive};
 use presentation_control::{
@@ -173,7 +173,64 @@ impl HelloGlbApp {
         self.model_material_override = (self.presentation_step != 0)
             .then(|| resolved_to_material_override(resolved))
             .transpose()?;
+        self.write_presentation_artifact(resolved)?;
         Ok(())
+    }
+
+    /// Writes a structural corpus artifact for review without claiming that it
+    /// is a GPU framebuffer capture or a renderer-owned cache record.
+    fn write_presentation_artifact(&self, resolved: ResolvedPresentation) -> PlatformResult<()> {
+        let artifact = self.presentation_artifact_json(resolved)?;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("target/hello-glb");
+        fs::create_dir_all(&root)?;
+        fs::write(root.join("presentation-state.json"), artifact)?;
+        Ok(())
+    }
+
+    fn presentation_artifact_json(&self, resolved: ResolvedPresentation) -> PlatformResult<String> {
+        let source = self.source_model_material()?;
+        let selected_pipeline = if resolved.opacity < 1.0 {
+            "glb-transparent-pipeline"
+        } else {
+            "glb-pipeline"
+        };
+        let artifact = format!(
+            concat!(
+                "{{\n",
+                "  \"schema\": 1,\n",
+                "  \"example\": \"hello-glb\",\n",
+                "  \"source\": \"{}\",\n",
+                "  \"target\": {{\"kind\": \"meshPrimitive\", \"key\": \"{}\"}},\n",
+                "  \"state\": \"{}\",\n",
+                "  \"sourceMaterial\": {{\"label\": \"{}\", \"baseColor\": [{:.6}, {:.6}, {:.6}, {:.6}]}},\n",
+                "  \"resolvedPresentation\": {{\"color\": [{:.6}, {:.6}, {:.6}], \"opacity\": {:.6}, \"visible\": {}, \"emphasis\": {}}},\n",
+                "  \"pipeline\": \"{}\",\n",
+                "  \"transparency\": {{\"blend\": \"alphaBlend\", \"depthTest\": \"lessEqual\", \"depthWrite\": {}, \"ordering\": \"submissionOrder; intersecting transparent geometry is not guaranteed\"}}\n",
+                "}}\n"
+            ),
+            KHRONOS_BOX_SOURCE,
+            MODEL_TARGET_KEY,
+            presentation_step_name(self.presentation_step),
+            source.label,
+            source.base_color.r,
+            source.base_color.g,
+            source.base_color.b,
+            source.base_color.a,
+            resolved.color.red,
+            resolved.color.green,
+            resolved.color.blue,
+            resolved.opacity,
+            resolved.visible,
+            resolved
+                .emphasis
+                .map(|value| format!("\"{value:?}\""))
+                .unwrap_or_else(|| "null".to_owned()),
+            selected_pipeline,
+            resolved.opacity >= 1.0,
+        );
+        Ok(artifact)
     }
 
     fn source_model_material(&self) -> PlatformResult<Material> {
@@ -310,6 +367,7 @@ impl PlatformEventHandler for HelloGlbApp {
                 })?,
         )?;
         self.renderer = Some(renderer);
+        self.refresh_model_presentation()?;
         self.update_window_title();
         Ok(())
     }
@@ -524,5 +582,28 @@ mod tests {
         assert_eq!(app.presentation_step, 0);
         assert!(app.model_material_override.is_none());
         assert_eq!(app.source_model_material().unwrap(), source_material);
+    }
+
+    #[test]
+    fn presentation_artifact_records_the_resolved_state_and_pipeline_policy() {
+        let mut app = HelloGlbApp {
+            presentation_step: 3,
+            ..HelloGlbApp::default()
+        };
+        app.presentation
+            .set_override(
+                &app.model_target,
+                PresentationLayer::Application,
+                PresentationOverride::default()
+                    .with_opacity_multiplier(0.35)
+                    .unwrap(),
+            )
+            .unwrap();
+        let resolved = app.presentation.resolve(&app.model_target).unwrap();
+        let artifact = app.presentation_artifact_json(resolved).unwrap();
+
+        assert!(artifact.contains("\"target\": {\"kind\": \"meshPrimitive\""));
+        assert!(artifact.contains("\"pipeline\": \"glb-transparent-pipeline\""));
+        assert!(artifact.contains("intersecting transparent geometry is not guaranteed"));
     }
 }

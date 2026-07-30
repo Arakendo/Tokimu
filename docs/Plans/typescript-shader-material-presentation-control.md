@@ -311,10 +311,14 @@ Deliverables:
 - [x] Describe blend mode, depth test/write, culling, and color-write policy as
       bounded Tokimu data.
 - [x] Keep shader module identity and pipeline identity separate.
-- [ ] Validate pipeline/material binding compatibility before submission.
+- [x] Validate the current shared material-binding contract before submission:
+      every built-in pipeline receives color, texture, and sampler bindings,
+      with a deterministic white fallback texture when source material has none.
+      Custom WGSL declarations must supply source and non-empty entry points.
 - [x] Preserve current built-in pipelines through explicit descriptors.
-- [ ] Surface shader compilation and pipeline validation failures through
-      Tokimu diagnostics.
+- [ ] Surface backend WGSL compilation and pipeline validation failures through
+      Tokimu diagnostics. Provider-neutral declaration failures are now
+      returned before backend submission.
 
 Acceptance criteria:
 
@@ -375,8 +379,11 @@ Deliverables:
       vocabulary.
 - [x] Demonstrate source, selected, hotspot, transparent, hidden, and restored
       mesh states through an opt-in per-draw override command.
-- [ ] Capture structural artifacts and deterministic CPU or native visual
-      evidence where appropriate.
+- [x] Capture structural artifacts and deterministic CPU or native visual
+      evidence where appropriate. `hello-glb` emits
+      `target/hello-glb/presentation-state.json` for the source material,
+      resolved presentation, selected pipeline, and transparency policy. This
+      is structural evidence, not a GPU framebuffer capture.
 - [x] Record draw count, binding allocations, uniform writes, mesh uploads, and
       selected pipeline in the native GLB override corpus telemetry.
 
@@ -386,8 +393,8 @@ Acceptance criteria:
       WGSL.
 - [ ] Transparent presentation exposes its documented depth and ordering
       behavior.
-- [ ] Structural artifacts identify source material, applied overrides, resolved
-      parameters, and selected pipeline.
+- [x] Structural artifacts identify source material, the resolved override
+      result, parameters, and selected pipeline.
 - [ ] The example remains interactive within the admitted performance budget.
 
 ### Slice 6: WASM Runtime Presentation API
@@ -402,7 +409,10 @@ Deliverables:
       observations.
 - [x] Return structured diagnostics for invalid targets and values. Unsupported
       effects remain outside this bounded v1 command surface.
-- [ ] Preserve native/WASM semantic parity.
+- [x] Preserve native/WASM semantic parity for the admitted target and override
+      command: one serialized GLB hotspot request resolves to the same
+      provider-neutral value through the WASM session boundary and direct native
+      `PresentationControl`.
 
 Acceptance criteria:
 
@@ -410,7 +420,7 @@ Acceptance criteria:
       translucent, and restore it.
 - [x] The browser does not parse source asset formats or construct backend
       shaders.
-- [ ] The same override request produces equivalent resolved Tokimu data on
+- [x] The same override request produces equivalent resolved Tokimu data on
       native and WASM paths.
 - [x] Preview layout remains bounded while controls and diagnostics change.
 

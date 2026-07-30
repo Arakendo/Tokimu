@@ -1043,6 +1043,65 @@ mod tests {
     }
 
     #[test]
+    fn wasm_command_resolution_matches_direct_native_presentation_resolution() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb"
+        );
+        let observation = inspect("Box.glb", source).expect("Box fixture should decode");
+        let target_observation = observation
+            .presentation_targets
+            .first()
+            .expect("Box fixture should expose one presentation target");
+        let request = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "hotspot",
+            "overrideValue": {
+                "tint": { "color": { "red": 1.0, "green": 0.35, "blue": 0.1 }, "mode": "replace" },
+                "opacityMultiplier": 0.45,
+                "visible": true,
+                "emphasis": "hotspot"
+            }
+        });
+        let command: PresentationOverrideRequest =
+            serde_json::from_value(request.clone()).expect("fixture request should deserialize");
+        let target = PresentationTargetId::new(command.kind, command.key.clone())
+            .expect("fixture target should remain valid");
+        let mut native_control = PresentationControl::default();
+        native_control
+            .register_target_with_descriptor(
+                target_observation
+                    .descriptor()
+                    .expect("observation target should remain valid"),
+                target_observation.source,
+            )
+            .expect("native target registration should succeed");
+        native_control
+            .set_override(&target, command.layer, command.override_value)
+            .expect("native override should resolve");
+        let native_resolved = native_control
+            .resolve(&target)
+            .expect("native target should resolve");
+
+        let observation_json = serde_json::to_string(&observation).unwrap();
+        let mut wasm_session =
+            PresentationSession::new(&observation_json).expect("session should construct");
+        let wasm_response = wasm_session
+            .set_override(&request.to_string())
+            .expect("WASM command boundary should resolve");
+        let wasm_response: serde_json::Value = serde_json::from_str(&wasm_response).unwrap();
+        let wasm_resolved: ResolvedPresentation =
+            serde_json::from_value(wasm_response["resolved"].clone())
+                .expect("resolved WASM response should preserve the provider-neutral contract");
+
+        assert_eq!(wasm_response["status"], "resolved");
+        assert_eq!(
+            wasm_resolved, native_resolved,
+            "the WASM command boundary must preserve native resolved presentation semantics"
+        );
+    }
+
+    #[test]
     fn maya_cube_fbx_produces_a_bounded_static_triangle_preview() {
         let source = include_bytes!(
             "../../../../../third-party/fixtures/fbx-corpus/upstream/data/maya_cube_7500_binary.fbx"

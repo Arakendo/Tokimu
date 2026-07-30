@@ -26,7 +26,7 @@ pub use material::{
 pub use mesh::Mesh;
 pub use pipeline::{
     BlendMode, ColorWriteMask, CullMode, DepthTest, Pipeline, PipelineKind, PipelineRegistry,
-    PipelineRenderState, PipelineRenderStateError,
+    PipelineRenderState, PipelineRenderStateError, PipelineValidationError,
 };
 pub use renderable::Renderable;
 pub use renderer::{
