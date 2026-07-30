@@ -803,6 +803,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-particles"
+version = "0.1.0"
+dependencies = [
+ "particle-tools",
+ "serde_json",
+ "tokimu",
+]
+
+[[package]]
 name = "hello-rule-model"
 version = "0.1.0"
 dependencies = [
@@ -1719,6 +1728,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "particle-tools"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2389,6 +2407,16 @@ dependencies = [
  "tokimu-runtime",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "tokimu-website-asteroids-engine"
+version = "0.1.0"
+dependencies = [
+ "particle-tools",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]

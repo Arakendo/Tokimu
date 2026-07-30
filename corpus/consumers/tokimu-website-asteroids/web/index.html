@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Tokimu Asteroids WASM Corpus</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="game-header">
+        <div>
+          <p class="eyebrow">TOKIMU / CONSUMER CORPUS</p>
+          <h1>Asteroid field</h1>
+        </div>
+        <p class="status" data-status aria-live="polite">Loading Rust/WASM...</p>
+      </header>
+
+      <section class="viewport-shell" aria-label="Playable Asteroids demo">
+        <canvas data-game-canvas aria-label="Tokimu Asteroids playfield. Touch or click to aim and fire."></canvas>
+        <div class="hud" aria-live="polite">
+          <span>SCORE <strong data-score>000000</strong></span>
+          <span>WAVE <strong data-wave>01</strong></span>
+          <span>LIVES <strong data-lives>3</strong></span>
+          <span data-combo-wrap hidden>COMBO <strong data-combo>x1</strong></span>
+        </div>
+        <div class="curtain" data-curtain hidden>
+          <p class="eyebrow" data-curtain-kicker>FIELD STATUS</p>
+          <h2 data-curtain-title>Paused</h2>
+          <p data-curtain-detail>Press P to continue.</p>
+        </div>
+      </section>
+
+      <footer class="game-footer">
+        <p><kbd>WASD</kbd> thrust · pointer or touch aim and fire · <kbd>Space</kbd> fire · <kbd>P</kbd> pause</p>
+        <button type="button" data-restart>Restart field</button>
+      </footer>
+    </main>
+    <script type="module" src="./asteroids.js"></script>
+  </body>
+</html>
