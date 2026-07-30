@@ -393,6 +393,9 @@ Deliverables:
       is structural evidence, not a GPU framebuffer capture.
 - [x] Record draw count, binding allocations, uniform writes, mesh uploads, and
       selected pipeline in the native GLB override corpus telemetry.
+- [x] Observe platform frame interval and renderer-present CPU duration through
+      sustained performance-budget diagnostics. These timings are CPU wall-time
+      evidence, not a GPU completion measurement.
 
 Acceptance criteria:
 

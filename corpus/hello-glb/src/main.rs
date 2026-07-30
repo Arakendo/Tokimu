@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf, sync::Arc};
+use std::{fs, io, path::PathBuf, sync::Arc, time::Instant};
 
 use gltf_corpus::{decode_glb_file, DecodedPrimitive};
 use presentation_control::{
@@ -8,11 +8,12 @@ use presentation_control::{
 };
 use tokimu::{
     run_window_with_app, BlendMode, Camera, CameraHandle, ClearCommand, Color, ColorWriteMask,
-    CullMode, DepthTest, DrawMeshCommand, DrawMeshMaterialOverrideCommand, FrameOutcome,
-    Instance2d, KeyCode, Material, MaterialDefinition, MaterialDefinitionId, MaterialHandle,
-    MaterialInstance, MaterialOverride, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PipelineKind, PipelineRenderState, PlatformEventHandler, PlatformInputEvent, PlatformResult,
-    RenderCommand, Renderer, WgpuBackend, WindowConfig,
+    CullMode, DepthTest, Diagnostics, DrawMeshCommand, DrawMeshMaterialOverrideCommand,
+    FrameOutcome, Instance2d, KeyCode, Material, MaterialDefinition, MaterialDefinitionId,
+    MaterialHandle, MaterialInstance, MaterialOverride, Mesh, MeshHandle, NativeWindow,
+    PerformanceBudget, PerformanceMonitor, PerformanceUnit, Pipeline, PipelineHandle, PipelineKind,
+    PipelineRenderState, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, WgpuBackend, WindowConfig,
 };
 use tokimu_assets::{AssetLifecycleObservation, AssetStore};
 use tokimu_core::math::{Mat4, Vec3};
@@ -56,6 +57,9 @@ struct HelloGlbApp {
     presentation_frames_since_change: u32,
     model_visible: bool,
     frame_index: u64,
+    diagnostics: Diagnostics,
+    frame_time_monitor: PerformanceMonitor,
+    present_time_monitor: PerformanceMonitor,
 }
 
 impl Default for HelloGlbApp {
@@ -99,6 +103,25 @@ impl Default for HelloGlbApp {
             presentation_frames_since_change: 0,
             model_visible: true,
             frame_index: 0,
+            diagnostics: Diagnostics::default(),
+            frame_time_monitor: PerformanceMonitor::new(
+                PerformanceBudget::new(
+                    "hello-glb",
+                    "platform-reported frame interval",
+                    25.0,
+                    PerformanceUnit::Milliseconds,
+                )
+                .with_required_consecutive_violations(3),
+            ),
+            present_time_monitor: PerformanceMonitor::new(
+                PerformanceBudget::new(
+                    "hello-glb.renderer",
+                    "renderer present call CPU wall duration",
+                    16.0,
+                    PerformanceUnit::Milliseconds,
+                )
+                .with_required_consecutive_violations(3),
+            ),
         }
     }
 }
@@ -242,7 +265,7 @@ impl HelloGlbApp {
             .map_err(Into::into)
     }
 
-    fn render_scene(&mut self) -> PlatformResult<FrameOutcome> {
+    fn render_scene(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         let seconds = self.elapsed_seconds as f32;
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
         let orbit = seconds * 0.28;
@@ -294,6 +317,8 @@ impl HelloGlbApp {
             });
         }
 
+        let diagnostic_count = self.diagnostics.records().len();
+        let present_start = Instant::now();
         let stats = {
             let Some(renderer) = self.renderer.as_mut() else {
                 return Ok(FrameOutcome::Continue);
@@ -305,7 +330,15 @@ impl HelloGlbApp {
             renderer.submit(&commands);
             renderer.present()?
         };
+        let present_time = present_start.elapsed();
         self.frame_index = self.frame_index.saturating_add(1);
+        self.frame_time_monitor
+            .observe(delta_seconds * 1000.0, &mut self.diagnostics);
+        self.present_time_monitor
+            .observe(present_time.as_secs_f64() * 1000.0, &mut self.diagnostics);
+        for diagnostic in &self.diagnostics.records()[diagnostic_count..] {
+            eprintln!("{diagnostic}");
+        }
         if self.presentation_frames_since_change >= 1
             && self.model_material_override.is_some()
             && stats.frame.binding_allocations != 0
@@ -319,11 +352,13 @@ impl HelloGlbApp {
             self.presentation_frames_since_change.saturating_add(1);
         if self.frame_index <= 3 || self.frame_index.is_multiple_of(120) {
             println!(
-                "hello-glb frame {}: presentation={}, visible={}, pipeline={}, draws={}, submits={}, binding_allocations={}, uniform_writes={}, mesh_uploads={}, mesh_replacements={}, lifetime_binding_allocations={}",
+                "hello-glb frame {}: presentation={}, visible={}, pipeline={}, platform_frame_interval_ms={:.3}, renderer_present_call_cpu_ms={:.3}, draws={}, submits={}, binding_allocations={}, uniform_writes={}, mesh_uploads={}, mesh_replacements={}, lifetime_binding_allocations={}",
                 self.frame_index,
                 presentation_step_name(self.presentation_step),
                 self.model_visible,
                 selected_pipeline.0,
+                delta_seconds * 1000.0,
+                present_time.as_secs_f64() * 1000.0,
                 stats.frame.draw_calls,
                 stats.frame.submit_calls,
                 stats.frame.binding_allocations,
@@ -404,7 +439,7 @@ impl PlatformEventHandler for HelloGlbApp {
 
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         self.elapsed_seconds += delta_seconds;
-        self.render_scene()
+        self.render_scene(delta_seconds)
     }
 }
 
