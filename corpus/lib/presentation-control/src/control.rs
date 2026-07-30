@@ -150,6 +150,36 @@ impl PresentationControl {
         self.targets.get(target)
     }
 
+    /// Finds one target through optional provider-facing source metadata.
+    ///
+    /// Source names are useful for inspection, but they are not authoritative:
+    /// importers can omit them or reuse them. Callers must use the returned
+    /// stable ID for later override or reset operations.
+    pub fn target_by_source_name(
+        &self,
+        source_name: &str,
+    ) -> Result<&PresentationTargetState, PresentationControlError> {
+        let matches = self
+            .targets
+            .iter()
+            .filter(|(_, state)| state.descriptor.source_name() == Some(source_name))
+            .collect::<Vec<_>>();
+
+        match matches.as_slice() {
+            [] => Err(PresentationControlError::UnknownSourceName {
+                source_name: source_name.to_owned(),
+            }),
+            [(_, state)] => Ok(*state),
+            _ => Err(PresentationControlError::AmbiguousSourceName {
+                source_name: source_name.to_owned(),
+                matches: matches
+                    .into_iter()
+                    .map(|(target, _)| target.clone())
+                    .collect(),
+            }),
+        }
+    }
+
     pub fn targets(
         &self,
     ) -> impl ExactSizeIterator<Item = (&PresentationTargetId, &PresentationTargetState)> {

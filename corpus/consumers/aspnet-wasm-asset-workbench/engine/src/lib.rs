@@ -4,7 +4,12 @@ use fbx_corpus::{
     FbxGeometryEvidence, FbxLimits,
 };
 use gltf_corpus::{decode_glb, inspect_glb, inspect_gltf, GltfSummary, TransformMatrix};
-use serde::Serialize;
+use presentation_control::{
+    PresentationColor, PresentationControl, PresentationControlError, PresentationLayer,
+    PresentationOverride, PresentationTargetDescriptor, PresentationTargetId,
+    PresentationTargetKind, ResolvedPresentation, SourcePresentation,
+};
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet},
@@ -21,51 +26,143 @@ const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
 // diagnostic preview. This is a unit-space hairline, not CGM LINE WIDTH.
 const CGM_DIAGNOSTIC_STROKE_WIDTH: f32 = 0.0025;
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssetObservation {
     schema: u32,
     file_name: String,
-    format: &'static str,
-    status: &'static str,
+    format: String,
+    status: String,
     byte_length: usize,
     summary: String,
     properties: Vec<Property>,
     diagnostics: Vec<String>,
     preview: Option<VectorPreview>,
+    presentation_targets: Vec<PresentationTargetObservation>,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct Property {
     label: String,
     value: String,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct VectorPreview {
-    kind: &'static str,
+    kind: String,
     paths: Vec<PreviewPath>,
     triangles: Vec<PreviewTriangle>,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct PreviewTriangle {
     points: [[f32; 3]; 3],
+    target: Option<PreviewTarget>,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct PreviewPath {
     contours: Vec<PreviewContour>,
     fill: bool,
     stroke: bool,
     color: [f32; 4],
     stroke_width: f32,
+    target: Option<PreviewTarget>,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct PreviewContour {
     points: Vec<[f32; 2]>,
     closed: bool,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PreviewTarget {
+    kind: PresentationTargetKind,
+    key: String,
+}
+
+/// A serializable, provider-neutral target advertised by an asset observation.
+///
+/// Browser callers may display this information or send its stable `kind` and
+/// `key` back to a bounded presentation session. They do not infer targets by
+/// parsing the original source bytes.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PresentationTargetObservation {
+    kind: PresentationTargetKind,
+    key: String,
+    source_name: Option<String>,
+    source: SourcePresentation,
+}
+
+impl PresentationTargetObservation {
+    fn from_descriptor(
+        descriptor: PresentationTargetDescriptor,
+        source: SourcePresentation,
+    ) -> Self {
+        Self {
+            kind: descriptor.id().kind(),
+            key: descriptor.id().key().to_owned(),
+            source_name: descriptor.source_name().map(str::to_owned),
+            source,
+        }
+    }
+
+    fn descriptor(&self) -> Result<PresentationTargetDescriptor, String> {
+        let id = PresentationTargetId::new(self.kind, self.key.clone())
+            .map_err(|error| error.to_string())?;
+        match &self.source_name {
+            Some(source_name) => PresentationTargetDescriptor::new(id)
+                .with_source_name(source_name.clone())
+                .map_err(|error| error.to_string()),
+            None => Ok(PresentationTargetDescriptor::new(id)),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PresentationOverrideRequest {
+    kind: PresentationTargetKind,
+    key: String,
+    layer: PresentationLayer,
+    override_value: PresentationOverride,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PresentationClearRequest {
+    kind: PresentationTargetKind,
+    key: String,
+    layer: PresentationLayer,
+}
+
+/// A bounded diagnostic returned for a presentation command that cannot be
+/// applied. This preserves the semantic error category without exposing Rust
+/// parser internals or requiring TypeScript to interpret exception strings.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PresentationDiagnostic {
+    code: &'static str,
+    message: String,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+enum PresentationCommandResponse {
+    Resolved { resolved: ResolvedPresentation },
+    Rejected { diagnostic: PresentationDiagnostic },
+}
+
+/// Stateful, provider-neutral presentation-command boundary for WASM hosts.
+///
+/// This owns no importer data or browser rendering state. It only resolves
+/// commands against the target descriptors Tokimu emitted in an observation.
+#[wasm_bindgen]
+pub struct PresentationSession {
+    control: PresentationControl,
 }
 
 #[wasm_bindgen]
@@ -83,16 +180,134 @@ pub fn inspect_asset(file_name: &str, bytes: &[u8]) -> String {
     let observation = inspect(file_name, bytes).unwrap_or_else(|message| AssetObservation {
         schema: SCHEMA,
         file_name: file_name.to_owned(),
-        format: classify(file_name),
-        status: "error",
+        format: classify(file_name).to_owned(),
+        status: "error".into(),
         byte_length: bytes.len(),
         summary: "Tokimu could not inspect this asset.".into(),
         properties: Vec::new(),
         diagnostics: vec![message],
         preview: None,
+        presentation_targets: Vec::new(),
     });
 
     serde_json::to_string(&observation).expect("asset observation should serialize")
+}
+
+#[wasm_bindgen]
+impl PresentationSession {
+    /// Creates a command session from the observation JSON returned by
+    /// `inspect_asset`.
+    #[wasm_bindgen(constructor)]
+    pub fn new(observation_json: &str) -> Result<Self, JsValue> {
+        let observation = serde_json::from_str::<AssetObservation>(observation_json)
+            .map_err(|error| JsValue::from_str(&format!("invalid asset observation: {error}")))?;
+        let mut control = PresentationControl::default();
+        for target in observation.presentation_targets {
+            let descriptor = target
+                .descriptor()
+                .map_err(|message| JsValue::from_str(&message))?;
+            control
+                .register_target_with_descriptor(descriptor, target.source)
+                .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        }
+        Ok(Self { control })
+    }
+
+    /// Returns the known targets and source values without exposing provider
+    /// parser objects or renderer resources.
+    pub fn targets(&self) -> String {
+        let targets = self
+            .control
+            .targets()
+            .map(|(_, state)| {
+                PresentationTargetObservation::from_descriptor(
+                    state.descriptor().clone(),
+                    state.source(),
+                )
+            })
+            .collect::<Vec<_>>();
+        serde_json::to_string(&targets).expect("presentation targets should serialize")
+    }
+
+    /// Applies one bounded transient override and returns either the resolved
+    /// provider-neutral presentation or a structured diagnostic as JSON.
+    pub fn set_override(&mut self, request_json: &str) -> Result<String, JsValue> {
+        let response = match serde_json::from_str::<PresentationOverrideRequest>(request_json) {
+            Ok(request) => match PresentationTargetId::new(request.kind, request.key) {
+                Ok(target) => match self
+                    .control
+                    .set_override(&target, request.layer, request.override_value)
+                    .and_then(|()| self.control.resolve(&target))
+                {
+                    Ok(resolved) => PresentationCommandResponse::Resolved { resolved },
+                    Err(error) => rejected_response(error),
+                },
+                Err(error) => rejected_response(error),
+            },
+            Err(error) => rejected_invalid_request(error.to_string()),
+        };
+        serialize_command_response(response)
+    }
+
+    /// Clears one transient override layer and returns either the restored
+    /// presentation or a structured diagnostic as JSON.
+    pub fn clear_override(&mut self, request_json: &str) -> Result<String, JsValue> {
+        let response = match serde_json::from_str::<PresentationClearRequest>(request_json) {
+            Ok(request) => match PresentationTargetId::new(request.kind, request.key) {
+                Ok(target) => match self
+                    .control
+                    .clear_override(&target, request.layer)
+                    .and_then(|_| self.control.resolve(&target))
+                {
+                    Ok(resolved) => PresentationCommandResponse::Resolved { resolved },
+                    Err(error) => rejected_response(error),
+                },
+                Err(error) => rejected_response(error),
+            },
+            Err(error) => rejected_invalid_request(error.to_string()),
+        };
+        serialize_command_response(response)
+    }
+}
+
+fn rejected_response(error: PresentationControlError) -> PresentationCommandResponse {
+    PresentationCommandResponse::Rejected {
+        diagnostic: PresentationDiagnostic {
+            code: presentation_error_code(&error),
+            message: error.to_string(),
+        },
+    }
+}
+
+fn presentation_error_code(error: &PresentationControlError) -> &'static str {
+    match error {
+        PresentationControlError::UnknownTarget { .. } => "unknown-target",
+        PresentationControlError::InvalidUnitValue { .. } => "invalid-value",
+        PresentationControlError::EmptyTargetKey
+        | PresentationControlError::TargetKeyWhitespace
+        | PresentationControlError::TargetKeyTooLong { .. }
+        | PresentationControlError::TargetKeyControlCharacter => "invalid-target",
+        PresentationControlError::DuplicateTarget { .. } => "duplicate-target",
+        PresentationControlError::UnknownSourceName { .. }
+        | PresentationControlError::AmbiguousSourceName { .. } => "source-name-resolution",
+    }
+}
+
+fn rejected_invalid_request(message: String) -> PresentationCommandResponse {
+    PresentationCommandResponse::Rejected {
+        diagnostic: PresentationDiagnostic {
+            code: "invalid-request",
+            message,
+        },
+    }
+}
+
+fn serialize_command_response(response: PresentationCommandResponse) -> Result<String, JsValue> {
+    serde_json::to_string(&response).map_err(|error| {
+        JsValue::from_str(&format!(
+            "presentation command result did not serialize: {error}"
+        ))
+    })
 }
 
 fn inspect(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
@@ -132,6 +347,16 @@ fn classify(file_name: &str) -> &'static str {
     }
 }
 
+fn source_presentation(color: [f32; 4]) -> SourcePresentation {
+    SourcePresentation::new(
+        PresentationColor::new(color[0], color[1], color[2])
+            .expect("bounded preview colors should be valid"),
+        color[3],
+        true,
+    )
+    .expect("bounded preview opacity should be valid")
+}
+
 fn inspect_svg(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
     let source =
         std::str::from_utf8(bytes).map_err(|error| format!("SVG is not UTF-8: {error}"))?;
@@ -153,20 +378,42 @@ fn inspect_svg(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
         .sum::<usize>();
     let paths = records
         .into_iter()
-        .map(|record| PreviewPath {
-            contours: preview_contours(&record.path),
-            fill: record.fill,
-            stroke: record.stroke,
-            color: svg_color(record.fill_color.or(record.stroke_color)),
-            stroke_width: record.stroke_width,
+        .enumerate()
+        .map(|(index, record)| {
+            let color = svg_color(record.fill_color.or(record.stroke_color));
+            (
+                PreviewPath {
+                    contours: preview_contours(&record.path),
+                    fill: record.fill,
+                    stroke: record.stroke,
+                    color,
+                    stroke_width: record.stroke_width,
+                    target: Some(PreviewTarget {
+                        kind: PresentationTargetKind::VectorRecord,
+                        key: format!("record/{index}"),
+                    }),
+                },
+                PresentationTargetObservation::from_descriptor(
+                    PresentationTargetDescriptor::new(
+                        PresentationTargetId::new(
+                            PresentationTargetKind::VectorRecord,
+                            format!("record/{index}"),
+                        )
+                        .expect("bounded SVG record target should be valid"),
+                    ),
+                    source_presentation(color),
+                ),
+            )
         })
         .collect::<Vec<_>>();
+    let presentation_targets = paths.iter().map(|(_, target)| target.clone()).collect();
+    let paths = paths.into_iter().map(|(path, _)| path).collect::<Vec<_>>();
 
     Ok(AssetObservation {
         schema: SCHEMA,
         file_name: file_name.into(),
-        format: "svg",
-        status: "renderable",
+        format: "svg".into(),
+        status: "renderable".into(),
         byte_length: bytes.len(),
         summary: format!("Tokimu lowered {} SVG vector records.", paths.len()),
         properties: vec![
@@ -176,10 +423,11 @@ fn inspect_svg(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
         ],
         diagnostics: Vec::new(),
         preview: Some(VectorPreview {
-            kind: "vector-contours",
+            kind: "vector-contours".into(),
             paths,
             triangles: Vec::new(),
         }),
+        presentation_targets,
     })
 }
 
@@ -194,17 +442,45 @@ fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
         .map_err(|error| error.to_string())?
         .unwrap_or_default()
         .into_iter()
-        .map(|primitive| PreviewPath {
-            contours: preview_contours(&primitive.path),
-            // CGM contour closure records topology, not an admitted fill intent.
-            // Until CGM attributes drive a provider-neutral paint contract, this
-            // consumer intentionally presents all lowered CGM primitives as
-            // diagnostic outlines.
-            fill: false,
-            stroke: true,
-            color: [0.53, 0.84, 0.78, 1.0],
-            stroke_width: CGM_DIAGNOSTIC_STROKE_WIDTH,
+        .enumerate()
+        .map(|(index, primitive)| {
+            let color = [0.53, 0.84, 0.78, 1.0];
+            (
+                PreviewPath {
+                    contours: preview_contours(&primitive.path),
+                    // CGM contour closure records topology, not an admitted fill intent.
+                    // Until CGM attributes drive a provider-neutral paint contract, this
+                    // consumer intentionally presents all lowered CGM primitives as
+                    // diagnostic outlines.
+                    fill: false,
+                    stroke: true,
+                    color,
+                    stroke_width: CGM_DIAGNOSTIC_STROKE_WIDTH,
+                    target: Some(PreviewTarget {
+                        kind: PresentationTargetKind::VectorRecord,
+                        key: format!("picture/0/primitive/{index}"),
+                    }),
+                },
+                PresentationTargetObservation::from_descriptor(
+                    PresentationTargetDescriptor::new(
+                        PresentationTargetId::new(
+                            PresentationTargetKind::VectorRecord,
+                            format!("picture/0/primitive/{index}"),
+                        )
+                        .expect("bounded CGM primitive target should be valid"),
+                    ),
+                    source_presentation(color),
+                ),
+            )
         })
+        .collect::<Vec<_>>();
+    let presentation_targets = preview_paths
+        .iter()
+        .map(|(_, target)| target.clone())
+        .collect();
+    let preview_paths = preview_paths
+        .into_iter()
+        .map(|(path, _)| path)
         .collect::<Vec<_>>();
     let unsupported_element_kinds = inspection
         .diagnostics
@@ -217,11 +493,11 @@ fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
     Ok(AssetObservation {
         schema: SCHEMA,
         file_name: file_name.into(),
-        format: "cgm",
+        format: "cgm".into(),
         status: if preview_paths.is_empty() {
-            "inspected"
+            "inspected".into()
         } else {
-            "previewable"
+            "previewable".into()
         },
         byte_length: bytes.len(),
         summary: format!(
@@ -245,10 +521,11 @@ fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
         ],
         diagnostics,
         preview: (!preview_paths.is_empty()).then_some(VectorPreview {
-            kind: "vector-contours",
+            kind: "vector-contours".into(),
             paths: preview_paths,
             triangles: Vec::new(),
         }),
+        presentation_targets,
     })
 }
 
@@ -327,6 +604,7 @@ fn inspect_glb_asset(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, 
     let inspection = inspect_glb(bytes).map_err(|error| error.to_string())?;
     let decoded = decode_glb(bytes).map_err(|error| error.to_string())?;
     let triangles = preview_triangles(&decoded.primitives, &decoded.nodes, &decoded.scenes);
+    let presentation_targets = mesh_presentation_targets(&decoded.primitives);
     let mut observation = model_observation(
         file_name,
         "glb",
@@ -339,7 +617,7 @@ fn inspect_glb_asset(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, 
             .diagnostics
             .push("No triangle primitives were admitted for browser preview.".into());
     } else {
-        observation.status = "renderable";
+        observation.status = "renderable".into();
         observation.summary = format!(
             "Tokimu decoded {} GLB triangles into a provider-neutral scene preview.",
             triangles.len()
@@ -348,15 +626,39 @@ fn inspect_glb_asset(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, 
             .properties
             .push(property("Preview triangles", triangles.len()));
         observation.preview = Some(VectorPreview {
-            kind: "mesh-triangles",
+            kind: "mesh-triangles".into(),
             paths: Vec::new(),
             triangles,
         });
+        observation.presentation_targets = presentation_targets;
         observation.diagnostics = vec![
             "Browser preview is an interactive diagnostic perspective view of Tokimu-decoded scene geometry. It applies browser-side projection, depth ordering, and back-face culling; materials, lighting, textures, and animation are pending.".into(),
         ];
     }
     Ok(observation)
+}
+
+fn mesh_presentation_targets(
+    primitives: &[gltf_corpus::DecodedPrimitive],
+) -> Vec<PresentationTargetObservation> {
+    primitives
+        .iter()
+        .map(|primitive| {
+            let location = primitive.location;
+            let key = format!("mesh/{}/primitive/{}", location.mesh, location.primitive);
+            let source_name = format!("Mesh {} / Primitive {}", location.mesh, location.primitive);
+            let descriptor = PresentationTargetDescriptor::new(
+                PresentationTargetId::new(PresentationTargetKind::MeshPrimitive, key)
+                    .expect("decoded GLB primitive target should be valid"),
+            )
+            .with_source_name(source_name)
+            .expect("decoded GLB primitive source name should be valid");
+            PresentationTargetObservation::from_descriptor(
+                descriptor,
+                source_presentation([0.53, 0.84, 0.78, 1.0]),
+            )
+        })
+        .collect()
 }
 
 fn inspect_gltf_asset(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
@@ -390,8 +692,8 @@ fn model_observation(
     AssetObservation {
         schema: SCHEMA,
         file_name: file_name.into(),
-        format,
-        status: "inspected",
+        format: format.into(),
+        status: "inspected".into(),
         byte_length,
         summary: "Tokimu recognized the model structure; browser mesh rendering is pending.".into(),
         properties,
@@ -399,6 +701,7 @@ fn model_observation(
             "Rendering is intentionally deferred until a provider-neutral scene/mesh consumer boundary is selected.".into(),
         ],
         preview: None,
+        presentation_targets: Vec::new(),
     }
 }
 
@@ -422,6 +725,13 @@ fn preview_triangles(
     primitives
         .iter()
         .flat_map(|primitive| {
+            let target = PreviewTarget {
+                kind: PresentationTargetKind::MeshPrimitive,
+                key: format!(
+                    "mesh/{}/primitive/{}",
+                    primitive.location.mesh, primitive.location.primitive
+                ),
+            };
             let transform = instances
                 .iter()
                 // A mesh can be instanced more than once. This bounded preview shows
@@ -443,7 +753,10 @@ fn preview_triangles(
                     points
                         .iter()
                         .all(|point| point.iter().all(|value| value.is_finite()))
-                        .then_some(PreviewTriangle { points })
+                        .then_some(PreviewTriangle {
+                            points,
+                            target: Some(target.clone()),
+                        })
                 })
         })
         .take(MAX_PREVIEW_TRIANGLES)
@@ -488,8 +801,8 @@ fn inspect_fbx(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
         return Ok(AssetObservation {
             schema: SCHEMA,
             file_name: file_name.into(),
-            format: "fbx",
-            status: "renderable",
+            format: "fbx".into(),
+            status: "renderable".into(),
             byte_length: bytes.len(),
             summary: format!(
                 "Tokimu lowered {} static FBX triangles into a provider-neutral scene preview.",
@@ -506,18 +819,19 @@ fn inspect_fbx(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
                 "Browser preview is an interactive diagnostic perspective view of Tokimu-lowered static FBX geometry. FBX model transforms, materials, textures, skinning, morphs, and animation remain pending.".into(),
             ],
             preview: Some(VectorPreview {
-                kind: "mesh-triangles",
+                kind: "mesh-triangles".into(),
                 paths: Vec::new(),
                 triangles,
             }),
+            presentation_targets: Vec::new(),
         });
     }
 
     Ok(AssetObservation {
         schema: SCHEMA,
         file_name: file_name.into(),
-        format: "fbx",
-        status: "inspected",
+        format: "fbx".into(),
+        status: "inspected".into(),
         byte_length: bytes.len(),
         summary: "Tokimu decoded the bounded FBX record graph, but no static triangle geometry was admitted for browser preview.".into(),
         properties: vec![
@@ -529,6 +843,7 @@ fn inspect_fbx(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
             "Provider-native FBX records remain below the WASM boundary by design; static triangle lowering requires admissible geometry and source-scene links.".into(),
         ],
         preview: None,
+        presentation_targets: Vec::new(),
     })
 }
 
@@ -548,7 +863,10 @@ fn fbx_preview_triangles(geometry: &FbxGeometryEvidence) -> Vec<PreviewTriangle>
                 points
                     .iter()
                     .all(|point| point.iter().all(|value| value.is_finite()))
-                    .then_some(PreviewTriangle { points })
+                    .then_some(PreviewTriangle {
+                        points,
+                        target: None,
+                    })
             })
         })
         .take(MAX_PREVIEW_TRIANGLES)
@@ -617,6 +935,111 @@ mod tests {
         let preview = observation.preview.expect("Box should provide a preview");
         assert_eq!(preview.kind, "mesh-triangles");
         assert!(!preview.triangles.is_empty());
+        assert_eq!(observation.presentation_targets.len(), 1);
+        let target = &observation.presentation_targets[0];
+        assert_eq!(target.kind, PresentationTargetKind::MeshPrimitive);
+        assert_eq!(target.key, "mesh/0/primitive/0");
+        assert_eq!(target.source_name.as_deref(), Some("Mesh 0 / Primitive 0"));
+    }
+
+    #[test]
+    fn identical_glb_bytes_advertise_stable_presentation_target_ids() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb"
+        );
+        let first = inspect("Box.glb", source).expect("first Box fixture should decode");
+        let second = inspect("Box.glb", source).expect("second Box fixture should decode");
+        let first_ids = first
+            .presentation_targets
+            .iter()
+            .map(|target| (target.kind, target.key.as_str()))
+            .collect::<Vec<_>>();
+        let second_ids = second
+            .presentation_targets
+            .iter()
+            .map(|target| (target.kind, target.key.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(first_ids, second_ids);
+        assert_eq!(
+            first_ids,
+            vec![(PresentationTargetKind::MeshPrimitive, "mesh/0/primitive/0")]
+        );
+    }
+
+    #[test]
+    fn wasm_presentation_session_resolves_glb_target_without_frontend_parsing() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb"
+        );
+        let observation = inspect("Box.glb", source).expect("Box fixture should decode");
+        let observation_json = serde_json::to_string(&observation).unwrap();
+        let mut session = PresentationSession::new(&observation_json)
+            .expect("observation targets should create a session");
+        let request = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "hotspot",
+            "overrideValue": {
+                "tint": { "color": { "red": 1.0, "green": 0.35, "blue": 0.1 }, "mode": "replace" },
+                "opacityMultiplier": 0.45,
+                "visible": true,
+                "emphasis": "hotspot"
+            }
+        });
+
+        let resolved = session
+            .set_override(&request.to_string())
+            .expect("bounded hotspot request should resolve");
+        let resolved: serde_json::Value = serde_json::from_str(&resolved).unwrap();
+        assert_eq!(resolved["status"], "resolved");
+        assert_eq!(resolved["resolved"]["color"]["red"], 1.0);
+        assert_eq!(resolved["resolved"]["color"]["green"], 0.35);
+        assert_eq!(resolved["resolved"]["color"]["blue"], 0.1);
+        assert_eq!(resolved["resolved"]["opacity"], 0.45);
+        assert_eq!(resolved["resolved"]["emphasis"], "hotspot");
+
+        let clear = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "hotspot"
+        });
+        let restored = session
+            .clear_override(&clear.to_string())
+            .expect("bounded restore request should resolve");
+        let restored: serde_json::Value = serde_json::from_str(&restored).unwrap();
+        assert_eq!(restored["status"], "resolved");
+        assert_eq!(restored["resolved"]["color"]["red"], 0.53);
+        assert_eq!(restored["resolved"]["color"]["green"], 0.84);
+        assert_eq!(restored["resolved"]["color"]["blue"], 0.78);
+        assert_eq!(restored["resolved"]["opacity"], 1.0);
+        assert!(restored["resolved"]["emphasis"].is_null());
+
+        let unknown = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/99/primitive/99",
+            "layer": "application"
+        });
+        let rejected = session
+            .clear_override(&unknown.to_string())
+            .expect("unknown target should produce a structured response");
+        let rejected: serde_json::Value = serde_json::from_str(&rejected).unwrap();
+        assert_eq!(rejected["status"], "rejected");
+        assert_eq!(rejected["diagnostic"]["code"], "unknown-target");
+
+        let invalid_value = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "application",
+            "overrideValue": {
+                "opacityMultiplier": 1.5
+            }
+        });
+        let rejected = session
+            .set_override(&invalid_value.to_string())
+            .expect("invalid value should produce a structured response");
+        let rejected: serde_json::Value = serde_json::from_str(&rejected).unwrap();
+        assert_eq!(rejected["status"], "rejected");
+        assert_eq!(rejected["diagnostic"]["code"], "invalid-value");
     }
 
     #[test]

@@ -58,6 +58,15 @@ dt { color: var(--muted); }
 dd { margin: 0; text-align: right; }
 h3 { margin-top: 2rem; font-size: .75rem; letter-spacing: .18em; color: var(--mint); }
 ul { padding-left: 1.1rem; color: var(--muted); line-height: 1.5; }
+#presentation-controls { display: grid; gap: .8rem; padding: 1.2rem 0; border-top: 1px solid var(--line); }
+#presentation-controls h3 { margin: 0; }
+#presentation-controls label { display: grid; gap: .35rem; color: var(--muted); font-size: .85rem; }
+#presentation-controls select, #presentation-controls input[type="range"] { width: 100%; }
+#presentation-controls select { padding: .45rem; border: 1px solid var(--line); color: var(--ink); background: var(--night); font: inherit; }
+#presentation-controls input[type="color"] { width: 100%; height: 2.2rem; border: 1px solid var(--line); background: var(--night); cursor: pointer; }
+#presentation-controls .visibility-toggle { display: flex; align-items: center; gap: .55rem; }
+#presentation-controls button { width: 100%; margin: 0; }
+.presentation-status { min-height: 1.2rem; margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
 
 @media (max-width: 850px) {
   header { display: block; }

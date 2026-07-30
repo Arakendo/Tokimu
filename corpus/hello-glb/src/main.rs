@@ -54,6 +54,7 @@ struct HelloGlbApp {
     model_material_override: Option<MaterialOverride>,
     presentation_step: usize,
     model_visible: bool,
+    frame_index: u64,
 }
 
 impl Default for HelloGlbApp {
@@ -95,6 +96,7 @@ impl Default for HelloGlbApp {
             model_material_override: None,
             presentation_step: 0,
             model_visible: true,
+            frame_index: 0,
         }
     }
 }
@@ -182,13 +184,6 @@ impl HelloGlbApp {
 
     fn render_scene(&mut self) -> PlatformResult<FrameOutcome> {
         let seconds = self.elapsed_seconds as f32;
-        let Some(renderer) = self.renderer.as_mut() else {
-            return Ok(FrameOutcome::Continue);
-        };
-
-        renderer.upload_mesh(MODEL_MESH, &transform_model_mesh(&self.model_mesh, seconds));
-        renderer.upload_mesh(FLOOR_MESH, &build_floor_mesh(seconds));
-
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
         let orbit = seconds * 0.28;
         let eye = Vec3::new(
@@ -197,9 +192,6 @@ impl HelloGlbApp {
             orbit.sin() * 4.75,
         );
         camera.view = Mat4::look_at_rh(eye, Vec3::new(0.0, 0.35, 0.0), Vec3::Y);
-        renderer.upload_camera(CAMERA_HANDLE, camera);
-
-        renderer.begin_frame();
         let mut commands = vec![
             RenderCommand::Clear(ClearCommand {
                 color: Color::rgb(0.05, 0.07, 0.11),
@@ -213,6 +205,7 @@ impl HelloGlbApp {
                 viewport: None,
             }),
         ];
+        let mut selected_pipeline = self.pipeline;
         if self.model_visible {
             let draw = DrawMeshCommand {
                 mesh: MODEL_MESH,
@@ -229,6 +222,7 @@ impl HelloGlbApp {
                 camera: Some(CAMERA_HANDLE),
                 viewport: None,
             };
+            selected_pipeline = draw.pipeline;
             commands.push(match self.model_material_override {
                 Some(material_override) => {
                     RenderCommand::DrawMeshMaterialOverride(DrawMeshMaterialOverrideCommand {
@@ -239,8 +233,35 @@ impl HelloGlbApp {
                 None => RenderCommand::DrawMesh(draw),
             });
         }
-        renderer.submit(&commands);
-        let _ = renderer.present()?;
+
+        let stats = {
+            let Some(renderer) = self.renderer.as_mut() else {
+                return Ok(FrameOutcome::Continue);
+            };
+            renderer.upload_mesh(MODEL_MESH, &transform_model_mesh(&self.model_mesh, seconds));
+            renderer.upload_mesh(FLOOR_MESH, &build_floor_mesh(seconds));
+            renderer.upload_camera(CAMERA_HANDLE, camera);
+            renderer.begin_frame();
+            renderer.submit(&commands);
+            renderer.present()?
+        };
+        self.frame_index = self.frame_index.saturating_add(1);
+        if self.frame_index <= 3 || self.frame_index.is_multiple_of(120) {
+            println!(
+                "hello-glb frame {}: presentation={}, visible={}, pipeline={}, draws={}, submits={}, binding_allocations={}, uniform_writes={}, mesh_uploads={}, mesh_replacements={}, lifetime_binding_allocations={}",
+                self.frame_index,
+                presentation_step_name(self.presentation_step),
+                self.model_visible,
+                selected_pipeline.0,
+                stats.frame.draw_calls,
+                stats.frame.submit_calls,
+                stats.frame.binding_allocations,
+                stats.frame.uniform_buffer_writes,
+                stats.frame.mesh_uploads,
+                stats.frame.mesh_replacements,
+                stats.lifetime.binding_allocations,
+            );
+        }
         self.update_window_title();
         Ok(FrameOutcome::Continue)
     }

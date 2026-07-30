@@ -19,4 +19,11 @@ pub enum PresentationControlError {
     DuplicateTarget { target: PresentationTargetId },
     #[error("presentation target `{target}` is not registered")]
     UnknownTarget { target: PresentationTargetId },
+    #[error("presentation source name `{source_name}` does not match a registered target")]
+    UnknownSourceName { source_name: String },
+    #[error("presentation source name `{source_name}` matches multiple targets: {matches:?}")]
+    AmbiguousSourceName {
+        source_name: String,
+        matches: Vec<PresentationTargetId>,
+    },
 }

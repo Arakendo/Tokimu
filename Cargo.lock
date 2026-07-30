@@ -2282,6 +2282,7 @@ dependencies = [
  "cgm-corpus",
  "fbx-corpus",
  "gltf-corpus",
+ "presentation-control",
  "serde",
  "serde_json",
  "tokimu",

@@ -35,6 +35,24 @@
         <h2 id="asset-name">No asset selected</h2>
         <p id="summary">Drop a local file to cross the TypeScript-to-Rust/WASM boundary.</p>
         <dl id="properties"></dl>
+        <section id="presentation-controls" hidden>
+          <h3>Presentation</h3>
+          <label>Target
+            <select id="presentation-target"></select>
+          </label>
+          <label>Tint
+            <input id="presentation-tint" type="color" value="#87d6c4">
+          </label>
+          <label>Opacity
+            <input id="presentation-opacity" type="range" min="0" max="1" step="0.05" value="1">
+          </label>
+          <label class="visibility-toggle">
+            <input id="presentation-visible" type="checkbox" checked>
+            Visible
+          </label>
+          <button id="presentation-reset" type="button">Reset presentation</button>
+          <p id="presentation-status" class="presentation-status"></p>
+        </section>
         <section>
           <h3>Diagnostics</h3>
           <ul id="diagnostics">

@@ -360,10 +360,10 @@ Deliverables:
 
 Acceptance criteria:
 
-- [ ] A known GLB or FBX mesh part can be selected by a stable ID across repeated
+- [x] A known GLB mesh part can be selected by a stable ID across repeated
       loads of identical bytes.
-- [ ] Unknown and ambiguous target requests are diagnosed.
-- [ ] TypeScript does not parse GLB, FBX, SVG, or CGM to discover target IDs.
+- [x] Unknown and ambiguous target requests are diagnosed.
+- [x] TypeScript does not parse GLB, FBX, SVG, or CGM to discover target IDs.
 
 ### Slice 5: Rust Corpus Proof
 
@@ -377,7 +377,8 @@ Deliverables:
       mesh states through an opt-in per-draw override command.
 - [ ] Capture structural artifacts and deterministic CPU or native visual
       evidence where appropriate.
-- [ ] Record draw count, binding writes, resource allocations, and frame timing.
+- [x] Record draw count, binding allocations, uniform writes, mesh uploads, and
+      selected pipeline in the native GLB override corpus telemetry.
 
 Acceptance criteria:
 
@@ -393,25 +394,25 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Expose target enumeration and bounded override commands through the
+- [x] Expose target enumeration and bounded override commands through the
       provider-neutral WASM consumer boundary.
-- [ ] Add asset-workbench controls for selection, tint, opacity, visibility, and
+- [x] Add asset-workbench controls for selection, tint, opacity, visibility, and
       reset.
-- [ ] Keep TypeScript state limited to user interaction and displayed
+- [x] Keep TypeScript state limited to user interaction and displayed
       observations.
-- [ ] Return structured diagnostics for invalid targets, values, and unsupported
-      effects.
+- [x] Return structured diagnostics for invalid targets and values. Unsupported
+      effects remain outside this bounded v1 command surface.
 - [ ] Preserve native/WASM semantic parity.
 
 Acceptance criteria:
 
-- [ ] A browser user can select a known model part, recolor it, make it
+- [x] A browser user can select a known model part, recolor it, make it
       translucent, and restore it.
-- [ ] The browser does not parse source asset formats or construct backend
+- [x] The browser does not parse source asset formats or construct backend
       shaders.
 - [ ] The same override request produces equivalent resolved Tokimu data on
       native and WASM paths.
-- [ ] Preview layout remains bounded while controls and diagnostics change.
+- [x] Preview layout remains bounded while controls and diagnostics change.
 
 ### Slice 7: TypeScript Material Authoring Package
 

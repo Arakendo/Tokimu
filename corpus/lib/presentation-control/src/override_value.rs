@@ -57,6 +57,7 @@ pub enum PresentationLayer {
 
 /// A transient presentation request that does not mutate source asset truth.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PresentationOverride {
     pub tint: Option<PresentationTint>,
     pub opacity_multiplier: Option<f32>,

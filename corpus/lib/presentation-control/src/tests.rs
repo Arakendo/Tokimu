@@ -202,4 +202,41 @@ fn stable_target_ids_distinguish_duplicate_source_names() {
         PresentationTargetDescriptor::new(first.clone()).display_name(),
         first.key()
     );
+
+    assert_eq!(
+        control.target_by_source_name("Housing").unwrap_err(),
+        PresentationControlError::AmbiguousSourceName {
+            source_name: "Housing".to_owned(),
+            matches: vec![first, second],
+        }
+    );
+    assert_eq!(
+        control.target_by_source_name("Missing").unwrap_err(),
+        PresentationControlError::UnknownSourceName {
+            source_name: "Missing".to_owned(),
+        }
+    );
+}
+
+#[test]
+fn a_unique_source_name_resolves_to_a_stable_target() {
+    let target =
+        PresentationTargetId::new(PresentationTargetKind::MeshPrimitive, "node/0/primitive/0")
+            .unwrap();
+    let descriptor = PresentationTargetDescriptor::new(target.clone())
+        .with_source_name("Housing")
+        .unwrap();
+    let mut control = PresentationControl::default();
+    control
+        .register_target_with_descriptor(descriptor, source(0.2, 0.4, 0.6))
+        .unwrap();
+
+    assert_eq!(
+        control
+            .target_by_source_name("Housing")
+            .unwrap()
+            .descriptor()
+            .id(),
+        &target
+    );
 }

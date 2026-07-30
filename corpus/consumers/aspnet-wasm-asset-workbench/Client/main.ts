@@ -1,6 +1,7 @@
 import init, {
   engine_status,
   inspect_asset,
+  PresentationSession,
 } from "/tokimu/tokimu_asset_workbench_engine.js";
 
 type Property = { label: string; value: string };
@@ -11,10 +12,24 @@ type PreviewPath = {
   stroke: boolean;
   color: [number, number, number, number];
   stroke_width: number;
+  target: PresentationTargetRef | null;
 };
-type PreviewTriangle = { points: [[number, number, number], [number, number, number], [number, number, number]] };
+type PreviewTriangle = {
+  points: [[number, number, number], [number, number, number], [number, number, number]];
+  target: PresentationTargetRef | null;
+};
 type Vec3 = [number, number, number];
 type ProjectedPoint = { x: number; y: number; depth: number };
+type PresentationTargetRef = { kind: string; key: string };
+type ResolvedPresentation = {
+  color: { red: number; green: number; blue: number };
+  opacity: number;
+  visible: boolean;
+  emphasis: string | null;
+};
+type PresentationCommandResponse =
+  | { status: "resolved"; resolved: ResolvedPresentation }
+  | { status: "rejected"; diagnostic: { code: string; message: string } };
 type AssetObservation = {
   schema: number;
   fileName: string;
@@ -25,6 +40,13 @@ type AssetObservation = {
   properties: Property[];
   diagnostics: string[];
   preview: { kind: string; paths: PreviewPath[]; triangles: PreviewTriangle[] } | null;
+  presentationTargets: PresentationTarget[];
+};
+type PresentationTarget = {
+  kind: string;
+  key: string;
+  sourceName: string | null;
+  source: { color: { red: number; green: number; blue: number }; opacity: number; visible: boolean };
 };
 
 const canvas = required<HTMLCanvasElement>("preview");
@@ -34,8 +56,17 @@ const dropZone = required<HTMLElement>("drop-zone");
 const emptyState = required<HTMLElement>("empty-state");
 const fileInput = required<HTMLInputElement>("file-input");
 const chooseFile = required<HTMLButtonElement>("choose-file");
+const presentationControls = required<HTMLElement>("presentation-controls");
+const presentationTarget = required<HTMLSelectElement>("presentation-target");
+const presentationTint = required<HTMLInputElement>("presentation-tint");
+const presentationOpacity = required<HTMLInputElement>("presentation-opacity");
+const presentationVisible = required<HTMLInputElement>("presentation-visible");
+const presentationReset = required<HTMLButtonElement>("presentation-reset");
+const presentationStatus = required<HTMLElement>("presentation-status");
 let engineReady = false;
 let currentObservation: AssetObservation | null = null;
+let presentationSession: PresentationSession | null = null;
+const resolvedPresentations = new Map<string, ResolvedPresentation>();
 const meshView = {
   yaw: -0.72,
   pitch: 0.38,
@@ -109,6 +140,11 @@ window.addEventListener("keydown", (event) => {
   resetMeshView();
   drawObservation(currentObservation);
 });
+presentationTarget.addEventListener("change", loadPresentationControls);
+presentationTint.addEventListener("input", () => applyPresentationOverride());
+presentationOpacity.addEventListener("input", () => applyPresentationOverride());
+presentationVisible.addEventListener("change", () => applyPresentationOverride());
+presentationReset.addEventListener("click", clearPresentationOverride);
 
 async function inspectFile(file: File): Promise<void> {
   if (!engineReady) return;
@@ -120,10 +156,14 @@ async function inspectFile(file: File): Promise<void> {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const observation = JSON.parse(inspect_asset(file.name, bytes)) as AssetObservation;
     currentObservation = observation;
+    presentationSession = new PresentationSession(JSON.stringify(observation));
+    resolvedPresentations.clear();
     resetMeshView();
     presentObservation(observation);
   } catch (error) {
     currentObservation = null;
+    presentationSession = null;
+    resolvedPresentations.clear();
     presentError(file.name, message(error));
   }
 }
@@ -139,6 +179,10 @@ function presentObservation(observation: AssetObservation): void {
   for (const property of observation.properties) {
     appendProperty(properties, property.label, property.value);
   }
+  if (observation.presentationTargets.length) {
+    appendProperty(properties, "Presentation targets", observation.presentationTargets.length.toString());
+  }
+  populatePresentationControls(observation.presentationTargets);
 
   const diagnostics = required<HTMLUListElement>("diagnostics");
   diagnostics.replaceChildren();
@@ -151,6 +195,107 @@ function presentObservation(observation: AssetObservation): void {
     diagnostics.append(item);
   }
   drawObservation(observation);
+}
+
+function populatePresentationControls(targets: PresentationTarget[]): void {
+  presentationTarget.replaceChildren();
+  presentationControls.hidden = targets.length === 0 || !presentationSession;
+  presentationStatus.textContent = targets.length
+    ? "Tokimu resolves this diagnostic preview state; Canvas only displays the resolved result."
+    : "";
+  for (const target of targets) {
+    const option = document.createElement("option");
+    option.value = targetKey(target);
+    option.textContent = target.sourceName ?? `${target.kind}: ${target.key}`;
+    presentationTarget.append(option);
+  }
+  loadPresentationControls();
+}
+
+function loadPresentationControls(): void {
+  const target = selectedPresentationTarget();
+  if (!target) return;
+  const resolved = resolvedPresentations.get(targetKey(target));
+  const source = resolved ?? {
+    color: target.source.color,
+    opacity: target.source.opacity,
+    visible: target.source.visible,
+    emphasis: null,
+  };
+  presentationTint.value = colorHex(source.color);
+  presentationOpacity.value = source.opacity.toString();
+  presentationVisible.checked = source.visible;
+}
+
+function applyPresentationOverride(): void {
+  const target = selectedPresentationTarget();
+  if (!target || !presentationSession) return;
+  try {
+    const color = colorFromHex(presentationTint.value);
+    const request = {
+      kind: target.kind,
+      key: target.key,
+      layer: "application",
+      overrideValue: {
+        tint: { color, mode: "replace" },
+        opacityMultiplier: Number(presentationOpacity.value),
+        visible: presentationVisible.checked,
+        emphasis: "selected",
+      },
+    };
+    const resolved = presentationCommandResult(presentationSession.set_override(JSON.stringify(request)));
+    if (!resolved) return;
+    resolvedPresentations.set(targetKey(target), resolved);
+    presentationStatus.textContent = `Resolved ${target.kind}: ${target.key}`;
+    drawObservation(currentObservation);
+  } catch (error) {
+    presentationStatus.textContent = `Presentation request failed: ${message(error)}`;
+  }
+}
+
+function clearPresentationOverride(): void {
+  const target = selectedPresentationTarget();
+  if (!target || !presentationSession) return;
+  try {
+    const request = { kind: target.kind, key: target.key, layer: "application" };
+    const resolved = presentationCommandResult(presentationSession.clear_override(JSON.stringify(request)));
+    if (!resolved) return;
+    resolvedPresentations.set(targetKey(target), resolved);
+    presentationStatus.textContent = `Restored source presentation for ${target.key}`;
+    loadPresentationControls();
+    drawObservation(currentObservation);
+  } catch (error) {
+    presentationStatus.textContent = `Presentation reset failed: ${message(error)}`;
+  }
+}
+
+function selectedPresentationTarget(): PresentationTarget | undefined {
+  return currentObservation?.presentationTargets.find((target) => targetKey(target) === presentationTarget.value);
+}
+
+function presentationCommandResult(json: string): ResolvedPresentation | undefined {
+  const response = JSON.parse(json) as PresentationCommandResponse;
+  if (response.status === "resolved") return response.resolved;
+  presentationStatus.textContent = `${response.diagnostic.code}: ${response.diagnostic.message}`;
+  return undefined;
+}
+
+function targetKey(target: PresentationTargetRef): string {
+  return `${target.kind}:${target.key}`;
+}
+
+function resolvedPresentation(target: PresentationTargetRef | null): ResolvedPresentation | undefined {
+  return target ? resolvedPresentations.get(targetKey(target)) : undefined;
+}
+
+function colorHex(color: { red: number; green: number; blue: number }): string {
+  const component = (value: number) => Math.round(clamp(value, 0, 1) * 255).toString(16).padStart(2, "0");
+  return `#${component(color.red)}${component(color.green)}${component(color.blue)}`;
+}
+
+function colorFromHex(value: string): { red: number; green: number; blue: number } {
+  const number = Number.parseInt(value.slice(1), 16);
+  return { red: ((number >> 16) & 0xff) / 255, green: ((number >> 8) & 0xff) / 255, blue: (number & 0xff) / 255 };
 }
 
 function drawObservation(observation: AssetObservation | null): void {
@@ -191,6 +336,8 @@ function drawObservation(observation: AssetObservation | null): void {
 
   for (const path of observation.preview.paths) {
     const [red, green, blue, alpha] = path.color;
+    const resolved = resolvedPresentation(path.target);
+    if (resolved && !resolved.visible) continue;
     context.beginPath();
     for (const contour of path.contours) {
       contour.points.forEach(([x, y], index) => {
@@ -201,7 +348,9 @@ function drawObservation(observation: AssetObservation | null): void {
       });
       if (contour.closed) context.closePath();
     }
-    const color = `rgba(${red * 255}, ${green * 255}, ${blue * 255}, ${alpha})`;
+    const color = resolved
+      ? `rgba(${resolved.color.red * 255}, ${resolved.color.green * 255}, ${resolved.color.blue * 255}, ${resolved.opacity})`
+      : `rgba(${red * 255}, ${green * 255}, ${blue * 255}, ${alpha})`;
     if (path.fill) {
       context.fillStyle = color;
       context.fill("evenodd");
@@ -225,6 +374,8 @@ function drawMeshPreview(triangles: PreviewTriangle[]): void {
   const bounds = meshBounds(triangles.flatMap((triangle) => triangle.points));
   const view = meshCamera(bounds);
   const projected = triangles.flatMap((triangle) => {
+    const resolved = resolvedPresentation(triangle.target);
+    if (resolved && !resolved.visible) return [];
     const points = triangle.points.map((point) => projectMeshPoint(point, view));
     const [a, b, c] = points;
     // Canvas has a downward-facing Y axis, so front-facing GLB triangles
@@ -233,7 +384,7 @@ function drawMeshPreview(triangles: PreviewTriangle[]): void {
     if (normalZ <= 0) return [];
     const depth = (a.depth + b.depth + c.depth) / 3;
     const brightness = clamp(0.48 + Math.abs(normalZ) * 0.00002, 0.48, 0.9);
-    return [{ points, depth, brightness }];
+    return [{ points, depth, brightness, resolved }];
   }).sort((left, right) => right.depth - left.depth);
 
   context.lineJoin = "round";
@@ -244,16 +395,23 @@ function drawMeshPreview(triangles: PreviewTriangle[]): void {
     context.lineTo(b.x, b.y);
     context.lineTo(c.x, c.y);
     context.closePath();
-    const red = Math.round(68 + triangle.brightness * 90);
-    const green = Math.round(116 + triangle.brightness * 110);
-    const blue = Math.round(107 + triangle.brightness * 80);
+    const red = triangle.resolved
+      ? Math.round(triangle.resolved.color.red * 255)
+      : Math.round(68 + triangle.brightness * 90);
+    const green = triangle.resolved
+      ? Math.round(triangle.resolved.color.green * 255)
+      : Math.round(116 + triangle.brightness * 110);
+    const blue = triangle.resolved
+      ? Math.round(triangle.resolved.color.blue * 255)
+      : Math.round(107 + triangle.brightness * 80);
     context.fillStyle = `rgb(${red}, ${green}, ${blue})`;
-    context.globalAlpha = 1;
+    context.globalAlpha = triangle.resolved?.opacity ?? 1;
     context.fill();
     context.strokeStyle = "#0b1114";
     context.lineWidth = Math.max(1, window.devicePixelRatio || 1);
     context.stroke();
   }
+  context.globalAlpha = 1;
   drawMeshHelp();
 }
 

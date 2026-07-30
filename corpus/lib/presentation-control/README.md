@@ -11,8 +11,8 @@ It currently owns:
 - deterministic theme, application, selection, hover, warning, and hotspot
   override composition;
 - tint, opacity, visibility, and emphasis intent;
-- target enumeration, unknown-target diagnostics, and exact reset to source
-  presentation;
+- target enumeration, unique source-name inspection lookup, explicit
+  unknown/ambiguous-name diagnostics, and exact reset to source presentation;
 - serializable semantic values suitable for a later bounded WASM API.
 
 It explicitly does not own:
