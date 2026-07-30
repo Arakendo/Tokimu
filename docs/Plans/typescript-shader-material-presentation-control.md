@@ -422,6 +422,8 @@ Deliverables:
       command: one serialized GLB hotspot request resolves to the same
       provider-neutral value through the WASM session boundary and direct native
       `PresentationControl`.
+- [x] Prove that clearing the application layer through the WASM session leaves
+      an independently-owned higher-priority hotspot layer resolved.
 
 Acceptance criteria:
 

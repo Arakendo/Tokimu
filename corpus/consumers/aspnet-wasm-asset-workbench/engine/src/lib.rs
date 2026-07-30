@@ -1043,6 +1043,59 @@ mod tests {
     }
 
     #[test]
+    fn wasm_reset_of_application_layer_preserves_independent_hotspot_layer() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb"
+        );
+        let observation = inspect("Box.glb", source).expect("Box fixture should decode");
+        let observation_json = serde_json::to_string(&observation).unwrap();
+        let mut session = PresentationSession::new(&observation_json)
+            .expect("observation targets should create a session");
+
+        let application = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "application",
+            "overrideValue": {
+                "tint": { "color": { "red": 0.2, "green": 0.4, "blue": 0.9 }, "mode": "replace" },
+                "emphasis": "selected"
+            }
+        });
+        session
+            .set_override(&application.to_string())
+            .expect("application presentation should resolve");
+
+        let hotspot = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "hotspot",
+            "overrideValue": {
+                "tint": { "color": { "red": 1.0, "green": 0.35, "blue": 0.1 }, "mode": "replace" },
+                "emphasis": "hotspot"
+            }
+        });
+        session
+            .set_override(&hotspot.to_string())
+            .expect("hotspot presentation should resolve");
+
+        let clear_application = serde_json::json!({
+            "kind": "mesh-primitive",
+            "key": "mesh/0/primitive/0",
+            "layer": "application"
+        });
+        let resolved = session
+            .clear_override(&clear_application.to_string())
+            .expect("application reset should resolve the remaining hotspot layer");
+        let resolved: serde_json::Value = serde_json::from_str(&resolved).unwrap();
+
+        assert_eq!(resolved["status"], "resolved");
+        assert_eq!(resolved["resolved"]["color"]["red"], 1.0);
+        assert_eq!(resolved["resolved"]["color"]["green"], 0.35);
+        assert_eq!(resolved["resolved"]["color"]["blue"], 0.1);
+        assert_eq!(resolved["resolved"]["emphasis"], "hotspot");
+    }
+
+    #[test]
     fn wasm_command_resolution_matches_direct_native_presentation_resolution() {
         let source = include_bytes!(
             "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb"
