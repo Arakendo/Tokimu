@@ -2323,6 +2323,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokimu-presentation-workbench-engine"
+version = "0.1.0"
+dependencies = [
+ "presentation-control",
+ "serde",
+ "serde_json",
+ "tokimu",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "tokimu-render"
 version = "0.1.0"
 dependencies = [

@@ -25,6 +25,16 @@ pub struct RenderFrameStats {
     pub binding_allocations: u32,
     /// Existing GPU uniform buffers updated between the latest frame boundaries.
     pub uniform_buffer_writes: u32,
+    /// Material bindings resolved for accepted draws between the latest frame
+    /// boundaries. This is independent of GPU allocation.
+    pub material_resolutions: u32,
+    /// Pipeline state selections required by the latest frame. The first
+    /// pipeline bound in a render pass counts as a selection.
+    pub pipeline_switches: u32,
+    /// Reused derived material bindings for transient per-draw overrides.
+    pub derived_material_cache_hits: u32,
+    /// New derived material bindings created for transient per-draw overrides.
+    pub derived_material_cache_misses: u32,
     /// Mesh uploads performed between the latest frame boundaries.
     pub mesh_uploads: u32,
     /// Mesh replacements performed between the latest frame boundaries.
@@ -42,6 +52,14 @@ pub struct RenderLifetimeStats {
     pub binding_allocations: u64,
     /// Existing GPU uniform buffers updated since the renderer was created.
     pub uniform_buffer_writes: u64,
+    /// Material bindings resolved since renderer creation.
+    pub material_resolutions: u64,
+    /// Pipeline state selections since renderer creation.
+    pub pipeline_switches: u64,
+    /// Reused derived material bindings since renderer creation.
+    pub derived_material_cache_hits: u64,
+    /// New derived material bindings created since renderer creation.
+    pub derived_material_cache_misses: u64,
     /// Mesh uploads performed since the renderer was created.
     pub mesh_uploads: u64,
     /// Uploads that replaced an existing mesh handle since renderer creation.
@@ -83,6 +101,32 @@ impl RenderStatsTracker {
     pub(crate) fn record_uniform_buffer_write(&mut self) {
         self.frame.uniform_buffer_writes = self.frame.uniform_buffer_writes.saturating_add(1);
         self.lifetime.uniform_buffer_writes = self.lifetime.uniform_buffer_writes.saturating_add(1);
+    }
+
+    pub(crate) fn record_material_resolution(&mut self) {
+        self.frame.material_resolutions = self.frame.material_resolutions.saturating_add(1);
+        self.lifetime.material_resolutions = self.lifetime.material_resolutions.saturating_add(1);
+    }
+
+    pub(crate) fn record_pipeline_switch(&mut self) {
+        self.frame.pipeline_switches = self.frame.pipeline_switches.saturating_add(1);
+        self.lifetime.pipeline_switches = self.lifetime.pipeline_switches.saturating_add(1);
+    }
+
+    pub(crate) fn record_derived_material_cache_hit(&mut self) {
+        self.frame.derived_material_cache_hits =
+            self.frame.derived_material_cache_hits.saturating_add(1);
+        self.lifetime.derived_material_cache_hits =
+            self.lifetime.derived_material_cache_hits.saturating_add(1);
+    }
+
+    pub(crate) fn record_derived_material_cache_miss(&mut self) {
+        self.frame.derived_material_cache_misses =
+            self.frame.derived_material_cache_misses.saturating_add(1);
+        self.lifetime.derived_material_cache_misses = self
+            .lifetime
+            .derived_material_cache_misses
+            .saturating_add(1);
     }
 
     pub(crate) fn record_mesh_upload(&mut self, replaced_existing: bool) {
@@ -144,6 +188,10 @@ mod tests {
         tracker.record_submit_call();
         tracker.record_mesh_upload(true);
         tracker.record_uniform_buffer_write();
+        tracker.record_material_resolution();
+        tracker.record_pipeline_switch();
+        tracker.record_derived_material_cache_hit();
+        tracker.record_derived_material_cache_miss();
         tracker.record_frame_cpu_timings(RenderFrameCpuTimings {
             command_encoding: Some(Duration::from_millis(2)),
             ..RenderFrameCpuTimings::default()
@@ -154,8 +202,14 @@ mod tests {
         assert_eq!(first.frame.submit_calls, 1);
         assert_eq!(first.frame.mesh_uploads, 1);
         assert_eq!(first.frame.mesh_replacements, 1);
+        assert_eq!(first.frame.material_resolutions, 1);
+        assert_eq!(first.frame.pipeline_switches, 1);
+        assert_eq!(first.frame.derived_material_cache_hits, 1);
+        assert_eq!(first.frame.derived_material_cache_misses, 1);
         assert_eq!(first.lifetime.mesh_uploads, 1);
         assert_eq!(first.lifetime.mesh_replacements, 1);
+        assert_eq!(first.lifetime.material_resolutions, 1);
+        assert_eq!(first.lifetime.pipeline_switches, 1);
         assert_eq!(
             first.frame.cpu_timings.command_encoding,
             Some(Duration::from_millis(2))
@@ -169,6 +223,10 @@ mod tests {
         assert_eq!(second.frame.submit_calls, 0);
         assert_eq!(second.frame.mesh_uploads, 0);
         assert_eq!(second.frame.mesh_replacements, 0);
+        assert_eq!(second.frame.material_resolutions, 0);
+        assert_eq!(second.frame.pipeline_switches, 0);
+        assert_eq!(second.frame.derived_material_cache_hits, 0);
+        assert_eq!(second.frame.derived_material_cache_misses, 0);
         assert_eq!(second.frame.cpu_timings, RenderFrameCpuTimings::default());
         assert_eq!(second.lifetime.mesh_uploads, 1);
         assert_eq!(second.lifetime.mesh_replacements, 1);

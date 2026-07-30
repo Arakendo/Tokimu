@@ -48,6 +48,7 @@ members = [
 
     # Downstream application-shaped consumer corpus.
     "corpus/consumers/aspnet-wasm-asset-workbench/engine",
+    "corpus/consumers/aspnet-wasm-presentation-workbench/engine",
 
     # UI corpus.
     "corpus/ui/hello-ui",

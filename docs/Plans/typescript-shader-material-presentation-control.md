@@ -3,9 +3,11 @@
 ## Status
 
 In progress. Slice 0 boundary vocabulary, Slice 1, the explicit render-state
-portion of Slice 2, the contract and native-cache portions of Slice 3, and the
-first native mesh corpus proof in Slice 5 began on 2026-07-29 in
-`corpus/lib/presentation-control`, `tokimu-render`, and `corpus/hello-glb`.
+portion of Slice 2, the contract and native-cache portions of Slice 3, the
+first native mesh corpus proof in Slice 5, and the initial provider-neutral
+shader-module contract in Slice 8 began on 2026-07-29 in
+`corpus/lib/presentation-control`, `tokimu-render`, `corpus/hello-glb`, and
+`corpus/hello-shader`.
 
 This plan does not admit a new crate or settle an unresolved architectural
 boundary by itself. If implementation evidence changes an accepted SDD, TTSDD,
@@ -443,8 +445,16 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Add a focused material authoring package only after the Rust model has a
-      real caller.
+- [x] Add an independent ASP.NET/WASM presentation-workbench consumer with
+      selectable vector, mesh-primitive, and renderable targets. Its local,
+      data-only `material-authoring.ts` adapter is the first real TypeScript
+      caller of the bounded presentation model; it lowers authoring state into
+      the existing WASM command boundary without generating WGSL. Rust tests,
+      a `wasm32` build, strict TypeScript typechecking, and the ASP.NET host
+      build pass; manual browser evidence remains pending bundle generation.
+- [ ] Extract a focused material authoring package only after the local adapter
+      is reused by another independent caller or its stable API requirements
+      are otherwise demonstrated.
 - [ ] Define typed constructors for material schemas and parameter values.
 - [ ] Re-export the stable surface through the `tokimu` anchor.
 - [ ] Teach `tokimu-ts-frontend` to recognize, validate, and lower the material
@@ -454,6 +464,12 @@ Deliverables:
 
 Acceptance criteria:
 
+- [x] The consumer's TypeScript adapter can select provider-neutral vector or
+      mesh targets and lower tint, opacity, visibility, and emphasis intent to
+      the bounded Rust/WASM request shape; Rust resolves only the selected
+      target in focused session evidence.
+- [ ] A browser user can manually exercise target selection, application-layer
+      reset, and hotspot precedence after the local WASM bundle is generated.
 - [ ] A TypeScript material definition lowers to the same semantic value as an
       equivalent Rust definition.
 - [ ] Type errors and semantic errors identify the original TypeScript source.
@@ -465,19 +481,36 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Define shader stages, entry points, bindings, vertex inputs, and parameter
-      references as Tokimu-owned data.
-- [ ] Support validated hand-written WGSL as the first author path.
-- [ ] Validate shader bindings against material schemas and mesh vertex layouts.
-- [ ] Store generated backend handles only inside renderer adapters.
-- [ ] Preserve explicit pipeline selection at draw submission.
+- [x] Define shader stages, entry points, bindings, vertex inputs, and parameter
+      references as Tokimu-owned data. `ShaderModuleDefinition` describes WGSL,
+      entry points, binding slots, material parameter references, and bounded
+      vertex semantics without backend-native types.
+- [x] Support validated hand-written WGSL as the first author path.
+      `hello-shader` now registers its existing custom WGSL variants through
+      `Pipeline::custom_wgsl_module`.
+- [x] Validate shader bindings against material schemas and mesh vertex layouts.
+      `Pipeline::validate_draw_contract` checks module bindings against a
+      `MaterialDefinition` and declared inputs against the current position and
+      normal mesh streams before corpus registration. Integrating this
+      validation into general execution-ready draw command submission remains a
+      separate migration.
+- [x] Store generated backend handles only inside renderer adapters. The shader
+      module contract holds source data only; wgpu compilation and native
+      pipelines remain adapter implementation details.
+- [x] Preserve explicit pipeline selection at draw submission.
 
 Acceptance criteria:
 
-- [ ] A Rust-authored shader module and pipeline can render the corpus scene.
-- [ ] Binding and vertex-layout mismatches fail before an invalid draw.
-- [ ] Shader compile diagnostics retain module and entry-point identity.
-- [ ] No wgpu shader module or bind group leaks into public semantic types.
+- [x] A Rust-authored shader module and pipeline can render the corpus scene.
+      The `hello-shader` corpus launched successfully through the native WGPU
+      path on 2026-07-29 with its existing custom WGSL variants registered via
+      `ShaderModuleDefinition`.
+- [x] Binding and vertex-layout mismatches fail through the provider-neutral
+      pre-draw contract validator before corpus registration reaches a backend.
+- [ ] Shader compile diagnostics retain module and entry-point identity. Backend
+      shader labels now encode the semantic module and selected entry points;
+      an intentional native compilation-failure corpus case is still required.
+- [x] No wgpu shader module or bind group leaks into public semantic types.
 
 ### Slice 9: Restricted TypeScript Shader Lowering
 
@@ -508,10 +541,19 @@ Deliverables:
 
 - [ ] Add diagnostics for unknown targets, unknown parameters, invalid values,
       incompatible pipelines, shader compilation, and backend capability gaps.
+      The current `hello-shader` corpus now drains asynchronous WGPU backend
+      diagnostics after presentation; the remaining categories still need
+      deliberate authoring fixtures and public routing.
 - [ ] Add counters for material resolution, binding writes, pipeline switches,
-      transparent draws, and derived-resource cache behavior.
+      transparent draws, and derived-resource cache behavior. Renderer frame and
+      lifetime stats now report material resolutions, pipeline selections, and
+      derived-material cache hits and misses alongside existing binding-write
+      counters; transparent-draw accounting remains deferred.
 - [ ] Bound shader source size, parameter count, generated WGSL size, and
-      lowering complexity.
+      lowering complexity. Hand-written WGSL is currently bounded to 1 MiB,
+      64 binding declarations, 16 vertex inputs, and 64 material parameters
+      before backend compilation; generated WGSL and lowering complexity remain
+      deferred with TypeScript lowering.
 - [ ] Ensure authored shader definitions cannot access files, network, DOM,
       timers, process state, or ambient randomness.
 - [ ] Add malformed and adversarial authoring fixtures.
@@ -555,7 +597,7 @@ Acceptance criteria:
 | Overrides | shared source material with independent per-target results |
 | Target identity | repeated GLB/FBX load and stable lookup |
 | WASM API | asset-workbench interaction and structured diagnostics |
-| TS materials | TypeScript typecheck plus Rust semantic parity |
+| TS material authoring | presentation-workbench typecheck plus Rust/WASM resolved-command parity |
 | WGSL path | shader compile success/failure corpus |
 | TS shaders | deterministic lowering and visual parity |
 | Performance | warm-up versus steady-state counters |

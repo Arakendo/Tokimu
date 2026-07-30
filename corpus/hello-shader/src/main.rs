@@ -3,8 +3,9 @@ use std::sync::Arc;
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend,
-    WindowConfig,
+    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer,
+    ShaderBindingDeclaration, ShaderBindingSource, ShaderModuleDefinition, ShaderVertexInput,
+    ShaderVertexSemantic, WgpuBackend, WindowConfig,
 };
 use tokimu_assets::{AssetHandle, AssetStore};
 use tokimu_core::math::{Mat4, Vec3};
@@ -63,6 +64,36 @@ const NEON_WGSL: &str = include_str!("../assets/neon.wgsl");
 const INK_WGSL: &str = include_str!("../assets/ink.wgsl");
 const RIPPLE_WGSL: &str = include_str!("../assets/ripple.wgsl");
 
+fn shader_module_for_variant(
+    definition: ShaderVariantDefinition,
+) -> Result<ShaderModuleDefinition, tokimu::ShaderModuleValidationError> {
+    ShaderModuleDefinition::new(
+        definition
+            .asset_label
+            .trim_end_matches(".wgsl")
+            .replace('/', "-"),
+        definition.source,
+        "vs_main",
+        "fs_main",
+        vec![
+            ShaderBindingDeclaration::new(
+                0,
+                0,
+                ShaderBindingSource::MaterialParameter {
+                    parameter: "base_color".to_owned(),
+                    kind: tokimu::MaterialParameterKind::Color,
+                },
+            ),
+            ShaderBindingDeclaration::new(1, 0, ShaderBindingSource::InstanceTransform),
+            ShaderBindingDeclaration::new(2, 0, ShaderBindingSource::Camera),
+        ],
+        vec![
+            ShaderVertexInput::new(0, ShaderVertexSemantic::Position3),
+            ShaderVertexInput::new(1, ShaderVertexSemantic::Normal3),
+        ],
+    )
+}
+
 fn main() -> PlatformResult<()> {
     run_window_with_app(
         WindowConfig {
@@ -79,6 +110,7 @@ struct HelloShaderApp {
     window: Option<Arc<NativeWindow>>,
     window_size: [f32; 2],
     elapsed_seconds: f64,
+    frame_index: u64,
     shader_variant: usize,
     shader_store: AssetStore,
     shader_variants: Vec<ShaderVariantRuntime>,
@@ -91,6 +123,7 @@ impl Default for HelloShaderApp {
             window: None,
             window_size: [1.0, 1.0],
             elapsed_seconds: 0.0,
+            frame_index: 0,
             shader_variant: 0,
             shader_store: AssetStore::default(),
             shader_variants: Vec::new(),
@@ -212,7 +245,26 @@ impl HelloShaderApp {
                 viewport: None,
             }),
         ]);
-        let _ = renderer.present()?;
+        let stats = renderer.present()?;
+        self.frame_index = self.frame_index.saturating_add(1);
+        if self.frame_index.is_multiple_of(120) {
+            println!(
+                "hello-shader frame {}: draws={}, material_resolutions={}, pipeline_switches={}, derived_cache_hits={}, derived_cache_misses={}, binding_allocations={}, uniform_writes={}",
+                self.frame_index,
+                stats.frame.draw_calls,
+                stats.frame.material_resolutions,
+                stats.frame.pipeline_switches,
+                stats.frame.derived_material_cache_hits,
+                stats.frame.derived_material_cache_misses,
+                stats.frame.binding_allocations,
+                stats.frame.uniform_buffer_writes,
+            );
+        }
+        // WGPU can report shader and pipeline validation after the synchronous
+        // creation call. Keep that adapter evidence visible to this corpus.
+        for diagnostic in renderer.drain_diagnostics() {
+            eprintln!("hello-shader backend diagnostic: {diagnostic}");
+        }
         self.update_window_title();
         Ok(FrameOutcome::Continue)
     }
@@ -244,10 +296,18 @@ impl PlatformEventHandler for HelloShaderApp {
             let asset = self
                 .shader_store
                 .allocate_with_source::<ShaderAsset, _>(variant.asset_label);
-            let pipeline = renderer.register_pipeline(&Pipeline::custom_wgsl(
+            let pipeline_declaration = Pipeline::custom_wgsl_module(
                 variant.pipeline_label,
-                variant.source,
-            ))?;
+                shader_module_for_variant(variant)?,
+            )?;
+            let material_definition = tokimu::MaterialDefinition::solid_color(
+                tokimu::MaterialDefinitionId::new(variant.pipeline_label)?,
+                Color::rgb(1.0, 1.0, 1.0),
+            );
+            for mesh in [Mesh::quad(), Mesh::triangle(), Mesh::diamond()] {
+                pipeline_declaration.validate_draw_contract(&material_definition, &mesh)?;
+            }
+            let pipeline = renderer.register_pipeline(&pipeline_declaration)?;
             self.shader_variants.push(ShaderVariantRuntime {
                 definition: variant,
                 asset,

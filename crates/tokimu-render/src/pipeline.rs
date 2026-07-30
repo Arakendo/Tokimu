@@ -1,4 +1,7 @@
-use crate::PipelineHandle;
+use crate::{
+    MaterialDefinition, Mesh, PipelineHandle, ShaderMaterialCompatibilityError,
+    ShaderMeshCompatibilityError, ShaderModuleDefinition, ShaderModuleValidationError,
+};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -129,6 +132,12 @@ pub enum PipelineValidationError {
         label: String,
         #[source]
         source: PipelineRenderStateError,
+    },
+    #[error("pipeline `{label}` has an invalid shader module: {source}")]
+    InvalidShaderModule {
+        label: String,
+        #[source]
+        source: ShaderModuleValidationError,
     },
 }
 
@@ -280,6 +289,7 @@ pub struct Pipeline {
     pub vertex_entry_point: String,
     pub fragment_entry_point: String,
     pub render_state: PipelineRenderState,
+    shader_module: Option<ShaderModuleDefinition>,
 }
 
 impl Pipeline {
@@ -297,6 +307,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: kind.default_render_state(),
+            shader_module: None,
         }
     }
 
@@ -311,6 +322,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            shader_module: None,
         }
     }
 
@@ -327,7 +339,30 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            shader_module: None,
         }
+    }
+
+    /// Creates a custom WGSL pipeline from a validated semantic shader module.
+    ///
+    /// The module remains provider-neutral; this compatibility declaration is
+    /// what current renderer adapters consume to compile and register a native
+    /// pipeline.
+    pub fn custom_wgsl_module(
+        label: impl Into<String>,
+        shader_module: ShaderModuleDefinition,
+    ) -> Result<Self, ShaderModuleValidationError> {
+        shader_module.validate()?;
+
+        Ok(Self {
+            label: label.into(),
+            kind: PipelineKind::CustomWgsl2d,
+            shader_source: Some(shader_module.source.clone()),
+            vertex_entry_point: shader_module.vertex_entry_point.clone(),
+            fragment_entry_point: shader_module.fragment_entry_point.clone(),
+            render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            shader_module: Some(shader_module),
+        })
     }
 
     pub fn with_render_state(
@@ -337,6 +372,74 @@ impl Pipeline {
         render_state.validate()?;
         self.render_state = render_state;
         Ok(self)
+    }
+
+    /// Produces a provider-neutral shader declaration for this pipeline.
+    ///
+    /// The legacy public WGSL fields remain the execution compatibility path
+    /// during this transition. New callers can validate the resulting semantic
+    /// module before any renderer adapter compiles it.
+    pub fn shader_module_definition(
+        &self,
+    ) -> Result<ShaderModuleDefinition, ShaderModuleValidationError> {
+        if let Some(shader_module) = &self.shader_module {
+            return Ok(shader_module.clone());
+        }
+        if self.kind != PipelineKind::CustomWgsl2d {
+            return ShaderModuleDefinition::built_in(self.kind);
+        }
+
+        ShaderModuleDefinition::new(
+            self.label.clone(),
+            self.shader_source.clone().unwrap_or_default(),
+            self.vertex_entry_point.clone(),
+            self.fragment_entry_point.clone(),
+            Vec::new(),
+            Vec::new(),
+        )
+    }
+
+    /// Returns the explicitly supplied semantic shader-module identity, when
+    /// this pipeline was constructed from one. Built-in and legacy custom
+    /// pipelines retain their pipeline label as the adapter diagnostic label.
+    pub fn shader_module_label(&self) -> Option<&str> {
+        self.shader_module
+            .as_ref()
+            .map(|shader_module| shader_module.label.as_str())
+    }
+
+    /// A diagnostic label that keeps semantic module and entry-point identity
+    /// visible to a renderer adapter without exposing backend-native objects.
+    pub fn backend_shader_label(&self) -> String {
+        let module = self.shader_module_label().unwrap_or(&self.label);
+        format!(
+            "tokimu shader module `{module}` [vertex `{}`, fragment `{}`]",
+            self.vertex_entry_point, self.fragment_entry_point
+        )
+    }
+
+    /// Validates that material-backed shader bindings are compatible before a
+    /// draw reaches a renderer backend.
+    pub fn validate_material_definition(
+        &self,
+        material: &MaterialDefinition,
+    ) -> Result<(), ShaderMaterialCompatibilityError> {
+        self.shader_module_definition()?
+            .validate_material_definition(material)
+    }
+
+    /// Validates the material and mesh facts required by this pipeline's shader
+    /// before a caller submits an execution-ready draw to a renderer backend.
+    pub fn validate_draw_contract(
+        &self,
+        material: &MaterialDefinition,
+        mesh: &Mesh,
+    ) -> Result<(), PipelineDrawContractError> {
+        self.validate()?;
+        let shader_module = self.shader_module_definition()?;
+        shader_module.validate_material_definition(material)?;
+        shader_module.validate_mesh(mesh)?;
+        Ok(())
     }
 
     /// Validates the provider-neutral declaration before backend submission.
@@ -375,8 +478,29 @@ impl Pipeline {
             });
         }
 
+        if let Some(shader_module) = &self.shader_module {
+            shader_module.validate().map_err(|source| {
+                PipelineValidationError::InvalidShaderModule {
+                    label: self.label.clone(),
+                    source,
+                }
+            })?;
+        }
+
         Ok(())
     }
+}
+
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum PipelineDrawContractError {
+    #[error("invalid pipeline declaration: {0}")]
+    InvalidPipeline(#[from] PipelineValidationError),
+    #[error("incompatible shader material contract: {0}")]
+    Material(#[from] ShaderMaterialCompatibilityError),
+    #[error("incompatible shader mesh contract: {0}")]
+    Mesh(#[from] ShaderMeshCompatibilityError),
+    #[error("invalid provider-neutral shader module: {0}")]
+    ShaderModule(#[from] ShaderModuleValidationError),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -510,6 +634,36 @@ mod tests {
     }
 
     #[test]
+    fn creates_a_custom_pipeline_from_a_semantic_shader_module() {
+        let module = ShaderModuleDefinition::new(
+            "inspection-shader",
+            "@vertex fn main_vs() -> @builtin(position) vec4<f32> { return vec4<f32>(); }\n@fragment fn main_fs() -> @location(0) vec4<f32> { return vec4<f32>(); }",
+            "main_vs",
+            "main_fs",
+            vec![],
+            vec![],
+        )
+        .expect("shader module must be valid");
+        let pipeline = Pipeline::custom_wgsl_module("inspection-pipeline", module)
+            .expect("pipeline must retain a valid shader module");
+
+        assert_eq!(pipeline.shader_source.as_deref(), Some("@vertex fn main_vs() -> @builtin(position) vec4<f32> { return vec4<f32>(); }\n@fragment fn main_fs() -> @location(0) vec4<f32> { return vec4<f32>(); }"));
+        assert_eq!(pipeline.vertex_entry_point, "main_vs");
+        assert_eq!(
+            pipeline
+                .shader_module_definition()
+                .expect("module must remain available")
+                .label,
+            "inspection-shader"
+        );
+        assert_eq!(pipeline.shader_module_label(), Some("inspection-shader"));
+        assert_eq!(
+            pipeline.backend_shader_label(),
+            "tokimu shader module `inspection-shader` [vertex `main_vs`, fragment `main_fs`]"
+        );
+    }
+
+    #[test]
     fn validates_explicit_render_state_without_involving_material_data() {
         let state = PipelineRenderState {
             blend: BlendMode::Opaque,
@@ -565,6 +719,34 @@ mod tests {
                 stage: "fragment",
             })
         );
+    }
+
+    #[test]
+    fn exposes_a_provider_neutral_builtin_shader_module() {
+        let pipeline = Pipeline::new("lit", PipelineKind::LitColor3d);
+        let shader = pipeline
+            .shader_module_definition()
+            .expect("built-in pipeline declaration must be valid");
+
+        assert_eq!(shader.vertex_inputs.len(), 2);
+        assert_eq!(shader.bindings.len(), 5);
+    }
+
+    #[test]
+    fn rejects_incompatible_meshes_before_draw_submission() {
+        let pipeline = Pipeline::new("lit", PipelineKind::LitColor3d);
+        let material = MaterialDefinition::solid_color(
+            crate::MaterialDefinitionId::new("surface").expect("valid material id"),
+            crate::Color::rgb(1.0, 1.0, 1.0),
+        );
+        let mesh = crate::Mesh::new(vec![[0.0, 0.0, 0.0]], vec![]);
+
+        assert!(matches!(
+            pipeline.validate_draw_contract(&material, &mesh),
+            Err(PipelineDrawContractError::Mesh(
+                ShaderMeshCompatibilityError::MissingVertexInput { .. }
+            ))
+        ));
     }
 
     #[test]

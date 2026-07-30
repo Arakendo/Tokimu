@@ -672,6 +672,7 @@ impl WgpuBackend {
         for (source_handle, override_value) in requests {
             let key = derived_material_key(source_handle, override_value);
             if derived_materials.contains_key(&key) {
+                stats.record_derived_material_cache_hit();
                 continue;
             }
 
@@ -682,6 +683,7 @@ impl WgpuBackend {
                 create_derived_material(device, material_bind_group_layout, source, override_value);
             derived_materials.insert(key, material);
             stats.record_binding_allocation();
+            stats.record_derived_material_cache_miss();
         }
 
         Ok(())
@@ -702,6 +704,7 @@ impl WgpuBackend {
         let Some(surface_state) = self.surface_state.as_ref() else {
             return Ok(());
         };
+        let shader_label = pipeline.backend_shader_label();
 
         let compiled = match pipeline.kind {
             PipelineKind::SolidColor2d => create_solid_color_pipeline(
@@ -721,6 +724,7 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
                 &pipeline.label,
+                &shader_label,
                 pipeline
                     .shader_source
                     .as_deref()
@@ -738,6 +742,7 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
                 &pipeline.label,
+                &shader_label,
                 pipeline
                     .shader_source
                     .as_deref()
@@ -755,6 +760,7 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
                 &pipeline.label,
+                &shader_label,
                 pipeline
                     .shader_source
                     .as_deref()
@@ -966,6 +972,7 @@ impl WgpuBackend {
             });
 
             if self.stats.has_frame_draws() {
+                let mut active_pipeline = None;
                 for (index, draw) in self.queued_draws.iter().enumerate() {
                     let gpu_mesh = self
                         .meshes
@@ -981,6 +988,7 @@ impl WgpuBackend {
                             .get(&draw.material)
                             .ok_or(WgpuBackendError::MissingMaterial(draw.material.0))?,
                     };
+                    self.stats.record_material_resolution();
                     let pipeline = self
                         .pipelines
                         .get(&draw.pipeline)
@@ -991,6 +999,10 @@ impl WgpuBackend {
                         .get(&camera_handle)
                         .expect("camera binding prepared before render pass")
                         .bind_group;
+                    if active_pipeline != Some(draw.pipeline) {
+                        self.stats.record_pipeline_switch();
+                        active_pipeline = Some(draw.pipeline);
+                    }
                     if let Some(viewport) = draw.viewport {
                         render_pass.set_scissor_rect(
                             viewport.x.max(0.0) as u32,
@@ -1200,6 +1212,7 @@ fn create_solid_color_pipeline(
         instance_bind_group_layout,
         camera_bind_group_layout,
         "tokimu-solid-color-pipeline",
+        "tokimu-solid-color-shader",
         PipelineKind::SolidColor2d.default_shader_source().unwrap(),
         "vs_main",
         "fs_main",
@@ -1216,13 +1229,14 @@ fn create_custom_pipeline(
     instance_bind_group_layout: &wgpu::BindGroupLayout,
     camera_bind_group_layout: &wgpu::BindGroupLayout,
     pipeline_label: &str,
+    shader_label: &str,
     shader_source: &str,
     vertex_entry_point: &str,
     fragment_entry_point: &str,
     render_state: PipelineRenderState,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some(pipeline_label),
+        label: Some(shader_label),
         source: wgpu::ShaderSource::Wgsl(shader_source.into()),
     });
 

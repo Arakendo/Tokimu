@@ -8,6 +8,7 @@ pub mod pipeline;
 pub mod renderable;
 pub mod renderer;
 pub mod resources;
+pub mod shader;
 pub mod texture;
 pub mod wgpu_backend;
 
@@ -21,12 +22,13 @@ pub use instance::Instance2d;
 pub use material::{
     Material, MaterialDefinition, MaterialDefinitionId, MaterialFloatRange, MaterialInstance,
     MaterialModelError, MaterialOverride, MaterialParameterDeclaration, MaterialParameterKind,
-    MaterialParameterValue,
+    MaterialParameterValue, MAX_MATERIAL_PARAMETERS,
 };
 pub use mesh::Mesh;
 pub use pipeline::{
-    BlendMode, ColorWriteMask, CullMode, DepthTest, Pipeline, PipelineKind, PipelineRegistry,
-    PipelineRenderState, PipelineRenderStateError, PipelineValidationError,
+    BlendMode, ColorWriteMask, CullMode, DepthTest, Pipeline, PipelineDrawContractError,
+    PipelineKind, PipelineRegistry, PipelineRenderState, PipelineRenderStateError,
+    PipelineValidationError,
 };
 pub use renderable::Renderable;
 pub use renderer::{
@@ -34,6 +36,12 @@ pub use renderer::{
 };
 pub use resources::{
     CameraHandle, MaterialHandle, MeshHandle, PipelineHandle, RenderableHandle, TextureHandle,
+};
+pub use shader::{
+    ShaderBindingDeclaration, ShaderBindingSource, ShaderMaterialCompatibilityError,
+    ShaderMeshCompatibilityError, ShaderModuleDefinition, ShaderModuleValidationError,
+    ShaderVertexInput, ShaderVertexSemantic, MAX_SHADER_BINDINGS, MAX_SHADER_SOURCE_BYTES,
+    MAX_SHADER_VERTEX_INPUTS,
 };
 pub use texture::Texture;
 pub use wgpu_backend::{WgpuBackend, WgpuBackendError};

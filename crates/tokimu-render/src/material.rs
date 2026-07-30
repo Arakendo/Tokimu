@@ -2,6 +2,11 @@ use crate::Color;
 use crate::TextureHandle;
 use std::collections::BTreeMap;
 
+/// The largest material schema accepted by the initial provider-neutral
+/// material model. This bounds semantic validation before a schema can reach
+/// renderer-specific binding allocation.
+pub const MAX_MATERIAL_PARAMETERS: usize = 64;
+
 /// Execution-ready material data accepted by the current renderer backends.
 ///
 /// Pipeline selection remains explicit in draw submission. Higher-level material
@@ -254,6 +259,13 @@ impl MaterialDefinition {
     ) -> Result<Self, MaterialModelError> {
         let mut parameters = BTreeMap::new();
         for declaration in declarations {
+            if parameters.len() >= MAX_MATERIAL_PARAMETERS {
+                return Err(MaterialModelError::TooManyParameters {
+                    material: id.as_str().to_owned(),
+                    count: parameters.len() + 1,
+                    maximum: MAX_MATERIAL_PARAMETERS,
+                });
+            }
             declaration.validate()?;
             let name = declaration.name.clone();
             if parameters.insert(name.clone(), declaration).is_some() {
@@ -401,6 +413,14 @@ pub enum MaterialModelError {
     InvalidIdentifier { kind: &'static str, value: String },
     #[error("material parameter {name:?} is declared more than once")]
     DuplicateParameter { name: String },
+    #[error(
+        "material definition {material:?} declares {count} parameters; the maximum is {maximum}"
+    )]
+    TooManyParameters {
+        material: String,
+        count: usize,
+        maximum: usize,
+    },
     #[error("material parameter {name:?} is not declared")]
     UnknownParameter { name: String },
     #[error("material parameter {name:?} expects {expected:?}, received {actual:?}")]
@@ -632,6 +652,32 @@ mod tests {
                 MaterialParameterValue::Color(Color::BLACK),
             ),
             Err(MaterialModelError::DefinitionMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn material_parameter_count_is_bounded_before_backend_lowering() {
+        let declarations = (0..=MAX_MATERIAL_PARAMETERS)
+            .map(|index| {
+                MaterialParameterDeclaration::new(
+                    format!("parameter-{index}"),
+                    MaterialParameterKind::Float,
+                    MaterialParameterValue::Float(0.0),
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        assert!(matches!(
+            MaterialDefinition::new(
+                MaterialDefinitionId::new("too-many-parameters").unwrap(),
+                declarations,
+            ),
+            Err(MaterialModelError::TooManyParameters {
+                count,
+                maximum: MAX_MATERIAL_PARAMETERS,
+                ..
+            }) if count == MAX_MATERIAL_PARAMETERS + 1
         ));
     }
 }
