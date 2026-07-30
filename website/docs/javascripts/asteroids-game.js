@@ -14,12 +14,15 @@
         frame.className = "asteroids-frame";
         frame.title = "Playable Tokimu Asteroid field";
         frame.src = new URL(config.frameUrl ?? defaultFrameUrl.href, scriptUrl).href;
+        frame.tabIndex = 0;
         frame.setAttribute("allow", "fullscreen");
         mount.replaceChildren(frame);
         mount.hidden = false;
         fallback.hidden = true;
         try {
             await loaded;
+            frame.focus({ preventScroll: true });
+            frame.contentWindow?.focus();
         }
         catch (error) {
             releaseFrame(frame, mount, fallback);

@@ -31,6 +31,7 @@ window.TokimuIslands.register(
     frame.className = "asteroids-frame";
     frame.title = "Playable Tokimu Asteroid field";
     frame.src = new URL(config.frameUrl ?? defaultFrameUrl.href, scriptUrl).href;
+    frame.tabIndex = 0;
     frame.setAttribute("allow", "fullscreen");
 
     mount.replaceChildren(frame);
@@ -39,6 +40,8 @@ window.TokimuIslands.register(
 
     try {
       await loaded;
+      frame.focus({ preventScroll: true });
+      frame.contentWindow?.focus();
     } catch (error) {
       releaseFrame(frame, mount, fallback);
       throw error;

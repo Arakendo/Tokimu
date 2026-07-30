@@ -14,11 +14,35 @@ test("Asteroids is a bounded website island with explicit lifecycle ownership", 
   assert.match(source, /register\(\s*"asteroids-game"/);
   assert.match(source, /Playable Tokimu Asteroid field/);
   assert.match(source, /waitForFrame\(frame, signal\)/);
+  assert.match(source, /frame\.tabIndex = 0/);
+  assert.match(source, /frame\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /frame\.contentWindow\?\.focus\(\)/);
   assert.match(source, /signal\.addEventListener\("abort"/);
   assert.match(source, /frame\.src = "about:blank"/);
   assert.match(source, /frame\.remove\(\)/);
   assert.match(source, /fallback\.hidden = false/);
   assert.doesNotMatch(source, /\b(score|collision|wave|particle)\s*=/i);
+});
+
+test("the Asteroids canvas explicitly owns keyboard focus", async () => {
+  const source = await readFile(
+    path.join(
+      repositoryRoot,
+      "corpus",
+      "consumers",
+      "tokimu-website-asteroids",
+      "web",
+      "asteroids.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(source, /canvas\.tabIndex = 0/);
+  assert.match(source, /canvas\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /keys\.has\("KeyW"\)/);
+  assert.match(source, /keys\.has\("KeyA"\)/);
+  assert.match(source, /keys\.has\("KeyS"\)/);
+  assert.match(source, /keys\.has\("KeyD"\)/);
 });
 
 test("the homepage keeps the playable claim useful before activation", async () => {

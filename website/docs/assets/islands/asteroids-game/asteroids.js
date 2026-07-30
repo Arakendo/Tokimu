@@ -36,6 +36,7 @@ async function boot() {
     try {
         await init();
         session = new AsteroidsSession(seed);
+        canvas.tabIndex = 0;
         resize();
         snapshot = parseSnapshot(session.snapshot());
         status.textContent = "Rust/WASM simulation ready";
@@ -265,6 +266,7 @@ function installInput() {
     }, options);
     canvas.addEventListener("pointerdown", (event) => {
         event.preventDefault();
+        canvas.focus({ preventScroll: true });
         pointer.id = event.pointerId;
         pointer.active = true;
         pointer.firing = true;
