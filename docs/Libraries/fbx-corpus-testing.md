@@ -2,11 +2,12 @@
 
 ## Status
 
-As of 2026-07-28, corpus acquisition and selection v1 are complete. Tokimu now
+As of 2026-07-29, corpus acquisition and selection v1 are complete. Tokimu now
 contains 23 checksum-pinned FBX cases representing 14 logical scenes from the
 `ufbx` repository at tag `v0.23.0`, with 13 verified external dependencies.
-Tokimu does not yet contain an FBX decoder, importer, or admitted FBX
-capability.
+The incubating `fbx-corpus` library performs bounded ASCII and binary record
+decoding, source-scene connection resolution, and selected static geometry
+lowering. It is not an admitted Tokimu FBX capability.
 
 Unlike SVG and glTF, FBX does not appear to have a public standards-owned
 conformance suite with stable expected results. The first work is therefore to
@@ -21,7 +22,7 @@ at stable ownership boundaries:
 ```text
 FBX fixture
     -> FBX decoding and source-scene interpretation
-    -> Tokimu-owned imported model evidence
+    -> provider-neutral static geometry evidence
     -> structural validation and diagnostic artifacts
     -> format-agnostic renderer submission
 ```
@@ -108,7 +109,9 @@ provide evidence, but they do not define Tokimu's public model.
   encoding target.
 - Decode source records with bounded failure semantics.
 - Preserve an inspectable FBX object and connection graph before lowering.
-- Lower one static mesh and node transform into Tokimu-owned evidence.
+- Lower one static mesh and node transform into provider-neutral evidence.
+- Present admitted static triangle geometry through the browser diagnostic 3D
+  view without exposing FBX-native records across the WASM boundary.
 - Add hierarchy, materials, animation, skinning, and blend shapes in separate
   feature batches.
 - Compare selected structural results against an independent implementation

@@ -1,11 +1,18 @@
 use std::{io, path::PathBuf, sync::Arc};
 
 use gltf_corpus::{decode_glb_file, DecodedPrimitive};
+use presentation_control::{
+    PresentationColor, PresentationControl, PresentationEmphasis, PresentationLayer,
+    PresentationOverride, PresentationTargetDescriptor, PresentationTargetId,
+    PresentationTargetKind, PresentationTint, ResolvedPresentation, SourcePresentation,
+};
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
-    Renderer, WgpuBackend, WindowConfig,
+    run_window_with_app, BlendMode, Camera, CameraHandle, ClearCommand, Color, ColorWriteMask,
+    CullMode, DepthTest, DrawMeshCommand, DrawMeshMaterialOverrideCommand, FrameOutcome,
+    Instance2d, KeyCode, Material, MaterialDefinition, MaterialDefinitionId, MaterialHandle,
+    MaterialInstance, MaterialOverride, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PipelineRenderState, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use tokimu_assets::{AssetLifecycleObservation, AssetStore};
 use tokimu_core::math::{Mat4, Vec3};
@@ -17,6 +24,7 @@ const FLOOR_MATERIAL: MaterialHandle = MaterialHandle(2);
 const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 const KHRONOS_BOX_SOURCE: &str =
     "third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb";
+const MODEL_TARGET_KEY: &str = "khronos-box/node/0/mesh/0/primitive/0";
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(
@@ -35,22 +43,58 @@ struct HelloGlbApp {
     window_size: [f32; 2],
     elapsed_seconds: f64,
     pipeline: PipelineHandle,
+    transparent_pipeline: PipelineHandle,
     assets: AssetStore,
     asset_lifecycle: Vec<AssetLifecycleObservation>,
     model_mesh: Mesh,
+    presentation: PresentationControl,
+    model_target: PresentationTargetId,
+    model_material_definition: MaterialDefinition,
+    model_material_instance: MaterialInstance,
+    model_material_override: Option<MaterialOverride>,
+    presentation_step: usize,
+    model_visible: bool,
 }
 
 impl Default for HelloGlbApp {
     fn default() -> Self {
+        let model_target =
+            PresentationTargetId::new(PresentationTargetKind::MeshPrimitive, MODEL_TARGET_KEY)
+                .expect("static GLB presentation target should be valid");
+        let mut presentation = PresentationControl::default();
+        presentation
+            .register_target_with_descriptor(
+                PresentationTargetDescriptor::new(model_target.clone())
+                    .with_source_name("Box")
+                    .expect("static GLB source name should be valid"),
+                SourcePresentation::new(presentation_color(0.86, 0.79, 0.72), 1.0, true)
+                    .expect("static GLB source presentation should be valid"),
+            )
+            .expect("GLB presentation target should register once");
+        let model_material_definition = MaterialDefinition::solid_color(
+            MaterialDefinitionId::new("hello-glb-model")
+                .expect("static GLB material definition should be valid"),
+            Color::rgb(0.86, 0.79, 0.72),
+        );
+        let model_material_instance = MaterialInstance::from_definition(&model_material_definition);
+
         Self {
             renderer: None,
             window: None,
             window_size: [1.0, 1.0],
             elapsed_seconds: 0.0,
             pipeline: PipelineHandle(0),
+            transparent_pipeline: PipelineHandle(0),
             assets: AssetStore::default(),
             asset_lifecycle: Vec::new(),
             model_mesh: Mesh::default(),
+            presentation,
+            model_target,
+            model_material_definition,
+            model_material_instance,
+            model_material_override: None,
+            presentation_step: 0,
+            model_visible: true,
         }
     }
 }
@@ -69,10 +113,71 @@ impl HelloGlbApp {
                 .and_then(|entry| entry.source.as_deref())
                 .unwrap_or("models/cube.glb");
             window.set_title(&format!(
-                "Tokimu Hello GLB | source={} | elapsed={:.1}s",
-                source, self.elapsed_seconds
+                "Tokimu Hello GLB | source={} | presentation={} | E cycles | elapsed={:.1}s",
+                source,
+                presentation_step_name(self.presentation_step),
+                self.elapsed_seconds
             ));
         }
+    }
+
+    fn cycle_model_presentation(&mut self) -> PlatformResult<()> {
+        self.presentation_step = (self.presentation_step + 1) % 5;
+        self.presentation
+            .clear_target_overrides(&self.model_target)?;
+
+        let override_value = match self.presentation_step {
+            0 => None,
+            1 => Some(
+                PresentationOverride::default()
+                    .with_tint(PresentationTint::replace(presentation_color(
+                        0.38, 0.68, 0.96,
+                    )))
+                    .with_emphasis(PresentationEmphasis::Selected),
+            ),
+            2 => Some(
+                PresentationOverride::default()
+                    .with_tint(PresentationTint::replace(presentation_color(
+                        1.0, 0.35, 0.10,
+                    )))
+                    .with_emphasis(PresentationEmphasis::Hotspot),
+            ),
+            3 => Some(
+                PresentationOverride::default()
+                    .with_tint(PresentationTint::multiply(presentation_color(
+                        0.65, 0.90, 1.0,
+                    )))
+                    .with_opacity_multiplier(0.35)?,
+            ),
+            4 => Some(PresentationOverride::default().with_visibility(false)),
+            _ => unreachable!("presentation step is reduced modulo five"),
+        };
+        if let Some(override_value) = override_value {
+            self.presentation.set_override(
+                &self.model_target,
+                PresentationLayer::Application,
+                override_value,
+            )?;
+        }
+
+        self.refresh_model_presentation()?;
+        self.update_window_title();
+        Ok(())
+    }
+
+    fn refresh_model_presentation(&mut self) -> PlatformResult<()> {
+        let resolved = self.presentation.resolve(&self.model_target)?;
+        self.model_visible = resolved.visible;
+        self.model_material_override = (self.presentation_step != 0)
+            .then(|| resolved_to_material_override(resolved))
+            .transpose()?;
+        Ok(())
+    }
+
+    fn source_model_material(&self) -> PlatformResult<Material> {
+        self.model_material_definition
+            .lower_to_legacy_material(&self.model_material_instance, "glb-model")
+            .map_err(Into::into)
     }
 
     fn render_scene(&mut self) -> PlatformResult<FrameOutcome> {
@@ -95,7 +200,7 @@ impl HelloGlbApp {
         renderer.upload_camera(CAMERA_HANDLE, camera);
 
         renderer.begin_frame();
-        renderer.submit(&[
+        let mut commands = vec![
             RenderCommand::Clear(ClearCommand {
                 color: Color::rgb(0.05, 0.07, 0.11),
             }),
@@ -107,15 +212,34 @@ impl HelloGlbApp {
                 camera: Some(CAMERA_HANDLE),
                 viewport: None,
             }),
-            RenderCommand::DrawMesh(DrawMeshCommand {
+        ];
+        if self.model_visible {
+            let draw = DrawMeshCommand {
                 mesh: MODEL_MESH,
                 material: MODEL_MATERIAL,
-                pipeline: self.pipeline,
+                pipeline: if self
+                    .model_material_override
+                    .is_some_and(|override_value| override_value.opacity_multiplier() < 1.0)
+                {
+                    self.transparent_pipeline
+                } else {
+                    self.pipeline
+                },
                 instance: Instance2d::identity(),
                 camera: Some(CAMERA_HANDLE),
                 viewport: None,
-            }),
-        ]);
+            };
+            commands.push(match self.model_material_override {
+                Some(material_override) => {
+                    RenderCommand::DrawMeshMaterialOverride(DrawMeshMaterialOverrideCommand {
+                        draw,
+                        material_override,
+                    })
+                }
+                None => RenderCommand::DrawMesh(draw),
+            });
+        }
+        renderer.submit(&commands);
         let _ = renderer.present()?;
         self.update_window_title();
         Ok(FrameOutcome::Continue)
@@ -146,16 +270,24 @@ impl PlatformEventHandler for HelloGlbApp {
         }
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
-        renderer.upload_material(
-            MODEL_MATERIAL,
-            &Material::new("glb-model", Color::rgb(0.86, 0.79, 0.72)),
-        )?;
+        let model_material = self.source_model_material()?;
+        renderer.upload_material(MODEL_MATERIAL, &model_material)?;
         renderer.upload_material(
             FLOOR_MATERIAL,
             &Material::new("glb-floor", Color::rgb(0.08, 0.10, 0.13)),
         )?;
         self.pipeline =
             renderer.register_pipeline(&Pipeline::new("glb-pipeline", PipelineKind::LitColor3d))?;
+        self.transparent_pipeline = renderer.register_pipeline(
+            &Pipeline::new("glb-transparent-pipeline", PipelineKind::LitColor3d)
+                .with_render_state(PipelineRenderState {
+                    blend: BlendMode::AlphaBlend,
+                    depth_test: DepthTest::LessEqual,
+                    depth_write: false,
+                    cull_mode: CullMode::None,
+                    color_write: ColorWriteMask::ALL,
+                })?,
+        )?;
         self.renderer = Some(renderer);
         self.update_window_title();
         Ok(())
@@ -172,6 +304,13 @@ impl PlatformEventHandler for HelloGlbApp {
                 renderer.resize_surface(width, height);
             }
         }
+        if let PlatformInputEvent::KeyboardInput {
+            key: KeyCode::KeyE,
+            pressed: true,
+        } = event
+        {
+            self.cycle_model_presentation()?;
+        }
 
         Ok(())
     }
@@ -179,6 +318,33 @@ impl PlatformEventHandler for HelloGlbApp {
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         self.elapsed_seconds += delta_seconds;
         self.render_scene()
+    }
+}
+
+fn presentation_color(red: f32, green: f32, blue: f32) -> PresentationColor {
+    PresentationColor::new(red, green, blue)
+        .expect("hard-coded corpus presentation color should be valid")
+}
+
+fn resolved_to_material_override(
+    resolved: ResolvedPresentation,
+) -> Result<MaterialOverride, tokimu::MaterialModelError> {
+    MaterialOverride::with_replacement_color(Color::rgb(
+        resolved.color.red,
+        resolved.color.green,
+        resolved.color.blue,
+    ))?
+    .with_opacity_multiplier(resolved.opacity)
+}
+
+fn presentation_step_name(step: usize) -> &'static str {
+    match step {
+        0 => "source",
+        1 => "selected",
+        2 => "hotspot",
+        3 => "transparent",
+        4 => "hidden",
+        _ => "unknown",
     }
 }
 
@@ -289,4 +455,53 @@ fn build_floor_mesh(seconds: f32) -> Mesh {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn presentation_cycle_preserves_source_material_and_restores_it() {
+        let mut app = HelloGlbApp::default();
+        let source_material = app.source_model_material().unwrap();
+
+        app.cycle_model_presentation().unwrap();
+        assert!(app.model_visible);
+        assert_eq!(app.presentation_step, 1);
+        assert_eq!(
+            app.model_material_override
+                .expect("selected state should use an override")
+                .opacity_multiplier(),
+            1.0
+        );
+        assert_eq!(app.source_model_material().unwrap(), source_material);
+
+        app.cycle_model_presentation().unwrap();
+        assert!(app.model_visible);
+        assert_eq!(app.presentation_step, 2);
+        assert_eq!(app.source_model_material().unwrap(), source_material);
+
+        app.cycle_model_presentation().unwrap();
+        assert!(app.model_visible);
+        assert_eq!(app.presentation_step, 3);
+        assert_eq!(
+            app.model_material_override
+                .expect("transparent state should use an override")
+                .opacity_multiplier(),
+            0.35
+        );
+        assert_eq!(app.source_model_material().unwrap(), source_material);
+
+        app.cycle_model_presentation().unwrap();
+        assert!(!app.model_visible);
+        assert_eq!(app.presentation_step, 4);
+        assert_eq!(app.source_model_material().unwrap(), source_material);
+
+        app.cycle_model_presentation().unwrap();
+        assert!(app.model_visible);
+        assert_eq!(app.presentation_step, 0);
+        assert!(app.model_material_override.is_none());
+        assert_eq!(app.source_model_material().unwrap(), source_material);
+    }
 }

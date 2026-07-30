@@ -348,6 +348,7 @@ fn load_glb_buffers(root: &Value, binary_chunk: Option<&[u8]>) -> CorpusResult<V
 /// Reconstruct the bounded `EXT_meshopt_compression` profile used by the
 /// hole-punch corpus asset. Compressed views remain an importer detail: once
 /// reconstructed, ordinary accessors consume the declared logical buffer.
+#[cfg(feature = "meshopt")]
 fn decode_meshopt_buffer_views(root: &Value, buffers: &mut [Vec<u8>]) -> CorpusResult<()> {
     for (view_index, view) in array(root, "bufferViews")?.iter().enumerate() {
         let Some(extension) = view
@@ -471,6 +472,21 @@ fn decode_meshopt_buffer_views(root: &Value, buffers: &mut [Vec<u8>]) -> CorpusR
     Ok(())
 }
 
+#[cfg(not(feature = "meshopt"))]
+fn decode_meshopt_buffer_views(root: &Value, _buffers: &mut [Vec<u8>]) -> CorpusResult<()> {
+    if array(root, "bufferViews")?.iter().any(|view| {
+        view.get("extensions")
+            .and_then(|extensions| extensions.get("EXT_meshopt_compression"))
+            .is_some()
+    }) {
+        return Err(CorpusError::UnsupportedAccessor(
+            "EXT_meshopt_compression requires the optional `meshopt` decode feature".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "meshopt")]
 fn extension_required_usize(value: Option<&Value>, description: &str) -> CorpusResult<usize> {
     let value = value
         .and_then(Value::as_u64)
@@ -478,6 +494,7 @@ fn extension_required_usize(value: Option<&Value>, description: &str) -> CorpusR
     usize::try_from(value).map_err(|_| invalid(format!("{description} exceeds addressable memory")))
 }
 
+#[cfg(feature = "meshopt")]
 fn extension_optional_usize(
     value: Option<&Value>,
     description: &str,

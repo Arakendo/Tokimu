@@ -1,6 +1,7 @@
 use crate::{
-    Camera, CameraHandle, Color, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
-    PipelineHandle, PipelineKind, PipelineRegistry, RenderCommand, RenderFrameCpuTimings,
+    BlendMode, Camera, CameraHandle, Color, ColorWriteMask, CullMode, DepthTest, Instance2d,
+    Material, MaterialHandle, MaterialOverride, Mesh, MeshHandle, Pipeline, PipelineHandle,
+    PipelineKind, PipelineRegistry, PipelineRenderState, RenderCommand, RenderFrameCpuTimings,
     RenderStats, Renderable, RenderableHandle, Renderer, Texture, TextureHandle,
 };
 use bytemuck::{Pod, Zeroable};
@@ -54,8 +55,11 @@ struct GpuMesh {
 }
 
 struct GpuMaterial {
+    base_color: Color,
     _uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    texture_view: Arc<wgpu::TextureView>,
+    sampler: Arc<wgpu::Sampler>,
     _fallback_texture: Option<wgpu::Texture>,
     _fallback_view: Option<Arc<wgpu::TextureView>>,
     _fallback_sampler: Option<Arc<wgpu::Sampler>>,
@@ -74,6 +78,14 @@ struct QueuedDraw {
     instance: Instance2d,
     camera: Option<CameraHandle>,
     viewport: Option<crate::commands::ViewportRect>,
+    material_override: Option<MaterialOverride>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct DerivedMaterialKey {
+    source: MaterialHandle,
+    replacement_color: Option<[u32; 4]>,
+    opacity_multiplier: u32,
 }
 
 struct SurfaceState {
@@ -123,6 +135,7 @@ pub struct WgpuBackend {
     camera_bindings: HashMap<CameraHandle, GpuCameraBinding>,
     meshes: HashMap<MeshHandle, GpuMesh>,
     materials: HashMap<MaterialHandle, GpuMaterial>,
+    derived_materials: HashMap<DerivedMaterialKey, GpuMaterial>,
     pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,
     pipeline_registry: PipelineRegistry,
     renderables: HashMap<RenderableHandle, Renderable>,
@@ -177,6 +190,7 @@ impl WgpuBackend {
             camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
+            derived_materials: HashMap::new(),
             pipelines: HashMap::new(),
             pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
@@ -246,6 +260,7 @@ impl WgpuBackend {
             camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
+            derived_materials: HashMap::new(),
             pipelines: HashMap::new(),
             pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
@@ -330,6 +345,7 @@ impl WgpuBackend {
             camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
+            derived_materials: HashMap::new(),
             pipelines: HashMap::new(),
             pipeline_registry: PipelineRegistry::new(),
             renderables: HashMap::new(),
@@ -577,13 +593,54 @@ impl WgpuBackend {
         self.materials.insert(
             handle,
             GpuMaterial {
+                base_color: material.base_color,
                 _uniform_buffer: uniform_buffer,
                 bind_group,
+                texture_view,
+                sampler,
                 _fallback_texture: fallback_texture,
                 _fallback_view: fallback_view,
                 _fallback_sampler: fallback_sampler,
             },
         );
+        self.derived_materials.retain(|key, _| key.source != handle);
+
+        Ok(())
+    }
+
+    fn prepare_derived_materials(&mut self) -> Result<(), WgpuBackendError> {
+        let requests = self
+            .queued_draws
+            .iter()
+            .filter_map(|draw| {
+                draw.material_override
+                    .map(|override_value| (draw.material, override_value))
+            })
+            .collect::<Vec<_>>();
+        let material_bind_group_layout = &self
+            .surface_state
+            .as_ref()
+            .expect("derived materials require an initialized surface")
+            .material_bind_group_layout;
+        let device = &self._device;
+        let materials = &self.materials;
+        let derived_materials = &mut self.derived_materials;
+        let stats = &mut self.stats;
+
+        for (source_handle, override_value) in requests {
+            let key = derived_material_key(source_handle, override_value);
+            if derived_materials.contains_key(&key) {
+                continue;
+            }
+
+            let source = materials
+                .get(&source_handle)
+                .ok_or(WgpuBackendError::MissingMaterial(source_handle.0))?;
+            let material =
+                create_derived_material(device, material_bind_group_layout, source, override_value);
+            derived_materials.insert(key, material);
+            stats.record_binding_allocation();
+        }
 
         Ok(())
     }
@@ -605,6 +662,7 @@ impl WgpuBackend {
                 &surface_state.material_bind_group_layout,
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
+                pipeline.render_state,
             ),
             PipelineKind::Texture2d => create_custom_pipeline(
                 &self._device,
@@ -621,7 +679,7 @@ impl WgpuBackend {
                     .unwrap(),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
-                false,
+                pipeline.render_state,
             ),
             PipelineKind::LitColor3d => create_custom_pipeline(
                 &self._device,
@@ -638,7 +696,7 @@ impl WgpuBackend {
                     .unwrap_or(Pipeline::default_2d_shader_source()),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
-                true,
+                pipeline.render_state,
             ),
             PipelineKind::CustomWgsl2d => create_custom_pipeline(
                 &self._device,
@@ -655,7 +713,7 @@ impl WgpuBackend {
                     .unwrap_or(Pipeline::default_2d_shader_source()),
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
-                false,
+                pipeline.render_state,
             ),
         };
 
@@ -711,6 +769,10 @@ impl WgpuBackend {
     }
 
     pub fn present(&mut self) -> Result<RenderStats, WgpuBackendError> {
+        if self.surface_state.is_none() {
+            return Ok(self.end_frame());
+        }
+        self.prepare_derived_materials()?;
         let Some(surface_state) = self.surface_state.as_ref() else {
             return Ok(self.end_frame());
         };
@@ -856,10 +918,16 @@ impl WgpuBackend {
                         .meshes
                         .get(&draw.mesh)
                         .ok_or(WgpuBackendError::MissingMesh(draw.mesh.0))?;
-                    let gpu_material = self
-                        .materials
-                        .get(&draw.material)
-                        .ok_or(WgpuBackendError::MissingMaterial(draw.material.0))?;
+                    let gpu_material = match draw.material_override {
+                        Some(override_value) => self
+                            .derived_materials
+                            .get(&derived_material_key(draw.material, override_value))
+                            .expect("derived material binding prepared before render pass"),
+                        None => self
+                            .materials
+                            .get(&draw.material)
+                            .ok_or(WgpuBackendError::MissingMaterial(draw.material.0))?,
+                    };
                     let pipeline = self
                         .pipelines
                         .get(&draw.pipeline)
@@ -935,6 +1003,7 @@ impl Renderer for WgpuBackend {
         if let Some(clear_color) = commands.iter().find_map(|command| match command {
             RenderCommand::Clear(clear) => Some(clear.color),
             RenderCommand::DrawMesh(_) => None,
+            RenderCommand::DrawMeshMaterialOverride(_) => None,
             RenderCommand::DrawRenderable(_) => None,
         }) {
             if let Some(surface_state) = self.surface_state.as_mut() {
@@ -952,6 +1021,16 @@ impl Renderer for WgpuBackend {
                     instance: draw.instance,
                     camera: draw.camera,
                     viewport: draw.viewport,
+                    material_override: None,
+                }),
+                RenderCommand::DrawMeshMaterialOverride(draw) => Some(QueuedDraw {
+                    mesh: draw.draw.mesh,
+                    material: draw.draw.material,
+                    pipeline: draw.draw.pipeline,
+                    instance: draw.draw.instance,
+                    camera: draw.draw.camera,
+                    viewport: draw.draw.viewport,
+                    material_override: Some(draw.material_override),
                 }),
                 RenderCommand::DrawRenderable(draw) => {
                     let renderable = self.renderables.get(&draw.renderable)?;
@@ -962,6 +1041,7 @@ impl Renderer for WgpuBackend {
                         instance: draw.instance,
                         camera: draw.camera,
                         viewport: draw.viewport,
+                        material_override: None,
                     })
                 }
             }));
@@ -972,7 +1052,9 @@ impl Renderer for WgpuBackend {
                 .filter(|command| {
                     matches!(
                         command,
-                        RenderCommand::DrawMesh(_) | RenderCommand::DrawRenderable(_)
+                        RenderCommand::DrawMesh(_)
+                            | RenderCommand::DrawMeshMaterialOverride(_)
+                            | RenderCommand::DrawRenderable(_)
                     )
                 })
                 .count() as u32,
@@ -984,6 +1066,70 @@ impl Renderer for WgpuBackend {
     }
 }
 
+fn derived_material_key(
+    source: MaterialHandle,
+    override_value: MaterialOverride,
+) -> DerivedMaterialKey {
+    DerivedMaterialKey {
+        source,
+        replacement_color: override_value.replacement_color().map(color_bits),
+        opacity_multiplier: override_value.opacity_multiplier().to_bits(),
+    }
+}
+
+fn color_bits(color: Color) -> [u32; 4] {
+    [
+        color.r.to_bits(),
+        color.g.to_bits(),
+        color.b.to_bits(),
+        color.a.to_bits(),
+    ]
+}
+
+fn create_derived_material(
+    device: &wgpu::Device,
+    material_bind_group_layout: &wgpu::BindGroupLayout,
+    source: &GpuMaterial,
+    override_value: MaterialOverride,
+) -> GpuMaterial {
+    let base_color = override_value.apply_to_color(source.base_color);
+    let uniform = [base_color.r, base_color.g, base_color.b, base_color.a];
+    let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("tokimu-derived-material-uniform-buffer"),
+        contents: bytemuck::cast_slice(&uniform),
+        usage: wgpu::BufferUsages::UNIFORM,
+    });
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("tokimu-derived-material-bind-group"),
+        layout: material_bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&source.texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(&source.sampler),
+            },
+        ],
+    });
+
+    GpuMaterial {
+        base_color,
+        _uniform_buffer: uniform_buffer,
+        bind_group,
+        texture_view: Arc::clone(&source.texture_view),
+        sampler: Arc::clone(&source.sampler),
+        _fallback_texture: None,
+        _fallback_view: None,
+        _fallback_sampler: None,
+    }
+}
+
 fn create_solid_color_pipeline(
     device: &wgpu::Device,
     surface_format: wgpu::TextureFormat,
@@ -991,6 +1137,7 @@ fn create_solid_color_pipeline(
     material_bind_group_layout: &wgpu::BindGroupLayout,
     instance_bind_group_layout: &wgpu::BindGroupLayout,
     camera_bind_group_layout: &wgpu::BindGroupLayout,
+    render_state: PipelineRenderState,
 ) -> wgpu::RenderPipeline {
     create_custom_pipeline(
         device,
@@ -1003,7 +1150,7 @@ fn create_solid_color_pipeline(
         PipelineKind::SolidColor2d.default_shader_source().unwrap(),
         "vs_main",
         "fs_main",
-        false,
+        render_state,
     )
 }
 
@@ -1019,7 +1166,7 @@ fn create_custom_pipeline(
     shader_source: &str,
     vertex_entry_point: &str,
     fragment_entry_point: &str,
-    depth_write_enabled: bool,
+    render_state: PipelineRenderState,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(pipeline_label),
@@ -1060,18 +1207,15 @@ fn create_custom_pipeline(
             }],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
-        primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: Some(wgpu::DepthStencilState {
-            format: depth_format,
-            // Custom 2D pipelines are painter-ordered. Disabling depth writes
-            // avoids Z-fighting between coplanar SVG stroke segments and their
-            // round joins, while preserving the depth test for the shared
-            // render target.
-            depth_write_enabled,
-            depth_compare: wgpu::CompareFunction::LessEqual,
-            stencil: wgpu::StencilState::default(),
-            bias: wgpu::DepthBiasState::default(),
-        }),
+        primitive: wgpu::PrimitiveState {
+            cull_mode: match render_state.cull_mode {
+                CullMode::None => None,
+                CullMode::Front => Some(wgpu::Face::Front),
+                CullMode::Back => Some(wgpu::Face::Back),
+            },
+            ..wgpu::PrimitiveState::default()
+        },
+        depth_stencil: depth_stencil_state(depth_format, render_state),
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module: &shader,
@@ -1079,13 +1223,49 @@ fn create_custom_pipeline(
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
                 format: surface_format,
-                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
+                blend: match render_state.blend {
+                    BlendMode::Opaque => None,
+                    BlendMode::AlphaBlend => Some(wgpu::BlendState::ALPHA_BLENDING),
+                },
+                write_mask: color_write_mask(render_state.color_write),
             })],
         }),
         multiview: None,
         cache: None,
     })
+}
+
+fn depth_stencil_state(
+    depth_format: wgpu::TextureFormat,
+    render_state: PipelineRenderState,
+) -> Option<wgpu::DepthStencilState> {
+    match render_state.depth_test {
+        DepthTest::Disabled => None,
+        DepthTest::LessEqual => Some(wgpu::DepthStencilState {
+            format: depth_format,
+            depth_write_enabled: render_state.depth_write,
+            depth_compare: wgpu::CompareFunction::LessEqual,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+    }
+}
+
+fn color_write_mask(mask: ColorWriteMask) -> wgpu::ColorWrites {
+    let mut writes = wgpu::ColorWrites::empty();
+    if mask.red {
+        writes |= wgpu::ColorWrites::RED;
+    }
+    if mask.green {
+        writes |= wgpu::ColorWrites::GREEN;
+    }
+    if mask.blue {
+        writes |= wgpu::ColorWrites::BLUE;
+    }
+    if mask.alpha {
+        writes |= wgpu::ColorWrites::ALPHA;
+    }
+    writes
 }
 
 fn create_depth_texture(
@@ -1176,4 +1356,28 @@ fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
             },
         ],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::derived_material_key;
+    use crate::{Color, MaterialHandle, MaterialOverride};
+
+    #[test]
+    fn derived_material_keys_reuse_identical_overrides_and_split_distinct_ones() {
+        let source = MaterialHandle(12);
+        let selected = MaterialOverride::with_replacement_color(Color::rgb(1.0, 0.5, 0.0)).unwrap();
+        let faded = MaterialOverride::default()
+            .with_opacity_multiplier(0.5)
+            .unwrap();
+
+        assert_eq!(
+            derived_material_key(source, selected),
+            derived_material_key(source, selected)
+        );
+        assert_ne!(
+            derived_material_key(source, selected),
+            derived_material_key(source, faded)
+        );
+    }
 }

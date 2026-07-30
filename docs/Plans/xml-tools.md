@@ -370,7 +370,7 @@ Generated artifacts belong under `target/`, not beside fixtures.
 
 ## External Standards Corpus Strategy
 
-The source discussion in `docs/Conversations/xml corpus.md` identifies the XML,
+The source discussion in `docs/Conversations/XML Corpus.md` identifies the XML,
 XPath, and XSD corpus foundations. XSLT adds a fourth independently admitted
 transformation corpus:
 
@@ -1188,7 +1188,7 @@ Promotion beyond example-side incubation requires:
 - `corpus/lib/presentation-geometry-corpus/`
 - `docs/Plans/presentation-geometry-corpus-harness.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
-- `docs/Conversations/xml corpus.md`
+- `docs/Conversations/XML Corpus.md`
 - `.workbench/Todos/svg-xml-tools-pipeline.md`
 - `docs/testing-strategy.md`
 - `docs/example-philosophy.md`

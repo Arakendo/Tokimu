@@ -480,7 +480,7 @@ This plan is complete when:
 
 - `docs/Architectural Reviews/AR-0005-runtime-observation-and-performance-telemetry.md`
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`
-- `docs/Conversations/On Performence Metrics.md`
+- `docs/Conversations/On Performance Metrics.md`
 - `docs/Notes/ui-presentation-performance-evidence.md`
 - `docs/testing-strategy.md`
 - `crates/tokimu-core/src/diagnostics.rs`

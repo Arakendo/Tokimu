@@ -8,7 +8,7 @@
 | Scope | Kernel / runtime / platform / cross-cutting |
 | Trigger | Independent presentation, asset, physics, and networking work needs one coherent execution owner |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0005, ADR-0006 |
-| Related evidence | `docs/Conversations/multithreading.md`, current schedule/system APIs, native/WASM requirements |
+| Related evidence | `docs/Conversations/On Multithreading.md`, current schedule/system APIs, native/WASM requirements |
 | Admission exception | Permanent evidence substitution under ADR-0005 |
 
 ## Architectural Question
@@ -208,7 +208,7 @@ the native execution and multithreading plan.
 
 ## References
 
-- `docs/Conversations/multithreading.md`
+- `docs/Conversations/On Multithreading.md`
 - `docs/kernel-principles.md`
 - `docs/Tokimu Software Design Document.md`
 - `crates/tokimu-core/src/schedule.rs`

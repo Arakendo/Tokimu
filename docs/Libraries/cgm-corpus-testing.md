@@ -28,6 +28,14 @@ rectangle, circle, ellipse, open circular-arc, and open elliptical-arc forms
 into provider-neutral paths; mesh and renderer evidence remain deliberately
 absent.
 
+`corpus/consumers/aspnet-wasm-asset-workbench` is a separate browser consumer
+of the same inspection and lowering contracts. Its CGM preview is intentionally
+outline-only: a closed source contour describes topology, not admitted CGM fill
+intent. The workbench groups deferred source elements by named CGM feature and
+count while the corpus artifacts retain every source occurrence. This keeps the
+interactive view useful without weakening the raw diagnostic evidence needed
+for future paint, text, palette, and clipping slices.
+
 The same seven selected primitive fixtures are registered in
 `presentation-geometry-corpus` as `source -> vector` cases. The harness
 consumes only `cgm-corpus` inspection and lowering results, so no binary CGM
@@ -117,7 +125,7 @@ is genuinely producer-neutral while introducing different source semantics:
 - geometric primitives that overlap with SVG but arrive through different
   format rules.
 
-The conversation in `docs/Conversations/cgm corpus tests.md` identifies the
+The conversation in `docs/Conversations/CGM Corpus Tests.md` identifies the
 WebCGM test suite as the first acquisition candidate and the NIST CGM
 conformance-testing report as methodology evidence. Both sources must be
 verified and pinned during acquisition rather than treated as implicitly
@@ -975,7 +983,7 @@ Until then, CGM remains an evidence-producing external format adapter.
 ## References
 
 - `docs/Libraries/README.md`
-- `docs/Conversations/cgm corpus tests.md`
+- `docs/Conversations/CGM Corpus Tests.md`
 - `docs/Libraries/w3c-svg-corpus-testing.md`
 - `docs/Libraries/khronos-gltf-corpus-testing.md`
 - `docs/Plans/presentation-geometry-corpus-harness.md`

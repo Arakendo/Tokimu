@@ -8,12 +8,17 @@ use cgm_corpus::{
     inspect_binary_cgm_file, lower_picture_primitives, CgmInspection, CgmPrimitiveTopology,
     CgmVectorPrimitive, DecodeLimits, DelimiterElement,
 };
+use presentation_control::{
+    PresentationColor, PresentationControl, PresentationEmphasis, PresentationLayer,
+    PresentationOverride, PresentationTargetId, PresentationTargetKind, PresentationTint,
+    ResolvedPresentation, SourcePresentation,
+};
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, Diagnostics, DrawMeshCommand,
-    FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow,
-    PerformanceBudget, PerformanceMonitor, PerformanceUnit, Pipeline, PipelineHandle, PipelineKind,
-    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend,
-    WindowConfig,
+    DrawMeshMaterialOverrideCommand, FrameOutcome, Instance2d, KeyCode, Material, MaterialHandle,
+    MaterialOverride, Mesh, MeshHandle, NativeWindow, PerformanceBudget, PerformanceMonitor,
+    PerformanceUnit, Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler,
+    PlatformInputEvent, PlatformResult, RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
 use ui_tools::{layout_bitmap_text, tessellate_path_strokes, UiRect, UiTextRole, UiTextSpec};
 
@@ -31,6 +36,7 @@ const VECTOR_PANEL_MATERIAL: MaterialHandle = MaterialHandle(5);
 const VECTOR_MATERIAL: MaterialHandle = MaterialHandle(6);
 const CLASS_MATERIAL_BASE: u64 = 10;
 const DIAGNOSTIC_STROKE_WIDTH: f32 = 0.012;
+const VECTOR_TARGET_KEY: &str = "POLYLN01/picture/0/vector-records";
 
 const CLASS_COLORS: [Color; 9] = [
     Color::rgb(0.45, 0.68, 0.92),
@@ -99,10 +105,26 @@ struct HelloCgmApp {
     presentation_revision: u64,
     last_built_presentation_revision: Option<u64>,
     unchanged_presentation_rebuilds: u64,
+    presentation: PresentationControl,
+    vector_target: PresentationTargetId,
+    vector_material_override: Option<MaterialOverride>,
+    vector_visible: bool,
+    presentation_step: usize,
 }
 
 impl Default for HelloCgmApp {
     fn default() -> Self {
+        let vector_target =
+            PresentationTargetId::new(PresentationTargetKind::VectorRecord, VECTOR_TARGET_KEY)
+                .expect("static CGM presentation target should be valid");
+        let mut presentation = PresentationControl::default();
+        presentation
+            .register_target(
+                vector_target.clone(),
+                SourcePresentation::new(presentation_color(0.56, 0.86, 0.76), 1.0, true)
+                    .expect("static CGM source presentation should be valid"),
+            )
+            .expect("CGM presentation target should register once");
         Self {
             renderer: None,
             window_size: [1.0, 1.0],
@@ -151,11 +173,73 @@ impl Default for HelloCgmApp {
             presentation_revision: 0,
             last_built_presentation_revision: None,
             unchanged_presentation_rebuilds: 0,
+            presentation,
+            vector_target,
+            vector_material_override: None,
+            vector_visible: true,
+            presentation_step: 0,
         }
     }
 }
 
 impl HelloCgmApp {
+    fn cycle_vector_presentation(&mut self) -> PlatformResult<()> {
+        self.presentation_step = (self.presentation_step + 1) % 4;
+        self.presentation
+            .clear_target_overrides(&self.vector_target)?;
+        let override_value = match self.presentation_step {
+            0 => None,
+            1 => Some(
+                PresentationOverride::default()
+                    .with_tint(PresentationTint::replace(presentation_color(
+                        0.38, 0.68, 0.96,
+                    )))
+                    .with_emphasis(PresentationEmphasis::Selected),
+            ),
+            2 => Some(
+                PresentationOverride::default()
+                    .with_tint(PresentationTint::replace(presentation_color(
+                        1.0, 0.35, 0.10,
+                    )))
+                    .with_emphasis(PresentationEmphasis::Hotspot),
+            ),
+            3 => Some(
+                PresentationOverride::default()
+                    .with_tint(PresentationTint::multiply(presentation_color(
+                        0.70, 0.95, 1.0,
+                    )))
+                    .with_opacity_multiplier(0.35)?,
+            ),
+            _ => unreachable!("presentation step is reduced modulo four"),
+        };
+        if let Some(override_value) = override_value {
+            self.presentation.set_override(
+                &self.vector_target,
+                PresentationLayer::Application,
+                override_value,
+            )?;
+        }
+
+        let resolved = self.presentation.resolve(&self.vector_target)?;
+        self.refresh_vector_presentation()?;
+        self.presentation_revision = self.presentation_revision.saturating_add(1);
+        println!(
+            "hello-cgm presentation target={} state={} resolved={resolved:?}",
+            self.vector_target,
+            presentation_step_name(self.presentation_step)
+        );
+        Ok(())
+    }
+
+    fn refresh_vector_presentation(&mut self) -> PlatformResult<()> {
+        let resolved = self.presentation.resolve(&self.vector_target)?;
+        self.vector_visible = resolved.visible;
+        self.vector_material_override = (self.presentation_step != 0)
+            .then(|| resolved_to_material_override(resolved))
+            .transpose()?;
+        Ok(())
+    }
+
     fn record_presentation_build(&mut self) {
         if self.last_built_presentation_revision == Some(self.presentation_revision) {
             self.unchanged_presentation_rebuilds =
@@ -217,6 +301,8 @@ impl HelloCgmApp {
         pipeline: PipelineHandle,
         inspection: &CgmInspection,
         lowered_primitives: &[CgmVectorPrimitive],
+        vector_visible: bool,
+        vector_material_override: Option<MaterialOverride>,
     ) {
         Self::draw_quad(
             renderer,
@@ -424,15 +510,24 @@ impl HelloCgmApp {
             VECTOR_PANEL_MATERIAL,
             UiRect::new([0.48, -0.16], [0.70, 0.58]),
         );
-        if !lowered_primitives.is_empty() {
-            renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
+        if vector_visible && !lowered_primitives.is_empty() {
+            let draw = DrawMeshCommand {
                 mesh: VECTOR_MESH,
                 material: VECTOR_MATERIAL,
                 pipeline,
                 instance: Instance2d::new([0.48, -0.17], [0.54, 0.30], 0.0),
                 camera: Some(CAMERA_HANDLE),
                 viewport: None,
-            })]);
+            };
+            renderer.submit(&[match vector_material_override {
+                Some(material_override) => {
+                    RenderCommand::DrawMeshMaterialOverride(DrawMeshMaterialOverrideCommand {
+                        draw,
+                        material_override,
+                    })
+                }
+                None => RenderCommand::DrawMesh(draw),
+            }]);
         }
 
         let closed = lowered_primitives
@@ -581,6 +676,13 @@ impl PlatformEventHandler for HelloCgmApp {
                 renderer.resize_surface(width, height);
             }
         }
+        if let PlatformInputEvent::KeyboardInput {
+            key: KeyCode::KeyE,
+            pressed: true,
+        } = event
+        {
+            self.cycle_vector_presentation()?;
+        }
         Ok(())
     }
 
@@ -591,6 +693,8 @@ impl PlatformEventHandler for HelloCgmApp {
         let diagnostic_count = self.diagnostics.records().len();
         self.record_presentation_build();
 
+        let vector_visible = self.vector_visible;
+        let vector_material_override = self.vector_material_override;
         let (Some(renderer), Some(inspection)) = (self.renderer.as_mut(), self.inspection.as_ref())
         else {
             unreachable!("renderer and inspection presence checked above");
@@ -609,6 +713,8 @@ impl PlatformEventHandler for HelloCgmApp {
             self.pipeline,
             inspection,
             &self.lowered_primitives,
+            vector_visible,
+            vector_material_override,
         );
         let presentation_time = presentation_start.elapsed();
         let present_start = Instant::now();
@@ -677,6 +783,32 @@ impl PlatformEventHandler for HelloCgmApp {
         }
         self.frame_index += 1;
         Ok(FrameOutcome::Continue)
+    }
+}
+
+fn presentation_color(red: f32, green: f32, blue: f32) -> PresentationColor {
+    PresentationColor::new(red, green, blue)
+        .expect("hard-coded corpus presentation color should be valid")
+}
+
+fn resolved_to_material_override(
+    resolved: ResolvedPresentation,
+) -> Result<MaterialOverride, tokimu::MaterialModelError> {
+    MaterialOverride::with_replacement_color(Color::rgb(
+        resolved.color.red,
+        resolved.color.green,
+        resolved.color.blue,
+    ))?
+    .with_opacity_multiplier(resolved.opacity)
+}
+
+fn presentation_step_name(step: usize) -> &'static str {
+    match step {
+        0 => "source",
+        1 => "selected",
+        2 => "hotspot",
+        3 => "transparent",
+        _ => "unknown",
     }
 }
 
@@ -782,5 +914,34 @@ mod tests {
         assert!((maximum_x - 0.5).abs() < f32::EPSILON);
         assert!((minimum_y + 0.25).abs() < f32::EPSILON);
         assert!((maximum_y - 0.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn vector_presentation_cycle_uses_transient_overrides() {
+        let mut app = HelloCgmApp::default();
+
+        app.cycle_vector_presentation().unwrap();
+        assert_eq!(app.presentation_step, 1);
+        assert!(app.vector_visible);
+        assert!(app.vector_material_override.is_some());
+
+        app.cycle_vector_presentation().unwrap();
+        assert_eq!(app.presentation_step, 2);
+        assert!(app.vector_visible);
+        assert!(app.vector_material_override.is_some());
+
+        app.cycle_vector_presentation().unwrap();
+        assert_eq!(app.presentation_step, 3);
+        assert_eq!(
+            app.vector_material_override
+                .expect("transparent vector state should use an override")
+                .opacity_multiplier(),
+            0.35
+        );
+
+        app.cycle_vector_presentation().unwrap();
+        assert_eq!(app.presentation_step, 0);
+        assert!(app.vector_visible);
+        assert!(app.vector_material_override.is_none());
     }
 }

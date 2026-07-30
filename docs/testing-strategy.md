@@ -293,6 +293,38 @@ the owning test package when their license and provenance are recorded.
 The files under `corpus/assets/` are example material and mesh/shader texture
 inputs. They are not automatically golden outputs.
 
+### 3.9 Consumer corpus tests
+
+Location:
+
+```text
+corpus/consumers/<application>/
+```
+
+Consumer corpus entries ask:
+
+> Can a downstream application compose several intended Tokimu contracts
+> without privileged access, duplicated engine mechanics, or ownership leakage?
+
+These entries are deliberately application-shaped. They pressure composition,
+lifecycle, target integration, diagnostics, and provider boundaries rather
+than proving one isolated capability.
+
+Every consumer entry must declare whether it uses only public Tokimu contracts,
+incubating libraries from `corpus/lib`, or a concrete provider/backend. Those
+tiers produce different evidence and must not be reported as equivalent.
+
+Repository-owned consumer corpus entries remain architectural evidence. They
+do not satisfy a requirement for independently owned production use.
+
+Browser consumers should separate unattended checks from visible validation:
+
+- host, TypeScript, and WASM builds should be automated;
+- semantic importer or runtime behavior should have deterministic local tests;
+- interactive drag/drop and visual rendering may remain a labeled manual
+  validation slice;
+- generated JavaScript and WASM bindings remain build output.
+
 ## 4. Golden and Snapshot Validation
 
 Golden validation compares a current deterministic result with a reviewed,

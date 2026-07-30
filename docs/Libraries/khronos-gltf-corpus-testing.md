@@ -553,7 +553,7 @@ Promotion beyond `corpus/lib/gltf-corpus` requires:
 - `docs/testing-strategy.md`
 - `docs/roadmap.md`
 - `docs/Conversations/GLB Model Data.md`
-- `docs/Conversations/3D vector reusability.md`
-- `docs/Conversations/3d formats.md`
+- `docs/Conversations/3D Vector Reusability.md`
+- `docs/Conversations/3D Formats.md`
 - `corpus/hello-glb/DESIGN.md`
 - `corpus/hello-glb/src/main.rs`

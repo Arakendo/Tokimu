@@ -46,6 +46,9 @@ members = [
     "corpus/hello-network-loopback",
     "corpus/hello-network-client-server",
 
+    # Downstream application-shaped consumer corpus.
+    "corpus/consumers/aspnet-wasm-asset-workbench/engine",
+
     # UI corpus.
     "corpus/ui/hello-ui",
     "corpus/ui/hello-ui-button",
@@ -78,6 +81,7 @@ members = [
     "corpus/lib/cgm-corpus",
     "corpus/lib/fbx-corpus",
     "corpus/lib/gltf-corpus",
+    "corpus/lib/presentation-control",
     "corpus/lib/presentation-geometry-corpus",
     "corpus/lib/performance-diagnostics-corpus",
     "corpus/lib/xml-tools",

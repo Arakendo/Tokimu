@@ -362,7 +362,7 @@ This plan is complete for its initial scope when:
 
 - `docs/ADR/ADR-0006-native-execution-policy.md`
 - `docs/Architectural Reviews/AR-0002-native-execution-and-multithreading.md`
-- `docs/Conversations/multithreading.md`
+- `docs/Conversations/On Multithreading.md`
 - `docs/kernel-principles.md`
 - `docs/Tokimu Software Design Document.md`
 - `docs/ADR/ADR-0001-engine-boundaries.md`

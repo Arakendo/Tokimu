@@ -769,7 +769,7 @@ crate or the mandatory Tokimu text path.
 
 ## References
 
-- `docs/Conversations/Can fonts be vectors.md`
+- `docs/Conversations/Can Fonts Be Vectors.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0004-foundational-presentation-text-and-icons.md`
 - `docs/Plans/ui-box-vector-presentation.md`

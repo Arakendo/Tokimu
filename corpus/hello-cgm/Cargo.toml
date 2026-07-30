@@ -8,4 +8,5 @@ repository.workspace = true
 [dependencies]
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
 cgm-corpus = { path = "../lib/cgm-corpus" }
+presentation-control = { path = "../lib/presentation-control" }
 ui-tools = { path = "../lib/ui-tools" }

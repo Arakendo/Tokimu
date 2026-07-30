@@ -10,3 +10,4 @@ tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
 tokimu-assets = { path = "../../crates/tokimu-assets" }
 tokimu-core = { path = "../../crates/tokimu-core" }
 gltf-corpus = { path = "../lib/gltf-corpus" }
+presentation-control = { path = "../lib/presentation-control" }

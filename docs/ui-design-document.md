@@ -6,8 +6,8 @@
 | Version      | 0.1.0 |
 | Last updated | 2026-07-16 |
 | Scope        | Semantic UI presentation, measurement, layout, and widget composition |
-| Relates to   | SDD, Architectural Maxims, `docs/Conversations/on-ui.md`, UI corpus examples |
-| Source discussion | [`docs/Conversations/on-ui.md`](Conversations/on-ui.md) |
+| Relates to   | SDD, Architectural Maxims, `docs/Conversations/On UI.md`, UI corpus examples |
+| Source discussion | [`docs/Conversations/On UI.md`](Conversations/On%20UI.md) |
 
 ## 1. Purpose
 

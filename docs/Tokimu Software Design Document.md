@@ -569,7 +569,7 @@ facts remain absent unless the owning producer can measure them honestly.
 Loader, platform, importer, and renderer-native objects must not enter this
 contract.
 
-See [on-assets.md](Conversations/on-assets.md) for the importer-oriented
+See [On Assets.md](Conversations/On%20Assets.md) for the importer-oriented
 boundary between asset translation and rendering.
 
 ### 5.6 tokimu-input

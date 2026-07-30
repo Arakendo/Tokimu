@@ -15,6 +15,7 @@ corpus/lib/
   gltf-corpus/                    glTF/GLB acquisition and structural evidence
   network-tools/                  replication and transport proofs
   performance-diagnostics-corpus/ runtime observation evidence
+  presentation-control/           transient presentation intent and resolution
   presentation-geometry-corpus/   vector and presentation geometry harness
   screenshot/                     deterministic visual evidence helpers
   ui-framework/                   composed UI consumer
@@ -38,6 +39,8 @@ corpus/lib/
 - `ui-framework` proves those pieces compose into an application shell.
 - `presentation-geometry-corpus` records staged outline, vector, mesh, and
   image evidence.
+- `presentation-control` resolves transient target tint, opacity, visibility,
+  and emphasis without owning importer truth or renderer resources.
 - `screenshot` provides deterministic saved visual evidence.
 - `performance-diagnostics-corpus` exercises runtime observation and budget
   reporting.

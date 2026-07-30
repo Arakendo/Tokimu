@@ -38,6 +38,8 @@ related failure mode.
 ```text
 corpus/
   hello-*/                 focused engine and application corpus examples
+  consumers/
+    */                     downstream application-shaped composition evidence
   ui/
     hello-ui-*/            focused presentation and interaction examples
   lib/
@@ -75,6 +77,15 @@ should consume shared semantics when those semantics have already been proven.
 They should not each invent private versions of the same text or control model.
 
 See the [UI corpus index](ui/README.md) for the conceptual grouping.
+
+### Consumer corpus
+
+`corpus/consumers/` contains application-shaped proofs that compose several
+Tokimu contracts from a downstream consumer's point of view. These entries are
+still repository-owned evidence, not independent production consumers.
+
+See the [consumer corpus index](consumers/README.md) for tier labels and current
+entries.
 
 ### Corpus libraries
 

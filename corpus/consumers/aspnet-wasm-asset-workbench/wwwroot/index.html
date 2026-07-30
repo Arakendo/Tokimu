@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tokimu Asset Workbench</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">TOKIMU CONSUMER CORPUS / WASM</p>
+      <h1>Asset Workbench</h1>
+      <p id="engine-status">Starting Tokimu WASM...</p>
+    </header>
+
+    <section class="workbench">
+      <div class="stage">
+        <div id="drop-zone" class="drop-zone" tabindex="0">
+          <canvas id="preview" aria-label="Tokimu asset preview"></canvas>
+          <div id="empty-state" class="empty-state">
+            <strong>Drop an asset into Tokimu</strong>
+            <span>SVG, CGM, glTF, GLB, or FBX up to 64 MiB</span>
+            <button id="choose-file" type="button">Choose file</button>
+          </div>
+        </div>
+        <input id="file-input" type="file" accept=".svg,.cgm,.gltf,.glb,.fbx" hidden>
+      </div>
+
+      <aside>
+        <div class="inspector-heading">
+          <p class="eyebrow">OBSERVATION</p>
+          <span id="format-badge">WAITING</span>
+        </div>
+        <h2 id="asset-name">No asset selected</h2>
+        <p id="summary">Drop a local file to cross the TypeScript-to-Rust/WASM boundary.</p>
+        <dl id="properties"></dl>
+        <section>
+          <h3>Diagnostics</h3>
+          <ul id="diagnostics">
+            <li>The source file stays in this browser.</li>
+          </ul>
+        </section>
+      </aside>
+    </section>
+  </main>
+  <script type="module" src="/app/main.js"></script>
+</body>
+</html>

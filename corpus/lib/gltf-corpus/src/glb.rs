@@ -44,6 +44,7 @@ pub fn inspect_glb(bytes: &[u8]) -> CorpusResult<GlbInspection> {
     Ok(parse_glb(bytes)?.inspection)
 }
 
+#[cfg_attr(not(feature = "decode"), allow(dead_code))]
 pub(crate) struct ParsedGlb<'a> {
     pub inspection: GlbInspection,
     pub root: Value,

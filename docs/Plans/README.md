@@ -15,6 +15,8 @@ than silently treating the plan as authority.
 - [Native Execution and Multithreading](native-execution-and-multithreading.md)
 - [XML Tools Incubation Library](xml-tools.md)
 - [Performance Diagnostics and Runtime Observation](performance-diagnostics-and-runtime-observation.md)
+- [Consumer Corpora](consumer-corpora.md)
+- [TypeScript Shader, Material, And Presentation Control](typescript-shader-material-presentation-control.md)
 
 ## Completed Spikes
 

@@ -27,7 +27,7 @@ Thumbs.db
 .workbench/
 
 # Conversations
-/docs/conversations/
+/docs/Conversations/
 
 # Downloaded fixture archives and vendor tool libraries
 third-party/fixtures/**/*.tar.gz

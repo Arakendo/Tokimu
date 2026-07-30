@@ -121,7 +121,7 @@ sequential mechanism, then add one measured native parallel path.
 
 - `docs/Architectural Reviews/AR-0002-native-execution-and-multithreading.md`
 - `docs/Plans/native-execution-and-multithreading.md`
-- `docs/Conversations/multithreading.md`
+- `docs/Conversations/On Multithreading.md`
 - `docs/kernel-principles.md`
 - `docs/Tokimu Software Design Document.md`
 - `docs/ADR/ADR-0001-engine-boundaries.md`

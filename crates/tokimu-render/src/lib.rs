@@ -14,12 +14,20 @@ pub mod wgpu_backend;
 pub use camera::Camera;
 pub use color::Color;
 pub use commands::{
-    ClearCommand, DrawMeshCommand, DrawRenderableCommand, RenderCommand, ViewportRect,
+    ClearCommand, DrawMeshCommand, DrawMeshMaterialOverrideCommand, DrawRenderableCommand,
+    RenderCommand, ViewportRect,
 };
 pub use instance::Instance2d;
-pub use material::Material;
+pub use material::{
+    Material, MaterialDefinition, MaterialDefinitionId, MaterialFloatRange, MaterialInstance,
+    MaterialModelError, MaterialOverride, MaterialParameterDeclaration, MaterialParameterKind,
+    MaterialParameterValue,
+};
 pub use mesh::Mesh;
-pub use pipeline::{Pipeline, PipelineKind, PipelineRegistry};
+pub use pipeline::{
+    BlendMode, ColorWriteMask, CullMode, DepthTest, Pipeline, PipelineKind, PipelineRegistry,
+    PipelineRenderState, PipelineRenderStateError,
+};
 pub use renderable::Renderable;
 pub use renderer::{
     RenderFrameCpuTimings, RenderFrameStats, RenderLifetimeStats, RenderStats, Renderer,

@@ -374,7 +374,7 @@ This review should advance or be re-scoped when:
 
 ## References
 
-- `docs/Conversations/On Performence Metrics.md`
+- `docs/Conversations/On Performance Metrics.md`
 - `docs/Notes/ui-presentation-performance-evidence.md`
 - `docs/Plans/performance-diagnostics-and-runtime-observation.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
