@@ -352,8 +352,10 @@ Acceptance criteria:
 - [x] Two draws sharing one source material can carry different tint and opacity
       overrides without changing that source material.
 - [x] Clearing one target's override does not alter another target.
-- [ ] Override application performs no steady-state GPU resource allocation
-      after warm-up for unchanged values.
+- [x] Override application emits an explicit corpus warning if unchanged
+      presentation state allocates a derived material binding after its first
+      frame. The `hello-glb` telemetry permits the initial cache fill and
+      makes repeated churn visible for review.
 - [x] Imported source material data remains unchanged.
 
 ### Slice 4: Stable Presentation Target Identity

@@ -53,6 +53,7 @@ struct HelloGlbApp {
     model_material_instance: MaterialInstance,
     model_material_override: Option<MaterialOverride>,
     presentation_step: usize,
+    presentation_frames_since_change: u32,
     model_visible: bool,
     frame_index: u64,
 }
@@ -95,6 +96,7 @@ impl Default for HelloGlbApp {
             model_material_instance,
             model_material_override: None,
             presentation_step: 0,
+            presentation_frames_since_change: 0,
             model_visible: true,
             frame_index: 0,
         }
@@ -125,6 +127,7 @@ impl HelloGlbApp {
 
     fn cycle_model_presentation(&mut self) -> PlatformResult<()> {
         self.presentation_step = (self.presentation_step + 1) % 5;
+        self.presentation_frames_since_change = 0;
         self.presentation
             .clear_target_overrides(&self.model_target)?;
 
@@ -303,6 +306,17 @@ impl HelloGlbApp {
             renderer.present()?
         };
         self.frame_index = self.frame_index.saturating_add(1);
+        if self.presentation_frames_since_change >= 1
+            && self.model_material_override.is_some()
+            && stats.frame.binding_allocations != 0
+        {
+            println!(
+                "warning [hello-glb.presentation]: unchanged presentation state allocated {} derived material binding(s)",
+                stats.frame.binding_allocations
+            );
+        }
+        self.presentation_frames_since_change =
+            self.presentation_frames_since_change.saturating_add(1);
         if self.frame_index <= 3 || self.frame_index.is_multiple_of(120) {
             println!(
                 "hello-glb frame {}: presentation={}, visible={}, pipeline={}, draws={}, submits={}, binding_allocations={}, uniform_writes={}, mesh_uploads={}, mesh_replacements={}, lifetime_binding_allocations={}",
