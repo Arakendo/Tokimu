@@ -89,6 +89,33 @@ These libraries are evidence, not stable public Tokimu importer contracts.
 Application state consists of the selected file and its current observation.
 Provider-native document objects do not cross the WASM boundary.
 
+## Presentation Interaction Boundary
+
+The workbench can apply a bounded presentation request to a selected
+provider-neutral preview target. TypeScript communicates interaction intent;
+the WASM presentation session resolves layered visual state and returns the
+result for the canvas to draw.
+
+```text
+TypeScript target + intent
+    |
+    v
+WASM presentation session
+    |
+    v
+Resolved provider-neutral presentation
+    |
+    v
+Canvas pixels
+```
+
+The ordinary tint, opacity, and visibility controls write the `application`
+layer. The hotspot control writes the higher-priority `hotspot` layer so a
+user can identify a mesh or vector target without replacing the ordinary
+application state. Each control clears only the layer it owns. The browser
+does not compute precedence, mutate imported source data, or compile shader
+code.
+
 ## Initial Support
 
 | Format | Inspection | Preview |

@@ -270,7 +270,9 @@ Deliverables:
       rules.
 - [x] Define a small Rust-first corpus scene with opaque, tinted, selected, and
       transparent mesh/vector cases.
-- [ ] Define one asset-workbench hotspot scenario over a known GLB or FBX mesh.
+- [x] Define one asset-workbench hotspot scenario over a known GLB mesh. The
+      `Box.glb` mesh-primitive target can be focused through the higher-priority
+      hotspot layer and cleared independently of application-layer controls.
 - [x] Record unsupported behavior explicitly, including transparent
       intersections and arbitrary shader code.
 
@@ -391,8 +393,10 @@ Acceptance criteria:
 
 - [x] The example proves color and opacity overrides without custom application
       WGSL.
-- [ ] Transparent presentation exposes its documented depth and ordering
-      behavior.
+- [x] Transparent presentation exposes its documented depth and ordering
+      behavior: alpha blending, `LessEqual` depth test, no depth writes, and
+      submission-order compositing only. Intersecting transparent geometry
+      remains explicitly unsupported.
 - [x] Structural artifacts identify source material, the resolved override
       result, parameters, and selected pipeline.
 - [ ] The example remains interactive within the admitted performance budget.

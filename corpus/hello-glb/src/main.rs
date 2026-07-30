@@ -358,13 +358,7 @@ impl PlatformEventHandler for HelloGlbApp {
             renderer.register_pipeline(&Pipeline::new("glb-pipeline", PipelineKind::LitColor3d))?;
         self.transparent_pipeline = renderer.register_pipeline(
             &Pipeline::new("glb-transparent-pipeline", PipelineKind::LitColor3d)
-                .with_render_state(PipelineRenderState {
-                    blend: BlendMode::AlphaBlend,
-                    depth_test: DepthTest::LessEqual,
-                    depth_write: false,
-                    cull_mode: CullMode::None,
-                    color_write: ColorWriteMask::ALL,
-                })?,
+                .with_render_state(transparent_render_state())?,
         )?;
         self.renderer = Some(renderer);
         self.refresh_model_presentation()?;
@@ -424,6 +418,19 @@ fn presentation_step_name(step: usize) -> &'static str {
         3 => "transparent",
         4 => "hidden",
         _ => "unknown",
+    }
+}
+
+/// First-proof transparency policy: alpha blend against previously submitted
+/// draws, with depth testing but no depth writes. Intersecting transparent
+/// geometry intentionally has no stronger ordering guarantee.
+const fn transparent_render_state() -> PipelineRenderState {
+    PipelineRenderState {
+        blend: BlendMode::AlphaBlend,
+        depth_test: DepthTest::LessEqual,
+        depth_write: false,
+        cull_mode: CullMode::None,
+        color_write: ColorWriteMask::ALL,
     }
 }
 
@@ -605,5 +612,19 @@ mod tests {
         assert!(artifact.contains("\"target\": {\"kind\": \"meshPrimitive\""));
         assert!(artifact.contains("\"pipeline\": \"glb-transparent-pipeline\""));
         assert!(artifact.contains("intersecting transparent geometry is not guaranteed"));
+    }
+
+    #[test]
+    fn transparent_pipeline_policy_is_explicit_and_avoids_depth_writes() {
+        assert_eq!(
+            transparent_render_state(),
+            PipelineRenderState {
+                blend: BlendMode::AlphaBlend,
+                depth_test: DepthTest::LessEqual,
+                depth_write: false,
+                cull_mode: CullMode::None,
+                color_write: ColorWriteMask::ALL,
+            }
+        );
     }
 }

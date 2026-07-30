@@ -61,6 +61,7 @@ const presentationTarget = required<HTMLSelectElement>("presentation-target");
 const presentationTint = required<HTMLInputElement>("presentation-tint");
 const presentationOpacity = required<HTMLInputElement>("presentation-opacity");
 const presentationVisible = required<HTMLInputElement>("presentation-visible");
+const presentationHotspot = required<HTMLButtonElement>("presentation-hotspot");
 const presentationReset = required<HTMLButtonElement>("presentation-reset");
 const presentationStatus = required<HTMLElement>("presentation-status");
 let engineReady = false;
@@ -144,6 +145,7 @@ presentationTarget.addEventListener("change", loadPresentationControls);
 presentationTint.addEventListener("input", () => applyPresentationOverride());
 presentationOpacity.addEventListener("input", () => applyPresentationOverride());
 presentationVisible.addEventListener("change", () => applyPresentationOverride());
+presentationHotspot.addEventListener("click", toggleHotspotPresentation);
 presentationReset.addEventListener("click", clearPresentationOverride);
 
 async function inspectFile(file: File): Promise<void> {
@@ -225,6 +227,9 @@ function loadPresentationControls(): void {
   presentationTint.value = colorHex(source.color);
   presentationOpacity.value = source.opacity.toString();
   presentationVisible.checked = source.visible;
+  presentationHotspot.textContent = source.emphasis === "hotspot"
+    ? "Clear hotspot focus"
+    : "Focus as hotspot";
 }
 
 function applyPresentationOverride(): void {
@@ -261,11 +266,42 @@ function clearPresentationOverride(): void {
     const resolved = presentationCommandResult(presentationSession.clear_override(JSON.stringify(request)));
     if (!resolved) return;
     resolvedPresentations.set(targetKey(target), resolved);
-    presentationStatus.textContent = `Restored source presentation for ${target.key}`;
+    presentationStatus.textContent = `Cleared application presentation for ${target.key}`;
     loadPresentationControls();
     drawObservation(currentObservation);
   } catch (error) {
     presentationStatus.textContent = `Presentation reset failed: ${message(error)}`;
+  }
+}
+
+function toggleHotspotPresentation(): void {
+  const target = selectedPresentationTarget();
+  if (!target || !presentationSession) return;
+  try {
+    const existing = resolvedPresentations.get(targetKey(target));
+    const hasHotspot = existing?.emphasis === "hotspot";
+    const request = { kind: target.kind, key: target.key, layer: "hotspot" };
+    const resolved = hasHotspot
+      ? presentationCommandResult(presentationSession.clear_override(JSON.stringify(request)))
+      : presentationCommandResult(presentationSession.set_override(JSON.stringify({
+          ...request,
+          overrideValue: {
+            tint: { color: { red: 1, green: 0.55, blue: 0.12 }, mode: "replace" },
+            opacityMultiplier: 1,
+            visible: true,
+            emphasis: "hotspot",
+          },
+        })));
+    if (!resolved) return;
+    resolvedPresentations.set(targetKey(target), resolved);
+    presentationHotspot.textContent = hasHotspot ? "Focus as hotspot" : "Clear hotspot focus";
+    presentationStatus.textContent = hasHotspot
+      ? `Cleared hotspot focus for ${target.key}`
+      : `Focused ${target.kind}: ${target.key} as a hotspot`;
+    loadPresentationControls();
+    drawObservation(currentObservation);
+  } catch (error) {
+    presentationStatus.textContent = `Hotspot request failed: ${message(error)}`;
   }
 }
 
