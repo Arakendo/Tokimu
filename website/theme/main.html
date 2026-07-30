@@ -1,0 +1,97 @@
+{% macro render_nav(items) -%}
+  {% for item in items %}
+    {% if item.children %}
+      <li class="nav-group">
+        <span class="nav-group-label">{{ item.title }}</span>
+        <ul>{{ render_nav(item.children) }}</ul>
+      </li>
+    {% else %}
+      <li>
+        <a href="{{ item.url | url }}" {% if item.active %}aria-current="page"{% endif %}>
+          {{ item.title }}
+        </a>
+      </li>
+    {% endif %}
+  {% endfor %}
+{%- endmacro %}
+<!doctype html>
+<html lang="{{ config.theme.language | default('en') }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ page.meta.description | default(config.site_description) }}">
+    <link rel="canonical" href="{{ page.canonical_url }}">
+    <meta name="theme-color" content="#0a1114">
+    <title>{% if page.title and page.title != config.site_name %}{{ page.title }} | {% endif %}{{ config.site_name }}</title>
+    {% for path in config.extra_css %}
+      <link rel="stylesheet" href="{{ path | url }}">
+    {% endfor %}
+    <noscript>
+      <style>
+        @media (max-width: 68rem) {
+          .nav-toggle { display: none; }
+          .site-navigation {
+            position: static;
+            display: block;
+            grid-column: 1 / -1;
+            margin-top: 0.75rem;
+          }
+        }
+      </style>
+    </noscript>
+  </head>
+  <body class="{% if page.is_homepage %}page-home{% else %}page-doc{% endif %}">
+    <a class="skip-link" href="#content">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="{{ nav.homepage.url | url }}" aria-label="Tokimu home">
+        <span class="brand-mark" aria-hidden="true">
+          <span>TO</span><span>KI</span><span>MU</span>
+        </span>
+        <span class="brand-copy">
+          <strong>Tokimu</strong>
+          <small>Semantic runtime systems</small>
+        </span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">
+        Menu
+      </button>
+
+      <nav id="site-navigation" class="site-navigation" aria-label="Primary navigation">
+        <ul>{{ render_nav(nav) }}</ul>
+      </nav>
+
+      <a class="repo-link" href="{{ config.repo_url }}">Source <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <div class="site-frame">
+      {% if not page.is_homepage %}
+        <aside class="section-rail" aria-label="Documentation navigation">
+          <p class="rail-kicker">Documentation</p>
+          <ul>{{ render_nav(nav) }}</ul>
+        </aside>
+      {% endif %}
+
+      <main id="content" class="content-shell" tabindex="-1">
+        {{ page.content }}
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <span class="status-light" aria-hidden="true"></span>
+        <strong>{{ config.extra.project_status }}</strong>
+        <span>Claims are bounded by current corpus evidence.</span>
+      </div>
+      <div>
+        <a href="{{ config.repo_url }}">MIT licensed</a>
+        <span>{{ config.extra.canonical_domain }}</span>
+      </div>
+    </footer>
+
+    {% for path in config.extra_javascript %}
+      <script src="{{ path | url }}" defer></script>
+    {% endfor %}
+  </body>
+</html>

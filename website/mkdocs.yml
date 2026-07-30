@@ -1,0 +1,47 @@
+site_name: Tokimu
+site_url: https://tokimuengine.org/
+site_description: >-
+  A Rust-native runtime for interactive engines, simulations, and applications.
+repo_name: Arakendo/Tokimu
+repo_url: https://github.com/Arakendo/Tokimu
+edit_uri: edit/main/website/docs/
+docs_dir: docs
+site_dir: ../target/website
+strict: true
+hooks:
+  - hooks/github_pages.py
+
+theme:
+  name: null
+  custom_dir: theme
+
+nav:
+  - Overview: index.md
+  - Start:
+      - Getting Started: getting-started.md
+      - Known Limitations: known-limitations.md
+  - Architecture:
+      - Architecture Overview: architecture/index.md
+      - How Decisions Are Made: architecture/decisions.md
+  - Capabilities: capabilities/index.md
+  - Roadmap: roadmap.md
+  - Corpus:
+      - Evidence And Coverage: corpus/index.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  canonical_domain: tokimuengine.org
+  project_status: Early development
+
+extra_css:
+  - stylesheets/tokimu.css
+
+extra_javascript:
+  - javascripts/islands.js

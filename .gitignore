@@ -8,6 +8,11 @@
 *.pdb
 node_modules/
 **/node_modules/
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
 
 # Generated browser bundles and wasm-bindgen output for ASP.NET consumer corpus.
 **/wwwroot/app/
