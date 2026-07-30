@@ -37,7 +37,7 @@ description: Tokimu is a Rust-native runtime for interactive engines, simulation
     </div>
     <div class="instrument-footer">
       <span>Rust native</span>
-      <span>WASM planned</span>
+      <span>WASM experimental</span>
       <span>Provider neutral</span>
     </div>
   </div>

@@ -3,6 +3,7 @@ const scriptUrl = new URL(document.currentScript?.src ?? window.location.href);
 const defaultEngineUrl = new URL("../assets/islands/asset-observation/tokimu_asset_workbench_engine.js", scriptUrl);
 const defaultFixtureUrl = new URL("../assets/islands/asset-observation/shapes-rect-01-geometry.svg", scriptUrl);
 const MAX_DIAGNOSTICS = 8;
+let workbenchSequence = 0;
 window.TokimuIslands.register("asset-observation", async ({ root, config: rawConfig, signal }) => {
     if (typeof WebAssembly === "undefined") {
         throw new DOMException("This browser does not provide WebAssembly.", "NotSupportedError");
@@ -17,6 +18,7 @@ window.TokimuIslands.register("asset-observation", async ({ root, config: rawCon
     const engine = (await import(engineUrl.href));
     await engine.default();
     throwIfAborted(signal);
+    const wasmStartupMs = performance.now() - startedAt;
     const workbench = createWorkbench();
     const canvas = required(workbench, "canvas");
     const fileInput = required(workbench, 'input[type="file"]');
@@ -30,21 +32,47 @@ window.TokimuIslands.register("asset-observation", async ({ root, config: rawCon
     fallback.hidden = true;
     let observation = null;
     let resizeObserver = null;
+    let intersectionObserver = null;
+    let isIntersecting = true;
+    let firstEvidenceMs = null;
+    const drawCurrent = () => {
+        if (document.hidden || !isIntersecting)
+            return false;
+        if (observation)
+            drawObservation(canvas, context, observation);
+        else
+            drawEmpty(canvas, context);
+        return true;
+    };
     const presentBytes = (fileName, bytes) => {
         if (bytes.byteLength > maxBytes) {
             presentFailure(mount, fileName, `Input is ${formatBytes(bytes.byteLength)}; this island accepts at most ${formatBytes(maxBytes)}.`);
-            drawEmpty(canvas, context);
+            observation = null;
+            drawCurrent();
             return;
         }
         try {
+            const inspectionStartedAt = performance.now();
             observation = JSON.parse(engine.inspect_asset(fileName, bytes));
-            presentObservation(mount, observation, engine.engine_status(), startedAt);
-            drawObservation(canvas, context, observation);
+            const inspectionMs = performance.now() - inspectionStartedAt;
+            presentObservation(mount, observation, engine.engine_status());
+            const presentationStartedAt = performance.now();
+            const canvasPresented = drawCurrent();
+            const canvasPresentationMs = canvasPresented
+                ? performance.now() - presentationStartedAt
+                : null;
+            firstEvidenceMs ??= performance.now() - startedAt;
+            presentTiming(mount, {
+                wasmStartupMs,
+                inspectionMs,
+                firstEvidenceMs,
+                canvasPresentationMs,
+            });
         }
         catch (error) {
             observation = null;
             presentFailure(mount, fileName, message(error));
-            drawEmpty(canvas, context);
+            drawCurrent();
         }
     };
     const loadKnownFixture = async () => {
@@ -52,6 +80,10 @@ window.TokimuIslands.register("asset-observation", async ({ root, config: rawCon
         const response = await fetch(fixtureUrl, { signal });
         if (!response.ok) {
             throw new Error(`Known fixture request failed with HTTP ${response.status}.`);
+        }
+        const declaredLength = Number(response.headers.get("content-length"));
+        if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+            throw new Error(`Known fixture is ${formatBytes(declaredLength)}; this island accepts at most ${formatBytes(maxBytes)}.`);
         }
         const bytes = new Uint8Array(await response.arrayBuffer());
         throwIfAborted(signal);
@@ -83,21 +115,33 @@ window.TokimuIslands.register("asset-observation", async ({ root, config: rawCon
         });
     };
     const onResize = () => {
-        if (observation)
-            drawObservation(canvas, context, observation);
-        else
-            drawEmpty(canvas, context);
+        drawCurrent();
+    };
+    const onVisibility = () => {
+        if (!document.hidden)
+            drawCurrent();
     };
     loadFixture.addEventListener("click", onFixture);
     fileInput.addEventListener("change", onFile);
     window.addEventListener("resize", onResize);
+    document.addEventListener("visibilitychange", onVisibility);
     if ("ResizeObserver" in window) {
         resizeObserver = new ResizeObserver(onResize);
         resizeObserver.observe(canvas);
     }
+    if ("IntersectionObserver" in window) {
+        intersectionObserver = new IntersectionObserver((entries) => {
+            isIntersecting = entries.some((entry) => entry.isIntersecting);
+            if (isIntersecting)
+                drawCurrent();
+        });
+        intersectionObserver.observe(workbench);
+    }
     const release = () => {
         resizeObserver?.disconnect();
+        intersectionObserver?.disconnect();
         window.removeEventListener("resize", onResize);
+        document.removeEventListener("visibilitychange", onVisibility);
         loadFixture.removeEventListener("click", onFixture);
         fileInput.removeEventListener("change", onFile);
         fileInput.value = "";
@@ -119,6 +163,10 @@ window.TokimuIslands.register("asset-observation", async ({ root, config: rawCon
     return { release };
 });
 function createWorkbench() {
+    workbenchSequence += 1;
+    const nameId = `asset-evidence-name-${workbenchSequence}`;
+    const summaryId = `asset-evidence-summary-${workbenchSequence}`;
+    const reportId = `asset-evidence-report-${workbenchSequence}`;
     const workbench = document.createElement("div");
     workbench.className = "asset-evidence";
     workbench.innerHTML = `
@@ -127,12 +175,31 @@ function createWorkbench() {
         <span>Tokimu vector preview</span>
         <strong data-evidence-badge>Loading</strong>
       </div>
-      <canvas aria-label="Tokimu-rendered diagnostic preview of the selected SVG"></canvas>
+      <canvas
+        role="img"
+        aria-label="Tokimu-rendered diagnostic preview of the selected SVG"
+        aria-describedby="${summaryId} ${reportId}"
+      >
+        The visual preview requires Canvas 2D. The adjacent report contains the
+        authoritative observation as text.
+      </canvas>
     </div>
-    <div class="asset-evidence-report">
+    <div
+      class="asset-evidence-report"
+      id="${reportId}"
+      role="region"
+      aria-labelledby="${nameId}"
+    >
       <p class="eyebrow">Local WASM observation</p>
-      <h3 data-evidence-name>Preparing fixture</h3>
-      <p data-evidence-summary>Starting the bounded Tokimu consumer...</p>
+      <h3 id="${nameId}" data-evidence-name>Preparing fixture</h3>
+      <p id="${summaryId}" data-evidence-summary>Starting the bounded Tokimu consumer...</p>
+      <p
+        class="visually-hidden"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-evidence-announcement
+      >Tokimu evidence consumer is starting.</p>
       <dl data-evidence-properties></dl>
       <div class="asset-evidence-verdict" data-evidence-verdict>
         Waiting for structural evidence.
@@ -157,7 +224,7 @@ function createWorkbench() {
   `;
     return workbench;
 }
-function presentObservation(mount, observation, engineStatus, startedAt) {
+function presentObservation(mount, observation, engineStatus) {
     text(mount, "[data-evidence-name]", observation.fileName);
     text(mount, "[data-evidence-summary]", observation.summary);
     text(mount, "[data-evidence-badge]", `${observation.format} / ${observation.status}`.toUpperCase());
@@ -173,7 +240,6 @@ function presentObservation(mount, observation, engineStatus, startedAt) {
     appendProperty(properties, "Vector records", paths.length.toString());
     appendProperty(properties, "Contours", contours.toString());
     appendProperty(properties, "Flattened points", points.toString());
-    appendProperty(properties, "Startup", `${(performance.now() - startedAt).toFixed(1)} ms`);
     const knownFixtureMatches = observation.status === "renderable" &&
         observation.fileName === "shapes-rect-01-geometry.svg" &&
         paths.length === 4 &&
@@ -205,6 +271,16 @@ function presentObservation(mount, observation, engineStatus, startedAt) {
         item.textContent = `${observation.diagnostics.length - MAX_DIAGNOSTICS} additional diagnostics omitted.`;
         diagnostics.append(item);
     }
+    text(mount, "[data-evidence-announcement]", `${observation.fileName}: ${observation.summary} ${verdict.textContent ?? ""}`);
+}
+function presentTiming(mount, timing) {
+    const properties = required(mount, "[data-evidence-properties]");
+    appendProperty(properties, "WASM startup", formatMilliseconds(timing.wasmStartupMs));
+    appendProperty(properties, "Inspection", formatMilliseconds(timing.inspectionMs));
+    appendProperty(properties, "First evidence", formatMilliseconds(timing.firstEvidenceMs));
+    appendProperty(properties, "Canvas presentation", timing.canvasPresentationMs === null
+        ? "Deferred while hidden or offscreen"
+        : formatMilliseconds(timing.canvasPresentationMs));
 }
 function presentFailure(mount, fileName, detail) {
     text(mount, "[data-evidence-name]", fileName);
@@ -220,6 +296,7 @@ function presentFailure(mount, fileName, detail) {
     const item = document.createElement("li");
     item.textContent = detail;
     diagnostics.append(item);
+    text(mount, "[data-evidence-announcement]", `${fileName}: Tokimu rejected this source input. ${detail}`);
 }
 function setLoadingMessage(mount, detail) {
     text(mount, "[data-evidence-summary]", detail);
@@ -305,6 +382,9 @@ function throwIfAborted(signal) {
 }
 function formatBytes(value) {
     return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+}
+function formatMilliseconds(value) {
+    return `${value.toFixed(1)} ms observed`;
 }
 function text(root, selector, value) {
     required(root, selector).textContent = value;

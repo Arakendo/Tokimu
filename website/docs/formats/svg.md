@@ -47,6 +47,21 @@ denominator**. It does not mean that Tokimu is 7.62% compliant with SVG 1.1.
     If these values drift, website validation fails rather than silently
     publishing an older claim.
 
+## Artifact entry points
+
+The public summary remains traceable to the repository evidence that produced
+it:
+
+- [authoritative W3C SVG corpus record](https://github.com/Arakendo/Tokimu/blob/main/docs/Libraries/w3c-svg-corpus-testing.md);
+- [versioned fixture selection](https://github.com/Arakendo/Tokimu/blob/main/third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/selection-v1.toml);
+- [registered W3C SVG corpus cases](https://github.com/Arakendo/Tokimu/blob/main/corpus/lib/presentation-geometry-corpus/src/w3c_svg_cases.rs);
+- [structural golden workflow](https://github.com/Arakendo/Tokimu/blob/main/corpus/lib/presentation-geometry-corpus/src/golden_workflow.rs); and
+- [fixture provenance](https://github.com/Arakendo/Tokimu/blob/main/third-party/fixtures/w3c-svg-1.1-2nd-edition/provenance.json).
+
+These links expose inputs and structural validation machinery. Native-window
+screenshots remain separately labeled manual evidence and are not substituted
+for topology, mesh, bounds, or fingerprint artifacts.
+
 ## What reaches presentation geometry
 
 The admitted profile currently exercises:

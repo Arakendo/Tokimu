@@ -55,6 +55,38 @@ GitHub Pages deployment history provides the rollback boundary.
 The repository's Pages source must be configured as **GitHub Actions** in the
 GitHub repository settings.
 
+### Deployment Ownership
+
+Responsibility is deliberately split:
+
+- repository source, MkDocs configuration, generated-asset contracts, and the
+  Pages workflow are owned in this repository;
+- GitHub Pages owns production artifact hosting and the `.org` certificate;
+- the domain provider owns `.com` and `.net` forwarding; and
+- the generated website never becomes an architectural source of truth.
+
+`tokimuengine.org` is canonical. Forwarding for `tokimuengine.com` and
+`tokimuengine.net` is configured externally and must be verified after DNS and
+edge propagation before path-preserving HTTPS redirects are treated as
+complete.
+
+### Rollback
+
+Production is restored through ordinary repository history, not by editing the
+generated Pages artifact:
+
+1. Identify the last known-good website deployment and its source commit.
+2. Revert the offending source commit or apply a corrective commit on `main`.
+3. Run the strict local build and website tests.
+4. Push the restoration commit and allow the normal Pages workflow to publish
+   a new immutable deployment artifact.
+5. Verify the `.org` canonical URL, static fallback, and affected route.
+
+This keeps rollback reviewable and preserves the relationship between public
+claims and their source revision. A historical artifact may be inspected during
+diagnosis, but source is restored through Git rather than by making an
+unrecorded production-only change.
+
 ## Content Policy
 
 The public site is curated. Repository plans, conversations, working notes,

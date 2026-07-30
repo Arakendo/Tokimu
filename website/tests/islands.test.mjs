@@ -134,6 +134,34 @@ test("a registered consumer mounts once and releases on reset", async () => {
   assert.equal(releases, 1);
 });
 
+test("repeated activation and reset release every mounted consumer", async () => {
+  const { api, root } = await loadContract();
+  let mounts = 0;
+  let releases = 0;
+
+  api.register("asset-observation", async () => {
+    mounts += 1;
+    return {
+      release() {
+        releases += 1;
+      },
+    };
+  });
+
+  for (let cycle = 0; cycle < 32; cycle += 1) {
+    root.click("activate");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(root.dataset.state, "ready", `cycle ${cycle}`);
+
+    root.click("reset");
+    assert.equal(root.dataset.state, "idle", `cycle ${cycle}`);
+    assert.equal(root.listeners.size, 1, `cycle ${cycle}`);
+  }
+
+  assert.equal(mounts, 32);
+  assert.equal(releases, 32);
+});
+
 test("a loader can report an unsupported browser explicitly", async () => {
   const { api, root } = await loadContract();
 

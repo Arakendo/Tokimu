@@ -15,14 +15,22 @@ deferred.
 
 - There is no stable end-user SDK release.
 - Public APIs may change while corpus evidence continues to shape ownership.
-- The website scaffold is not yet a deployed documentation service.
+- The public website is a first-party consumer corpus, not evidence of
+  independent production adoption.
+- `tokimuengine.org` is canonical. DNS forwarding for `.com` and `.net` is
+  configured, but public edge behavior has not yet converged on verified,
+  HTTPS, path-preserving redirects for every requested documentation URL.
 
 ## Browser support
 
-- WASM entry surfaces exist, but browser execution is still under active corpus
-  pressure.
+- A bounded WASM asset-observation island is published, but browser execution
+  remains experimental and under active corpus pressure.
 - Not every native presentation path has browser visual parity.
-- WebGPU, lifecycle, payload, and startup guarantees are not yet published.
+- The published island has lifecycle, payload, startup, and idle-work budgets;
+  these are evidence for that consumer, not general WebGPU or browser-runtime
+  guarantees.
+- Browser heap-retention evidence and a complete cross-browser interaction
+  matrix remain open launch-review work.
 
 ## Asset formats
 
@@ -50,3 +58,20 @@ deferred.
 
 Limitations are expected to change. A public status should move only when
 implementation and corpus evidence justify the stronger claim.
+
+## Website evidence maintenance
+
+Public evidence pages must identify their source record, evidence date, and
+bounded claim. Changes to corpus measurements must update the authoritative
+repository record first, then the website representation and its drift test.
+
+Every website change is expected to pass:
+
+- strict MkDocs generation;
+- generated-site canonical metadata and internal-link validation;
+- TypeScript typechecking and checked-in bundle verification;
+- island lifecycle, accessibility, failure, payload, and static-fallback tests.
+
+Native-window screenshots and supported-browser interaction reviews remain
+separately labeled manual evidence. They do not replace structural or
+deterministic corpus artifacts.

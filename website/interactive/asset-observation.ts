@@ -40,6 +40,13 @@ type EngineModule = {
   inspect_asset(fileName: string, bytes: Uint8Array): string;
 };
 
+type EvidenceTiming = {
+  wasmStartupMs: number;
+  inspectionMs: number;
+  firstEvidenceMs: number;
+  canvasPresentationMs: number | null;
+};
+
 const scriptUrl = new URL(
   (document.currentScript as HTMLScriptElement | null)?.src ?? window.location.href,
 );
@@ -52,6 +59,7 @@ const defaultFixtureUrl = new URL(
   scriptUrl,
 );
 const MAX_DIAGNOSTICS = 8;
+let workbenchSequence = 0;
 
 window.TokimuIslands.register(
   "asset-observation",
@@ -74,6 +82,7 @@ window.TokimuIslands.register(
     const engine = (await import(engineUrl.href)) as EngineModule;
     await engine.default();
     throwIfAborted(signal);
+    const wasmStartupMs = performance.now() - startedAt;
 
     const workbench = createWorkbench();
     const canvas = required<HTMLCanvasElement>(workbench, "canvas");
@@ -96,6 +105,16 @@ window.TokimuIslands.register(
 
     let observation: AssetObservation | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    let intersectionObserver: IntersectionObserver | null = null;
+    let isIntersecting = true;
+    let firstEvidenceMs: number | null = null;
+
+    const drawCurrent = (): boolean => {
+      if (document.hidden || !isIntersecting) return false;
+      if (observation) drawObservation(canvas, context, observation);
+      else drawEmpty(canvas, context);
+      return true;
+    };
 
     const presentBytes = (fileName: string, bytes: Uint8Array) => {
       if (bytes.byteLength > maxBytes) {
@@ -104,18 +123,32 @@ window.TokimuIslands.register(
           fileName,
           `Input is ${formatBytes(bytes.byteLength)}; this island accepts at most ${formatBytes(maxBytes)}.`,
         );
-        drawEmpty(canvas, context);
+        observation = null;
+        drawCurrent();
         return;
       }
 
       try {
+        const inspectionStartedAt = performance.now();
         observation = JSON.parse(engine.inspect_asset(fileName, bytes)) as AssetObservation;
-        presentObservation(mount, observation, engine.engine_status(), startedAt);
-        drawObservation(canvas, context, observation);
+        const inspectionMs = performance.now() - inspectionStartedAt;
+        presentObservation(mount, observation, engine.engine_status());
+        const presentationStartedAt = performance.now();
+        const canvasPresented = drawCurrent();
+        const canvasPresentationMs = canvasPresented
+          ? performance.now() - presentationStartedAt
+          : null;
+        firstEvidenceMs ??= performance.now() - startedAt;
+        presentTiming(mount, {
+          wasmStartupMs,
+          inspectionMs,
+          firstEvidenceMs,
+          canvasPresentationMs,
+        });
       } catch (error) {
         observation = null;
         presentFailure(mount, fileName, message(error));
-        drawEmpty(canvas, context);
+        drawCurrent();
       }
     };
 
@@ -124,6 +157,12 @@ window.TokimuIslands.register(
       const response = await fetch(fixtureUrl, { signal });
       if (!response.ok) {
         throw new Error(`Known fixture request failed with HTTP ${response.status}.`);
+      }
+      const declaredLength = Number(response.headers.get("content-length"));
+      if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+        throw new Error(
+          `Known fixture is ${formatBytes(declaredLength)}; this island accepts at most ${formatBytes(maxBytes)}.`,
+        );
       }
       const bytes = new Uint8Array(await response.arrayBuffer());
       throwIfAborted(signal);
@@ -158,21 +197,33 @@ window.TokimuIslands.register(
         });
     };
     const onResize = () => {
-      if (observation) drawObservation(canvas, context, observation);
-      else drawEmpty(canvas, context);
+      drawCurrent();
+    };
+    const onVisibility = () => {
+      if (!document.hidden) drawCurrent();
     };
 
     loadFixture.addEventListener("click", onFixture);
     fileInput.addEventListener("change", onFile);
     window.addEventListener("resize", onResize);
+    document.addEventListener("visibilitychange", onVisibility);
     if ("ResizeObserver" in window) {
       resizeObserver = new ResizeObserver(onResize);
       resizeObserver.observe(canvas);
     }
+    if ("IntersectionObserver" in window) {
+      intersectionObserver = new IntersectionObserver((entries) => {
+        isIntersecting = entries.some((entry) => entry.isIntersecting);
+        if (isIntersecting) drawCurrent();
+      });
+      intersectionObserver.observe(workbench);
+    }
 
     const release = () => {
       resizeObserver?.disconnect();
+      intersectionObserver?.disconnect();
       window.removeEventListener("resize", onResize);
+      document.removeEventListener("visibilitychange", onVisibility);
       loadFixture.removeEventListener("click", onFixture);
       fileInput.removeEventListener("change", onFile);
       fileInput.value = "";
@@ -197,6 +248,10 @@ window.TokimuIslands.register(
 );
 
 function createWorkbench(): HTMLElement {
+  workbenchSequence += 1;
+  const nameId = `asset-evidence-name-${workbenchSequence}`;
+  const summaryId = `asset-evidence-summary-${workbenchSequence}`;
+  const reportId = `asset-evidence-report-${workbenchSequence}`;
   const workbench = document.createElement("div");
   workbench.className = "asset-evidence";
   workbench.innerHTML = `
@@ -205,12 +260,31 @@ function createWorkbench(): HTMLElement {
         <span>Tokimu vector preview</span>
         <strong data-evidence-badge>Loading</strong>
       </div>
-      <canvas aria-label="Tokimu-rendered diagnostic preview of the selected SVG"></canvas>
+      <canvas
+        role="img"
+        aria-label="Tokimu-rendered diagnostic preview of the selected SVG"
+        aria-describedby="${summaryId} ${reportId}"
+      >
+        The visual preview requires Canvas 2D. The adjacent report contains the
+        authoritative observation as text.
+      </canvas>
     </div>
-    <div class="asset-evidence-report">
+    <div
+      class="asset-evidence-report"
+      id="${reportId}"
+      role="region"
+      aria-labelledby="${nameId}"
+    >
       <p class="eyebrow">Local WASM observation</p>
-      <h3 data-evidence-name>Preparing fixture</h3>
-      <p data-evidence-summary>Starting the bounded Tokimu consumer...</p>
+      <h3 id="${nameId}" data-evidence-name>Preparing fixture</h3>
+      <p id="${summaryId}" data-evidence-summary>Starting the bounded Tokimu consumer...</p>
+      <p
+        class="visually-hidden"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-evidence-announcement
+      >Tokimu evidence consumer is starting.</p>
       <dl data-evidence-properties></dl>
       <div class="asset-evidence-verdict" data-evidence-verdict>
         Waiting for structural evidence.
@@ -240,7 +314,6 @@ function presentObservation(
   mount: HTMLElement,
   observation: AssetObservation,
   engineStatus: string,
-  startedAt: number,
 ): void {
   text(mount, "[data-evidence-name]", observation.fileName);
   text(mount, "[data-evidence-summary]", observation.summary);
@@ -263,7 +336,6 @@ function presentObservation(
   appendProperty(properties, "Vector records", paths.length.toString());
   appendProperty(properties, "Contours", contours.toString());
   appendProperty(properties, "Flattened points", points.toString());
-  appendProperty(properties, "Startup", `${(performance.now() - startedAt).toFixed(1)} ms`);
 
   const knownFixtureMatches =
     observation.status === "renderable" &&
@@ -297,6 +369,26 @@ function presentObservation(
     item.textContent = `${observation.diagnostics.length - MAX_DIAGNOSTICS} additional diagnostics omitted.`;
     diagnostics.append(item);
   }
+
+  text(
+    mount,
+    "[data-evidence-announcement]",
+    `${observation.fileName}: ${observation.summary} ${verdict.textContent ?? ""}`,
+  );
+}
+
+function presentTiming(mount: HTMLElement, timing: EvidenceTiming): void {
+  const properties = required<HTMLDListElement>(mount, "[data-evidence-properties]");
+  appendProperty(properties, "WASM startup", formatMilliseconds(timing.wasmStartupMs));
+  appendProperty(properties, "Inspection", formatMilliseconds(timing.inspectionMs));
+  appendProperty(properties, "First evidence", formatMilliseconds(timing.firstEvidenceMs));
+  appendProperty(
+    properties,
+    "Canvas presentation",
+    timing.canvasPresentationMs === null
+      ? "Deferred while hidden or offscreen"
+      : formatMilliseconds(timing.canvasPresentationMs),
+  );
 }
 
 function presentFailure(mount: HTMLElement, fileName: string, detail: string): void {
@@ -313,6 +405,11 @@ function presentFailure(mount: HTMLElement, fileName: string, detail: string): v
   const item = document.createElement("li");
   item.textContent = detail;
   diagnostics.append(item);
+  text(
+    mount,
+    "[data-evidence-announcement]",
+    `${fileName}: Tokimu rejected this source input. ${detail}`,
+  );
 }
 
 function setLoadingMessage(mount: HTMLElement, detail: string): void {
@@ -418,6 +515,10 @@ function throwIfAborted(signal: AbortSignal): void {
 
 function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function formatMilliseconds(value: number): string {
+  return `${value.toFixed(1)} ms observed`;
 }
 
 function text(root: ParentNode, selector: string, value: string): void {

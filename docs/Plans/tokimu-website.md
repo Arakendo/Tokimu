@@ -376,6 +376,26 @@ Plans, conversations, working notes, and archives should not automatically
 become public navigation. Their publication needs a deliberate audience and
 status label.
 
+### Initial Publication Inventory
+
+| Repository material | Publication class | Initial website treatment |
+| --- | --- | --- |
+| README, SDD, kernel principles, semantic kernel map, capability boundaries | Public reference | Curated into overview and architecture pages; not mirrored blindly |
+| TypeScript design and WASM boundary material | Public reference | Curated into the Rust and TypeScript architecture page |
+| Accepted ADRs | Public reference | Summarized through the architectural-decision method and bounded claims |
+| Architectural Review findings | Public history | Selected findings may support evidence pages; full records remain repository history |
+| Roadmap | Public reference | Curated status page using current maturity vocabulary |
+| Library corpus records | Public evidence | Published one bounded format page at a time with drift checks |
+| Deterministic artifacts and selected screenshots | Public evidence | Linked only when provenance and evidence type are explicit |
+| Plans and Conversations | Internal working material | Excluded from website navigation and automatic publication |
+| Notes and `.workbench` records | Internal working material | Excluded unless deliberately promoted into a public reference |
+| Archive | Deferred history | Repository-accessible but absent from public navigation |
+| Engineering journal or feed | Deferred | Requires an intentional editorial and chronology policy |
+
+The website therefore publishes a maintained interpretation of authoritative
+repository material. It does not create a second architectural source of truth
+and does not treat repository location alone as permission to publish.
+
 ## Implementation Slices
 
 ### Slice 0: Website Boundary And Content Review
@@ -384,8 +404,8 @@ status label.
 
 - [x] Confirm `tokimuengine.org` as the canonical domain.
 - [x] Record redirect intent for `.com` and `.net`.
-- [ ] Inventory repository documents suitable for public publication.
-- [ ] Classify documents as public reference, public history, internal working
+- [x] Inventory repository documents suitable for public publication.
+- [x] Classify documents as public reference, public history, internal working
       material, or deferred.
 - [x] Define the initial capability-state vocabulary.
 - [x] Select the first interactive proof and its honest support claim.
@@ -418,7 +438,9 @@ status label.
 - [x] Every published page is readable and navigable without JavaScript.
 - [x] URLs remain stable across repeated builds.
 - [x] The generated site identifies `.org` as canonical.
-- [ ] Accessibility checks find no blocking issue in the static shell.
+- [x] Automated accessibility checks find no blocking structural issue in the
+      static shell. Manual browser and assistive-technology review remains
+      separately tracked in Slice 8.
 
 ### Slice 2: Domain And Deployment Baseline
 
@@ -430,14 +452,15 @@ status label.
 - [ ] Configure path-preserving permanent redirects from `.com` and `.net`.
 - [ ] Add preview deployment for proposed site changes.
 - [ ] Add cache rules that distinguish immutable hashed WASM assets from HTML.
-- [ ] Document rollback and deployment ownership.
+- [x] Document rollback and deployment ownership.
 
 #### Acceptance Criteria
 
 - [ ] Each alternate-domain URL resolves to its equivalent `.org` URL.
 - [ ] No domain serves a divergent mirror.
 - [ ] A failed interactive bundle does not prevent static deployment.
-- [ ] A previous static deployment can be restored.
+- [x] A previous static deployment can be restored through a reviewed source
+      revert and normal Pages redeployment.
 - [ ] HTML changes do not remain hidden behind an immutable cache policy.
 
 ### Slice 3: Interactive Island Contract
@@ -510,72 +533,127 @@ status label.
 
 - The first format record now publishes the bounded W3C SVG geometry profile.
 - Website validation compares its official `40 / 525 (7.62%)` coverage claim
-  and evidence date with `docs/Libraries/w3c-svg-corpus-testing.md`.
+  and evidence ledger with `docs/Libraries/w3c-svg-corpus-testing.md`.
 - The page labels structural, deterministic CPU, WASM semantic, and browser
   visual evidence separately.
-- Additional format pages and a general generated-report pipeline remain open.
+- Repository links expose the selected fixtures, provenance, registered cases,
+  and structural golden workflow behind the public summary.
+- A second bounded format record now publishes CGM as Previewable, ties its
+  15-case selection and stage counts to the authoritative CGM record, and
+  keeps unresolved paint semantics explicit.
+- Additional format pages remain future corpus growth rather than a requirement
+  for this evidence-page proof.
 
 #### Deliverables
 
-- [ ] Add format pages backed by corpus reports rather than hand-maintained
+- [x] Add format pages backed by corpus reports rather than hand-maintained
       support claims.
-- [ ] Publish admitted corpus scope, coverage, and known exclusions.
-- [ ] Link static screenshots and structural artifacts where appropriate.
-- [ ] Add a clear generated-at date and source revision to evidence.
-- [ ] Distinguish native, deterministic CPU, WASM semantic, and browser visual
+- [x] Publish admitted corpus scope, coverage, and known exclusions.
+- [x] Link static screenshots and structural artifacts where appropriate.
+- [x] Add a clear generated-at date and source revision to evidence.
+- [x] Distinguish native, deterministic CPU, WASM semantic, and browser visual
       evidence.
 
 #### Acceptance Criteria
 
-- [ ] Coverage claims identify their denominator and admitted profile.
-- [ ] A stale or missing report is visible rather than silently replaced by an
+- [x] Coverage claims identify their denominator and admitted profile.
+- [x] A stale or missing report is visible rather than silently replaced by an
       old claim.
-- [ ] Structural artifacts remain authoritative for structural claims.
-- [ ] Browser screenshots are labeled as visual evidence rather than semantic
+- [x] Structural artifacts remain authoritative for structural claims.
+- [x] Browser screenshots are labeled as visual evidence rather than semantic
       truth.
-- [ ] Capability labels match the state vocabulary in this plan.
+- [x] Capability labels match the state vocabulary in this plan.
 
 ### Slice 7: Accessibility, Performance, And Security Hardening
 
+#### Progress
+
+- The first island now exposes a uniquely associated textual report and a
+  concise polite live announcement for each observation.
+- Canvas remains labeled evidence and explicitly points assistive technology
+  to the authoritative textual summary and report.
+- Local input size is checked before bytes are read or sent to WASM;
+  diagnostics remain browser-bounded.
+- Presentation remains event-driven and suppresses resize redraws while the
+  document is hidden or the island is offscreen.
+- Reduced-motion and forced-color behavior are covered by executable website
+  contract tests.
+- WASM startup, inspection, first useful evidence, and Canvas presentation are
+  reported as separate observations rather than one ambiguous startup number.
+- Published island assets have executable per-file and aggregate size budgets.
+  The 2026-07-30 source-tree measurement is 887,389 bytes against the 1 MiB
+  aggregate ceiling.
+- Empty, malformed, binary-corrupted, and entity-bearing SVG inputs exercise
+  bounded diagnostic behavior.
+- Thirty-two activation/reset cycles require exactly one release per mount and
+  retain only the controller's delegated click handler.
+
 #### Deliverables
 
-- [ ] Add keyboard and screen-reader checks for island controls.
-- [ ] Add reduced-motion and high-contrast review.
-- [ ] Measure payload, startup, first-useful-presentation, and reset behavior.
-- [ ] Add hidden-page and offscreen lifecycle behavior.
-- [ ] Add malformed, oversized, and adversarial local-file fixtures.
-- [ ] Add a visible local-processing and privacy statement.
+- [x] Add keyboard and screen-reader contract checks for island controls and
+      evidence output.
+- [x] Add reduced-motion and forced-color stylesheet contracts.
+- [x] Measure payload, startup, first-useful-presentation, and reset behavior.
+- [x] Add hidden-page and offscreen presentation behavior.
+- [x] Add malformed, oversized, and adversarial local-file fixtures.
+- [x] Add a visible local-processing and privacy statement.
 - [ ] Verify teardown does not retain unbounded memory or event handlers.
 
 #### Acceptance Criteria
 
-- [ ] The first interactive proof is operable without drag input.
-- [ ] Essential results are available as text.
-- [ ] Repeated activation and reset remain within documented resource bounds.
-- [ ] Oversized input is rejected before expensive parsing.
-- [ ] Hidden or inactive islands do not consume continuous presentation work.
-- [ ] No selected file leaves the browser in the initial implementation.
+- [x] The first interactive proof is operable without drag input.
+- [x] Essential results are available as text.
+- [x] Repeated activation and reset remain within documented handler and
+      release-count bounds.
+- [x] Oversized input is rejected before expensive parsing.
+- [x] Hidden or inactive islands do not consume continuous presentation work.
+- [x] No selected file leaves the browser in the initial implementation.
 
 ### Slice 8: Public Launch Review
 
+#### Progress
+
+- Public wording was reviewed against the SDD's Rust/WASM and TypeScript
+  ownership boundaries, accepted presentation ADRs, relevant Architectural
+  Reviews, and current website consumer evidence.
+- Stale claims describing the deployed site, WASM island, and interactive
+  evidence as pending were corrected without promoting experimental browser
+  execution into a general engine guarantee.
+- A post-build crawler now checks every generated page for canonical `.org`
+  metadata, descriptions, resolvable internal links and assets, `CNAME`, and
+  `.nojekyll`.
+- The same generated-site check proves that useful homepage knowledge and
+  static evidence context survive without JavaScript.
+- Known launch limitations and the evidence-first maintenance process are
+  published on the limitations page and recorded in the website consumer
+  design.
+- Live HTTP review on 2026-07-30 confirmed `.org` serves GitHub Pages with
+  `200 OK`. DNS forwarding for `.com` and `.net` is now configured, but the
+  observed public edge still showed the prior Squarespace behavior: `.com`
+  redirected to non-path-preserving `http://tokimuengine.org`, while `.net`
+  served a Squarespace root page and lost paths when redirecting. Propagation
+  and path-preserving HTTPS behavior remain external verification work.
+- Supported-browser interaction and heap-level retention remain manual
+  evidence gaps.
+
 #### Deliverables
 
-- [ ] Review public claims against the SDD, ADRs, Architectural Reviews, and
+- [x] Review public claims against the SDD, ADRs, Architectural Reviews, and
       current corpus evidence.
-- [ ] Review domain redirects, canonical metadata, and broken links.
-- [ ] Review static behavior with JavaScript disabled.
+- [x] Review domain redirects, canonical metadata, and broken links.
+- [x] Review static behavior with JavaScript disabled.
 - [ ] Review interactive behavior on supported browser targets.
-- [ ] Record known launch limitations.
-- [ ] Define the post-launch evidence and content maintenance process.
+- [x] Record known launch limitations.
+- [x] Define the post-launch evidence and content maintenance process.
 
 #### Acceptance Criteria
 
-- [ ] The site describes current Tokimu rather than only its ambition.
-- [ ] Every interactive claim has static context and an explicit failure state.
-- [ ] The launch does not imply that inspected or previewable formats are fully
+- [x] The site describes current Tokimu rather than only its ambition.
+- [x] Every interactive claim has static context and an explicit failure state.
+- [x] The launch does not imply that inspected or previewable formats are fully
       supported.
-- [ ] Website deployment does not change engine ownership boundaries.
-- [ ] The website consumer corpus records any public API friction found during
+- [x] Website deployment does not change engine ownership boundaries.
+- [x] The website consumer corpus records any public API friction found during
       launch.
 
 ## First Release Definition

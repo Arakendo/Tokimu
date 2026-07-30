@@ -33,9 +33,9 @@ already reached the same maturity.
     <p>Prove ordinary TypeScript applications can consume Tokimu through a bounded WASM API without duplicating engine semantics.</p>
   </article>
   <article>
-    <span>Planned</span>
+    <span>Experimental</span>
     <h2>Interactive evidence</h2>
-    <p>Mount selected consumer-corpus applications as progressive website islands while keeping the documentation static.</p>
+    <p>Harden the first bounded WASM evidence island and admit additional consumers only when each makes a focused, falsifiable claim.</p>
   </article>
 </div>
 
@@ -63,7 +63,8 @@ repository treats it as permanent architecture.
 - A listed capability is not automatically production-ready.
 - A readable file is not automatically renderable.
 - A diagnostic preview is not a complete semantic implementation.
-- A planned WebAssembly consumer is not yet a published browser guarantee.
+- A published experimental WebAssembly consumer is not a general browser,
+  renderer, or SDK guarantee.
 
 See [Capabilities](capabilities/index.md) for the maturity vocabulary used
 throughout the site and [Known Limitations](known-limitations.md) for current

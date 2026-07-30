@@ -29,6 +29,7 @@ nav:
   - Corpus:
       - Evidence And Coverage: corpus/index.md
       - W3C SVG Evidence: formats/svg.md
+      - CGM Evidence: formats/cgm.md
   - Lab:
       - Interactive Island Contract: lab/island-contract.md
 

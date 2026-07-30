@@ -52,10 +52,15 @@ jobs:
           website/tests/asset-observation.test.mjs
           website/tests/static-fallback.test.mjs
           website/tests/svg-evidence.test.mjs
+          website/tests/cgm-evidence.test.mjs
           website/tests/authoring-boundary.test.mjs
+          website/tests/island-hardening.test.mjs
 
       - name: Build website
         run: python -m mkdocs build -f website/mkdocs.yml --strict
+
+      - name: Validate generated website
+        run: node --test website/tests/built-site.test.mjs
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4

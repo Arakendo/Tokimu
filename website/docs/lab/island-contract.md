@@ -80,5 +80,6 @@ changes are exposed through textual status and the bubbling
 `tokimu:island-state` event. A consumer must report unsupported behavior rather
 than silently substituting browser-native import or rendering semantics.
 
-This contract is scaffolded and exercised by the homepage. A real Tokimu WASM
-consumer remains pending.
+This contract is exercised by the homepage asset-observation consumer. That
+island invokes Tokimu's Rust/WASM SVG inspection path after explicit
+activation; it does not establish a general browser-rendering guarantee.

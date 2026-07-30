@@ -41,9 +41,15 @@ The repository currently carries or plans bounded evidence for:
 - font outlines and glyph providers.
 
 Coverage is meaningful only with a declared profile and denominator. The first
-published record is the [W3C SVG evidence page](../formats/svg.md), whose
-coverage values are checked against the repository's authoritative library
-record so stale claims fail validation.
+published records are:
+
+- the [W3C SVG evidence page](../formats/svg.md), whose upstream coverage
+  values are checked against the authoritative SVG library record; and
+- the [CGM evidence page](../formats/cgm.md), whose bounded selection and stage
+  counts are checked against the authoritative CGM library record.
+
+Stale claims fail website validation rather than silently surviving a corpus
+change.
 
 ## Structural evidence first
 
