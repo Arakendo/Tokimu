@@ -803,6 +803,15 @@ impl WgpuBackend {
         drain_backend_diagnostic_messages(&self.backend_diagnostic_messages)
     }
 
+    /// Flushes backend work and callbacks before diagnostics are inspected.
+    ///
+    /// Native WebGPU validation may be reported asynchronously after resource
+    /// creation returns. Presentation diagnostics use this bounded adapter hook
+    /// instead of exposing `wgpu::Device` to callers.
+    pub fn poll_diagnostics(&self) {
+        let _ = self._device.poll(wgpu::Maintain::Wait);
+    }
+
     fn record_backend_diagnostic(&self, message: impl Into<String>) {
         let mut messages = match self.backend_diagnostic_messages.lock() {
             Ok(messages) => messages,
@@ -989,6 +998,9 @@ impl WgpuBackend {
                             .ok_or(WgpuBackendError::MissingMaterial(draw.material.0))?,
                     };
                     self.stats.record_material_resolution();
+                    if gpu_material.base_color.a < 1.0 {
+                        self.stats.record_transparent_draw();
+                    }
                     let pipeline = self
                         .pipelines
                         .get(&draw.pipeline)

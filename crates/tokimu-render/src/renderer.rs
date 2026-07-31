@@ -31,6 +31,12 @@ pub struct RenderFrameStats {
     /// Pipeline state selections required by the latest frame. The first
     /// pipeline bound in a render pass counts as a selection.
     pub pipeline_switches: u32,
+    /// Draws whose resolved material color has non-opaque alpha.
+    ///
+    /// This is measured after per-draw presentation overrides are applied. It
+    /// reports semantic transparency pressure, not whether a backend selected
+    /// a particular blend implementation.
+    pub transparent_draws: u32,
     /// Reused derived material bindings for transient per-draw overrides.
     pub derived_material_cache_hits: u32,
     /// New derived material bindings created for transient per-draw overrides.
@@ -56,6 +62,8 @@ pub struct RenderLifetimeStats {
     pub material_resolutions: u64,
     /// Pipeline state selections since renderer creation.
     pub pipeline_switches: u64,
+    /// Draws with a resolved non-opaque material color since renderer creation.
+    pub transparent_draws: u64,
     /// Reused derived material bindings since renderer creation.
     pub derived_material_cache_hits: u64,
     /// New derived material bindings created since renderer creation.
@@ -111,6 +119,11 @@ impl RenderStatsTracker {
     pub(crate) fn record_pipeline_switch(&mut self) {
         self.frame.pipeline_switches = self.frame.pipeline_switches.saturating_add(1);
         self.lifetime.pipeline_switches = self.lifetime.pipeline_switches.saturating_add(1);
+    }
+
+    pub(crate) fn record_transparent_draw(&mut self) {
+        self.frame.transparent_draws = self.frame.transparent_draws.saturating_add(1);
+        self.lifetime.transparent_draws = self.lifetime.transparent_draws.saturating_add(1);
     }
 
     pub(crate) fn record_derived_material_cache_hit(&mut self) {
@@ -190,6 +203,7 @@ mod tests {
         tracker.record_uniform_buffer_write();
         tracker.record_material_resolution();
         tracker.record_pipeline_switch();
+        tracker.record_transparent_draw();
         tracker.record_derived_material_cache_hit();
         tracker.record_derived_material_cache_miss();
         tracker.record_frame_cpu_timings(RenderFrameCpuTimings {
@@ -204,12 +218,14 @@ mod tests {
         assert_eq!(first.frame.mesh_replacements, 1);
         assert_eq!(first.frame.material_resolutions, 1);
         assert_eq!(first.frame.pipeline_switches, 1);
+        assert_eq!(first.frame.transparent_draws, 1);
         assert_eq!(first.frame.derived_material_cache_hits, 1);
         assert_eq!(first.frame.derived_material_cache_misses, 1);
         assert_eq!(first.lifetime.mesh_uploads, 1);
         assert_eq!(first.lifetime.mesh_replacements, 1);
         assert_eq!(first.lifetime.material_resolutions, 1);
         assert_eq!(first.lifetime.pipeline_switches, 1);
+        assert_eq!(first.lifetime.transparent_draws, 1);
         assert_eq!(
             first.frame.cpu_timings.command_encoding,
             Some(Duration::from_millis(2))
@@ -225,10 +241,12 @@ mod tests {
         assert_eq!(second.frame.mesh_replacements, 0);
         assert_eq!(second.frame.material_resolutions, 0);
         assert_eq!(second.frame.pipeline_switches, 0);
+        assert_eq!(second.frame.transparent_draws, 0);
         assert_eq!(second.frame.derived_material_cache_hits, 0);
         assert_eq!(second.frame.derived_material_cache_misses, 0);
         assert_eq!(second.frame.cpu_timings, RenderFrameCpuTimings::default());
         assert_eq!(second.lifetime.mesh_uploads, 1);
         assert_eq!(second.lifetime.mesh_replacements, 1);
+        assert_eq!(second.lifetime.transparent_draws, 1);
     }
 }

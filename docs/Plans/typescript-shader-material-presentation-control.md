@@ -99,6 +99,9 @@ material system, or owner of scene state.
 The existing renderer already proves a narrow substrate:
 
 - `Material` carries a label, RGBA base color, and optional texture handle;
+- the raster corpus resolves PNG, JPEG, and BMP bytes into a normalized,
+  provider-neutral `DecodedImage`, then prepares explicit top-down RGBA8 sRGB
+  texture evidence before renderer upload;
 - draw commands select mesh, material, and pipeline handles explicitly;
 - native pipelines pass material alpha through their fragment output;
 - the wgpu backend enables alpha blending;
@@ -168,6 +171,46 @@ A stable identity that can refer to an imported node, mesh primitive, vector
 record, UI region, or other renderable presentation unit. A target does not need
 to be an ECS entity and must not create simulation ownership accidentally.
 
+### Raster texture contract
+
+Encoded raster formats stop at their decoder boundary. A material, shader, and
+renderer upload path must not receive PNG, JPEG, BMP, a decoder object, or a
+source path. The admitted handoff is:
+
+```text
+encoded image provider
+        ↓
+DecodedImage
+        ↓
+explicit texture preparation
+        ↓
+renderer texture resource
+        ↓
+material texture slot
+        ↓
+shader sampling
+```
+
+`DecodedImage` owns normalized pixels and their observed metadata. Texture
+preparation declares the meaning required by the consumer rather than inferring
+it from the source format. The first admitted color path is top-down RGBA8
+`ColorSrgb`, targeting `Rgba8UnormSrgb`; linear/data texture intent remains an
+explicit unsupported request until the renderer owns a distinct contract.
+
+Alpha semantics are declared by material and pipeline policy, not by the image
+format alone. Source alpha metadata is retained for diagnostics, but the
+material's blend or coverage policy determines how the shader output uses it.
+Orientation is normalized before texture preparation, so samplers and shaders
+do not compensate for source-format row direction.
+
+Each arrow is an observable diagnostic boundary: decoding validates encoded
+bytes; texture preparation validates color intent, alpha metadata, orientation,
+and target format; renderer upload owns GPU allocation; binding resolution owns
+texture/sampler compatibility; and shader execution owns sampling and fragment
+output. The raster corpus supplies deterministic decode, preparation, and CPU
+artifact evidence for the first two boundaries without claiming GPU framebuffer
+equivalence.
+
 ## Dependency Direction
 
 ```text
@@ -193,6 +236,9 @@ Rules:
   not render.
 - source-format providers do not expose native material objects through the
   authoring API.
+- source-format providers terminate at `DecodedImage`; materials and shaders
+  receive provider-neutral texture identities and declared texture semantics,
+  never encoded image bytes or decoder-native objects.
 - renderer backends may cache GPU resources but do not own application
   selection, hotspot, or source-material state.
 - browser consumers may invoke bounded WASM presentation commands but may not
@@ -322,6 +368,12 @@ Deliverables:
       every built-in pipeline receives color, texture, and sampler bindings,
       with a deterministic white fallback texture when source material has none.
       Custom WGSL declarations must supply source and non-empty entry points.
+- [x] Admit a raster-backed material texture proof through the existing
+      `DecodedImage -> texture preparation -> renderer texture -> material
+      texture slot -> shader sampling` contract. The proof must cover an sRGB
+      color texture, alpha metadata, normalized orientation, and explicit
+      diagnostics at each failed boundary without exposing PNG/JPEG/BMP types
+      to material or shader APIs.
 - [x] Preserve current built-in pipelines through explicit descriptors.
 - [x] Surface backend WGSL compilation and pipeline validation failures through
       Tokimu diagnostics. The wgpu adapter queues uncaptured backend errors and
@@ -334,8 +386,15 @@ Acceptance criteria:
       backend code.
 - [x] The native renderer can recreate current built-in pipelines from the
       admitted description.
-- [ ] Unsupported backend state produces an explicit diagnostic rather than a
-      silent fallback.
+- [x] A shader samples a raster-backed material texture without knowing its
+      encoded source format; a prepared color texture produces the same
+      provider-neutral material request whether its source was PNG, JPEG, BMP,
+      or a future procedural image.
+- [x] Unsupported or invalid backend state produces an explicit diagnostic
+      rather than a silent fallback. Every currently admitted blend, depth,
+      cull, and color-write variant maps exhaustively to WGPU; the invalid
+      depth-write-without-depth-test combination is rejected before backend
+      compilation and recorded through Tokimu diagnostics.
 
 ### Slice 3: Presentation Override Semantics
 
@@ -507,9 +566,12 @@ Acceptance criteria:
       `ShaderModuleDefinition`.
 - [x] Binding and vertex-layout mismatches fail through the provider-neutral
       pre-draw contract validator before corpus registration reaches a backend.
-- [ ] Shader compile diagnostics retain module and entry-point identity. Backend
-      shader labels now encode the semantic module and selected entry points;
-      an intentional native compilation-failure corpus case is still required.
+- [x] Shader compile diagnostics retain module and entry-point identity. Backend
+      shader labels now encode the semantic module and selected entry points.
+      `hello-shader --backend-diagnostic-fixture` registers a deliberately
+      invalid, never-submitted module so native backend evidence can verify
+      that the asynchronous diagnostic preserves
+      `hello-shader-intentional-invalid`, `vs_fixture`, and `fs_fixture`.
 - [x] No wgpu shader module or bind group leaks into public semantic types.
 
 ### Slice 9: Restricted TypeScript Shader Lowering
@@ -544,25 +606,35 @@ Deliverables:
       The current `hello-shader` corpus now drains asynchronous WGPU backend
       diagnostics after presentation; the remaining categories still need
       deliberate authoring fixtures and public routing.
-- [ ] Add counters for material resolution, binding writes, pipeline switches,
+- [x] Add counters for material resolution, binding writes, pipeline switches,
       transparent draws, and derived-resource cache behavior. Renderer frame and
       lifetime stats now report material resolutions, pipeline selections, and
       derived-material cache hits and misses alongside existing binding-write
-      counters; transparent-draw accounting remains deferred.
-- [ ] Bound shader source size, parameter count, generated WGSL size, and
-      lowering complexity. Hand-written WGSL is currently bounded to 1 MiB,
-      64 binding declarations, 16 vertex inputs, and 64 material parameters
-      before backend compilation; generated WGSL and lowering complexity remain
-      deferred with TypeScript lowering.
+      counters. Transparent draws are counted after source material and
+      per-draw override resolution, without inferring transparency from an
+      encoded asset or backend blend object.
+- [x] Bound the current hand-written shader source size, binding/input counts,
+      and material parameter count before backend compilation. The Rust
+      contracts enforce 1 MiB of WGSL, 64 bindings, 16 vertex inputs, and 64
+      material parameters with focused regression coverage. Generated WGSL size
+      and lowering complexity remain deferred with TypeScript lowering.
 - [ ] Ensure authored shader definitions cannot access files, network, DOM,
       timers, process state, or ambient randomness.
-- [ ] Add malformed and adversarial authoring fixtures.
+- [x] Add bounded malformed authoring fixtures. `hello-shader` now provides a
+      semantic invalid-entry-point fixture that cannot reach a backend and a
+      separately labeled backend-invalid WGSL fixture that proves native error
+      provenance. Adversarial TypeScript lowering fixtures remain deferred with
+      Slice 9.
 
 Acceptance criteria:
 
 - [ ] Normal steady-state overrides do not recreate pipelines.
-- [ ] Repeated unchanged frames do not allocate material bindings.
-- [ ] Invalid or excessive input fails within documented bounds.
+- [x] Repeated unchanged native corpus frames do not allocate material bindings.
+      `hello-shader --steady-state-fixture` renders two unchanged frames and
+      fails unless the second frame reports zero binding allocations.
+- [x] Invalid or excessive input in the current hand-authored Rust path fails
+      within documented bounds before backend compilation. Generated TypeScript
+      input remains deferred with Slice 9.
 - [ ] Diagnostics identify the owning stage: TypeScript recognition, semantic
       validation, WGSL generation, pipeline validation, or backend compilation.
 

@@ -383,12 +383,26 @@ fn validate_entry_point(
     stage: &'static str,
     entry_point: &str,
 ) -> Result<(), ShaderModuleValidationError> {
-    if entry_point.trim().is_empty() {
+    let mut characters = entry_point.bytes();
+    let Some(first) = characters.next() else {
         return Err(ShaderModuleValidationError::EmptyEntryPoint {
             label: label.to_owned(),
             stage,
         });
+    };
+
+    // Entry points are passed directly to WGSL. Keep this semantic declaration
+    // within the portable WGSL identifier subset instead of asking backends to
+    // diagnose punctuation or whitespace that no backend can interpret.
+    if !(first.is_ascii_alphabetic() || first == b'_')
+        || !characters.all(|character| character.is_ascii_alphanumeric() || character == b'_')
+    {
+        return Err(ShaderModuleValidationError::InvalidIdentifier {
+            kind: "shader entry point",
+            value: entry_point.to_owned(),
+        });
     }
+
     Ok(())
 }
 
@@ -451,6 +465,76 @@ mod tests {
                 label: "large-module".to_owned(),
                 bytes: MAX_SHADER_SOURCE_BYTES + 1,
                 maximum: MAX_SHADER_SOURCE_BYTES,
+            }
+        );
+    }
+
+    #[test]
+    fn bounds_shader_bindings_and_vertex_inputs_before_backend_compilation() {
+        let bindings = (0..=MAX_SHADER_BINDINGS)
+            .map(|binding| {
+                ShaderBindingDeclaration::new(0, binding as u32, ShaderBindingSource::Camera)
+            })
+            .collect();
+        let binding_error = ShaderModuleDefinition::new(
+            "many-bindings",
+            "@vertex fn vs_main() {}",
+            "vs_main",
+            "fs_main",
+            bindings,
+            vec![],
+        )
+        .expect_err("excessive shader bindings must be rejected");
+        assert_eq!(
+            binding_error,
+            ShaderModuleValidationError::TooManyBindings {
+                label: "many-bindings".to_owned(),
+                count: MAX_SHADER_BINDINGS + 1,
+                maximum: MAX_SHADER_BINDINGS,
+            }
+        );
+
+        let inputs = (0..=MAX_SHADER_VERTEX_INPUTS)
+            .map(|location| {
+                ShaderVertexInput::new(location as u32, ShaderVertexSemantic::Position3)
+            })
+            .collect();
+        let input_error = ShaderModuleDefinition::new(
+            "many-inputs",
+            "@vertex fn vs_main() {}",
+            "vs_main",
+            "fs_main",
+            vec![],
+            inputs,
+        )
+        .expect_err("excessive vertex inputs must be rejected");
+        assert_eq!(
+            input_error,
+            ShaderModuleValidationError::TooManyVertexInputs {
+                label: "many-inputs".to_owned(),
+                count: MAX_SHADER_VERTEX_INPUTS + 1,
+                maximum: MAX_SHADER_VERTEX_INPUTS,
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_wgsl_entry_point_identifiers_before_backend_compilation() {
+        let error = ShaderModuleDefinition::new(
+            "invalid-entry-point",
+            "@vertex fn vs_main() {}",
+            "vertex-main",
+            "fs_main",
+            vec![],
+            vec![],
+        )
+        .expect_err("WGSL entry points cannot contain punctuation");
+
+        assert_eq!(
+            error,
+            ShaderModuleValidationError::InvalidIdentifier {
+                kind: "shader entry point",
+                value: "vertex-main".to_owned(),
             }
         );
     }

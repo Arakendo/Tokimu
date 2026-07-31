@@ -63,6 +63,11 @@ struct ShaderVariantRuntime {
 const NEON_WGSL: &str = include_str!("../assets/neon.wgsl");
 const INK_WGSL: &str = include_str!("../assets/ink.wgsl");
 const RIPPLE_WGSL: &str = include_str!("../assets/ripple.wgsl");
+const BACKEND_INVALID_WGSL: &str = include_str!("../assets/backend-invalid.wgsl");
+
+const BACKEND_DIAGNOSTIC_FIXTURE_ARGUMENT: &str = "--backend-diagnostic-fixture";
+const SEMANTIC_DIAGNOSTIC_FIXTURE_ARGUMENT: &str = "--semantic-diagnostic-fixture";
+const STEADY_STATE_FIXTURE_ARGUMENT: &str = "--steady-state-fixture";
 
 fn shader_module_for_variant(
     definition: ShaderVariantDefinition,
@@ -95,14 +100,54 @@ fn shader_module_for_variant(
 }
 
 fn main() -> PlatformResult<()> {
+    if std::env::args().any(|argument| argument == SEMANTIC_DIAGNOSTIC_FIXTURE_ARGUMENT) {
+        return run_semantic_diagnostic_fixture();
+    }
+
+    let arguments = std::env::args().collect::<Vec<_>>();
+
     run_window_with_app(
         WindowConfig {
             title: "Tokimu Hello Shader".into(),
             width: 1280,
             height: 720,
         },
-        HelloShaderApp::new(),
+        HelloShaderApp::new(
+            arguments
+                .iter()
+                .any(|argument| argument == BACKEND_DIAGNOSTIC_FIXTURE_ARGUMENT),
+            arguments
+                .iter()
+                .any(|argument| argument == STEADY_STATE_FIXTURE_ARGUMENT),
+        ),
     )
+}
+
+fn run_semantic_diagnostic_fixture() -> PlatformResult<()> {
+    let error = ShaderModuleDefinition::new(
+        "hello-shader-semantic-invalid",
+        "@vertex fn vs_main() {}",
+        "vs-invalid",
+        "fs_main",
+        vec![],
+        vec![],
+    )
+    .expect_err("the fixture's malformed WGSL entry point must be rejected");
+
+    if !matches!(
+        error,
+        tokimu::ShaderModuleValidationError::InvalidIdentifier {
+            kind: "shader entry point",
+            ref value,
+        } if value == "vs-invalid"
+    ) {
+        return Err(format!("unexpected semantic shader diagnostic: {error}").into());
+    }
+
+    println!(
+        "hello-shader semantic diagnostic fixture passed: stage=semantic-validation, entry-point=vs-invalid"
+    );
+    Ok(())
 }
 
 struct HelloShaderApp {
@@ -114,6 +159,8 @@ struct HelloShaderApp {
     shader_variant: usize,
     shader_store: AssetStore,
     shader_variants: Vec<ShaderVariantRuntime>,
+    include_backend_diagnostic_fixture: bool,
+    verify_steady_state: bool,
 }
 
 impl Default for HelloShaderApp {
@@ -127,13 +174,36 @@ impl Default for HelloShaderApp {
             shader_variant: 0,
             shader_store: AssetStore::default(),
             shader_variants: Vec::new(),
+            include_backend_diagnostic_fixture: false,
+            verify_steady_state: false,
         }
     }
 }
 
 impl HelloShaderApp {
-    fn new() -> Self {
-        Self::default()
+    fn new(include_backend_diagnostic_fixture: bool, verify_steady_state: bool) -> Self {
+        Self {
+            include_backend_diagnostic_fixture,
+            verify_steady_state,
+            ..Self::default()
+        }
+    }
+
+    fn register_backend_diagnostic_fixture(renderer: &mut WgpuBackend) -> PlatformResult<()> {
+        let module = ShaderModuleDefinition::new(
+            "hello-shader-intentional-invalid",
+            BACKEND_INVALID_WGSL,
+            "vs_fixture",
+            "fs_fixture",
+            vec![],
+            vec![ShaderVertexInput::new(0, ShaderVertexSemantic::Position3)],
+        )?;
+        let pipeline = Pipeline::custom_wgsl_module("shader-backend-diagnostic-fixture", module)?;
+
+        // The unresolved fragment symbol must be reported through the backend
+        // diagnostic sink. This pipeline is never retained or submitted.
+        renderer.register_pipeline(&pipeline)?;
+        Ok(())
     }
 
     fn update_window_title(&self) {
@@ -249,21 +319,63 @@ impl HelloShaderApp {
         self.frame_index = self.frame_index.saturating_add(1);
         if self.frame_index.is_multiple_of(120) {
             println!(
-                "hello-shader frame {}: draws={}, material_resolutions={}, pipeline_switches={}, derived_cache_hits={}, derived_cache_misses={}, binding_allocations={}, uniform_writes={}",
+                "hello-shader frame {}: draws={}, material_resolutions={}, pipeline_switches={}, transparent_draws={}, derived_cache_hits={}, derived_cache_misses={}, binding_allocations={}, uniform_writes={}",
                 self.frame_index,
                 stats.frame.draw_calls,
                 stats.frame.material_resolutions,
                 stats.frame.pipeline_switches,
+                stats.frame.transparent_draws,
                 stats.frame.derived_material_cache_hits,
                 stats.frame.derived_material_cache_misses,
                 stats.frame.binding_allocations,
                 stats.frame.uniform_buffer_writes,
             );
         }
+        if self.include_backend_diagnostic_fixture {
+            renderer.poll_diagnostics();
+        }
         // WGPU can report shader and pipeline validation after the synchronous
         // creation call. Keep that adapter evidence visible to this corpus.
-        for diagnostic in renderer.drain_diagnostics() {
+        let diagnostics = renderer.drain_diagnostics();
+        for diagnostic in &diagnostics {
             eprintln!("hello-shader backend diagnostic: {diagnostic}");
+        }
+        if self.include_backend_diagnostic_fixture {
+            let diagnostic_text = diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.message.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            for expected in [
+                "hello-shader-intentional-invalid",
+                "vs_fixture",
+                "fs_fixture",
+            ] {
+                if !diagnostic_text.contains(expected) {
+                    return Err(format!(
+                        "backend diagnostic fixture did not retain expected semantic identity `{expected}`"
+                    )
+                    .into());
+                }
+            }
+            println!(
+                "hello-shader backend diagnostic fixture passed: module=hello-shader-intentional-invalid, vertex=vs_fixture, fragment=fs_fixture"
+            );
+            return Ok(FrameOutcome::Exit);
+        }
+        if self.verify_steady_state && self.frame_index >= 2 {
+            if stats.frame.binding_allocations != 0 {
+                return Err(format!(
+                    "unchanged steady-state frame allocated {} material bindings",
+                    stats.frame.binding_allocations
+                )
+                .into());
+            }
+            println!(
+                "hello-shader steady-state fixture passed: frame={}, binding_allocations=0",
+                self.frame_index
+            );
+            return Ok(FrameOutcome::Exit);
         }
         self.update_window_title();
         Ok(FrameOutcome::Continue)
@@ -292,6 +404,9 @@ impl PlatformEventHandler for HelloShaderApp {
             HIGHLIGHT_MATERIAL,
             &Material::new("shader-highlight", Color::rgb(0.97, 0.86, 0.44)),
         )?;
+        if self.include_backend_diagnostic_fixture {
+            Self::register_backend_diagnostic_fixture(&mut renderer)?;
+        }
         for variant in SHADER_VARIANTS {
             let asset = self
                 .shader_store

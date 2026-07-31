@@ -50,6 +50,24 @@ That keeps the implementation honest: the example is demonstrating shader text
 ownership over the existing 2D renderer, not smuggling in a separate shader
 graph or material editor runtime.
 
+## Diagnostic Fixture
+
+Run `cargo run -p hello-shader -- --semantic-diagnostic-fixture` to prove a
+malformed semantic declaration fails before backend compilation. The fixture
+expects the `shader entry point` validation boundary to reject `vs-invalid`.
+
+Run `cargo run -p hello-shader -- --backend-diagnostic-fixture` to create a
+short-lived native backend, register a deliberately invalid WGSL module, flush
+the backend diagnostic callback, and verify the diagnostic preserves
+`hello-shader-intentional-invalid`, `vs_fixture`, and `fs_fixture`. The fixture
+exits after its first diagnostic poll and never submits the invalid pipeline,
+so normal visual corpus evidence is unchanged.
+
+Run `cargo run -p hello-shader -- --steady-state-fixture` to render two
+unchanged native frames and verify the second frame allocates no material
+bindings. This is intentionally a narrow allocation proof; it does not claim
+pipeline recreation or per-target override behavior is fully covered.
+
 ## Architecture Boundaries
 
 This example must stay inside the engine boundaries defined in
