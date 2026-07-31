@@ -32,6 +32,7 @@ nav:
       - CGM Evidence: formats/cgm.md
   - Lab:
       - Interactive Island Contract: lab/island-contract.md
+      - Tokimu Paint: lab/paint.md
 
 markdown_extensions:
   - admonition
@@ -52,3 +53,4 @@ extra_javascript:
   - javascripts/islands.js
   - javascripts/asset-observation.js
   - javascripts/asteroids-game.js
+  - javascripts/tokimu-paint.js

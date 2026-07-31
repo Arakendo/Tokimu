@@ -826,6 +826,24 @@ th {
   background: #03090b;
 }
 
+.paint-island {
+  grid-template-columns: 1fr auto;
+  min-height: 34rem;
+}
+
+.paint-island .island-mount {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.paint-frame {
+  display: block;
+  width: 100%;
+  height: clamp(38rem, 78vw, 58rem);
+  border: 0;
+  background: #071012;
+}
+
 .asset-evidence {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);

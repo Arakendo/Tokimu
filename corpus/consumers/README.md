@@ -23,3 +23,6 @@ independent production consumers.
 - [`aspnet-wasm-asset-workbench`](aspnet-wasm-asset-workbench/DESIGN.md) is a
   Tier 2 ASP.NET 10 and TypeScript host that transfers dropped asset bytes into
   a Rust/WASM inspection adapter.
+- [`tokimu-website-paint`](tokimu-website-paint/DESIGN.md) is a Tier 2
+  Rust/WASM raster-editing consumer that keeps editable document truth below
+  browser and Canvas mechanisms.

@@ -10,6 +10,10 @@ $asteroidsConsumer = Join-Path $root "corpus/consumers/tokimu-website-asteroids"
 $asteroidsEngine = Join-Path $asteroidsConsumer "engine"
 $asteroidsWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_asteroids_engine.wasm"
 $asteroidsOutput = Join-Path $website "docs/assets/islands/asteroids-game"
+$paintConsumer = Join-Path $root "corpus/consumers/tokimu-website-paint"
+$paintEngine = Join-Path $paintConsumer "engine"
+$paintWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_paint_engine.wasm"
+$paintOutput = Join-Path $website "docs/assets/islands/tokimu-paint"
 $fixture = Join-Path $root "third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/derived/shapes-rect-01-geometry.svg"
 
 function Invoke-Checked {
@@ -36,6 +40,9 @@ try {
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $asteroidsEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Asteroids WASM build"
+    Invoke-Checked {
+        cargo build --manifest-path (Join-Path $paintEngine "Cargo.toml") --target wasm32-unknown-unknown --release
+    } "Tokimu Paint WASM build"
 
     New-Item -ItemType Directory -Force $assetOutput | Out-Null
     Invoke-Checked {
@@ -50,6 +57,16 @@ try {
     Copy-Item -LiteralPath (Join-Path $asteroidsConsumer "web/index.html") -Destination $asteroidsOutput -Force
     Copy-Item -LiteralPath (Join-Path $asteroidsConsumer "web/styles.css") -Destination $asteroidsOutput -Force
     Copy-Item -LiteralPath (Join-Path $asteroidsConsumer "dist/asteroids.js") -Destination $asteroidsOutput -Force
+
+    Invoke-Checked { npm --prefix $paintConsumer run build } "Tokimu Paint TypeScript build"
+    New-Item -ItemType Directory -Force $paintOutput | Out-Null
+    Invoke-Checked {
+        wasm-bindgen $paintWasm --target web --out-dir $paintOutput --out-name tokimu_website_paint_engine
+    } "Tokimu Paint binding generation"
+    Copy-Item -LiteralPath (Join-Path $paintConsumer "web/index.html") -Destination $paintOutput -Force
+    Copy-Item -LiteralPath (Join-Path $paintConsumer "web/styles.css") -Destination $paintOutput -Force
+    Copy-Item -LiteralPath (Join-Path $paintConsumer "web/lucide.svg") -Destination $paintOutput -Force
+    Copy-Item -LiteralPath (Join-Path $paintConsumer "dist/paint.js") -Destination $paintOutput -Force
 }
 finally {
     Pop-Location
@@ -58,3 +75,4 @@ finally {
 Write-Host "Prepared website interactive assets:"
 Write-Host "  Asset observation: $assetOutput"
 Write-Host "  Asteroids game:    $asteroidsOutput"
+Write-Host "  Tokimu Paint:      $paintOutput"

@@ -2503,6 +2503,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokimu-website-paint-engine"
+version = "0.1.0"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "raster-image-corpus",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "1.1.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Proposed |
+| Status | In progress: standalone workbench and website-island integration |
 | Consumer tier | Tier 2: incubating consumer |
 | Target | Rust/WASM application embedded as an optional `tokimuengine.org` island |
 | Source discussion | `docs/Conversations/Tokimu Paint.md` |
@@ -329,6 +329,11 @@ RGBA8 profile. A bounded BMP encoder may be used first as a smaller mechanical
 proof if PNG encoding is not yet available, but the website must label the
 format honestly.
 
+The first implementation is an application-local deterministic RGBA8 PNG
+encoder. It uses explicit filter-none scanlines, a bounded output policy, and
+the existing raster PNG decoder for round-trip evidence. It is an admitted
+Paint export provider, not a promoted general-purpose image encoding contract.
+
 JPEG export is deferred until the application can request and report:
 
 - quality;
@@ -555,170 +560,184 @@ ignored. Website deployment copies only reviewed generated island assets.
 
 Deliverables:
 
-- [ ] Create the consumer `DESIGN.md` with its Tier 2 dependencies.
-- [ ] Select one small RGBA PNG, one opaque baseline JPEG, and one bounded BMP
+- [x] Create the consumer `DESIGN.md` with its Tier 2 dependencies.
+- [x] Select one small RGBA PNG, one opaque baseline JPEG, and one bounded BMP
       already admitted by the raster corpus.
-- [ ] Add one Tokimu-authored transparent editing fixture.
-- [ ] Define document, command, history, preview, and export observations.
-- [ ] Record unsupported formats and editing semantics.
+- [x] Add one Tokimu-authored transparent editing fixture.
+- [x] Define document, command, history, preview, and export observation
+      ownership; only the document observation is implemented in this slice.
+- [x] Record unsupported formats and editing semantics.
 
 Acceptance criteria:
 
-- [ ] Every state and operation has a named owner.
-- [ ] Fixture provenance remains traceable to the raster corpus.
-- [ ] `DecodedImage` and editable document state remain distinct.
-- [ ] The plan does not promote a shared editable-image capability.
+- [x] Every state and operation has a named owner.
+- [x] Fixture provenance remains traceable to the raster corpus.
+- [x] `DecodedImage` and editable document state remain distinct.
+- [x] The plan does not promote a shared editable-image capability.
 
 ### Slice 1: Headless Editable Document
 
 Deliverables:
 
-- [ ] Implement a bounded application-owned editable RGBA8 document.
-- [ ] Create a document from normalized `DecodedImage`.
-- [ ] Create a blank document without an encoded provider.
-- [ ] Add revision, dirty state, exact pixel hash, and structural observation.
-- [ ] Add checked coordinate and allocation validation.
+- [x] Implement a bounded application-owned editable RGBA8 document.
+- [x] Create a document from normalized `DecodedImage`.
+- [x] Create a blank document without an encoded provider.
+- [x] Add revision, dirty state, exact pixel hash, and structural observation.
+- [x] Add checked coordinate and allocation validation.
 
 Acceptance criteria:
 
-- [ ] Document tests require no window, GPU, DOM, or live renderer.
-- [ ] Equivalent PNG, JPEG, and BMP decoded observations enter the same
+- [x] Document tests require no window, GPU, DOM, or live renderer.
+- [x] Equivalent PNG, JPEG, and BMP decoded observations enter the same
       editable profile.
-- [ ] Source `DecodedImage` remains unchanged after edits.
-- [ ] Invalid dimensions and coordinates fail deterministically.
+- [x] Source `DecodedImage` remains unchanged after edits.
+- [x] Invalid dimensions and coordinates fail deterministically.
 
 ### Slice 2: Pencil, Eraser, Fill, And Sampling
 
 Deliverables:
 
-- [ ] Add deterministic pencil and eraser strokes.
-- [ ] Add exact-match four-connected flood fill.
-- [ ] Add provider-neutral color sampling.
-- [ ] Define one pointer gesture as one transaction.
-- [ ] Emit changed bounds and changed-pixel counts.
+- [x] Add deterministic pencil and eraser strokes.
+- [x] Add exact-match four-connected flood fill.
+- [x] Add provider-neutral color sampling.
+- [x] Define one pointer gesture as one transaction.
+- [x] Emit changed bounds and changed-pixel counts.
 
 Acceptance criteria:
 
-- [ ] Identical command sequences produce identical document hashes.
-- [ ] No-op commands preserve revision and dirty state.
-- [ ] Fill is bounded and cannot recurse through the native call stack.
-- [ ] Tool behavior is independent of browser event frequency after input is
+- [x] Identical command sequences produce identical document hashes.
+- [x] No-op commands preserve revision and dirty state.
+- [x] Fill is bounded and cannot recurse through the native call stack.
+- [x] Tool behavior is independent of browser event frequency after input is
       lowered into the same semantic command.
 
 ### Slice 3: Undo And Redo
 
 Deliverables:
 
-- [ ] Implement bounded transaction history.
-- [ ] Add undo, redo, branch-after-undo, and reset behavior.
-- [ ] Record retained bytes, depth, and evictions.
-- [ ] Add deterministic history fixtures for stroke and flood fill.
+- [x] Implement bounded transaction history.
+- [x] Add undo, redo, branch-after-undo, and reset behavior.
+- [x] Record retained bytes, depth, and evictions.
+- [x] Add deterministic history fixtures for stroke and flood fill.
 
 Acceptance criteria:
 
-- [ ] Undo restores the exact prior document hash.
-- [ ] Redo restores the exact committed document hash.
-- [ ] A new edit after undo clears the obsolete redo branch.
-- [ ] History never exceeds configured byte or transaction policy.
+- [x] Undo restores the exact prior document hash.
+- [x] Redo restores the exact committed document hash.
+- [x] A new edit after undo clears the obsolete redo branch.
+- [x] History never exceeds configured byte or transaction policy.
 
 ### Slice 4: Shape Tools And Command Hardening
 
 Deliverables:
 
-- [ ] Add line and rectangle commands.
-- [ ] Add bounded stroke diameter.
-- [ ] Add clipping for commands crossing document bounds.
-- [ ] Add malformed, excessive, and adversarial command fixtures.
+- [x] Add line and rectangle commands.
+- [x] Add bounded stroke diameter.
+- [x] Add clipping for commands crossing document bounds.
+- [x] Add malformed, excessive, and adversarial command fixtures.
 
 Acceptance criteria:
 
-- [ ] Shape output is deterministic across native and WASM tests.
-- [ ] Clipping never writes outside the document.
-- [ ] Invalid values fail before mutation.
-- [ ] A failed command leaves revision, pixels, and history unchanged.
+- [x] Shape output is deterministic across native tests; WASM parity remains a
+      later session-boundary check.
+- [x] Clipping never writes outside the document.
+- [x] Invalid values fail before mutation.
+- [x] A failed command leaves revision, pixels, and history unchanged.
 
 ### Slice 5: Lossless Export
 
 Deliverables:
 
-- [ ] Select and document the first lossless output provider.
-- [ ] Export the editable document without Canvas readback.
-- [ ] Decode the result through an independent or existing admitted path.
-- [ ] Compare dimensions, orientation, alpha, and exact pixels.
-- [ ] Return bounded bytes and export diagnostics through the session API.
+- [x] Select and document the first lossless output provider.
+- [x] Export the editable document without Canvas readback.
+- [x] Decode the result through an independent or existing admitted path.
+- [x] Compare dimensions, orientation, alpha, and exact pixels.
+- [x] Return bounded bytes and export diagnostics through the session API.
 
 Acceptance criteria:
 
-- [ ] Exported lossless pixels equal the authoritative document.
-- [ ] Transparent pixels survive round trip.
-- [ ] Original source encoding is never claimed to be preserved.
-- [ ] Encoding failure does not clear dirty state or mutate the document.
+- [x] Exported lossless pixels equal the authoritative document.
+- [x] Transparent pixels survive round trip.
+- [x] Original source encoding is never claimed to be preserved.
+- [x] Encoding failure does not clear dirty state or mutate the document.
 
 ### Slice 6: Rust/WASM Session
 
 Deliverables:
 
-- [ ] Add the `cdylib`/`rlib` consumer package.
-- [ ] Expose bounded open, new, apply, undo, redo, sample, preview, export,
+- [x] Add the `cdylib`/`rlib` consumer package.
+- [x] Expose bounded open, new, apply, undo, redo, sample, preview, export,
       reset, and dispose operations.
-- [ ] Avoid JSON for large pixel and export buffers.
-- [ ] Add native and `wasm32-unknown-unknown` contract validation.
-- [ ] Add malformed boundary-input tests.
+- [x] Avoid JSON for large pixel and export buffers.
+- [x] Add native and `wasm32-unknown-unknown` contract validation.
+- [x] Add malformed boundary-input tests.
 
 Acceptance criteria:
 
 - [ ] Native and WASM command sequences produce equivalent observations.
 - [ ] Provider-native and browser-native objects do not cross the API.
 - [ ] Large buffers have explicit ownership and lifetime.
-- [ ] Disposed sessions reject further operations predictably.
+- [x] Disposed sessions reject further operations predictably.
 
 ### Slice 7: Standalone Browser Workbench
 
 Deliverables:
 
-- [ ] Build the bounded Canvas preview, tool rail, palette, and status region.
-- [ ] Add file selection and drag/drop.
-- [ ] Add pointer capture and keyboard shortcuts.
-- [ ] Add zoom, fit, and checkerboard transparency without changing pixels.
-- [ ] Add browser download for admitted export bytes.
-- [ ] Keep diagnostics scrollable and independent from canvas layout.
+- [x] Build the bounded Canvas preview, tool rail, palette, and status region.
+- [x] Add file selection and drag/drop for admitted image formats through the
+      same bounded Rust/WASM decode path.
+- [x] Add pointer capture.
+- [x] Add keyboard shortcuts for tools, undo, redo, and export.
+- [x] Add zoom, fit, and checkerboard transparency without changing pixels.
+- [x] Add browser download for admitted export bytes.
+- [x] Keep bounded browser observations scrollable and independent from canvas
+      layout.
+- [ ] Present structured Rust/WASM diagnostics when the session admits them.
 
 Acceptance criteria:
 
-- [ ] A user can open, draw, fill, sample, undo, redo, and export.
-- [ ] Canvas never becomes the authoritative edit or save source.
+- [x] The TypeScript adapter typechecks against the generated WASM contract.
+- [x] Canvas is fed from copied Rust/WASM preview bytes and never becomes the
+      authoritative edit or save source.
+- [ ] A browser run proves a user can open, draw, fill, sample, undo, redo,
+      and export.
 - [ ] Pointer, keyboard, touch, and resize mechanisms release on disposal.
-- [ ] Verbose diagnostics cannot resize or cover the editing viewport.
+- [x] Verbose browser observations cannot resize or cover the editing viewport.
+- [ ] Structured Rust/WASM diagnostics remain independently bounded when they
+      are admitted by the session contract.
 
 ### Slice 8: Website Island Integration
 
 Deliverables:
 
-- [ ] Register `tokimu-paint` with the shared island loader.
-- [ ] Add a durable static Paint page with capability and limitation text.
-- [ ] Require explicit activation.
-- [ ] Publish reviewed generated WASM and TypeScript assets.
-- [ ] Record payload and startup budgets.
-- [ ] Add reset and navigation teardown evidence.
+- [x] Register `tokimu-paint` with the shared island loader.
+- [x] Add a durable static Paint page with capability and limitation text.
+- [x] Require explicit activation.
+- [x] Publish reviewed generated WASM and TypeScript assets through the website
+      build script.
+- [x] Record deterministic payload limits and diagnostic startup observations.
+- [x] Add reset and navigation teardown evidence through the shared controller
+      and standalone pagehide disposal.
 
 Acceptance criteria:
 
-- [ ] The page remains useful without JavaScript or WASM.
+- [x] The page remains useful without JavaScript or WASM.
 - [ ] Activation creates one bounded session.
 - [ ] Reset and navigation release all owned resources.
 - [ ] No image bytes leave the browser.
-- [ ] The website labels Paint as experimental consumer evidence.
+- [x] The website labels Paint as experimental consumer evidence.
 
 ### Slice 9: Corpus Evidence And Hardening
 
 Deliverables:
 
-- [ ] Add deterministic command replays.
+- [x] Add serializable deterministic blank-document command replays with terminal
+      document and history observations.
 - [ ] Emit document, history, export, and performance artifacts.
 - [ ] Capture separately labeled browser screenshots.
-- [ ] Add malformed files, oversized documents, fill stress, alpha, and odd
-      dimensions.
-- [ ] Compare preview pixels with authoritative document snapshots.
+- [x] Add malformed files, oversized documents, fill stress, alpha, and odd
+      dimensions at the headless document boundary.
+- [x] Compare preview pixels and fingerprints with authoritative document snapshots.
 - [ ] Record native/WASM parity and supported-browser observations.
 
 Acceptance criteria:

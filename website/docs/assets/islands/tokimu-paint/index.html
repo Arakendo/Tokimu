@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tokimu Paint Corpus</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="workbench">
+      <header>
+        <p class="eyebrow">TOKIMU / CONSUMER CORPUS</p>
+        <h1>Raster workbench</h1>
+        <output data-status aria-live="polite">Loading Rust/WASM...</output>
+      </header>
+      <section class="tools" aria-label="Paint controls">
+        <button data-tool="pencil" aria-label="Pencil tool" title="Pencil tool (B)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#pencil"></use></svg></button>
+        <button data-tool="erase" aria-label="Eraser tool" title="Eraser tool (E)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#eraser"></use></svg></button>
+        <button data-tool="fill" aria-label="Fill tool" title="Fill tool (F)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#paint-bucket"></use></svg></button>
+        <button data-tool="sample" aria-label="Sample color tool" title="Sample color tool (I)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#pipette"></use></svg></button>
+        <label class="icon-control" title="Stroke color"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#pipette"></use></svg><span class="sr-only">Stroke color</span><input data-color type="color" value="#72e6d5" aria-label="Stroke color"></label>
+        <label class="brush-control" title="Brush diameter"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#circle-dot"></use></svg><span class="sr-only">Brush diameter</span><input data-brush-size type="range" min="1" max="64" step="1" value="1" aria-label="Brush diameter"><output data-brush-size-value>1 px</output></label>
+        <label class="icon-control file-control" title="Open raster image"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#folder-open"></use></svg><span class="sr-only">Open raster image</span><input data-open type="file" accept="image/png,image/jpeg,image/bmp" aria-label="Open raster image"></label>
+        <button data-new aria-label="New document" title="New document"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#file-plus"></use></svg></button>
+        <button data-undo aria-label="Undo" title="Undo (Ctrl+Z)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#undo-2"></use></svg></button>
+        <button data-redo aria-label="Redo" title="Redo (Ctrl+Y)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#redo-2"></use></svg></button>
+        <button data-export aria-label="Export PNG" title="Export PNG (Ctrl+S)"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#download"></use></svg></button>
+        <button data-reset aria-label="Reset document" title="Reset document"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#rotate-ccw"></use></svg></button>
+      </section>
+      <section class="view-tools" aria-label="Canvas presentation controls">
+        <button data-zoom-out aria-label="Zoom out" title="Zoom out"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#zoom-out"></use></svg></button>
+        <label>Zoom <input data-zoom type="range" min="25" max="400" step="25" value="100"></label>
+        <output data-zoom-value>100%</output>
+        <button data-zoom-in aria-label="Zoom in" title="Zoom in"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#zoom-in"></use></svg></button>
+        <button data-fit aria-label="Fit document to preview" title="Fit document to preview"><svg class="icon" aria-hidden="true"><use href="./lucide.svg#scan"></use></svg></button>
+      </section>
+      <section class="canvas-shell" data-canvas-shell>
+        <div class="canvas-frame">
+          <p class="canvas-label" data-canvas-label>Document canvas</p>
+          <canvas data-canvas width="640" height="400" aria-label="Tokimu Paint editable image"></canvas>
+        </div>
+      </section>
+      <section class="observations" aria-label="Bounded browser observations">
+        <h2>Observations</h2>
+        <ol data-observations></ol>
+      </section>
+      <footer data-details>Idle</footer>
+    </main>
+    <script type="module" src="./paint.js"></script>
+  </body>
+</html>
