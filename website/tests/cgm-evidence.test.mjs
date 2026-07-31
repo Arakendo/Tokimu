@@ -16,19 +16,19 @@ test("the public CGM page matches the authoritative bounded corpus record", asyn
 
   const evidenceDate = source.match(/^As of (\d{4}-\d{2}-\d{2}),/m);
   assert.ok(evidenceDate, "authoritative CGM evidence date is present");
-  assert.match(source, /all 15 selected fixtures are now registered/i);
-  assert.match(source, /other thirteen cases proceed to their source-to-vector boundary/i);
-  assert.match(source, /No CGM importer or first-party capability has been\s+admitted yet/i);
+  assert.match(source, /all 26 selected fixtures are now registered/i);
+  assert.match(source, /Thirteen cases reach a successful source-to-vector\s+boundary/i);
+  assert.match(source, /No CGM importer\s+or first-party capability has been\s+admitted yet/i);
   assert.match(
     source,
     /twelve admitted primitive and source-state passes plus one\s+expected polygon-set topology boundary/i,
   );
 
-  assert.match(page, /15 \/ 15 verified/);
-  assert.match(page, /Cases registered in the shared runner \| 15 \/ 15/);
-  assert.match(page, /Successful source-to-vector cases \| 12/);
+  assert.match(page, /26 \/ 26 verified/);
+  assert.match(page, /Cases registered in the shared runner \| 26 \/ 26/);
+  assert.match(page, /Successful source-to-vector cases \| 13/);
   assert.match(page, /Expected vector boundary \| 1/);
-  assert.match(page, /Source-only cases \| 2/);
+  assert.match(page, /Source-only cases \| 12/);
   assert.match(page, /Admitted production importer \| 0/);
   assert.match(page, new RegExp(`datetime="${evidenceDate[1]}"`));
   assert.match(page, /<strong>Previewable<\/strong>/);

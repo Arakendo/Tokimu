@@ -7,7 +7,7 @@ description: A bounded account of Tokimu's current WebCGM inspection and present
 
 # Stateful graphics under independent pressure
 
-Tokimu uses a 15-case selection from the WebCGM 2.1 Test Suite to pressure
+Tokimu uses a 26-case selection from the WebCGM 2.1 Test Suite to pressure
 binary framing, metafile and picture lifecycle, source-ordered graphics state,
 primitive lowering, and explicit unsupported boundaries.
 
@@ -18,7 +18,7 @@ primitive lowering, and explicit unsupported boundaries.
   </div>
   <div>
     <span class="evidence-label">Selected fixtures</span>
-    <strong data-evidence-cgm-selection>15 / 15 verified</strong>
+    <strong data-evidence-cgm-selection>26 / 26 verified</strong>
   </div>
   <div>
     <span class="evidence-label">Evidence date</span>
@@ -34,11 +34,11 @@ general CGM paint, fill, edge, palette, text, clipping, or profile conformance.
 
 | Measure | Current evidence | What it means |
 | --- | ---: | --- |
-| Selected fixtures verified | 15 / 15 | The pinned v1 selection verifies offline |
-| Cases registered in the shared runner | 15 / 15 | Every selected case stops at an explicit stage |
-| Successful source-to-vector cases | 12 | Finite provider-neutral path evidence exists |
+| Selected fixtures verified | 26 / 26 | The pinned v1 selection verifies offline |
+| Cases registered in the shared runner | 26 / 26 | Every selected case stops at an explicit stage |
+| Successful source-to-vector cases | 13 | Finite provider-neutral path evidence exists |
 | Expected vector boundary | 1 | Polygon-set topology is retained as unsupported |
-| Source-only cases | 2 | Lifecycle and VDC evidence stop before vector lowering |
+| Source-only cases | 12 | Lifecycle, descriptors, text, clipping, curves, and raster evidence stop before vector lowering |
 | Admitted production importer | 0 | The importer remains corpus-owned incubation |
 
 !!! note "Evidence identity"

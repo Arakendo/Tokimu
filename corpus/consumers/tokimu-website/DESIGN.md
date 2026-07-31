@@ -80,15 +80,19 @@ presentation rather than inventing a timing for work that did not run.
 
 The first published payload has executable size budgets:
 
-- WASM module: at most 900 KiB;
+- WASM module: at most 1,280 KiB across supported build hosts;
 - generated WASM binding: at most 24 KiB;
 - asset-observation adapter: at most 24 KiB;
 - shared island lifecycle: at most 12 KiB; and
-- complete first-island payload, including its fixture: at most 1 MiB.
+- complete first-island payload, including its fixture: at most 1,330 KiB.
 
-The 2026-07-30 source-tree measurement is 887,389 bytes across those five
-published files. The automated check measures the generated files directly so
-growth cannot hide behind a stale handwritten total.
+The original 2026-07-30 source-tree measurement was 887,389 bytes across those
+five published files. On 2026-07-31, the expanded importer set measured
+1,080,689 bytes for the committed Windows-built WASM module and 1,230,522 bytes
+for the Linux deployment build. The automated check measures generated files
+directly and applies an explicit cross-host ceiling so growth cannot hide behind
+a stale handwritten total or fail merely because equivalent toolchains produce
+different binary layouts.
 
 The lifecycle corpus runs 32 activation/reset cycles and requires one release
 for every mount while retaining only the controller's single delegated click
