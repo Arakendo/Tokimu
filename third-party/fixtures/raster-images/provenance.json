@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "source": {
+    "suite": "PNG Suite",
+    "author": "Willem van Schaik",
+    "copyright_notice": "(c) Willem van Schaik, 1996, 2011",
+    "license_source": "https://www.schaik.com/pngsuite/PngSuite.LICENSE",
+    "redistribution_status": "admitted-source-fixtures",
+    "redistribution_note": "The PngSuite license grants permission to use, copy, modify, and distribute the images for any purpose and without fee. The W3C archive remains the pinned distribution container for the referenced bytes.",
+    "license_files": [
+      {
+        "path": "upstream/PngSuite.LICENSE",
+        "sha256": "e349baef3011f48426b41b0d98b20618fd6eb753eb37fcb5aa99a7c69220593d"
+      }
+    ]
+  },
+  "container_source": {
+    "suite": "W3C SVG 1.1 2nd Edition",
+    "archive_name": "W3C_SVG_11_TestSuite.tar.gz",
+    "archive_sha256": "429987dd7055c138f129c219afecff0a7010c25477475605a2a2b51865c46ab0",
+    "retrieved_utc": "2026-07-23",
+    "provenance": "../w3c-svg-1.1-2nd-edition/provenance.json"
+  },
+  "additional_sources": {
+    "libjpeg_turbo": {
+      "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo.git",
+      "revision": "5966050641633f9298b03f6b99a625067b22a91c",
+      "retrieved_utc": "2026-07-30",
+      "source_root": "upstream/libjpeg-turbo",
+      "license": "IJG and BSD-3-Clause by file, as recorded in testimages/LICENSE.txt",
+      "redistribution_status": "admitted-source-fixtures",
+      "license_files": [
+        {
+          "path": "upstream/libjpeg-turbo/LICENSE.md",
+          "sha256": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579"
+        },
+        {
+          "path": "upstream/libjpeg-turbo/README.ijg",
+          "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+        },
+        {
+          "path": "upstream/libjpeg-turbo/testimages/LICENSE.txt",
+          "sha256": "1c4d5dfc985d5061ba11180a8ffb541cc1778bccf87fd9f0fb92cbae69d8a9cc"
+        }
+      ],
+      "selection": [
+        "selected/jpeg-selection-v1.toml",
+        "selected/bmp-selection-v1.toml"
+      ]
+    },
+    "jpeg_decoder": {
+      "repository": "https://github.com/image-rs/jpeg-decoder.git",
+      "revision": "eb2d7c0f6a2d0298aba7a7f8b9ca1440353e8f8c",
+      "retrieved_utc": "2026-07-30",
+      "source_root": "upstream/jpeg-decoder",
+      "license": "Apache-2.0 OR MIT",
+      "redistribution_status": "admitted-source-fixtures",
+      "license_files": [
+        {
+          "path": "upstream/jpeg-decoder/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "upstream/jpeg-decoder/LICENSE-MIT",
+          "sha256": "22b83fb92a50418c7df9564b9c179fa2a0e74f293bc58b72dd7e218fc0902143"
+        }
+      ],
+      "selection": [
+        "selected/jpeg-decoder-selection-v1.toml"
+      ]
+    }
+  },
+  "layout": {
+    "source_root": "../w3c-svg-1.1-2nd-edition/upstream/images/PngSuite",
+    "source_document": "../w3c-svg-1.1-2nd-edition/upstream/images/PngSuite/pngsuite.doc",
+    "source_document_sha256": "e792223a98a012ebeabe63251882b74cfa7aaddb659fcfcf92aab97061e59acc",
+    "selection": "selected/selection-v1.toml",
+    "jpeg_selection": "selected/jpeg-selection-v1.toml",
+    "jpeg_decoder_selection": "selected/jpeg-decoder-selection-v1.toml",
+    "bmp_selection": "selected/bmp-selection-v1.toml",
+    "feature_matrix": "selected/feature-matrix.md"
+  },
+  "validation_boundary": {
+    "authoritative": [
+      "source byte identity",
+      "selection metadata",
+      "fixture integrity",
+      "preserved license-record integrity"
+    ],
+    "excluded": [
+      "pixel decode correctness",
+      "PNG conformance",
+      "visual equivalence"
+    ]
+  }
+}

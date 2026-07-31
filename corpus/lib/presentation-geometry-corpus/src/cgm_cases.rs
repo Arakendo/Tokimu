@@ -6,14 +6,13 @@
 
 use std::path::PathBuf;
 
-use cgm_corpus::{
-    inspect_binary_cgm_file, lower_picture_primitives, CgmClipIndicator, CgmError, CgmInspection,
-    CgmScalingMode, DecodeLimits,
-};
-
 use crate::{
     cases::CgmExpectation, reports::failed_stage, CaseReport, CgmCase, CorpusCase, CorpusStage,
     StageReport, StageStatus,
+};
+use cgm_corpus::{
+    inspect_binary_cgm_file, lower_picture_primitives, CgmClipIndicator, CgmEdgeIntent, CgmError,
+    CgmFillIntent, CgmInspection, CgmScalingMode, CgmStrokeIntent, DecodeLimits,
 };
 
 pub fn run_cgm_case(case: CgmCase) -> CaseReport {
@@ -68,14 +67,36 @@ pub fn run_cgm_case(case: CgmCase) -> CaseReport {
                 .iter()
                 .all(|primitive| primitive.path.is_finite());
             if finite {
+                let source_solid_fill_count = primitives
+                    .iter()
+                    .filter(|primitive| primitive.presentation.fill == CgmFillIntent::SourceSolid)
+                    .count();
+                let source_other_fill_count = primitives
+                    .iter()
+                    .filter(|primitive| primitive.presentation.fill == CgmFillIntent::SourceOther)
+                    .count();
+                let visible_edge_count = primitives
+                    .iter()
+                    .filter(|primitive| primitive.presentation.edge == CgmEdgeIntent::SourceVisible)
+                    .count();
+                let source_stroke_count = primitives
+                    .iter()
+                    .filter(|primitive| {
+                        primitive.presentation.stroke == CgmStrokeIntent::SourceDefined
+                    })
+                    .count();
                 report.stages.push(StageReport {
                     stage: CorpusStage::Vector,
                     status: StageStatus::Ready,
                     summary: format!(
-                        "primitives={} contours={} points={} finite=true",
+                        "primitives={} contours={} points={} finite=true source-solid-fill-primitives={} source-other-fill-primitives={} visible-edge-primitives={} source-stroke-primitives={}",
                         primitives.len(),
                         contour_count,
-                        point_count
+                        point_count,
+                        source_solid_fill_count,
+                        source_other_fill_count,
+                        visible_edge_count,
+                        source_stroke_count,
                     ),
                 });
             } else {
@@ -131,6 +152,16 @@ fn source_summary(case: CgmCase, inspection: &CgmInspection) -> String {
         .iter()
         .map(|picture| picture.attributes.len())
         .sum::<usize>();
+    let text_record_count = inspection
+        .pictures
+        .iter()
+        .map(|picture| picture.text_records.len())
+        .sum::<usize>();
+    let cell_array_count = inspection
+        .pictures
+        .iter()
+        .map(|picture| picture.cell_arrays.len())
+        .sum::<usize>();
     let stateful_primitive_count = inspection
         .pictures
         .iter()
@@ -159,20 +190,24 @@ fn source_summary(case: CgmCase, inspection: &CgmInspection) -> String {
         .iter()
         .filter(|picture| picture.descriptor.scaling_mode == CgmScalingMode::Metric)
         .count();
+    let direct_color_extent = inspection.metafile.color_value_extent.is_some();
 
     format!(
-        "{} ({}) elements={} pictures={} primitives={} attributes={} stateful-primitives={} clip-on-primitives={} clip-rectangle-primitives={} vdc-extent-pictures={} metric-scaling-pictures={}",
+        "{} ({}) elements={} pictures={} primitives={} text-records={} cell-arrays={} attributes={} stateful-primitives={} clip-on-primitives={} clip-rectangle-primitives={} vdc-extent-pictures={} metric-scaling-pictures={} direct-color-extent={}",
         case.description,
         case.file_name,
         inspection.elements.len(),
         inspection.pictures.len(),
         primitive_count,
+        text_record_count,
+        cell_array_count,
         attribute_count,
         stateful_primitive_count,
         clip_on_count,
         clip_rectangle_count,
         vdc_extent_picture_count,
         metric_scaling_picture_count,
+        direct_color_extent,
     )
 }
 

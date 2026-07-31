@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
 use cgm_corpus::{
-    inspect_binary_cgm_file, lower_picture_primitives, CgmAttributeValue, CgmClipIndicator,
-    CgmColor, CgmColorSelectionMode, CgmPolygonSetEdgeFlag, CgmPrimitiveKind, CgmPrimitiveTopology,
-    CgmScalingMode, CgmVdcExtent, DecodeLimits, DelimiterElement, ElementSupport,
+    cgm_element_name, inspect_binary_cgm_file, lower_picture_primitives, summarize_diagnostics,
+    CgmAttributeValue, CgmClipIndicator, CgmColor, CgmColorSelectionMode, CgmColorValueExtent,
+    CgmEdgeIntent, CgmFillIntent, CgmInteriorStyle, CgmPolygonSetEdgeFlag, CgmPrimitiveKind,
+    CgmPrimitiveTopology, CgmScalingMode, CgmStrokeIntent, CgmTextRecordKind, CgmVdcExtent,
+    DecodeLimits, DelimiterElement, ElementSupport,
 };
 
 const SELECTED_CASES: &[&str] = &[
@@ -21,8 +23,103 @@ const SELECTED_CASES: &[&str] = &[
     "LINCAP01.cgm",
     "LNJOIN01.cgm",
     "CLIPNG01.cgm",
+    "CLIPNG02.cgm",
+    "APNTXT01.cgm",
+    "CHRHGT01.cgm",
+    "CHRORI01.cgm",
+    "TXTALN01.cgm",
+    "CHRSPA01.cgm",
+    "TXTPTH01.cgm",
+    "CELARY01.cgm",
     "COLRMD01.cgm",
+    "COLVAL01.cgm",
+    "POLYBZ01.cgm",
+    "POLYBZ04.cgm",
 ];
+
+#[test]
+fn deferred_cgm_element_names_remain_provider_owned_and_conservative() {
+    assert_eq!(cgm_element_name(4, 5), "CGM text primitive");
+    assert_eq!(cgm_element_name(4, 6), "CGM append text primitive");
+    assert_eq!(cgm_element_name(4, 9), "CGM cell array raster primitive");
+    assert_eq!(cgm_element_name(4, 26), "CGM polybezier primitive");
+    assert_eq!(cgm_element_name(9, 99), "CGM class 9 element 99");
+}
+
+#[test]
+fn selected_polybezier_fixture_preserves_cgm_continuity_and_control_points() {
+    let inspection = inspect_binary_cgm_file(fixture("POLYBZ01.cgm"), DecodeLimits::default())
+        .expect("selected POLYBZ01 fixture should inspect");
+    let picture = inspection
+        .pictures
+        .first()
+        .expect("POLYBZ01 should contain one picture");
+    let records = picture
+        .primitives
+        .iter()
+        .filter_map(|primitive| match &primitive.kind {
+            CgmPrimitiveKind::PolyBezier { continuity, points } => Some((*continuity, points)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        records.len(),
+        8,
+        "POLYBZ01 contains eight polybezier records"
+    );
+    assert!(records.iter().all(|(_, points)| !points.is_empty()));
+    assert!(records.iter().all(|(_, points)| points.len() >= 2));
+    assert!(inspection
+        .elements
+        .iter()
+        .filter(|element| element.class == 4 && element.id == 26)
+        .all(|element| element.support == ElementSupport::Primitive));
+}
+
+#[test]
+fn selected_polybezier_comparison_fixture_preserves_multiple_source_records() {
+    let inspection = inspect_binary_cgm_file(fixture("POLYBZ04.cgm"), DecodeLimits::default())
+        .expect("selected POLYBZ04 fixture should inspect");
+    let picture = inspection
+        .pictures
+        .first()
+        .expect("POLYBZ04 should contain one picture");
+    let records = picture
+        .primitives
+        .iter()
+        .filter_map(|primitive| match &primitive.kind {
+            CgmPrimitiveKind::PolyBezier { continuity, points } => Some((*continuity, points)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        records.len() > 1,
+        "POLYBZ04 should independently exercise multiple polybezier records"
+    );
+    assert!(records.iter().all(|(_, points)| points.len() >= 2));
+    assert!(inspection
+        .elements
+        .iter()
+        .filter(|element| element.class == 4 && element.id == 26)
+        .all(|element| element.support == ElementSupport::Primitive));
+}
+
+#[test]
+fn deferred_feature_summary_excludes_preserved_cell_array_source_records() {
+    let inspection = inspect_binary_cgm_file(fixture("CELARY01.cgm"), DecodeLimits::default())
+        .expect("selected CELARY01 fixture should inspect");
+    let summaries = summarize_diagnostics(&inspection.diagnostics);
+
+    assert_eq!(
+        summaries.iter().map(|feature| feature.count).sum::<usize>(),
+        inspection.diagnostics.len()
+    );
+    assert!(!summaries
+        .iter()
+        .any(|feature| feature.class == 4 && feature.id == 9));
+}
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -164,9 +261,14 @@ fn selected_attribute_fixtures_preserve_presentation_mutations() {
     let polygon = inspect_binary_cgm_file(fixture("INTSTL01.cgm"), DecodeLimits::default())
         .expect("selected interior-style fixture should inspect");
     let attributes = &polygon.pictures[0].attributes;
-    assert!(attributes
-        .iter()
-        .any(|attribute| matches!(attribute.value, CgmAttributeValue::InteriorStyle { .. })));
+    assert!(attributes.iter().any(|attribute| {
+        matches!(
+            attribute.value,
+            CgmAttributeValue::InteriorStyle {
+                style: CgmInteriorStyle::Solid
+            }
+        )
+    }));
     assert!(attributes
         .iter()
         .any(|attribute| matches!(attribute.value, CgmAttributeValue::FillColor { .. })));
@@ -188,6 +290,248 @@ fn selected_attribute_fixtures_preserve_presentation_mutations() {
                 color: CgmColor::Direct(_)
             }
         )));
+}
+
+#[test]
+fn selected_color_value_extent_preserves_direct_component_range() {
+    let inspection = inspect_binary_cgm_file(fixture("COLVAL01.cgm"), DecodeLimits::default())
+        .expect("selected color-value-extent fixture should inspect");
+
+    assert_eq!(
+        inspection.metafile.color_value_extent,
+        Some(CgmColorValueExtent {
+            minimum: [0, 0, 0],
+            maximum: [100, 100, 100],
+        }),
+        "COLVAL01 must preserve its source component range rather than imply 0..255"
+    );
+}
+
+#[test]
+fn selected_interior_style_fixture_resolves_only_its_explicit_palette_entries() {
+    let inspection = inspect_binary_cgm_file(fixture("INTSTL01.cgm"), DecodeLimits::default())
+        .expect("selected interior-style fixture should inspect");
+    let primitive = inspection.pictures[0]
+        .primitives
+        .iter()
+        .find(|primitive| primitive.state.fill_color == Some(CgmColor::Indexed(vec![1])))
+        .expect("INTSTL01 should carry an indexed fill using its explicit palette");
+
+    assert_eq!(primitive.state.color_table.get(&1), Some(&[0, 0, 0]));
+    assert_eq!(
+        primitive.state.normalize_explicit_color(
+            &inspection.metafile,
+            primitive
+                .state
+                .fill_color
+                .as_ref()
+                .expect("selected primitive must carry its fill color"),
+        ),
+        Some([0.0, 0.0, 0.0]),
+        "indexed color resolution must use the picture-local explicit palette"
+    );
+    assert!(
+        primitive
+            .state
+            .normalize_explicit_color(&inspection.metafile, &CgmColor::Indexed(vec![200]))
+            .is_none(),
+        "missing palette entries must remain unresolved rather than fall back"
+    );
+}
+
+#[test]
+fn selected_append_text_fixture_preserves_text_source_records_without_rendering_them() {
+    let inspection = inspect_binary_cgm_file(fixture("APNTXT01.cgm"), DecodeLimits::default())
+        .expect("selected append-text fixture should inspect");
+    assert!(inspection.elements.iter().any(|element| {
+        element.class == 4 && element.id == 6 && element.support == ElementSupport::Text
+    }));
+    assert!(!inspection
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.class == 4 && matches!(diagnostic.id, 5 | 6)));
+
+    let records = &inspection.pictures[0].text_records;
+    assert_eq!(
+        records.len(),
+        12,
+        "fixture should retain all text source records"
+    );
+    assert!(records
+        .iter()
+        .all(|record| record.source_offset < inspection.source_bytes));
+    assert!(records
+        .iter()
+        .all(|record| record.attribute_count <= inspection.pictures[0].attributes.len()));
+    assert!(matches!(
+        records.first().map(|record| &record.kind),
+        Some(CgmTextRecordKind::Restricted { text, .. }) if text == "Restricted text"
+    ));
+    assert!(matches!(
+        records.iter().find(|record| matches!(record.kind, CgmTextRecordKind::Append { .. })).map(|record| &record.kind),
+        Some(CgmTextRecordKind::Append { text, .. }) if text == " gjhi"
+    ));
+    assert!(
+        inspection.pictures[0]
+            .primitives
+            .iter()
+            .all(|primitive| primitive.source_offset < inspection.source_bytes),
+        "text preservation must not corrupt surrounding geometry source records"
+    );
+}
+
+#[test]
+fn selected_character_height_fixture_preserves_text_state_without_layout() {
+    let inspection = inspect_binary_cgm_file(fixture("CHRHGT01.cgm"), DecodeLimits::default())
+        .expect("selected character-height fixture should inspect");
+    let picture = &inspection.pictures[0];
+
+    let heights = picture
+        .attributes
+        .iter()
+        .filter_map(|attribute| match &attribute.value {
+            CgmAttributeValue::CharacterHeight { value } => Some(*value),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(heights, vec![100, 50, 25, 10, 19, 10]);
+    assert!(picture.attributes.iter().any(|attribute| matches!(
+        &attribute.value,
+        CgmAttributeValue::CharacterOrientation {
+            up: [0, 1],
+            base: [1, 0],
+        }
+    )));
+    assert!(picture.attributes.iter().any(|attribute| matches!(
+        &attribute.value,
+        CgmAttributeValue::TextAlignment {
+            horizontal: 3,
+            vertical: 0,
+            continuous_horizontal: [0, 0, 0, 0],
+            continuous_vertical: [0, 0, 0, 0],
+        }
+    )));
+    assert!(picture.text_records.iter().any(|record| {
+        record.state.character_orientation.is_some() && record.state.text_alignment.is_some()
+    }));
+    assert!(picture.text_records.iter().all(|record| {
+        record.state.character_height.is_some()
+            || record.state.character_orientation.is_none() && record.state.text_alignment.is_none()
+    }));
+    assert!(!inspection.elements.iter().any(|element| {
+        element.class == 5
+            && matches!(element.id, 15 | 16 | 18)
+            && element.support == ElementSupport::Unsupported
+    }));
+}
+
+#[test]
+fn selected_character_orientation_fixture_preserves_source_state_without_layout() {
+    let inspection = inspect_binary_cgm_file(fixture("CHRORI01.cgm"), DecodeLimits::default())
+        .expect("selected character-orientation fixture should inspect");
+    let picture = &inspection.pictures[0];
+
+    assert!(picture.attributes.iter().any(|attribute| matches!(
+        &attribute.value,
+        CgmAttributeValue::CharacterOrientation { .. }
+    )));
+    assert!(picture
+        .text_records
+        .iter()
+        .any(|record| record.state.character_orientation.is_some()));
+    assert!(inspection.elements.iter().any(|element| {
+        element.class == 5 && element.id == 16 && element.support == ElementSupport::Attribute
+    }));
+}
+
+#[test]
+fn selected_text_alignment_fixture_preserves_source_state_without_layout() {
+    let inspection = inspect_binary_cgm_file(fixture("TXTALN01.cgm"), DecodeLimits::default())
+        .expect("selected text-alignment fixture should inspect");
+    let picture = &inspection.pictures[0];
+
+    assert!(picture
+        .attributes
+        .iter()
+        .any(|attribute| matches!(&attribute.value, CgmAttributeValue::TextAlignment { .. })));
+    assert!(picture
+        .text_records
+        .iter()
+        .any(|record| record.state.text_alignment.is_some()));
+    assert!(inspection.elements.iter().any(|element| {
+        element.class == 5 && element.id == 18 && element.support == ElementSupport::Attribute
+    }));
+}
+
+#[test]
+fn selected_character_spacing_fixture_preserves_encoded_source_state_without_layout() {
+    let inspection = inspect_binary_cgm_file(fixture("CHRSPA01.cgm"), DecodeLimits::default())
+        .expect("selected character-spacing fixture should inspect");
+    let picture = &inspection.pictures[0];
+
+    assert!(picture.attributes.iter().any(|attribute| matches!(
+        &attribute.value,
+        CgmAttributeValue::CharacterSpacing { bytes } if !bytes.is_empty()
+    )));
+    assert!(picture
+        .text_records
+        .iter()
+        .any(|record| record.state.character_spacing.is_some()));
+    assert!(inspection.elements.iter().any(|element| {
+        element.class == 5 && element.id == 13 && element.support == ElementSupport::Attribute
+    }));
+}
+
+#[test]
+fn selected_text_path_fixture_preserves_direction_source_state_without_layout() {
+    let inspection = inspect_binary_cgm_file(fixture("TXTPTH01.cgm"), DecodeLimits::default())
+        .expect("selected text-path fixture should inspect");
+    let picture = &inspection.pictures[0];
+
+    assert!(picture.attributes.iter().any(|attribute| matches!(
+        &attribute.value,
+        CgmAttributeValue::TextPath { value } if *value <= 3
+    )));
+    assert!(picture
+        .text_records
+        .iter()
+        .any(|record| record.state.text_path.is_some()));
+    assert!(inspection.elements.iter().any(|element| {
+        element.class == 5 && element.id == 17 && element.support == ElementSupport::Attribute
+    }));
+}
+
+#[test]
+fn selected_cell_array_fixture_preserves_its_raster_header_without_decoding_pixels() {
+    let inspection = inspect_binary_cgm_file(fixture("CELARY01.cgm"), DecodeLimits::default())
+        .expect("selected cell-array fixture should inspect");
+    assert!(inspection.elements.iter().any(|element| {
+        element.class == 4 && element.id == 9 && element.support == ElementSupport::Raster
+    }));
+    assert!(!inspection
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.class == 4 && diagnostic.id == 9));
+    let record = inspection.pictures[0]
+        .cell_arrays
+        .first()
+        .expect("fixture should preserve one cell array header");
+    assert_eq!(record.first, [400, 700]);
+    assert_eq!(record.second, [600, 500]);
+    assert_eq!(record.third, [600, 700]);
+    assert_eq!(record.dimensions, [2, 2]);
+    assert_eq!(record.local_color_precision, 8);
+    assert_eq!(record.representation, 0);
+    assert_eq!(record.payload_bytes, 12);
+    assert!(
+        inspection.pictures.iter().all(|picture| {
+            picture
+                .primitives
+                .iter()
+                .all(|primitive| primitive.source_offset < inspection.source_bytes)
+        }),
+        "deferred cell-array records must not corrupt the surrounding picture lifecycle"
+    );
 }
 
 #[test]
@@ -278,6 +622,18 @@ fn polygon_set_records_and_clipping_controls_remain_explicit_source_state() {
     assert!(picture.primitives.iter().all(|primitive| {
         primitive.controls.clip_rectangle == picture.controls.clip_rectangle
             && primitive.controls.clip_indicator == picture.controls.clip_indicator
+    }));
+
+    let additional = inspect_binary_cgm_file(fixture("CLIPNG02.cgm"), DecodeLimits::default())
+        .expect("additional selected clipping fixture should inspect");
+    let additional_picture = additional
+        .pictures
+        .first()
+        .expect("CLIPNG02 should contain a picture");
+    assert!(additional_picture.controls.clip_rectangle.is_some());
+    assert!(additional_picture.primitives.iter().all(|primitive| {
+        primitive.controls.clip_rectangle.is_some()
+            && primitive.controls.clip_indicator != Some(CgmClipIndicator::On)
     }));
 }
 
@@ -374,6 +730,34 @@ fn selected_primitives_lower_through_the_shared_vector_contract() {
                 && primitive.path.is_finite()
         }));
     }
+}
+
+#[test]
+fn selected_lowering_keeps_fill_edge_and_stroke_intent_distinct() {
+    let line = inspect_binary_cgm_file(fixture("POLYLN01.cgm"), DecodeLimits::default())
+        .expect("selected polyline fixture should inspect");
+    let line_primitives = lower_picture_primitives(&line.pictures[0])
+        .expect("selected polyline fixture should lower");
+    assert!(line_primitives.iter().any(|primitive| {
+        primitive.topology == CgmPrimitiveTopology::Open
+            && primitive.presentation.stroke == CgmStrokeIntent::SourceDefined
+            && primitive.presentation.fill == CgmFillIntent::NotApplicable
+            && primitive.presentation.edge == CgmEdgeIntent::NotApplicable
+    }));
+
+    let polygon = inspect_binary_cgm_file(fixture("INTSTL01.cgm"), DecodeLimits::default())
+        .expect("selected interior-style fixture should inspect");
+    let polygon_primitives = lower_picture_primitives(&polygon.pictures[0])
+        .expect("selected interior-style fixture should lower");
+    assert!(polygon_primitives.iter().any(|primitive| {
+        primitive.topology == CgmPrimitiveTopology::Closed
+            && primitive.presentation.fill == CgmFillIntent::SourceSolid
+            && matches!(
+                primitive.presentation.edge,
+                CgmEdgeIntent::SourceVisible | CgmEdgeIntent::SourceHidden
+            )
+            && primitive.presentation.stroke == CgmStrokeIntent::NotApplicable
+    }));
 }
 
 #[test]

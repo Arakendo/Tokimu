@@ -31,9 +31,10 @@ mod w3c_svg_cases;
 mod xml_stage;
 
 pub use artifacts::{
-    ArtifactAlgorithms, ArtifactEnvelope, CgmArtifact, CgmPrimitiveSourceArtifact, GraphArtifact,
-    GraphEdge, GraphNode, ImageFingerprint, MeshArtifact, MeshFingerprint, MeshValidation,
-    OutlineArtifact, OutlineContourArtifact, OutlineSegmentArtifact, SegmentIntersectionArtifact,
+    ArtifactAlgorithms, ArtifactEnvelope, CgmArtifact, CgmPrimitiveSourceArtifact,
+    CgmResolvedSourceColorArtifact, CgmSolidFillCandidateArtifact, GraphArtifact, GraphEdge,
+    GraphNode, ImageFingerprint, MeshArtifact, MeshFingerprint, MeshValidation, OutlineArtifact,
+    OutlineContourArtifact, OutlineSegmentArtifact, SegmentIntersectionArtifact,
     SvgProfileExclusionArtifact, VectorArtifact, VectorContourArtifact, VectorFingerprint,
     XmlArtifact,
 };
@@ -361,7 +362,7 @@ const W3C_SVG_CASES: [W3cSvgCase; 50] = [
 
 const UI_CASES: [UiCase; 1] = [UiCase::new("ui/panel-surface", "default panel surface")];
 
-const CGM_CASES: [CgmCase; 15] = [
+const CGM_CASES: [CgmCase; 26] = [
     CgmCase::source_only(
         "cgm/webcgm/element-inventory",
         "ALLELM01.cgm",
@@ -427,10 +428,55 @@ const CGM_CASES: [CgmCase; 15] = [
         "CLIPNG01.cgm",
         "WebCGM selected clipping source controls",
     ),
+    CgmCase::source_only(
+        "cgm/webcgm/additional-clip-controls",
+        "CLIPNG02.cgm",
+        "WebCGM selected additional clipping source controls",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/append-text-boundary",
+        "APNTXT01.cgm",
+        "WebCGM selected append-text source boundary",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/character-height-text-state",
+        "CHRHGT01.cgm",
+        "WebCGM selected character height, orientation, and alignment source state",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/character-orientation-text-state",
+        "CHRORI01.cgm",
+        "WebCGM selected character orientation source state",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/text-alignment-state",
+        "TXTALN01.cgm",
+        "WebCGM selected text alignment source state",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/character-spacing-text-state",
+        "CHRSPA01.cgm",
+        "WebCGM selected character spacing source state",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/text-path-state",
+        "TXTPTH01.cgm",
+        "WebCGM selected text path source state",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/cell-array-boundary",
+        "CELARY01.cgm",
+        "WebCGM selected cell-array source boundary",
+    ),
     CgmCase::new(
         "cgm/webcgm/direct-colors",
         "COLRMD01.cgm",
         "WebCGM selected direct-color source state",
+    ),
+    CgmCase::new(
+        "cgm/webcgm/color-value-extent",
+        "COLVAL01.cgm",
+        "WebCGM selected direct-color component range",
     ),
     CgmCase::expected_unsupported_lowering(
         "cgm/webcgm/polygon-set",
@@ -438,9 +484,19 @@ const CGM_CASES: [CgmCase; 15] = [
         "WebCGM selected polygon-set source topology",
         "polygon-set point/flag topology",
     ),
+    CgmCase::source_only(
+        "cgm/webcgm/polybezier-source-boundary",
+        "POLYBZ01.cgm",
+        "WebCGM selected polybezier continuity and control-point source records",
+    ),
+    CgmCase::source_only(
+        "cgm/webcgm/polybezier-comparison-boundary",
+        "POLYBZ04.cgm",
+        "WebCGM comparison polybezier continuity and control-point source records",
+    ),
 ];
 
-const ALL_CASES: [CorpusCase; 77] = [
+const ALL_CASES: [CorpusCase; 88] = [
     CorpusCase::Glyph(GLYPH_CASES[0]),
     CorpusCase::Glyph(GLYPH_CASES[1]),
     CorpusCase::Glyph(GLYPH_CASES[2]),
@@ -518,6 +574,17 @@ const ALL_CASES: [CorpusCase; 77] = [
     CorpusCase::Cgm(CGM_CASES[12]),
     CorpusCase::Cgm(CGM_CASES[13]),
     CorpusCase::Cgm(CGM_CASES[14]),
+    CorpusCase::Cgm(CGM_CASES[15]),
+    CorpusCase::Cgm(CGM_CASES[16]),
+    CorpusCase::Cgm(CGM_CASES[17]),
+    CorpusCase::Cgm(CGM_CASES[18]),
+    CorpusCase::Cgm(CGM_CASES[19]),
+    CorpusCase::Cgm(CGM_CASES[20]),
+    CorpusCase::Cgm(CGM_CASES[21]),
+    CorpusCase::Cgm(CGM_CASES[22]),
+    CorpusCase::Cgm(CGM_CASES[23]),
+    CorpusCase::Cgm(CGM_CASES[24]),
+    CorpusCase::Cgm(CGM_CASES[25]),
 ];
 
 #[cfg(test)]

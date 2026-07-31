@@ -1,0 +1,49 @@
+selection = "jpeg-v1"
+suite = "libjpeg-turbo testimages"
+source_root = "../upstream/libjpeg-turbo/testimages"
+source_revision = "5966050641633f9298b03f6b99a625067b22a91c"
+admission = "source-fixtures-admitted"
+
+[[case]]
+id = "jpeg-baseline-testorig"
+source = "testorig.jpg"
+bytes = 5770
+sha256 = "acc6ec555d41d15b368320edaa3b20958ee6fa97cb6e4a18d1213d5ae8bec73b"
+format = "jpeg"
+capability = ["baseline", "8-bit", "ycbcr", "4:2:0", "227x149"]
+reason = "Establishes the ordinary baseline sequential JPEG decode boundary."
+expected_stage = "decode"
+expected = "candidate-pass"
+
+[[case]]
+id = "jpeg-baseline-testimgint"
+source = "testimgint.jpg"
+bytes = 5756
+sha256 = "491679b8057739b3c8e5bacd1e918efb1691d271cbbd69820ff8d480dcb90963"
+format = "jpeg"
+capability = ["baseline", "8-bit", "ycbcr", "4:2:0", "227x149"]
+reason = "Provides a second independently encoded baseline input with the same dimensions and sampling profile."
+expected_stage = "decode"
+expected = "candidate-pass"
+
+[[case]]
+id = "jpeg-arithmetic-sequential"
+source = "testimgari.jpg"
+bytes = 5126
+sha256 = "4672c7f08864cd0a8c73a4fa4b66ca32b635d38464551c1ecf06564ae8c89b38"
+format = "jpeg"
+capability = ["arithmetic", "sequential", "8-bit", "ycbcr", "4:2:0"]
+reason = "Makes arithmetic-coded JPEG rejection explicit in the bounded baseline profile."
+expected_stage = "profile"
+expected = "candidate-rejection"
+
+[[case]]
+id = "jpeg-extended-12-bit"
+source = "monkey12.jpg"
+bytes = 32831
+sha256 = "a3cb218412cecfa877a4adee520aa3d58ac0d6d0f36a7a2541e598324ce481e3"
+format = "jpeg"
+capability = ["extended-sequential", "12-bit", "ycbcr", "4:2:0"]
+reason = "Makes component precision beyond the JPEG V1 8-bit profile explicit."
+expected_stage = "profile"
+expected = "candidate-rejection"

@@ -1,4 +1,7 @@
-use cgm_corpus::{inspect_binary_cgm, lower_picture_primitives, CgmInspection, DecodeLimits};
+use cgm_corpus::{
+    inspect_binary_cgm, lower_picture_primitives, summarize_diagnostics, CgmDeferredFeature,
+    CgmInspection, DecodeLimits as CgmDecodeLimits,
+};
 use fbx_corpus::{
     decode_ascii_fbx, decode_binary_fbx, lower_static_geometry, resolve_source_scene,
     FbxGeometryEvidence, FbxLimits,
@@ -9,11 +12,11 @@ use presentation_control::{
     PresentationOverride, PresentationTargetDescriptor, PresentationTargetId,
     PresentationTargetKind, ResolvedPresentation, SourcePresentation,
 };
-use serde::{Deserialize, Serialize};
-use std::{
-    cmp::Reverse,
-    collections::{BTreeMap, BTreeSet},
+use raster_image_corpus::{
+    decode_bmp, decode_jpeg, decode_png, AlphaMode, ColorSpace, DecodeLimits as RasterDecodeLimits,
+    DecodedImage, ImageOrientation, PixelFormat,
 };
+use serde::{Deserialize, Serialize};
 use tokimu::World;
 use ui_tools::{
     parse_svg_document_vector_records_with_viewport, SvgColor, SvgViewportSource, VectorPath,
@@ -328,7 +331,11 @@ fn inspect(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
         "glb" => inspect_glb_asset(file_name, bytes),
         "gltf" => inspect_gltf_asset(file_name, bytes),
         "fbx" => inspect_fbx(file_name, bytes),
-        _ => Err("supported extensions are .svg, .cgm, .gltf, .glb, and .fbx".into()),
+        "png" | "jpg" | "jpeg" | "bmp" => inspect_raster_image(file_name, bytes),
+        _ => Err(
+            "supported extensions are .svg, .cgm, .gltf, .glb, .fbx, .png, .jpg, .jpeg, and .bmp"
+                .into(),
+        ),
     }
 }
 
@@ -343,7 +350,96 @@ fn classify(file_name: &str) -> &'static str {
         Some("gltf") => "gltf",
         Some("glb") => "glb",
         Some("fbx") => "fbx",
+        Some("png") => "png",
+        Some("jpg") | Some("jpeg") => "jpeg",
+        Some("bmp") => "bmp",
         _ => "unknown",
+    }
+}
+
+/// Decodes a bounded raster asset in Rust/WASM and returns metadata only.
+///
+/// The browser receives a provider-neutral observation rather than raw decoded
+/// pixels. Browser canvas preview and renderer texture upload remain distinct
+/// future consumer claims, so the workbench cannot silently substitute a
+/// browser-native image decoder for Tokimu's raster evidence.
+fn inspect_raster_image(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
+    let format = classify(file_name);
+    let image = match format {
+        "png" => decode_png(bytes, RasterDecodeLimits::default()),
+        "jpeg" => decode_jpeg(bytes, RasterDecodeLimits::default()),
+        "bmp" => decode_bmp(bytes, RasterDecodeLimits::default()),
+        _ => unreachable!("raster inspection only receives supported raster formats"),
+    }
+    .map_err(|error| error.to_string())?;
+
+    Ok(raster_observation(file_name, format, bytes.len(), image))
+}
+
+fn raster_observation(
+    file_name: &str,
+    format: &str,
+    byte_length: usize,
+    image: DecodedImage,
+) -> AssetObservation {
+    let decoded_bytes = image.pixels.len();
+    AssetObservation {
+        schema: SCHEMA,
+        file_name: file_name.to_owned(),
+        format: format.to_owned(),
+        status: "inspected".into(),
+        byte_length,
+        summary: format!(
+            "Tokimu decoded a {}x{} {} raster image.",
+            image.width,
+            image.height,
+            format.to_ascii_uppercase()
+        ),
+        properties: vec![
+            property("Dimensions", format!("{} x {}", image.width, image.height)),
+            property("Pixel format", pixel_format_name(image.pixel_format)),
+            property("Decoded bytes", decoded_bytes),
+            property("Color space", color_space_name(image.color_space)),
+            property("Alpha", alpha_mode_name(image.alpha_mode)),
+            property("Output orientation", orientation_name(image.output_orientation)),
+            property("Pixel fingerprint", image.pixel_fingerprint()),
+        ],
+        diagnostics: vec![
+            "Raster decoding ran inside the Tokimu WASM boundary; browser-native image decoding was not used."
+                .into(),
+            "Browser pixel preview and renderer texture upload are intentionally deferred as separate consumer claims."
+                .into(),
+        ],
+        preview: None,
+        presentation_targets: Vec::new(),
+    }
+}
+
+fn pixel_format_name(format: PixelFormat) -> &'static str {
+    match format {
+        PixelFormat::Rgba8 => "RGBA8",
+    }
+}
+
+fn color_space_name(color_space: ColorSpace) -> &'static str {
+    match color_space {
+        ColorSpace::Srgb => "sRGB",
+        ColorSpace::Unspecified => "unspecified",
+    }
+}
+
+fn alpha_mode_name(alpha_mode: AlphaMode) -> &'static str {
+    match alpha_mode {
+        AlphaMode::Opaque => "opaque",
+        AlphaMode::Straight => "straight",
+        AlphaMode::Unspecified => "unspecified",
+    }
+}
+
+fn orientation_name(orientation: ImageOrientation) -> &'static str {
+    match orientation {
+        ImageOrientation::TopDown => "top-down",
+        ImageOrientation::BottomUp => "bottom-up",
     }
 }
 
@@ -433,7 +529,7 @@ fn inspect_svg(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
 
 fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
     let inspection =
-        inspect_binary_cgm(bytes, DecodeLimits::default()).map_err(|error| error.to_string())?;
+        inspect_binary_cgm(bytes, CgmDecodeLimits::default()).map_err(|error| error.to_string())?;
     let preview_paths = inspection
         .pictures
         .first()
@@ -482,13 +578,24 @@ fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
         .into_iter()
         .map(|(path, _)| path)
         .collect::<Vec<_>>();
-    let unsupported_element_kinds = inspection
-        .diagnostics
+    let deferred_features = summarize_diagnostics(&inspection.diagnostics);
+    let text_record_count = inspection
+        .pictures
         .iter()
-        .map(|diagnostic| (diagnostic.class, diagnostic.id))
-        .collect::<BTreeSet<_>>()
-        .len();
-    let diagnostics = cgm_observation_diagnostics(&inspection, !preview_paths.is_empty());
+        .map(|picture| picture.text_records.len())
+        .sum::<usize>();
+    let cell_array_count = inspection
+        .pictures
+        .iter()
+        .map(|picture| picture.cell_arrays.len())
+        .sum::<usize>();
+    let diagnostics = cgm_observation_diagnostics(
+        &inspection,
+        &deferred_features,
+        text_record_count,
+        cell_array_count,
+        !preview_paths.is_empty(),
+    );
 
     Ok(AssetObservation {
         schema: SCHEMA,
@@ -510,12 +617,14 @@ fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
             property("Elements", inspection.elements.len()),
             property("Pictures", inspection.pictures.len()),
             property("Preview primitives", preview_paths.len()),
+            property("Text source records", text_record_count),
+            property("Cell-array source records", cell_array_count),
             property(
                 "Deferred elements",
                 format!(
                     "{} across {} feature kinds",
                     inspection.diagnostics.len(),
-                    unsupported_element_kinds
+                    deferred_features.len()
                 ),
             ),
         ],
@@ -529,7 +638,13 @@ fn inspect_cgm(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String
     })
 }
 
-fn cgm_observation_diagnostics(inspection: &CgmInspection, has_preview: bool) -> Vec<String> {
+fn cgm_observation_diagnostics(
+    inspection: &CgmInspection,
+    deferred_features: &[CgmDeferredFeature],
+    text_record_count: usize,
+    cell_array_count: usize,
+    has_preview: bool,
+) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if has_preview {
         diagnostics.push(
@@ -538,30 +653,39 @@ fn cgm_observation_diagnostics(inspection: &CgmInspection, has_preview: bool) ->
         );
     }
 
-    let mut unsupported = BTreeMap::<(u8, u8), usize>::new();
-    for diagnostic in &inspection.diagnostics {
-        *unsupported
-            .entry((diagnostic.class, diagnostic.id))
-            .or_default() += 1;
+    if text_record_count > 0 {
+        diagnostics.push(format!(
+            "CGM retained {text_record_count} text source record{}; text layout and rendering are deferred.",
+            if text_record_count == 1 { "" } else { "s" }
+        ));
     }
-    if unsupported.is_empty() {
+
+    if cell_array_count > 0 {
+        diagnostics.push(format!(
+            "CGM retained {cell_array_count} cell-array source record{}; raster decode and texture presentation are deferred.",
+            if cell_array_count == 1 { "" } else { "s" }
+        ));
+    }
+
+    if deferred_features.is_empty() {
         return diagnostics;
     }
 
     diagnostics.push(format!(
         "{} source elements remain deferred across {} CGM feature kinds; the corpus artifacts retain each occurrence.",
         inspection.diagnostics.len(),
-        unsupported.len()
+        deferred_features.len()
     ));
-    let mut summaries = unsupported.into_iter().collect::<Vec<_>>();
-    summaries.sort_by_key(|((class, id), count)| (Reverse(*count), *class, *id));
+    let mut summaries = deferred_features.to_vec();
+    summaries.sort_by_key(|feature| (std::cmp::Reverse(feature.count), feature.class, feature.id));
 
     const MAX_FEATURE_SUMMARIES: usize = 8;
-    for ((class, id), count) in summaries.iter().take(MAX_FEATURE_SUMMARIES) {
+    for feature in summaries.iter().take(MAX_FEATURE_SUMMARIES) {
         diagnostics.push(format!(
-            "{}: {count} occurrence{} deferred.",
-            cgm_element_name(*class, *id),
-            if *count == 1 { "" } else { "s" }
+            "{}: {} occurrence{} deferred.",
+            feature.feature,
+            feature.count,
+            if feature.count == 1 { "" } else { "s" }
         ));
     }
     let remaining = summaries.len().saturating_sub(MAX_FEATURE_SUMMARIES);
@@ -572,32 +696,6 @@ fn cgm_observation_diagnostics(inspection: &CgmInspection, has_preview: bool) ->
         ));
     }
     diagnostics
-}
-
-fn cgm_element_name(class: u8, id: u8) -> String {
-    let name = match (class, id) {
-        (1, 1) => "metafile version",
-        (1, 2) => "metafile description",
-        (1, 5) => "real precision",
-        (1, 6) => "index precision",
-        (1, 9) => "maximum color index",
-        (1, 10) => "color value extent",
-        (1, 11) => "metafile element list",
-        (1, 13) => "font list",
-        (1, 14) => "character set list",
-        (1, 15) => "character coding announcer",
-        (2, 3) => "line-width specification mode",
-        (2, 4) => "marker-size specification mode",
-        (2, 5) => "edge-width specification mode",
-        (2, 7) => "background color",
-        (4, 5) => "text primitive",
-        (5, 15) => "character height",
-        (5, 16) => "character orientation",
-        (5, 18) => "text alignment",
-        (5, 34) => "color table",
-        _ => return format!("CGM class {class} element {id}"),
-    };
-    format!("CGM {name}")
 }
 
 fn inspect_glb_asset(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
@@ -905,7 +1003,89 @@ mod tests {
     fn classifies_admitted_extensions_without_case_sensitivity() {
         assert_eq!(classify("shape.SVG"), "svg");
         assert_eq!(classify("part.glb"), "glb");
+        assert_eq!(classify("texture.PNG"), "png");
+        assert_eq!(classify("photo.JPEG"), "jpeg");
+        assert_eq!(classify("bitmap.bmp"), "bmp");
         assert_eq!(classify("unknown.bin"), "unknown");
+    }
+
+    #[test]
+    fn png_observation_decodes_inside_the_wasm_boundary_without_browser_preview() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/w3c-svg-1.1-2nd-edition/upstream/images/PngSuite/basn2c08.png"
+        );
+        let observation = inspect("basn2c08.png", source).expect("PNG fixture should decode");
+
+        assert_eq!(observation.format, "png");
+        assert_eq!(observation.status, "inspected");
+        assert!(observation.preview.is_none());
+        assert!(observation.presentation_targets.is_empty());
+        assert!(observation
+            .properties
+            .iter()
+            .any(|property| property.label == "Pixel fingerprint"));
+        assert!(observation
+            .diagnostics
+            .iter()
+            .any(|message| message.contains("WASM boundary")));
+        assert!(observation
+            .diagnostics
+            .iter()
+            .any(|message| message.contains("Browser pixel preview")));
+    }
+
+    #[test]
+    fn bmp_observation_preserves_raster_metadata_without_texture_claims() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/raster-images/upstream/libjpeg-turbo/testimages/shira_bird8.bmp"
+        );
+        let observation = inspect("shira_bird8.bmp", source).expect("BMP fixture should decode");
+
+        assert_eq!(observation.format, "bmp");
+        assert_eq!(observation.status, "inspected");
+        assert!(observation.preview.is_none());
+        assert!(
+            observation
+                .properties
+                .iter()
+                .any(|property| property.label == "Output orientation"
+                    && property.value == "top-down")
+        );
+    }
+
+    #[test]
+    fn jpeg_observation_uses_the_same_bounded_wasm_contract_as_other_rasters() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/raster-images/upstream/libjpeg-turbo/testimages/testimgint.jpg"
+        );
+        let observation =
+            inspect("testimgint.jpg", source).expect("baseline JPEG fixture should decode");
+
+        assert_eq!(observation.format, "jpeg");
+        assert_eq!(observation.status, "inspected");
+        assert!(observation.preview.is_none());
+        assert!(observation.presentation_targets.is_empty());
+        assert!(observation
+            .properties
+            .iter()
+            .any(|property| property.label == "Pixel format" && property.value == "RGBA8"));
+        assert!(observation
+            .diagnostics
+            .iter()
+            .any(|message| message.contains("browser-native image decoding was not used")));
+    }
+
+    #[test]
+    fn malformed_jpeg_is_rejected_by_tokimu_before_any_browser_presentation_can_occur() {
+        let error = match inspect("truncated.jpg", &[0xFF, 0xD8, 0xFF]) {
+            Ok(_) => panic!("truncated JPEG framing must not produce an observation"),
+            Err(error) => error,
+        };
+
+        assert!(
+            error.contains("truncated") || error.contains("marker"),
+            "unexpected JPEG diagnostic: {error}"
+        );
     }
 
     #[test]
@@ -1196,10 +1376,33 @@ mod tests {
         assert!(observation
             .diagnostics
             .iter()
-            .any(|message| message.starts_with("CGM text primitive: ")));
+            .any(|message| message.starts_with("CGM retained ")));
         assert!(!observation
             .diagnostics
             .iter()
             .any(|message| message.contains("not decoded by the lifecycle profile")));
+    }
+
+    #[test]
+    fn celary01_cgm_retains_raster_source_metadata_without_claiming_texture_output() {
+        let source = include_bytes!(
+            "../../../../../third-party/fixtures/webcgm-test-suite/upstream/static10/CELARY01.cgm"
+        );
+        let observation =
+            inspect("CELARY01.cgm", source).expect("cell-array fixture should inspect");
+        assert!(observation.properties.iter().any(|property| {
+            property.label == "Cell-array source records" && property.value == "1"
+        }));
+        assert!(
+            observation
+                .diagnostics
+                .iter()
+                .any(|message| message
+                    .contains("raster decode and texture presentation are deferred"))
+        );
+        assert!(!observation
+            .diagnostics
+            .iter()
+            .any(|message| message.contains("CGM cell array raster primitive")));
     }
 }

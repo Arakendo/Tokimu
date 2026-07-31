@@ -1,0 +1,22 @@
+[package]
+name = "raster-image-corpus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+crc32fast = "1"
+flate2 = "1"
+serde.workspace = true
+serde_json = "1"
+screenshot = { path = "../screenshot" }
+thiserror.workspace = true
+tokimu-assets = { path = "../../../crates/tokimu-assets" }
+tokimu-render = { path = "../../../crates/tokimu-render" }
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+fbx-corpus = { path = "../fbx-corpus" }
+gltf-corpus = { path = "../gltf-corpus" }
+jpeg-decoder = "=0.3.2"

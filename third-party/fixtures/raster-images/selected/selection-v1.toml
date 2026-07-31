@@ -1,0 +1,216 @@
+selection = "v1"
+suite = "PNG Suite"
+source_root = "../../w3c-svg-1.1-2nd-edition/upstream/images/PngSuite"
+admission = "admitted-source-fixtures"
+
+# Admitted source selection. These entries pin exact existing bytes and record
+# why they are useful. They do not claim PNG conformance or visual equivalence.
+
+[[case]]
+id = "png-basic-grayscale-8"
+source = "basn0g08.png"
+bytes = 138
+sha256 = "268d061075d1dd2eeec62b31303d09f6998549e1bfb447a5f09c80a2b0978ac3"
+format = "png"
+capability = ["grayscale", "8-bit", "non-interlaced"]
+reason = "Establishes the ordinary 8-bit grayscale decode boundary."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-basic-rgb-8"
+source = "basn2c08.png"
+bytes = 145
+sha256 = "c90e86090a625661b19960cafdde6e347d6e32d73837aaae533f66dd3f099506"
+format = "png"
+capability = ["rgb", "8-bit", "non-interlaced"]
+reason = "Establishes the ordinary 8-bit RGB decode boundary."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-basic-palette-8"
+source = "basn3p08.png"
+bytes = 1286
+sha256 = "d58256cd2eb16b5740d4c1403d25ce43d8dd03e270627ab709d2fb141e3d904c"
+format = "png"
+capability = ["indexed", "palette", "8-bit", "non-interlaced"]
+reason = "Exercises indexed samples and palette lookup."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-basic-grayscale-alpha-8"
+source = "basn4a08.png"
+bytes = 126
+sha256 = "7be24b618bfd437b921ae0caf9341d112338c6290cc62466deb19d2c7a512968"
+format = "png"
+capability = ["grayscale", "alpha", "8-bit", "non-interlaced"]
+reason = "Exercises explicit alpha paired with grayscale samples."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-basic-rgba-8"
+source = "basn6a08.png"
+bytes = 184
+sha256 = "559c594166eb156f461c9beff0f053196730dc998fdb0d2b801c89e6680860a5"
+format = "png"
+capability = ["rgba", "alpha", "8-bit", "non-interlaced"]
+reason = "Establishes the ordinary 8-bit RGBA decode boundary."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-basic-rgba-16"
+source = "basn6a16.png"
+bytes = 3435
+sha256 = "8f9d81060aebf4576461403c5057de7f23f73157016b659402b906df805845aa"
+format = "png"
+capability = ["rgba", "alpha", "16-bit", "non-interlaced"]
+reason = "Makes the first profile's explicit 16-bit sample rejection observable."
+expected_stage = "profile"
+expected = "candidate-rejection"
+
+[[case]]
+id = "png-adam7-rgba-8"
+source = "basi6a08.png"
+bytes = 361
+sha256 = "fe70ea20c8447e82abb7bc9dd05344a61a4631cc69e0974378df8f6263af0337"
+format = "png"
+capability = ["rgba", "alpha", "8-bit", "adam7"]
+reason = "Exercises Adam7 reconstruction independently from color conversion."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-filter-none-rgb-8"
+source = "f00n2c08.png"
+bytes = 2475
+sha256 = "0fe92b2aa2da04c885d1dbd85c834716f6cdd946364d97dcd597bb79d9e14427"
+format = "png"
+capability = ["rgb", "8-bit", "filter-0"]
+reason = "Provides the filter-none reference for equivalent RGB pixels."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-filter-sub-rgb-8"
+source = "f01n2c08.png"
+bytes = 1180
+sha256 = "ef072ec6815ebf9b33e0553d2e4e4e7ed6911860a2512c67bcd10a9f0f09b9de"
+format = "png"
+capability = ["rgb", "8-bit", "filter-1", "sub"]
+reason = "Exercises reconstruction of Sub-filtered scanlines."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-filter-up-rgb-8"
+source = "f02n2c08.png"
+bytes = 1729
+sha256 = "ca4b937b3c587d5c007f193a2eec14dc96b0d23ff7d6aa9004e3badd1af9fe8f"
+format = "png"
+capability = ["rgb", "8-bit", "filter-2", "up"]
+reason = "Exercises reconstruction of Up-filtered scanlines."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-filter-average-rgb-8"
+source = "f03n2c08.png"
+bytes = 1291
+sha256 = "2d101e3ef4f78a69437034671e93fe11faac0cfc4d44210dcca1b944caa886f7"
+format = "png"
+capability = ["rgb", "8-bit", "filter-3", "average"]
+reason = "Exercises reconstruction of Average-filtered scanlines."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-filter-paeth-rgb-8"
+source = "f04n2c08.png"
+bytes = 985
+sha256 = "c365c24153cb69fd3c162f00b296ae23a71a1595645d1aeb0ad23af680d7b4be"
+format = "png"
+capability = ["rgb", "8-bit", "filter-4", "paeth"]
+reason = "Exercises reconstruction of Paeth-filtered scanlines."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-palette-transparency"
+source = "tp1n3p08.png"
+bytes = 1115
+sha256 = "af6fc1f76dc971c474aa487c95bf377b7db66b430c0b04da9af66798958a89f3"
+format = "png"
+capability = ["indexed", "palette", "transparency", "trns"]
+reason = "Exercises palette transparency without silently choosing a background."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-size-1"
+source = "s01n3p01.png"
+bytes = 113
+sha256 = "6a4f6da9fe36d195219ad2beeac1a0423e2ee6de03dfb064a3b6fa31623eb230"
+format = "png"
+capability = ["indexed", "1-bit", "1x1", "boundary-dimensions"]
+reason = "Exercises the smallest non-empty image and packed single-bit samples."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-size-7-adam7"
+source = "s07i3p02.png"
+bytes = 149
+sha256 = "d9874bfad10353a9ea2876ee388c3e7f81f697ed141d0d79c5c2019d62a7a698"
+format = "png"
+capability = ["indexed", "2-bit", "7x7", "adam7", "boundary-dimensions"]
+reason = "Exercises Adam7 pass boundaries on dimensions smaller than eight."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-size-33"
+source = "s33n3p04.png"
+bytes = 329
+sha256 = "998d08e084e3eea288984475bfed0d48ee2d8250e20b96755898b59152e36a34"
+format = "png"
+capability = ["indexed", "4-bit", "33x33", "non-power-of-two"]
+reason = "Exercises packed rows whose dimensions cross a 32-pixel boundary."
+expected_stage = "source-integrity"
+expected = "candidate"
+
+[[case]]
+id = "png-corrupt-empty"
+source = "x00n0g01.png"
+bytes = 49
+sha256 = "d171add1753c8e9cc7bacc209fa62f9a23166ba71054a134c048744dd9400c91"
+format = "png"
+capability = ["malformed", "zero-dimensions", "explicit-rejection"]
+reason = "Exercises deterministic rejection of an invalid empty image."
+expected_stage = "source-integrity"
+expected = "candidate-rejection"
+
+[[case]]
+id = "png-corrupt-carriage-return"
+source = "xcrn0g04.png"
+bytes = 261
+sha256 = "272ac5a92686bf4490495ddbaddc2bce5f746015763fac8a47ec92325ae2c554"
+format = "png"
+capability = ["malformed", "byte-corruption", "explicit-rejection"]
+reason = "Exercises deterministic rejection of bytes altered by carriage returns."
+expected_stage = "source-integrity"
+expected = "candidate-rejection"
+
+[[case]]
+id = "png-corrupt-line-feed"
+source = "xlfn0g04.png"
+bytes = 240
+sha256 = "5b45d2078efc797a19509e2017e6838b4e0535a7350d52d4df0375296666f7a3"
+format = "png"
+capability = ["malformed", "byte-corruption", "explicit-rejection"]
+reason = "Exercises deterministic rejection of bytes altered by line feeds."
+expected_stage = "source-integrity"
+expected = "candidate-rejection"

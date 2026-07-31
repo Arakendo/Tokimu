@@ -2,7 +2,10 @@
 
 use std::{fs, path::PathBuf};
 
-use cgm_corpus::{inspect_binary_cgm_file, lower_picture_primitives, DecodeLimits};
+use cgm_corpus::{
+    inspect_binary_cgm_file, lower_picture_primitives, CgmColor, CgmInteriorStyle,
+    CgmMetafileDescriptor, CgmPresentationState, DecodeLimits,
+};
 use ui_tools::VectorPath;
 
 use crate::{
@@ -52,10 +55,13 @@ pub fn write_cgm_artifacts(case: CgmCase) -> Result<PathBuf, String> {
     let cgm = CgmArtifact {
         metadata: envelope("cgm"),
         metafile_name: inspection.metafile_name,
+        metafile_descriptor: inspection.metafile,
         picture_name: picture.name.clone(),
         source_bytes: inspection.source_bytes,
         element_count: inspection.elements.len(),
         primitive_count: picture.primitives.len(),
+        text_record_count: picture.text_records.len(),
+        cell_array_count: picture.cell_arrays.len(),
         attribute_count: picture.attributes.len(),
         primitives: picture
             .primitives
@@ -69,13 +75,44 @@ pub fn write_cgm_artifacts(case: CgmCase) -> Result<PathBuf, String> {
                 controls: primitive.controls.clone(),
             })
             .collect(),
+        text_records: picture.text_records.clone(),
+        cell_arrays: picture.cell_arrays.clone(),
+        resolved_source_colors: picture
+            .primitives
+            .iter()
+            .filter_map(|primitive| {
+                resolved_source_color_record(
+                    inspection.metafile,
+                    primitive.source_element,
+                    primitive.source_offset,
+                    &primitive.state,
+                )
+            })
+            .collect(),
+        solid_fill_candidates: picture
+            .primitives
+            .iter()
+            .filter_map(|primitive| {
+                solid_fill_candidate_record(
+                    inspection.metafile,
+                    primitive.source_element,
+                    primitive.source_offset,
+                    &primitive.state,
+                )
+            })
+            .collect(),
         clip_rectangle: picture.controls.clip_rectangle,
         clip_indicator: picture.controls.clip_indicator,
+        diagnostics: inspection.diagnostics.clone(),
+        deferred_features: cgm_corpus::summarize_diagnostics(&inspection.diagnostics),
         diagnostic_count: inspection.diagnostics.len(),
     };
 
-    if !matches!(case.expectation, CgmExpectation::VectorPass) {
-        clear_stale_vector_artifacts(&root)?;
+    if matches!(
+        case.expectation,
+        CgmExpectation::SourceOnly | CgmExpectation::ExpectedUnsupportedLowering { .. }
+    ) {
+        clear_stale_downstream_artifacts(&root)?;
         let (vector_status, vector_artifact) = match case.expectation {
             CgmExpectation::SourceOnly => (None, None),
             CgmExpectation::ExpectedUnsupportedLowering { .. } => {
@@ -174,19 +211,40 @@ pub fn write_cgm_artifacts(case: CgmCase) -> Result<PathBuf, String> {
     write_json(&root.join("vector.json"), &vector)?;
     write_json(&root.join("vector-fingerprint.json"), &vector_fingerprint)?;
     write_json(&root.join("graph.json"), &graph)?;
+    clear_stale_mesh_artifacts(&root)?;
     fs::write(root.join("source.cgm"), source)
         .map_err(|error| format!("write CGM source: {error}"))?;
     Ok(root)
 }
 
-/// A source-only or expected-boundary case must not retain artifacts emitted
-/// by an earlier vector-capable revision of the same case ID.
-fn clear_stale_vector_artifacts(root: &std::path::Path) -> Result<(), String> {
-    for file_name in ["vector.json", "vector-fingerprint.json"] {
+/// A source-only or expected-boundary case must not retain downstream evidence
+/// emitted by an earlier, more capable revision of the same case ID.
+fn clear_stale_downstream_artifacts(root: &std::path::Path) -> Result<(), String> {
+    for file_name in [
+        "vector.json",
+        "vector-fingerprint.json",
+        "mesh.json",
+        "mesh-fingerprint.json",
+        "mesh.svg",
+        "image-fingerprint.json",
+        "image.png",
+    ] {
         let path = root.join(file_name);
         if path.exists() {
             fs::remove_file(&path).map_err(|error| {
                 format!("remove stale CGM artifact {}: {error}", path.display())
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn clear_stale_mesh_artifacts(root: &std::path::Path) -> Result<(), String> {
+    for file_name in ["mesh.json", "mesh-fingerprint.json", "mesh.svg"] {
+        let path = root.join(file_name);
+        if path.exists() {
+            fs::remove_file(&path).map_err(|error| {
+                format!("remove stale CGM mesh artifact {}: {error}", path.display())
             })?;
         }
     }
@@ -224,5 +282,58 @@ fn union_path_bounds(paths: &[&VectorPath]) -> Option<([f32; 2], [f32; 2])> {
                 [min[0].min(next_min[0]), min[1].min(next_min[1])],
                 [max[0].max(next_max[0]), max[1].max(next_max[1])],
             )
+        })
+}
+
+fn resolved_source_color_record(
+    metafile: CgmMetafileDescriptor,
+    source_element: usize,
+    source_offset: usize,
+    state: &CgmPresentationState,
+) -> Option<crate::CgmResolvedSourceColorArtifact> {
+    let has_explicit_source_color = [
+        state.line_color.as_ref(),
+        state.fill_color.as_ref(),
+        state.edge_color.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|color| matches!(color, CgmColor::Direct(_) | CgmColor::Indexed(_)));
+    has_explicit_source_color.then(|| crate::CgmResolvedSourceColorArtifact {
+        source_element,
+        source_offset,
+        line_rgb: state
+            .line_color
+            .as_ref()
+            .and_then(|color| state.normalize_explicit_color(&metafile, color)),
+        fill_rgb: state
+            .fill_color
+            .as_ref()
+            .and_then(|color| state.normalize_explicit_color(&metafile, color)),
+        edge_rgb: state
+            .edge_color
+            .as_ref()
+            .and_then(|color| state.normalize_explicit_color(&metafile, color)),
+    })
+}
+
+fn solid_fill_candidate_record(
+    metafile: CgmMetafileDescriptor,
+    source_element: usize,
+    source_offset: usize,
+    state: &CgmPresentationState,
+) -> Option<crate::CgmSolidFillCandidateArtifact> {
+    let fill_is_solid = matches!(state.interior_style, Some(CgmInteriorStyle::Solid));
+    let fill_rgb = state
+        .fill_color
+        .as_ref()
+        .and_then(|color| state.normalize_explicit_color(&metafile, color));
+    fill_is_solid
+        .then_some(())
+        .zip(fill_rgb)
+        .map(|(_, fill_rgb)| crate::CgmSolidFillCandidateArtifact {
+            source_element,
+            source_offset,
+            fill_rgb,
         })
 }

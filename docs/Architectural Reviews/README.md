@@ -164,3 +164,6 @@ across unrelated decisions.
   — Incubating; narrow kernel performance diagnostics are accepted by ADR-0007
   while aggregation, resource attribution, and broader observation ownership
   remain under review
+- [AR-0006: Raster Image Requirement Pipeline](AR-0006-raster-image-requirement-pipeline.md)
+  — Under Review; encoded-format, decoded-image, presentation-requirement, and
+  renderer-resource ownership is being studied before capability admission

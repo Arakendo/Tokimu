@@ -10,14 +10,60 @@ use std::f64::consts::TAU;
 use ui_tools::{VectorContour, VectorPath};
 
 use crate::{
-    CgmError, CgmPicture, CgmPictureControlState, CgmPresentationState, CgmPrimitive,
-    CgmPrimitiveKind, CgmResult, CgmVdcExtent,
+    CgmError, CgmInteriorStyle, CgmPicture, CgmPictureControlState, CgmPresentationState,
+    CgmPrimitive, CgmPrimitiveKind, CgmResult, CgmVdcExtent,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CgmPrimitiveTopology {
     Open,
     Closed,
+}
+
+/// Whether a CGM source primitive carries fill intent after source-state
+/// interpretation.
+///
+/// This is deliberately not a renderer paint. In particular, direct and
+/// indexed CGM colours remain source bytes in [`CgmPresentationState`] until
+/// the corpus establishes colour extent, palette, and default policy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CgmFillIntent {
+    NotApplicable,
+    SourceSolid,
+    SourceOther,
+    Unspecified,
+}
+
+/// The edge intent for a closed CGM primitive.
+///
+/// An explicit source visibility value is meaningful even before edge width
+/// and colour can be converted into provider-neutral stroke parameters.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CgmEdgeIntent {
+    NotApplicable,
+    SourceVisible,
+    SourceHidden,
+    Unspecified,
+}
+
+/// Whether an open CGM primitive carries line-stroke intent.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CgmStrokeIntent {
+    NotApplicable,
+    SourceDefined,
+    Unspecified,
+}
+
+/// Source-format presentation intent attached to a provider-neutral path.
+///
+/// The path remains free of CGM concepts. This adjacent adapter record makes
+/// fill, edge, and open-line decisions inspectable without asking a renderer
+/// to infer them from raw CGM attributes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CgmPrimitivePresentation {
+    pub fill: CgmFillIntent,
+    pub edge: CgmEdgeIntent,
+    pub stroke: CgmStrokeIntent,
 }
 
 const CURVE_FLATTENING_SEGMENTS: usize = 32;
@@ -31,6 +77,7 @@ pub struct CgmVectorPrimitive {
     pub state: CgmPresentationState,
     pub controls: CgmPictureControlState,
     pub topology: CgmPrimitiveTopology,
+    pub presentation: CgmPrimitivePresentation,
     pub path: VectorPath,
 }
 
@@ -70,6 +117,12 @@ pub fn lower_primitive(
             return Err(CgmError::UnsupportedPrimitiveLowering {
                 offset: primitive.source_offset,
                 kind: "polygon-set point/flag topology",
+            })
+        }
+        CgmPrimitiveKind::PolyBezier { .. } => {
+            return Err(CgmError::UnsupportedPrimitiveLowering {
+                offset: primitive.source_offset,
+                kind: "polybezier continuity and cubic topology",
             })
         }
         CgmPrimitiveKind::Rectangle { first, second } => (
@@ -151,8 +204,44 @@ pub fn lower_primitive(
         state: primitive.state.clone(),
         controls: primitive.controls.clone(),
         topology,
+        presentation: presentation_intent(&primitive.state, topology),
         path: VectorPath::new(vec![VectorContour::new(points, closed)]),
     })
+}
+
+fn presentation_intent(
+    state: &CgmPresentationState,
+    topology: CgmPrimitiveTopology,
+) -> CgmPrimitivePresentation {
+    match topology {
+        CgmPrimitiveTopology::Open => CgmPrimitivePresentation {
+            fill: CgmFillIntent::NotApplicable,
+            edge: CgmEdgeIntent::NotApplicable,
+            stroke: if state.line_width.is_some()
+                || state.line_color.is_some()
+                || state.line_cap.is_some()
+                || state.line_join.is_some()
+            {
+                CgmStrokeIntent::SourceDefined
+            } else {
+                CgmStrokeIntent::Unspecified
+            },
+        },
+        CgmPrimitiveTopology::Closed => CgmPrimitivePresentation {
+            fill: match state.interior_style {
+                Some(CgmInteriorStyle::Solid) => CgmFillIntent::SourceSolid,
+                Some(CgmInteriorStyle::Other(_)) => CgmFillIntent::SourceOther,
+                None if state.fill_color.is_some() => CgmFillIntent::SourceOther,
+                None => CgmFillIntent::Unspecified,
+            },
+            edge: match state.edge_visible {
+                Some(true) => CgmEdgeIntent::SourceVisible,
+                Some(false) => CgmEdgeIntent::SourceHidden,
+                None => CgmEdgeIntent::Unspecified,
+            },
+            stroke: CgmStrokeIntent::NotApplicable,
+        },
+    }
 }
 
 /// Flattens a CGM circle in source VDC space before normalizing each sample.
@@ -401,7 +490,7 @@ fn normalize_points(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CgmPrimitiveKind, CgmVdcExtent};
+    use crate::{CgmAttributeValue, CgmPrimitiveKind, CgmVdcExtent};
 
     fn primitive(kind: CgmPrimitiveKind) -> CgmPrimitive {
         CgmPrimitive {
@@ -428,6 +517,9 @@ mod tests {
         )
         .expect("polyline should lower");
         assert_eq!(polyline.topology, CgmPrimitiveTopology::Open);
+        assert_eq!(polyline.presentation.fill, CgmFillIntent::NotApplicable);
+        assert_eq!(polyline.presentation.edge, CgmEdgeIntent::NotApplicable);
+        assert_eq!(polyline.presentation.stroke, CgmStrokeIntent::Unspecified);
         assert!(!polyline.path.contours[0].closed);
         assert_eq!(
             polyline.path.contours[0].points,
@@ -443,6 +535,12 @@ mod tests {
         )
         .expect("rectangle should lower");
         assert_eq!(rectangle.topology, CgmPrimitiveTopology::Closed);
+        assert_eq!(rectangle.presentation.fill, CgmFillIntent::Unspecified);
+        assert_eq!(rectangle.presentation.edge, CgmEdgeIntent::Unspecified);
+        assert_eq!(
+            rectangle.presentation.stroke,
+            CgmStrokeIntent::NotApplicable
+        );
         assert!(rectangle.path.contours[0].closed);
         assert_eq!(rectangle.path.contours[0].points.len(), 4);
 
@@ -497,5 +595,50 @@ mod tests {
 
         assert!(ellipse.path.is_finite());
         assert!(ellipse.path.bounds().is_some());
+    }
+
+    #[test]
+    fn source_presentation_intent_keeps_closed_fill_and_edge_separate() {
+        let extent = CgmVdcExtent {
+            first: [0, 100],
+            second: [100, 0],
+        };
+        let mut polygon = primitive(CgmPrimitiveKind::Polygon {
+            points: vec![[0, 100], [100, 100], [50, 0]],
+        });
+        polygon.state.apply(&CgmAttributeValue::InteriorStyle {
+            style: CgmInteriorStyle::Solid,
+        });
+        polygon
+            .state
+            .apply(&CgmAttributeValue::EdgeVisibility { visible: true });
+
+        let lowered = lower_primitive(&polygon, extent).expect("polygon should lower");
+        assert_eq!(lowered.presentation.fill, CgmFillIntent::SourceSolid);
+        assert_eq!(lowered.presentation.edge, CgmEdgeIntent::SourceVisible);
+        assert_eq!(lowered.presentation.stroke, CgmStrokeIntent::NotApplicable);
+
+        polygon
+            .state
+            .apply(&CgmAttributeValue::EdgeVisibility { visible: false });
+        let hidden = lower_primitive(&polygon, extent).expect("polygon should lower");
+        assert_eq!(hidden.presentation.edge, CgmEdgeIntent::SourceHidden);
+    }
+
+    #[test]
+    fn unadmitted_interior_styles_remain_source_other() {
+        let extent = CgmVdcExtent {
+            first: [0, 100],
+            second: [100, 0],
+        };
+        let mut polygon = primitive(CgmPrimitiveKind::Polygon {
+            points: vec![[0, 100], [100, 100], [50, 0]],
+        });
+        polygon.state.apply(&CgmAttributeValue::InteriorStyle {
+            style: CgmInteriorStyle::Other(3),
+        });
+
+        let lowered = lower_primitive(&polygon, extent).expect("polygon should lower");
+        assert_eq!(lowered.presentation.fill, CgmFillIntent::SourceOther);
     }
 }

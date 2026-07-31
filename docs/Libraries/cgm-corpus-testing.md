@@ -5,20 +5,41 @@
 As of 2026-07-28, acquisition, v1 selection, and the first bounded binary
 inspection slice are complete. WebCGM 2.1 Test Suite Release 1.2 is pinned from
 the dated OASIS archive with provenance, exact archive and selected-case
-hashes, a generated inventory, and a 15-case geometry-first selection. Offline
+hashes, a generated inventory, and a 26-case geometry-first selection. Offline
 verification reproduces 955 files, 353 CGM files, 341 reference PNGs, and all
-15 selected cases. The example-side `cgm-corpus` library decodes binary element
+26 selected cases. The example-side `cgm-corpus` library decodes binary element
 framing, metafile/picture lifecycle, and the initial VDC descriptor profile for
-all 15 selected fixtures. The resolved profile preserves integer VDC type and
-precision, color precisions, picture scaling mode, color selection mode,
+all 26 selected fixtures. The resolved profile preserves integer VDC type and
+precision, color precisions, direct-color value extent, picture scaling mode, color selection mode,
 source-ordered VDC extent, explicit selected line/fill/edge attribute
 mutations, and picture-body clipping controls. Every decoded primitive carries
 a deterministic snapshot of the explicit source attributes and controls active
-at its position. Colour attributes retain
-direct or indexed source bytes until a later CGM paint-resolution slice; CGM
-standard defaults, bundles, palettes, and renderer style conversion remain
-deliberately unresolved. No CGM importer or first-party capability has been
-admitted yet.
+at its position. The selected standard `INTERIOR STYLE` value is classified as
+an explicit solid source interior; all other style values remain source data.
+Colour attributes retain direct or indexed source bytes. Explicit source-color
+resolution is diagnostic-only; CGM standard defaults, bundles, paint selection,
+and renderer style conversion remain deliberately unresolved. No CGM importer
+or first-party capability has been admitted yet.
+
+The binary profile now exposes a deliberately narrow direct-RGB normalization
+helper: a caller may normalize exactly three direct source components only when
+the metafile declares a non-degenerate component range and the components fall
+inside it. `COLVAL01` proves the nonstandard declared `0..100` component range;
+`COLRMD01` supplies direct primitive colours against its declared `0..255`
+range. Corpus artifacts record each successful normalized RGB observation as
+CGM-source evidence, separately from generic paint records. This still does
+not create a renderer-facing fill or edge style. The selected binary profile
+also preserves explicit 8-bit `COLOR TABLE` entries as picture-local source
+state and resolves indexed colours only when a matching explicit entry exists.
+It does not invent CGM standard palette values for missing indices. Default
+values, bundles, alpha, edge-width interpretation, and CGM interior/edge
+execution remain deferred.
+
+When a closed primitive explicitly combines `INTERIOR STYLE SOLID` with a
+resolvable source fill colour, its `cgm.json` artifact records a solid-fill
+candidate. This is deliberately one step short of provider-neutral paint: it
+does not select an edge style, infer defaults, apply clipping, tessellate a
+mesh, or render pixels.
 
 `corpus/hello-cgm` is the first visible consumer. It loads `POLYLN01.cgm`
 through `cgm-corpus` and presents source identity, lifecycle, VDC descriptor
@@ -36,7 +57,7 @@ count while the corpus artifacts retain every source occurrence. This keeps the
 interactive view useful without weakening the raw diagnostic evidence needed
 for future paint, text, palette, and clipping slices.
 
-The same seven selected primitive fixtures are registered in
+The seven admitted primitive fixtures are registered in
 `presentation-geometry-corpus` as `source -> vector` cases. The harness
 consumes only `cgm-corpus` inspection and lowering results, so no binary CGM
 parser or source-format terminology is duplicated in the shared corpus runner.
@@ -46,18 +67,46 @@ reports 31 finite open paths; and `cgm/webcgm/elliptical-arc` reports 55. This
 is structural source-to-vector evidence only; it is not CGM fill, stroke,
 mesh, or image evidence.
 
-All 15 selected fixtures are now registered in the runner at their honest
+All 26 selected fixtures are now registered in the runner at their honest
 stage boundary. `ALLELM01` stops at `source` as broad lifecycle and element
 inventory evidence, while `VDCEXT01` stops at `source` as VDC descriptor
-evidence. The other thirteen cases proceed to their source-to-vector boundary.
-A source report records decoded element, picture, primitive, and attribute
+evidence. `CLIPNG02`, `APNTXT01`, `CHRHGT01`, `CHRORI01`, `TXTALN01`,
+`CHRSPA01`, `TXTPTH01`, and `CELARY01` are also source-only because they
+currently exercise clip-control, text, and raster boundaries rather than
+admitted vector behavior. `APNTXT01`
+preserves bounded restricted-text and append-text source records, including
+active source state, positions, restriction values, final flags, and strings.
+`CHRHGT01`, `CHRORI01`, `TXTALN01`, `CHRSPA01`, and `TXTPTH01` independently
+retain text presentation state such as character height, encoded character
+spacing, up/base orientation vectors, text-path direction, and alignment
+source values. This is not a claim of font selection, shaping, layout, glyph
+generation, glyph placement, or renderer text output.
+`POLYBZ01` and `POLYBZ04` are source-only curve-boundary evidence. Their
+class-4, element-26 records preserve the CGM continuity indicator and integer
+VDC control-point sequence, with `POLYBZ01` contributing eight records and
+`POLYBZ04` independently exercising multiple records. Neither lowers to
+generic cubic segments yet: record-to-segment continuity behavior now has two
+source witnesses, but still needs a deliberate source-to-vector policy before
+it can enter the shared presentation-geometry contract.
+`CELARY01` similarly preserves a bounded cell-array header: its three VDC
+corners, dimensions, local colour precision, representation, active state, and
+encoded payload size. This is source-raster evidence only; it does not decode
+pixels, choose a texture format, create image resources, or render a raster.
+Thirteen cases reach a successful source-to-vector
+boundary; `PLGSET01` reaches the same boundary as an explicit expected
+unsupported lowering.
+A source report records decoded element, picture, primitive, text-record,
+cell-array, and attribute
 counts, together with the number of primitives that carry explicit state, an
 enabled clip indicator, or a clip rectangle. It also records how many pictures
-declare a VDC extent or metric scaling mode. These are observations of CGM
+declare a VDC extent, metric scaling mode, or direct-color value extent. These
+are observations of CGM
 source state, not claims that the shared vector layer has resolved CGM paint,
-clipping, or coordinate-normalization behavior. For example, `CLIPNG01`
-currently reports nine primitives with an inherited clip rectangle while its
-vector stage still reports only finite provider-neutral paths.
+clipping, or coordinate-normalization behavior. `CLIPNG01` records nine
+primitives with an inherited clip rectangle and an explicit `OFF` indicator;
+`CLIPNG02` broadens that source-only evidence with inherited rectangles but no
+enabled indicator. Neither fixture is admitted as clipping-execution evidence,
+and their vector stages still report only finite provider-neutral paths.
 
 `PLGSET01` is also registered as an expected source-to-vector boundary. It
 retains its six source point/edge records, then reports
@@ -66,12 +115,36 @@ instead of being silently omitted or coerced into an ordinary polygon.
 
 Each passing CGM corpus invocation now writes `source.cgm`, `cgm.json`, and
 `graph.json` below `target/presentation-geometry-corpus/<case-id>/`. A
+`cgm.json` artifact preserves each bounded decoder diagnostic occurrence with
+its source offset, class, and element ID. A deterministic provider-owned
+`deferred_features` summary groups those records for presentation, but the raw
+occurrences remain the authoritative source evidence; grouped counts do not
+imply that a deferred feature has been lowered or rendered. The same provider
+summary drives the browser workbench, which independently chooses display
+ordering and truncation. The summary names only deferred source elements the
+bounded profile explicitly recognizes;
+unknown identifiers remain conservatively addressed by class and ID.
+Decoded text records are retained separately from diagnostics so consumers can
+inspect source text without conflating preservation with rendered text.
+Decoded cell-array headers are likewise retained separately from diagnostics,
+so consumers can inspect raster source metadata without conflating preservation
+with decoded pixels or renderer texture state.
 `vector.json` exists only for a successful source-to-vector case. Source-only
 and expected-boundary cases therefore preserve their valid inspection evidence
 without fabricating vector output; an expected boundary records its vector node
 as `expected-failure` and `not-produced`. Successful vector cases record
 `mesh` as an expected non-production state until CGM source paint can be
 resolved into provider-neutral fill and edge intent without guessing defaults.
+Source-only and expected-boundary rewrites also clear every stale vector, mesh,
+and image artifact, so an earlier capability experiment cannot make a deferred
+case appear renderable.
+
+An explicit-solid-fill probe on `INTSTL01.cgm` was intentionally stopped before
+mesh admission. Its source state can resolve an authored solid interior and
+indexed fill colour, but the shared nonzero fill tessellator produced 70
+triangles including two zero-area triangles. The fixture therefore remains an
+honest source-to-vector case. This is retained as a targeted shared
+vector/fill diagnostic, not normalized away as a CGM rendering success.
 These artifacts preserve the pinned source hash, decoder counts, normalization
 and flattening identity, and the first intentional boundary at which the
 pipeline stops.
@@ -298,19 +371,19 @@ The current acquisition and selection baseline is:
 341 acquired reference PNG files
 232 published static case IDs
 129 geometry-classified CGM files
-15 selected unmodified static cases
-12 selected geometry-classified cases
-15 lifecycle-decoded cases
-15 corpus-runner cases
-2 source-only corpus-runner cases
-12 source-to-vector corpus-runner passes
+26 selected unmodified static cases
+13 selected geometry-classified cases
+26 lifecycle-decoded cases
+26 corpus-runner cases
+12 source-only corpus-runner cases
+13 source-to-vector corpus-runner passes
 1 expected source-to-vector topology boundary
 0 conformance claims
 ```
 
-The 15 selected cases represent 4.2% of the 353 CGM files in the archive.
+The 26 selected cases represent 7.4% of the 353 CGM files in the archive.
 This is a source-file ratio, not the geometry-selection metric and not a
-conformance score. The 12 selected geometry-classified cases represent 9.3%
+conformance score. The 13 selected geometry-classified cases represent 10.1%
 of the current 129-case geometry denominator; this remains scope evidence,
 not a conformance score.
 
@@ -634,20 +707,26 @@ Deliverables:
 
 - [~] Decode the required VDC type, precision, extent, scaling, and color
       descriptors for selected cases. Integer VDC type/precision, color
-      precisions, picture scaling mode, color selection mode, and source VDC
-      extent are inspected; color value extent and normalization remain
-      pending.
+      precisions, direct-color value extent, picture scaling mode, color
+      selection mode, and source VDC extent are inspected; color normalization
+      is available only for explicit direct values and explicit picture-local
+      palette entries.
 - [~] Model metafile, picture, and picture-body state transitions. Picture
       descriptors attach to the lifecycle model, and every primitive captures
       an explicit CGM presentation-state snapshot; standard defaults, bundles,
-      and palette resolution remain pending.
+      and missing-palette resolution remain pending.
 - [~] Resolve line, edge, fill, color, and clipping attributes needed by v1.
       The selected line width/color, interior style, fill color, edge
       width/color/visibility, line cap, and line join records are preserved as
-      picture-local source-state mutations and snapshots. `CLIP RECTANGLE` and
+      picture-local source-state mutations and snapshots. The demonstrated
+      standard solid interior value is classified, and an explicitly resolvable
+      fill colour produces a source-only solid-fill candidate without producing
+      a renderer fill. `CLIP RECTANGLE` and
       `CLIP INDICATOR` are preserved as distinct picture-body control state
       and snapshotted with later primitives; they are not yet applied to vector
-      geometry. Colour tables, palettes, standard defaults, and
+      geometry. Explicit 8-bit picture-local colour-table entries resolve
+      indexed source colours only when present in the primitive snapshot;
+      standard palettes, bundles, defaults, and
       provider-neutral paint resolution remain pending.
 - [~] Reset descriptor state at documented lifecycle boundaries. A two-picture
       fixture verifies that VDC extent, color-selection mode, and explicit line
@@ -660,8 +739,10 @@ Deliverables:
 
 Acceptance criteria:
 
-- [x] Selected primitives carry deterministic explicit source-state snapshots;
-      provider-neutral paint resolution remains deferred.
+- [x] Selected primitives carry deterministic explicit source-state snapshots
+      and distinguish demonstrated solid source interiors from unadmitted
+      style values. Explicitly resolvable solid fills appear as source-only
+      candidates; provider-neutral paint resolution remains deferred.
 - [x] Two pictures cannot leak explicit style or clipping state into one
       another in the bounded binary decoder tests.
 - [x] Unsupported precision and color models fail at the CGM semantic stage.
@@ -687,7 +768,11 @@ Deliverables:
       their CGM conjugate-diameter endpoints.
 - [~] Preserve open versus closed source topology. The admitted straight forms
       retain explicit topology in the CGM adapter and `VectorContour`.
-- [ ] Keep fill and edge intent distinct.
+- [x] Keep fill and edge intent distinct. Lowered primitives now expose a
+      CGM-owned presentation record that distinguishes open-line stroke intent
+      from closed fill and edge intent, including explicit visible or hidden
+      edges. Raw source colours and widths remain provenance until colour
+      normalization, palette, and default-style policy are established.
 - [ ] Reuse shared vector curves, flattening, fill, and stroke contracts where
       they already exist.
 - [x] Emit `cgm.json` and `vector.json` through the shared corpus artifact
@@ -769,9 +854,14 @@ Deliverables:
       a paint-to-mesh slice is admitted.
 - [ ] Add structural assertions for finite geometry, indices, degenerates,
       bounds, contours, and components.
+- [ ] Investigate `INTSTL01` explicit-solid-fill degenerates before admitting
+      any CGM mesh artifact. The probe produced 70 nonzero-fill triangles with
+      two zero-area triangles, so its current source-to-vector boundary is
+      intentional.
 - [x] Clear stale downstream artifacts after an earlier-stage failure. Source
-      and expected-boundary cases remove stale `vector.json` and
-      `vector-fingerprint.json` before writing their honest graph boundary.
+      and expected-boundary cases remove stale vector, mesh, and image outputs;
+      successful vector-only cases also remove stale mesh outputs before
+      writing their honest graph boundary.
 
 Acceptance criteria:
 

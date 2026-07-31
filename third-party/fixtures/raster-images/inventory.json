@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "measured_utc": "2026-07-30",
+  "source": "PNG Suite plus pinned libjpeg-turbo and jpeg-decoder test-image selections",
+  "source_root": "../w3c-svg-1.1-2nd-edition/upstream/images/PngSuite",
+  "upstream_png_files": 157,
+  "selected_candidate_files": 19,
+  "executed_png_candidate_files": 19,
+  "admitted_external_source_files": 27,
+  "executable_external_files": 27,
+  "synthetic_bmp_cases": 7,
+  "formats": {
+    "png": {
+      "status": "admitted-executable-bounded-profile",
+      "upstream_files": 157,
+      "selected_files": 19,
+      "executed_candidate_files": 19
+    },
+    "jpeg": {
+      "status": "executable-bounded-profile",
+      "upstream_files": 5,
+      "selected_files": 5,
+      "libjpeg_turbo_selected_files": 4,
+      "jpeg_decoder_selected_files": 1,
+      "baseline_candidates": 3,
+      "unsupported_profile_candidates": 2
+    },
+    "bmp": {
+      "status": "synthetic-and-external-executable",
+      "upstream_files": 3,
+      "selected_files": 3
+    }
+  },
+  "counting_note": "Upstream, selected candidate, admitted source, executable external, and synthetic case counts are distinct denominators."
+}

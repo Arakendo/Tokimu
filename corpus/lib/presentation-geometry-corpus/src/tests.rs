@@ -151,7 +151,7 @@ fn ui_cases_have_stable_ids() {
 
 #[test]
 fn cgm_cases_are_registered_at_their_honest_stage_boundary() {
-    assert_eq!(cgm_cases().len(), 15);
+    assert_eq!(cgm_cases().len(), 26);
     for case in cgm_cases() {
         let corpus_case = CorpusCase::Cgm(*case);
         assert!(all_cases().contains(&corpus_case));
@@ -173,6 +173,69 @@ fn cgm_cases_are_registered_at_their_honest_stage_boundary() {
             ));
         }
     }
+}
+
+#[test]
+fn cgm_polybezier_artifact_preserves_source_records_without_vector_output() {
+    let cases = [
+        ("cgm/webcgm/polybezier-source-boundary", Some(8)),
+        ("cgm/webcgm/polybezier-comparison-boundary", None),
+    ];
+
+    for (case_id, expected_count) in cases {
+        let case = cgm_cases()
+            .iter()
+            .copied()
+            .find(|case| case.id == case_id)
+            .expect("polybezier source-boundary case should be registered");
+        let root = crate::write_cgm_artifacts(case).expect("write polybezier source artifacts");
+        let artifact: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join("cgm.json")).expect("read polybezier artifact"),
+        )
+        .expect("parse polybezier artifact");
+
+        let records = artifact["primitives"]
+            .as_array()
+            .expect("polybezier source artifact should preserve primitives")
+            .iter()
+            .filter(|primitive| primitive["kind"]["kind"] == "poly-bezier")
+            .collect::<Vec<_>>();
+        if let Some(expected_count) = expected_count {
+            assert_eq!(records.len(), expected_count);
+        } else {
+            assert!(
+                records.len() > 1,
+                "comparison fixture should retain multiple source records"
+            );
+        }
+        assert!(records.iter().all(|record| {
+            record["kind"]["continuity"].is_number()
+                && record["kind"]["points"]
+                    .as_array()
+                    .is_some_and(|points| !points.is_empty())
+        }));
+        assert!(!root.join("vector.json").exists());
+        assert!(!root.join("mesh.json").exists());
+    }
+}
+
+#[test]
+fn cgm_color_extent_case_reports_declared_source_range_without_paint_conversion() {
+    let case = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/color-value-extent")
+        .expect("color value extent case should be registered");
+    let report = run_cgm_case(case);
+
+    assert!(report.passed(), "{report:#?}");
+    assert!(report.stages[0]
+        .summary
+        .contains("direct-color-extent=true"));
+    assert_eq!(report.stages[1].stage, CorpusStage::Vector);
+    assert!(report.stages[1]
+        .summary
+        .contains("source-solid-fill-primitives="));
 }
 
 #[test]
@@ -251,11 +314,19 @@ fn cgm_vector_artifacts_emit_repeatable_structural_fingerprints() {
 }
 
 #[test]
-fn cgm_source_only_artifact_writing_clears_stale_vector_evidence() {
+fn cgm_source_only_artifact_writing_clears_stale_downstream_evidence() {
     let source_only = cgm_cases()[0];
     let root = std::path::PathBuf::from("target/presentation-geometry-corpus").join(source_only.id);
     std::fs::create_dir_all(&root).expect("create source-only artifact directory");
-    for file_name in ["vector.json", "vector-fingerprint.json"] {
+    for file_name in [
+        "vector.json",
+        "vector-fingerprint.json",
+        "mesh.json",
+        "mesh-fingerprint.json",
+        "mesh.svg",
+        "image-fingerprint.json",
+        "image.png",
+    ] {
         std::fs::write(root.join(file_name), "stale")
             .unwrap_or_else(|error| panic!("seed stale {file_name}: {error}"));
     }
@@ -263,6 +334,33 @@ fn cgm_source_only_artifact_writing_clears_stale_vector_evidence() {
     let root = crate::write_cgm_artifacts(source_only).expect("write source-only CGM artifacts");
     assert!(!root.join("vector.json").exists());
     assert!(!root.join("vector-fingerprint.json").exists());
+    assert!(!root.join("mesh.json").exists());
+    assert!(!root.join("mesh-fingerprint.json").exists());
+    assert!(!root.join("mesh.svg").exists());
+    assert!(!root.join("image-fingerprint.json").exists());
+    assert!(!root.join("image.png").exists());
+}
+
+#[test]
+fn cgm_vector_artifact_writing_clears_stale_mesh_evidence() {
+    let vector_case = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/interior-style")
+        .expect("interior-style case should be registered");
+    let root = std::path::PathBuf::from("target/presentation-geometry-corpus").join(vector_case.id);
+    std::fs::create_dir_all(&root).expect("create vector artifact directory");
+    for file_name in ["mesh.json", "mesh-fingerprint.json", "mesh.svg"] {
+        std::fs::write(root.join(file_name), "stale")
+            .unwrap_or_else(|error| panic!("seed stale {file_name}: {error}"));
+    }
+
+    let root = crate::write_cgm_artifacts(vector_case).expect("write CGM vector artifacts");
+    assert!(root.join("vector.json").is_file());
+    assert!(root.join("vector-fingerprint.json").is_file());
+    assert!(!root.join("mesh.json").exists());
+    assert!(!root.join("mesh-fingerprint.json").exists());
+    assert!(!root.join("mesh.svg").exists());
 }
 
 #[test]
@@ -364,7 +462,62 @@ fn cgm_source_artifacts_preserve_state_oriented_fixture_evidence() {
                 || primitive["state"]["fill_color"]["kind"] == "direct"
         })
     }));
+    assert!(direct["resolved_source_colors"]
+        .as_array()
+        .is_some_and(|records| records.iter().any(|record| {
+            record["line_rgb"] == serde_json::json!([1.0, 1.0, 0.0])
+                && record["fill_rgb"] == serde_json::json!([1.0, 0.0, 1.0])
+        })));
 
+    let color_extent = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/color-value-extent")
+        .expect("color-value-extent case should be registered");
+    let color_extent_root =
+        crate::write_cgm_artifacts(color_extent).expect("write color-value-extent artifacts");
+    let color_extent: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(color_extent_root.join("cgm.json"))
+            .expect("read color-value-extent artifact"),
+    )
+    .expect("parse color-value-extent artifact");
+    assert_eq!(
+        color_extent["metafile_descriptor"]["color_value_extent"]["minimum"],
+        serde_json::json!([0, 0, 0])
+    );
+    assert_eq!(
+        color_extent["metafile_descriptor"]["color_value_extent"]["maximum"],
+        serde_json::json!([100, 100, 100])
+    );
+
+    let interior_style = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/interior-style")
+        .expect("interior-style case should be registered");
+    let interior_root =
+        crate::write_cgm_artifacts(interior_style).expect("write interior-style artifacts");
+    let interior: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(interior_root.join("cgm.json"))
+            .expect("read interior-style artifact"),
+    )
+    .expect("parse interior-style artifact");
+    assert!(interior["resolved_source_colors"]
+        .as_array()
+        .is_some_and(|records| records.iter().any(|record| {
+            record["fill_rgb"] == serde_json::json!([0.0, 0.0, 0.0])
+                && record["edge_rgb"] == serde_json::json!([1.0, 0.0, 0.0])
+        })));
+    assert!(interior["primitives"].as_array().is_some_and(|primitives| {
+        primitives
+            .iter()
+            .any(|primitive| primitive["state"]["color_table"]["1"] == serde_json::json!([0, 0, 0]))
+    }));
+    assert!(interior["solid_fill_candidates"]
+        .as_array()
+        .is_some_and(|candidates| candidates
+            .iter()
+            .any(|candidate| { candidate["fill_rgb"] == serde_json::json!([0.0, 0.0, 0.0]) })));
     let clipping = cgm_cases()
         .iter()
         .copied()
@@ -381,6 +534,135 @@ fn cgm_source_artifacts_preserve_state_oriented_fixture_evidence() {
                 && primitive["controls"]["clip_indicator"] == "off"
         })
     }));
+
+    let additional_clipping = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/additional-clip-controls")
+        .expect("additional clip-control case should be registered");
+    let additional_root =
+        crate::write_cgm_artifacts(additional_clipping).expect("write additional clip artifacts");
+    let additional: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(additional_root.join("cgm.json"))
+            .expect("read additional clip-control artifact"),
+    )
+    .expect("parse additional clip-control artifact");
+    assert!(additional["primitives"]
+        .as_array()
+        .is_some_and(|primitives| {
+            primitives.iter().all(|primitive| {
+                primitive["controls"]["clip_rectangle"].is_object()
+                    && primitive["controls"]["clip_indicator"] != "on"
+            })
+        }));
+
+    let append_text = cgm_cases()
+        .iter()
+        .copied()
+        .find(|case| case.id == "cgm/webcgm/append-text-boundary")
+        .expect("append-text source-boundary case should be registered");
+    let append_root = crate::write_cgm_artifacts(append_text)
+        .expect("write append-text source-boundary artifacts");
+    let append: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(append_root.join("cgm.json"))
+            .expect("read append-text source-boundary artifact"),
+    )
+    .expect("parse append-text source-boundary artifact");
+    assert_eq!(append["text_record_count"].as_u64(), Some(12));
+    assert!(append["text_records"].as_array().is_some_and(|records| {
+        records
+            .iter()
+            .any(|record| record["kind"]["kind"] == "append" && record["kind"]["text"] == " gjhi")
+    }));
+    assert!(
+        !append["diagnostics"].as_array().is_some_and(|diagnostics| {
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic["class"] == 4 && (diagnostic["id"] == 5 || diagnostic["id"] == 6)
+            })
+        })
+    );
+
+    // Text state is source evidence only. These fixtures must retain the
+    // declared state on their text records without growing layout, glyph, or
+    // renderer artifacts as an accidental side effect.
+    for (case_id, state_field) in [
+        ("cgm/webcgm/character-height-text-state", "character_height"),
+        (
+            "cgm/webcgm/character-orientation-text-state",
+            "character_orientation",
+        ),
+        ("cgm/webcgm/text-alignment-state", "text_alignment"),
+        (
+            "cgm/webcgm/character-spacing-text-state",
+            "character_spacing",
+        ),
+        ("cgm/webcgm/text-path-state", "text_path"),
+    ] {
+        let case = cgm_cases()
+            .iter()
+            .copied()
+            .find(|case| case.id == case_id)
+            .expect("text-state source-boundary case should be registered");
+        let root = crate::write_cgm_artifacts(case).expect("write text-state artifacts");
+        let artifact: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join("cgm.json"))
+                .expect("read text-state source artifact"),
+        )
+        .expect("parse text-state source artifact");
+        assert!(artifact["text_record_count"]
+            .as_u64()
+            .is_some_and(|count| count > 0));
+        assert!(artifact["text_records"].as_array().is_some_and(|records| {
+            records
+                .iter()
+                .any(|record| !record["state"][state_field].is_null())
+        }));
+        assert!(
+            !root.join("vector.json").exists() && !root.join("mesh.json").exists(),
+            "{case_id} must remain source-only while text layout is deferred"
+        );
+    }
+
+    for case_id in ["cgm/webcgm/cell-array-boundary"] {
+        let case = cgm_cases()
+            .iter()
+            .copied()
+            .find(|case| case.id == case_id)
+            .expect("deferred source-boundary case should be registered");
+        let root = crate::write_cgm_artifacts(case).expect("write source-boundary artifacts");
+        let artifact: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join("cgm.json")).expect("read source-boundary artifact"),
+        )
+        .expect("parse source-boundary artifact");
+        assert_eq!(artifact["cell_array_count"].as_u64(), Some(1));
+        let cell_arrays = artifact["cell_arrays"]
+            .as_array()
+            .expect("source-boundary artifact should preserve cell-array headers");
+        assert!(cell_arrays.iter().any(|record| {
+            record["dimensions"] == serde_json::json!([2, 2]) && record["payload_bytes"] == 12
+        }));
+        let diagnostics = artifact["diagnostics"]
+            .as_array()
+            .expect("source-boundary artifact should retain diagnostics");
+        assert_eq!(
+            artifact["diagnostic_count"].as_u64(),
+            Some(diagnostics.len() as u64)
+        );
+        assert!(!diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["class"] == 4 && diagnostic["id"] == 9));
+        let grouped_count = artifact["deferred_features"]
+            .as_array()
+            .expect("source-boundary artifact should summarize deferred features")
+            .iter()
+            .map(|feature| {
+                feature["count"]
+                    .as_u64()
+                    .expect("group count should be numeric")
+            })
+            .sum::<u64>();
+        assert_eq!(grouped_count, diagnostics.len() as u64);
+    }
 }
 
 #[test]

@@ -1,12 +1,12 @@
 use std::{fs, path::Path};
 
 use crate::{
-    CgmAttribute, CgmAttributeValue, CgmClipIndicator, CgmColor, CgmColorSelectionMode,
-    CgmDiagnostic, CgmDiagnosticCode, CgmElement, CgmEncoding, CgmError, CgmInspection,
-    CgmMetafileDescriptor, CgmPartition, CgmPicture, CgmPictureControlState, CgmPictureDescriptor,
-    CgmPolygonSetEdgeFlag, CgmPolygonSetRecord, CgmPresentationState, CgmPrimitive,
-    CgmPrimitiveKind, CgmResult, CgmScalingMode, CgmVdcExtent, CgmVdcType, DelimiterElement,
-    ElementSupport,
+    CgmAttribute, CgmAttributeValue, CgmCellArrayRecord, CgmClipIndicator, CgmColor,
+    CgmColorSelectionMode, CgmDiagnostic, CgmDiagnosticCode, CgmElement, CgmEncoding, CgmError,
+    CgmInspection, CgmMetafileDescriptor, CgmPartition, CgmPicture, CgmPictureControlState,
+    CgmPictureDescriptor, CgmPolygonSetEdgeFlag, CgmPolygonSetRecord, CgmPresentationState,
+    CgmPrimitive, CgmPrimitiveKind, CgmResult, CgmScalingMode, CgmTextRecord, CgmTextRecordKind,
+    CgmVdcExtent, CgmVdcType, DelimiterElement, ElementSupport,
 };
 
 const LONG_FORM_LENGTH: usize = 31;
@@ -114,6 +114,22 @@ pub fn inspect_binary_cgm(bytes: &[u8], limits: DecodeLimits) -> CgmResult<CgmIn
             &mut current_picture,
         )? {
             element.support = ElementSupport::Attribute;
+        } else if apply_text(
+            &element,
+            &parameters,
+            lifecycle,
+            &metafile,
+            &mut current_picture,
+        )? {
+            element.support = ElementSupport::Text;
+        } else if apply_raster(
+            &element,
+            &parameters,
+            lifecycle,
+            &metafile,
+            &mut current_picture,
+        )? {
+            element.support = ElementSupport::Raster;
         } else if apply_primitive(
             &element,
             &parameters,
@@ -329,6 +345,8 @@ fn apply_delimiter(
                 state: CgmPresentationState::default(),
                 attributes: Vec::new(),
                 primitives: Vec::new(),
+                text_records: Vec::new(),
+                cell_arrays: Vec::new(),
             });
             *lifecycle = Lifecycle::PictureDescriptor;
         }
@@ -368,6 +386,8 @@ fn apply_delimiter(
                 controls: picture.controls,
                 attributes: picture.attributes,
                 primitives: picture.primitives,
+                text_records: picture.text_records,
+                cell_arrays: picture.cell_arrays,
             });
             *lifecycle = Lifecycle::Metafile;
         }
@@ -453,7 +473,7 @@ fn apply_attribute(
             color: decode_color(parameters, metafile, current_picture, element)?,
         }),
         22 => Some(CgmAttributeValue::InteriorStyle {
-            value: read_parameter_u16(parameters, element, "interior style")?,
+            style: read_parameter_u16(parameters, element, "interior style")?.into(),
         }),
         23 => Some(CgmAttributeValue::FillColor {
             color: decode_color(parameters, metafile, current_picture, element)?,
@@ -473,6 +493,24 @@ fn apply_attribute(
         38 => Some(CgmAttributeValue::LineJoin {
             value: read_parameter_u16(parameters, element, "line join")?,
         }),
+        15 => Some(CgmAttributeValue::CharacterHeight {
+            value: decode_fixed_i16_values(parameters, metafile, element, 1)?[0],
+        }),
+        13 => Some(CgmAttributeValue::CharacterSpacing {
+            bytes: parameters.to_vec(),
+        }),
+        16 => {
+            let values = decode_fixed_i16_values(parameters, metafile, element, 4)?;
+            Some(CgmAttributeValue::CharacterOrientation {
+                up: [values[0], values[1]],
+                base: [values[2], values[3]],
+            })
+        }
+        17 => Some(CgmAttributeValue::TextPath {
+            value: read_parameter_u16(parameters, element, "text path")?,
+        }),
+        18 => Some(decode_text_alignment(parameters, element)?),
+        34 => Some(decode_color_table(parameters, metafile, element)?),
         _ => None,
     };
 
@@ -494,6 +532,32 @@ fn apply_attribute(
     Ok(true)
 }
 
+/// Retains the bounded alignment profile exercised by `CHRHGT01`. The final
+/// two values use the CGM real-number representation, so their exact source
+/// bytes remain visible rather than being guessed as renderer offsets.
+fn decode_text_alignment(parameters: &[u8], element: &CgmElement) -> CgmResult<CgmAttributeValue> {
+    const ALIGNMENT_BYTES: usize = 12;
+    if parameters.len() != ALIGNMENT_BYTES {
+        return Err(CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: format!(
+                "text alignment requires {ALIGNMENT_BYTES} bytes in the admitted profile, found {}",
+                parameters.len()
+            ),
+        });
+    }
+    Ok(CgmAttributeValue::TextAlignment {
+        horizontal: u16::from_be_bytes([parameters[0], parameters[1]]),
+        vertical: u16::from_be_bytes([parameters[2], parameters[3]]),
+        continuous_horizontal: parameters[4..8]
+            .try_into()
+            .expect("bounded text alignment slice has four bytes"),
+        continuous_vertical: parameters[8..12]
+            .try_into()
+            .expect("bounded text alignment slice has four bytes"),
+    })
+}
+
 fn decode_color(
     parameters: &[u8],
     _metafile: &CgmMetafileDescriptor,
@@ -512,6 +576,51 @@ fn decode_color(
     })
 }
 
+/// Decodes the selected `COLOR TABLE` profile: an 8-bit start index followed
+/// by one or more 8-bit direct RGB entries. This is source-state preservation,
+/// not a CGM default palette or renderer color policy.
+fn decode_color_table(
+    parameters: &[u8],
+    metafile: &CgmMetafileDescriptor,
+    element: &CgmElement,
+) -> CgmResult<CgmAttributeValue> {
+    if metafile.color_index_precision != 8 || metafile.color_precision != 8 {
+        return Err(CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "color table requires the admitted 8-bit index and direct color precisions"
+                .to_owned(),
+        });
+    }
+    let Some((&start_index, colors)) = parameters.split_first() else {
+        return Err(CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "color table requires an index and at least one RGB entry".to_owned(),
+        });
+    };
+    if colors.is_empty() || !colors.len().is_multiple_of(3) {
+        return Err(CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "color table RGB entries must contain exactly three 8-bit components"
+                .to_owned(),
+        });
+    }
+    let entry_count = colors.len() / 3;
+    if usize::from(start_index) + entry_count > usize::from(u8::MAX) + 1 {
+        return Err(CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "color table entries exceed the admitted 8-bit index range".to_owned(),
+        });
+    }
+
+    Ok(CgmAttributeValue::ColorTable {
+        start_index,
+        colors: colors
+            .chunks_exact(3)
+            .map(|entry| [entry[0], entry[1], entry[2]])
+            .collect(),
+    })
+}
+
 /// Decodes the first selected CGM geometry forms without lowering them into a
 /// shared vector path. The source type remains visible in `CgmPrimitiveKind`
 /// until the later primitive-lowering slice earns a provider-neutral contract.
@@ -525,6 +634,13 @@ fn apply_primitive(
     if lifecycle != Lifecycle::PictureBody || element.class != 4 {
         return Ok(false);
     }
+    let picture = current_picture
+        .as_mut()
+        .ok_or_else(|| CgmError::InvalidLifecycle {
+            offset: element.source_offset,
+            reason: "picture body primitive has no active picture".to_owned(),
+        })?;
+
     let kind = match element.id {
         1 => CgmPrimitiveKind::Polyline {
             points: decode_integer_vdc_points(parameters, metafile, element)?,
@@ -535,6 +651,10 @@ fn apply_primitive(
         8 => CgmPrimitiveKind::PolygonSet {
             records: decode_polygon_set_records(parameters, metafile, element)?,
         },
+        26 => {
+            let (continuity, points) = decode_polybezier_records(parameters, metafile, element)?;
+            CgmPrimitiveKind::PolyBezier { continuity, points }
+        }
         11 => {
             let points = decode_fixed_integer_vdc_points(parameters, metafile, element, 2)?;
             CgmPrimitiveKind::Rectangle {
@@ -578,12 +698,6 @@ fn apply_primitive(
         }
         _ => return Ok(false),
     };
-    let picture = current_picture
-        .as_mut()
-        .ok_or_else(|| CgmError::InvalidLifecycle {
-            offset: element.source_offset,
-            reason: "picture body primitive has no active picture".to_owned(),
-        })?;
     picture.primitives.push(CgmPrimitive {
         source_element: element.index,
         source_offset: element.source_offset,
@@ -593,6 +707,127 @@ fn apply_primitive(
         kind,
     });
     Ok(true)
+}
+
+/// Preserves the selected source-text records without lowering them into
+/// geometry. Text layout, font selection, shaping, and rendering are separate
+/// presentation responsibilities.
+fn apply_text(
+    element: &CgmElement,
+    parameters: &[u8],
+    lifecycle: Lifecycle,
+    metafile: &CgmMetafileDescriptor,
+    current_picture: &mut Option<PictureBuilder>,
+) -> CgmResult<bool> {
+    if lifecycle != Lifecycle::PictureBody || element.class != 4 {
+        return Ok(false);
+    }
+
+    let kind = match element.id {
+        5 => decode_restricted_text(parameters, metafile, element)?,
+        6 => decode_append_text(parameters, element)?,
+        _ => return Ok(false),
+    };
+    let picture = current_picture
+        .as_mut()
+        .ok_or_else(|| CgmError::InvalidLifecycle {
+            offset: element.source_offset,
+            reason: "picture body text has no active picture".to_owned(),
+        })?;
+    picture.text_records.push(CgmTextRecord {
+        source_element: element.index,
+        source_offset: element.source_offset,
+        attribute_count: picture.attributes.len(),
+        state: picture.state.clone(),
+        controls: picture.controls.clone(),
+        kind,
+    });
+    Ok(true)
+}
+
+/// Preserves admitted cell-array source metadata without decoding its raster
+/// payload. Texture selection and pixel presentation remain later consumer
+/// responsibilities.
+fn apply_raster(
+    element: &CgmElement,
+    parameters: &[u8],
+    lifecycle: Lifecycle,
+    metafile: &CgmMetafileDescriptor,
+    current_picture: &mut Option<PictureBuilder>,
+) -> CgmResult<bool> {
+    if lifecycle != Lifecycle::PictureBody || element.class != 4 || element.id != 9 {
+        return Ok(false);
+    }
+    if metafile.vdc_type != CgmVdcType::Integer || metafile.integer_precision != 16 {
+        return Err(CgmError::UnsupportedIntegerPrecision {
+            offset: element.source_offset,
+            value: metafile.integer_precision,
+        });
+    }
+
+    const HEADER_BYTES: usize = 20;
+    let header = parameters
+        .get(..HEADER_BYTES)
+        .ok_or_else(|| CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "cell array requires three corners and raster header fields".to_owned(),
+        })?;
+    let values = decode_fixed_i16_values(header, metafile, element, 10)?;
+    let picture = current_picture
+        .as_mut()
+        .ok_or_else(|| CgmError::InvalidLifecycle {
+            offset: element.source_offset,
+            reason: "picture body raster has no active picture".to_owned(),
+        })?;
+    picture.cell_arrays.push(CgmCellArrayRecord {
+        source_element: element.index,
+        source_offset: element.source_offset,
+        attribute_count: picture.attributes.len(),
+        state: picture.state.clone(),
+        controls: picture.controls.clone(),
+        first: [values[0], values[1]],
+        second: [values[2], values[3]],
+        third: [values[4], values[5]],
+        dimensions: [values[6] as u16, values[7] as u16],
+        local_color_precision: values[8] as u16,
+        representation: values[9] as u16,
+        payload_bytes: parameters.len() - HEADER_BYTES,
+    });
+    Ok(true)
+}
+
+fn decode_restricted_text(
+    parameters: &[u8],
+    metafile: &CgmMetafileDescriptor,
+    element: &CgmElement,
+) -> CgmResult<CgmTextRecordKind> {
+    const PREFIX_BYTES: usize = 10;
+    let prefix = parameters
+        .get(..PREFIX_BYTES)
+        .ok_or_else(|| CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "restricted text requires position, restrictions, and final flag".to_owned(),
+        })?;
+    let values = decode_fixed_i16_values(prefix, metafile, element, 5)?;
+    let text = decode_string(&parameters[PREFIX_BYTES..], element.source_offset)?;
+    Ok(CgmTextRecordKind::Restricted {
+        position: [values[0], values[1]],
+        restrictions: [values[2], values[3]],
+        final_flag: values[4] as u16,
+        text,
+    })
+}
+
+fn decode_append_text(parameters: &[u8], element: &CgmElement) -> CgmResult<CgmTextRecordKind> {
+    let final_flag = parameters
+        .get(..2)
+        .map(|bytes| u16::from_be_bytes([bytes[0], bytes[1]]))
+        .ok_or_else(|| CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: "append text requires a 16-bit final flag".to_owned(),
+        })?;
+    let text = decode_string(&parameters[2..], element.source_offset)?;
+    Ok(CgmTextRecordKind::Append { final_flag, text })
 }
 
 fn decode_polygon_set_records(
@@ -683,6 +918,47 @@ fn decode_integer_vdc_points(
         });
     }
     Ok(points)
+}
+
+/// Decodes the bounded integer-VDC form of CGM POLYBEZIER.
+///
+/// The first 16-bit value is the CGM continuity indicator; the remaining
+/// parameters are VDC coordinate pairs. The adapter deliberately retains this
+/// source record rather than mapping it to generic cubic segments before the
+/// selected corpus has established that mapping's topology and continuity
+/// policy.
+fn decode_polybezier_records(
+    parameters: &[u8],
+    metafile: &CgmMetafileDescriptor,
+    element: &CgmElement,
+) -> CgmResult<(u16, Vec<[i32; 2]>)> {
+    if metafile.vdc_type != CgmVdcType::Integer || metafile.integer_precision != 16 {
+        return Err(CgmError::UnsupportedIntegerPrecision {
+            offset: element.source_offset,
+            value: metafile.integer_precision,
+        });
+    }
+    if parameters.len() < 6 || (parameters.len() - 2) % 4 != 0 {
+        return Err(CgmError::InvalidPrimitive {
+            offset: element.source_offset,
+            reason: format!(
+                "polybezier requires one continuity value followed by 16-bit VDC pairs, found {} parameter bytes",
+                parameters.len()
+            ),
+        });
+    }
+
+    let continuity = u16::from_be_bytes([parameters[0], parameters[1]]);
+    let points = parameters[2..]
+        .chunks_exact(4)
+        .map(|pair| {
+            [
+                i16::from_be_bytes([pair[0], pair[1]]) as i32,
+                i16::from_be_bytes([pair[2], pair[3]]) as i32,
+            ]
+        })
+        .collect::<Vec<_>>();
+    Ok((continuity, points))
 }
 
 fn decode_fixed_integer_vdc_points(
@@ -803,6 +1079,30 @@ fn apply_descriptor(
                 });
             }
             metafile.color_index_precision = value;
+            Ok(true)
+        }
+        (1, 10) if lifecycle == Lifecycle::Metafile => {
+            if metafile.color_precision != 8 {
+                return Err(CgmError::UnsupportedColorPrecision {
+                    offset: element.source_offset,
+                    kind: "direct color value extent",
+                    value: metafile.color_precision,
+                });
+            }
+            let values: [u8; 6] =
+                parameters
+                    .try_into()
+                    .map_err(|_| CgmError::InvalidLifecycle {
+                        offset: element.source_offset,
+                        reason: format!(
+                            "color value extent requires six 8-bit RGB components, found {} bytes",
+                            parameters.len()
+                        ),
+                    })?;
+            metafile.color_value_extent = Some(crate::CgmColorValueExtent {
+                minimum: [values[0], values[1], values[2]],
+                maximum: [values[3], values[4], values[5]],
+            });
             Ok(true)
         }
         (2, 1) if lifecycle == Lifecycle::PictureDescriptor => {
@@ -1000,6 +1300,8 @@ struct PictureBuilder {
     state: CgmPresentationState,
     attributes: Vec<CgmAttribute>,
     primitives: Vec<CgmPrimitive>,
+    text_records: Vec<CgmTextRecord>,
+    cell_arrays: Vec<CgmCellArrayRecord>,
 }
 
 #[cfg(test)]

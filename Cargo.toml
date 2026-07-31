@@ -42,6 +42,7 @@ members = [
     "corpus/hello-xml-inspect",
     "corpus/hello-file-io",
     "corpus/hello-save-image",
+    "corpus/hello-raster-image",
 
     # Networking corpus.
     "corpus/hello-network-loopback",
@@ -88,6 +89,7 @@ members = [
     "corpus/lib/presentation-geometry-corpus",
     "corpus/lib/performance-diagnostics-corpus",
     "corpus/lib/particle-tools",
+    "corpus/lib/raster-image-corpus",
     "corpus/lib/xml-tools",
     "corpus/lib/ui-tools",
     "corpus/lib/ui-framework",

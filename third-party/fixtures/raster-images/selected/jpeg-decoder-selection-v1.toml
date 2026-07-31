@@ -1,0 +1,17 @@
+selection = "jpeg-decoder-v1"
+suite = "jpeg-decoder reference test images"
+source_root = "../upstream/jpeg-decoder"
+source_revision = "eb2d7c0f6a2d0298aba7a7f8b9ca1440353e8f8c"
+license = "Apache-2.0 OR MIT"
+admission = "source-fixtures-admitted"
+
+[[case]]
+id = "jpeg-baseline-grayscale-square"
+source = "grayscale_square.jpg"
+bytes = 331
+sha256 = "b300b1182487aaacd944e86b58cfa9b5a0349c65f16d7cdb32ec783cf02d3604"
+format = "jpeg"
+capability = ["baseline", "8-bit", "grayscale", "one-component", "10x10"]
+reason = "Exercises actual one-component baseline JPEG decoding independently of the libjpeg-turbo YCbCr fixtures."
+expected_stage = "decode"
+expected = "candidate-pass"

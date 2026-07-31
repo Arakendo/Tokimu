@@ -176,6 +176,102 @@ reason = "Stateful clipping through the provider-neutral clipping boundary."
 expected = "deferred-clipping"
 
 [[case]]
+id = "CLIPNG02"
+source = "static10/CLIPNG02.cgm"
+source_sha256 = "f0fa8c2255227f99abb53f65d10a9a3740318497f11823189721adb5d576ced7"
+reference_image = "static10/images/CLIPNG02.png"
+reference_sha256 = "91643a1a2300ff11407b3ad6fe3fb919370335d85aaed9638ac95d91a0d78068"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["clip-rectangle", "clip-state", "state-resolution"]
+reason = "Second source-only clip-control fixture; vector clipping remains unclaimed until a selected case proves active clip state."
+expected = "source-only-clip-state"
+
+[[case]]
+id = "APNTXT01"
+source = "static10/APNTXT01.cgm"
+source_sha256 = "1c416cc772673f255f1d19ca51ccfc22ee4e47c143da88cf52c783594c7bf8f9"
+reference_image = "static10/images/APNTXT01.png"
+reference_sha256 = "1c063bdf71ccefce63e8debe8502765a3d5067808a0115740662511601e7497d"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["append-text", "text-state", "source-lifecycle"]
+reason = "Pins restricted and append text source records without treating source strings as vector glyphs or renderer text."
+expected = "source-only-text-boundary"
+
+[[case]]
+id = "CHRHGT01"
+source = "static10/CHRHGT01.cgm"
+source_sha256 = "5d4eb9aad5e34f9c6ad1df75a5386964db3897b5261ba48d1df4eaab591d67ea"
+reference_image = "static10/images/CHRHGT01.png"
+reference_sha256 = "3ee255fea49501c362926c5a1cdf9c67fefc8bf4cce5d0b44e40338b73359793"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["character-height", "character-orientation", "text-alignment", "text-state"]
+reason = "Pins repeated source text-state mutations without selecting a font or performing layout."
+expected = "source-only-text-state-boundary"
+
+[[case]]
+id = "CHRORI01"
+source = "static10/CHRORI01.cgm"
+source_sha256 = "29afdbf015f01a4b9717f9e55636232ebf34f9d8c4307edcc5d52d6d4a6a4dda"
+reference_image = "static10/images/CHRORI01.png"
+reference_sha256 = "cf45c783fb793cf1e85fbb8a3e895a5e89e2109e675ddde737cb1b97b8f5ed24"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["character-orientation", "text-state"]
+reason = "Independently pins character-orientation source mutations without interpreting text geometry."
+expected = "source-only-text-state-boundary"
+
+[[case]]
+id = "TXTALN01"
+source = "static10/TXTALN01.cgm"
+source_sha256 = "498e7d82fe326a7c0c289c71971e282c2318ffbb946d329b19e0ba08693e3576"
+reference_image = "static10/images/TXTALN01.png"
+reference_sha256 = "08b05c0a22656266a5870a90f64307aa702a655278fecacadd5e3fa0018be2e2"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["text-alignment", "text-state"]
+reason = "Independently pins text-alignment source mutations without performing layout."
+expected = "source-only-text-state-boundary"
+
+[[case]]
+id = "CHRSPA01"
+source = "static10/CHRSPA01.cgm"
+source_sha256 = "a66f11ed6bd375e80c12a42a8bac5f17289555977e9e0dcf89bede1c443cbcfd"
+reference_image = "static10/images/CHRSPA01.png"
+reference_sha256 = "11ff2afabba555f9b018b958d257bb75dde12490117e2f5bdfa4e653eefc9816"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["character-spacing", "text-state"]
+reason = "Preserves the encoded CGM character-spacing state without selecting font metrics or applying layout."
+expected = "source-only-text-state-boundary"
+
+[[case]]
+id = "TXTPTH01"
+source = "static10/TXTPTH01.cgm"
+source_sha256 = "437673583090e695bfb79affe615f717ab1ec76f6a405fc5be8c6d1db0d91cbb"
+reference_image = "static10/images/TXTPTH01.png"
+reference_sha256 = "ee1ea774e6601e08d0a92fba0b5f5eaf5d333600cc3832062aa49c6fd5e53cc6"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["text-path", "text-state"]
+reason = "Preserves CGM text-path direction state without converting it into glyph placement."
+expected = "source-only-text-state-boundary"
+
+[[case]]
+id = "CELARY01"
+source = "static10/CELARY01.cgm"
+source_sha256 = "eb3573d0c0e9bc39b479b341f3d3346d6eb4132142835f8c2682529a2d8b6722"
+reference_image = "static10/images/CELARY01.png"
+reference_sha256 = "5cc06f4d6e6d52ef6d269ff66db0694c3262e17ae5b082a08536a832244eb61a"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["cell-array", "raster-boundary", "source-lifecycle"]
+reason = "Pins a CGM raster source boundary without misclassifying cell-array payloads as vector geometry."
+expected = "source-only-raster-boundary"
+
+[[case]]
 id = "COLRMD01"
 source = "static10/COLRMD01.cgm"
 source_sha256 = "d23a17c96200a38c1c19f2775a60bfcaa4a2b9d6bbba8944420e3a867dd8a2e2"
@@ -185,4 +281,40 @@ encoding = "binary"
 profile = "WebCGM 1.0"
 capability = ["color-selection-mode", "color-state", "paint-intent"]
 reason = "Indexed-versus-direct color resolution before rendering."
+expected = "deferred-color"
+
+[[case]]
+id = "POLYBZ01"
+source = "static10/POLYBZ01.cgm"
+source_sha256 = "8bc90ec1695436656e2b55b5e93ef1aa34976e800f541957eaebbf484e962a25"
+reference_image = "static10/images/POLYBZ01.png"
+reference_sha256 = "7037ca926b4f5731ced474c7472cdd89a39b58dbbdb2aa8a592e19ce39081625"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["polybezier", "continuity", "cubic-control-points"]
+reason = "Preserves PolyBezier continuity and control points before a shared cubic-path lowering policy is admitted."
+expected = "source-only-polybezier-boundary"
+
+[[case]]
+id = "POLYBZ04"
+source = "static10/POLYBZ04.cgm"
+source_sha256 = "ac0dbecac30fc2239f979158cf524abdd296305f8756c7aa87d8c10f8a7ce2ad"
+reference_image = "static10/images/POLYBZ04.png"
+reference_sha256 = "af2e8b6b269177887e38c051098b17c5151e0688e058344c117ba1eedd9ad3d1"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["polybezier", "continuity", "cubic-control-points", "comparison"]
+reason = "Adds independent PolyBezier source evidence before CGM continuity is translated into a shared cubic-path contract."
+expected = "source-only-polybezier-comparison-boundary"
+
+[[case]]
+id = "COLVAL01"
+source = "static10/COLVAL01.cgm"
+source_sha256 = "551af1bda9567ab36e5c3ec0d87f6d72e4f01026687cc73501bcd0a4e9c4a58d"
+reference_image = "static10/images/COLVAL01.png"
+reference_sha256 = "e0cfc3813b135ffe0b62efcaebced2f7a61c960f7e7c0cd387fec7af94cca77a"
+encoding = "binary"
+profile = "WebCGM 1.0"
+capability = ["color-value-extent", "direct-color-range", "paint-intent"]
+reason = "Direct-color source range must be preserved before any provider-neutral paint conversion."
 expected = "deferred-color"

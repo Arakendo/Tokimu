@@ -8,7 +8,7 @@ making that source format canonical Tokimu meaning.
 
 ## Current Snapshot
 
-Measured on 2026-07-28:
+Measured on 2026-07-30:
 
 | Corpus | Acquisition | Selection | Executable implementation | Current denominator |
 | --- | --- | --- | --- | --- |
@@ -17,6 +17,7 @@ Measured on 2026-07-28:
 | W3C XML 2013-09-23 | complete and checksum-pinned | 4 profile cases | active bounded parser/document smoke corpus | 3,078 upstream XML files |
 | WebCGM 2.1 | complete and checksum-pinned | 15 cases | acquisition and classification only | 353 CGM files, 232 static case IDs |
 | ufbx FBX data | complete and revision-pinned | 23 files / 14 logical scenes | acquisition and classification only | selected ufbx dataset; no universal FBX denominator |
+| Raster images (PNG/JPEG/BMP) | PngSuite source fixtures admitted under its preserved permissive license; libjpeg-turbo snapshot pinned | 18 PNG, 4 JPEG, and 3 BMP checksum-pinned external cases plus synthetic boundary cases | bounded headless PNG, JPEG, and BMP decoders; asset/texture-preparation evidence active | 157 PNG Suite files; JPEG and BMP source inventories remain intentionally bounded |
 
 These counts measure different things. A passing-case percentage must not be
 reported as source coverage, conformance, compatibility, or architectural
@@ -60,6 +61,7 @@ pwsh -NoProfile -File .\scripts\verify-khronos-gltf-corpus.ps1
 pwsh -NoProfile -File .\scripts\verify-w3c-xml-fixtures.ps1
 pwsh -NoProfile -File .\scripts\verify-webcgm-corpus.ps1
 pwsh -NoProfile -File .\scripts\verify-ufbx-fbx-corpus.ps1
+pwsh -NoProfile -File .\scripts\verify-raster-image-corpus.ps1
 ```
 
 Then run the implementation-specific tests named by each corpus document.

@@ -1,0 +1,38 @@
+selection = "bmp-v1"
+suite = "libjpeg-turbo testimages"
+source_root = "../upstream/libjpeg-turbo/testimages"
+source_revision = "5966050641633f9298b03f6b99a625067b22a91c"
+admission = "source-fixtures-admitted"
+
+[[case]]
+id = "bmp-shira-bird-24"
+source = "shira_bird8.bmp"
+bytes = 82998
+sha256 = "cd4c0f6835f8737be8f9b980ed6e748778b12f7cad09fa5c86317305c8de654c"
+format = "bmp"
+capability = ["bitmapinfoheader", "24-bit", "bi-rgb", "bottom-up", "192x144"]
+reason = "Provides an externally authored ordinary 24-bit BMP decode case."
+expected_stage = "decode"
+expected = "candidate-pass"
+
+[[case]]
+id = "bmp-vgl-odd-width-padding"
+source = "vgl_6434_0018a.bmp"
+bytes = 34614
+sha256 = "88be89f624ed412c879980639d673f4041bf148fd69c08df659068411dfb0d5e"
+format = "bmp"
+capability = ["bitmapinfoheader", "24-bit", "bi-rgb", "bottom-up", "119x96", "row-padding"]
+reason = "Exercises four-byte BMP row alignment with an odd pixel width."
+expected_stage = "decode"
+expected = "candidate-pass"
+
+[[case]]
+id = "bmp-vgl-non-four-height"
+source = "vgl_6548_0026a.bmp"
+bytes = 36534
+sha256 = "834c45c7a4456d3ef26e334d1551a2b39c155d0390f98fb572cf60951e26ccdf"
+format = "bmp"
+capability = ["bitmapinfoheader", "24-bit", "bi-rgb", "bottom-up", "128x95"]
+reason = "Exercises an ordinary aligned row with a non-four-multiple image height."
+expected_stage = "decode"
+expected = "candidate-pass"

@@ -6,7 +6,8 @@
 use serde::Serialize;
 
 use cgm_corpus::{
-    CgmClipIndicator, CgmPictureControlState, CgmPresentationState, CgmPrimitiveKind, CgmVdcExtent,
+    CgmCellArrayRecord, CgmClipIndicator, CgmDeferredFeature, CgmDiagnostic, CgmMetafileDescriptor,
+    CgmPictureControlState, CgmPresentationState, CgmPrimitiveKind, CgmTextRecord, CgmVdcExtent,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -59,19 +60,48 @@ pub struct XmlArtifact {
 pub struct CgmArtifact {
     pub metadata: ArtifactEnvelope,
     pub metafile_name: String,
+    /// Global source descriptor state required to interpret picture-local
+    /// direct colours. This is retained as CGM evidence, not converted into a
+    /// renderer style by the artifact writer.
+    pub metafile_descriptor: CgmMetafileDescriptor,
     pub picture_name: String,
     pub source_bytes: usize,
     pub element_count: usize,
     pub primitive_count: usize,
+    /// Text source records retained separately from CGM geometry. They do not
+    /// imply text layout, glyph generation, or renderer commands.
+    pub text_record_count: usize,
+    /// Raster source records retained separately from vector geometry. They
+    /// preserve cell-array headers and payload spans, not decoded pixels.
+    pub cell_array_count: usize,
     pub attribute_count: usize,
     /// Source-format snapshots for every primitive in the picture. These make
     /// CGM state inheritance and control boundaries inspectable without
     /// leaking source concepts into `VectorArtifact`.
     pub primitives: Vec<CgmPrimitiveSourceArtifact>,
+    pub text_records: Vec<CgmTextRecord>,
+    pub cell_arrays: Vec<CgmCellArrayRecord>,
+    /// Explicit direct or indexed source colours resolved through declared
+    /// metafile and picture-local palette state. These are diagnostic
+    /// CGM-source observations, not paint records and do not imply that a
+    /// renderer applied a fill or edge style.
+    pub resolved_source_colors: Vec<CgmResolvedSourceColorArtifact>,
+    /// Closed primitives whose explicit source state establishes both solid
+    /// interior intent and a resolvable fill colour. This is a source-paint
+    /// candidate for review, not a provider-neutral paint record or mesh.
+    pub solid_fill_candidates: Vec<CgmSolidFillCandidateArtifact>,
     /// Source-format controls are recorded as evidence only. They do not imply
     /// that the provider-neutral vector artifact has applied a clip.
     pub clip_rectangle: Option<CgmVdcExtent>,
     pub clip_indicator: Option<CgmClipIndicator>,
+    /// Every source diagnostic emitted by the bounded CGM profile. Keeping
+    /// occurrences here makes unsupported source features inspectable without
+    /// promoting them to vector, paint, text, or raster behavior.
+    pub diagnostics: Vec<CgmDiagnostic>,
+    /// Deterministic grouping of deferred source features. This is a
+    /// presentation-friendly summary of `diagnostics`, not a substitute for
+    /// the individual source occurrences.
+    pub deferred_features: Vec<CgmDeferredFeature>,
     pub diagnostic_count: usize,
 }
 
@@ -84,6 +114,31 @@ pub struct CgmPrimitiveSourceArtifact {
     pub kind: CgmPrimitiveKind,
     pub state: CgmPresentationState,
     pub controls: CgmPictureControlState,
+}
+
+/// Direct RGB components resolved at one source primitive boundary.
+///
+/// Missing fields mean the source did not carry that colour, or its direct
+/// components or explicit indexed palette entry could not be resolved through
+/// the admitted source state.
+#[derive(Clone, Debug, Serialize)]
+pub struct CgmResolvedSourceColorArtifact {
+    pub source_element: usize,
+    pub source_offset: usize,
+    pub line_rgb: Option<[f32; 3]>,
+    pub fill_rgb: Option<[f32; 3]>,
+    pub edge_rgb: Option<[f32; 3]>,
+}
+
+/// A CGM primitive eligible for a future paint-resolution slice because its
+/// source state explicitly says `SOLID` and supplies a resolvable fill colour.
+///
+/// No default, bundle, alpha, clipping, edge, or renderer policy is inferred.
+#[derive(Clone, Debug, Serialize)]
+pub struct CgmSolidFillCandidateArtifact {
+    pub source_element: usize,
+    pub source_offset: usize,
+    pub fill_rgb: [f32; 3],
 }
 
 /// Structural evidence for an SVG fixture that is valid XML but intentionally
