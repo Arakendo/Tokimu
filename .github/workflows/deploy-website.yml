@@ -58,12 +58,17 @@ jobs:
           npm run typecheck --prefix corpus/consumers/tokimu-website-asteroids
           npm run typecheck --prefix corpus/consumers/tokimu-website-paint
           pwsh -NoProfile -File website/scripts/build-interactive.ps1
+          # WASM binaries and wasm-bindgen bindings are rebuilt for deployment,
+          # but are not byte-stable across Windows and Linux build hosts.
           git diff --exit-code -- \
             website/docs/javascripts/asset-observation.js \
             website/docs/javascripts/asteroids-game.js \
             website/docs/assets/islands/asteroids-game/asteroids.js \
             website/docs/javascripts/tokimu-paint.js \
-            website/docs/assets/islands/tokimu-paint/
+            website/docs/assets/islands/tokimu-paint/index.html \
+            website/docs/assets/islands/tokimu-paint/lucide.svg \
+            website/docs/assets/islands/tokimu-paint/paint.js \
+            website/docs/assets/islands/tokimu-paint/styles.css
 
       - name: Test interactive island contract
         run: >-
