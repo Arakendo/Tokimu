@@ -9,6 +9,7 @@ on:
       - "Cargo.lock"
       - "Cargo.toml"
       - "corpus/consumers/tokimu-website-asteroids/**"
+      - "corpus/consumers/tokimu-website-paint/**"
       - "corpus/lib/particle-tools/**"
       - "website/**"
   workflow_dispatch:
@@ -41,6 +42,7 @@ jobs:
         run: |
           npm ci --prefix website
           npm ci --prefix corpus/consumers/tokimu-website-asteroids
+          npm ci --prefix corpus/consumers/tokimu-website-paint
 
       - name: Prepare Rust WebAssembly tools
         run: |
@@ -54,11 +56,14 @@ jobs:
         run: |
           npm run typecheck --prefix website
           npm run typecheck --prefix corpus/consumers/tokimu-website-asteroids
+          npm run typecheck --prefix corpus/consumers/tokimu-website-paint
           pwsh -NoProfile -File website/scripts/build-interactive.ps1
           git diff --exit-code -- \
             website/docs/javascripts/asset-observation.js \
             website/docs/javascripts/asteroids-game.js \
-            website/docs/assets/islands/asteroids-game/asteroids.js
+            website/docs/assets/islands/asteroids-game/asteroids.js \
+            website/docs/javascripts/tokimu-paint.js \
+            website/docs/assets/islands/tokimu-paint/
 
       - name: Test interactive island contract
         run: >-
@@ -66,6 +71,7 @@ jobs:
           website/tests/islands.test.mjs
           website/tests/asset-observation.test.mjs
           website/tests/asteroids-island.test.mjs
+          website/tests/paint-island.test.mjs
           website/tests/static-fallback.test.mjs
           website/tests/svg-evidence.test.mjs
           website/tests/cgm-evidence.test.mjs
