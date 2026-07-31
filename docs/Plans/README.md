@@ -19,6 +19,7 @@ than silently treating the plan as authority.
 - [TypeScript Shader, Material, And Presentation Control](typescript-shader-material-presentation-control.md)
 - [Particle Simulation And Presentation](particle-simulation-and-presentation.md)
 - [Tokimu Website](tokimu-website.md)
+- [Tokimu Paint Consumer Corpus](tokimu-paint-consumer-corpus.md)
 
 ## Completed Spikes
 
