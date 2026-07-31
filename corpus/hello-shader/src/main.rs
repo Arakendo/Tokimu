@@ -3,9 +3,9 @@ use std::sync::Arc;
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer,
-    ShaderBindingDeclaration, ShaderBindingSource, ShaderModuleDefinition, ShaderVertexInput,
-    ShaderVertexSemantic, WgpuBackend, WindowConfig,
+    PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
+    Renderer, ShaderBindingDeclaration, ShaderBindingSource, ShaderDiagnosticStage,
+    ShaderModuleDefinition, ShaderVertexInput, ShaderVertexSemantic, WgpuBackend, WindowConfig,
 };
 use tokimu_assets::{AssetHandle, AssetStore};
 use tokimu_core::math::{Mat4, Vec3};
@@ -67,6 +67,8 @@ const BACKEND_INVALID_WGSL: &str = include_str!("../assets/backend-invalid.wgsl"
 
 const BACKEND_DIAGNOSTIC_FIXTURE_ARGUMENT: &str = "--backend-diagnostic-fixture";
 const SEMANTIC_DIAGNOSTIC_FIXTURE_ARGUMENT: &str = "--semantic-diagnostic-fixture";
+const PIPELINE_DIAGNOSTIC_FIXTURE_ARGUMENT: &str = "--pipeline-diagnostic-fixture";
+const DRAW_CONTRACT_DIAGNOSTIC_FIXTURE_ARGUMENT: &str = "--draw-contract-diagnostic-fixture";
 const STEADY_STATE_FIXTURE_ARGUMENT: &str = "--steady-state-fixture";
 
 fn shader_module_for_variant(
@@ -103,6 +105,12 @@ fn main() -> PlatformResult<()> {
     if std::env::args().any(|argument| argument == SEMANTIC_DIAGNOSTIC_FIXTURE_ARGUMENT) {
         return run_semantic_diagnostic_fixture();
     }
+    if std::env::args().any(|argument| argument == PIPELINE_DIAGNOSTIC_FIXTURE_ARGUMENT) {
+        return run_pipeline_diagnostic_fixture();
+    }
+    if std::env::args().any(|argument| argument == DRAW_CONTRACT_DIAGNOSTIC_FIXTURE_ARGUMENT) {
+        return run_draw_contract_diagnostic_fixture();
+    }
 
     let arguments = std::env::args().collect::<Vec<_>>();
 
@@ -135,7 +143,7 @@ fn run_semantic_diagnostic_fixture() -> PlatformResult<()> {
     .expect_err("the fixture's malformed WGSL entry point must be rejected");
 
     if !matches!(
-        error,
+        &error,
         tokimu::ShaderModuleValidationError::InvalidIdentifier {
             kind: "shader entry point",
             ref value,
@@ -143,9 +151,56 @@ fn run_semantic_diagnostic_fixture() -> PlatformResult<()> {
     ) {
         return Err(format!("unexpected semantic shader diagnostic: {error}").into());
     }
+    if error.stage() != tokimu::ShaderDiagnosticStage::SemanticValidation {
+        return Err(format!(
+            "semantic shader diagnostic reported the wrong stage: {:?}",
+            error.stage()
+        )
+        .into());
+    }
 
     println!(
         "hello-shader semantic diagnostic fixture passed: stage=semantic-validation, entry-point=vs-invalid"
+    );
+    Ok(())
+}
+
+fn run_pipeline_diagnostic_fixture() -> PlatformResult<()> {
+    let error = Pipeline::new("hello-shader-missing-source", PipelineKind::CustomWgsl2d)
+        .validate()
+        .expect_err("a custom pipeline without source must be rejected");
+    if error.stage() != ShaderDiagnosticStage::PipelineValidation {
+        return Err(format!(
+            "pipeline diagnostic reported the wrong stage: {:?}",
+            error.stage()
+        )
+        .into());
+    }
+
+    println!("hello-shader pipeline diagnostic fixture passed: stage=pipeline-validation");
+    Ok(())
+}
+
+fn run_draw_contract_diagnostic_fixture() -> PlatformResult<()> {
+    let pipeline = Pipeline::new("hello-shader-lit-contract", PipelineKind::LitColor3d);
+    let material = tokimu::MaterialDefinition::solid_color(
+        tokimu::MaterialDefinitionId::new("hello-shader-fixture")?,
+        Color::rgb(1.0, 1.0, 1.0),
+    );
+    let mesh = Mesh::new(vec![[0.0, 0.0, 0.0]], vec![]);
+    let error = pipeline
+        .validate_draw_contract(&material, &mesh)
+        .expect_err("a lit draw without normals must be rejected");
+    if error.stage() != ShaderDiagnosticStage::DrawContractValidation {
+        return Err(format!(
+            "draw contract diagnostic reported the wrong stage: {:?}",
+            error.stage()
+        )
+        .into());
+    }
+
+    println!(
+        "hello-shader draw contract diagnostic fixture passed: stage=draw-contract-validation"
     );
     Ok(())
 }
@@ -242,6 +297,15 @@ impl HelloShaderApp {
         self.shader_variant = next as usize;
     }
 
+    /// Fixture windows must release their presentation backend before asking
+    /// the native event loop to exit. This keeps short-lived diagnostics from
+    /// relying on process teardown to destroy the surface and its window.
+    fn finish_fixture(&mut self) -> FrameOutcome {
+        self.renderer.take();
+        self.window.take();
+        FrameOutcome::Exit
+    }
+
     fn render_scene(&mut self) -> PlatformResult<FrameOutcome> {
         let seconds = self.elapsed_seconds as f32;
         let active_pipeline = self.current_pipeline();
@@ -319,11 +383,13 @@ impl HelloShaderApp {
         self.frame_index = self.frame_index.saturating_add(1);
         if self.frame_index.is_multiple_of(120) {
             println!(
-                "hello-shader frame {}: draws={}, material_resolutions={}, pipeline_switches={}, transparent_draws={}, derived_cache_hits={}, derived_cache_misses={}, binding_allocations={}, uniform_writes={}",
+                "hello-shader frame {}: draws={}, material_resolutions={}, pipeline_switches={}, pipeline_creations={}, pipeline_replacements={}, transparent_draws={}, derived_cache_hits={}, derived_cache_misses={}, binding_allocations={}, uniform_writes={}",
                 self.frame_index,
                 stats.frame.draw_calls,
                 stats.frame.material_resolutions,
                 stats.frame.pipeline_switches,
+                stats.frame.pipeline_creations,
+                stats.frame.pipeline_replacements,
                 stats.frame.transparent_draws,
                 stats.frame.derived_material_cache_hits,
                 stats.frame.derived_material_cache_misses,
@@ -361,21 +427,21 @@ impl HelloShaderApp {
             println!(
                 "hello-shader backend diagnostic fixture passed: module=hello-shader-intentional-invalid, vertex=vs_fixture, fragment=fs_fixture"
             );
-            return Ok(FrameOutcome::Exit);
+            return Ok(self.finish_fixture());
         }
         if self.verify_steady_state && self.frame_index >= 2 {
-            if stats.frame.binding_allocations != 0 {
+            if stats.frame.binding_allocations != 0 || stats.frame.pipeline_creations != 0 {
                 return Err(format!(
-                    "unchanged steady-state frame allocated {} material bindings",
-                    stats.frame.binding_allocations
+                    "unchanged steady-state frame allocated {} material bindings and created {} pipelines",
+                    stats.frame.binding_allocations, stats.frame.pipeline_creations
                 )
                 .into());
             }
             println!(
-                "hello-shader steady-state fixture passed: frame={}, binding_allocations=0",
-                self.frame_index
+                "hello-shader steady-state fixture passed: frame={}, binding_allocations=0, pipeline_creations=0",
+                self.frame_index,
             );
-            return Ok(FrameOutcome::Exit);
+            return Ok(self.finish_fixture());
         }
         self.update_window_title();
         Ok(FrameOutcome::Continue)

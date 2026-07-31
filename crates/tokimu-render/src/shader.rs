@@ -264,6 +264,23 @@ pub enum ShaderVertexSemantic {
     Normal3,
 }
 
+/// The ownership boundary at which shader authoring failed.
+///
+/// This is deliberately provider-neutral. Renderer adapters report backend
+/// compilation separately rather than asking semantic declarations to expose
+/// backend error formats.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ShaderDiagnosticStage {
+    /// The bounded semantic shader-module declaration is invalid.
+    SemanticValidation,
+    /// The pipeline declaration cannot be prepared for backend submission.
+    PipelineValidation,
+    /// A material or mesh cannot satisfy an otherwise valid draw contract.
+    DrawContractValidation,
+    /// A renderer adapter rejected source during backend compilation.
+    BackendCompilation,
+}
+
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum ShaderModuleValidationError {
     #[error("{kind} identifier `{value}` is empty or contains unsupported characters")]
@@ -300,6 +317,13 @@ pub enum ShaderModuleValidationError {
         count: usize,
         maximum: usize,
     },
+}
+
+impl ShaderModuleValidationError {
+    /// Identifies semantic shader-module validation as the owning boundary.
+    pub const fn stage(&self) -> ShaderDiagnosticStage {
+        ShaderDiagnosticStage::SemanticValidation
+    }
 }
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
@@ -537,6 +561,7 @@ mod tests {
                 value: "vertex-main".to_owned(),
             }
         );
+        assert_eq!(error.stage(), ShaderDiagnosticStage::SemanticValidation);
     }
 
     #[test]

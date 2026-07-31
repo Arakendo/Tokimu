@@ -31,6 +31,14 @@ pub struct RenderFrameStats {
     /// Pipeline state selections required by the latest frame. The first
     /// pipeline bound in a render pass counts as a selection.
     pub pipeline_switches: u32,
+    /// Backend pipeline objects created between the latest frame boundaries.
+    ///
+    /// This is deliberately distinct from `pipeline_switches`: selecting an
+    /// existing pipeline for a draw must not imply recompiling one.
+    pub pipeline_creations: u32,
+    /// Pipeline creations that replaced an existing registered handle during
+    /// the latest frame.
+    pub pipeline_replacements: u32,
     /// Draws whose resolved material color has non-opaque alpha.
     ///
     /// This is measured after per-draw presentation overrides are applied. It
@@ -62,6 +70,11 @@ pub struct RenderLifetimeStats {
     pub material_resolutions: u64,
     /// Pipeline state selections since renderer creation.
     pub pipeline_switches: u64,
+    /// Backend pipeline objects created since renderer creation.
+    pub pipeline_creations: u64,
+    /// Pipeline creations that replaced an existing registered handle since
+    /// renderer creation.
+    pub pipeline_replacements: u64,
     /// Draws with a resolved non-opaque material color since renderer creation.
     pub transparent_draws: u64,
     /// Reused derived material bindings since renderer creation.
@@ -119,6 +132,16 @@ impl RenderStatsTracker {
     pub(crate) fn record_pipeline_switch(&mut self) {
         self.frame.pipeline_switches = self.frame.pipeline_switches.saturating_add(1);
         self.lifetime.pipeline_switches = self.lifetime.pipeline_switches.saturating_add(1);
+    }
+
+    pub(crate) fn record_pipeline_creation(&mut self, replaced_existing: bool) {
+        self.frame.pipeline_creations = self.frame.pipeline_creations.saturating_add(1);
+        self.lifetime.pipeline_creations = self.lifetime.pipeline_creations.saturating_add(1);
+        if replaced_existing {
+            self.frame.pipeline_replacements = self.frame.pipeline_replacements.saturating_add(1);
+            self.lifetime.pipeline_replacements =
+                self.lifetime.pipeline_replacements.saturating_add(1);
+        }
     }
 
     pub(crate) fn record_transparent_draw(&mut self) {
@@ -203,6 +226,7 @@ mod tests {
         tracker.record_uniform_buffer_write();
         tracker.record_material_resolution();
         tracker.record_pipeline_switch();
+        tracker.record_pipeline_creation(false);
         tracker.record_transparent_draw();
         tracker.record_derived_material_cache_hit();
         tracker.record_derived_material_cache_miss();
@@ -218,12 +242,15 @@ mod tests {
         assert_eq!(first.frame.mesh_replacements, 1);
         assert_eq!(first.frame.material_resolutions, 1);
         assert_eq!(first.frame.pipeline_switches, 1);
+        assert_eq!(first.frame.pipeline_creations, 1);
+        assert_eq!(first.frame.pipeline_replacements, 0);
         assert_eq!(first.frame.transparent_draws, 1);
         assert_eq!(first.frame.derived_material_cache_hits, 1);
         assert_eq!(first.frame.derived_material_cache_misses, 1);
         assert_eq!(first.lifetime.mesh_uploads, 1);
         assert_eq!(first.lifetime.mesh_replacements, 1);
         assert_eq!(first.lifetime.material_resolutions, 1);
+        assert_eq!(first.lifetime.pipeline_creations, 1);
         assert_eq!(first.lifetime.pipeline_switches, 1);
         assert_eq!(first.lifetime.transparent_draws, 1);
         assert_eq!(
@@ -241,6 +268,8 @@ mod tests {
         assert_eq!(second.frame.mesh_replacements, 0);
         assert_eq!(second.frame.material_resolutions, 0);
         assert_eq!(second.frame.pipeline_switches, 0);
+        assert_eq!(second.frame.pipeline_creations, 0);
+        assert_eq!(second.frame.pipeline_replacements, 0);
         assert_eq!(second.frame.transparent_draws, 0);
         assert_eq!(second.frame.derived_material_cache_hits, 0);
         assert_eq!(second.frame.derived_material_cache_misses, 0);
@@ -248,5 +277,6 @@ mod tests {
         assert_eq!(second.lifetime.mesh_uploads, 1);
         assert_eq!(second.lifetime.mesh_replacements, 1);
         assert_eq!(second.lifetime.transparent_draws, 1);
+        assert_eq!(second.lifetime.pipeline_creations, 1);
     }
 }

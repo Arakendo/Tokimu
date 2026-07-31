@@ -54,7 +54,17 @@ graph or material editor runtime.
 
 Run `cargo run -p hello-shader -- --semantic-diagnostic-fixture` to prove a
 malformed semantic declaration fails before backend compilation. The fixture
-expects the `shader entry point` validation boundary to reject `vs-invalid`.
+expects the `shader entry point` validation boundary to reject `vs-invalid`
+with `ShaderDiagnosticStage::SemanticValidation`.
+
+Run `cargo run -p hello-shader -- --pipeline-diagnostic-fixture` to prove a
+custom pipeline missing WGSL source fails at
+`ShaderDiagnosticStage::PipelineValidation`, before a renderer adapter is
+created.
+
+Run `cargo run -p hello-shader -- --draw-contract-diagnostic-fixture` to prove
+a lit pipeline rejects a mesh without normal data at
+`ShaderDiagnosticStage::DrawContractValidation`, before draw submission.
 
 Run `cargo run -p hello-shader -- --backend-diagnostic-fixture` to create a
 short-lived native backend, register a deliberately invalid WGSL module, flush
@@ -65,8 +75,9 @@ so normal visual corpus evidence is unchanged.
 
 Run `cargo run -p hello-shader -- --steady-state-fixture` to render two
 unchanged native frames and verify the second frame allocates no material
-bindings. This is intentionally a narrow allocation proof; it does not claim
-pipeline recreation or per-target override behavior is fully covered.
+bindings or backend pipelines. This is intentionally a narrow allocation and
+pipeline-reuse proof; it does not claim per-target override behavior is fully
+covered.
 
 ## Architecture Boundaries
 

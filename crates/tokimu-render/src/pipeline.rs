@@ -1,6 +1,7 @@
 use crate::{
-    MaterialDefinition, Mesh, PipelineHandle, ShaderMaterialCompatibilityError,
-    ShaderMeshCompatibilityError, ShaderModuleDefinition, ShaderModuleValidationError,
+    MaterialDefinition, Mesh, PipelineHandle, ShaderDiagnosticStage,
+    ShaderMaterialCompatibilityError, ShaderMeshCompatibilityError, ShaderModuleDefinition,
+    ShaderModuleValidationError,
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -139,6 +140,13 @@ pub enum PipelineValidationError {
         #[source]
         source: ShaderModuleValidationError,
     },
+}
+
+impl PipelineValidationError {
+    /// Identifies pipeline declaration validation as the owning boundary.
+    pub const fn stage(&self) -> ShaderDiagnosticStage {
+        ShaderDiagnosticStage::PipelineValidation
+    }
 }
 
 impl PipelineKind {
@@ -503,6 +511,17 @@ pub enum PipelineDrawContractError {
     ShaderModule(#[from] ShaderModuleValidationError),
 }
 
+impl PipelineDrawContractError {
+    /// Identifies material/mesh compatibility as the owning boundary.
+    pub const fn stage(&self) -> ShaderDiagnosticStage {
+        match self {
+            Self::InvalidPipeline(error) => error.stage(),
+            Self::Material(_) | Self::Mesh(_) => ShaderDiagnosticStage::DrawContractValidation,
+            Self::ShaderModule(error) => error.stage(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PipelineRegistry {
     next_handle: u64,
@@ -699,12 +718,16 @@ mod tests {
     fn rejects_custom_pipelines_without_a_shader_before_backend_submission() {
         let pipeline = Pipeline::new("missing-custom-source", PipelineKind::CustomWgsl2d);
 
+        let error = pipeline
+            .validate()
+            .expect_err("missing source must reject the pipeline");
         assert_eq!(
-            pipeline.validate(),
-            Err(PipelineValidationError::MissingCustomShaderSource {
+            error,
+            PipelineValidationError::MissingCustomShaderSource {
                 label: "missing-custom-source".to_owned(),
-            })
+            }
         );
+        assert_eq!(error.stage(), ShaderDiagnosticStage::PipelineValidation);
     }
 
     #[test]
@@ -741,12 +764,16 @@ mod tests {
         );
         let mesh = crate::Mesh::new(vec![[0.0, 0.0, 0.0]], vec![]);
 
+        let error = pipeline
+            .validate_draw_contract(&material, &mesh)
+            .expect_err("missing normals must reject the draw contract");
         assert!(matches!(
-            pipeline.validate_draw_contract(&material, &mesh),
-            Err(PipelineDrawContractError::Mesh(
+            error,
+            PipelineDrawContractError::Mesh(
                 ShaderMeshCompatibilityError::MissingVertexInput { .. }
-            ))
+            )
         ));
+        assert_eq!(error.stage(), ShaderDiagnosticStage::DrawContractValidation);
     }
 
     #[test]

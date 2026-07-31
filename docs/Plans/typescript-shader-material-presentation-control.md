@@ -604,8 +604,10 @@ Deliverables:
 - [ ] Add diagnostics for unknown targets, unknown parameters, invalid values,
       incompatible pipelines, shader compilation, and backend capability gaps.
       The current `hello-shader` corpus now drains asynchronous WGPU backend
-      diagnostics after presentation; the remaining categories still need
-      deliberate authoring fixtures and public routing.
+      diagnostics after presentation. Rust semantic module, pipeline, and draw
+      contract errors now expose a provider-neutral `ShaderDiagnosticStage`, so
+      consumers can route an owning boundary without parsing text. The remaining
+      categories still need deliberate authoring fixtures and public routing.
 - [x] Add counters for material resolution, binding writes, pipeline switches,
       transparent draws, and derived-resource cache behavior. Renderer frame and
       lifetime stats now report material resolutions, pipeline selections, and
@@ -621,14 +623,19 @@ Deliverables:
 - [ ] Ensure authored shader definitions cannot access files, network, DOM,
       timers, process state, or ambient randomness.
 - [x] Add bounded malformed authoring fixtures. `hello-shader` now provides a
-      semantic invalid-entry-point fixture that cannot reach a backend and a
-      separately labeled backend-invalid WGSL fixture that proves native error
-      provenance. Adversarial TypeScript lowering fixtures remain deferred with
-      Slice 9.
+      semantic invalid-entry-point fixture, a missing-source pipeline fixture,
+      and a missing-normal draw-contract fixture that all fail before backend
+      submission. A separately labeled backend-invalid WGSL fixture proves
+      native error provenance. Adversarial TypeScript lowering fixtures remain
+      deferred with Slice 9.
 
 Acceptance criteria:
 
-- [ ] Normal steady-state overrides do not recreate pipelines.
+- [x] Normal steady-state overrides do not recreate pipelines. Renderer frame
+      and lifetime telemetry now distinguish pipeline selection from backend
+      pipeline creation/replacement; `hello-shader --steady-state-fixture`
+      fails unless its unchanged second frame reports zero binding allocations
+      and zero pipeline creations.
 - [x] Repeated unchanged native corpus frames do not allocate material bindings.
       `hello-shader --steady-state-fixture` renders two unchanged frames and
       fails unless the second frame reports zero binding allocations.
@@ -637,6 +644,9 @@ Acceptance criteria:
       input remains deferred with Slice 9.
 - [ ] Diagnostics identify the owning stage: TypeScript recognition, semantic
       validation, WGSL generation, pipeline validation, or backend compilation.
+      The current Rust path covers semantic validation, pipeline validation, and
+      draw-contract validation with `ShaderDiagnosticStage`; TypeScript
+      recognition/WGSL generation and structured backend routing remain open.
 
 ### Slice 11: Admission Review And Documentation
 

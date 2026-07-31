@@ -38,10 +38,10 @@ pub use resources::{
     CameraHandle, MaterialHandle, MeshHandle, PipelineHandle, RenderableHandle, TextureHandle,
 };
 pub use shader::{
-    ShaderBindingDeclaration, ShaderBindingSource, ShaderMaterialCompatibilityError,
-    ShaderMeshCompatibilityError, ShaderModuleDefinition, ShaderModuleValidationError,
-    ShaderVertexInput, ShaderVertexSemantic, MAX_SHADER_BINDINGS, MAX_SHADER_SOURCE_BYTES,
-    MAX_SHADER_VERTEX_INPUTS,
+    ShaderBindingDeclaration, ShaderBindingSource, ShaderDiagnosticStage,
+    ShaderMaterialCompatibilityError, ShaderMeshCompatibilityError, ShaderModuleDefinition,
+    ShaderModuleValidationError, ShaderVertexInput, ShaderVertexSemantic, MAX_SHADER_BINDINGS,
+    MAX_SHADER_SOURCE_BYTES, MAX_SHADER_VERTEX_INPUTS,
 };
 pub use texture::Texture;
 pub use wgpu_backend::{WgpuBackend, WgpuBackendError};

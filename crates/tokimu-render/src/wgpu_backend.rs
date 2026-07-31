@@ -771,9 +771,11 @@ impl WgpuBackend {
             ),
         };
 
+        let replaced_existing = self.pipelines.contains_key(&handle);
         self.pipeline_registry
             .register_with_handle(handle, pipeline);
         self.pipelines.insert(handle, compiled);
+        self.stats.record_pipeline_creation(replaced_existing);
         Ok(())
     }
 
