@@ -4,13 +4,37 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress: standalone workbench and website-island integration |
+| Status | Public v1 proof deployed; corpus hardening and admission review remain |
 | Consumer tier | Tier 2: incubating consumer |
 | Target | Rust/WASM application embedded as an optional `tokimuengine.org` island |
+| Public evidence | `https://tokimuengine.org/lab/paint/` |
+| Last reviewed | 2026-07-31 |
 | Source discussion | `docs/Conversations/Tokimu Paint.md` |
 | Related plans | `consumer-corpora.md`, `tokimu-website.md`, `typescript-shader-material-presentation-control.md` |
 | Related corpus | `corpus/lib/raster-image-corpus`, `corpus/hello-raster-image` |
 | Related review | `AR-0006-raster-image-requirement-pipeline.md` |
+
+### Public Proof Checkpoint
+
+The first public Paint proof is deployed at
+`https://tokimuengine.org/lab/paint/`. The deployed consumer demonstrates:
+
+- a Rust/WASM-owned editable image, command history, preview, and PNG export;
+- TypeScript-owned pointer, keyboard, file, toolbar, zoom, and download
+  mechanisms;
+- Canvas as a copied-pixel presentation target rather than the authoritative
+  document or save source;
+- pencil, eraser, bounded brush size, exact-match fill, sampling, new/open,
+  undo/redo, reset, zoom/fit, and deterministic PNG export;
+- state-aware undo and redo controls and a visually bounded document canvas;
+- Lucide-backed toolbar presentation without making icon identity part of the
+  Paint engine contract;
+- a durable static page, bounded payload checks, automated website publication,
+  and teardown paths for the website island and standalone workbench.
+
+This checkpoint is public consumer evidence, not capability graduation. Native
+and WASM parity artifacts, structured session diagnostics, formal browser
+coverage, separately stored screenshots, and the admission review remain open.
 
 ## Purpose
 
@@ -675,8 +699,8 @@ Deliverables:
 Acceptance criteria:
 
 - [ ] Native and WASM command sequences produce equivalent observations.
-- [ ] Provider-native and browser-native objects do not cross the API.
-- [ ] Large buffers have explicit ownership and lifetime.
+- [x] Provider-native and browser-native objects do not cross the API.
+- [x] Large buffers have explicit copied-buffer ownership and session lifetime.
 - [x] Disposed sessions reject further operations predictably.
 
 ### Slice 7: Standalone Browser Workbench
@@ -699,7 +723,7 @@ Acceptance criteria:
 - [x] The TypeScript adapter typechecks against the generated WASM contract.
 - [x] Canvas is fed from copied Rust/WASM preview bytes and never becomes the
       authoritative edit or save source.
-- [ ] A browser run proves a user can open, draw, fill, sample, undo, redo,
+- [x] A public browser run proves a user can open, draw, fill, sample, undo, redo,
       and export.
 - [ ] Pointer, keyboard, touch, and resize mechanisms release on disposal.
 - [x] Verbose browser observations cannot resize or cover the editing viewport.
@@ -722,8 +746,8 @@ Deliverables:
 Acceptance criteria:
 
 - [x] The page remains useful without JavaScript or WASM.
-- [ ] Activation creates one bounded session.
-- [ ] Reset and navigation release all owned resources.
+- [x] Activation creates one bounded session.
+- [x] Reset and navigation release all owned resources.
 - [ ] No image bytes leave the browser.
 - [x] The website labels Paint as experimental consumer evidence.
 
@@ -744,9 +768,9 @@ Acceptance criteria:
 
 - [ ] Regressions localize to decode, document, command, history, preview,
       encode, or browser ownership.
-- [ ] Structural assertions remain authoritative over screenshots.
-- [ ] Correctness tests remain headless and deterministic where meaningful.
-- [ ] Performance and memory policies fail visibly rather than degrading
+- [x] Structural assertions remain authoritative over screenshots.
+- [x] Correctness tests remain headless and deterministic where meaningful.
+- [x] Performance and memory policies fail visibly rather than degrading
       without diagnosis.
 
 ### Slice 10: Admission Review
@@ -783,6 +807,9 @@ The first useful public Paint island is complete when a visitor can:
 - inspect dimensions, revision, dirty state, history, and diagnostics;
 - export one lossless image format;
 - reset and release the application cleanly.
+
+This public interaction checklist was demonstrated on the deployed website on
+2026-07-31. It records an observed consumer proof, not a cross-browser guarantee.
 
 The release must also prove:
 
