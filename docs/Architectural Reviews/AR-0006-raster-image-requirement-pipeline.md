@@ -424,6 +424,37 @@ This review is already active. After a disposition, reopen it when:
   watch item and audio as a future falsification case; no shared `Requirement`
   abstraction and no ADR admitted.
 
+### Cycle 3 -- 2026-08-01
+
+- Status entering review: Under Review
+- New evidence: `tokimu-render` now distinguishes explicit RGBA8 linear and
+  sRGB creation from whole-resource in-place writes. The
+  `hello-streaming-texture` corpus creates one texture and material, writes
+  deterministic application-owned frames through the same handle, and checks
+  allocation, replacement, and write counters without DMX or Spout
+  dependencies. `hello-raster-image` also consumes the explicit immutable
+  creation path. `hello-texture-color-space` constructs identical encoded
+  RGBA8 bytes under distinct linear and sRGB descriptors. Both focused texture
+  corpus packages compile for native and `wasm32-unknown-unknown`; their
+  native visual comparisons remain manual evidence, not a browser proof or
+  color-management guarantee. The streaming corpus also exposes an explicit
+  1920 by 1080 native stress profile while preserving its small default case.
+  A bounded native run completed 300 stress-profile updates with one texture
+  allocation, zero replacements, and 301 lifetime writes.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: mutable pixel contents do not require mutable texture identity;
+  stable texture, view, handle, and material binding identity belong to the
+  renderer resource lifecycle. Linear versus sRGB interpretation must be
+  explicit before backend allocation. This evidence still does not establish
+  a generalized image requirement, sampler/mip model, resize contract, or
+  final output color policy. Final output interpretation remains a consumer
+  decision; this renderer evidence does not choose monitor, browser, Spout,
+  OBS, HDR, or transfer-function policy.
+- Disposition: Under Review
+- Resulting ADR or documentation change: bounded renderer creation/update
+  contracts and texture lifecycle counters admitted for incubation; no new
+  crate, kernel ownership, or generalized `Requirement` abstraction.
+
 ## References
 
 - `docs/Conversations/AR - Raster Image Requirement Pipeline.md`
@@ -435,6 +466,8 @@ This review is already active. After a disposition, reopen it when:
 - `corpus/lib/raster-image-corpus/tests/asset_resolution.rs`
 - `corpus/hello-raster-image/DESIGN.md`
 - `corpus/hello-raster-image/src/main.rs`
+- `corpus/hello-streaming-texture/DESIGN.md`
+- `corpus/hello-streaming-texture/src/main.rs`
 - `crates/tokimu-assets`
 - `crates/tokimu-render`
 - `docs/Tokimu Software Design Document.md`

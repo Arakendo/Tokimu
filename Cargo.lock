@@ -906,11 +906,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-streaming-texture"
+version = "0.1.0"
+dependencies = [
+ "screenshot",
+ "tokimu",
+]
+
+[[package]]
 name = "hello-svg"
 version = "0.1.0"
 dependencies = [
  "tokimu",
  "tokimu-core",
+]
+
+[[package]]
+name = "hello-texture-color-space"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
 ]
 
 [[package]]

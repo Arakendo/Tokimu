@@ -3,8 +3,8 @@ use std::{collections::HashMap, env, fs, sync::Arc, time::Instant};
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
-    PipelineKind, PlatformEventHandler, PlatformResult, RenderCommand, Renderer, Texture,
-    TextureHandle, WgpuBackend, WindowConfig,
+    PipelineKind, PlatformEventHandler, PlatformResult, RenderCommand, Renderer,
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend, WindowConfig,
 };
 use ui_tools::{alpha_to_rgba8, UiFontFormat, UiFontRasterizer, UiFontSource, TEXT_CORPUS};
 use ui_tools::{tessellate_general_fill, UiGlyphOutlineSegment, UiGlyphVectorOptions};
@@ -201,14 +201,16 @@ impl PlatformEventHandler for App {
             if heading.width > 0 && heading.height > 0 {
                 let texture = TextureHandle(material_id);
                 let material = MaterialHandle(material_id);
-                renderer.upload_texture(
+                let heading_rgba8 = alpha_to_rgba8(&heading.alpha, [220, 228, 240]);
+                renderer.create_texture_rgba8(
                     texture,
-                    &Texture::rgba8(
+                    Rgba8TextureDescriptor::new(
                         heading.width,
                         heading.height,
-                        alpha_to_rgba8(&heading.alpha, [220, 228, 240]),
+                        Rgba8TextureColorSpace::Srgb,
                     ),
-                );
+                    &heading_rgba8,
+                )?;
                 renderer.upload_material(
                     material,
                     &Material::new("font2-heading", Color::rgb(color[0], color[1], color[2]))
@@ -288,8 +290,15 @@ impl PlatformEventHandler for App {
                 let texture = TextureHandle(material_id);
                 let material = MaterialHandle(material_id);
                 let rgba = alpha_to_rgba8(&bitmap.alpha, [0xff, 0xff, 0xff]);
-                renderer
-                    .upload_texture(texture, &Texture::rgba8(bitmap.width, bitmap.height, rgba));
+                renderer.create_texture_rgba8(
+                    texture,
+                    Rgba8TextureDescriptor::new(
+                        bitmap.width,
+                        bitmap.height,
+                        Rgba8TextureColorSpace::Srgb,
+                    ),
+                    &rgba,
+                )?;
                 renderer.upload_material(
                     material,
                     &Material::new("font2-line", Color::rgb(color[0], color[1], color[2]))

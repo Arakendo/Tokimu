@@ -8,7 +8,8 @@ use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
     PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
-    Renderer, Texture, TextureHandle, WgpuBackend, WindowConfig,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend,
+    WindowConfig,
 };
 use ui_tools::{
     alpha_to_rgba8, layout_bitmap_text, text_corpus_samples, UiFontFormat, UiFontRasterizer,
@@ -220,14 +221,16 @@ impl PlatformEventHandler for HelloUiGlyphCorpus {
             }
             let texture = TextureHandle(100 + index as u64);
             let material = MaterialHandle(100 + index as u64);
-            renderer.upload_texture(
+            let rgba8 = alpha_to_rgba8(&bitmap.alpha, [220, 228, 240]);
+            renderer.create_texture_rgba8(
                 texture,
-                &Texture::rgba8(
+                Rgba8TextureDescriptor::new(
                     bitmap.width,
                     bitmap.height,
-                    alpha_to_rgba8(&bitmap.alpha, [220, 228, 240]),
+                    Rgba8TextureColorSpace::Srgb,
                 ),
-            );
+                &rgba8,
+            )?;
             renderer.upload_material(
                 material,
                 &Material::new("glyph-font", Color::rgb(0.86, 0.90, 0.96)).with_texture(texture),

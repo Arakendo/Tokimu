@@ -43,5 +43,7 @@ pub use shader::{
     ShaderModuleValidationError, ShaderVertexInput, ShaderVertexSemantic, MAX_SHADER_BINDINGS,
     MAX_SHADER_SOURCE_BYTES, MAX_SHADER_VERTEX_INPUTS,
 };
-pub use texture::Texture;
+pub use texture::{
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, Texture, TextureValidationError,
+};
 pub use wgpu_backend::{WgpuBackend, WgpuBackendError};

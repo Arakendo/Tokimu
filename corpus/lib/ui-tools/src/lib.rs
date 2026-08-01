@@ -61,14 +61,13 @@ pub mod provider {
         SvgImportDiagnostic, SvgImportStage, SvgPathCommand, SvgStrokeLinecap, SvgStrokeLinejoin,
         SvgToken, SvgVectorRecord, SvgViewportSource, UiBitmapTextMetricsProvider, UiFontFormat,
         UiFontHandle, UiFontIdentity, UiFontProviderId, UiFontRasterizer, UiFontSource,
-        UiGlyphContour, UiGlyphFillTopology,
-        UiGlyphOutline, UiGlyphOutlineDiagnostic, UiGlyphOutlineDiagnosticKind,
-        UiGlyphOutlineSegment, UiGlyphVectorDiagnostic, UiGlyphVectorDiagnosticKind,
-        UiGlyphVectorOptions, UiIconDiagnostic, UiIconDiagnosticKind, UiIconHandle, UiIconId,
-        UiIconMetrics, UiIconProviderId, UiIconResolution, UiIconSpec, UiIconTint,
-        UiIconVectorAsset, UiIconVectorProvider, UiRasterGlyph, UiRasterText, UiRasterTextBitmap,
-        UiRasterTextBlock, UiRasterTextGlyph, UiRasterTextMetricsProvider, UiTextMetrics,
-        UiTextMetricsProvider,
+        UiGlyphContour, UiGlyphFillTopology, UiGlyphOutline, UiGlyphOutlineDiagnostic,
+        UiGlyphOutlineDiagnosticKind, UiGlyphOutlineSegment, UiGlyphVectorDiagnostic,
+        UiGlyphVectorDiagnosticKind, UiGlyphVectorOptions, UiIconDiagnostic, UiIconDiagnosticKind,
+        UiIconHandle, UiIconId, UiIconMetrics, UiIconProviderId, UiIconResolution, UiIconSpec,
+        UiIconTint, UiIconVectorAsset, UiIconVectorProvider, UiRasterGlyph, UiRasterText,
+        UiRasterTextBitmap, UiRasterTextBlock, UiRasterTextGlyph, UiRasterTextMetricsProvider,
+        UiTextMetrics, UiTextMetricsProvider,
     };
 }
 

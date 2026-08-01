@@ -2,8 +2,8 @@ use crate::{
     BlendMode, Camera, CameraHandle, Color, ColorWriteMask, CullMode, DepthTest, Instance2d,
     Material, MaterialHandle, MaterialOverride, Mesh, MeshHandle, Pipeline, PipelineHandle,
     PipelineKind, PipelineRegistry, PipelineRenderState, PipelineValidationError, RenderCommand,
-    RenderFrameCpuTimings, RenderStats, Renderable, RenderableHandle, Renderer, Texture,
-    TextureHandle,
+    RenderFrameCpuTimings, RenderStats, Renderable, RenderableHandle, Renderer,
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, Texture, TextureHandle, TextureValidationError,
 };
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -41,6 +41,20 @@ pub enum WgpuBackendError {
     MissingRenderable(u64),
     #[error("texture handle {0} has not been uploaded")]
     MissingTexture(u64),
+    #[error("texture handle {0} already exists")]
+    TextureAlreadyExists(u64),
+    #[error(
+        "texture handle {handle} has dimensions {expected_width}x{expected_height}, not {actual_width}x{actual_height}"
+    )]
+    TextureDimensionsMismatch {
+        handle: u64,
+        expected_width: u32,
+        expected_height: u32,
+        actual_width: u32,
+        actual_height: u32,
+    },
+    #[error("invalid RGBA8 texture declaration: {0}")]
+    InvalidTexture(#[from] TextureValidationError),
     #[error("invalid pipeline declaration: {0}")]
     InvalidPipeline(#[from] PipelineValidationError),
 }
@@ -69,8 +83,9 @@ struct GpuMaterial {
 }
 
 struct GpuTexture {
-    _texture: wgpu::Texture,
-    _view: Arc<wgpu::TextureView>,
+    texture: wgpu::Texture,
+    view: Arc<wgpu::TextureView>,
+    descriptor: Rgba8TextureDescriptor,
 }
 
 #[derive(Clone, Copy)]
@@ -482,49 +497,115 @@ impl WgpuBackend {
         self.stats.record_mesh_upload(replaced_existing);
     }
 
-    /// Uploads an RGBA8 image for future texture-backed pipelines.
+    /// Creates one RGBA8 texture with explicit color interpretation.
+    ///
+    /// Creation rejects an existing handle and stores a stable texture/view
+    /// identity. Callers that need changing pixels without material rebinding
+    /// should create once and use [`Self::update_texture_rgba8`] thereafter.
+    pub fn create_texture_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+        rgba8: &[u8],
+    ) -> Result<(), WgpuBackendError> {
+        validate_rgba8_texture_creation(
+            handle,
+            self.textures.contains_key(&handle),
+            descriptor,
+            rgba8,
+        )?;
+
+        self.allocate_texture_rgba8(handle, descriptor, rgba8, false);
+        Ok(())
+    }
+
+    /// Rewrites all pixels in an existing RGBA8 texture without replacing its identity.
+    ///
+    /// The requested dimensions must exactly match the original descriptor and
+    /// `rgba8` must contain the complete payload. Resizing, partial writes, and
+    /// color-space changes are intentionally not inferred by this operation.
+    pub fn update_texture_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        width: u32,
+        height: u32,
+        rgba8: &[u8],
+    ) -> Result<(), WgpuBackendError> {
+        let expected = self.textures.get(&handle).map(|texture| texture.descriptor);
+        let expected = validate_rgba8_texture_update(handle, expected, width, height, rgba8)?;
+        let gpu_texture = self
+            .textures
+            .get(&handle)
+            .expect("validated texture handle must remain registered");
+        write_rgba8_texture(
+            &self._queue,
+            &gpu_texture.texture,
+            expected.width,
+            expected.height,
+            rgba8,
+        );
+        self.stats.record_texture_write();
+        Ok(())
+    }
+
+    /// Compatibility create-or-replace upload using the historical sRGB interpretation.
+    ///
+    /// New callers that need stable resource identity should use
+    /// [`Self::create_texture_rgba8`] followed by [`Self::update_texture_rgba8`].
+    /// This bridge remains for existing immutable callers; it may replace a
+    /// texture and therefore does not preserve existing material views.
     pub fn upload_texture(&mut self, handle: TextureHandle, texture: &Texture) {
+        let descriptor = Rgba8TextureDescriptor::new(
+            texture.width,
+            texture.height,
+            Rgba8TextureColorSpace::Srgb,
+        );
+        descriptor
+            .validate_payload(&texture.rgba8)
+            .expect("compatibility texture upload requires a valid RGBA8 payload");
+        let replaced_existing = self.textures.contains_key(&handle);
+        self.allocate_texture_rgba8(handle, descriptor, &texture.rgba8, replaced_existing);
+    }
+
+    fn allocate_texture_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+        rgba8: &[u8],
+        replaced_existing: bool,
+    ) {
         let gpu_texture = self._device.create_texture(&wgpu::TextureDescriptor {
             label: Some("tokimu-texture"),
             size: wgpu::Extent3d {
-                width: texture.width,
-                height: texture.height,
+                width: descriptor.width,
+                height: descriptor.height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: rgba8_texture_format(descriptor.color_space),
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        self._queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &gpu_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &texture.rgba8,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * texture.width),
-                rows_per_image: Some(texture.height),
-            },
-            wgpu::Extent3d {
-                width: texture.width,
-                height: texture.height,
-                depth_or_array_layers: 1,
-            },
+        write_rgba8_texture(
+            &self._queue,
+            &gpu_texture,
+            descriptor.width,
+            descriptor.height,
+            rgba8,
         );
         let view = Arc::new(gpu_texture.create_view(&wgpu::TextureViewDescriptor::default()));
         self.textures.insert(
             handle,
             GpuTexture {
-                _texture: gpu_texture,
-                _view: view,
+                texture: gpu_texture,
+                view,
+                descriptor,
             },
         );
+        self.stats.record_texture_allocation(replaced_existing);
+        self.stats.record_texture_write();
     }
 
     pub fn upload_material(
@@ -556,10 +637,10 @@ impl WgpuBackend {
                         None,
                         None,
                         None,
-                        Arc::clone(&texture._view),
+                        Arc::clone(&texture.view),
                         Arc::new(
                             self._device
-                                .create_sampler(&wgpu::SamplerDescriptor::default()),
+                                .create_sampler(&rgba8_point_sampler_descriptor()),
                         ),
                     )
                 } else {
@@ -602,7 +683,7 @@ impl WgpuBackend {
                 let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let sampler = self
                     ._device
-                    .create_sampler(&wgpu::SamplerDescriptor::default());
+                    .create_sampler(&rgba8_point_sampler_descriptor());
                 let view = Arc::new(view);
                 let sampler = Arc::new(sampler);
                 (
@@ -1349,6 +1430,54 @@ fn color_write_mask(mask: ColorWriteMask) -> wgpu::ColorWrites {
     writes
 }
 
+fn rgba8_texture_format(color_space: Rgba8TextureColorSpace) -> wgpu::TextureFormat {
+    match color_space {
+        Rgba8TextureColorSpace::Linear => wgpu::TextureFormat::Rgba8Unorm,
+        Rgba8TextureColorSpace::Srgb => wgpu::TextureFormat::Rgba8UnormSrgb,
+    }
+}
+
+fn rgba8_point_sampler_descriptor() -> wgpu::SamplerDescriptor<'static> {
+    wgpu::SamplerDescriptor {
+        label: Some("tokimu-rgba8-point-clamp-sampler"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        ..wgpu::SamplerDescriptor::default()
+    }
+}
+
+fn write_rgba8_texture(
+    queue: &wgpu::Queue,
+    texture: &wgpu::Texture,
+    width: u32,
+    height: u32,
+    rgba8: &[u8],
+) {
+    queue.write_texture(
+        wgpu::ImageCopyTexture {
+            texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        rgba8,
+        wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * width),
+            rows_per_image: Some(height),
+        },
+        wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+    );
+}
+
 fn create_depth_texture(
     device: &wgpu::Device,
     width: u32,
@@ -1439,10 +1568,53 @@ fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
     })
 }
 
+// These checks are intentionally isolated from wgpu so failed requests can be
+// tested as non-destructive contract behavior without allocating a device.
+fn validate_rgba8_texture_creation(
+    handle: TextureHandle,
+    handle_exists: bool,
+    descriptor: Rgba8TextureDescriptor,
+    rgba8: &[u8],
+) -> Result<(), WgpuBackendError> {
+    descriptor.validate_payload(rgba8)?;
+    if handle_exists {
+        return Err(WgpuBackendError::TextureAlreadyExists(handle.0));
+    }
+    Ok(())
+}
+
+fn validate_rgba8_texture_update(
+    handle: TextureHandle,
+    expected: Option<Rgba8TextureDescriptor>,
+    width: u32,
+    height: u32,
+    rgba8: &[u8],
+) -> Result<Rgba8TextureDescriptor, WgpuBackendError> {
+    let expected = expected.ok_or(WgpuBackendError::MissingTexture(handle.0))?;
+    if width != expected.width || height != expected.height {
+        return Err(WgpuBackendError::TextureDimensionsMismatch {
+            handle: handle.0,
+            expected_width: expected.width,
+            expected_height: expected.height,
+            actual_width: width,
+            actual_height: height,
+        });
+    }
+    expected.validate_payload(rgba8)?;
+    Ok(expected)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{derived_material_key, drain_backend_diagnostic_messages};
-    use crate::{Color, MaterialHandle, MaterialOverride};
+    use super::{
+        derived_material_key, drain_backend_diagnostic_messages, rgba8_point_sampler_descriptor,
+        rgba8_texture_format, validate_rgba8_texture_creation, validate_rgba8_texture_update,
+        WgpuBackendError,
+    };
+    use crate::{
+        Color, MaterialHandle, MaterialOverride, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
+        TextureHandle, TextureValidationError,
+    };
     use std::sync::Mutex;
 
     #[test]
@@ -1480,6 +1652,77 @@ mod tests {
         assert_ne!(
             derived_material_key(source, selected),
             derived_material_key(source, faded)
+        );
+    }
+
+    #[test]
+    fn rgba8_color_space_maps_to_explicit_backend_formats() {
+        assert_eq!(
+            rgba8_texture_format(Rgba8TextureColorSpace::Linear),
+            wgpu::TextureFormat::Rgba8Unorm
+        );
+        assert_eq!(
+            rgba8_texture_format(Rgba8TextureColorSpace::Srgb),
+            wgpu::TextureFormat::Rgba8UnormSrgb
+        );
+    }
+
+    #[test]
+    fn rgba8_profile_preserves_point_filtering_and_clamp_addressing() {
+        let descriptor = rgba8_point_sampler_descriptor();
+
+        assert_eq!(descriptor.address_mode_u, wgpu::AddressMode::ClampToEdge);
+        assert_eq!(descriptor.address_mode_v, wgpu::AddressMode::ClampToEdge);
+        assert_eq!(descriptor.address_mode_w, wgpu::AddressMode::ClampToEdge);
+        assert_eq!(descriptor.mag_filter, wgpu::FilterMode::Nearest);
+        assert_eq!(descriptor.min_filter, wgpu::FilterMode::Nearest);
+        assert_eq!(descriptor.mipmap_filter, wgpu::FilterMode::Nearest);
+    }
+
+    #[test]
+    fn texture_creation_validation_rejects_duplicates_and_invalid_payloads_before_allocation() {
+        let descriptor = Rgba8TextureDescriptor::new(2, 2, Rgba8TextureColorSpace::Srgb);
+
+        assert!(matches!(
+            validate_rgba8_texture_creation(TextureHandle(7), true, descriptor, &[0; 16]),
+            Err(WgpuBackendError::TextureAlreadyExists(7))
+        ));
+        assert!(matches!(
+            validate_rgba8_texture_creation(TextureHandle(7), false, descriptor, &[0; 15]),
+            Err(WgpuBackendError::InvalidTexture(
+                TextureValidationError::PayloadLengthMismatch { .. }
+            ))
+        ));
+    }
+
+    #[test]
+    fn texture_update_validation_rejects_missing_resized_and_invalid_payload_requests() {
+        let handle = TextureHandle(9);
+        let descriptor = Rgba8TextureDescriptor::new(2, 2, Rgba8TextureColorSpace::Linear);
+
+        assert!(matches!(
+            validate_rgba8_texture_update(handle, None, 2, 2, &[0; 16]),
+            Err(WgpuBackendError::MissingTexture(9))
+        ));
+        assert!(matches!(
+            validate_rgba8_texture_update(handle, Some(descriptor), 1, 2, &[0; 8]),
+            Err(WgpuBackendError::TextureDimensionsMismatch {
+                expected_width: 2,
+                expected_height: 2,
+                actual_width: 1,
+                actual_height: 2,
+                ..
+            })
+        ));
+        assert!(matches!(
+            validate_rgba8_texture_update(handle, Some(descriptor), 2, 2, &[0; 15]),
+            Err(WgpuBackendError::InvalidTexture(
+                TextureValidationError::PayloadLengthMismatch { .. }
+            ))
+        ));
+        assert_eq!(
+            validate_rgba8_texture_update(handle, Some(descriptor), 2, 2, &[0; 16]).unwrap(),
+            descriptor
         );
     }
 }

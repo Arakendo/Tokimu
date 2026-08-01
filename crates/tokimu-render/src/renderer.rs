@@ -53,11 +53,45 @@ pub struct RenderFrameStats {
     pub mesh_uploads: u32,
     /// Mesh replacements performed between the latest frame boundaries.
     pub mesh_replacements: u32,
+    /// Backend texture allocations performed between the latest frame boundaries.
+    pub texture_allocations: u32,
+    /// Texture allocations that replaced an existing handle during the latest frame.
+    pub texture_replacements: u32,
+    /// Complete texture payload writes performed during the latest frame.
+    pub texture_writes: u32,
     /// Provider-observable CPU phases for the latest frame.
     ///
     /// `None` means the provider cannot observe that phase. These durations do
     /// not measure GPU execution or completion.
     pub cpu_timings: RenderFrameCpuTimings,
+}
+
+impl RenderFrameStats {
+    pub const EMPTY: Self = Self {
+        draw_calls: 0,
+        submit_calls: 0,
+        binding_allocations: 0,
+        uniform_buffer_writes: 0,
+        material_resolutions: 0,
+        pipeline_switches: 0,
+        pipeline_creations: 0,
+        pipeline_replacements: 0,
+        transparent_draws: 0,
+        derived_material_cache_hits: 0,
+        derived_material_cache_misses: 0,
+        mesh_uploads: 0,
+        mesh_replacements: 0,
+        texture_allocations: 0,
+        texture_replacements: 0,
+        texture_writes: 0,
+        cpu_timings: RenderFrameCpuTimings {
+            surface_acquire_call: None,
+            resource_preparation: None,
+            command_encoding: None,
+            queue_submit_call: None,
+            surface_present_call: None,
+        },
+    };
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -85,6 +119,31 @@ pub struct RenderLifetimeStats {
     pub mesh_uploads: u64,
     /// Uploads that replaced an existing mesh handle since renderer creation.
     pub mesh_replacements: u64,
+    /// Backend texture allocations since renderer creation.
+    pub texture_allocations: u64,
+    /// Texture allocations that replaced an existing handle since renderer creation.
+    pub texture_replacements: u64,
+    /// Complete texture payload writes since renderer creation.
+    pub texture_writes: u64,
+}
+
+impl RenderLifetimeStats {
+    pub const EMPTY: Self = Self {
+        binding_allocations: 0,
+        uniform_buffer_writes: 0,
+        material_resolutions: 0,
+        pipeline_switches: 0,
+        pipeline_creations: 0,
+        pipeline_replacements: 0,
+        transparent_draws: 0,
+        derived_material_cache_hits: 0,
+        derived_material_cache_misses: 0,
+        mesh_uploads: 0,
+        mesh_replacements: 0,
+        texture_allocations: 0,
+        texture_replacements: 0,
+        texture_writes: 0,
+    };
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -174,6 +233,21 @@ impl RenderStatsTracker {
         }
     }
 
+    pub(crate) fn record_texture_allocation(&mut self, replaced_existing: bool) {
+        self.frame.texture_allocations = self.frame.texture_allocations.saturating_add(1);
+        self.lifetime.texture_allocations = self.lifetime.texture_allocations.saturating_add(1);
+        if replaced_existing {
+            self.frame.texture_replacements = self.frame.texture_replacements.saturating_add(1);
+            self.lifetime.texture_replacements =
+                self.lifetime.texture_replacements.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn record_texture_write(&mut self) {
+        self.frame.texture_writes = self.frame.texture_writes.saturating_add(1);
+        self.lifetime.texture_writes = self.lifetime.texture_writes.saturating_add(1);
+    }
+
     pub(crate) fn record_frame_cpu_timings(&mut self, timings: RenderFrameCpuTimings) {
         self.frame.cpu_timings = timings;
     }
@@ -223,6 +297,9 @@ mod tests {
         tracker.record_draw_calls(4);
         tracker.record_submit_call();
         tracker.record_mesh_upload(true);
+        tracker.record_texture_allocation(false);
+        tracker.record_texture_write();
+        tracker.record_texture_write();
         tracker.record_uniform_buffer_write();
         tracker.record_material_resolution();
         tracker.record_pipeline_switch();
@@ -240,6 +317,9 @@ mod tests {
         assert_eq!(first.frame.submit_calls, 1);
         assert_eq!(first.frame.mesh_uploads, 1);
         assert_eq!(first.frame.mesh_replacements, 1);
+        assert_eq!(first.frame.texture_allocations, 1);
+        assert_eq!(first.frame.texture_replacements, 0);
+        assert_eq!(first.frame.texture_writes, 2);
         assert_eq!(first.frame.material_resolutions, 1);
         assert_eq!(first.frame.pipeline_switches, 1);
         assert_eq!(first.frame.pipeline_creations, 1);
@@ -249,6 +329,9 @@ mod tests {
         assert_eq!(first.frame.derived_material_cache_misses, 1);
         assert_eq!(first.lifetime.mesh_uploads, 1);
         assert_eq!(first.lifetime.mesh_replacements, 1);
+        assert_eq!(first.lifetime.texture_allocations, 1);
+        assert_eq!(first.lifetime.texture_replacements, 0);
+        assert_eq!(first.lifetime.texture_writes, 2);
         assert_eq!(first.lifetime.material_resolutions, 1);
         assert_eq!(first.lifetime.pipeline_creations, 1);
         assert_eq!(first.lifetime.pipeline_switches, 1);
@@ -266,6 +349,9 @@ mod tests {
         assert_eq!(second.frame.submit_calls, 0);
         assert_eq!(second.frame.mesh_uploads, 0);
         assert_eq!(second.frame.mesh_replacements, 0);
+        assert_eq!(second.frame.texture_allocations, 0);
+        assert_eq!(second.frame.texture_replacements, 0);
+        assert_eq!(second.frame.texture_writes, 0);
         assert_eq!(second.frame.material_resolutions, 0);
         assert_eq!(second.frame.pipeline_switches, 0);
         assert_eq!(second.frame.pipeline_creations, 0);
@@ -276,7 +362,33 @@ mod tests {
         assert_eq!(second.frame.cpu_timings, RenderFrameCpuTimings::default());
         assert_eq!(second.lifetime.mesh_uploads, 1);
         assert_eq!(second.lifetime.mesh_replacements, 1);
+        assert_eq!(second.lifetime.texture_allocations, 1);
+        assert_eq!(second.lifetime.texture_replacements, 0);
+        assert_eq!(second.lifetime.texture_writes, 2);
         assert_eq!(second.lifetime.transparent_draws, 1);
         assert_eq!(second.lifetime.pipeline_creations, 1);
+    }
+
+    #[test]
+    fn texture_replacement_is_distinct_from_steady_state_writes() {
+        let mut tracker = RenderStatsTracker::default();
+        tracker.begin_frame();
+        tracker.record_texture_allocation(true);
+        tracker.record_texture_write();
+
+        let replacement = tracker.snapshot();
+        assert_eq!(replacement.frame.texture_allocations, 1);
+        assert_eq!(replacement.frame.texture_replacements, 1);
+        assert_eq!(replacement.frame.texture_writes, 1);
+
+        tracker.begin_frame();
+        tracker.record_texture_write();
+        let update = tracker.snapshot();
+        assert_eq!(update.frame.texture_allocations, 0);
+        assert_eq!(update.frame.texture_replacements, 0);
+        assert_eq!(update.frame.texture_writes, 1);
+        assert_eq!(update.lifetime.texture_allocations, 1);
+        assert_eq!(update.lifetime.texture_replacements, 1);
+        assert_eq!(update.lifetime.texture_writes, 2);
     }
 }

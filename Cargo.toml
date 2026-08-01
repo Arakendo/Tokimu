@@ -45,6 +45,8 @@ members = [
     "corpus/hello-file-io",
     "corpus/hello-save-image",
     "corpus/hello-raster-image",
+    "corpus/hello-streaming-texture",
+    "corpus/hello-texture-color-space",
 
     # Networking corpus.
     "corpus/hello-network-loopback",

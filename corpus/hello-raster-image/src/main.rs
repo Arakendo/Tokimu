@@ -13,7 +13,8 @@ use tokimu::{
     run_window_with_app, BlendMode, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
     FrameOutcome, Instance2d, KeyCode, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow,
     Pipeline, PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderer, TextureHandle, WgpuBackend, WindowConfig,
+    PlatformResult, RenderCommand, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
+    TextureHandle, WgpuBackend, WindowConfig,
 };
 
 const QUAD: MeshHandle = MeshHandle(1);
@@ -207,7 +208,15 @@ impl PlatformEventHandler for App {
             let texture = TextureHandle(100 + index as u64);
             let source_material = MaterialHandle(100 + index as u64);
             let inspection_material = MaterialHandle(200 + index as u64);
-            renderer.upload_texture(texture, &prepared.texture);
+            renderer.create_texture_rgba8(
+                texture,
+                Rgba8TextureDescriptor::new(
+                    prepared.texture.width,
+                    prepared.texture.height,
+                    Rgba8TextureColorSpace::Srgb,
+                ),
+                &prepared.texture.rgba8,
+            )?;
             renderer.upload_material(
                 source_material,
                 &Material::new("raster-image-source", Color::rgb(1.0, 1.0, 1.0))

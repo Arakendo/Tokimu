@@ -147,14 +147,9 @@ impl UiTextMetricsProvider for UiBitmapTextMetricsProvider {
             .fold(0.0, f32::max);
         let glyph_height = bitmap_glyph_height(self.height);
         let line_height = bitmap_cell(self.height) * 9.0;
-        let block_height =
-            glyph_height + (line_count.saturating_sub(1) as f32 * line_height);
-        let visible_bounds = (advance > 0.0 && block_height > 0.0).then(|| {
-            UiRect::new(
-                [advance * 0.5, block_height * 0.5],
-                [advance, block_height],
-            )
-        });
+        let block_height = glyph_height + (line_count.saturating_sub(1) as f32 * line_height);
+        let visible_bounds = (advance > 0.0 && block_height > 0.0)
+            .then(|| UiRect::new([advance * 0.5, block_height * 0.5], [advance, block_height]));
 
         Ok(UiTextMeasure {
             advance,

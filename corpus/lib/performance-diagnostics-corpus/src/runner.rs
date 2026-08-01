@@ -137,7 +137,7 @@ pub fn run_case(case: &PerformanceCase) -> PerformanceCaseArtifact {
         .filter_map(|record| match record.kind {
             DiagnosticKind::PerformanceBudgetExceeded => Some(DiagnosticTransition::BudgetExceeded),
             DiagnosticKind::PerformanceRecovered => Some(DiagnosticTransition::Recovered),
-            DiagnosticKind::Message => None,
+            DiagnosticKind::Message | DiagnosticKind::BackendError => None,
         })
         .collect::<Vec<_>>();
     let actual = actual_outcome(case, &transitions, diagnostics.dropped_records());
@@ -223,6 +223,7 @@ fn diagnostic_artifact(record: &DiagnosticRecord) -> DiagnosticArtifact {
         .into(),
         kind: match record.kind {
             DiagnosticKind::Message => "message",
+            DiagnosticKind::BackendError => "backend-error",
             DiagnosticKind::PerformanceBudgetExceeded => "performance-budget-exceeded",
             DiagnosticKind::PerformanceRecovered => "performance-recovered",
         }
@@ -257,10 +258,16 @@ fn render_frame_artifact(sequence: usize, stats: RenderStats) -> RenderFrameArti
         uniform_buffer_writes: stats.frame.uniform_buffer_writes,
         mesh_uploads: stats.frame.mesh_uploads,
         mesh_replacements: stats.frame.mesh_replacements,
+        texture_allocations: stats.frame.texture_allocations,
+        texture_replacements: stats.frame.texture_replacements,
+        texture_writes: stats.frame.texture_writes,
         lifetime_binding_allocations: stats.lifetime.binding_allocations,
         lifetime_uniform_buffer_writes: stats.lifetime.uniform_buffer_writes,
         lifetime_mesh_uploads: stats.lifetime.mesh_uploads,
         lifetime_mesh_replacements: stats.lifetime.mesh_replacements,
+        lifetime_texture_allocations: stats.lifetime.texture_allocations,
+        lifetime_texture_replacements: stats.lifetime.texture_replacements,
+        lifetime_texture_writes: stats.lifetime.texture_writes,
     }
 }
 

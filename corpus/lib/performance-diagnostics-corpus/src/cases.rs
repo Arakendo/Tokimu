@@ -1,5 +1,5 @@
 use tokimu_core::PerformanceUnit;
-use tokimu_render::{RenderFrameCpuTimings, RenderFrameStats, RenderLifetimeStats, RenderStats};
+use tokimu_render::{RenderFrameStats, RenderLifetimeStats, RenderStats};
 
 use crate::{CaseExpectation, MeasurementSupport};
 
@@ -54,195 +54,55 @@ const SUSTAINED: &[f64] = &[4.0, 5.0, 6.0];
 const RECOVERY: &[f64] = &[4.0, 5.0, 2.0];
 const OVERFLOW: &[f64] = &[2.0, 0.0, 2.0, 0.0, 2.0];
 
-const NO_CPU_TIMINGS: RenderFrameCpuTimings = RenderFrameCpuTimings {
-    surface_acquire_call: None,
-    resource_preparation: None,
-    command_encoding: None,
-    queue_submit_call: None,
-    surface_present_call: None,
-};
-
 const fn stats(frame: RenderFrameStats, lifetime: RenderLifetimeStats) -> RenderStats {
     RenderStats { frame, lifetime }
 }
 
+const fn frame_stats(
+    binding_allocations: u32,
+    mesh_uploads: u32,
+    mesh_replacements: u32,
+) -> RenderFrameStats {
+    RenderFrameStats {
+        draw_calls: 4,
+        submit_calls: 1,
+        binding_allocations,
+        mesh_uploads,
+        mesh_replacements,
+        ..RenderFrameStats::EMPTY
+    }
+}
+
+const fn lifetime_stats(
+    binding_allocations: u64,
+    mesh_uploads: u64,
+    mesh_replacements: u64,
+) -> RenderLifetimeStats {
+    RenderLifetimeStats {
+        binding_allocations,
+        mesh_uploads,
+        mesh_replacements,
+        ..RenderLifetimeStats::EMPTY
+    }
+}
+
 const STATIC_RESOURCES: &[RenderStats] = &[
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 0,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 0,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 0,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
+    stats(frame_stats(3, 2, 0), lifetime_stats(3, 2, 0)),
+    stats(frame_stats(0, 0, 0), lifetime_stats(3, 2, 0)),
+    stats(frame_stats(0, 0, 0), lifetime_stats(3, 2, 0)),
+    stats(frame_stats(0, 0, 0), lifetime_stats(3, 2, 0)),
 ];
 
 const REPEATED_BINDING_ALLOCATION: &[RenderStats] = &[
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 4,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 4,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 4,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 8,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 4,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 0,
-            mesh_replacements: 0,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 12,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 0,
-        },
-    ),
+    stats(frame_stats(4, 0, 0), lifetime_stats(4, 2, 0)),
+    stats(frame_stats(4, 0, 0), lifetime_stats(8, 2, 0)),
+    stats(frame_stats(4, 0, 0), lifetime_stats(12, 2, 0)),
 ];
 
 const REPEATED_MESH_UPLOAD: &[RenderStats] = &[
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 0,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 2,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 2,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 0,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 2,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 4,
-            mesh_replacements: 4,
-        },
-    ),
-    stats(
-        RenderFrameStats {
-            draw_calls: 4,
-            submit_calls: 1,
-            binding_allocations: 0,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 2,
-            mesh_replacements: 2,
-            cpu_timings: NO_CPU_TIMINGS,
-        },
-        RenderLifetimeStats {
-            binding_allocations: 3,
-            uniform_buffer_writes: 0,
-            mesh_uploads: 6,
-            mesh_replacements: 6,
-        },
-    ),
+    stats(frame_stats(0, 2, 2), lifetime_stats(3, 2, 2)),
+    stats(frame_stats(0, 2, 2), lifetime_stats(3, 4, 4)),
+    stats(frame_stats(0, 2, 2), lifetime_stats(3, 6, 6)),
 ];
 
 const CASES: &[PerformanceCase] = &[

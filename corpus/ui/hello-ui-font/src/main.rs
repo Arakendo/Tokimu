@@ -3,7 +3,8 @@ use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
     PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
-    Renderer, Texture, TextureHandle, WgpuBackend, WindowConfig,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend,
+    WindowConfig,
 };
 use ui_tools::{alpha_to_rgba8, UiFontFormat, UiFontRasterizer, UiFontSource, TEXT_CORPUS};
 
@@ -81,14 +82,16 @@ impl PlatformEventHandler for App {
                 if glyph.width == 0 || glyph.height == 0 {
                     continue;
                 }
-                renderer.upload_texture(
+                let rgba8 = alpha_to_rgba8(&glyph.alpha, [255, 255, 255]);
+                renderer.create_texture_rgba8(
                     texture,
-                    &Texture::rgba8(
+                    Rgba8TextureDescriptor::new(
                         glyph.width,
                         glyph.height,
-                        alpha_to_rgba8(&glyph.alpha, [255, 255, 255]),
+                        Rgba8TextureColorSpace::Srgb,
                     ),
-                );
+                    &rgba8,
+                )?;
                 let color = if font_index == 0 {
                     Color::rgb(0.92, 0.94, 0.98)
                 } else {

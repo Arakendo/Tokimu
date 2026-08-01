@@ -73,10 +73,16 @@ pub struct RenderFrameArtifact {
     pub uniform_buffer_writes: u32,
     pub mesh_uploads: u32,
     pub mesh_replacements: u32,
+    pub texture_allocations: u32,
+    pub texture_replacements: u32,
+    pub texture_writes: u32,
     pub lifetime_binding_allocations: u64,
     pub lifetime_uniform_buffer_writes: u64,
     pub lifetime_mesh_uploads: u64,
     pub lifetime_mesh_replacements: u64,
+    pub lifetime_texture_allocations: u64,
+    pub lifetime_texture_replacements: u64,
+    pub lifetime_texture_writes: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
