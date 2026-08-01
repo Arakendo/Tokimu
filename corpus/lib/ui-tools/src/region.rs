@@ -215,11 +215,15 @@ impl UiCard {
         let header_height = (inner.size[1] * 0.24).max(0.01);
         let body_height = (inner.size[1] * 0.36).max(0.01);
         let footer_height = (inner.size[1] * 0.16).max(0.01);
+        let remaining = (inner.size[1] - header_height - body_height - footer_height).max(0.0);
+        let section_gap = remaining * 0.5;
+        let inner_top = inner.center[1] + inner.size[1] * 0.5;
+        let inner_bottom = inner.center[1] - inner.size[1] * 0.5;
         let header = UiRegion::new(
             UiRegionKind::Panel,
             UiSurfaceRole::Raised,
             UiRect::new(
-                [inner.center[0], inner.center[1] + inner.size[1] * 0.24],
+                [inner.center[0], inner_top - header_height * 0.5],
                 [inner.size[0], header_height],
             ),
         );
@@ -227,7 +231,10 @@ impl UiCard {
             UiRegionKind::Panel,
             UiSurfaceRole::Panel,
             UiRect::new(
-                [inner.center[0], inner.center[1] - inner.size[1] * 0.02],
+                [
+                    inner.center[0],
+                    inner_top - header_height - section_gap - body_height * 0.5,
+                ],
                 [inner.size[0], body_height],
             ),
         );
@@ -237,7 +244,7 @@ impl UiCard {
             // as a separate dark overlay panel.
             UiSurfaceRole::Panel,
             UiRect::new(
-                [inner.center[0], inner.center[1] - inner.size[1] * 0.26],
+                [inner.center[0], inner_bottom + footer_height * 0.5],
                 [inner.size[0], footer_height],
             ),
         );

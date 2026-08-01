@@ -486,6 +486,13 @@ The public direction must remain provider-neutral:
 - texture, atlas, mesh, and GPU upload remain renderer concerns;
 - measurement and layout should remain usable without a live renderer.
 
+The built-in bitmap engine and TTF/OTF rasterizers expose fixed-size adapters
+through the same `UiTextMetricsProvider` trait. Provider substitution may
+change measured advances because typefaces differ, but it must preserve finite
+metrics, visible-bounds reporting, multiline aggregation, fit behavior, and
+diagnostic semantics. Semantic nodes never retain the concrete adapter or font
+identity.
+
 The bitmap layout path currently serves as the headless proof of that
 requirement: it resolves text placement, alignment, clipping, and wrapping into
 stable geometry without a window, GPU, texture upload, or renderer state. A

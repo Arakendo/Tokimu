@@ -174,6 +174,140 @@ fn label_and_card_metadata_are_usable() {
 }
 
 #[test]
+fn card_sections_are_contained_ordered_and_non_overlapping() {
+    for size in [[0.4, 0.22], [0.8, 0.5], [1.4, 0.9]] {
+        let card = UiCard::new(
+            UiCardRole::Preview,
+            "Preview",
+            "Content",
+            UiRegion::card(UiRect::new([0.0, 0.0], size)),
+        );
+        let content = card.region.rect.inset_by(card.padding.insets());
+
+        for section in [card.header.rect, card.body_region.rect, card.footer.rect] {
+            assert!(
+                rect_contains_rect(content, section),
+                "{size:?}: {section:?}"
+            );
+        }
+        assert!(card.header.rect.center[1] > card.body_region.rect.center[1]);
+        assert!(card.body_region.rect.center[1] > card.footer.rect.center[1]);
+        assert!(card
+            .header
+            .rect
+            .intersection(card.body_region.rect)
+            .is_none());
+        assert!(card
+            .body_region
+            .rect
+            .intersection(card.footer.rect)
+            .is_none());
+    }
+}
+
+#[test]
+fn workspace_components_keep_toolbar_and_status_content_inside_their_regions() {
+    for viewport in [[640.0, 480.0], [1280.0, 720.0], [1920.0, 1080.0]] {
+        let layout = UiWorkspaceLayout::new(
+            viewport,
+            [
+                UiButtonSpec::new(UiButtonId(0), "Open"),
+                UiButtonSpec::new(UiButtonId(1), "Edit"),
+                UiButtonSpec::new(UiButtonId(2), "Save"),
+            ],
+            [
+                UiCardSpec::new(UiCardRole::Browser, "Browse", "Files"),
+                UiCardSpec::new(UiCardRole::Editor, "Edit", "Scene"),
+                UiCardSpec::new(UiCardRole::Status, "Status", "Ready"),
+            ],
+        );
+
+        for button in layout.buttons {
+            assert!(rect_contains_rect(layout.toolbar.rect, button.rect));
+        }
+        assert!(layout.buttons[0]
+            .rect
+            .intersection(layout.buttons[1].rect)
+            .is_none());
+        assert!(layout.buttons[1]
+            .rect
+            .intersection(layout.buttons[2].rect)
+            .is_none());
+        assert!(rect_contains_rect(
+            layout.status_bar.rect,
+            layout.footer_chip.rect
+        ));
+        assert!(layout
+            .status_bar
+            .rect
+            .contains(layout.footer_label.position));
+    }
+}
+
+#[test]
+fn panel_card_and_status_labels_stay_inside_component_bounds() {
+    let theme = UiTheme::default();
+    let panel_header = UiRegion::header(UiRect::new([0.0, 0.4], [0.8, 0.14]));
+    let card = UiCard::new(
+        UiCardRole::Preview,
+        "Preview",
+        "Content",
+        UiRegion::card(UiRect::new([0.0, 0.0], [0.8, 0.5])),
+    );
+    let status = UiRegion::status_bar(UiRect::new([0.0, -0.4], [0.8, 0.12]));
+
+    assert_text_inside(
+        UiTextSpec::new("Panel", panel_header.rect, UiTextRole::Heading),
+        theme.text(UiTextRole::Heading).height,
+    );
+    assert_text_inside(
+        UiTextSpec::new(card.title, card.header.rect, UiTextRole::Heading),
+        theme.text(UiTextRole::Heading).height,
+    );
+    assert_text_inside(
+        UiTextSpec::new("Ready", status.rect, UiTextRole::Status),
+        theme.text(UiTextRole::Status).height,
+    );
+}
+
+fn assert_text_inside(spec: UiTextSpec, height: f32) {
+    let rect = spec.rect;
+    let glyphs = layout_bitmap_text(&spec, height);
+    assert!(!glyphs.is_empty(), "{} produced no glyphs", spec.text);
+    for glyph in glyphs {
+        assert!(
+            rect_contains_rect(rect, UiRect::new(glyph.center, glyph.size)),
+            "{} escaped {rect:?}: {glyph:?}",
+            spec.text
+        );
+    }
+}
+
+fn rect_contains_rect(container: UiRect, child: UiRect) -> bool {
+    let child_half = [child.size[0] * 0.5, child.size[1] * 0.5];
+    [
+        [
+            child.center[0] - child_half[0],
+            child.center[1] - child_half[1],
+        ],
+        [
+            child.center[0] + child_half[0],
+            child.center[1] - child_half[1],
+        ],
+        [
+            child.center[0] - child_half[0],
+            child.center[1] + child_half[1],
+        ],
+        [
+            child.center[0] + child_half[0],
+            child.center[1] + child_half[1],
+        ],
+    ]
+    .into_iter()
+    .all(|corner| container.contains(corner))
+}
+
+#[test]
 fn intrinsic_card_width_follows_content_measurement() {
     let theme = UiTheme::default();
     let short = UiCard::from_intrinsic(UiCardRole::Editor, "Title", "Body", [0.0, 0.0], &theme);

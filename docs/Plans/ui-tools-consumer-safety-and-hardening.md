@@ -458,6 +458,22 @@ and `ScaleDown` deterministically reduces the requested presentation height to
 fit both axes. These remain semantic `UiTextSpec` choices rather than renderer
 or provider fallbacks.
 
+2026-08-01 also added fixed-size metrics adapters for the built-in bitmap text
+engine and external TTF/OTF rasterizers. All three satisfy the same
+`UiTextMetricsProvider` contract, including multiline aggregation, visible
+bounds, finite metrics, and bounded diagnostics. The semantic tree consumes
+that shared contract without retaining provider identity or parser objects.
+
+2026-08-01 added component-fit evidence after the matrix exposed a real shared
+geometry defect: `UiCard` positioned header, body, and footer by independent
+percentages, allowing adjacent sections to overlap. Cards now partition their
+padded content into ordered, disjoint sections. Multi-viewport tests cover
+toolbar controls and status content, while panel headers, card headers, and
+status labels are lowered through the admitted bitmap text path and checked
+against their owning rectangles. Existing text tests complete the baseline,
+multiline, clipping, start/center/end alignment, overflow, and constrained-label
+matrix.
+
 #### Deliverables
 
 - [x] Integrate `UiTextFit` with semantic layout rather than leaving it as a
@@ -471,16 +487,16 @@ or provider fallbacks.
 
 #### Tests
 
-- [ ] Equivalent layout contract tests for built-in, TTF, and OTF providers.
-- [ ] Baseline, multiline, clipping, alignment, and constrained-label tables.
+- [x] Equivalent layout contract tests for built-in, TTF, and OTF providers.
+- [x] Baseline, multiline, clipping, alignment, and constrained-label tables.
 - [x] Missing provider and glyph fallback tests.
-- [ ] Button, toolbar, panel header, card, and status-line component tests.
+- [x] Button, toolbar, panel header, card, and status-line component tests.
 
 #### Acceptance Criteria
 
 - [x] Text cannot silently escape a resolved content box: measured resolution
   reports pre-policy overflow on the owning node.
-- [ ] Provider changes preserve semantic layout contracts or emit a diagnostic.
+- [x] Provider changes preserve semantic layout contracts or emit a diagnostic.
 
 ### Slice 5: Introduce An Owned Draw List
 

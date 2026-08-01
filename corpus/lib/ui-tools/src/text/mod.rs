@@ -112,6 +112,61 @@ pub trait UiTextMetricsProvider {
     fn measure(&self, text: &str) -> Result<UiTextMeasure, UiTextDiagnostic>;
 }
 
+/// Fixed-size metrics adapter for Tokimu's built-in bitmap text provider.
+///
+/// The adapter exposes the same provider-neutral contract as external font
+/// providers without making semantic UI select a concrete font technology.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiBitmapTextMetricsProvider {
+    height: f32,
+}
+
+impl UiBitmapTextMetricsProvider {
+    pub fn new(height: f32) -> Self {
+        Self { height }
+    }
+
+    pub fn height(self) -> f32 {
+        self.height
+    }
+}
+
+impl UiTextMetricsProvider for UiBitmapTextMetricsProvider {
+    fn measure(&self, text: &str) -> Result<UiTextMeasure, UiTextDiagnostic> {
+        if !self.height.is_finite() || self.height <= 0.0 {
+            return Err(UiTextDiagnostic {
+                kind: UiTextDiagnosticKind::ProviderUnavailable,
+            });
+        }
+
+        let lines = text.lines().collect::<Vec<_>>();
+        let line_count = lines.len().max(1);
+        let advance = lines
+            .iter()
+            .map(|line| measure_bitmap_text_width(line, self.height))
+            .fold(0.0, f32::max);
+        let glyph_height = bitmap_glyph_height(self.height);
+        let line_height = bitmap_cell(self.height) * 9.0;
+        let block_height =
+            glyph_height + (line_count.saturating_sub(1) as f32 * line_height);
+        let visible_bounds = (advance > 0.0 && block_height > 0.0).then(|| {
+            UiRect::new(
+                [advance * 0.5, block_height * 0.5],
+                [advance, block_height],
+            )
+        });
+
+        Ok(UiTextMeasure {
+            advance,
+            ascent: block_height,
+            descent: 0.0,
+            line_gap: 0.0,
+            visible_bounds,
+            diagnostics: Vec::new(),
+        })
+    }
+}
+
 /// The placement contract for one logical line.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiTextLineLayout {

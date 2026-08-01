@@ -66,7 +66,8 @@ pub mod provider {
         UiGlyphVectorOptions, UiIconDiagnostic, UiIconDiagnosticKind, UiIconHandle, UiIconId,
         UiIconMetrics, UiIconProviderId, UiIconResolution, UiIconSpec, UiIconTint,
         UiIconVectorAsset, UiIconVectorProvider, UiRasterGlyph, UiRasterText, UiRasterTextBitmap,
-        UiRasterTextBlock, UiRasterTextGlyph, UiTextMetrics, UiTextMetricsProvider,
+        UiRasterTextBlock, UiRasterTextGlyph, UiRasterTextMetricsProvider, UiTextMetrics,
+        UiTextMetricsProvider,
     };
 }
 
@@ -128,7 +129,7 @@ pub use layout::{
 pub use presets::{UiToolbarLayout, UiWorkspaceLayout};
 pub use raster::{
     alpha_to_rgba8, UiFontRasterizer, UiRasterGlyph, UiRasterText, UiRasterTextBitmap,
-    UiRasterTextBlock, UiRasterTextGlyph, UiTextMetrics,
+    UiRasterTextBlock, UiRasterTextGlyph, UiRasterTextMetricsProvider, UiTextMetrics,
 };
 pub use region::UiCardRole;
 pub use region::{
@@ -149,10 +150,11 @@ pub use svg::{
     SvgToken, SvgVectorRecord, SvgViewportSource,
 };
 pub use text::{
-    bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad,
-    UiMissingGlyphPolicy, UiTextAlign, UiTextAlignmentBasis, UiTextDiagnostic,
-    UiTextDiagnosticKind, UiTextDirection, UiTextFit, UiTextLayout, UiTextLayoutReport,
-    UiTextLineLayout, UiTextMeasure, UiTextMetricsProvider, UiTextOverflow, UiTextRole, UiTextSpec,
+    bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width,
+    UiBitmapTextMetricsProvider, UiGlyphQuad, UiMissingGlyphPolicy, UiTextAlign,
+    UiTextAlignmentBasis, UiTextDiagnostic, UiTextDiagnosticKind, UiTextDirection, UiTextFit,
+    UiTextLayout, UiTextLayoutReport, UiTextLineLayout, UiTextMeasure, UiTextMetricsProvider,
+    UiTextOverflow, UiTextRole, UiTextSpec,
 };
 pub use text_input::{UiTextInputOperation, UiTextInputState};
 pub use theme::{

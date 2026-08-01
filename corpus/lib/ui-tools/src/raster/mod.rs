@@ -4,7 +4,7 @@ mod provider;
 mod types;
 
 pub use bitmap::alpha_to_rgba8;
-pub use provider::UiFontRasterizer;
+pub use provider::{UiFontRasterizer, UiRasterTextMetricsProvider};
 pub use types::{
     UiRasterGlyph, UiRasterText, UiRasterTextBitmap, UiRasterTextBlock, UiRasterTextGlyph,
     UiTextMetrics,

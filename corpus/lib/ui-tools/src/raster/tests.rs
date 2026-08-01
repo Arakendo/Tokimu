@@ -1,4 +1,5 @@
 use super::*;
+use crate::{UiBitmapTextMetricsProvider, UiTextMetricsProvider};
 
 fn prepared_inter_bytes() -> Option<Vec<u8>> {
     std::fs::read("../../../../target/glyph-corpus/fonts/inter/Inter[opsz,wght].ttf")
@@ -84,4 +85,59 @@ fn checked_in_noto_fixture_is_loadable_without_prepared_corpus() {
     assert!(bitmap.width > 0);
     assert!(bitmap.height > 0);
     assert!(!bitmap.alpha.is_empty());
+}
+
+#[test]
+fn raster_metrics_adapter_preserves_provider_neutral_contract() {
+    let bytes = include_bytes!("../../fixtures/NotoSans-Regular.otf").to_vec();
+    let rasterizer = UiFontRasterizer::from_bytes(bytes).expect("checked-in OTF fixture");
+    let provider = rasterizer.metrics_provider(24.0);
+    let measure = provider.measure("Ag").expect("OTF metrics");
+
+    assert_eq!(provider.pixels(), 24.0);
+    assert!(measure.advance > 0.0);
+    assert!(measure.ascent > 0.0);
+    assert!(measure.descent < 0.0);
+    assert!(measure.visible_bounds.is_some());
+    assert!(measure.diagnostics.is_empty());
+}
+
+#[test]
+fn built_in_ttf_and_otf_providers_share_layout_contracts() {
+    let built_in = UiBitmapTextMetricsProvider::new(24.0);
+    let ttf = UiFontRasterizer::from_bytes(
+        include_bytes!("../../../../../third-party/fonts/inter/docs/font-files/InterVariable.ttf")
+            .to_vec(),
+    )
+    .expect("checked-in Inter TTF");
+    let otf = UiFontRasterizer::from_bytes(
+        include_bytes!("../../fixtures/NotoSans-Regular.otf").to_vec(),
+    )
+    .expect("checked-in Noto OTF");
+
+    let providers: [&dyn UiTextMetricsProvider; 3] = [
+        &built_in,
+        &ttf.metrics_provider(24.0),
+        &otf.metrics_provider(24.0),
+    ];
+
+    for provider in providers {
+        let measure = provider.measure("Provider 0123").expect("text metrics");
+        assert!(measure.advance.is_finite() && measure.advance > 0.0);
+        assert!(measure.ascent.is_finite() && measure.ascent > 0.0);
+        assert!(measure.descent.is_finite());
+        assert!(measure.line_gap.is_finite() && measure.line_gap >= 0.0);
+        let visible = measure.visible_bounds.expect("visible text bounds");
+        assert!(visible.size[0].is_finite() && visible.size[0] > 0.0);
+        assert!(visible.size[1].is_finite() && visible.size[1] > 0.0);
+        assert!(measure.diagnostics.is_empty());
+
+        let multiline = provider
+            .measure("Wide provider line\nshort")
+            .expect("multiline text metrics");
+        assert!(multiline.advance >= provider.measure("short").unwrap().advance);
+        assert!(
+            multiline.ascent + multiline.descent.abs() > measure.ascent + measure.descent.abs()
+        );
+    }
 }
