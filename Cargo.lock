@@ -2607,6 +2607,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ui-resource-workbench"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-input",
+ "ui-tools",
+]
+
+[[package]]
+name = "ui-settings-workbench"
+version = "0.1.0"
+dependencies = [
+ "tokimu",
+ "tokimu-input",
+ "ui-tools",
+]
+
+[[package]]
 name = "ui-tools"
 version = "0.1.0"
 dependencies = [

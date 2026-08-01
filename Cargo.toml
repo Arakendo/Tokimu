@@ -56,6 +56,8 @@ members = [
     "corpus/consumers/tokimu-website-asteroids/engine",
     "corpus/consumers/tokimu-website-paint/engine",
     "corpus/consumers/runtime-observation-workbench/engine",
+    "corpus/consumers/ui-settings-workbench",
+    "corpus/consumers/ui-resource-workbench",
 
     # UI corpus.
     "corpus/ui/hello-ui",
