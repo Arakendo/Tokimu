@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tokimu Kernel UI Workbench</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="workbench">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Tokimu / consumer corpus 002</p>
+          <h1>Resource control room</h1>
+        </div>
+        <div class="runtime-state">
+          <span class="pulse" aria-hidden="true"></span>
+          <span>Rust/WASM model active</span>
+        </div>
+      </header>
+
+      <section class="workspace" aria-label="Resource workbench">
+        <aside class="resource-rail" aria-labelledby="resource-list-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Index</p>
+              <h2 id="resource-list-title">Resources</h2>
+            </div>
+            <output data-count>0 / 0</output>
+          </div>
+          <label class="filter-field">
+            <span>Filter resources</span>
+            <input data-filter type="search" autocomplete="off" placeholder="Name or kind" />
+          </label>
+          <div class="resource-list" data-resource-list role="listbox" aria-label="Resources"></div>
+        </aside>
+
+        <section class="editor" aria-labelledby="editor-title">
+          <div class="section-heading editor-heading">
+            <div>
+              <p class="eyebrow">Selected object</p>
+              <h2 id="editor-title" data-editor-title>Resource</h2>
+            </div>
+            <span class="kind-badge" data-kind>UNKNOWN</span>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              <span>Name</span>
+              <input data-name type="text" autocomplete="off" />
+            </label>
+            <label class="notes-field">
+              <span>Operator notes</span>
+              <textarea data-notes rows="5"></textarea>
+            </label>
+          </div>
+
+          <div class="switch-grid" aria-label="Resource flags">
+            <button type="button" class="state-switch" data-visibility aria-pressed="false">
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span><strong>Visible</strong><small>Include in presentation</small></span>
+            </button>
+            <button type="button" class="state-switch" data-hotspot aria-pressed="false">
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span><strong>Hotspot</strong><small>Expose semantic target</small></span>
+            </button>
+          </div>
+
+          <div class="command-bar">
+            <button type="button" class="command primary" data-apply>Apply draft</button>
+            <button type="button" class="command" data-revert>Revert</button>
+            <button type="button" class="command danger" data-delete>Delete</button>
+          </div>
+        </section>
+      </section>
+
+      <footer class="status-bar">
+        <div>
+          <span class="eyebrow">Model observation</span>
+          <output data-status>STARTING</output>
+        </div>
+        <div class="boundary-note">DOM presents. Rust owns transitions.</div>
+      </footer>
+    </main>
+
+    <div class="modal-backdrop" data-modal hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <p class="eyebrow">Destructive command</p>
+        <h2 id="delete-title">Delete <span data-delete-name>resource</span>?</h2>
+        <p>The Rust model requires explicit confirmation and will preserve a valid selection.</p>
+        <div class="command-bar">
+          <button type="button" class="command danger" data-confirm-delete>Confirm delete</button>
+          <button type="button" class="command" data-cancel-delete>Cancel</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./kernel-ui.js"></script>
+  </body>
+</html>

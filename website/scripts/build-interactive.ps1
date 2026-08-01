@@ -14,6 +14,10 @@ $paintConsumer = Join-Path $root "corpus/consumers/tokimu-website-paint"
 $paintEngine = Join-Path $paintConsumer "engine"
 $paintWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_paint_engine.wasm"
 $paintOutput = Join-Path $website "docs/assets/islands/tokimu-paint"
+$kernelUiConsumer = Join-Path $root "corpus/consumers/tokimu-website-kernel-ui"
+$kernelUiEngine = Join-Path $kernelUiConsumer "engine"
+$kernelUiWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_kernel_ui_engine.wasm"
+$kernelUiOutput = Join-Path $website "docs/assets/islands/kernel-ui"
 $fixture = Join-Path $root "third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/derived/shapes-rect-01-geometry.svg"
 
 function Invoke-Checked {
@@ -43,6 +47,9 @@ try {
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $paintEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Tokimu Paint WASM build"
+    Invoke-Checked {
+        cargo build --manifest-path (Join-Path $kernelUiEngine "Cargo.toml") --target wasm32-unknown-unknown --release
+    } "Kernel UI WASM build"
 
     New-Item -ItemType Directory -Force $assetOutput | Out-Null
     Invoke-Checked {
@@ -67,6 +74,15 @@ try {
     Copy-Item -LiteralPath (Join-Path $paintConsumer "web/styles.css") -Destination $paintOutput -Force
     Copy-Item -LiteralPath (Join-Path $paintConsumer "web/lucide.svg") -Destination $paintOutput -Force
     Copy-Item -LiteralPath (Join-Path $paintConsumer "dist/paint.js") -Destination $paintOutput -Force
+
+    Invoke-Checked { npm --prefix $kernelUiConsumer run build } "Kernel UI TypeScript build"
+    New-Item -ItemType Directory -Force $kernelUiOutput | Out-Null
+    Invoke-Checked {
+        wasm-bindgen $kernelUiWasm --target web --out-dir $kernelUiOutput --out-name tokimu_website_kernel_ui_engine
+    } "Kernel UI binding generation"
+    Copy-Item -LiteralPath (Join-Path $kernelUiConsumer "web/index.html") -Destination $kernelUiOutput -Force
+    Copy-Item -LiteralPath (Join-Path $kernelUiConsumer "web/styles.css") -Destination $kernelUiOutput -Force
+    Copy-Item -LiteralPath (Join-Path $kernelUiConsumer "dist/kernel-ui.js") -Destination $kernelUiOutput -Force
 }
 finally {
     Pop-Location
@@ -76,3 +92,4 @@ Write-Host "Prepared website interactive assets:"
 Write-Host "  Asset observation: $assetOutput"
 Write-Host "  Asteroids game:    $asteroidsOutput"
 Write-Host "  Tokimu Paint:      $paintOutput"
+Write-Host "  Kernel UI:         $kernelUiOutput"

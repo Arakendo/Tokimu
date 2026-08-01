@@ -1,0 +1,232 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,650&display=swap");
+
+:root {
+  color-scheme: dark;
+  --ink: #edf6f4;
+  --muted: #8ea7a6;
+  --surface: #091416;
+  --surface-raised: #0e1c1f;
+  --panel: #122326;
+  --line: #29474a;
+  --mint: #72e2d1;
+  --amber: #f3c95b;
+  --danger: #ff806f;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    linear-gradient(rgba(41, 71, 74, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41, 71, 74, 0.18) 1px, transparent 1px),
+    #061012;
+  background-size: 32px 32px;
+}
+
+button, input, textarea { font: inherit; }
+
+button { color: inherit; }
+
+.workbench {
+  width: min(1120px, calc(100% - 32px));
+  min-height: min(720px, calc(100vh - 32px));
+  margin: 16px auto;
+  border: 1px solid var(--line);
+  background: rgba(9, 20, 22, 0.97);
+  box-shadow: 14px 14px 0 rgba(2, 8, 9, 0.45);
+}
+
+.masthead, .status-bar, .section-heading, .command-bar, .runtime-state {
+  display: flex;
+  align-items: center;
+}
+
+.masthead {
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 32px;
+  border-bottom: 1px solid var(--line);
+}
+
+h1, h2, p { margin: 0; }
+
+h1, h2 { font-family: "Newsreader", serif; }
+
+h1 { font-size: clamp(2rem, 5vw, 3.7rem); line-height: 0.92; }
+
+h2 { font-size: 1.65rem; }
+
+.eyebrow {
+  margin-bottom: 8px;
+  color: var(--mint);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.runtime-state { gap: 9px; color: var(--muted); font-size: 0.76rem; }
+
+.pulse {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--mint);
+  background: var(--mint);
+  box-shadow: 0 0 16px var(--mint);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+.workspace { display: grid; grid-template-columns: minmax(260px, 0.72fr) minmax(420px, 1.45fr); }
+
+.resource-rail, .editor { padding: 28px 30px 32px; }
+
+.resource-rail { border-right: 1px solid var(--line); }
+
+.section-heading { justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+
+.section-heading output, .kind-badge {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+label { display: grid; gap: 8px; color: var(--muted); font-size: 0.72rem; }
+
+input, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 11px 12px;
+  color: var(--ink);
+  background: #071113;
+  outline: none;
+}
+
+input:focus, textarea:focus { border-color: var(--mint); box-shadow: inset 3px 0 0 var(--mint); }
+
+textarea { resize: vertical; min-height: 112px; }
+
+.resource-list { display: grid; gap: 7px; margin-top: 15px; }
+
+.resource-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid transparent;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.resource-row:hover { border-color: var(--line); background: var(--surface-raised); }
+
+.resource-row[aria-selected="true"] {
+  border-color: var(--mint);
+  background: linear-gradient(90deg, rgba(114, 226, 209, 0.13), transparent);
+}
+
+.resource-name { font-weight: 600; }
+.resource-kind, .resource-flags { color: var(--muted); font-size: 0.68rem; }
+.resource-flags { grid-row: 1 / 3; grid-column: 2; align-self: center; color: var(--amber); }
+
+.form-grid { display: grid; gap: 18px; }
+.notes-field { margin-top: 2px; }
+
+.switch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 24px 0; }
+
+.state-switch {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 70px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  text-align: left;
+  cursor: pointer;
+}
+
+.state-switch:hover { border-color: var(--muted); }
+.state-switch[aria-pressed="true"] { border-color: var(--mint); }
+
+.switch-indicator { width: 16px; height: 16px; border: 1px solid var(--muted); }
+.state-switch[aria-pressed="true"] .switch-indicator { border: 4px solid var(--surface-raised); background: var(--mint); outline: 1px solid var(--mint); }
+.state-switch span:last-child { display: grid; gap: 4px; }
+.state-switch small { color: var(--muted); font-size: 0.66rem; }
+
+.command-bar { gap: 10px; flex-wrap: wrap; }
+
+.command {
+  min-height: 40px;
+  padding: 9px 15px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.command:hover:not(:disabled) { border-color: var(--ink); }
+.command.primary { border-color: var(--mint); color: var(--mint); }
+.command.danger { color: var(--danger); }
+.command:disabled { opacity: 0.34; cursor: not-allowed; }
+
+.status-bar {
+  justify-content: space-between;
+  gap: 24px;
+  padding: 17px 30px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-raised);
+  font-size: 0.72rem;
+}
+
+.status-bar .eyebrow { display: inline; margin-right: 12px; }
+.boundary-note { color: var(--muted); }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(1, 6, 7, 0.82);
+}
+
+.modal-backdrop[hidden] { display: none; }
+
+.modal {
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid var(--danger);
+  background: var(--panel);
+  box-shadow: 12px 12px 0 #03090a;
+}
+
+.modal h2 { margin-bottom: 12px; }
+.modal > p:not(.eyebrow) { margin-bottom: 24px; color: var(--muted); line-height: 1.6; }
+
+@keyframes breathe { 50% { opacity: 0.45; box-shadow: 0 0 4px var(--mint); } }
+
+@media (max-width: 760px) {
+  .workbench { width: calc(100% - 16px); margin: 8px; }
+  .masthead { align-items: flex-start; padding: 22px; }
+  .runtime-state { display: none; }
+  .workspace { grid-template-columns: 1fr; }
+  .resource-rail { border-right: 0; border-bottom: 1px solid var(--line); }
+  .resource-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .resource-rail, .editor { padding: 22px; }
+  .status-bar { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 480px) {
+  .resource-list, .switch-grid { grid-template-columns: 1fr; }
+  h1 { font-size: 2.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }

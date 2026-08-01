@@ -2534,6 +2534,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokimu-website-kernel-ui-engine"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "ui-resource-workbench",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "tokimu-website-paint-engine"
 version = "0.1.0"
 dependencies = [

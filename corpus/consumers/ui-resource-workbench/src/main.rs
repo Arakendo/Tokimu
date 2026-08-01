@@ -17,10 +17,7 @@ use ui_tools::{
     UiTheme,
 };
 
-mod model;
-mod ui;
-
-use model::ResourceWorkbenchModel;
+use ui_resource_workbench::{model::ResourceWorkbenchModel, ui};
 
 const QUAD: MeshHandle = MeshHandle(1);
 const CAMERA: CameraHandle = CameraHandle(1);

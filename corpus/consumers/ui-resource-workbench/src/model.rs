@@ -148,6 +148,53 @@ impl ResourceWorkbenchModel {
             .collect()
     }
 
+    pub fn set_filter(&mut self, value: impl Into<String>) {
+        self.filter = UiTextInputState::new(value.into());
+        self.status = format!("{} RESOURCES VISIBLE", self.visible_resources().len());
+    }
+
+    pub fn select_resource(&mut self, resource_id: u64) -> bool {
+        self.activate(Self::row_id(resource_id))
+    }
+
+    pub fn set_selected_name(&mut self, value: impl Into<String>) {
+        self.selected_mut().name = UiTextInputState::new(value.into());
+        self.status = "DRAFT CHANGED".to_owned();
+    }
+
+    pub fn set_selected_notes(&mut self, value: impl Into<String>) {
+        self.selected_mut().notes = UiTextInputState::new(value.into());
+        self.status = "DRAFT CHANGED".to_owned();
+    }
+
+    pub fn toggle_selected_visibility(&mut self) -> bool {
+        self.activate(VISIBILITY_ID)
+    }
+
+    pub fn toggle_selected_hotspot(&mut self) -> bool {
+        self.activate(HOTSPOT_ID)
+    }
+
+    pub fn apply_selected(&mut self) -> bool {
+        self.activate(APPLY_ID)
+    }
+
+    pub fn revert_selected(&mut self) -> bool {
+        self.activate(REVERT_ID)
+    }
+
+    pub fn request_delete(&mut self) -> bool {
+        self.activate(DELETE_ID)
+    }
+
+    pub fn cancel_delete(&mut self) -> bool {
+        self.activate(CANCEL_DELETE_ID)
+    }
+
+    pub fn confirm_delete(&mut self) -> bool {
+        self.activate(CONFIRM_DELETE_ID)
+    }
+
     pub fn row_id(resource_id: u64) -> UiNodeId {
         UiNodeId(RESOURCE_ROW_BASE + resource_id)
     }
@@ -272,5 +319,19 @@ mod tests {
             .resources
             .iter()
             .any(|item| item.id == model.selected_id));
+    }
+
+    #[test]
+    fn host_facing_operations_preserve_model_owned_state_transitions() {
+        let mut model = ResourceWorkbenchModel::default();
+        model.set_filter("mesh");
+        assert_eq!(model.visible_resources().len(), 2);
+        assert!(model.select_resource(2));
+        model.set_selected_name("Hull Revised");
+        assert!(model.selected().is_dirty());
+        assert!(model.toggle_selected_hotspot());
+        assert!(model.apply_selected());
+        assert!(!model.selected().is_dirty());
+        assert_eq!(model.selected().name.value(), "Hull Revised");
     }
 }

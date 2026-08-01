@@ -10,6 +10,8 @@ on:
       - "Cargo.toml"
       - "corpus/consumers/tokimu-website-asteroids/**"
       - "corpus/consumers/tokimu-website-paint/**"
+      - "corpus/consumers/tokimu-website-kernel-ui/**"
+      - "corpus/consumers/ui-resource-workbench/**"
       - "corpus/lib/particle-tools/**"
       - "website/**"
   workflow_dispatch:
@@ -43,6 +45,7 @@ jobs:
           npm ci --prefix website
           npm ci --prefix corpus/consumers/tokimu-website-asteroids
           npm ci --prefix corpus/consumers/tokimu-website-paint
+          npm ci --prefix corpus/consumers/tokimu-website-kernel-ui
 
       - name: Prepare Rust WebAssembly tools
         run: |
@@ -57,6 +60,7 @@ jobs:
           npm run typecheck --prefix website
           npm run typecheck --prefix corpus/consumers/tokimu-website-asteroids
           npm run typecheck --prefix corpus/consumers/tokimu-website-paint
+          npm run typecheck --prefix corpus/consumers/tokimu-website-kernel-ui
           pwsh -NoProfile -File website/scripts/build-interactive.ps1
           # WASM binaries and wasm-bindgen bindings are rebuilt for deployment,
           # but are not byte-stable across Windows and Linux build hosts.
@@ -68,7 +72,11 @@ jobs:
             website/docs/assets/islands/tokimu-paint/index.html \
             website/docs/assets/islands/tokimu-paint/lucide.svg \
             website/docs/assets/islands/tokimu-paint/paint.js \
-            website/docs/assets/islands/tokimu-paint/styles.css
+            website/docs/assets/islands/tokimu-paint/styles.css \
+            website/docs/javascripts/kernel-ui.js \
+            website/docs/assets/islands/kernel-ui/index.html \
+            website/docs/assets/islands/kernel-ui/kernel-ui.js \
+            website/docs/assets/islands/kernel-ui/styles.css
 
       - name: Test interactive island contract
         run: >-
@@ -77,6 +85,7 @@ jobs:
           website/tests/asset-observation.test.mjs
           website/tests/asteroids-island.test.mjs
           website/tests/paint-island.test.mjs
+          website/tests/kernel-ui-island.test.mjs
           website/tests/static-fallback.test.mjs
           website/tests/svg-evidence.test.mjs
           website/tests/cgm-evidence.test.mjs

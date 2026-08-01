@@ -58,6 +58,7 @@ members = [
     "corpus/consumers/runtime-observation-workbench/engine",
     "corpus/consumers/ui-settings-workbench",
     "corpus/consumers/ui-resource-workbench",
+    "corpus/consumers/tokimu-website-kernel-ui/engine",
 
     # UI corpus.
     "corpus/ui/hello-ui",
