@@ -95,7 +95,10 @@ impl UiButton {
             .border_width
             * 2.0;
         let available_width = (self.rect.size[0] - padding - border).max(0.0);
-        measure_bitmap_text_width(self.label, text.height) > available_width
+        let measured_width = measure_bitmap_text_width(self.label, text.height);
+        let tolerance =
+            measured_width.abs().max(available_width.abs()).max(1.0) * f32::EPSILON * 8.0;
+        measured_width > available_width + tolerance
     }
 
     pub fn diagnostics(&self, theme: &UiTheme) -> Option<UiDiagnostic> {
@@ -197,5 +200,90 @@ mod tests {
 
         assert!(long.rect.size[0] > short.rect.size[0]);
         assert_eq!(short.rect.size[1], long.rect.size[1]);
+    }
+
+    #[test]
+    fn intrinsic_button_contains_its_label_without_a_clip_diagnostic() {
+        let theme = UiTheme::default();
+        let button = UiButton::from_intrinsic(UiButtonId(0), "SAVE", [0.0, 0.0], &theme);
+
+        assert!(!button.text_clips(&theme));
+        assert_eq!(button.diagnostics(&theme), None);
+    }
+
+    #[test]
+    fn constrained_button_reports_clipped_text_with_control_identity() {
+        let theme = UiTheme::default();
+        let button = UiButton::new(
+            UiButtonId(7),
+            "COMPILE PROJECT",
+            UiRect::new([0.0, 0.0], [0.05, 0.05]),
+        );
+
+        assert!(button.text_clips(&theme));
+        assert_eq!(
+            button.diagnostics(&theme),
+            Some(UiDiagnostic {
+                severity: UiDiagnosticSeverity::Warning,
+                kind: UiDiagnosticKind::TextClipped {
+                    control: UiButtonId(7),
+                    label: "COMPILE PROJECT",
+                },
+            })
+        );
+    }
+
+    #[test]
+    fn activation_requires_action_enabled_state_and_a_valid_target() {
+        let action = UiActionId(4);
+        let button = UiButton::new(UiButtonId(1), "RUN", UiRect::new([0.0, 0.0], [0.4, 0.2]))
+            .with_action(action);
+
+        assert_eq!(
+            button.activation_event([0.0, 0.0], true),
+            Some(UiEvent::Activated(action))
+        );
+        assert_eq!(button.activation_event([1.0, 0.0], true), None);
+        assert_eq!(button.activation_event([0.0, 0.0], false), None);
+        assert_eq!(
+            button.focused_activation_event(true, UiActivationKey::Space, true),
+            Some(UiEvent::Activated(action))
+        );
+        assert_eq!(
+            button.focused_activation_event(false, UiActivationKey::Enter, true),
+            None
+        );
+        assert_eq!(
+            button
+                .with_enabled(false)
+                .activation_event([0.0, 0.0], true),
+            None
+        );
+    }
+
+    #[test]
+    fn interaction_state_uses_one_deterministic_precedence() {
+        let button = UiButton::new(UiButtonId(1), "STATE", UiRect::new([0.0, 0.0], [0.4, 0.2]));
+
+        assert_eq!(
+            button.interaction_state(true, true, true, true),
+            UiInteractionState::Disabled
+        );
+        assert_eq!(
+            button.interaction_state(true, true, true, false),
+            UiInteractionState::Pressed
+        );
+        assert_eq!(
+            button.interaction_state(true, false, true, false),
+            UiInteractionState::Selected
+        );
+        assert_eq!(
+            button.interaction_state(true, false, false, false),
+            UiInteractionState::Hovered
+        );
+        assert_eq!(
+            button.interaction_state(false, false, false, false),
+            UiInteractionState::Idle
+        );
     }
 }

@@ -4,6 +4,10 @@ use super::{
 };
 
 pub fn layout_bitmap_text(spec: &UiTextSpec, height: f32) -> Vec<UiGlyphQuad> {
+    if spec.overflow == UiTextOverflow::Defer && !bitmap_text_fit(spec, height).fits() {
+        return Vec::new();
+    }
+    let height = resolved_bitmap_height(spec, height);
     let cell = bitmap_cell(height);
     let glyph_height = bitmap_glyph_height(height);
     let rect = spec.rect;
@@ -212,8 +216,43 @@ fn should_emit_quad(spec: &UiTextSpec, quad: UiGlyphQuad) -> bool {
     }
 
     match spec.overflow {
-        UiTextOverflow::Clip | UiTextOverflow::Ellipsis => spec.rect.contains(quad.center),
+        UiTextOverflow::Clip
+        | UiTextOverflow::Ellipsis
+        | UiTextOverflow::Defer
+        | UiTextOverflow::ScaleDown => spec.rect.contains(quad.center),
         UiTextOverflow::Wrap => true,
+    }
+}
+
+pub(super) fn resolved_bitmap_height(spec: &UiTextSpec, height: f32) -> f32 {
+    if spec.overflow != UiTextOverflow::ScaleDown || spec.rect.size == [0.0, 0.0] {
+        return height;
+    }
+
+    let source_lines = spec.text.lines().collect::<Vec<_>>();
+    let width = source_lines
+        .iter()
+        .map(|line| measure_bitmap_text_width(line, height))
+        .fold(0.0_f32, f32::max);
+    let line_count = source_lines.len().max(1);
+    let line_height = bitmap_cell(height) * 9.0;
+    let block_height =
+        bitmap_glyph_height(height) + line_height * line_count.saturating_sub(1) as f32;
+    let width_scale = if spec.rect.size[0] > 0.0 && width > 0.0 {
+        spec.rect.size[0] / width
+    } else {
+        1.0
+    };
+    let height_scale = if spec.rect.size[1] > 0.0 && block_height > 0.0 {
+        spec.rect.size[1] / block_height
+    } else {
+        1.0
+    };
+    let scale = width_scale.min(height_scale).clamp(0.0, 1.0);
+    if scale.is_finite() {
+        height * scale
+    } else {
+        height
     }
 }
 

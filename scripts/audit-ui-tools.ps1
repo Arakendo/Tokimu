@@ -10,6 +10,35 @@ $uiToolsRoot = Join-Path $repositoryRoot 'corpus/lib/ui-tools'
 $sourceRoot = Join-Path $uiToolsRoot 'src'
 $corpusRoot = Join-Path $repositoryRoot 'corpus'
 
+$dependencyTree = (& cargo tree -p ui-tools -e normal 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0) {
+    throw "cargo tree failed while auditing ui-tools dependencies:`n$dependencyTree"
+}
+
+$forbiddenDependencies = @(
+    'tokimu-render'
+    'tokimu-platform'
+    'wgpu'
+    'winit'
+    'web-sys'
+)
+$presentForbiddenDependencies = @(
+    $forbiddenDependencies | Where-Object {
+        $dependencyTree -match "(?m)^.*\b$([regex]::Escape($_))\s+v?"
+    }
+)
+if ($presentForbiddenDependencies.Count -gt 0) {
+    throw ('ui-tools has forbidden upward dependencies: {0}' -f
+        ($presentForbiddenDependencies -join ', '))
+}
+
+$providerDependencies = @('ab_glyph', 'ttf-parser', 'xml-tools', 'lyon_path', 'lyon_tessellation')
+$presentProviderDependencies = @(
+    $providerDependencies | Where-Object {
+        $dependencyTree -match "(?m)^.*\b$([regex]::Escape($_))\s+v?"
+    }
+)
+
 function Count-Matches {
     param(
         [string]$Path,
@@ -95,6 +124,8 @@ $report = [pscustomobject]@{
         source_public_declarations = Count-Matches -Path $sourceRoot -Pattern '^\s*pub\s+'
         total_tests = Count-Matches -Path $sourceRoot -Pattern '^\s*#\[test\]'
         capability_tests = $capabilityTests
+        forbidden_upward_dependencies = $presentForbiddenDependencies
+        provider_dependencies_blocking_wholesale_extraction = $presentProviderDependencies
     }
     corpus_consumer_markers = $consumerInventory
     migrated_consumer_markers = $migratedConsumerInventory
@@ -109,6 +140,9 @@ Write-Output 'UI tools audit'
 Write-Output ("  Root public export statements: {0}" -f $report.ui_tools.root_public_export_statements)
 Write-Output ("  Source public declarations: {0}" -f $report.ui_tools.source_public_declarations)
 Write-Output ("  Total unit tests: {0}" -f $report.ui_tools.total_tests)
+Write-Output '  Forbidden upward dependencies: none'
+Write-Output ("  Provider dependencies blocking wholesale extraction: {0}" -f
+    ($report.ui_tools.provider_dependencies_blocking_wholesale_extraction -join ', '))
 Write-Output '  Tests by capability:'
 foreach ($entry in $report.ui_tools.capability_tests) {
     Write-Output ("    {0}: {1}" -f $entry.capability, $entry.tests)

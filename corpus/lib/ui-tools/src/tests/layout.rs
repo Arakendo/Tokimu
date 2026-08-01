@@ -298,6 +298,105 @@ fn horizontal_stack_can_preserve_overflow_for_a_caller_selected_fallback() {
 }
 
 #[test]
+fn horizontal_stack_space_between_preserves_children_and_uses_available_width() {
+    let theme = UiTheme::default();
+    let children = vec![
+        UiButton::from_intrinsic(UiButtonId(0), "A", [0.0, 0.0], &theme),
+        UiButton::from_intrinsic(UiButtonId(1), "B", [0.0, 0.0], &theme),
+        UiButton::from_intrinsic(UiButtonId(2), "C", [0.0, 0.0], &theme),
+    ];
+    let context = UiMeasureContext::new(&theme, [1.2, 0.2]);
+    let parent = UiRect::new([0.0, 0.0], [1.2, 0.2]);
+    let intrinsic_widths: Vec<f32> = children
+        .iter()
+        .map(|child| child.measure(&context)[0])
+        .collect();
+
+    let result = UiHorizontalStack::new(children, 0.02)
+        .with_main_axis_allocation(UiMainAxisAllocation::SpaceBetween)
+        .layout(parent, &context);
+
+    assert_eq!(result.fit, UiLayoutFit::Adjusted);
+    assert_eq!(
+        result
+            .children
+            .iter()
+            .map(|child| child.rect.size[0])
+            .collect::<Vec<_>>(),
+        intrinsic_widths
+    );
+    let left = result.children[0].rect.center[0] - result.children[0].rect.size[0] * 0.5;
+    let right = result.children[2].rect.center[0] + result.children[2].rect.size[0] * 0.5;
+    assert!((left - (parent.center[0] - parent.size[0] * 0.5)).abs() < 0.00001);
+    assert!((right - (parent.center[0] + parent.size[0] * 0.5)).abs() < 0.00001);
+}
+
+#[test]
+fn vertical_stack_space_between_preserves_children_and_uses_available_height() {
+    let theme = UiTheme::default();
+    let children = vec![
+        UiButton::from_intrinsic(UiButtonId(0), "A", [0.0, 0.0], &theme),
+        UiButton::from_intrinsic(UiButtonId(1), "B", [0.0, 0.0], &theme),
+    ];
+    let context = UiMeasureContext::new(&theme, [0.4, 1.0]);
+    let parent = UiRect::new([0.0, 0.0], [0.4, 1.0]);
+    let intrinsic_heights: Vec<f32> = children
+        .iter()
+        .map(|child| child.measure(&context)[1])
+        .collect();
+
+    let result = UiVerticalStack::new(children, 0.02)
+        .with_main_axis_allocation(UiMainAxisAllocation::SpaceBetween)
+        .layout(parent, &context);
+
+    assert_eq!(result.fit, UiLayoutFit::Adjusted);
+    assert_eq!(
+        result
+            .children
+            .iter()
+            .map(|child| child.rect.size[1])
+            .collect::<Vec<_>>(),
+        intrinsic_heights
+    );
+    let top = result.children[0].rect.center[1] + result.children[0].rect.size[1] * 0.5;
+    let bottom = result.children[1].rect.center[1] - result.children[1].rect.size[1] * 0.5;
+    assert!((top - (parent.center[1] + parent.size[1] * 0.5)).abs() < 0.00001);
+    assert!((bottom - (parent.center[1] - parent.size[1] * 0.5)).abs() < 0.00001);
+}
+
+#[test]
+fn specialized_layouts_share_one_resolved_result_contract() {
+    use crate::UiResolvedLayout;
+
+    let container = UiRect::new([0.0, 0.0], [12.0, 8.0]);
+    let frame = UiFrameLayout::new(container, UiInsets::uniform(0.5), 1.0, 1.0, 0.25);
+    let split = UiHorizontalSplitLayout::new(container, 0.4, 0.5, 2.0, 2.0);
+    let grid = UiUniformGridLayout::new(container, 5, 3, [0.25, 0.25]);
+
+    let frame_result = frame.layout_result();
+    let split_result = split.layout_result();
+    let grid_result = grid.layout_result();
+
+    assert_eq!(frame_result.rect, container);
+    assert_eq!(frame_result.fit, frame.fit);
+    assert_eq!(frame_result.children.len(), 3);
+    assert_eq!(frame_result.children[0].rect, frame.header);
+    assert_eq!(frame_result.children[1].rect, frame.body);
+    assert_eq!(frame_result.children[2].rect, frame.footer);
+
+    assert_eq!(split_result.rect, container);
+    assert_eq!(split_result.fit, split.fit);
+    assert_eq!(split_result.children.len(), 2);
+    assert_eq!(split_result.children[0].rect, split.leading);
+    assert_eq!(split_result.children[1].rect, split.trailing);
+
+    assert_eq!(grid_result.rect, container);
+    assert_eq!(grid_result.fit, grid.fit);
+    assert_eq!(grid_result.children.len(), 5);
+    assert_eq!(grid_result.children[4].rect, grid.cells[4]);
+}
+
+#[test]
 fn stacks_report_impossible_for_zero_sized_containers() {
     let theme = UiTheme::default();
     let stack = UiVerticalStack::new(

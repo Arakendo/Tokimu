@@ -308,14 +308,15 @@ text-lowering contract that later slices must replace.
 #### Tests
 
 - [x] External integration tests import only the consumer tier.
-- [ ] Provider tests prove implementation types do not leak into semantic specs.
+- [x] Provider tests prove implementation types do not leak into semantic specs.
 - [x] Existing corpus consumers continue to compile during staged migration.
 
 #### Acceptance Criteria
 
 - [x] A new consumer can identify the supported composition API without using
   importer or tessellator internals.
-- [ ] No engine boundary changes are implied by source organization alone.
+- [x] No engine boundary changes are implied by source organization alone;
+  AR-0007 explicitly separates API tiers from capability admission.
 
 ### Slice 2: Add Semantic And Resolved UI Trees
 
@@ -382,22 +383,23 @@ preserved as the explicit default `UiOverflowPolicy::Compress`, which reports
 The existing frame and horizontal split now expose the same vocabulary at their
 current level of evidence. A required frame region or split pane that resolves
 to zero or non-finite geometry now reports `Impossible`, rather than appearing
-as a successful compact layout. This is not yet a complete constraint solver:
-minimum/preferred/maximum negotiation, node-identified layout diagnostics,
-spacers, and a unified composition-result contract remain open work in this
-slice. The runtime inspector's initial fit-policy migration is complete, and a
-narrow uniform-grid resolver now provides row-major equal-cell composition with
-explicit fit status. Content measurement, spanning, and implicit column
-selection remain outside that grid contract until independent consumers require
-them. Full semantic-tree and shared draw-list migration is tracked separately
-in Slice 11.
+as a successful compact layout. `UiResolvedLayout` gives frame, split, stack,
+grid, and already-recursive layout results one provider-neutral
+`UiLayoutResult` view without discarding their specialized metadata. Semantic
+`SpaceBetween` allocation provides toolbar-style spacer behavior without
+consumer-authored gap arithmetic. The runtime inspector's initial fit-policy
+migration is complete, and a narrow uniform-grid resolver provides row-major
+equal-cell composition with explicit fit status. Content measurement, spanning,
+and implicit column selection remain outside that grid contract until
+independent consumers require them. Full semantic-tree and shared draw-list
+migration is tracked separately in Slice 11.
 
-The semantic-tree path now carries a deliberately narrow readable-size
-constraint. A node can request a minimum size; resolution preserves the
-requested bounds but reports `Overflow` with a bounded, node-identified
-diagnostic when that minimum cannot fit. Zero or non-finite resolved geometry
-is reported as `Impossible`. This is evidence for explicit failure, not yet a
-general preferred/maximum-size negotiation system.
+The semantic-tree path now supports minimum, preferred, and maximum sizes.
+`UiNodeLayout::Fit` centers a node at its preferred size while ordinary `Fill`
+retains its existing meaning. Resolution preserves declared minimums and
+reports bounded, node-identified overflow when parent capacity is insufficient;
+maximum clamping and preferred fitting report `Adjusted`. Zero or non-finite
+resolved geometry is reported as `Impossible`.
 
 The runtime inspector now consumes those fit states as a presentation policy:
 when its frame, pane split, or footer is not `Exact`, it renders a compact
@@ -408,14 +410,14 @@ draw the full dense inspector below its admitted readable capacity.
 
 - [x] Extend layout results with exact, adjusted, overflow, and impossible fit
   states.
-- [ ] Add minimum, preferred, and maximum size constraints where evidence
+- [x] Add minimum, preferred, and maximum size constraints where evidence
   requires them.
 - [x] Replace silent proportional compression below minimums with explicit
   overflow or a caller-selected fallback policy.
 - [x] Add bounded layout diagnostics with node identity and violated constraint.
 - [x] Support frame, split, stack, grid, padding, and alignment behavior
   through explicit fit-result contracts.
-- [ ] Support spacer behavior and unify frame, split, stack, and grid behind
+- [x] Support spacer behavior and unify frame, split, stack, and grid behind
   one result contract.
 
 #### Tests
@@ -449,13 +451,20 @@ implicit bitmap or system-font fallback. Renderer-neutral draw-list lowering
 forwards those text-resolution findings as bounded diagnostics with the same
 node provenance.
 
+2026-08-01 completed the explicit bitmap proof-path policy set. `Clip`, `Wrap`,
+and `Ellipsis` remain unchanged; `Defer` now emits no glyph presentation when
+the complete request cannot fit while preserving pre-policy overflow evidence,
+and `ScaleDown` deterministically reduces the requested presentation height to
+fit both axes. These remain semantic `UiTextSpec` choices rather than renderer
+or provider fallbacks.
+
 #### Deliverables
 
 - [x] Integrate `UiTextFit` with semantic layout rather than leaving it as a
   consumer-selected helper.
 - [x] Preserve advance, visual bounds, baseline, ascent, descent, and line-gap
   distinctions.
-- [ ] Add explicit wrap, clip, ellipsis/deferred, and scale-down policies.
+- [x] Add explicit wrap, clip, ellipsis/deferred, and scale-down policies.
 - [x] Return missing-font and missing-glyph diagnostics through the resolved
   node.
 - [x] Keep font provider identities out of application semantic roles.
@@ -863,27 +872,43 @@ release WASM plus TypeScript build completes through its checked-in build script
 
 ### Slice 12: Admission And Decomposition Review
 
+#### Progress
+
+2026-08-01: AR-0007 accepted semantic UI composition as a coherent
+foundational presentation capability candidate based on independent native and
+WASM consumers. Extraction remains deferred: the current `ui-tools` package
+still co-locates semantic UI with TTF/OTF, XML/SVG, icon, vector, and
+tessellation implementations. ADR-0004 remains correct and required no change.
+The SDD and incubator design now record this distinction explicitly.
+
 #### Deliverables
 
-- [ ] Review whether the proven semantic UI boundary warrants a first-party
+- [x] Review whether the proven semantic UI boundary warrants a first-party
   capability package.
-- [ ] Reassess vector, text, icon, provider, and corpus-support module placement
+- [x] Reassess vector, text, icon, provider, and corpus-support module placement
   using independent-consumer evidence.
-- [ ] Record accepted, deferred, and rejected findings in an Architectural
+- [x] Record accepted, deferred, and rejected findings in an Architectural
   Review.
-- [ ] Update ADR-0004 or other ADRs only if accepted ownership changes.
-- [ ] Update the SDD and `ui-tools` design to match the implemented boundary.
+- [x] Update ADR-0004 or other ADRs only if accepted ownership changes. No ADR
+  change was required by this review cycle.
+- [x] Update the SDD and `ui-tools` design to match the implemented boundary.
 
 #### Tests
 
-- [ ] Dependency checks prove no upward provider/backend dependencies.
-- [ ] Public consumer tests remain valid across any package extraction.
-- [ ] Corpus artifacts remain stable or record intentional schema changes.
+- [x] Dependency checks reject renderer, platform, window, browser, and GPU
+  dependencies while reporting current provider dependencies as extraction
+  blockers.
+- [x] Public consumer tests define the contract that a future package extraction
+  must preserve; no extraction occurred in this slice.
+- [x] Corpus artifacts remain stable; this review introduced no artifact schema
+  changes.
 
 #### Acceptance Criteria
 
-- [ ] Packaging follows proven ownership rather than file size or preference.
-- [ ] No unresolved architectural question is presented as a settled API.
+- [x] Packaging follows proven ownership rather than file size or preference:
+  promotion of the mixed package was rejected.
+- [x] No unresolved architectural question is presented as a settled API;
+  extraction and remaining contract gaps are explicitly deferred.
 
 ## Test Architecture
 

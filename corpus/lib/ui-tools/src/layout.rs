@@ -327,6 +327,10 @@ pub enum UiCrossAxisAlignment {
 pub enum UiMainAxisAllocation {
     Intrinsic,
     Fill,
+    /// Keeps child measurements intact and allocates remaining capacity
+    /// between siblings. This is the semantic spacer behavior used by
+    /// toolbars and command rows.
+    SpaceBetween,
 }
 
 impl UiSizePolicy {
@@ -409,6 +413,15 @@ pub struct UiLayoutResult {
     pub children: Vec<UiLayoutResult>,
 }
 
+/// A provider-neutral view of resolved layout geometry.
+///
+/// Specialized layout helpers retain their domain-specific metadata while
+/// exposing this common result to diagnostics, hit testing, and consumers that
+/// only need resolved rectangles and fit evidence.
+pub trait UiResolvedLayout {
+    fn layout_result(&self) -> UiLayoutResult;
+}
+
 pub trait UiMeasurable {
     fn measure(&self, context: &UiMeasureContext<'_>) -> [f32; 2];
 }
@@ -444,6 +457,56 @@ impl UiLayoutResult {
             overflow,
             children,
         }
+    }
+}
+
+impl UiResolvedLayout for UiLayoutResult {
+    fn layout_result(&self) -> UiLayoutResult {
+        self.clone()
+    }
+}
+
+impl UiResolvedLayout for UiFrameLayout {
+    fn layout_result(&self) -> UiLayoutResult {
+        UiLayoutResult::with_fit(
+            self.viewport,
+            self.fit,
+            [0.0, 0.0],
+            vec![
+                UiLayoutResult::new(self.header),
+                UiLayoutResult::new(self.body),
+                UiLayoutResult::new(self.footer),
+            ],
+        )
+    }
+}
+
+impl UiResolvedLayout for UiHorizontalSplitLayout {
+    fn layout_result(&self) -> UiLayoutResult {
+        UiLayoutResult::with_fit(
+            self.container,
+            self.fit,
+            [0.0, 0.0],
+            vec![
+                UiLayoutResult::new(self.leading),
+                UiLayoutResult::new(self.trailing),
+            ],
+        )
+    }
+}
+
+impl UiResolvedLayout for UiUniformGridLayout {
+    fn layout_result(&self) -> UiLayoutResult {
+        UiLayoutResult::with_fit(
+            self.container,
+            self.fit,
+            [0.0, 0.0],
+            self.cells
+                .iter()
+                .copied()
+                .map(UiLayoutResult::new)
+                .collect(),
+        )
     }
 }
 
@@ -522,7 +585,7 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
             .iter()
             .map(|child| child.measure(&child_context))
             .collect();
-        let effective_gap = if child_sizes.len() > 1 {
+        let mut effective_gap = if child_sizes.len() > 1 {
             self.gap.min(rect.size[0] / (child_sizes.len() - 1) as f32)
         } else {
             0.0
@@ -531,15 +594,21 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
             + effective_gap * child_sizes.len().saturating_sub(1) as f32;
         let mut fit = UiLayoutFit::Exact;
         let mut overflow = [0.0, 0.0];
-        if total_width < rect.size[0]
-            && self.main_axis_allocation == UiMainAxisAllocation::Fill
-            && !child_sizes.is_empty()
-        {
-            let extra_width = (rect.size[0] - total_width) / child_sizes.len() as f32;
-            for size in &mut child_sizes {
-                size[0] += extra_width;
+        if total_width < rect.size[0] && !child_sizes.is_empty() {
+            match self.main_axis_allocation {
+                UiMainAxisAllocation::Fill => {
+                    let extra_width = (rect.size[0] - total_width) / child_sizes.len() as f32;
+                    for size in &mut child_sizes {
+                        size[0] += extra_width;
+                    }
+                    fit = UiLayoutFit::Adjusted;
+                }
+                UiMainAxisAllocation::SpaceBetween if child_sizes.len() > 1 => {
+                    effective_gap += (rect.size[0] - total_width) / (child_sizes.len() - 1) as f32;
+                    fit = UiLayoutFit::Adjusted;
+                }
+                UiMainAxisAllocation::Intrinsic | UiMainAxisAllocation::SpaceBetween => {}
             }
-            fit = UiLayoutFit::Adjusted;
         } else if total_width > rect.size[0] && total_width > 0.0 {
             match self.overflow_policy {
                 UiOverflowPolicy::Compress => {
@@ -657,7 +726,7 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
             .iter()
             .map(|child| child.measure(&child_context))
             .collect();
-        let effective_gap = if child_sizes.len() > 1 {
+        let mut effective_gap = if child_sizes.len() > 1 {
             self.gap.min(rect.size[1] / (child_sizes.len() - 1) as f32)
         } else {
             0.0
@@ -666,15 +735,21 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
             + effective_gap * child_sizes.len().saturating_sub(1) as f32;
         let mut fit = UiLayoutFit::Exact;
         let mut overflow = [0.0, 0.0];
-        if total_height < rect.size[1]
-            && self.main_axis_allocation == UiMainAxisAllocation::Fill
-            && !child_sizes.is_empty()
-        {
-            let extra_height = (rect.size[1] - total_height) / child_sizes.len() as f32;
-            for size in &mut child_sizes {
-                size[1] += extra_height;
+        if total_height < rect.size[1] && !child_sizes.is_empty() {
+            match self.main_axis_allocation {
+                UiMainAxisAllocation::Fill => {
+                    let extra_height = (rect.size[1] - total_height) / child_sizes.len() as f32;
+                    for size in &mut child_sizes {
+                        size[1] += extra_height;
+                    }
+                    fit = UiLayoutFit::Adjusted;
+                }
+                UiMainAxisAllocation::SpaceBetween if child_sizes.len() > 1 => {
+                    effective_gap += (rect.size[1] - total_height) / (child_sizes.len() - 1) as f32;
+                    fit = UiLayoutFit::Adjusted;
+                }
+                UiMainAxisAllocation::Intrinsic | UiMainAxisAllocation::SpaceBetween => {}
             }
-            fit = UiLayoutFit::Adjusted;
         } else if total_height > rect.size[1] && total_height > 0.0 {
             match self.overflow_policy {
                 UiOverflowPolicy::Compress => {

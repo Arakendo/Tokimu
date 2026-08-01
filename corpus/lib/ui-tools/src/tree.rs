@@ -71,6 +71,11 @@ pub enum UiNodeLayout {
     Explicit(UiRect),
     Fill,
     Inset(UiInsets),
+    /// Centers the node in its parent at its preferred constrained size.
+    ///
+    /// This is deliberately distinct from `Fill`: consumers can express a
+    /// natural size without weakening the meaning of a fill allocation.
+    Fit,
 }
 
 /// Semantic stacking class used by drawing, hit testing, and focus traversal.
@@ -97,19 +102,53 @@ pub struct UiModalDismissal {
     pub reason: UiModalDismissReason,
 }
 
-/// Minimum readable size requested by a semantic node.
+/// Provider-neutral readable-size request for a semantic node.
 ///
 /// Resolution never silently stretches an ancestor to satisfy this request. If
 /// a node receives less space than requested, its resolved layout reports
-/// `UiLayoutFit::Overflow` and emits a bounded diagnostic for the node.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// `UiLayoutFit::Overflow` and emits a bounded diagnostic for the node. Maximum
+/// constraints clamp the node and report `UiLayoutFit::Adjusted` rather than
+/// allowing oversized geometry to escape its semantic allocation.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UiNodeConstraints {
     pub min_size: [f32; 2],
+    pub preferred_size: Option<[f32; 2]>,
+    pub max_size: [f32; 2],
 }
 
 impl UiNodeConstraints {
     pub const fn minimum(min_size: [f32; 2]) -> Self {
-        Self { min_size }
+        Self {
+            min_size,
+            preferred_size: None,
+            max_size: [f32::INFINITY, f32::INFINITY],
+        }
+    }
+
+    pub const fn preferred(preferred_size: [f32; 2]) -> Self {
+        Self {
+            min_size: [0.0, 0.0],
+            preferred_size: Some(preferred_size),
+            max_size: [f32::INFINITY, f32::INFINITY],
+        }
+    }
+
+    pub const fn bounded(min_size: [f32; 2], preferred_size: [f32; 2], max_size: [f32; 2]) -> Self {
+        Self {
+            min_size,
+            preferred_size: Some(preferred_size),
+            max_size,
+        }
+    }
+}
+
+impl Default for UiNodeConstraints {
+    fn default() -> Self {
+        Self {
+            min_size: [0.0, 0.0],
+            preferred_size: None,
+            max_size: [f32::INFINITY, f32::INFINITY],
+        }
     }
 }
 
@@ -811,12 +850,13 @@ fn resolve_node(
     }
     context.ids.push(spec.id);
 
-    let bounds = match spec.layout {
-        UiNodeLayout::Explicit(bounds) => bounds.translated(context.explicit_translation),
-        UiNodeLayout::Fill => context.parent_bounds,
-        UiNodeLayout::Inset(insets) => context.parent_bounds.inset_by(insets),
-    };
-    let layout_fit = layout_fit(bounds, spec.constraints);
+    let (bounds, size_adjusted, capacity_overflow) = resolve_node_bounds(
+        spec.layout,
+        context.parent_bounds,
+        context.explicit_translation,
+        spec.constraints,
+    );
+    let layout_fit = layout_fit(bounds, spec.constraints, size_adjusted, capacity_overflow);
     match layout_fit {
         UiLayoutFit::Overflow => {
             push_diagnostic(
@@ -1017,7 +1057,12 @@ fn push_text_diagnostic(
     push_diagnostic(diagnostics, node, kind);
 }
 
-fn layout_fit(bounds: UiRect, constraints: UiNodeConstraints) -> UiLayoutFit {
+fn layout_fit(
+    bounds: UiRect,
+    constraints: UiNodeConstraints,
+    size_adjusted: bool,
+    capacity_overflow: bool,
+) -> UiLayoutFit {
     if !bounds
         .center
         .iter()
@@ -1029,17 +1074,104 @@ fn layout_fit(bounds: UiRect, constraints: UiNodeConstraints) -> UiLayoutFit {
         return UiLayoutFit::Impossible;
     }
 
-    let minimum = constraints.min_size.map(|value| {
-        if value.is_finite() {
-            value.max(0.0)
-        } else {
-            0.0
-        }
-    });
-    if bounds.size[0] < minimum[0] || bounds.size[1] < minimum[1] {
+    let minimum = normalized_constraints(constraints).min_size;
+    if capacity_overflow || bounds.size[0] < minimum[0] || bounds.size[1] < minimum[1] {
         UiLayoutFit::Overflow
+    } else if size_adjusted {
+        UiLayoutFit::Adjusted
     } else {
         UiLayoutFit::Exact
+    }
+}
+
+fn normalized_constraints(constraints: UiNodeConstraints) -> UiNodeConstraints {
+    let min_size = constraints.min_size.map(normalize_minimum);
+    let max_size = [
+        normalize_maximum(constraints.max_size[0], min_size[0]),
+        normalize_maximum(constraints.max_size[1], min_size[1]),
+    ];
+    let preferred_size = constraints.preferred_size.map(|preferred| {
+        [
+            normalize_preferred(preferred[0], min_size[0], max_size[0]),
+            normalize_preferred(preferred[1], min_size[1], max_size[1]),
+        ]
+    });
+
+    UiNodeConstraints {
+        min_size,
+        preferred_size,
+        max_size,
+    }
+}
+
+fn resolve_node_bounds(
+    layout: UiNodeLayout,
+    parent_bounds: UiRect,
+    explicit_translation: [f32; 2],
+    constraints: UiNodeConstraints,
+) -> (UiRect, bool, bool) {
+    let constraints = normalized_constraints(constraints);
+    if matches!(layout, UiNodeLayout::Fit) {
+        let preferred = constraints.preferred_size.unwrap_or(parent_bounds.size);
+        let capacity_overflow = parent_bounds.size[0] < constraints.min_size[0]
+            || parent_bounds.size[1] < constraints.min_size[1];
+        let size = [
+            if parent_bounds.size[0] < constraints.min_size[0] {
+                constraints.min_size[0]
+            } else {
+                preferred[0].min(parent_bounds.size[0])
+            },
+            if parent_bounds.size[1] < constraints.min_size[1] {
+                constraints.min_size[1]
+            } else {
+                preferred[1].min(parent_bounds.size[1])
+            },
+        ];
+        return (
+            UiRect::new(parent_bounds.center, size),
+            size != preferred,
+            capacity_overflow,
+        );
+    }
+
+    let bounds = match layout {
+        UiNodeLayout::Explicit(bounds) => bounds.translated(explicit_translation),
+        UiNodeLayout::Fill => parent_bounds,
+        UiNodeLayout::Inset(insets) => parent_bounds.inset_by(insets),
+        UiNodeLayout::Fit => unreachable!("fit layout returned above"),
+    };
+    if !bounds.size.iter().all(|value| value.is_finite()) {
+        return (bounds, false, false);
+    }
+    let size = [
+        bounds.size[0].min(constraints.max_size[0]),
+        bounds.size[1].min(constraints.max_size[1]),
+    ];
+    let adjusted = size != bounds.size;
+    (UiRect::new(bounds.center, size), adjusted, false)
+}
+
+fn normalize_minimum(value: f32) -> f32 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
+}
+
+fn normalize_maximum(value: f32, minimum: f32) -> f32 {
+    if value.is_nan() {
+        f32::INFINITY
+    } else {
+        value.max(minimum)
+    }
+}
+
+fn normalize_preferred(value: f32, minimum: f32, maximum: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(minimum, maximum)
+    } else {
+        minimum
     }
 }
 
@@ -1268,6 +1400,89 @@ mod tests {
             .unwrap();
 
         assert_eq!(resolved.root.children[0].layout_fit, UiLayoutFit::Overflow);
+        assert!(resolved.diagnostics.contains(&UiTreeDiagnostic {
+            node: UiNodeId(2),
+            kind: UiTreeDiagnosticKind::BelowMinimumSize,
+        }));
+    }
+
+    #[test]
+    fn fit_layout_uses_centered_preferred_size_without_weakening_fill() {
+        let fit = UiNodeSpec::new(
+            UiNodeId(2),
+            UiNodeKind::Region(UiRegionKind::Panel),
+            UiSurfaceRole::Panel,
+            UiNodeLayout::Fit,
+        )
+        .with_parent(UiNodeId(1))
+        .with_constraints(UiNodeConstraints::preferred([1.2, 0.6]));
+        let fill = UiNodeSpec::new(
+            UiNodeId(3),
+            UiNodeKind::Region(UiRegionKind::Panel),
+            UiSurfaceRole::Panel,
+            UiNodeLayout::Fill,
+        )
+        .with_parent(UiNodeId(1))
+        .with_constraints(UiNodeConstraints::preferred([1.2, 0.6]));
+
+        let resolved = root(vec![fit, fill])
+            .resolve(UiRect::new([0.25, -0.5], [4.0, 2.0]))
+            .unwrap();
+
+        assert_eq!(
+            resolved.root.children[0].bounds,
+            UiRect::new([0.25, -0.5], [1.2, 0.6])
+        );
+        assert_eq!(resolved.root.children[0].layout_fit, UiLayoutFit::Exact);
+        assert_eq!(resolved.root.children[1].bounds, resolved.viewport);
+    }
+
+    #[test]
+    fn maximum_size_clamps_geometry_and_reports_adjustment() {
+        let child = UiNodeSpec::new(
+            UiNodeId(2),
+            UiNodeKind::Region(UiRegionKind::Panel),
+            UiSurfaceRole::Panel,
+            UiNodeLayout::Fill,
+        )
+        .with_parent(UiNodeId(1))
+        .with_constraints(UiNodeConstraints::bounded(
+            [0.5, 0.25],
+            [1.0, 0.5],
+            [2.0, 1.0],
+        ));
+
+        let resolved = root(vec![child])
+            .resolve(UiRect::new([0.0, 0.0], [4.0, 3.0]))
+            .unwrap();
+        let child = &resolved.root.children[0];
+
+        assert_eq!(child.bounds, UiRect::new([0.0, 0.0], [2.0, 1.0]));
+        assert_eq!(child.layout_fit, UiLayoutFit::Adjusted);
+    }
+
+    #[test]
+    fn fit_layout_preserves_minimum_and_reports_insufficient_capacity() {
+        let child = UiNodeSpec::new(
+            UiNodeId(2),
+            UiNodeKind::Region(UiRegionKind::Panel),
+            UiSurfaceRole::Panel,
+            UiNodeLayout::Fit,
+        )
+        .with_parent(UiNodeId(1))
+        .with_constraints(UiNodeConstraints::bounded(
+            [1.5, 1.0],
+            [2.0, 1.5],
+            [3.0, 2.0],
+        ));
+
+        let resolved = root(vec![child])
+            .resolve(UiRect::new([0.0, 0.0], [1.0, 0.75]))
+            .unwrap();
+        let child = &resolved.root.children[0];
+
+        assert_eq!(child.bounds.size, [1.5, 1.0]);
+        assert_eq!(child.layout_fit, UiLayoutFit::Overflow);
         assert!(resolved.diagnostics.contains(&UiTreeDiagnostic {
             node: UiNodeId(2),
             kind: UiTreeDiagnosticKind::BelowMinimumSize,

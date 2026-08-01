@@ -54,6 +54,12 @@ pub enum UiTextOverflow {
     Clip,
     Ellipsis,
     Wrap,
+    /// Emit no presentation when the complete request does not fit. The
+    /// pre-policy fit result remains available to diagnostics and callers.
+    Defer,
+    /// Preserve the complete request by reducing its presentation scale until
+    /// it fits the declared rectangle.
+    ScaleDown,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -256,7 +262,13 @@ impl UiTextSpec {
 
     /// Produces the provider-neutral line contract for the bitmap proof path.
     pub fn bitmap_layout(&self, height: f32) -> UiTextLayout {
-        let lines = text_lines(self, height);
+        let requested_fit = bitmap_text_fit(self, height);
+        let height = bitmap::resolved_bitmap_height(self, height);
+        let lines = if self.overflow == UiTextOverflow::Defer && !requested_fit.fits() {
+            Vec::new()
+        } else {
+            text_lines(self, height)
+        };
         let line_height = bitmap_cell(height) * 9.0;
         let measure = UiTextMeasure {
             advance: lines

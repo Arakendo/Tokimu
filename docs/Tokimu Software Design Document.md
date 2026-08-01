@@ -386,6 +386,23 @@ That same presentation model should leave room for both 2D HUD layers and 3D
 in-world interface surfaces. Tokimu should not assume every interface is either
 pure screen-space UI or pure diegetic world geometry forever.
 
+Semantic UI composition is a foundational presentation capability candidate,
+not simulation truth and not a renderer mechanism. Current corpus evidence
+supports provider-neutral node identity, constraints and layout, clipping and
+stacking, interaction and focus, theme roles, deterministic draw-list lowering,
+and bounded diagnostics as one coherent responsibility. The implementation
+continues to incubate in `corpus/lib/ui-tools` while its semantic contracts are
+separated from co-located font, XML/SVG, icon, vector, and tessellation
+providers.
+
+A future first-party semantic UI package must remain headless and must not own
+TTF/OTF parsing, system-font discovery, SVG/XML parsing, Lucide assets, vector
+tessellation, GPU resources, renderer caches, windows, or platform event
+mechanisms. Applications own state and intent; semantic UI resolves
+composition; providers and renderer adapters execute presentation. AR-0007
+records the current evidence and defers package extraction until that
+dependency boundary is structurally true.
+
 Tokimu should use `wgpu` as the first renderer backend rather than starting
 from raw Vulkan. `wgpu` already spans native and WASM targets while hiding much
 of the platform-specific GPU setup burden.

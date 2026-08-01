@@ -27,6 +27,25 @@ application intent
 
 Applications communicate intent. Providers communicate implementation.
 
+## Admission Review Status
+
+AR-0007 accepts semantic UI composition as a coherent foundational
+presentation capability candidate. Independent native and WASM consumers now
+share the same headless tree, layout, interaction, text-fit, diagnostics, and
+draw-list path.
+
+That finding does **not** promote this crate wholesale. `ui-tools` still
+co-locates TTF/OTF, XML/SVG, icon, vector, tessellation, and compatibility code
+that belongs behind replaceable provider or lowering boundaries. The crate
+therefore remains a corpus incubator while those responsibilities are
+separated internally.
+
+The likely graduation unit is the provider-neutral semantic composition seam,
+not every module currently stored under `ui-tools`. Package extraction is
+deferred until the native and WASM consumer contracts survive that separation
+and the proposed semantic package has no provider or backend implementation
+dependencies.
+
 ## API Tiers
 
 The public facade is being staged toward explicit consumer-safe entry points.
@@ -86,13 +105,30 @@ resolved bounds, clips, and fit evidence
 The resolved tree is deliberately renderer-neutral. Its first safety contracts
 are intentionally small:
 
-- a node may declare a minimum readable size;
+- a node may declare minimum, preferred, and maximum readable sizes;
+- `Fit` centers preferred-size content while `Fill` retains parent-filling
+  semantics;
 - a too-small region remains explicit geometry but reports layout overflow;
+- maximum clamping and preferred-size fitting report an adjusted result rather
+  than masquerading as exact geometry;
 - zero or non-finite geometry reports an impossible layout;
 - attached `UiTextSpec` values inherit the same resolved bounds rather than a
   consumer maintaining a second text rectangle;
 - admitted button hit testing uses the resolved visible, enabled, clipped
   bounds and deterministic child order.
+
+Text overflow remains an application semantic. `Clip`, `Wrap`, `Ellipsis`,
+`Defer`, and `ScaleDown` are explicit `UiTextSpec` policies. Deferred text emits
+no presentation when it cannot fit, and scale-down preserves the complete
+request at a reduced presentation size; both retain the original fit evidence
+for diagnostics.
+
+Specialized frame, split, stack, and uniform-grid helpers retain the metadata
+their consumers need, but all expose the recursive `UiLayoutResult` through
+`UiResolvedLayout`. This gives diagnostics and generic composition consumers a
+single fit-result contract without weakening the specialized APIs. Stacks also
+provide semantic `SpaceBetween` allocation so consumers do not need to invent
+spacer rectangles or recompute gaps.
 
 `UiResolvedTree::node` is the read-only bridge for domain-specific content that
 must be anchored inside shared UI composition. A consumer may look up a stable

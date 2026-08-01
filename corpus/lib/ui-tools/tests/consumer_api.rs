@@ -1,16 +1,120 @@
 use ui_tools::consumer::{
     UiButtonId, UiControlRole, UiFrameLayout, UiInsets, UiInteractionState, UiLayoutFit,
-    UiModalDismissReason, UiNodeConstraints, UiNodeId, UiNodeInteraction, UiNodeKind, UiNodeLayout,
-    UiNodeSpec, UiPresentationInputs, UiPresentationRevisionTracker, UiPresentationWorkEvidence,
-    UiRect, UiRegionKind, UiResolvedFocus, UiSemanticRole, UiSurfaceRole, UiTextFit,
-    UiTextInputEvent, UiTextInputOperation, UiTextInputRouter, UiTextRole, UiTextSpec, UiTheme,
-    UiThemeProfile, UiTree, UiVerticalScroll,
+    UiMissingGlyphPolicy, UiModalDismissReason, UiNodeConstraints, UiNodeContent, UiNodeId,
+    UiNodeInteraction, UiNodeKind, UiNodeLayout, UiNodeSpec, UiNodeStacking, UiPresentationInputs,
+    UiPresentationRevisionTracker, UiPresentationWorkEvidence, UiRect, UiRegionKind,
+    UiResolvedFocus, UiSemanticRole, UiSurfaceRole, UiTextAlign, UiTextAlignmentBasis,
+    UiTextDirection, UiTextFit, UiTextInputEvent, UiTextInputOperation, UiTextInputRouter,
+    UiTextMeasure, UiTextOverflow, UiTextRole, UiTextSpec, UiTheme, UiThemeProfile, UiTree,
+    UiVerticalScroll,
 };
+use ui_tools::diagnostics::UiTextDiagnostic;
 use ui_tools::lowering::{
     lower_resolved_tree_to_draw_list, UiDrawCommand, UiDrawListBuilder, UiSurfaceCommand,
 };
 use ui_tools::provider::UiTextMetricsProvider;
-use ui_tools::{UiTextDiagnostic, UiTextMeasure};
+
+#[test]
+fn semantic_specs_are_exhaustively_provider_neutral() {
+    // Exhaustive destructuring makes any new semantic field an intentional
+    // public-contract change. Provider handles and parser types have no place
+    // in either list.
+    let text = UiTextSpec::new(
+        "provider neutral",
+        UiRect::new([0.0, 0.0], [1.0, 0.2]),
+        UiTextRole::Body,
+    );
+    let UiTextSpec {
+        text,
+        rect,
+        role,
+        direction,
+        align_x,
+        align_y,
+        alignment_basis,
+        overflow,
+        missing_glyph,
+    } = text;
+    let _: String = text;
+    let _: UiRect = rect;
+    let _: UiTextRole = role;
+    let _: UiTextDirection = direction;
+    let _: UiTextAlign = align_x;
+    let _: UiTextAlign = align_y;
+    let _: UiTextAlignmentBasis = alignment_basis;
+    let _: UiTextOverflow = overflow;
+    let _: UiMissingGlyphPolicy = missing_glyph;
+
+    let node = UiNodeSpec::new(
+        UiNodeId(1),
+        UiNodeKind::Text(UiTextRole::Body),
+        UiSurfaceRole::Region,
+        UiNodeLayout::Fill,
+    );
+    let UiNodeSpec {
+        id,
+        parent,
+        kind,
+        role,
+        content,
+        semantic_label,
+        semantic_value,
+        selected,
+        text,
+        layout,
+        constraints,
+        interaction,
+        visible,
+        enabled,
+        clips_children,
+        stacking,
+        dismissible,
+        child_translation,
+        children,
+    } = node;
+    let _: UiNodeId = id;
+    let _: Option<UiNodeId> = parent;
+    let _: UiNodeKind = kind;
+    let _: UiSurfaceRole = role;
+    let _: UiNodeContent = content;
+    let _: Option<String> = semantic_label;
+    let _: Option<String> = semantic_value;
+    let _: bool = selected;
+    let _: Option<UiTextSpec> = text;
+    let _: UiNodeLayout = layout;
+    let _: UiNodeConstraints = constraints;
+    let _: UiNodeInteraction = interaction;
+    let _: bool = visible;
+    let _: bool = enabled;
+    let _: bool = clips_children;
+    let _: UiNodeStacking = stacking;
+    let _: bool = dismissible;
+    let _: [f32; 2] = child_translation;
+    let _: Vec<UiNodeSpec> = children;
+}
+
+#[test]
+fn semantic_nodes_expose_bounded_fit_without_consumer_rect_math() {
+    let constraints = UiNodeConstraints::bounded([0.4, 0.2], [1.0, 0.5], [1.5, 0.8]);
+    let node = UiNodeSpec::new(
+        UiNodeId(901),
+        UiNodeKind::Region(UiRegionKind::Panel),
+        UiSurfaceRole::Panel,
+        UiNodeLayout::Fit,
+    )
+    .with_constraints(constraints);
+
+    assert_eq!(node.constraints.min_size, [0.4, 0.2]);
+    assert_eq!(node.constraints.preferred_size, Some([1.0, 0.5]));
+    assert_eq!(node.constraints.max_size, [1.5, 0.8]);
+}
+
+#[test]
+fn provider_neutral_measurement_is_available_from_the_consumer_tier() {
+    let measure = UiTextMeasure::default();
+    assert_eq!(measure.advance, 0.0);
+    assert!(measure.diagnostics.is_empty());
+}
 
 #[test]
 fn ordinary_consumer_tier_supports_semantic_layout_and_text_intent() {

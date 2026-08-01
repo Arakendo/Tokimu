@@ -79,6 +79,50 @@ fn ellipsis_overflow_truncates_to_the_available_width() {
 }
 
 #[test]
+fn deferred_overflow_emits_no_glyphs_but_preserves_fit_evidence() {
+    let spec = UiTextSpec::new(
+        "THIS REQUEST DOES NOT FIT",
+        UiRect::new([0.0, 0.0], [0.12, 0.08]),
+        UiTextRole::Status,
+    )
+    .with_overflow(UiTextOverflow::Defer);
+
+    let report = spec.headless_report(0.05);
+
+    assert!(layout_bitmap_text(&spec, 0.05).is_empty());
+    assert!(report.fit.horizontal_overflow);
+    assert_eq!(report.glyph_count, 0);
+}
+
+#[test]
+fn deferred_text_still_renders_when_the_complete_request_fits() {
+    let spec = UiTextSpec::new(
+        "OK",
+        UiRect::new([0.0, 0.0], [0.4, 0.2]),
+        UiTextRole::Status,
+    )
+    .with_overflow(UiTextOverflow::Defer);
+
+    assert!(!layout_bitmap_text(&spec, 0.05).is_empty());
+    assert!(spec.headless_report(0.05).fit.fits());
+}
+
+#[test]
+fn scale_down_preserves_complete_text_inside_its_bounds() {
+    let bounds = UiRect::new([0.0, 0.0], [0.24, 0.08]);
+    let spec = UiTextSpec::new("SCALE DOWN", bounds, UiTextRole::Button)
+        .with_overflow(UiTextOverflow::ScaleDown);
+
+    let glyphs = layout_bitmap_text(&spec, 0.08);
+    let layout = spec.bitmap_layout(0.08);
+
+    assert!(!glyphs.is_empty());
+    assert!(glyphs.iter().all(|glyph| bounds.contains(glyph.center)));
+    assert!(layout.measure.ascent < bitmap_glyph_height(0.08));
+    assert!(spec.headless_report(0.08).fit.horizontal_overflow);
+}
+
+#[test]
 fn bitmap_layout_keeps_start_aligned_glyphs_inside_bounds() {
     let spec = UiTextSpec::new("A", UiRect::new([0.0, 0.0], [0.12, 0.12]), UiTextRole::Body)
         .with_alignment(UiTextAlign::Start, UiTextAlign::Start)

@@ -29,19 +29,21 @@ pub mod consumer {
         UiCardSpec, UiConstraints, UiControlRole, UiCrossAxisAlignment, UiElevation, UiFitStatus,
         UiFocusDirection, UiFocusState, UiFrameLayout, UiHorizontalSplitLayout, UiHorizontalStack,
         UiInsets, UiInteractionState, UiLabel, UiLabelAnchor, UiLabelSpec, UiLayoutFit,
-        UiLayoutResult, UiMainAxisAllocation, UiMeasureContext, UiModalDismissReason,
-        UiModalDismissal, UiNodeConstraints, UiNodeContent, UiNodeId, UiNodeInteraction,
-        UiNodeKind, UiNodeLayout, UiNodeSpec, UiNodeStacking, UiOverflowPolicy, UiPanel,
-        UiPointerEvent, UiPointerPhase, UiPointerResolution, UiPointerRouter, UiPresentationInputs,
-        UiPresentationInvalidation, UiPresentationRebuildEvidence, UiPresentationRevisionTracker,
-        UiPresentationWorkEvidence, UiRadius, UiRect, UiRegion, UiRegionKind, UiResolvedFocus,
-        UiResolvedNode, UiResolvedSemantics, UiResolvedTree, UiSemanticRole, UiSidebar,
-        UiSizePolicy, UiSpacing, UiStateChip, UiStatusBar, UiSurfaceRole, UiTabStrip, UiTextAlign,
-        UiTextAlignmentBasis, UiTextDirection, UiTextFit, UiTextInputEvent, UiTextInputOperation,
-        UiTextInputResolution, UiTextInputRouter, UiTextInputState, UiTextOverflow, UiTextRole,
-        UiTextSpec, UiTheme, UiThemeDiagnostic, UiThemeProfile, UiToolbar, UiToolbarLayout, UiTree,
-        UiTreeDiagnostic, UiTreeDiagnosticKind, UiTreeError, UiUniformGridLayout, UiVerticalScroll,
-        UiVerticalStack, UiWorkspace, UiWorkspaceLayout,
+        UiLayoutResult, UiMainAxisAllocation, UiMeasureContext, UiMissingGlyphPolicy,
+        UiModalDismissReason, UiModalDismissal, UiNodeConstraints, UiNodeContent, UiNodeId,
+        UiNodeInteraction, UiNodeKind, UiNodeLayout, UiNodeSpec, UiNodeStacking, UiOverflowPolicy,
+        UiPanel, UiPointerEvent, UiPointerPhase, UiPointerResolution, UiPointerRouter,
+        UiPresentationInputs, UiPresentationInvalidation, UiPresentationRebuildEvidence,
+        UiPresentationRevisionTracker, UiPresentationWorkEvidence, UiRadius, UiRect, UiRegion,
+        UiRegionKind, UiResolvedFocus, UiResolvedLayout, UiResolvedNode, UiResolvedSemantics,
+        UiResolvedTree, UiSemanticRole, UiSidebar, UiSizePolicy, UiSpacing, UiStateChip,
+        UiStatusBar, UiSurfaceRole, UiTabStrip, UiTextAlign, UiTextAlignmentBasis, UiTextDirection,
+        UiTextFit, UiTextInputEvent, UiTextInputOperation, UiTextInputResolution,
+        UiTextInputRouter, UiTextInputState, UiTextLayout, UiTextLayoutReport, UiTextLineLayout,
+        UiTextMeasure, UiTextOverflow, UiTextRole, UiTextSpec, UiTheme, UiThemeDiagnostic,
+        UiThemeProfile, UiToolbar, UiToolbarLayout, UiTree, UiTreeDiagnostic, UiTreeDiagnosticKind,
+        UiTreeError, UiUniformGridLayout, UiVerticalScroll, UiVerticalStack, UiWorkspace,
+        UiWorkspaceLayout,
     };
 }
 
@@ -121,7 +123,7 @@ pub use icon::{
 pub use layout::{
     UiConstraints, UiCrossAxisAlignment, UiFrameLayout, UiHorizontalSplitLayout, UiHorizontalStack,
     UiLayoutFit, UiLayoutResult, UiMainAxisAllocation, UiMeasurable, UiMeasureContext,
-    UiOverflowPolicy, UiSizePolicy, UiUniformGridLayout, UiVerticalStack,
+    UiOverflowPolicy, UiResolvedLayout, UiSizePolicy, UiUniformGridLayout, UiVerticalStack,
 };
 pub use presets::{UiToolbarLayout, UiWorkspaceLayout};
 pub use raster::{

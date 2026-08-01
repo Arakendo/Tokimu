@@ -167,3 +167,6 @@ across unrelated decisions.
 - [AR-0006: Raster Image Requirement Pipeline](AR-0006-raster-image-requirement-pipeline.md)
   — Under Review; encoded-format, decoded-image, presentation-requirement, and
   renderer-resource ownership is being studied before capability admission
+- [AR-0007: Semantic UI Composition Boundary](AR-0007-semantic-ui-composition-boundary.md)
+  — Incubating; semantic composition ownership is validated by native and WASM
+  consumers, while first-party package extraction awaits provider separation
