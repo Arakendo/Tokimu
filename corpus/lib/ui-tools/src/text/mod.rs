@@ -1,6 +1,6 @@
 mod bitmap;
 
-use bitmap::{bitmap_cell, physical_alignment, text_lines};
+use bitmap::{bitmap_cell, bitmap_text_fit, physical_alignment, text_lines};
 pub use bitmap::{bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width};
 
 use crate::{UiLabelAnchor, UiRect};
@@ -113,12 +113,29 @@ pub struct UiGlyphQuad {
     pub size: [f32; 2],
 }
 
+/// Whether the requested text fits within its declared layout region.
+///
+/// This reports the semantic request before clipping or ellipsis hides any
+/// excess, so corpus consumers can make unfit text visible in diagnostics.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct UiTextFit {
+    pub horizontal_overflow: bool,
+    pub vertical_overflow: bool,
+}
+
+impl UiTextFit {
+    pub fn fits(self) -> bool {
+        !self.horizontal_overflow && !self.vertical_overflow
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiTextLayoutReport {
     pub text: String,
     pub line_count: usize,
     pub glyph_count: usize,
     pub visible_bounds: Option<UiRect>,
+    pub fit: UiTextFit,
 }
 
 impl UiTextLayout {
@@ -174,6 +191,7 @@ impl UiTextSpec {
 
     pub fn headless_report(&self, height: f32) -> UiTextLayoutReport {
         let quads = layout_bitmap_text(self, height);
+        let fit = bitmap_text_fit(self, height);
         let visible_bounds = quads.first().map(|_| {
             let (min_x, max_x, min_y, max_y) = quads.iter().fold(
                 (
@@ -204,6 +222,7 @@ impl UiTextSpec {
             line_count: self.text.lines().count(),
             glyph_count: quads.len(),
             visible_bounds,
+            fit,
         }
     }
 

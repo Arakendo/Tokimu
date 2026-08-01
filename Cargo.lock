@@ -855,6 +855,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-runtime-inspector"
+version = "0.1.0"
+dependencies = [
+ "hello-runtime-observation",
+ "tokimu",
+ "ui-tools",
+]
+
+[[package]]
+name = "hello-runtime-observation"
+version = "0.1.0"
+dependencies = [
+ "gltf-corpus",
+ "presentation-control",
+ "serde",
+ "serde_json",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-save-image"
 version = "0.1.0"
 dependencies = [
@@ -2035,6 +2055,16 @@ dependencies = [
  "bitflags 2.13.0",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "runtime-observation-workbench-engine"
+version = "0.1.0"
+dependencies = [
+ "hello-runtime-observation",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]

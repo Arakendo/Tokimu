@@ -1,5 +1,6 @@
 use super::{
-    UiGlyphQuad, UiTextAlign, UiTextAlignmentBasis, UiTextDirection, UiTextOverflow, UiTextSpec,
+    UiGlyphQuad, UiTextAlign, UiTextAlignmentBasis, UiTextDirection, UiTextFit, UiTextOverflow,
+    UiTextSpec,
 };
 
 pub fn layout_bitmap_text(spec: &UiTextSpec, height: f32) -> Vec<UiGlyphQuad> {
@@ -69,6 +70,30 @@ pub fn layout_bitmap_text(spec: &UiTextSpec, height: f32) -> Vec<UiGlyphQuad> {
     }
 
     quads
+}
+
+pub(super) fn bitmap_text_fit(spec: &UiTextSpec, height: f32) -> UiTextFit {
+    // A zero-sized axis is an intentionally unconstrained proof-path axis.
+    if spec.rect.size == [0.0, 0.0] {
+        return UiTextFit::default();
+    }
+
+    let source_lines: Vec<&str> = spec.text.lines().collect();
+    let horizontal_overflow = spec.rect.size[0] > 0.0
+        && source_lines
+            .iter()
+            .any(|line| measure_bitmap_text_width(line, height) > spec.rect.size[0]);
+
+    let resolved_line_count = text_lines(spec, height).len().max(1);
+    let line_height = bitmap_cell(height) * 9.0;
+    let resolved_height =
+        bitmap_glyph_height(height) + line_height * resolved_line_count.saturating_sub(1) as f32;
+    let vertical_overflow = spec.rect.size[1] > 0.0 && resolved_height > spec.rect.size[1];
+
+    UiTextFit {
+        horizontal_overflow,
+        vertical_overflow,
+    }
 }
 
 pub(super) fn physical_alignment(align: UiTextAlign, direction: UiTextDirection) -> UiTextAlign {

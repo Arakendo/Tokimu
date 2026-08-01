@@ -1,0 +1,11 @@
+[package]
+name = "hello-runtime-inspector"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hello-runtime-observation = { path = "../hello-runtime-observation" }
+tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
+ui-tools = { path = "../lib/ui-tools" }

@@ -42,8 +42,9 @@ pub use icon::{
     UiIconVectorProvider,
 };
 pub use layout::{
-    UiConstraints, UiCrossAxisAlignment, UiHorizontalStack, UiLayoutResult, UiMainAxisAllocation,
-    UiMeasurable, UiMeasureContext, UiSizePolicy, UiVerticalStack,
+    UiConstraints, UiCrossAxisAlignment, UiFrameLayout, UiHorizontalSplitLayout, UiHorizontalStack,
+    UiLayoutResult, UiMainAxisAllocation, UiMeasurable, UiMeasureContext, UiSizePolicy,
+    UiVerticalStack,
 };
 pub use presets::{UiToolbarLayout, UiWorkspaceLayout};
 pub use raster::{
@@ -67,8 +68,8 @@ pub use svg::{
 pub use text::{
     bitmap_glyph_height, layout_bitmap_text, measure_bitmap_text_width, UiGlyphQuad,
     UiMissingGlyphPolicy, UiTextAlign, UiTextAlignmentBasis, UiTextDiagnostic,
-    UiTextDiagnosticKind, UiTextDirection, UiTextLayout, UiTextLayoutReport, UiTextLineLayout,
-    UiTextMeasure, UiTextMetricsProvider, UiTextOverflow, UiTextRole, UiTextSpec,
+    UiTextDiagnosticKind, UiTextDirection, UiTextFit, UiTextLayout, UiTextLayoutReport,
+    UiTextLineLayout, UiTextMeasure, UiTextMetricsProvider, UiTextOverflow, UiTextRole, UiTextSpec,
 };
 pub use text_input::{UiTextInputOperation, UiTextInputState};
 pub use theme::{

@@ -3,7 +3,9 @@
 ## Purpose
 
 `hello-hole-punch` is a focused GLB scene-loading corpus example for the
-user-supplied `corpus/assets/GLB/hole_punch1.glb` asset.
+user-supplied `corpus/assets/CheckLicense/hole_punch1.glb` asset. The fixture
+remains locally usable while its redistribution status is reviewed; it must not
+be admitted as a tracked corpus asset until its provenance is recorded.
 
 It proves that the current GLB corpus decoder can:
 

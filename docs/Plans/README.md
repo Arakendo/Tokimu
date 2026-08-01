@@ -20,6 +20,8 @@ than silently treating the plan as authority.
 - [Particle Simulation And Presentation](particle-simulation-and-presentation.md)
 - [Tokimu Website](tokimu-website.md)
 - [Tokimu Paint Consumer Corpus](tokimu-paint-consumer-corpus.md)
+- [Runtime Observation And Command Corpus](runtime-observation-and-command-corpus.md)
+- [Tokimu Observation Shell Consumer Corpus](tokimu-observation-shell-consumer-corpus.md)
 
 ## Completed Spikes
 

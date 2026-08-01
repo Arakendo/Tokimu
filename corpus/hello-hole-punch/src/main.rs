@@ -14,7 +14,7 @@ const CAMERA_HANDLE: CameraHandle = CameraHandle(1);
 const MODEL_MATERIAL: MaterialHandle = MaterialHandle(1);
 const FLOOR_MESH: MeshHandle = MeshHandle(2_000);
 const FLOOR_MATERIAL: MaterialHandle = MaterialHandle(2);
-const HOLE_PUNCH_SOURCE: &str = "corpus/assets/GLB/hole_punch1.glb";
+const HOLE_PUNCH_SOURCE: &str = "corpus/assets/CheckLicense/hole_punch1.glb";
 
 fn main() -> PlatformResult<()> {
     run_window_with_app(

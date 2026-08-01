@@ -1,0 +1,5 @@
+:root { color-scheme: dark; font-family: ui-monospace, monospace; background: #081315; color: #d8f8f3; }
+body { margin: 0; } main { max-width: 900px; margin: 3rem auto; padding: 2rem; border: 1px solid #3b7772; }
+p { color: #70e2d1; text-transform: uppercase; letter-spacing: .12em; } .description { max-width: 62ch; color: #b6d2ce; text-transform: none; letter-spacing: normal; line-height: 1.5; } .controls { display: flex; flex-wrap: wrap; gap: .6rem; }
+button { background: #102a2c; color: inherit; border: 1px solid #4fcabc; padding: .65rem .8rem; cursor: pointer; } button:hover { background: #17454a; }
+pre { margin-top: 1.5rem; padding: 1rem; min-height: 20rem; overflow: auto; background: #050b0c; border: 1px solid #234846; }

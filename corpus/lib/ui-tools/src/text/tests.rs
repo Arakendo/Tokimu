@@ -187,6 +187,39 @@ fn headless_report_describes_the_same_layout_consumed_by_rendering() {
     assert_eq!(report.line_count, 2);
     assert_eq!(report.glyph_count, rendered.len());
     assert!(report.visible_bounds.is_some());
+    assert!(report.fit.fits());
+}
+
+#[test]
+fn headless_report_exposes_hidden_horizontal_overflow() {
+    let spec = UiTextSpec::new(
+        "THIS LABEL IS TOO WIDE",
+        UiRect::new([0.0, 0.0], [0.18, 0.10]),
+        UiTextRole::Status,
+    )
+    .with_overflow(UiTextOverflow::Ellipsis);
+
+    let report = spec.headless_report(0.04);
+
+    assert!(report.fit.horizontal_overflow);
+    assert!(!report.fit.vertical_overflow);
+    assert!(!report.fit.fits());
+}
+
+#[test]
+fn headless_report_exposes_wrapped_vertical_overflow() {
+    let spec = UiTextSpec::new(
+        "ONE TWO THREE FOUR FIVE SIX",
+        UiRect::new([0.0, 0.0], [0.18, 0.08]),
+        UiTextRole::Body,
+    )
+    .with_overflow(UiTextOverflow::Wrap);
+
+    let report = spec.headless_report(0.04);
+
+    assert!(report.fit.horizontal_overflow);
+    assert!(report.fit.vertical_overflow);
+    assert!(!report.fit.fits());
 }
 
 #[test]

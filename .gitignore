@@ -46,3 +46,12 @@ Thumbs.db
 third-party/fixtures/**/*.tar.gz
 third-party/fixtures/**/*.jar
 third-party/fixtures/**/*.war
+
+
+# Downloaded fixture archives and vendor tool libraries not able to resistribute
+third-party-no-redist/*
+!third-party-no-redist/S1000D.md
+
+
+# Check Asset Licenses for Redistribution
+corpus/assets/CheckLicense/

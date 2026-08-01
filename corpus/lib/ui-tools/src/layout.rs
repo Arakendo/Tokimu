@@ -1,5 +1,128 @@
 use crate::{UiRect, UiTheme};
 
+/// A viewport-aware application frame with distinct header, body, and footer
+/// regions. Consumers choose semantic content for those regions; this type
+/// owns only their responsive spatial arrangement.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiFrameLayout {
+    pub viewport: UiRect,
+    pub content: UiRect,
+    pub header: UiRect,
+    pub body: UiRect,
+    pub footer: UiRect,
+}
+
+impl UiFrameLayout {
+    pub fn for_window(
+        window_size: [f32; 2],
+        padding: crate::UiInsets,
+        header_height: f32,
+        footer_height: f32,
+        gap: f32,
+    ) -> Self {
+        let height = window_size[1].max(1.0);
+        let viewport = UiRect::new([0.0, 0.0], [2.0 * window_size[0].max(1.0) / height, 2.0]);
+        Self::new(viewport, padding, header_height, footer_height, gap)
+    }
+
+    pub fn new(
+        viewport: UiRect,
+        padding: crate::UiInsets,
+        header_height: f32,
+        footer_height: f32,
+        gap: f32,
+    ) -> Self {
+        let content = viewport.inset_by(padding);
+        let header_height = header_height.clamp(0.0, content.size[1]);
+        let footer_height = footer_height.clamp(0.0, (content.size[1] - header_height).max(0.0));
+        let gap = gap
+            .max(0.0)
+            .min((content.size[1] - header_height - footer_height).max(0.0) * 0.5);
+        let body_height = (content.size[1] - header_height - footer_height - gap * 2.0).max(0.0);
+        let top = content.center[1] + content.size[1] * 0.5;
+        let bottom = content.center[1] - content.size[1] * 0.5;
+        let header = UiRect::new(
+            [content.center[0], top - header_height * 0.5],
+            [content.size[0], header_height],
+        );
+        let body_top = top - header_height - gap;
+        let body = UiRect::new(
+            [content.center[0], body_top - body_height * 0.5],
+            [content.size[0], body_height],
+        );
+        let footer = UiRect::new(
+            [content.center[0], bottom + footer_height * 0.5],
+            [content.size[0], footer_height],
+        );
+
+        Self {
+            viewport,
+            content,
+            header,
+            body,
+            footer,
+        }
+    }
+}
+
+/// The resolved result of splitting one region into two readable panes.
+///
+/// `fits_minimums` is intentionally explicit: consumers can choose a compact
+/// view, a scroll region, or a diagnostic instead of silently shrinking text
+/// below its requested readable width.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiHorizontalSplitLayout {
+    pub container: UiRect,
+    pub leading: UiRect,
+    pub trailing: UiRect,
+    pub fits_minimums: bool,
+}
+
+impl UiHorizontalSplitLayout {
+    pub fn new(
+        container: UiRect,
+        leading_fraction: f32,
+        gap: f32,
+        leading_min_width: f32,
+        trailing_min_width: f32,
+    ) -> Self {
+        let gap = gap.max(0.0).min(container.size[0]);
+        let available_width = (container.size[0] - gap).max(0.0);
+        let leading_min_width = leading_min_width.max(0.0);
+        let trailing_min_width = trailing_min_width.max(0.0);
+        let fits_minimums = leading_min_width + trailing_min_width <= available_width;
+        let preferred_leading = available_width * leading_fraction.clamp(0.0, 1.0);
+        let leading_width = if fits_minimums {
+            preferred_leading.clamp(
+                leading_min_width,
+                (available_width - trailing_min_width).max(leading_min_width),
+            )
+        } else {
+            preferred_leading
+        };
+        let trailing_width = (available_width - leading_width).max(0.0);
+        let left = container.center[0] - container.size[0] * 0.5;
+        let leading = UiRect::new(
+            [left + leading_width * 0.5, container.center[1]],
+            [leading_width, container.size[1]],
+        );
+        let trailing = UiRect::new(
+            [
+                left + leading_width + gap + trailing_width * 0.5,
+                container.center[1],
+            ],
+            [trailing_width, container.size[1]],
+        );
+
+        Self {
+            container,
+            leading,
+            trailing,
+            fits_minimums,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UiConstraints {
     pub min: [f32; 2],

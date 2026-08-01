@@ -1,0 +1,7 @@
+{
+  "name": "runtime-observation-workbench",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "tsc", "typecheck": "tsc --noEmit" },
+  "devDependencies": { "typescript": "^5.9.2" }
+}

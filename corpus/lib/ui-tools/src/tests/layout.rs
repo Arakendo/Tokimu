@@ -1,6 +1,52 @@
 use super::super::*;
 
 #[test]
+fn frame_layout_uses_the_available_window_instead_of_a_fixed_card() {
+    let frame =
+        UiFrameLayout::for_window([1200.0, 760.0], UiInsets::uniform(0.08), 0.14, 0.20, 0.03);
+
+    assert!(frame.content.size[0] > 2.8);
+    assert!(frame.header.center[1] > frame.body.center[1]);
+    assert!(frame.body.center[1] > frame.footer.center[1]);
+    assert!(frame.header.intersection(frame.body).is_none());
+    assert!(frame.body.intersection(frame.footer).is_none());
+}
+
+#[test]
+fn frame_layout_clamps_gaps_before_regions_can_overlap() {
+    let frame = UiFrameLayout::new(
+        UiRect::new([0.0, 0.0], [1.0, 1.0]),
+        UiInsets::uniform(0.1),
+        0.4,
+        0.4,
+        0.5,
+    );
+
+    assert!(frame.header.intersection(frame.body).is_none());
+    assert!(frame.body.intersection(frame.footer).is_none());
+}
+
+#[test]
+fn horizontal_split_preserves_declared_minimums_when_the_viewport_allows_them() {
+    let split =
+        UiHorizontalSplitLayout::new(UiRect::new([0.0, 0.0], [2.0, 0.8]), 0.5, 0.04, 0.70, 0.70);
+
+    assert!(split.fits_minimums);
+    assert!(split.leading.size[0] >= 0.70);
+    assert!(split.trailing.size[0] >= 0.70);
+    assert!(split.leading.intersection(split.trailing).is_none());
+}
+
+#[test]
+fn horizontal_split_reports_unfit_minimums_without_overlapping_panes() {
+    let split =
+        UiHorizontalSplitLayout::new(UiRect::new([0.0, 0.0], [1.0, 0.8]), 0.5, 0.04, 0.70, 0.70);
+
+    assert!(!split.fits_minimums);
+    assert!(split.leading.intersection(split.trailing).is_none());
+}
+
+#[test]
 fn toolbar_layout_can_hit_test_buttons() {
     let layout = UiToolbarLayout::new(
         [1280.0, 720.0],

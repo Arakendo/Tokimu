@@ -33,6 +33,8 @@ members = [
     "corpus/hello-particles",
     "corpus/hello-fps-web",
     "corpus/hello-cad",
+    "corpus/hello-runtime-observation",
+    "corpus/hello-runtime-inspector",
 
     # Data, interchange, and output corpus.
     "corpus/hello-svg",
@@ -53,6 +55,7 @@ members = [
     "corpus/consumers/aspnet-wasm-presentation-workbench/engine",
     "corpus/consumers/tokimu-website-asteroids/engine",
     "corpus/consumers/tokimu-website-paint/engine",
+    "corpus/consumers/runtime-observation-workbench/engine",
 
     # UI corpus.
     "corpus/ui/hello-ui",

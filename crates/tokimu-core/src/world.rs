@@ -322,7 +322,11 @@ impl World {
                     .map(|relationships| {
                         let mut edges: Vec<_> = relationships
                             .iter()
-                            .map(|(&source, targets)| (source, targets.clone()))
+                            .map(|(&source, targets)| {
+                                let mut targets = targets.clone();
+                                targets.sort_by_key(|target| target.0);
+                                (source, targets)
+                            })
                             .collect();
                         edges.sort_by_key(|(source, _)| source.0);
                         edges
@@ -590,6 +594,24 @@ mod tests {
                 first.0,
                 second.0,
             )
+        );
+    }
+
+    #[test]
+    fn snapshots_relationship_targets_in_entity_order() {
+        let mut world = World::default();
+        let parent = world.spawn();
+        let first_child = world.spawn();
+        let second_child = world.spawn();
+
+        world.add_relationship::<ParentOf>(parent, second_child);
+        world.add_relationship::<ParentOf>(parent, first_child);
+
+        let snapshot = world.snapshot();
+
+        assert_eq!(
+            snapshot.relationship_types[0].edges,
+            vec![(parent, vec![first_child, second_child])]
         );
     }
 }
