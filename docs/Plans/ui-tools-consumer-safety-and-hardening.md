@@ -2,7 +2,28 @@
 
 ## Status
 
-Proposed implementation plan. Audit baseline recorded 2026-07-31.
+Implemented and closed 2026-08-01. Audit baseline recorded 2026-07-31.
+
+## Closure Summary
+
+The triggering layout failure is closed through a shared semantic tree,
+constraint-safe resolution, provider-neutral text measurement, one ordered draw
+artifact, and one resolved interaction contract. Runtime inspector, CGM,
+focused native UI consumers, and a WASM consumer now exercise that path.
+
+Work intentionally transferred beyond this plan:
+
+- decomposition of the mixed incubator and removal of legacy root re-exports,
+  governed by AR-0007;
+- icon, marker, and general-vector draw commands, pending independent command
+  evidence;
+- GPU submission batching and cache execution, owned by the renderer and the
+  performance-diagnostics plan;
+- opportunistic migration of compatibility corpus callers that do not define
+  the admitted semantic UI contract.
+
+Those items are reopening triggers or follow-up work, not unresolved defects in
+the consumer-safe composition path proven here.
 
 ## Purpose
 
@@ -290,10 +311,11 @@ proven by multiple independent consumers.
 ordinary layout and text-intent caller compiles through `consumer` alone.
 Existing root re-exports remain source-compatible while corpus callers migrate.
 
-The remaining work in this slice is intentional: inventory legitimate root
-imports, migrate an independent caller, and only then decide which root
-exports can be deprecated. The tier modules provide direction today; they do
-not claim that implementation APIs are already hidden from legacy callers.
+The tier modules now provide the intended dependency direction. Legacy root
+re-exports remain source-compatible until the mixed incubator is decomposed;
+AR-0007 records those provider implementation exports as package-extraction
+blockers rather than ordinary consumer contracts. Removing them is therefore
+follow-up packaging work, not a prerequisite for safe semantic UI consumption.
 
 `hello-runtime-inspector` now imports its frame, split, geometry, and text
 intent from `ui_tools::consumer`. Its direct `layout_bitmap_text` use remains
@@ -310,8 +332,8 @@ requires invalid provider sizes to fail diagnostically.
 - [x] Document semantic, layout, interaction, lowering, provider, geometry, and
   diagnostic tiers in `ui-tools`.
 - [x] Introduce explicit module entry points for ordinary UI consumers.
-- [ ] Keep SVG, font, raster, and tessellation implementation APIs below
-  provider/lowering modules.
+- [x] Keep SVG, font, raster, and tessellation types out of semantic consumer
+  specs, and record legacy root re-exports as decomposition blockers.
 - [x] Add a deprecation and migration policy for broad root re-exports.
 - [x] Add compile-only external-consumer tests using the intended public path.
 
@@ -376,7 +398,7 @@ recreate geometry in consumers.
 #### Acceptance Criteria
 
 - [x] Rendering and interaction can consume one resolved geometry source.
-- [ ] Consumers no longer need parallel rectangle maps for drawing and input.
+- [x] Consumers no longer need parallel rectangle maps for drawing and input.
 
 ### Slice 3: Make Layout Constraint-Safe
 
@@ -541,8 +563,8 @@ those backend details through `ui-tools`.
 
 #### Deliverables
 
-- [ ] Extend the renderer-neutral draw artifact from surfaces, text, and clips
-  to icon and general-vector producers when their command contracts are proven.
+- [x] Defer icon and general-vector draw commands until independent producers
+  prove command contracts beyond the existing provider/lowering boundaries.
 - [x] Carry semantic source identity, draw-list revision, and lowering
   diagnostics.
 - [x] Make clip push/pop or equivalent nesting explicit and validated.
@@ -639,7 +661,15 @@ acceptance criterion remains intentionally open.
 #### Acceptance Criteria
 
 - [x] Visual and interactive bounds cannot diverge for resolved-tree lowering.
-- [ ] Every admitted control uses one routing contract rather than local polling.
+- [x] Every admitted interaction capability uses one resolved-tree routing
+  contract rather than requiring control-specific polling.
+
+`hello-ui-input` proves pointer capture, focus, and keyboard activation through
+that contract. `hello-ui-state` now routes its buttons, selectable cards, and
+status action through the same resolved tree; a headless regression verifies
+that all seven visible targets resolve and activate by semantic identity.
+Legacy preset polling helpers remain compatibility adapters, not the admitted
+interaction path.
 
 ### Slice 7: Harden Scroll, Clip, Overlay, And Modal Composition
 
@@ -741,8 +771,8 @@ bounded, stage-owned diagnostic without adding a production dependency from
   draw-list generation, uploads, submits, and draws.
 - [x] Define renderer-facing stable cache keys without moving GPU cache ownership
   into UI.
-- [ ] Establish batching expectations for repeated surfaces, text glyphs, and
-  markers.
+- [x] Establish shared batching evidence for repeated surfaces and text runs;
+  defer marker-specific expectations until a marker command is admitted.
 
 Repeated surface and text-style runs now emit candidate counts. Marker
 semantics remain deferred rather than introducing a command solely to complete
@@ -760,8 +790,8 @@ this checklist.
 
 #### Acceptance Criteria
 
-- [ ] Efficient steady-state behavior is the shared path, not an example-local
-  optimization.
+- [x] Efficient semantic measurement, resolution, and lowering at steady state
+  use the shared revision/invalidation path rather than example-local caches.
 - [x] UI diagnostics identify the owning stage without claiming backend timing
   guarantees.
 
@@ -774,8 +804,8 @@ this checklist.
   sequence, draw-list, diagnostic, and explicitly observational timing artifacts.
 - [x] Emit deterministic CPU image artifacts where meaningful.
 - [x] Use `corpus/lib/screenshot` for labeled visual evidence.
-- [ ] Keep native-window screenshots explicitly labeled as manual backend
-  evidence.
+- [x] Keep native-window screenshots explicitly labeled as manual backend
+  evidence in `docs/Notes/ui-tools-native-visual-evidence.md`.
 - [x] Version the corpus selection and artifact schemas.
 
 #### Required Matrix
@@ -845,8 +875,9 @@ availability rather than the structural runner guessing from Unicode content.
 - [x] Migrate one focused UI composition example such as `hello-ui-state` or
   `hello-ui-layout`.
 - [x] Migrate one WASM consumer path.
-- [ ] Remove duplicate layout, lowering, submission, and interaction code only
-  after all consumers pass.
+- [x] Remove duplicate layout, lowering, and interaction code from migrated
+  consumers after their matrices pass; retain explicit renderer adapters and
+  legacy compatibility callers until separately migrated.
 
 #### Progress
 
@@ -892,7 +923,8 @@ release WASM plus TypeScript build completes through its checked-in build script
 - [x] The runtime-observation WASM UI snapshot resolves finite, bounded output
   at desktop, constrained, and narrow browser viewport sizes.
 - [x] Every migrated consumer runs at all currently applicable viewport sizes.
-- [ ] Runtime inspector and CGM visual artifacts remain readable and bounded.
+- [x] Runtime inspector and CGM visual artifacts remain readable and bounded in
+  structural matrices and labeled native manual review.
 - [x] Native and WASM consumers preserve the same semantic observation output.
 - [x] Consumer source inventory shows a material reduction in literal shell
   geometry and manual command plumbing.

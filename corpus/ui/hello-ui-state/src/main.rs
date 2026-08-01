@@ -8,9 +8,10 @@ use tokimu::{
 };
 use ui_tools::{
     layout_bitmap_text, window_to_world, UiActionId, UiActivationKey, UiButtonId, UiButtonSpec,
-    UiCard, UiCardRole, UiControlRole, UiDrawer, UiEvent, UiInteractionState, UiRect, UiRegion,
-    UiRegionKind, UiSurfaceCommand, UiSurfaceRole, UiTextAlign, UiTextRole, UiTextSpec, UiTheme,
-    UiWorkspaceLayout,
+    UiCard, UiCardRole, UiControlRole, UiDrawer, UiInteractionState, UiNodeId, UiNodeInteraction,
+    UiNodeKind, UiNodeLayout, UiNodeSpec, UiPointerEvent, UiPointerPhase, UiPointerRouter, UiRect,
+    UiRegion, UiRegionKind, UiResolvedFocus, UiResolvedTree, UiSurfaceCommand, UiSurfaceRole,
+    UiTextAlign, UiTextRole, UiTextSpec, UiTheme, UiTree, UiWorkspaceLayout,
 };
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
@@ -28,6 +29,13 @@ const TEXT_MATERIAL: MaterialHandle = MaterialHandle(7);
 const PREVIOUS_ASSET: UiActionId = UiActionId(1);
 const TOGGLE_PINNED: UiActionId = UiActionId(2);
 const NEXT_ASSET: UiActionId = UiActionId(3);
+
+const ROOT_NODE: UiNodeId = UiNodeId(1);
+const PREVIOUS_NODE: UiNodeId = UiNodeId(10);
+const PIN_NODE: UiNodeId = UiNodeId(11);
+const NEXT_NODE: UiNodeId = UiNodeId(12);
+const CARD_NODES: [UiNodeId; 3] = [UiNodeId(20), UiNodeId(21), UiNodeId(22)];
+const STATUS_NODE: UiNodeId = UiNodeId(30);
 
 #[derive(Clone, Copy)]
 struct AssetProfile {
@@ -78,7 +86,8 @@ struct HelloUiStateApp {
     selected_asset: usize,
     hovered_asset: Option<usize>,
     hovered_button: Option<usize>,
-    focused_button: UiButtonId,
+    focus: UiResolvedFocus,
+    pointer: UiPointerRouter,
     pinned: bool,
     revision: u64,
     cursor_position: [f32; 2],
@@ -86,6 +95,7 @@ struct HelloUiStateApp {
     cached_selected_asset: usize,
     cached_hovered_asset: Option<usize>,
     cached_hovered_button: Option<usize>,
+    cached_focused_node: Option<UiNodeId>,
     cached_pinned: bool,
     cached_revision: u64,
     cached_surfaces: Vec<UiSurfaceCommand>,
@@ -103,7 +113,8 @@ impl Default for HelloUiStateApp {
             selected_asset: 0,
             hovered_asset: None,
             hovered_button: None,
-            focused_button: UiButtonId(1),
+            focus: UiResolvedFocus::default(),
+            pointer: UiPointerRouter::default(),
             pinned: false,
             revision: 0,
             cursor_position: [0.0, 0.0],
@@ -111,6 +122,7 @@ impl Default for HelloUiStateApp {
             cached_selected_asset: usize::MAX,
             cached_hovered_asset: None,
             cached_hovered_button: None,
+            cached_focused_node: None,
             cached_pinned: false,
             cached_revision: u64::MAX,
             cached_surfaces: Vec::new(),
@@ -182,18 +194,115 @@ impl HelloUiStateApp {
         self.revision = self.revision.saturating_add(1);
     }
 
-    fn hovered_button_index(&self, layout: &UiWorkspaceLayout) -> Option<usize> {
-        layout
-            .buttons
-            .iter()
-            .position(|button| button.contains(self.cursor_world()))
+    fn viewport(&self) -> UiRect {
+        let width = self.window_size[0].max(1.0);
+        let height = self.window_size[1].max(1.0);
+        UiRect::new([0.0, 0.0], [2.0 * width / height, 2.0])
     }
 
-    fn hovered_asset_index(&self, layout: &UiWorkspaceLayout) -> Option<usize> {
-        layout
-            .cards
+    fn interaction_tree(&self) -> UiResolvedTree {
+        let layout = self.layout();
+        let button_nodes = [PREVIOUS_NODE, PIN_NODE, NEXT_NODE];
+        let mut root = UiNodeSpec::new(
+            ROOT_NODE,
+            UiNodeKind::Region(UiRegionKind::Workspace),
+            UiSurfaceRole::Background,
+            UiNodeLayout::Fill,
+        );
+
+        for ((node_id, button), label) in button_nodes.into_iter().zip(layout.buttons).zip([
+            "previous asset",
+            "toggle pinned",
+            "next asset",
+        ]) {
+            root = root.with_child(
+                UiNodeSpec::new(
+                    node_id,
+                    UiNodeKind::Button(button.id),
+                    UiSurfaceRole::Raised,
+                    UiNodeLayout::Explicit(button.rect),
+                )
+                .with_parent(ROOT_NODE)
+                .with_interaction(UiNodeInteraction::Activatable)
+                .with_semantic_label(label),
+            );
+        }
+
+        for ((node_id, card), profile) in CARD_NODES.into_iter().zip(layout.cards).zip(ASSETS) {
+            root = root.with_child(
+                UiNodeSpec::new(
+                    node_id,
+                    UiNodeKind::Region(UiRegionKind::Card),
+                    UiSurfaceRole::Card,
+                    UiNodeLayout::Explicit(card.region.rect),
+                )
+                .with_parent(ROOT_NODE)
+                .with_interaction(UiNodeInteraction::Activatable)
+                .with_semantic_label(profile.name),
+            );
+        }
+
+        root = root.with_child(
+            UiNodeSpec::new(
+                STATUS_NODE,
+                UiNodeKind::Region(UiRegionKind::StatusBar),
+                UiSurfaceRole::Region,
+                UiNodeLayout::Explicit(layout.status_bar.rect),
+            )
+            .with_parent(ROOT_NODE)
+            .with_interaction(UiNodeInteraction::Activatable)
+            .with_semantic_label("toggle pinned status"),
+        );
+
+        UiTree::new(root)
+            .resolve(self.viewport())
+            .expect("hello-ui-state uses unique, valid semantic node identities")
+    }
+
+    fn sync_interaction_state(&mut self) {
+        self.hovered_button = match self.pointer.hover() {
+            Some(PREVIOUS_NODE) => Some(0),
+            Some(PIN_NODE) => Some(1),
+            Some(NEXT_NODE) => Some(2),
+            _ => None,
+        };
+        self.hovered_asset = CARD_NODES
             .iter()
-            .position(|card| card.region.contains(self.cursor_world()))
+            .position(|candidate| Some(*candidate) == self.pointer.hover());
+    }
+
+    fn focused_button(&self) -> Option<UiButtonId> {
+        match self.focus.focused() {
+            Some(PREVIOUS_NODE) => Some(UiButtonId(0)),
+            Some(PIN_NODE) => Some(UiButtonId(1)),
+            Some(NEXT_NODE) => Some(UiButtonId(2)),
+            _ => None,
+        }
+    }
+
+    fn apply_activation(&mut self, node: UiNodeId) {
+        match node {
+            PREVIOUS_NODE => self.select_previous(),
+            PIN_NODE | STATUS_NODE => self.toggle_pin(),
+            NEXT_NODE => self.select_next(),
+            node => {
+                if let Some(index) = CARD_NODES.iter().position(|candidate| *candidate == node) {
+                    self.select_asset(index);
+                }
+            }
+        }
+    }
+
+    fn route_pointer(&mut self, phase: UiPointerPhase) -> Option<UiNodeId> {
+        let tree = self.interaction_tree();
+        let resolution = self
+            .pointer
+            .route(&tree, UiPointerEvent::new(self.cursor_world(), phase));
+        if matches!(phase, UiPointerPhase::Press) {
+            self.focus.set_focus(&tree, resolution.target);
+        }
+        self.sync_interaction_state();
+        resolution.activated
     }
 
     fn material_for_role(role: UiSurfaceRole) -> MaterialHandle {
@@ -274,6 +383,7 @@ impl HelloUiStateApp {
             && self.cached_selected_asset == self.selected_asset
             && self.cached_hovered_asset == self.hovered_asset
             && self.cached_hovered_button == self.hovered_button
+            && self.cached_focused_node == self.focus.focused()
             && self.cached_pinned == self.pinned
             && self.cached_revision == self.revision
         {
@@ -281,6 +391,7 @@ impl HelloUiStateApp {
         }
 
         let layout = self.layout();
+        let focused_button = self.focused_button();
         self.cached_surfaces.clear();
         self.cached_text.clear();
 
@@ -373,7 +484,7 @@ impl HelloUiStateApp {
             drawer.surface(&indicator);
 
             for (index, button) in layout.buttons.iter().enumerate() {
-                let state = if button.id == self.focused_button {
+                let state = if Some(button.id) == focused_button {
                     UiInteractionState::Focused
                 } else if Some(index) == self.hovered_button {
                     UiInteractionState::Hovered
@@ -442,6 +553,7 @@ impl HelloUiStateApp {
         self.cached_selected_asset = self.selected_asset;
         self.cached_hovered_asset = self.hovered_asset;
         self.cached_hovered_button = self.hovered_button;
+        self.cached_focused_node = self.focus.focused();
         self.cached_pinned = self.pinned;
         self.cached_revision = self.revision;
 
@@ -507,6 +619,9 @@ impl PlatformEventHandler for HelloUiStateApp {
         self.renderer = Some(renderer);
         self.hovered_button = None;
         self.hovered_asset = None;
+        let tree = self.interaction_tree();
+        self.focus.set_focus(&tree, Some(PIN_NODE));
+        self.route_pointer(UiPointerPhase::Move);
         self.update_window_title();
         Ok(())
     }
@@ -514,53 +629,36 @@ impl PlatformEventHandler for HelloUiStateApp {
     fn on_platform_event(&mut self, event: PlatformInputEvent) -> PlatformResult<()> {
         if let PlatformInputEvent::CursorMoved { x, y } = event {
             self.cursor_position = [x, y];
-            let layout = self.layout();
-            self.hovered_button = self.hovered_button_index(&layout);
-            self.hovered_asset = self.hovered_asset_index(&layout);
+            self.route_pointer(UiPointerPhase::Move);
             self.update_window_title();
         }
 
         if let PlatformInputEvent::MouseInput {
             button: MouseButton::Left,
-            pressed: true,
+            pressed,
         } = event
         {
-            let layout = self.layout();
-            if let Some(event) = layout.event_at(self.cursor_world(), true) {
-                if let Some(button) = layout.button_at(self.cursor_world()) {
-                    self.focused_button = button;
-                }
-                match event {
-                    UiEvent::Activated(PREVIOUS_ASSET) => self.select_previous(),
-                    UiEvent::Activated(TOGGLE_PINNED) => self.toggle_pin(),
-                    UiEvent::Activated(NEXT_ASSET) => self.select_next(),
-                    UiEvent::Activated(_) => {}
-                }
-            } else if let Some(index) = self.hovered_asset_index(&layout) {
-                self.select_asset(index);
-            } else if layout.status_bar.contains(self.cursor_world()) {
-                self.toggle_pin();
+            let phase = if pressed {
+                UiPointerPhase::Press
+            } else {
+                UiPointerPhase::Release
+            };
+            if let Some(activated) = self.route_pointer(phase) {
+                self.apply_activation(activated);
             }
             self.update_window_title();
         }
 
         if let PlatformInputEvent::KeyboardInput { key, pressed } = event {
             if pressed {
-                let layout = self.layout();
                 let activation_key = match key {
                     KeyCode::Space => Some(UiActivationKey::Space),
                     _ => None,
                 };
                 if let Some(activation_key) = activation_key {
-                    if let Some(UiEvent::Activated(action)) =
-                        layout.focused_event(self.focused_button, activation_key, true)
-                    {
-                        match action {
-                            PREVIOUS_ASSET => self.select_previous(),
-                            TOGGLE_PINNED => self.toggle_pin(),
-                            NEXT_ASSET => self.select_next(),
-                            _ => {}
-                        }
+                    let tree = self.interaction_tree();
+                    if let Some(activated) = self.focus.activate(&tree, activation_key) {
+                        self.apply_activation(activated);
                     }
                 } else {
                     match key {
@@ -578,6 +676,9 @@ impl PlatformEventHandler for HelloUiStateApp {
             if let Some(renderer) = self.renderer.as_mut() {
                 renderer.resize_surface(width, height);
             }
+            let tree = self.interaction_tree();
+            self.focus.reconcile(&tree);
+            self.route_pointer(UiPointerPhase::Move);
         }
 
         Ok(())
@@ -609,5 +710,38 @@ impl PlatformEventHandler for HelloUiStateApp {
         let _ = renderer.present()?;
         self.update_window_title();
         Ok(FrameOutcome::Continue)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn buttons_cards_and_status_share_one_resolved_routing_contract() {
+        let app = HelloUiStateApp::new();
+        let tree = app.interaction_tree();
+        let layout = app.layout();
+        let cases = [
+            (layout.buttons[0].rect.center, PREVIOUS_NODE),
+            (layout.buttons[1].rect.center, PIN_NODE),
+            (layout.buttons[2].rect.center, NEXT_NODE),
+            (layout.cards[0].region.rect.center, CARD_NODES[0]),
+            (layout.cards[1].region.rect.center, CARD_NODES[1]),
+            (layout.cards[2].region.rect.center, CARD_NODES[2]),
+            (layout.status_bar.rect.center, STATUS_NODE),
+        ];
+
+        for (position, expected) in cases {
+            let mut pointer = UiPointerRouter::default();
+            let pressed =
+                pointer.route(&tree, UiPointerEvent::new(position, UiPointerPhase::Press));
+            assert_eq!(pressed.target, Some(expected));
+            let released = pointer.route(
+                &tree,
+                UiPointerEvent::new(position, UiPointerPhase::Release),
+            );
+            assert_eq!(released.activated, Some(expected));
+        }
     }
 }
