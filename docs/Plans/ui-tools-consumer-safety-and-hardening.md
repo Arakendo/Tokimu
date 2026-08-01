@@ -603,6 +603,13 @@ focus, selected, and idle presentation states from the resolved tree, pointer
 router, and focus identity. Application selection remains an explicit semantic
 input, while transient capture and hover state take precedence over it.
 
+`hello-ui-input` now consumes that contract directly. Its pointer hover,
+press/release capture, keyboard traversal, and activation all resolve the same
+semantic `UiNodeId` identities; it no longer maintains a parallel button
+rectangle hit map or button-only focus model. Legacy helpers remain available
+for compatibility while older corpus callers migrate, so the universal-routing
+acceptance criterion remains intentionally open.
+
 #### Deliverables
 
 - [x] Replace button-only identity assumptions with explicit node interaction

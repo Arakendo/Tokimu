@@ -25,15 +25,15 @@ Input State
 
 ↓
 
-Focus Routing
+Resolved Semantic Tree
 
 ↓
 
-UiWorkspaceLayout
+Pointer + Focus Routing
 
 ↓
 
-UiDrawer
+Application Interaction State
 
 ↓
 
@@ -52,6 +52,7 @@ Interaction state becomes visible feedback.
 - Mouse routing can select semantic targets.
 - Keyboard navigation can move focus.
 - Hover is separate from capture.
+- Pointer and keyboard input resolve the same `UiNodeId` identities.
 - Input state can be reused across multiple regions.
 - Rendering consumes routed state rather than owning it.
 
@@ -64,9 +65,8 @@ Applications describe:
 - cursor position
 - pressed buttons
 - pressed keys
-- hover target
-- focus target
-- capture state
+- semantic node interaction capability
+- application-owned selection or toggle state
 
 Applications do not describe:
 
@@ -79,7 +79,10 @@ Applications do not describe:
 The example should show that events first update input state and then drive
 focus decisions.
 
-That means the renderer sees the result, not the event stream itself.
+`UiPointerRouter` and `UiResolvedFocus` consume the resolved semantic tree, so
+draw bounds, clipped hit bounds, hover, capture, and keyboard focus cannot use
+independent rectangle maps. The renderer sees the result, not the event stream
+itself.
 
 ### Hover and focus differ
 
@@ -90,7 +93,9 @@ Those semantics should remain distinct.
 
 ### Capture is explicit
 
-Capture indicates that a target is actively holding input attention.
+Pointer capture indicates that a target is actively holding input attention
+between press and release. The example's visible capture toggle remains
+application state activated by that routed target.
 
 It should not be conflated with hover or selection.
 
