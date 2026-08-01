@@ -31,6 +31,17 @@ impl UiRect {
             && point[1] <= self.center[1] + half_height
     }
 
+    /// Returns this rectangle translated without changing its extent.
+    ///
+    /// Layout and interaction adapters use this shared operation so content
+    /// movement cannot acquire subtly different coordinate math.
+    pub fn translated(self, delta: [f32; 2]) -> Self {
+        Self {
+            center: [self.center[0] + delta[0], self.center[1] + delta[1]],
+            size: self.size,
+        }
+    }
+
     pub fn intersection(self, other: Self) -> Option<Self> {
         let left = (self.center[0] - self.size[0] * 0.5).max(other.center[0] - other.size[0] * 0.5);
         let right =

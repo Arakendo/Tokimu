@@ -22,6 +22,14 @@ use tokimu::{
 };
 use ui_tools::{layout_bitmap_text, tessellate_path_strokes, UiRect, UiTextRole, UiTextSpec};
 
+use ui_tools::{
+    lower_resolved_tree_to_draw_list, UiDrawCommand, UiDrawList, UiSurfaceRole, UiTheme,
+};
+
+mod ui;
+
+use ui::{build_cgm_inspection_scene, CgmInspectionView, SOURCE_PANE_ID, VECTOR_PANE_ID};
+
 const SOURCE: &str = "third-party/fixtures/webcgm-test-suite/upstream/static10/POLYLN01.cgm";
 const QUAD_MESH: MeshHandle = MeshHandle(1);
 const GLYPH_MESH: MeshHandle = MeshHandle(2);
@@ -296,115 +304,96 @@ impl HelloCgmApp {
         renderer.submit(&commands);
     }
 
-    fn draw_inspection(
+    fn submit_ui_draw_list(
         renderer: &mut WgpuBackend,
         pipeline: PipelineHandle,
+        draw_list: &UiDrawList,
+    ) {
+        let mut commands = Vec::new();
+        for entry in draw_list.entries() {
+            match &entry.command {
+                UiDrawCommand::PushClip(_) | UiDrawCommand::PopClip => {}
+                UiDrawCommand::Surface(surface) => {
+                    commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: QUAD_MESH,
+                        material: material_for_surface(surface.style.role),
+                        pipeline,
+                        instance: Instance2d::new(surface.rect.center, surface.rect.size, 0.0),
+                        camera: Some(CAMERA_HANDLE),
+                        viewport: None,
+                    }));
+                }
+                UiDrawCommand::Text(text) => {
+                    commands.extend(
+                        layout_bitmap_text(&text.spec, text.style.height)
+                            .into_iter()
+                            .map(|quad| {
+                                RenderCommand::DrawMesh(DrawMeshCommand {
+                                    mesh: GLYPH_MESH,
+                                    material: if matches!(
+                                        text.style.role,
+                                        UiTextRole::Title | UiTextRole::Heading
+                                    ) {
+                                        TEXT_MATERIAL
+                                    } else {
+                                        MUTED_TEXT_MATERIAL
+                                    },
+                                    pipeline,
+                                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                                    camera: Some(CAMERA_HANDLE),
+                                    viewport: None,
+                                })
+                            }),
+                    );
+                }
+            }
+        }
+        renderer.submit(&commands);
+    }
+
+    fn draw_semantic_inspection(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        window_size: [f32; 2],
         inspection: &CgmInspection,
         lowered_primitives: &[CgmVectorPrimitive],
         vector_visible: bool,
         vector_material_override: Option<MaterialOverride>,
     ) {
-        Self::draw_quad(
-            renderer,
-            pipeline,
-            PANEL_MATERIAL,
-            UiRect::new([0.0, 0.0], [1.82, 1.22]),
-        );
-        Self::draw_quad(
-            renderer,
-            pipeline,
-            ACCENT_MATERIAL,
-            UiRect::new([0.0, 0.52], [1.82, 0.008]),
-        );
+        let view = inspection_view(inspection, lowered_primitives);
+        let scene = build_cgm_inspection_scene(window_size, &view);
+        let resolved = scene
+            .tree
+            .resolve(scene.viewport)
+            .expect("CGM semantic inspection scene should resolve");
+        let draw_list = lower_resolved_tree_to_draw_list(&resolved, &UiTheme::default(), 0);
+        Self::submit_ui_draw_list(renderer, pipeline, &draw_list);
 
-        Self::draw_text(
+        let source = resolved
+            .node(SOURCE_PANE_ID)
+            .expect("CGM source pane should remain in the resolved scene")
+            .bounds;
+        let vector = resolved
+            .node(VECTOR_PANE_ID)
+            .expect("CGM vector pane should remain in the resolved scene")
+            .bounds;
+        Self::draw_source_evidence(renderer, pipeline, inspection, source);
+        Self::draw_vector_evidence(
             renderer,
             pipeline,
-            TEXT_MATERIAL,
-            "CGM SOURCE + VECTOR INSPECTION",
-            UiRect::new([0.0, 0.57], [1.7, 0.10]),
-            UiTextRole::Title,
-            0.054,
+            lowered_primitives,
+            vector,
+            vector_visible,
+            vector_material_override,
         );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            ACCENT_MATERIAL,
-            inspection.metafile_name.to_uppercase(),
-            UiRect::new([0.0, 0.44], [1.4, 0.08]),
-            UiTextRole::Heading,
-            0.040,
-        );
+    }
 
-        let picture_names = inspection
-            .pictures
-            .iter()
-            .map(|picture| picture.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let summary = format!(
-            "{} BYTES  |  {} ELEMENTS  |  {} PICTURES  |  {} ATTRIBUTES  |  {} PRIMITIVES  |  {} DIAGNOSTICS",
-            inspection.source_bytes,
-            inspection.elements.len(),
-            inspection.pictures.len(),
-            inspection
-                .pictures
-                .iter()
-                .map(|picture| picture.attributes.len())
-                .sum::<usize>(),
-            inspection
-                .pictures
-                .iter()
-                .map(|picture| picture.primitives.len())
-                .sum::<usize>(),
-            inspection.diagnostics.len()
-        );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            MUTED_TEXT_MATERIAL,
-            summary,
-            UiRect::new([0.0, 0.35], [1.68, 0.07]),
-            UiTextRole::Caption,
-            0.024,
-        );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            MUTED_TEXT_MATERIAL,
-            format!("PICTURE: {picture_names}"),
-            UiRect::new([0.0, 0.29], [1.68, 0.06]),
-            UiTextRole::Caption,
-            0.022,
-        );
-        let coordinate_summary = inspection
-            .pictures
-            .first()
-            .and_then(|picture| picture.descriptor.vdc_extent)
-            .map_or_else(
-                || "VDC: unresolved".to_owned(),
-                |extent| {
-                    format!(
-                        "VDC: ({}, {}) -> ({}, {})  |  {:?} / {:?}",
-                        extent.first[0],
-                        extent.first[1],
-                        extent.second[0],
-                        extent.second[1],
-                        inspection.pictures[0].descriptor.scaling_mode,
-                        inspection.pictures[0].descriptor.color_selection_mode,
-                    )
-                },
-            );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            MUTED_TEXT_MATERIAL,
-            coordinate_summary,
-            UiRect::new([0.0, 0.23], [1.68, 0.05]),
-            UiTextRole::Caption,
-            0.018,
-        );
-
+    fn draw_source_evidence(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        inspection: &CgmInspection,
+        pane: UiRect,
+    ) {
         let mut class_counts = [0usize; 16];
         for element in &inspection.elements {
             class_counts[element.class as usize] += 1;
@@ -415,25 +404,32 @@ impl HelloCgmApp {
             .enumerate()
             .filter(|(_, count)| **count > 0)
             .collect::<Vec<_>>();
-        let bar_width = 0.82 / populated.len().max(1) as f32;
+        let column_width = 0.82 / populated.len().max(1) as f32;
         for (column, (class, count)) in populated.iter().enumerate() {
-            let normalized = **count as f32 / maximum;
-            let height = 0.05 + normalized * 0.25;
-            let x = -0.81 + bar_width * (column as f32 + 0.5);
+            let height = 0.08 + **count as f32 / maximum * 0.25;
+            let rect = relative_rect(
+                pane,
+                [0.09 + column_width * column as f32, 0.43],
+                [column_width * 0.62, height],
+            );
             Self::draw_quad(
                 renderer,
                 pipeline,
                 MaterialHandle(CLASS_MATERIAL_BASE + (*class % CLASS_COLORS.len()) as u64),
-                UiRect::new([x, 0.04 + height * 0.5], [bar_width * 0.62, height]),
+                rect,
             );
             Self::draw_text(
                 renderer,
                 pipeline,
                 TEXT_MATERIAL,
                 format!("C{} {}", class, count),
-                UiRect::new([x, -0.12], [bar_width * 0.95, 0.05]),
+                relative_rect(
+                    pane,
+                    [0.06 + column_width * column as f32, 0.36],
+                    [column_width * 0.92, 0.05],
+                ),
                 UiTextRole::Caption,
-                0.017,
+                (pane.size[1] * 0.018).clamp(0.012, 0.025),
             );
         }
 
@@ -442,19 +438,16 @@ impl HelloCgmApp {
             pipeline,
             MUTED_TEXT_MATERIAL,
             "SOURCE-ORDERED ELEMENT MAP",
-            UiRect::new([-0.39, -0.20], [0.8, 0.05]),
+            relative_rect(pane, [0.08, 0.27], [0.84, 0.05]),
             UiTextRole::Caption,
-            0.020,
+            (pane.size[1] * 0.020).clamp(0.013, 0.027),
         );
-
         let columns = 26usize;
         let visible = inspection.elements.len().min(columns * 4);
-        let cell_width = 0.82 / columns as f32;
+        let cell_width = 0.84 / columns as f32;
         for (index, element) in inspection.elements.iter().take(visible).enumerate() {
             let column = index % columns;
             let row = index / columns;
-            let x = -0.81 + cell_width * (column as f32 + 0.5);
-            let y = -0.27 - row as f32 * 0.045;
             let material = if element.delimiter.is_some() {
                 ACCENT_MATERIAL
             } else {
@@ -466,117 +459,44 @@ impl HelloCgmApp {
                 renderer,
                 pipeline,
                 material,
-                UiRect::new([x, y], [cell_width * 0.76, 0.028]),
+                relative_rect(
+                    pane,
+                    [0.08 + column as f32 * cell_width, 0.20 - row as f32 * 0.045],
+                    [cell_width * 0.76, 0.028],
+                ),
             );
         }
+    }
 
-        let lifecycle = inspection
-            .elements
-            .iter()
-            .filter_map(|element| element.delimiter)
-            .map(|delimiter| match delimiter {
-                DelimiterElement::BeginMetafile => "BEGIN MF",
-                DelimiterElement::EndMetafile => "END MF",
-                DelimiterElement::BeginPicture => "BEGIN PIC",
-                DelimiterElement::BeginPictureBody => "BODY",
-                DelimiterElement::EndPicture => "END PIC",
-            })
-            .collect::<Vec<_>>()
-            .join("  >  ");
-        Self::draw_text(
-            renderer,
-            pipeline,
-            TEXT_MATERIAL,
-            lifecycle,
-            UiRect::new([-0.39, -0.47], [0.8, 0.06]),
-            UiTextRole::Caption,
-            0.020,
-        );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            MUTED_TEXT_MATERIAL,
-            "SOURCE STATE + VECTOR LOWERING COMPLETE",
-            UiRect::new([-0.39, -0.55], [0.8, 0.05]),
-            UiTextRole::Caption,
-            0.017,
-        );
-
-        // This is a provider-neutral geometry viewport, not CGM paint output.
-        // Draw its mesh before labels so the diagnostic annotations remain readable.
-        Self::draw_quad(
-            renderer,
-            pipeline,
-            VECTOR_PANEL_MATERIAL,
-            UiRect::new([0.48, -0.16], [0.70, 0.58]),
-        );
-        if vector_visible && !lowered_primitives.is_empty() {
-            let draw = DrawMeshCommand {
-                mesh: VECTOR_MESH,
-                material: VECTOR_MATERIAL,
-                pipeline,
-                instance: Instance2d::new([0.48, -0.17], [0.54, 0.30], 0.0),
-                camera: Some(CAMERA_HANDLE),
-                viewport: None,
-            };
-            renderer.submit(&[match vector_material_override {
-                Some(material_override) => {
-                    RenderCommand::DrawMeshMaterialOverride(DrawMeshMaterialOverrideCommand {
-                        draw,
-                        material_override,
-                    })
-                }
-                None => RenderCommand::DrawMesh(draw),
-            }]);
+    fn draw_vector_evidence(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        lowered_primitives: &[CgmVectorPrimitive],
+        pane: UiRect,
+        vector_visible: bool,
+        vector_material_override: Option<MaterialOverride>,
+    ) {
+        if !vector_visible || lowered_primitives.is_empty() {
+            return;
         }
-
-        let closed = lowered_primitives
-            .iter()
-            .filter(|primitive| primitive.topology == CgmPrimitiveTopology::Closed)
-            .count();
-        let contours = lowered_primitives
-            .iter()
-            .map(|primitive| primitive.path.contours.len())
-            .sum::<usize>();
-        let points = lowered_primitives
-            .iter()
-            .flat_map(|primitive| primitive.path.contours.iter())
-            .map(|contour| contour.points.len())
-            .sum::<usize>();
-        Self::draw_text(
-            renderer,
+        let viewport = relative_rect(pane, [0.10, 0.14], [0.80, 0.52]);
+        let draw = DrawMeshCommand {
+            mesh: VECTOR_MESH,
+            material: VECTOR_MATERIAL,
             pipeline,
-            ACCENT_MATERIAL,
-            "NORMALIZED VECTOR DIAGNOSTIC",
-            UiRect::new([0.48, 0.08], [0.64, 0.06]),
-            UiTextRole::Heading,
-            0.030,
-        );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            MUTED_TEXT_MATERIAL,
-            format!(
-                "{} PRIMITIVES  |  {} OPEN  |  {} CLOSED  |  {} CONTOURS  |  {} POINTS",
-                lowered_primitives.len(),
-                lowered_primitives.len().saturating_sub(closed),
-                closed,
-                contours,
-                points,
-            ),
-            UiRect::new([0.48, 0.01], [0.64, 0.05]),
-            UiTextRole::Caption,
-            0.016,
-        );
-        Self::draw_text(
-            renderer,
-            pipeline,
-            MUTED_TEXT_MATERIAL,
-            "NEUTRAL PATH OUTLINE ONLY: CGM PAINT, EDGE, AND CLIPPING SEMANTICS REMAIN DEFERRED",
-            UiRect::new([0.48, -0.40], [0.64, 0.06]),
-            UiTextRole::Caption,
-            0.014,
-        );
+            instance: Instance2d::new(viewport.center, viewport.size, 0.0),
+            camera: Some(CAMERA_HANDLE),
+            viewport: None,
+        };
+        renderer.submit(&[match vector_material_override {
+            Some(material_override) => {
+                RenderCommand::DrawMeshMaterialOverride(DrawMeshMaterialOverrideCommand {
+                    draw,
+                    material_override,
+                })
+            }
+            None => RenderCommand::DrawMesh(draw),
+        }]);
     }
 }
 
@@ -708,9 +628,10 @@ impl PlatformEventHandler for HelloCgmApp {
             color: Color::rgb(0.035, 0.045, 0.065),
         })]);
         let presentation_start = Instant::now();
-        Self::draw_inspection(
+        Self::draw_semantic_inspection(
             renderer,
             self.pipeline,
+            self.window_size,
             inspection,
             &self.lowered_primitives,
             vector_visible,
@@ -783,6 +704,122 @@ impl PlatformEventHandler for HelloCgmApp {
         }
         self.frame_index += 1;
         Ok(FrameOutcome::Continue)
+    }
+}
+
+fn material_for_surface(role: UiSurfaceRole) -> MaterialHandle {
+    match role {
+        UiSurfaceRole::Accent | UiSurfaceRole::Selected => ACCENT_MATERIAL,
+        UiSurfaceRole::Background | UiSurfaceRole::Overlay => VECTOR_PANEL_MATERIAL,
+        UiSurfaceRole::Panel
+        | UiSurfaceRole::Region
+        | UiSurfaceRole::Card
+        | UiSurfaceRole::Toolbar
+        | UiSurfaceRole::Raised => PANEL_MATERIAL,
+    }
+}
+
+fn relative_rect(container: UiRect, origin: [f32; 2], size: [f32; 2]) -> UiRect {
+    let left = container.center[0] - container.size[0] * 0.5;
+    let bottom = container.center[1] - container.size[1] * 0.5;
+    UiRect::new(
+        [
+            left + (origin[0] + size[0] * 0.5) * container.size[0],
+            bottom + (origin[1] + size[1] * 0.5) * container.size[1],
+        ],
+        [size[0] * container.size[0], size[1] * container.size[1]],
+    )
+}
+
+fn inspection_view(
+    inspection: &CgmInspection,
+    lowered_primitives: &[CgmVectorPrimitive],
+) -> CgmInspectionView {
+    let picture_names = inspection
+        .pictures
+        .iter()
+        .map(|picture| picture.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let attribute_count = inspection
+        .pictures
+        .iter()
+        .map(|picture| picture.attributes.len())
+        .sum::<usize>();
+    let primitive_count = inspection
+        .pictures
+        .iter()
+        .map(|picture| picture.primitives.len())
+        .sum::<usize>();
+    let coordinate_summary = inspection
+        .pictures
+        .first()
+        .and_then(|picture| picture.descriptor.vdc_extent)
+        .map_or_else(
+            || "VDC: UNRESOLVED".to_owned(),
+            |extent| {
+                format!(
+                    "VDC: ({}, {}) -> ({}, {}) | {:?} / {:?}",
+                    extent.first[0],
+                    extent.first[1],
+                    extent.second[0],
+                    extent.second[1],
+                    inspection.pictures[0].descriptor.scaling_mode,
+                    inspection.pictures[0].descriptor.color_selection_mode,
+                )
+            },
+        );
+    let closed = lowered_primitives
+        .iter()
+        .filter(|primitive| primitive.topology == CgmPrimitiveTopology::Closed)
+        .count();
+    let contours = lowered_primitives
+        .iter()
+        .map(|primitive| primitive.path.contours.len())
+        .sum::<usize>();
+    let points = lowered_primitives
+        .iter()
+        .flat_map(|primitive| primitive.path.contours.iter())
+        .map(|contour| contour.points.len())
+        .sum::<usize>();
+    let lifecycle = inspection
+        .elements
+        .iter()
+        .filter_map(|element| element.delimiter)
+        .map(|delimiter| match delimiter {
+            DelimiterElement::BeginMetafile => "BEGIN MF",
+            DelimiterElement::EndMetafile => "END MF",
+            DelimiterElement::BeginPicture => "BEGIN PIC",
+            DelimiterElement::BeginPictureBody => "BODY",
+            DelimiterElement::EndPicture => "END PIC",
+        })
+        .collect::<Vec<_>>()
+        .join(" > ");
+
+    CgmInspectionView {
+        metafile_name: inspection.metafile_name.to_uppercase(),
+        source_summary: format!(
+            "{} BYTES | {} ELEMENTS | {} ATTRIBUTES | {} DIAGNOSTICS",
+            inspection.source_bytes,
+            inspection.elements.len(),
+            attribute_count,
+            inspection.diagnostics.len(),
+        ),
+        picture_summary: format!(
+            "{} PICTURES | {} PRIMITIVES | {picture_names}",
+            inspection.pictures.len(),
+            primitive_count
+        ),
+        coordinate_summary,
+        vector_summary: format!(
+            "{} PATHS | {} OPEN | {} CLOSED | {} CONTOURS | {} POINTS",
+            lowered_primitives.len(),
+            lowered_primitives.len().saturating_sub(closed),
+            closed,
+            contours,
+            points,
+        ),
+        lifecycle,
     }
 }
 

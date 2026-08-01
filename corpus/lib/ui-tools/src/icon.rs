@@ -1,3 +1,5 @@
+use crate::UiRect;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct UiIconProviderId(pub String);
 
@@ -266,4 +268,3 @@ mod tests {
         assert_eq!(asset.view_box, [0.0, 0.0, 1.0, 1.0]);
     }
 }
-use crate::UiRect;

@@ -6,8 +6,12 @@ use tokimu::{
     PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
     Renderer, WgpuBackend, WindowConfig,
 };
-use ui_tools::{layout_bitmap_text, UiTextRole, UiTextSpec};
-use ui_tools::{UiDrawer, UiRect, UiSurfaceCommand, UiTheme, UiWorkspaceLayout};
+use ui_tools::{
+    layout_bitmap_text, lower_resolved_tree_to_draw_list, UiDrawCommand, UiDrawList, UiRect,
+    UiSurfaceCommand, UiTheme,
+};
+
+mod ui;
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
 const GLYPH_MESH: MeshHandle = MeshHandle(2);
@@ -149,6 +153,32 @@ impl HelloUiLayoutApp {
             .collect::<Vec<_>>();
         renderer.submit(&commands);
     }
+
+    fn submit_draw_list(
+        renderer: &mut WgpuBackend,
+        pipeline: PipelineHandle,
+        draw_list: &UiDrawList,
+    ) {
+        for entry in draw_list.entries() {
+            match &entry.command {
+                UiDrawCommand::Surface(command) => {
+                    Self::draw_surface_command(renderer, pipeline, command);
+                }
+                UiDrawCommand::Text(command) => {
+                    Self::draw_text_command(
+                        renderer,
+                        pipeline,
+                        &command.spec,
+                        command.style.height,
+                    );
+                }
+                UiDrawCommand::PushClip(_) | UiDrawCommand::PopClip => {
+                    // This corpus scene is bounded by construction and does not
+                    // request clipping from its renderer adapter.
+                }
+            }
+        }
+    }
 }
 
 impl PlatformEventHandler for HelloUiLayoutApp {
@@ -219,65 +249,13 @@ impl PlatformEventHandler for HelloUiLayoutApp {
             color: Color::rgb(0.05, 0.06, 0.08),
         })]);
 
-        let layout = UiWorkspaceLayout::new_with_theme(
-            self.window_size,
-            [
-                ui_tools::UiButtonSpec::new(ui_tools::UiButtonId(0), "HEADER"),
-                ui_tools::UiButtonSpec::new(ui_tools::UiButtonId(1), "WORKSPACE"),
-                ui_tools::UiButtonSpec::new(ui_tools::UiButtonId(2), "STATUS"),
-            ],
-            [
-                ui_tools::UiCardSpec::new(
-                    ui_tools::UiCardRole::Browser,
-                    "Sidebar",
-                    "FILTERS + NAVIGATION",
-                ),
-                ui_tools::UiCardSpec::new(
-                    ui_tools::UiCardRole::Editor,
-                    "Canvas",
-                    "MAIN CONTENT AREA",
-                ),
-                ui_tools::UiCardSpec::new(
-                    ui_tools::UiCardRole::Inspector,
-                    "Inspector",
-                    "PROPERTIES + STATE",
-                ),
-            ],
-            &self.theme,
-        );
-
-        let mut surfaces = Vec::new();
-        let mut text = Vec::new();
-        {
-            let mut drawer = UiDrawer::new(&mut surfaces, &mut text, &self.theme);
-            drawer.workspace(&layout.workspace);
-            drawer.toolbar(&layout.toolbar);
-            drawer.surface(&layout.header);
-            drawer.surface(&layout.sidebar);
-            drawer.surface(&layout.canvas);
-            drawer.surface(&layout.inspector);
-            drawer.surface(&layout.status_bar);
-            drawer.surface(&layout.card_grid);
-        }
-
-        for command in surfaces {
-            Self::draw_surface_command(renderer, self.pipeline, &command);
-        }
-
-        let labels = [
-            ("HEADER", layout.header.rect, UiTextRole::Heading),
-            ("TOOLBAR", layout.toolbar.rect, UiTextRole::Caption),
-            ("SIDEBAR", layout.sidebar.rect, UiTextRole::Caption),
-            ("WORKSPACE", layout.canvas.rect, UiTextRole::Heading),
-            ("INSPECTOR", layout.inspector.rect, UiTextRole::Caption),
-            ("CARD GRID", layout.card_grid.rect, UiTextRole::Caption),
-            ("STATUS", layout.status_bar.rect, UiTextRole::Caption),
-        ];
-        for (text, region, role) in labels {
-            let spec = UiTextSpec::new(text, region, role);
-            let style = self.theme.text(role);
-            Self::draw_text_command(renderer, self.pipeline, &spec, style.height);
-        }
+        let scene = ui::build_layout_scene(self.window_size, &self.theme);
+        let resolved = scene
+            .tree
+            .resolve(scene.viewport)
+            .expect("layout corpus semantic tree should resolve");
+        let draw_list = lower_resolved_tree_to_draw_list(&resolved, &self.theme, 0);
+        Self::submit_draw_list(renderer, self.pipeline, &draw_list);
 
         let _ = renderer.present()?;
         Ok(FrameOutcome::Continue)

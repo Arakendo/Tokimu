@@ -26,6 +26,7 @@ const on = (id: string, action: () => string) =>
   });
 
 on("observe", () => runtime.observation_json(commandId++, 7));
+on("observe-ui", () => runtime.ui_snapshot_json(900, 600, commandId++, 7));
 on("observe-missing", () => runtime.observation_json(commandId++, 99));
 on("move", () => runtime.enqueue_json(JSON.stringify({ id: commandId++, target: 7, authority: "operator", command: { command: "move_by", delta: { x: 0.25, y: 0, z: 0 } } })));
 on("queue-stale", () => runtime.enqueue_json(JSON.stringify({ id: commandId++, target: 7, authority: "operator", expected_revision: 0, command: { command: "set_enabled", enabled: false } })));

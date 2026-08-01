@@ -7,8 +7,9 @@ use tokimu::{
     PlatformResult, RenderCommand, Renderer, ViewportRect, WgpuBackend, WindowConfig,
 };
 use ui_tools::{
-    UiCard, UiCardRole, UiDrawer, UiRect, UiRegion, UiSurfaceCommand, UiSurfaceRole, UiTheme,
-    UiVerticalScroll,
+    lower_resolved_tree_to_draw_list, UiCardRole, UiDrawCommand, UiDrawer, UiNodeContent, UiNodeId,
+    UiNodeInteraction, UiNodeKind, UiNodeLayout, UiNodeSpec, UiRect, UiRegion, UiRegionKind,
+    UiResolvedTree, UiSurfaceCommand, UiSurfaceRole, UiTheme, UiTree, UiVerticalScroll,
 };
 
 const REGION_MESH: MeshHandle = MeshHandle(1);
@@ -26,6 +27,7 @@ const ITEM_SPACING: f32 = 0.22;
 const CARD_HEIGHT: f32 = 0.18;
 const CONTENT_TOP_PADDING: f32 = 0.16;
 const CONTENT_BOTTOM_PADDING: f32 = 0.06;
+const SCROLL_ROOT_ID: UiNodeId = UiNodeId(1);
 
 #[derive(Clone, Copy)]
 struct ScrollItem {
@@ -257,6 +259,70 @@ impl HelloUiScrollApp {
             UiCardRole::Selected => UiSurfaceRole::Selected,
         }
     }
+
+    fn item_node_id(index: usize) -> UiNodeId {
+        UiNodeId(100 + index as u64)
+    }
+
+    fn item_index(node: UiNodeId) -> Option<usize> {
+        let index = node.0.checked_sub(100)? as usize;
+        (index < ITEMS.len()).then_some(index)
+    }
+
+    fn content_rect(viewport: UiRect, index: usize) -> UiRect {
+        let content_top = viewport.center[1] + viewport.size[1] * 0.5 - CONTENT_TOP_PADDING;
+        UiRect::new(
+            [
+                viewport.center[0],
+                content_top - index as f32 * ITEM_SPACING,
+            ],
+            [viewport.size[0] * 0.90, CARD_HEIGHT],
+        )
+    }
+
+    fn resolved_content_tree(&self, viewport: UiRect) -> UiResolvedTree {
+        let children = ITEMS.iter().enumerate().map(|(index, item)| {
+            let role = if index == self.selected_index {
+                UiSurfaceRole::Selected
+            } else if Some(index) == self.hovered_index {
+                UiSurfaceRole::Accent
+            } else {
+                Self::surface_role_for_item(item.role)
+            };
+            UiNodeSpec::new(
+                Self::item_node_id(index),
+                UiNodeKind::Card(item.role),
+                role,
+                UiNodeLayout::Explicit(Self::content_rect(viewport, index)),
+            )
+            .with_parent(SCROLL_ROOT_ID)
+            .with_content(UiNodeContent::Text(format!(
+                "{}: {}",
+                item.label, item.body
+            )))
+            .with_interaction(UiNodeInteraction::Activatable)
+        });
+        let tree = UiTree::new(
+            UiNodeSpec::new(
+                SCROLL_ROOT_ID,
+                UiNodeKind::Region(UiRegionKind::Workspace),
+                UiSurfaceRole::Panel,
+                UiNodeLayout::Fill,
+            )
+            .clips_children()
+            .with_child_translation(self.scroll.content_translation())
+            .with_children(children),
+        );
+
+        tree.resolve(viewport)
+            .expect("scroll corpus tree has stable identities and parents")
+    }
+
+    fn reveal_selected_item(&mut self, viewport: UiRect) {
+        let mut target = self.scroll;
+        target.ensure_visible(Self::content_rect(viewport, self.selected_index));
+        self.target_offset = target.offset();
+    }
 }
 
 impl PlatformEventHandler for HelloUiScrollApp {
@@ -302,9 +368,17 @@ impl PlatformEventHandler for HelloUiScrollApp {
             PlatformInputEvent::KeyboardInput { key, pressed: true } => match key {
                 KeyCode::ArrowUp => self.target_offset -= 0.22,
                 KeyCode::ArrowDown => self.target_offset += 0.22,
-                KeyCode::ArrowLeft => self.selected_index = self.selected_index.saturating_sub(1),
+                KeyCode::ArrowLeft => {
+                    self.selected_index = self.selected_index.saturating_sub(1);
+                    let viewport = self.viewport_rect().0;
+                    self.sync_scroll_view(viewport);
+                    self.reveal_selected_item(viewport);
+                }
                 KeyCode::ArrowRight => {
-                    self.selected_index = (self.selected_index + 1) % ITEMS.len()
+                    self.selected_index = (self.selected_index + 1) % ITEMS.len();
+                    let viewport = self.viewport_rect().0;
+                    self.sync_scroll_view(viewport);
+                    self.reveal_selected_item(viewport);
                 }
                 KeyCode::Space => self.target_offset = 0.0,
                 _ => {}
@@ -313,15 +387,10 @@ impl PlatformEventHandler for HelloUiScrollApp {
                 let layout = self.viewport_rect();
                 self.sync_scroll_view(layout.0);
                 let point = self.screen_to_world(x, y);
-                let content_top = layout.0.center[1] + layout.0.size[1] * 0.5 - CONTENT_TOP_PADDING;
-                self.hovered_index = ITEMS.iter().enumerate().find_map(|(index, _)| {
-                    let item_y = content_top - index as f32 * ITEM_SPACING;
-                    let content_rect = UiRect::new(
-                        [layout.0.center[0], item_y],
-                        [layout.0.size[0] * 0.90, CARD_HEIGHT],
-                    );
-                    self.scroll.hit_test(content_rect, point).then_some(index)
-                });
+                self.hovered_index = self
+                    .resolved_content_tree(layout.0)
+                    .hit_test(point)
+                    .and_then(|node| Self::item_index(node.id));
             }
             PlatformInputEvent::MouseInput {
                 button: MouseButton::Left,
@@ -367,6 +436,8 @@ impl PlatformEventHandler for HelloUiScrollApp {
             [rail_center[0], rail_center[1]],
             [0.06, viewport_world.size[1]],
         );
+        let content_tree = self.resolved_content_tree(viewport_world);
+        let content_draw_list = lower_resolved_tree_to_draw_list(&content_tree, &self.theme, 0);
 
         let Some(renderer) = self.renderer.as_mut() else {
             return Ok(FrameOutcome::Continue);
@@ -383,8 +454,6 @@ impl PlatformEventHandler for HelloUiScrollApp {
 
         let mut global_surfaces = Vec::new();
         let mut global_text = Vec::new();
-        let mut content_surfaces = Vec::new();
-        let mut content_text = Vec::new();
         {
             let theme = UiTheme::default();
             let mut drawer = UiDrawer::new(&mut global_surfaces, &mut global_text, &theme);
@@ -402,42 +471,13 @@ impl PlatformEventHandler for HelloUiScrollApp {
                 ],
                 [viewport_world.size[0] * 1.08, 0.10],
             )));
-            drawer.surface(&UiRegion::panel(viewport_world));
         }
 
-        let mut content_drawer =
-            UiDrawer::new(&mut content_surfaces, &mut content_text, &self.theme);
-        let content_top =
-            viewport_world.center[1] + viewport_world.size[1] * 0.5 - CONTENT_TOP_PADDING;
-        for (index, item) in ITEMS.iter().enumerate() {
-            let content_rect = UiRect::new(
-                [
-                    viewport_world.center[0],
-                    content_top - index as f32 * ITEM_SPACING,
-                ],
-                [viewport_world.size[0] * 0.90, CARD_HEIGHT],
-            );
-            if self.scroll.visible_rect(content_rect).is_none() {
-                continue;
+        for entry in content_draw_list.entries() {
+            if let UiDrawCommand::Surface(command) = &entry.command {
+                let clip = (entry.source != Some(SCROLL_ROOT_ID)).then_some(viewport_px);
+                Self::draw_surface(renderer, self.pipeline, command, clip);
             }
-            let rect = self.scroll.content_rect(content_rect);
-            let mut card = UiCard::new(item.role, item.label, item.body, UiRegion::card(rect));
-            card.surface_role = if index == self.selected_index {
-                UiSurfaceRole::Selected
-            } else if Some(index) == self.hovered_index {
-                UiSurfaceRole::Accent
-            } else {
-                Self::surface_role_for_item(item.role)
-            };
-            content_drawer.card(&card);
-        }
-
-        let viewport_panel = global_surfaces
-            .pop()
-            .expect("scroll viewport panel is always emitted");
-        Self::draw_surface(renderer, self.pipeline, &viewport_panel, None);
-        for command in content_surfaces {
-            Self::draw_surface(renderer, self.pipeline, &command, Some(viewport_px));
         }
 
         for command in global_surfaces {

@@ -2064,6 +2064,7 @@ dependencies = [
  "hello-runtime-observation",
  "serde",
  "serde_json",
+ "ui-tools",
  "wasm-bindgen",
 ]
 
@@ -2612,8 +2613,17 @@ dependencies = [
  "ab_glyph",
  "lyon_path",
  "lyon_tessellation",
+ "tokimu-core",
  "ttf-parser",
  "xml-tools",
+]
+
+[[package]]
+name = "ui-validation-corpus"
+version = "0.1.0"
+dependencies = [
+ "screenshot",
+ "ui-tools",
 ]
 
 [[package]]

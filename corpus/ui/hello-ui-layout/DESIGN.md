@@ -25,7 +25,15 @@ UiWorkspaceLayout
 
 ↓
 
-UiDrawer
+UiTree
+
+↓
+
+Resolved Layout
+
+↓
+
+UiDrawList
 
 ↓
 
@@ -39,9 +47,14 @@ Layout organizes regions.
 
 Renderers draw pixels.
 
+The full viewport is the semantic root. The workspace, header, toolbar,
+sidebars, card grid, and status bar are sibling regions beneath that root;
+the workspace must not accidentally clip the surrounding application frame.
+
 ## What This Example Proves
 
 - Semantic regions can become spatial arrangements.
+- One resolved tree owns both surface and text bounds.
 - Split regions remain semantic rather than hardcoded geometry.
 - Stacks, flows, and grids belong to layout, not rendering.
 - Spacing can be expressed without touching renderer code.
@@ -246,6 +259,8 @@ These observations should feed back into:
 The example succeeds when:
 
 - The same region vocabulary reflows cleanly under resize.
+- Desktop, 4:3, and square validation viewports resolve without clipping or
+  empty-region diagnostics.
 - Layout remains separate from rendering.
 - Theme changes do not alter region semantics.
 - Future dashboards and inspectors can reuse the same spatial model.

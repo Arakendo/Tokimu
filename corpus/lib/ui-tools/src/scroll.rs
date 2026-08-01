@@ -1,5 +1,13 @@
 use crate::UiRect;
 
+/// Visibility of translated content within a scroll viewport.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UiScrollVisibility {
+    Hidden,
+    Partial,
+    Full,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UiVerticalScroll {
     viewport: UiRect,
@@ -11,7 +19,7 @@ impl UiVerticalScroll {
     pub fn new(viewport: UiRect, content_extent: f32) -> Self {
         Self {
             viewport,
-            content_extent: content_extent.max(0.0),
+            content_extent: finite_non_negative(content_extent),
             offset: 0.0,
         }
     }
@@ -38,12 +46,12 @@ impl UiVerticalScroll {
     }
 
     pub fn set_content_extent(&mut self, content_extent: f32) {
-        self.content_extent = content_extent.max(0.0);
+        self.content_extent = finite_non_negative(content_extent);
         self.clamp_offset();
     }
 
     pub fn set_offset(&mut self, offset: f32) {
-        self.offset = offset.clamp(0.0, self.max_offset());
+        self.offset = finite_non_negative(offset).clamp(0.0, self.max_offset());
     }
 
     pub fn scroll_by(&mut self, delta: f32) {
@@ -59,7 +67,12 @@ impl UiVerticalScroll {
     }
 
     pub fn content_rect(&self, rect: UiRect) -> UiRect {
-        UiRect::new([rect.center[0], rect.center[1] + self.offset], rect.size)
+        rect.translated(self.content_translation())
+    }
+
+    /// Translation consumed by `UiNodeSpec::with_child_translation`.
+    pub fn content_translation(&self) -> [f32; 2] {
+        [0.0, self.offset]
     }
 
     pub fn visible_rect(&self, rect: UiRect) -> Option<UiRect> {
@@ -71,8 +84,43 @@ impl UiVerticalScroll {
             .is_some_and(|visible| visible.contains(point))
     }
 
+    pub fn visibility(&self, rect: UiRect) -> UiScrollVisibility {
+        let translated = self.content_rect(rect);
+        match translated.intersection(self.viewport) {
+            None => UiScrollVisibility::Hidden,
+            Some(visible) if visible == translated => UiScrollVisibility::Full,
+            Some(_) => UiScrollVisibility::Partial,
+        }
+    }
+
+    /// Moves the nearest content edge into view and preserves a valid offset.
+    ///
+    /// Oversized content is aligned to the nearest viewport edge rather than
+    /// claiming that the complete rectangle can become visible.
+    pub fn ensure_visible(&mut self, rect: UiRect) {
+        let translated = self.content_rect(rect);
+        let viewport_top = self.viewport.center[1] + self.viewport.size[1] * 0.5;
+        let viewport_bottom = self.viewport.center[1] - self.viewport.size[1] * 0.5;
+        let content_top = translated.center[1] + translated.size[1] * 0.5;
+        let content_bottom = translated.center[1] - translated.size[1] * 0.5;
+
+        if content_top > viewport_top {
+            self.set_offset(self.offset - (content_top - viewport_top));
+        } else if content_bottom < viewport_bottom {
+            self.set_offset(self.offset + (viewport_bottom - content_bottom));
+        }
+    }
+
     fn clamp_offset(&mut self) {
         self.offset = self.offset.clamp(0.0, self.max_offset());
+    }
+}
+
+fn finite_non_negative(value: f32) -> f32 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
     }
 }
 
@@ -132,5 +180,45 @@ mod tests {
         assert_eq!(scroll.offset(), 1.0);
         scroll.set_viewport(UiRect::new([0.0, 0.0], [2.0, 4.0]));
         assert_eq!(scroll.offset(), 0.0);
+    }
+
+    #[test]
+    fn visibility_distinguishes_hidden_partial_and_full_content() {
+        let scroll = scroll();
+
+        assert_eq!(
+            scroll.visibility(UiRect::new([0.0, 0.0], [1.0, 1.0])),
+            UiScrollVisibility::Full
+        );
+        assert_eq!(
+            scroll.visibility(UiRect::new([0.0, 1.25], [1.0, 1.0])),
+            UiScrollVisibility::Partial
+        );
+        assert_eq!(
+            scroll.visibility(UiRect::new([0.0, 2.0], [1.0, 1.0])),
+            UiScrollVisibility::Hidden
+        );
+    }
+
+    #[test]
+    fn ensure_visible_moves_the_nearest_edge_into_the_viewport() {
+        let mut scroll = scroll();
+        let below_viewport = UiRect::new([0.0, -2.0], [1.0, 0.5]);
+
+        scroll.ensure_visible(below_viewport);
+
+        assert_eq!(scroll.offset(), 1.25);
+        assert_eq!(scroll.visibility(below_viewport), UiScrollVisibility::Full);
+    }
+
+    #[test]
+    fn non_finite_scroll_inputs_are_bounded() {
+        let mut scroll = scroll();
+
+        scroll.set_offset(f32::NAN);
+        scroll.set_content_extent(f32::INFINITY);
+
+        assert_eq!(scroll.offset(), 0.0);
+        assert_eq!(scroll.content_extent(), 0.0);
     }
 }

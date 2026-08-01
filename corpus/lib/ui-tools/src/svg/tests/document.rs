@@ -489,10 +489,10 @@ fn vector_document_adapter_rejects_malformed_numeric_attributes() {
         ("rect", "width"),
     ] {
         let source = match element {
-            "circle" => format!(r#"<svg><circle r="nope"/></svg>"#),
-            "ellipse" => format!(r#"<svg><ellipse rx="nope" ry="2"/></svg>"#),
-            "line" => format!(r#"<svg><line x1="nope" y1="0" x2="1" y2="1"/></svg>"#),
-            "rect" => format!(r#"<svg><rect width="nope" height="1"/></svg>"#),
+            "circle" => r#"<svg><circle r="nope"/></svg>"#.to_owned(),
+            "ellipse" => r#"<svg><ellipse rx="nope" ry="2"/></svg>"#.to_owned(),
+            "line" => r#"<svg><line x1="nope" y1="0" x2="1" y2="1"/></svg>"#.to_owned(),
+            "rect" => r#"<svg><rect width="nope" height="1"/></svg>"#.to_owned(),
             _ => unreachable!(),
         };
         let error = parse_svg_document_vector_paths(&source, 8, [0.0, 0.0, 24.0, 24.0])

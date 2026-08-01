@@ -22,6 +22,18 @@ pub enum UiTextRole {
     Status,
 }
 
+impl UiTextRole {
+    pub const ALL: [Self; 7] = [
+        Self::Title,
+        Self::Heading,
+        Self::Body,
+        Self::Caption,
+        Self::Button,
+        Self::Chip,
+        Self::Status,
+    ];
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiTextAlign {
     Start,
@@ -71,6 +83,22 @@ pub struct UiTextMeasure {
     pub line_gap: f32,
     pub visible_bounds: Option<UiRect>,
     pub diagnostics: Vec<UiTextDiagnostic>,
+}
+
+impl UiTextMeasure {
+    /// Reports whether this provider-neutral measurement fits `bounds`.
+    ///
+    /// Providers measure the complete request they receive. Wrapping and
+    /// ellipsis remain semantic policies owned by `UiTextSpec`; this helper
+    /// only exposes the pre-policy overflow that a resolved UI node must make
+    /// visible to its consumer.
+    pub fn fit_in(&self, bounds: UiRect) -> UiTextFit {
+        let line_height = self.ascent.max(0.0) + self.descent.abs() + self.line_gap.max(0.0);
+        UiTextFit {
+            horizontal_overflow: bounds.size[0] > 0.0 && self.advance > bounds.size[0],
+            vertical_overflow: bounds.size[1] > 0.0 && line_height > bounds.size[1],
+        }
+    }
 }
 
 /// A provider can expose metrics without loading a rasterizer or renderer.

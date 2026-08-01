@@ -6,6 +6,7 @@
  */
 export interface RuntimeObservationWasm {
   observation_json(sequence: number, selectedEntity?: number): string;
+  ui_snapshot_json(width: number, height: number, sequence: number, selectedEntity?: number): string;
   enqueue_json(requestJson: string): string;
   apply_json(tick: number): string;
   presentation_json(): string;
@@ -53,6 +54,10 @@ export class RuntimeObservationClient {
 
   observe(selectedEntity?: number): unknown {
     return JSON.parse(this.wasm.observation_json(this.sequence++, selectedEntity));
+  }
+
+  observeUi(width: number, height: number, selectedEntity?: number): unknown {
+    return JSON.parse(this.wasm.ui_snapshot_json(width, height, this.sequence++, selectedEntity));
   }
 
   enqueue(request: CommandRequest): unknown {

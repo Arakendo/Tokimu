@@ -9,10 +9,13 @@ use tokimu::{
     PipelineHandle, PipelineKind, PlatformEventHandler, PlatformInputEvent, PlatformResult,
     RenderCommand, Renderer, WgpuBackend, WindowConfig,
 };
+use ui_tools::consumer::UiTextRole;
 use ui_tools::{
-    layout_bitmap_text, UiFrameLayout, UiHorizontalSplitLayout, UiInsets, UiRect, UiTextAlign,
-    UiTextOverflow, UiTextRole, UiTextSpec,
+    layout_bitmap_text, lower_resolved_tree_to_draw_list, UiDrawCommand, UiDrawList, UiSurfaceRole,
+    UiTheme,
 };
+
+mod ui;
 
 const QUAD: MeshHandle = MeshHandle(1);
 const CAMERA: CameraHandle = CameraHandle(1);
@@ -162,46 +165,62 @@ impl RuntimeInspectorApp {
         }
     }
 
-    fn draw_rect(&mut self, renderer: &mut WgpuBackend, rect: UiRect, material: MaterialHandle) {
-        renderer.submit(&[RenderCommand::DrawMesh(DrawMeshCommand {
-            mesh: QUAD,
-            material,
-            pipeline: self.pipeline,
-            instance: Instance2d::new(rect.center, rect.size, 0.0),
-            camera: Some(CAMERA),
-            viewport: None,
-        })]);
-    }
-
-    fn draw_text(
-        &mut self,
-        renderer: &mut WgpuBackend,
-        text: &str,
-        rect: UiRect,
-        role: UiTextRole,
-        height: f32,
-    ) {
-        let spec = UiTextSpec::new(text, rect, role)
-            .with_alignment(UiTextAlign::Start, UiTextAlign::Center)
-            .with_overflow(UiTextOverflow::Ellipsis);
-        let commands = layout_bitmap_text(&spec, height)
-            .into_iter()
-            .map(|quad| {
-                RenderCommand::DrawMesh(DrawMeshCommand {
-                    mesh: QUAD,
-                    material: if matches!(role, UiTextRole::Title | UiTextRole::Heading) {
-                        TEXT
-                    } else {
-                        MUTED
-                    },
-                    pipeline: self.pipeline,
-                    instance: Instance2d::new(quad.center, quad.size, 0.0),
-                    camera: Some(CAMERA),
-                    viewport: None,
-                })
-            })
-            .collect::<Vec<_>>();
+    fn submit_draw_list(&mut self, renderer: &mut WgpuBackend, draw_list: &UiDrawList) {
+        let mut commands = Vec::new();
+        for entry in draw_list.entries() {
+            match &entry.command {
+                // The native inspector does not currently use clipping. Keep
+                // clip commands explicit so a later renderer adapter can add
+                // scissor support without changing the consumer's draw list.
+                UiDrawCommand::PushClip(_) | UiDrawCommand::PopClip => {}
+                UiDrawCommand::Surface(surface) => {
+                    commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: QUAD,
+                        material: material_for_surface(surface.style.role),
+                        pipeline: self.pipeline,
+                        instance: Instance2d::new(surface.rect.center, surface.rect.size, 0.0),
+                        camera: Some(CAMERA),
+                        viewport: None,
+                    }))
+                }
+                UiDrawCommand::Text(text) => {
+                    commands.extend(
+                        layout_bitmap_text(&text.spec, text.style.height)
+                            .into_iter()
+                            .map(|quad| {
+                                RenderCommand::DrawMesh(DrawMeshCommand {
+                                    mesh: QUAD,
+                                    material: if matches!(
+                                        text.style.role,
+                                        UiTextRole::Title | UiTextRole::Heading
+                                    ) {
+                                        TEXT
+                                    } else {
+                                        MUTED
+                                    },
+                                    pipeline: self.pipeline,
+                                    instance: Instance2d::new(quad.center, quad.size, 0.0),
+                                    camera: Some(CAMERA),
+                                    viewport: None,
+                                })
+                            }),
+                    );
+                }
+            }
+        }
         renderer.submit(&commands);
+    }
+}
+
+fn material_for_surface(role: UiSurfaceRole) -> MaterialHandle {
+    match role {
+        UiSurfaceRole::Panel | UiSurfaceRole::Raised => PANEL,
+        UiSurfaceRole::Accent | UiSurfaceRole::Selected => ACCENT,
+        UiSurfaceRole::Background
+        | UiSurfaceRole::Region
+        | UiSurfaceRole::Card
+        | UiSurfaceRole::Toolbar
+        | UiSurfaceRole::Overlay => BACKDROP,
     }
 }
 
@@ -279,6 +298,7 @@ impl PlatformEventHandler for RuntimeInspectorApp {
             self.runtime.advance_animation_fixed_step();
             self.playback_accumulator_seconds -= 1.0 / 60.0;
         }
+
         let observation = self.observation();
         let selected = observation.payload.selected.as_ref();
         let component_count = selected.map(|detail| detail.components.len()).unwrap_or(0);
@@ -302,12 +322,10 @@ impl PlatformEventHandler for RuntimeInspectorApp {
                     .map(|component| match component {
                         hello_runtime_observation::ComponentValueObservation::Position(
                             position,
-                        ) => {
-                            format!(
-                                "POSITION: {:.2}, {:.2}, {:.2}",
-                                position.x, position.y, position.z
-                            )
-                        }
+                        ) => format!(
+                            "POSITION: {:.2}, {:.2}, {:.2}",
+                            position.x, position.y, position.z
+                        ),
                         hello_runtime_observation::ComponentValueObservation::Enabled(enabled) => {
                             format!("ENABLED: {enabled}")
                         }
@@ -315,6 +333,7 @@ impl PlatformEventHandler for RuntimeInspectorApp {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_else(|| vec!["SELECTED DETAIL: UNAVAILABLE".to_owned()]);
+
         let presentation_target_count = self.runtime.presentation().targets.len();
         let playback = self.runtime.playback().clone();
         let active_clip_name = self
@@ -329,66 +348,6 @@ impl PlatformEventHandler for RuntimeInspectorApp {
             .map(|result| format!("{:?}", result.disposition))
             .unwrap_or_else(|| "NONE".to_owned());
 
-        let Some(mut renderer) = self.renderer.take() else {
-            return Ok(FrameOutcome::Continue);
-        };
-        renderer.upload_camera(
-            CAMERA,
-            Camera::orthographic_2d(self.window_size[0], self.window_size[1]),
-        );
-        renderer.begin_frame();
-        renderer.submit(&[RenderCommand::Clear(ClearCommand {
-            color: Color::rgb(0.04, 0.05, 0.07),
-        })]);
-
-        // The inspector is intentionally arranged by observation concern, not
-        // by the source runtime's internal objects or storage layout.
-        let frame =
-            UiFrameLayout::for_window(self.window_size, UiInsets::uniform(0.08), 0.15, 0.24, 0.035);
-        let panes = UiHorizontalSplitLayout::new(frame.body, 0.5, 0.05, 0.85, 0.85);
-        let footer = UiHorizontalSplitLayout::new(frame.footer.inset(0.05), 0.55, 0.05, 0.75, 0.60);
-
-        self.draw_rect(&mut renderer, frame.content, PANEL);
-        self.draw_rect(&mut renderer, frame.header, ACCENT);
-        self.draw_rect(&mut renderer, panes.leading, BACKDROP);
-        self.draw_rect(&mut renderer, panes.trailing, BACKDROP);
-        self.draw_rect(&mut renderer, frame.footer, BACKDROP);
-        self.draw_rect(
-            &mut renderer,
-            UiRect::new(
-                [
-                    frame.footer.center[0],
-                    frame.footer.center[1] + frame.footer.size[1] * 0.5 - 0.018,
-                ],
-                [frame.footer.size[0] - 0.10, 0.008],
-            ),
-            ACCENT,
-        );
-
-        self.draw_text(
-            &mut renderer,
-            "RUNTIME OBSERVATION INSPECTOR",
-            frame.header.inset(0.05),
-            UiTextRole::Title,
-            0.042,
-        );
-        self.draw_text(
-            &mut renderer,
-            if panes.fits_minimums {
-                "LAYOUT: FIT"
-            } else {
-                "LAYOUT: NARROW"
-            },
-            UiRect::new(
-                [
-                    frame.header.center[0] + frame.header.size[0] * 0.5 - 0.38,
-                    frame.header.center[1],
-                ],
-                [0.28, frame.header.size[1] - 0.06],
-            ),
-            UiTextRole::Caption,
-            0.020,
-        );
         let mut world_lines = vec![
             "WORLD OBSERVATION".to_owned(),
             format!("SELECTED ENTITY: {}", self.selected_entity),
@@ -405,30 +364,8 @@ impl PlatformEventHandler for RuntimeInspectorApp {
             format!("OUTGOING EDGES: {relationship_edge_count}"),
         ];
         world_lines.extend(component_lines);
-        let world_content = panes.leading.inset(0.05);
-        let world_left = world_content.center[0] - world_content.size[0] * 0.5;
-        let world_top = world_content.center[1] + world_content.size[1] * 0.5;
-        for (index, line) in world_lines.iter().enumerate() {
-            self.draw_text(
-                &mut renderer,
-                line,
-                UiRect::new(
-                    [
-                        world_left + world_content.size[0] * 0.5,
-                        world_top - 0.045 - index as f32 * 0.105,
-                    ],
-                    [world_content.size[0], 0.065],
-                ),
-                if index == 0 {
-                    UiTextRole::Heading
-                } else {
-                    UiTextRole::Body
-                },
-                if index == 0 { 0.030 } else { 0.023 },
-            );
-        }
 
-        let presentation_lines = [
+        let presentation_lines = vec![
             "PRESENTATION + PLAYBACK".to_owned(),
             format!("PRESENTATION: {}", self.presentation_status),
             format!("RESOLVED TARGETS: {presentation_target_count}"),
@@ -442,89 +379,40 @@ impl PlatformEventHandler for RuntimeInspectorApp {
             format!("LOCAL TIME: {:.2} S", playback.local_time_seconds),
             format!("CATALOG: {} CLIPS", self.runtime.animation_catalog().len()),
         ];
-        let presentation_content = panes.trailing.inset(0.05);
-        let presentation_top = presentation_content.center[1] + presentation_content.size[1] * 0.5;
-        for (index, line) in presentation_lines.iter().enumerate() {
-            self.draw_text(
-                &mut renderer,
-                line,
-                UiRect::new(
-                    [
-                        presentation_content.center[0],
-                        presentation_top - 0.045 - index as f32 * 0.115,
-                    ],
-                    [presentation_content.size[0], 0.070],
-                ),
-                if index == 0 {
-                    UiTextRole::Heading
-                } else {
-                    UiTextRole::Body
-                },
-                if index == 0 { 0.030 } else { 0.024 },
-            );
-        }
-
         let diagnostics = if observation.payload.diagnostics.is_empty() {
             "DIAGNOSTICS: NONE".to_owned()
         } else {
             format!("DIAGNOSTICS: {}", observation.payload.diagnostics[0].code)
         };
-        self.draw_text(
-            &mut renderer,
-            "COMMANDS",
-            UiRect::new(
-                [
-                    footer.leading.center[0],
-                    footer.leading.center[1] + footer.leading.size[1] * 0.5 - 0.025,
-                ],
-                [footer.leading.size[0], 0.035],
-            ),
-            UiTextRole::Heading,
-            0.026,
+        let view = ui::RuntimeInspectorView {
+            world_lines,
+            presentation_lines,
+            command_lines: vec![
+                "COMMANDS".to_owned(),
+                "LEFT/RIGHT SELECT   D MOVE   E DISABLE   X REJECT".to_owned(),
+                "SPACE APPLY   R TARGET   A CLIP   S PLAY".to_owned(),
+            ],
+            diagnostic_lines: vec![diagnostics, format!("LAST COMMAND: {result}")],
+        };
+        let scene = ui::build_runtime_inspector_scene(self.window_size, &view);
+        let resolved = scene.tree.resolve(scene.viewport).map_err(|error| {
+            std::io::Error::other(format!("inspector layout failed: {error:?}"))
+        })?;
+        let draw_list =
+            lower_resolved_tree_to_draw_list(&resolved, &UiTheme::default(), observation.revision);
+
+        let Some(mut renderer) = self.renderer.take() else {
+            return Ok(FrameOutcome::Continue);
+        };
+        renderer.upload_camera(
+            CAMERA,
+            Camera::orthographic_2d(self.window_size[0], self.window_size[1]),
         );
-        self.draw_text(
-            &mut renderer,
-            "LEFT/RIGHT SELECT   D MOVE   E DISABLE   X REJECT",
-            UiRect::new(
-                [footer.leading.center[0], footer.leading.center[1] - 0.005],
-                [footer.leading.size[0], 0.035],
-            ),
-            UiTextRole::Caption,
-            0.017,
-        );
-        self.draw_text(
-            &mut renderer,
-            "SPACE APPLY   R TARGET   A CLIP   S PLAY",
-            UiRect::new(
-                [footer.leading.center[0], footer.leading.center[1] - 0.055],
-                [footer.leading.size[0], 0.035],
-            ),
-            UiTextRole::Caption,
-            0.017,
-        );
-        self.draw_text(
-            &mut renderer,
-            &diagnostics,
-            UiRect::new(
-                [
-                    footer.trailing.center[0],
-                    footer.trailing.center[1] + footer.trailing.size[1] * 0.5 - 0.045,
-                ],
-                [footer.trailing.size[0], 0.045],
-            ),
-            UiTextRole::Caption,
-            0.021,
-        );
-        self.draw_text(
-            &mut renderer,
-            &format!("LAST COMMAND: {result}"),
-            UiRect::new(
-                [footer.trailing.center[0], footer.trailing.center[1] - 0.035],
-                [footer.trailing.size[0], 0.045],
-            ),
-            UiTextRole::Caption,
-            0.021,
-        );
+        renderer.begin_frame();
+        renderer.submit(&[RenderCommand::Clear(ClearCommand {
+            color: Color::rgb(0.04, 0.05, 0.07),
+        })]);
+        self.submit_draw_list(&mut renderer, &draw_list);
 
         let _ = renderer.present()?;
         self.renderer = Some(renderer);

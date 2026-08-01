@@ -10,6 +10,7 @@ fn frame_layout_uses_the_available_window_instead_of_a_fixed_card() {
     assert!(frame.body.center[1] > frame.footer.center[1]);
     assert!(frame.header.intersection(frame.body).is_none());
     assert!(frame.body.intersection(frame.footer).is_none());
+    assert_eq!(frame.fit, UiLayoutFit::Exact);
 }
 
 #[test]
@@ -24,6 +25,26 @@ fn frame_layout_clamps_gaps_before_regions_can_overlap() {
 
     assert!(frame.header.intersection(frame.body).is_none());
     assert!(frame.body.intersection(frame.footer).is_none());
+    assert_eq!(frame.fit, UiLayoutFit::Impossible);
+}
+
+#[test]
+fn frame_layout_reports_viewport_capacity_without_overlapping_regions() {
+    let cases = [
+        (UiRect::new([0.0, 0.0], [3.2, 2.0]), UiLayoutFit::Exact),
+        (UiRect::new([0.0, 0.0], [1.2, 0.5]), UiLayoutFit::Impossible),
+        (UiRect::new([0.0, 0.0], [0.0, 0.5]), UiLayoutFit::Impossible),
+    ];
+
+    for (viewport, expected_fit) in cases {
+        let frame = UiFrameLayout::new(viewport, UiInsets::uniform(0.08), 0.14, 0.20, 0.03);
+
+        assert_eq!(frame.fit, expected_fit, "viewport: {viewport:?}");
+        if frame.fit != UiLayoutFit::Impossible {
+            assert!(frame.header.intersection(frame.body).is_none());
+            assert!(frame.body.intersection(frame.footer).is_none());
+        }
+    }
 }
 
 #[test]
@@ -32,6 +53,7 @@ fn horizontal_split_preserves_declared_minimums_when_the_viewport_allows_them() 
         UiHorizontalSplitLayout::new(UiRect::new([0.0, 0.0], [2.0, 0.8]), 0.5, 0.04, 0.70, 0.70);
 
     assert!(split.fits_minimums);
+    assert_eq!(split.fit, UiLayoutFit::Exact);
     assert!(split.leading.size[0] >= 0.70);
     assert!(split.trailing.size[0] >= 0.70);
     assert!(split.leading.intersection(split.trailing).is_none());
@@ -43,7 +65,68 @@ fn horizontal_split_reports_unfit_minimums_without_overlapping_panes() {
         UiHorizontalSplitLayout::new(UiRect::new([0.0, 0.0], [1.0, 0.8]), 0.5, 0.04, 0.70, 0.70);
 
     assert!(!split.fits_minimums);
+    assert_eq!(split.fit, UiLayoutFit::Adjusted);
     assert!(split.leading.intersection(split.trailing).is_none());
+}
+
+#[test]
+fn horizontal_split_with_no_usable_pane_is_impossible_not_compact() {
+    let split =
+        UiHorizontalSplitLayout::new(UiRect::new([0.0, 0.0], [0.0, 0.8]), 0.5, 0.04, 0.10, 0.10);
+
+    assert_eq!(split.fit, UiLayoutFit::Impossible);
+}
+
+#[test]
+fn uniform_grid_resolves_row_major_cells_without_overlap() {
+    let grid = UiUniformGridLayout::new(UiRect::new([0.0, 0.0], [1.2, 0.8]), 5, 3, [0.06, 0.08]);
+
+    assert_eq!(grid.fit, UiLayoutFit::Exact);
+    assert_eq!(grid.rows, 2);
+    assert_eq!(grid.cells.len(), 5);
+    assert!(grid.cells[0].center[0] < grid.cells[1].center[0]);
+    assert!(grid.cells[0].center[1] > grid.cells[3].center[1]);
+    for (index, cell) in grid.cells.iter().enumerate() {
+        for other in grid.cells.iter().skip(index + 1) {
+            assert!(cell.intersection(*other).is_none());
+        }
+    }
+}
+
+#[test]
+fn uniform_grid_adjusts_excessive_gaps_and_preserves_usable_cells() {
+    let grid = UiUniformGridLayout::new(UiRect::new([0.0, 0.0], [1.0, 1.0]), 4, 2, [10.0, 10.0]);
+
+    assert_eq!(grid.fit, UiLayoutFit::Adjusted);
+    assert_eq!(grid.cells.len(), 4);
+    assert!(grid
+        .cells
+        .iter()
+        .all(|cell| cell.size[0] > 0.0 && cell.size[1] > 0.0));
+    assert!(grid.cells[0].intersection(grid.cells[1]).is_none());
+    assert!(grid.cells[0].intersection(grid.cells[2]).is_none());
+}
+
+#[test]
+fn uniform_grid_handles_empty_and_impossible_requests_explicitly() {
+    let container = UiRect::new([0.0, 0.0], [1.0, 1.0]);
+    let empty = UiUniformGridLayout::new(container, 0, 3, [0.1, 0.1]);
+    let no_columns = UiUniformGridLayout::new(container, 3, 0, [0.1, 0.1]);
+    let no_container =
+        UiUniformGridLayout::new(UiRect::new([0.0, 0.0], [0.0, 1.0]), 3, 2, [0.1, 0.1]);
+    let invalid_gap = UiUniformGridLayout::new(container, 1, 2, [f32::NAN, -1.0]);
+    let extreme_columns = UiUniformGridLayout::new(container, 1, usize::MAX, [0.0, 0.0]);
+
+    assert_eq!(empty.fit, UiLayoutFit::Exact);
+    assert!(empty.cells.is_empty());
+    assert_eq!(no_columns.fit, UiLayoutFit::Impossible);
+    assert_eq!(no_container.fit, UiLayoutFit::Impossible);
+    assert_eq!(invalid_gap.fit, UiLayoutFit::Adjusted);
+    assert_eq!(invalid_gap.gap, [0.0, 0.0]);
+    assert!(extreme_columns.cells[0]
+        .size
+        .iter()
+        .all(|value| value.is_finite() && *value > 0.0));
 }
 
 #[test]
@@ -191,6 +274,48 @@ fn horizontal_stack_clamps_oversized_gaps_to_parent_width() {
 
     assert!(left >= parent.center[0] - parent.size[0] * 0.5);
     assert!(right <= parent.center[0] + parent.size[0] * 0.5);
+    assert_eq!(result.fit, UiLayoutFit::Adjusted);
+}
+
+#[test]
+fn horizontal_stack_can_preserve_overflow_for_a_caller_selected_fallback() {
+    let theme = UiTheme::default();
+    let children = vec![
+        UiButton::from_intrinsic(UiButtonId(0), "LONG LABEL", [0.0, 0.0], &theme),
+        UiButton::from_intrinsic(UiButtonId(1), "LONG LABEL", [0.0, 0.0], &theme),
+    ];
+    let parent = UiRect::new([0.0, 0.0], [0.1, 0.2]);
+    let context = UiMeasureContext::new(&theme, [0.1, 0.2]);
+
+    let result = UiHorizontalStack::new(children, 0.02)
+        .with_overflow_policy(UiOverflowPolicy::Preserve)
+        .layout(parent, &context);
+
+    assert_eq!(result.fit, UiLayoutFit::Overflow);
+    assert!(result.overflow[0] > 0.0);
+    let right = result.children[1].rect.center[0] + result.children[1].rect.size[0] * 0.5;
+    assert!(right > parent.center[0] + parent.size[0] * 0.5);
+}
+
+#[test]
+fn stacks_report_impossible_for_zero_sized_containers() {
+    let theme = UiTheme::default();
+    let stack = UiVerticalStack::new(
+        vec![UiButton::from_intrinsic(
+            UiButtonId(0),
+            "A",
+            [0.0, 0.0],
+            &theme,
+        )],
+        0.0,
+    );
+    let parent = UiRect::new([0.0, 0.0], [0.0, 0.2]);
+    let context = UiMeasureContext::new(&theme, [0.0, 0.2]);
+
+    let result = stack.layout(parent, &context);
+
+    assert_eq!(result.fit, UiLayoutFit::Impossible);
+    assert!(result.children.is_empty());
 }
 
 #[test]
@@ -312,4 +437,84 @@ fn stacks_allocate_remaining_main_axis_space_in_fill_mode() {
 
     assert!((horizontal_width - horizontal_parent.size[0]).abs() < 0.00001);
     assert!((vertical_height - vertical_parent.size[1]).abs() < 0.00001);
+}
+
+#[test]
+fn contained_stack_viewports_keep_children_finite_ordered_and_disjoint() {
+    let theme = UiTheme::default();
+    let context = UiMeasureContext::new(&theme, [4.0, 4.0]);
+    let viewports = [[2.0, 0.6], [0.8, 0.4], [0.2, 0.2]];
+
+    for size in viewports {
+        let parent = UiRect::new([0.0, 0.0], size);
+        let horizontal = UiHorizontalStack::new(
+            vec![
+                UiButton::from_intrinsic(UiButtonId(0), "LONG LABEL", [0.0, 0.0], &theme),
+                UiButton::from_intrinsic(UiButtonId(1), "SECOND", [0.0, 0.0], &theme),
+                UiButton::from_intrinsic(UiButtonId(2), "THIRD", [0.0, 0.0], &theme),
+            ],
+            0.08,
+        )
+        .layout(parent, &context);
+        let vertical = UiVerticalStack::new(
+            vec![
+                UiButton::from_intrinsic(UiButtonId(3), "LONG LABEL", [0.0, 0.0], &theme),
+                UiButton::from_intrinsic(UiButtonId(4), "SECOND", [0.0, 0.0], &theme),
+                UiButton::from_intrinsic(UiButtonId(5), "THIRD", [0.0, 0.0], &theme),
+            ],
+            0.08,
+        )
+        .layout(parent, &context);
+
+        assert_contained_stack(&horizontal, parent, true);
+        assert_contained_stack(&vertical, parent, false);
+        assert_ne!(horizontal.fit, UiLayoutFit::Overflow);
+        assert_ne!(vertical.fit, UiLayoutFit::Overflow);
+        assert_ne!(horizontal.fit, UiLayoutFit::Impossible);
+        assert_ne!(vertical.fit, UiLayoutFit::Impossible);
+    }
+}
+
+#[test]
+fn empty_stacks_resolve_to_an_exact_empty_layout() {
+    let theme = UiTheme::default();
+    let context = UiMeasureContext::new(&theme, [0.4, 0.3]);
+    let parent = UiRect::new([0.0, 0.0], [0.4, 0.3]);
+
+    let horizontal = UiHorizontalStack::<UiButton>::new(Vec::new(), 0.2).layout(parent, &context);
+    let vertical = UiVerticalStack::<UiButton>::new(Vec::new(), 0.2).layout(parent, &context);
+
+    assert_eq!(horizontal.fit, UiLayoutFit::Exact);
+    assert_eq!(vertical.fit, UiLayoutFit::Exact);
+    assert!(horizontal.children.is_empty());
+    assert!(vertical.children.is_empty());
+}
+
+fn assert_contained_stack(result: &UiLayoutResult, parent: UiRect, horizontal: bool) {
+    let parent_left = parent.center[0] - parent.size[0] * 0.5;
+    let parent_right = parent.center[0] + parent.size[0] * 0.5;
+    let parent_bottom = parent.center[1] - parent.size[1] * 0.5;
+    let parent_top = parent.center[1] + parent.size[1] * 0.5;
+
+    for child in &result.children {
+        assert!(child.rect.center.iter().all(|value| value.is_finite()));
+        assert!(child
+            .rect
+            .size
+            .iter()
+            .all(|value| value.is_finite() && *value >= 0.0));
+        assert!(child.rect.center[0] - child.rect.size[0] * 0.5 >= parent_left);
+        assert!(child.rect.center[0] + child.rect.size[0] * 0.5 <= parent_right);
+        assert!(child.rect.center[1] - child.rect.size[1] * 0.5 >= parent_bottom);
+        assert!(child.rect.center[1] + child.rect.size[1] * 0.5 <= parent_top);
+    }
+
+    for pair in result.children.windows(2) {
+        assert!(pair[0].rect.intersection(pair[1].rect).is_none());
+        if horizontal {
+            assert!(pair[0].rect.center[0] <= pair[1].rect.center[0]);
+        } else {
+            assert!(pair[0].rect.center[1] >= pair[1].rect.center[1]);
+        }
+    }
 }

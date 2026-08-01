@@ -27,9 +27,33 @@ general inspector framework.
 
 - The runtime-observation corpus owns the world, command validation, playback,
   and presentation mapping.
-- This inspector owns native-window interaction and presentation of bounded
-  responses.
+- This inspector owns native-window interaction and the runtime-specific
+  semantic content shown in the inspector.
+- `ui-tools` owns frame, split, grid, semantic-tree resolution, fit
+  classification, theme resolution, and renderer-neutral draw-list lowering.
+- The inspector's renderer adapter translates the completed draw list into
+  Tokimu render commands; it does not maintain a second layout.
 - The renderer owns pixels.
+
+The presentation path is:
+
+```text
+bounded runtime observations
+        ↓
+RuntimeInspectorView
+        ↓
+UiTree
+        ↓
+UiResolvedTree
+        ↓
+UiDrawList
+        ↓
+native renderer adapter
+```
+
+When the admitted frame, pane split, or footer cannot fit exactly, the semantic
+builder emits a compact observation body rather than forcing dense content into
+invalid rectangles. The layout fit remains visible in the header.
 
 ## Non-goals
 
@@ -37,3 +61,4 @@ general inspector framework.
 - No raw component or world access.
 - No importer or animation duplication.
 - No promoted inspector capability.
+- No private draw geometry or hit-test layout parallel to the semantic tree.

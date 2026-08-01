@@ -44,9 +44,9 @@ pub fn tokenize_path(data: &str) -> Vec<SvgToken> {
         {
             flush(&mut tokens, &mut number);
             number.push(character);
-        } else if character.is_ascii_digit() || matches!(character, '.' | 'e' | 'E') {
-            number.push(character);
-        } else if matches!(character, '-' | '+') && (number.ends_with('e') || number.ends_with('E'))
+        } else if character.is_ascii_digit()
+            || matches!(character, '.' | 'e' | 'E')
+            || (matches!(character, '-' | '+') && (number.ends_with('e') || number.ends_with('E')))
         {
             number.push(character);
         } else if matches!(character, '-' | '+') {
@@ -264,11 +264,12 @@ pub(super) fn flatten_path(commands: &[SvgPathCommand], subdivisions: usize) -> 
                 let arc = arc_points(
                     current,
                     end,
-                    values[0],
-                    values[1],
-                    values[2],
-                    values[3] != 0.0,
-                    values[4] != 0.0,
+                    ArcParameters {
+                        radii: [values[0], values[1]],
+                        rotation: values[2],
+                        large_arc: values[3] != 0.0,
+                        sweep: values[4] != 0.0,
+                    },
                     steps,
                 );
                 points.extend(arc.into_iter().skip(1));
@@ -314,23 +315,27 @@ fn quadratic(a: [f32; 2], b: [f32; 2], c: [f32; 2], t: f32) -> [f32; 2] {
     ]
 }
 
-fn arc_points(
-    start: [f32; 2],
-    end: [f32; 2],
-    rx: f32,
-    ry: f32,
+struct ArcParameters {
+    radii: [f32; 2],
     rotation: f32,
     large_arc: bool,
     sweep: bool,
+}
+
+fn arc_points(
+    start: [f32; 2],
+    end: [f32; 2],
+    parameters: ArcParameters,
     steps: usize,
 ) -> Vec<[f32; 2]> {
+    let [mut rx, mut ry] = parameters.radii;
     if start == end || rx == 0.0 || ry == 0.0 {
         return vec![start, end];
     }
-    let phi = rotation.to_radians();
+    let phi = parameters.rotation.to_radians();
     let (sin_phi, cos_phi) = phi.sin_cos();
-    let mut rx = rx.abs();
-    let mut ry = ry.abs();
+    rx = rx.abs();
+    ry = ry.abs();
     let dx = (start[0] - end[0]) * 0.5;
     let dy = (start[1] - end[1]) * 0.5;
     let x1p = cos_phi * dx + sin_phi * dy;
@@ -342,7 +347,11 @@ fn arc_points(
     ry *= radii_scale;
     let numerator = (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p).max(0.0);
     let denominator = rx * rx * y1p * y1p + ry * ry * x1p * x1p;
-    let sign = if large_arc == sweep { -1.0 } else { 1.0 };
+    let sign = if parameters.large_arc == parameters.sweep {
+        -1.0
+    } else {
+        1.0
+    };
     let coefficient = sign * (numerator / denominator.max(f32::EPSILON)).sqrt();
     let cxp = coefficient * (rx * y1p / ry);
     let cyp = coefficient * (-ry * x1p / rx);
@@ -362,10 +371,10 @@ fn arc_points(
     };
     let start_angle = angle([1.0, 0.0], u);
     let mut delta = angle(u, v);
-    if !sweep && delta > 0.0 {
+    if !parameters.sweep && delta > 0.0 {
         delta -= std::f32::consts::TAU;
     }
-    if sweep && delta < 0.0 {
+    if parameters.sweep && delta < 0.0 {
         delta += std::f32::consts::TAU;
     }
     let mut points: Vec<_> = (0..=steps)

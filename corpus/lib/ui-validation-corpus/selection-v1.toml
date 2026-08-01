@@ -1,0 +1,62 @@
+schema = "tokimu-ui-selection-v1"
+
+[[case]]
+id = "runtime-observation"
+reason = "Validates a dense read-only inspector composition across supported viewports."
+
+[[case]]
+id = "command-toolbar"
+reason = "Validates interactive controls, focus order, and semantic labels."
+
+[[case]]
+id = "text-entry"
+reason = "Validates editable focus, normalized spaces and digits, deletion, and keyboard submit activation."
+
+[[case]]
+id = "scroll-modal"
+reason = "Validates translated scroll content, inherited clipping, modal precedence, and confined interaction routing."
+
+[[case]]
+id = "content-stress"
+reason = "Validates provider-neutral preservation of empty, ordinary, long, and multiline text across the viewport and scale matrix."
+
+[[case]]
+id = "composition-layout"
+reason = "Validates shared frame, split, stack, and uniform-grid layout without consumer-owned cell arithmetic."
+
+[[viewport]]
+id = "desktop-large"
+width = 1920
+height = 1080
+
+[[viewport]]
+id = "desktop"
+width = 1280
+height = 720
+
+[[viewport]]
+id = "compact"
+width = 900
+height = 600
+
+[[viewport]]
+id = "small"
+width = 640
+height = 480
+
+[[viewport]]
+id = "mobile"
+width = 320
+height = 568
+
+[[scale]]
+id = "1.0"
+value = 1.0
+
+[[scale]]
+id = "1.5"
+value = 1.5
+
+[[scale]]
+id = "2.0"
+value = 2.0

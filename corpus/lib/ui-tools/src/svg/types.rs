@@ -48,7 +48,9 @@ pub struct SvgImportDiagnostic {
     pub span: Option<XmlSpan>,
     pub related_span: Option<XmlSpan>,
     pub can_continue: bool,
-    pub xml: Option<XmlDiagnostic>,
+    /// XML diagnostics retain their full structured data without making every
+    /// SVG import result carry the parser diagnostic inline.
+    pub xml: Option<Box<XmlDiagnostic>>,
 }
 
 impl SvgImportDiagnostic {
@@ -72,7 +74,7 @@ impl From<XmlDiagnostic> for SvgImportDiagnostic {
             span: diagnostic.span,
             related_span: diagnostic.related_span,
             can_continue: diagnostic.can_continue,
-            xml: Some(diagnostic),
+            xml: Some(Box::new(diagnostic)),
         }
     }
 }

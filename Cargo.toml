@@ -96,6 +96,7 @@ members = [
     "corpus/lib/raster-image-corpus",
     "corpus/lib/xml-tools",
     "corpus/lib/ui-tools",
+    "corpus/lib/ui-validation-corpus",
     "corpus/lib/ui-framework",
 
     # Cross-workspace integration tests.

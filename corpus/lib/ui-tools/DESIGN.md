@@ -27,6 +27,145 @@ application intent
 
 Applications communicate intent. Providers communicate implementation.
 
+## API Tiers
+
+The public facade is being staged toward explicit consumer-safe entry points.
+The existing root re-exports remain available while corpus callers migrate; they
+are compatibility surface, not the preferred direction for new consumers.
+
+```text
+ui_tools::consumer
+    semantic regions, layout, controls, text intent, themes
+
+ui_tools::diagnostics
+    structured UI and text diagnostics
+
+ui_tools::provider
+    fonts, icons, rasterization, SVG and other external technologies
+
+ui_tools::lowering
+    renderer-neutral commands and presentation geometry
+```
+
+Ordinary applications should begin with `consumer` and add a provider or
+lowering contract only when they deliberately own that boundary. A semantic UI
+spec must not require an SVG parser, a concrete font format, or a tessellator.
+
+The migration remains additive while corpus consumers move deliberately:
+
+- New ordinary consumer code uses `ui_tools::consumer`.
+- A consumer imports `provider` or `lowering` only at an explicit technology or
+  renderer-neutral lowering boundary.
+- Root re-exports remain source-compatible during the corpus migration; they
+  are not deprecated until independent consumers establish that the tiered
+  paths cover their legitimate use.
+- A future removal or deprecation requires an Architectural Review and a
+  consumer migration inventory. Module organization alone does not settle an
+  engine package boundary.
+
+The tier names describe intended ownership, not an admission of a stable engine
+crate. `ui-tools` remains corpus-side incubation until independent consumers
+prove which contracts should graduate.
+
+## Resolved Composition Boundary
+
+Ordinary consumers can now describe a small `UiTree` with stable `UiNodeId`
+identities, semantic node kinds, content, visibility, enabled state, clipping,
+text intent, and spatial intent. Headless resolution produces a
+`UiResolvedTree` with final bounds, inherited clips, deterministic layer order,
+and bounded diagnostics.
+
+```text
+semantic node tree
+        ↓
+resolved bounds, clips, and fit evidence
+        ├── presentation lowering
+        └── interaction hit testing
+```
+
+The resolved tree is deliberately renderer-neutral. Its first safety contracts
+are intentionally small:
+
+- a node may declare a minimum readable size;
+- a too-small region remains explicit geometry but reports layout overflow;
+- zero or non-finite geometry reports an impossible layout;
+- attached `UiTextSpec` values inherit the same resolved bounds rather than a
+  consumer maintaining a second text rectangle;
+- admitted button hit testing uses the resolved visible, enabled, clipped
+  bounds and deterministic child order.
+
+`UiResolvedTree::node` is the read-only bridge for domain-specific content that
+must be anchored inside shared UI composition. A consumer may look up a stable
+node identity and place its own chart, mesh, or other semantic-domain evidence
+inside the resolved bounds. The lookup does not expose mutable UI state,
+provider internals, renderer resources, or a second layout mechanism. The
+resolved tree remains the sole owner of shell geometry.
+
+Scroll state contributes a descendant translation during resolution rather
+than creating a second drawing-only coordinate system. Resolved nodes also
+declare normal, overlay, or modal stacking. The stable stacking order is shared
+by drawing and reverse-order hit testing, while the topmost modal confines
+pointer and focus targets to its subtree. Dismissal remains an application
+decision: `ui-tools` reports the modal identity and dismissal reason but does
+not mutate application state.
+
+Resolved semantics preserve provider-neutral role, label, value, visibility,
+enabled, selected, focusable, and focused state. A platform adapter may convert
+that snapshot into native accessibility mechanisms later, but those mechanisms
+do not define UI meaning. Draw-list provenance retains the same `UiNodeId`, so
+inspection tools can correlate semantic intent with lowered presentation
+without embedding accessibility metadata in renderer commands.
+
+Theme profiles remain structural and provider-neutral. `UiTheme::default()` and
+`UiTheme::high_contrast()` cover the same complete surface, text, control, and
+interaction-state inventories. Control styles preserve their semantic role and
+state so a later palette or platform adapter does not need to infer danger,
+focus, selection, or disabled meaning from numeric opacity. Exhaustive enums
+make omitted admitted roles a compile-time error; theme diagnostics reject
+invalid token scales and accidentally indistinguishable state output. High
+contrast here is corpus evidence, not a claim of native accessibility adapter
+integration.
+
+Presentation invalidation is also renderer-neutral. Applications and providers
+supply revisions for semantic input, measurement, layout constraints, geometry
+policy, and draw-list policy. `UiPresentationRevisionTracker` reports which
+dependent stages require rebuilding and bounded rebuild counts for one
+observation. It does not cache meshes, allocate GPU resources, or choose runtime
+performance budgets; those remain renderer and application responsibilities.
+
+This is not yet a retained widget framework or general event router. It is the
+single geometry source that later draw-list and interaction contracts must
+consume so pixels and hit testing cannot drift apart.
+
+## Ordered Draw Boundary
+
+`UiDrawList` is the renderer-neutral handoff for admitted surface and text
+lowering. It carries a producer revision, deterministic layer and insertion
+order, optional `UiNodeId` provenance, and explicit clip push/pop operations.
+`UiDrawListBuilder::finish` rejects descending layers, clip underflow, and
+unclosed clips before a renderer adapter receives the artifact.
+
+```text
+resolved UI geometry
+        ↓
+ordered surfaces, text, and clip operations
+        ↓
+renderer adapter
+        ↓
+backend resources and pixels
+```
+
+The draw list is intentionally not a mesh list, glyph atlas, texture binding,
+or GPU cache. Renderer adapters own those execution details. Existing
+`UiDrawer` surface/text vectors remain a staged legacy API and can be adapted
+into one owned list with their established surfaces-before-text order.
+
+`lower_resolved_tree_to_draw_list` is the preferred new-consumer path for the
+currently admitted region and text contracts. It uses the same resolved bounds,
+visibility, clipping scopes, and layer order as `UiResolvedTree::hit_test`.
+Stateful control styling, icons, and general vector content remain explicit
+extensions rather than being inferred by the renderer.
+
 ## Core Thesis
 
 > `ui-tools` provides reusable interface vocabulary, not reusable application interfaces.
@@ -589,6 +728,33 @@ In particular:
   tessellators.
 - provider-specific parsing must stop before `vector/`.
 - renderer submission and GPU cache lifetime must remain outside these folders.
+
+## Invalidation And Renderer Work Evidence
+
+Semantic, measurement, layout, geometry, and draw-list revisions are observed
+independently. A changed stage invalidates only its downstream dependents, while
+an unchanged observation emits zero rebuild evidence after warmup.
+
+The ordered draw list exposes two deliberately different identities:
+
+- its structural fingerprint includes semantic provenance for corpus artifacts;
+- its opaque cache key includes only executable renderer-neutral work.
+
+Renderer adapters may use the cache key to index their own resources, but
+`ui-tools` does not own cache lifetime, residency, uploads, or GPU objects.
+Draw-list statistics report bounded command counts and conservative contiguous
+surface/text batch candidates. Candidate counts are evidence about available
+reuse, not guaranteed submit counts or backend performance claims. Adjacent
+ordered layers may remain one candidate when style and clip are compatible;
+the renderer must preserve execution order and decides whether grouping is
+actually legal for its backend.
+
+`UiPresentationWorkEvidence` carries bounded microsecond measurements for
+measurement, layout, lowering, and draw-list generation alongside copied
+renderer upload, submit, and draw counts. Producers populate the fields they
+own. Applications choose budgets and may forward individual observations to
+Tokimu's kernel performance diagnostics; `ui-tools` does not own the monitor,
+sampling policy, or backend timing guarantee.
 
 ## Success Criteria
 

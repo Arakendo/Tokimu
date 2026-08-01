@@ -28,12 +28,36 @@ The browser owns selection controls, labels, and presentation. Rust owns
 command validation, lifecycle application, revision changes, animation state,
 and provider-neutral observations.
 
+The `ui_snapshot_json` path is a second consumer of the hardened `ui-tools`
+composition contract. Rust builds a semantic tree, resolves it headlessly, and
+lowers it into one renderer-neutral draw list. TypeScript can inspect the owned
+snapshot, including node bounds, fit status, bounded diagnostics, draw counts,
+and a structural fingerprint. It does not receive mutable UI state, font or
+icon providers, tessellators, or backend resources.
+
+```text
+runtime observation
+        |
+        v
+semantic UiTree
+        |
+        v
+resolved geometry + UiDrawList
+        |
+        v
+bounded WASM UI evidence
+        |
+        v
+TypeScript presentation
+```
+
 The browser must never:
 
 - parse a source asset;
 - receive `World` or ECS storage;
 - treat edited observation JSON as authoritative state;
 - receive GLB parser objects or renderer/GPU handles.
+- treat the UI evidence artifact as a browser-owned authoritative layout.
 
 ## Fixture Status
 

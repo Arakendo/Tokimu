@@ -16,6 +16,20 @@ pub enum UiSurfaceRole {
     Overlay,
 }
 
+impl UiSurfaceRole {
+    pub const ALL: [Self; 9] = [
+        Self::Background,
+        Self::Region,
+        Self::Panel,
+        Self::Card,
+        Self::Toolbar,
+        Self::Raised,
+        Self::Selected,
+        Self::Accent,
+        Self::Overlay,
+    ];
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiSpacing {
     Xs,

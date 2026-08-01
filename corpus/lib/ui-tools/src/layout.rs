@@ -1,5 +1,32 @@
 use crate::{UiRect, UiTheme};
 
+/// Reports whether a layout preserved its requested geometry or required a
+/// fallback. A successful layout never reports `Exact` after it has silently
+/// compressed content below its measured size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UiLayoutFit {
+    /// The requested geometry fit without adjustment.
+    Exact,
+    /// The layout fit only after an explicit, non-overflowing adjustment.
+    Adjusted,
+    /// The requested geometry was preserved and extends beyond its container.
+    Overflow,
+    /// The container cannot produce finite usable geometry.
+    Impossible,
+}
+
+/// Selects how a stack handles content that does not fit on its main axis.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum UiOverflowPolicy {
+    /// Preserve the historical contained result by proportionally compressing
+    /// children. The resolved result reports `UiLayoutFit::Adjusted`.
+    #[default]
+    Compress,
+    /// Preserve measured child sizes and report overflow for the caller to
+    /// address with scrolling, clipping, or a compact presentation.
+    Preserve,
+}
+
 /// A viewport-aware application frame with distinct header, body, and footer
 /// regions. Consumers choose semantic content for those regions; this type
 /// owns only their responsive spatial arrangement.
@@ -10,6 +37,9 @@ pub struct UiFrameLayout {
     pub header: UiRect,
     pub body: UiRect,
     pub footer: UiRect,
+    /// Capacity result for the frame regions after padding, heights, and gaps
+    /// have been resolved.
+    pub fit: UiLayoutFit,
 }
 
 impl UiFrameLayout {
@@ -33,9 +63,13 @@ impl UiFrameLayout {
         gap: f32,
     ) -> Self {
         let content = viewport.inset_by(padding);
-        let header_height = header_height.clamp(0.0, content.size[1]);
-        let footer_height = footer_height.clamp(0.0, (content.size[1] - header_height).max(0.0));
-        let gap = gap
+        let requested_header_height = header_height.max(0.0);
+        let requested_footer_height = footer_height.max(0.0);
+        let requested_gap = gap.max(0.0);
+        let header_height = requested_header_height.clamp(0.0, content.size[1]);
+        let footer_height =
+            requested_footer_height.clamp(0.0, (content.size[1] - header_height).max(0.0));
+        let gap = requested_gap
             .max(0.0)
             .min((content.size[1] - header_height - footer_height).max(0.0) * 0.5);
         let body_height = (content.size[1] - header_height - footer_height - gap * 2.0).max(0.0);
@@ -61,6 +95,24 @@ impl UiFrameLayout {
             header,
             body,
             footer,
+            fit: if !usable_rect(viewport)
+                || !usable_rect(content)
+                || !usable_rect(header)
+                || !usable_rect(body)
+                || !usable_rect(footer)
+            {
+                // A frame has three required semantic regions. Once compaction
+                // removes any one of them, callers need an explicit fallback;
+                // reporting Adjusted would make unusable detail look valid.
+                UiLayoutFit::Impossible
+            } else if header_height != requested_header_height
+                || footer_height != requested_footer_height
+                || gap != requested_gap
+            {
+                UiLayoutFit::Adjusted
+            } else {
+                UiLayoutFit::Exact
+            },
         }
     }
 }
@@ -75,6 +127,9 @@ pub struct UiHorizontalSplitLayout {
     pub container: UiRect,
     pub leading: UiRect,
     pub trailing: UiRect,
+    /// The resolved capacity result. `fits_minimums` remains for source
+    /// compatibility with existing consumers.
+    pub fit: UiLayoutFit,
     pub fits_minimums: bool,
 }
 
@@ -118,7 +173,129 @@ impl UiHorizontalSplitLayout {
             container,
             leading,
             trailing,
+            fit: if !usable_rect(container) || !usable_rect(leading) || !usable_rect(trailing) {
+                UiLayoutFit::Impossible
+            } else if fits_minimums {
+                UiLayoutFit::Exact
+            } else {
+                UiLayoutFit::Adjusted
+            },
             fits_minimums,
+        }
+    }
+}
+
+/// A row-major grid of equal-sized cells contained within one region.
+///
+/// This intentionally models only the recurring uniform-grid case. Content
+/// measurement, spanning, and implicit column selection remain outside this
+/// contract until independent consumers prove they are needed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiUniformGridLayout {
+    pub container: UiRect,
+    pub columns: usize,
+    pub rows: usize,
+    pub gap: [f32; 2],
+    pub cells: Vec<UiRect>,
+    pub fit: UiLayoutFit,
+}
+
+impl UiUniformGridLayout {
+    pub fn new(container: UiRect, item_count: usize, columns: usize, gap: [f32; 2]) -> Self {
+        if !usable_rect(container) || columns == 0 {
+            return Self {
+                container,
+                columns,
+                rows: 0,
+                gap: [0.0, 0.0],
+                cells: Vec::new(),
+                fit: UiLayoutFit::Impossible,
+            };
+        }
+        if item_count == 0 {
+            return Self {
+                container,
+                columns,
+                rows: 0,
+                gap: [0.0, 0.0],
+                cells: Vec::new(),
+                fit: UiLayoutFit::Exact,
+            };
+        }
+
+        let rows = item_count.div_ceil(columns);
+        let requested_gap = gap;
+        let sanitized_gap = gap.map(|value| {
+            if value.is_finite() {
+                value.max(0.0)
+            } else {
+                0.0
+            }
+        });
+        let column_gaps = columns.saturating_sub(1);
+        let row_gaps = rows.saturating_sub(1);
+        // Retain at least half of each axis for cells when a requested gap is
+        // larger than the container can honestly accommodate.
+        let max_horizontal_gap = if column_gaps == 0 {
+            0.0
+        } else {
+            container.size[0] / (column_gaps as f32 * 2.0)
+        };
+        let max_vertical_gap = if row_gaps == 0 {
+            0.0
+        } else {
+            container.size[1] / (row_gaps as f32 * 2.0)
+        };
+        let gap = [
+            sanitized_gap[0].min(max_horizontal_gap),
+            sanitized_gap[1].min(max_vertical_gap),
+        ];
+        let cell_size = [
+            (container.size[0] - gap[0] * column_gaps as f32) / columns as f32,
+            (container.size[1] - gap[1] * row_gaps as f32) / rows as f32,
+        ];
+        if !cell_size
+            .iter()
+            .all(|value| value.is_finite() && *value > 0.0)
+        {
+            return Self {
+                container,
+                columns,
+                rows,
+                gap,
+                cells: Vec::new(),
+                fit: UiLayoutFit::Impossible,
+            };
+        }
+
+        let left = container.center[0] - container.size[0] * 0.5;
+        let top = container.center[1] + container.size[1] * 0.5;
+        let cells = (0..item_count)
+            .map(|index| {
+                let column = index % columns;
+                let row = index / columns;
+                UiRect::new(
+                    [
+                        left + column as f32 * (cell_size[0] + gap[0]) + cell_size[0] * 0.5,
+                        top - row as f32 * (cell_size[1] + gap[1]) - cell_size[1] * 0.5,
+                    ],
+                    cell_size,
+                )
+            })
+            .collect();
+        let fit = if requested_gap != gap {
+            UiLayoutFit::Adjusted
+        } else {
+            UiLayoutFit::Exact
+        };
+
+        Self {
+            container,
+            columns,
+            rows,
+            gap,
+            cells,
+            fit,
         }
     }
 }
@@ -224,6 +401,11 @@ impl<'a> UiMeasureContext<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiLayoutResult {
     pub rect: UiRect,
+    /// Whether this node preserved its requested main-axis geometry.
+    pub fit: UiLayoutFit,
+    /// The positive main/cross-axis extent that remains outside `rect` when
+    /// `fit` is `Overflow`.
+    pub overflow: [f32; 2],
     pub children: Vec<UiLayoutResult>,
 }
 
@@ -235,13 +417,42 @@ impl UiLayoutResult {
     pub fn new(rect: UiRect) -> Self {
         Self {
             rect,
+            fit: UiLayoutFit::Exact,
+            overflow: [0.0, 0.0],
             children: Vec::new(),
         }
     }
 
     pub fn with_children(rect: UiRect, children: Vec<UiLayoutResult>) -> Self {
-        Self { rect, children }
+        Self {
+            rect,
+            fit: UiLayoutFit::Exact,
+            overflow: [0.0, 0.0],
+            children,
+        }
     }
+
+    pub fn with_fit(
+        rect: UiRect,
+        fit: UiLayoutFit,
+        overflow: [f32; 2],
+        children: Vec<UiLayoutResult>,
+    ) -> Self {
+        Self {
+            rect,
+            fit,
+            overflow,
+            children,
+        }
+    }
+}
+
+fn usable_rect(rect: UiRect) -> bool {
+    rect.center.iter().all(|value| value.is_finite())
+        && rect
+            .size
+            .iter()
+            .all(|value| value.is_finite() && *value > 0.0)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -250,6 +461,7 @@ pub struct UiHorizontalStack<T> {
     pub gap: f32,
     pub cross_axis_alignment: UiCrossAxisAlignment,
     pub main_axis_allocation: UiMainAxisAllocation,
+    pub overflow_policy: UiOverflowPolicy,
 }
 
 impl<T: UiMeasurable> UiHorizontalStack<T> {
@@ -259,6 +471,7 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
             gap: gap.max(0.0),
             cross_axis_alignment: UiCrossAxisAlignment::Center,
             main_axis_allocation: UiMainAxisAllocation::Intrinsic,
+            overflow_policy: UiOverflowPolicy::default(),
         }
     }
 
@@ -269,6 +482,11 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
 
     pub fn with_main_axis_allocation(mut self, allocation: UiMainAxisAllocation) -> Self {
         self.main_axis_allocation = allocation;
+        self
+    }
+
+    pub fn with_overflow_policy(mut self, policy: UiOverflowPolicy) -> Self {
+        self.overflow_policy = policy;
         self
     }
 
@@ -294,6 +512,9 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
     }
 
     pub fn layout(&self, rect: UiRect, context: &UiMeasureContext<'_>) -> UiLayoutResult {
+        if !usable_rect(rect) {
+            return UiLayoutResult::with_fit(rect, UiLayoutFit::Impossible, [0.0, 0.0], Vec::new());
+        }
         let child_constraints = UiConstraints::new([0.0, 0.0], [rect.size[0], rect.size[1]]);
         let child_context = context.with_constraints(child_constraints);
         let mut child_sizes: Vec<[f32; 2]> = self
@@ -308,6 +529,8 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
         };
         let total_width: f32 = child_sizes.iter().map(|size| size[0]).sum::<f32>()
             + effective_gap * child_sizes.len().saturating_sub(1) as f32;
+        let mut fit = UiLayoutFit::Exact;
+        let mut overflow = [0.0, 0.0];
         if total_width < rect.size[0]
             && self.main_axis_allocation == UiMainAxisAllocation::Fill
             && !child_sizes.is_empty()
@@ -316,12 +539,23 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
             for size in &mut child_sizes {
                 size[0] += extra_width;
             }
+            fit = UiLayoutFit::Adjusted;
         } else if total_width > rect.size[0] && total_width > 0.0 {
-            let scale = (rect.size[0] - effective_gap * child_sizes.len().saturating_sub(1) as f32)
-                .max(0.0)
-                / child_sizes.iter().map(|size| size[0]).sum::<f32>().max(1.0);
-            for size in &mut child_sizes {
-                size[0] *= scale;
+            match self.overflow_policy {
+                UiOverflowPolicy::Compress => {
+                    let scale = (rect.size[0]
+                        - effective_gap * child_sizes.len().saturating_sub(1) as f32)
+                        .max(0.0)
+                        / child_sizes.iter().map(|size| size[0]).sum::<f32>().max(1.0);
+                    for size in &mut child_sizes {
+                        size[0] *= scale;
+                    }
+                    fit = UiLayoutFit::Adjusted;
+                }
+                UiOverflowPolicy::Preserve => {
+                    fit = UiLayoutFit::Overflow;
+                    overflow[0] = total_width - rect.size[0];
+                }
             }
         }
 
@@ -352,7 +586,7 @@ impl<T: UiMeasurable> UiHorizontalStack<T> {
                 UiLayoutResult::new(child_rect)
             })
             .collect();
-        UiLayoutResult::with_children(rect, children)
+        UiLayoutResult::with_fit(rect, fit, overflow, children)
     }
 }
 
@@ -362,6 +596,7 @@ pub struct UiVerticalStack<T> {
     pub gap: f32,
     pub cross_axis_alignment: UiCrossAxisAlignment,
     pub main_axis_allocation: UiMainAxisAllocation,
+    pub overflow_policy: UiOverflowPolicy,
 }
 
 impl<T: UiMeasurable> UiVerticalStack<T> {
@@ -371,6 +606,7 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
             gap: gap.max(0.0),
             cross_axis_alignment: UiCrossAxisAlignment::Center,
             main_axis_allocation: UiMainAxisAllocation::Intrinsic,
+            overflow_policy: UiOverflowPolicy::default(),
         }
     }
 
@@ -381,6 +617,11 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
 
     pub fn with_main_axis_allocation(mut self, allocation: UiMainAxisAllocation) -> Self {
         self.main_axis_allocation = allocation;
+        self
+    }
+
+    pub fn with_overflow_policy(mut self, policy: UiOverflowPolicy) -> Self {
+        self.overflow_policy = policy;
         self
     }
 
@@ -406,6 +647,9 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
     }
 
     pub fn layout(&self, rect: UiRect, context: &UiMeasureContext<'_>) -> UiLayoutResult {
+        if !usable_rect(rect) {
+            return UiLayoutResult::with_fit(rect, UiLayoutFit::Impossible, [0.0, 0.0], Vec::new());
+        }
         let child_constraints = UiConstraints::new([0.0, 0.0], [rect.size[0], rect.size[1]]);
         let child_context = context.with_constraints(child_constraints);
         let mut child_sizes: Vec<[f32; 2]> = self
@@ -420,6 +664,8 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
         };
         let total_height: f32 = child_sizes.iter().map(|size| size[1]).sum::<f32>()
             + effective_gap * child_sizes.len().saturating_sub(1) as f32;
+        let mut fit = UiLayoutFit::Exact;
+        let mut overflow = [0.0, 0.0];
         if total_height < rect.size[1]
             && self.main_axis_allocation == UiMainAxisAllocation::Fill
             && !child_sizes.is_empty()
@@ -428,12 +674,23 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
             for size in &mut child_sizes {
                 size[1] += extra_height;
             }
+            fit = UiLayoutFit::Adjusted;
         } else if total_height > rect.size[1] && total_height > 0.0 {
-            let scale = (rect.size[1] - effective_gap * child_sizes.len().saturating_sub(1) as f32)
-                .max(0.0)
-                / child_sizes.iter().map(|size| size[1]).sum::<f32>().max(1.0);
-            for size in &mut child_sizes {
-                size[1] *= scale;
+            match self.overflow_policy {
+                UiOverflowPolicy::Compress => {
+                    let scale = (rect.size[1]
+                        - effective_gap * child_sizes.len().saturating_sub(1) as f32)
+                        .max(0.0)
+                        / child_sizes.iter().map(|size| size[1]).sum::<f32>().max(1.0);
+                    for size in &mut child_sizes {
+                        size[1] *= scale;
+                    }
+                    fit = UiLayoutFit::Adjusted;
+                }
+                UiOverflowPolicy::Preserve => {
+                    fit = UiLayoutFit::Overflow;
+                    overflow[1] = total_height - rect.size[1];
+                }
             }
         }
 
@@ -464,6 +721,6 @@ impl<T: UiMeasurable> UiVerticalStack<T> {
                 UiLayoutResult::new(child_rect)
             })
             .collect();
-        UiLayoutResult::with_children(rect, children)
+        UiLayoutResult::with_fit(rect, fit, overflow, children)
     }
 }

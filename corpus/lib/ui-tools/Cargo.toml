@@ -11,3 +11,6 @@ lyon_path = "1.0"
 lyon_tessellation = "1.0"
 ttf-parser = "0.25"
 xml-tools = { path = "../xml-tools" }
+
+[dev-dependencies]
+tokimu-core = { path = "../../../crates/tokimu-core" }

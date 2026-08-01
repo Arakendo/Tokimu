@@ -4,6 +4,8 @@ use hello_runtime_observation::{
 };
 use wasm_bindgen::prelude::*;
 
+mod ui;
+
 const MAX_PENDING_COMMANDS: usize = 16;
 
 /// Browser-facing observation facade for the runtime corpus.
@@ -35,6 +37,26 @@ impl WasmRuntimeObservationSession {
             selected_entity.map(u64::from),
             ObservationLimits::default(),
         ))
+        .map_err(js_error)
+    }
+
+    /// Resolves the current observation into a provider-neutral semantic UI
+    /// artifact. The browser receives evidence, not renderer resources or a
+    /// second authoritative layout model.
+    pub fn ui_snapshot_json(
+        &self,
+        width: u32,
+        height: u32,
+        sequence: u32,
+        selected_entity: Option<u32>,
+    ) -> Result<String, JsValue> {
+        ui::build_runtime_ui_snapshot(
+            &self.runtime,
+            [width, height],
+            u64::from(sequence),
+            selected_entity.map(u64::from),
+        )
+        .and_then(json)
         .map_err(js_error)
     }
 

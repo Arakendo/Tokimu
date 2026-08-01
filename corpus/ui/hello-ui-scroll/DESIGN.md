@@ -29,7 +29,11 @@ Scroll State
 
 ↓
 
-UiDrawer
+Resolved UI Tree
+
+↓
+
+Ordered Draw List
 
 ↓
 
@@ -79,7 +83,8 @@ changing the underlying item meaning.
 
 ### Rendering owns clipping only
 
-Renderers receive clipped draw commands.
+Renderers receive clipped draw commands produced from the same resolved bounds
+used for hit testing.
 
 They do not decide what is visible.
 
@@ -212,4 +217,5 @@ The example succeeds when:
 - Content is visibly clipped by a viewport.
 - Scrolling changes visibility without changing content identity.
 - Selection remains distinct from scroll position.
+- Drawing and pointer targeting consume the same resolved scroll geometry.
 - Future editors can reuse the same viewport model.

@@ -10,6 +10,17 @@ pub enum UiInteractionState {
     Disabled,
 }
 
+impl UiInteractionState {
+    pub const ALL: [Self; 6] = [
+        Self::Idle,
+        Self::Hovered,
+        Self::Pressed,
+        Self::Focused,
+        Self::Selected,
+        Self::Disabled,
+    ];
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UiButtonId(pub u8);
 
