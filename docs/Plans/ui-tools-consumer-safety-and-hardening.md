@@ -59,13 +59,18 @@ observable composition contract.
 The following measurements are implementation evidence, not permanent API
 claims:
 
-- `ui-tools` currently reports 215 unit tests.
-- 137 of those tests are concentrated in SVG, vector, and font-outline modules.
-- The broad cross-cutting UI test module contains 31 tests.
-- Controls have one local test, text input has two, and scrolling has four.
-- The repeatable audit reports 18 root public-export statements and 641 source
+- The 2026-08-01 repeatable audit reports 291 unit tests.
+- SVG, vector, and font-outline modules account for 137 of those tests, while
+  layout now accounts for 32.
+- Controls report five local tests, text input reports two, and scrolling
+  reports seven. The remaining imbalance is visible rather than hidden by the
+  aggregate count.
+- The repeatable audit reports 28 root public-export statements and 921 source
   public declarations. Neither is a semantic API count, but together they show
   that the root facade and implementation surface are broad.
+- No forbidden upward dependency is present. `ab_glyph`, `ttf-parser`,
+  `xml-tools`, `lyon_path`, and `lyon_tessellation` remain explicit provider or
+  lowering dependencies that block wholesale capability extraction.
 - Corpus consumers still contain substantial literal rectangle construction and
   local layout geometry, including the UI corpus, runtime inspector, CGM
   inspector, and file/UI examples.
@@ -294,6 +299,11 @@ not claim that implementation APIs are already hidden from legacy callers.
 intent from `ui_tools::consumer`. Its direct `layout_bitmap_text` use remains
 at the renderer-specific boundary, recording the missing owned draw-list and
 text-lowering contract that later slices must replace.
+
+Built-in bitmap and TTF/OTF metrics adapters are now both available through
+the explicit provider tier and satisfy the same provider-neutral measurement
+trait. An external consumer-contract test protects that substitution path and
+requires invalid provider sizes to fail diagnostically.
 
 #### Deliverables
 

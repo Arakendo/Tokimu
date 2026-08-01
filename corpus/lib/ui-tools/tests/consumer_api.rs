@@ -12,7 +12,26 @@ use ui_tools::diagnostics::UiTextDiagnostic;
 use ui_tools::lowering::{
     lower_resolved_tree_to_draw_list, UiDrawCommand, UiDrawListBuilder, UiSurfaceCommand,
 };
-use ui_tools::provider::UiTextMetricsProvider;
+use ui_tools::provider::{UiBitmapTextMetricsProvider, UiTextMetricsProvider};
+
+#[test]
+fn built_in_metrics_are_available_through_the_provider_tier() {
+    let provider = UiBitmapTextMetricsProvider::new(0.04);
+    let metrics = provider.measure("provider\ncontract").unwrap();
+
+    assert_eq!(provider.height(), 0.04);
+    assert!(metrics.advance.is_finite() && metrics.advance > 0.0);
+    assert!(metrics.ascent.is_finite() && metrics.ascent > 0.04);
+    assert!(metrics.diagnostics.is_empty());
+
+    let diagnostic = UiBitmapTextMetricsProvider::new(0.0)
+        .measure("invalid")
+        .unwrap_err();
+    assert_eq!(
+        diagnostic.kind,
+        ui_tools::diagnostics::UiTextDiagnosticKind::ProviderUnavailable
+    );
+}
 
 #[test]
 fn semantic_specs_are_exhaustively_provider_neutral() {
