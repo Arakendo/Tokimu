@@ -43,6 +43,8 @@ pub enum WgpuBackendError {
     MissingTexture(u64),
     #[error("texture handle {0} already exists")]
     TextureAlreadyExists(u64),
+    #[error("texture handle {0} is a renderer-owned render target and cannot receive source-pixel updates")]
+    TextureIsRenderTarget(u64),
     #[error(
         "texture handle {handle} has dimensions {expected_width}x{expected_height}, not {actual_width}x{actual_height}"
     )]
@@ -86,6 +88,13 @@ struct GpuTexture {
     texture: wgpu::Texture,
     view: Arc<wgpu::TextureView>,
     descriptor: Rgba8TextureDescriptor,
+    role: GpuTextureRole,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum GpuTextureRole {
+    Source,
+    RenderTarget,
 }
 
 #[derive(Clone, Copy)]
@@ -519,6 +528,26 @@ impl WgpuBackend {
         Ok(())
     }
 
+    /// Allocates one sampleable, renderer-owned RGBA8 render target.
+    ///
+    /// The returned identity is intentionally the existing opaque
+    /// [`TextureHandle`]. It can be sampled by a later material pass, but this
+    /// method neither accepts pixel data nor exposes WGPU textures or views.
+    /// Render-pass routing remains a separate concern.
+    pub fn create_render_target_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+    ) -> Result<(), WgpuBackendError> {
+        validate_rgba8_render_target_creation(
+            handle,
+            self.textures.contains_key(&handle),
+            descriptor,
+        )?;
+        self.allocate_render_target_rgba8(handle, descriptor);
+        Ok(())
+    }
+
     /// Rewrites all pixels in an existing RGBA8 texture without replacing its identity.
     ///
     /// The requested dimensions must exactly match the original descriptor and
@@ -531,7 +560,14 @@ impl WgpuBackend {
         height: u32,
         rgba8: &[u8],
     ) -> Result<(), WgpuBackendError> {
-        let expected = self.textures.get(&handle).map(|texture| texture.descriptor);
+        let existing = self.textures.get(&handle);
+        if matches!(
+            existing.map(|texture| texture.role),
+            Some(GpuTextureRole::RenderTarget)
+        ) {
+            return Err(WgpuBackendError::TextureIsRenderTarget(handle.0));
+        }
+        let expected = existing.map(|texture| texture.descriptor);
         let expected = validate_rgba8_texture_update(handle, expected, width, height, rgba8)?;
         let gpu_texture = self
             .textures
@@ -553,18 +589,40 @@ impl WgpuBackend {
     /// New callers that need stable resource identity should use
     /// [`Self::create_texture_rgba8`] followed by [`Self::update_texture_rgba8`].
     /// This bridge remains for existing immutable callers; it may replace a
-    /// texture and therefore does not preserve existing material views.
+    /// source texture and therefore does not preserve existing material views.
+    /// It panics if asked to replace a renderer-owned render target. New code
+    /// should prefer [`Self::try_upload_texture`] to receive that condition as
+    /// an explicit error.
     pub fn upload_texture(&mut self, handle: TextureHandle, texture: &Texture) {
+        self.try_upload_texture(handle, texture)
+            .expect("compatibility texture upload requires a replaceable source texture");
+    }
+
+    /// Fallible compatibility create-or-replace upload using the historical
+    /// sRGB interpretation.
+    ///
+    /// This operation deliberately cannot replace renderer-owned render
+    /// targets. Their views may already be captured by material bind groups,
+    /// so target replacement requires an explicit dependency-rebinding
+    /// lifecycle rather than an implicit source-pixel upload.
+    pub fn try_upload_texture(
+        &mut self,
+        handle: TextureHandle,
+        texture: &Texture,
+    ) -> Result<(), WgpuBackendError> {
         let descriptor = Rgba8TextureDescriptor::new(
             texture.width,
             texture.height,
             Rgba8TextureColorSpace::Srgb,
         );
-        descriptor
-            .validate_payload(&texture.rgba8)
-            .expect("compatibility texture upload requires a valid RGBA8 payload");
+        descriptor.validate_payload(&texture.rgba8)?;
+        validate_legacy_texture_replacement(
+            handle,
+            self.textures.get(&handle).map(|existing| existing.role),
+        )?;
         let replaced_existing = self.textures.contains_key(&handle);
         self.allocate_texture_rgba8(handle, descriptor, &texture.rgba8, replaced_existing);
+        Ok(())
     }
 
     fn allocate_texture_rgba8(
@@ -602,10 +660,43 @@ impl WgpuBackend {
                 texture: gpu_texture,
                 view,
                 descriptor,
+                role: GpuTextureRole::Source,
             },
         );
         self.stats.record_texture_allocation(replaced_existing);
         self.stats.record_texture_write();
+    }
+
+    fn allocate_render_target_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+    ) {
+        let gpu_texture = self._device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("tokimu-render-target"),
+            size: wgpu::Extent3d {
+                width: descriptor.width,
+                height: descriptor.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: rgba8_texture_format(descriptor.color_space),
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let view = Arc::new(gpu_texture.create_view(&wgpu::TextureViewDescriptor::default()));
+        self.textures.insert(
+            handle,
+            GpuTexture {
+                texture: gpu_texture,
+                view,
+                descriptor,
+                role: GpuTextureRole::RenderTarget,
+            },
+        );
+        self.stats.record_texture_allocation(false);
     }
 
     pub fn upload_material(
@@ -1583,6 +1674,20 @@ fn validate_rgba8_texture_creation(
     Ok(())
 }
 
+// This check is kept free of WGPU allocation so corpus callers can prove that
+// invalid render-target requests fail at the renderer contract boundary.
+fn validate_rgba8_render_target_creation(
+    handle: TextureHandle,
+    handle_exists: bool,
+    descriptor: Rgba8TextureDescriptor,
+) -> Result<(), WgpuBackendError> {
+    descriptor.expected_payload_len()?;
+    if handle_exists {
+        return Err(WgpuBackendError::TextureAlreadyExists(handle.0));
+    }
+    Ok(())
+}
+
 fn validate_rgba8_texture_update(
     handle: TextureHandle,
     expected: Option<Rgba8TextureDescriptor>,
@@ -1604,12 +1709,23 @@ fn validate_rgba8_texture_update(
     Ok(expected)
 }
 
+fn validate_legacy_texture_replacement(
+    handle: TextureHandle,
+    existing_role: Option<GpuTextureRole>,
+) -> Result<(), WgpuBackendError> {
+    if existing_role == Some(GpuTextureRole::RenderTarget) {
+        return Err(WgpuBackendError::TextureIsRenderTarget(handle.0));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         derived_material_key, drain_backend_diagnostic_messages, rgba8_point_sampler_descriptor,
-        rgba8_texture_format, validate_rgba8_texture_creation, validate_rgba8_texture_update,
-        WgpuBackendError,
+        rgba8_texture_format, validate_legacy_texture_replacement,
+        validate_rgba8_render_target_creation, validate_rgba8_texture_creation,
+        validate_rgba8_texture_update, GpuTextureRole, WgpuBackendError,
     };
     use crate::{
         Color, MaterialHandle, MaterialOverride, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
@@ -1693,6 +1809,46 @@ mod tests {
                 TextureValidationError::PayloadLengthMismatch { .. }
             ))
         ));
+    }
+
+    #[test]
+    fn render_target_creation_validation_rejects_duplicates_and_empty_dimensions() {
+        let descriptor = Rgba8TextureDescriptor::new(1280, 720, Rgba8TextureColorSpace::Srgb);
+        assert!(
+            validate_rgba8_render_target_creation(TextureHandle(11), false, descriptor).is_ok()
+        );
+        assert!(matches!(
+            validate_rgba8_render_target_creation(TextureHandle(11), true, descriptor),
+            Err(WgpuBackendError::TextureAlreadyExists(11))
+        ));
+        assert!(matches!(
+            validate_rgba8_render_target_creation(
+                TextureHandle(12),
+                false,
+                Rgba8TextureDescriptor::new(0, 720, Rgba8TextureColorSpace::Srgb)
+            ),
+            Err(WgpuBackendError::InvalidTexture(
+                TextureValidationError::InvalidDimensions { .. }
+            ))
+        ));
+    }
+
+    #[test]
+    fn legacy_texture_replacement_rejects_renderer_owned_targets() {
+        assert_eq!(
+            validate_legacy_texture_replacement(
+                TextureHandle(8),
+                Some(GpuTextureRole::RenderTarget)
+            )
+            .unwrap_err()
+            .to_string(),
+            "texture handle 8 is a renderer-owned render target and cannot receive source-pixel updates"
+        );
+        assert!(validate_legacy_texture_replacement(
+            TextureHandle(8),
+            Some(GpuTextureRole::Source)
+        )
+        .is_ok());
     }
 
     #[test]

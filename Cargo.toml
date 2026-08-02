@@ -20,6 +20,7 @@ members = [
     "corpus/hello-3d-stereo",
     "corpus/hello-3d-openxr",
     "corpus/hello-shader",
+    "corpus/hello-audio-visualizer",
     "corpus/hello-vector-draw",
 
     # Simulation and application corpus.
@@ -103,6 +104,7 @@ members = [
     "corpus/lib/ui-tools",
     "corpus/lib/ui-validation-corpus",
     "corpus/lib/ui-framework",
+    "corpus/lib/visualizer-tools",
 
     # Cross-workspace integration tests.
     "tests",

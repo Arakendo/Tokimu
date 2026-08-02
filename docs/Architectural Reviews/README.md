@@ -170,3 +170,7 @@ across unrelated decisions.
 - [AR-0007: Semantic UI Composition Boundary](AR-0007-semantic-ui-composition-boundary.md)
   — Incubating; semantic composition ownership is validated by native and WASM
   consumers, while first-party package extraction awaits provider separation
+- [AR-0008: Audio Observation And Visualizer Boundary](AR-0008-audio-observation-and-visualizer-boundary.md)
+  — Incubating; deterministic PCM analysis and bounded overload evidence are
+  established while capture providers, shader resources, and capability
+  admission remain unproven

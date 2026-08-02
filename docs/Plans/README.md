@@ -24,6 +24,7 @@ than silently treating the plan as authority.
 - [Tokimu Observation Shell Consumer Corpus](tokimu-observation-shell-consumer-corpus.md)
 - [UI Tools Consumer Safety And Hardening](ui-tools-consumer-safety-and-hardening.md)
 - [Streaming RGBA8 Texture Updates](streaming-rgba8-texture-updates.md)
+- [Audio-Reactive Visualizers And MilkDrop Compatibility](audio-reactive-visualizers-and-milkdrop-compatibility.md)
 
 ## Completed Spikes
 
