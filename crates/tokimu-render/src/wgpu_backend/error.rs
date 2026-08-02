@@ -18,6 +18,8 @@ pub enum WgpuBackendError {
     MissingMesh(u64),
     #[error("material handle {0} has not been uploaded")]
     MissingMaterial(u64),
+    #[error("material color must contain only finite values")]
+    InvalidMaterialColor,
     #[error("pipeline handle {0} has not been uploaded")]
     MissingPipeline(u64),
     #[error("renderable handle {0} has not been uploaded")]
@@ -28,6 +30,22 @@ pub enum WgpuBackendError {
     TextureAlreadyExists(u64),
     #[error("texture handle {0} is a renderer-owned render target and cannot receive source-pixel updates")]
     TextureIsRenderTarget(u64),
+    #[error("texture handle {0} is not a renderer-owned render target")]
+    TextureIsNotRenderTarget(u64),
+    #[error(
+        "render target {target} cannot be released while {material_count} material binding(s) still sample it"
+    )]
+    RenderTargetStillReferenced { target: u64, material_count: u32 },
+    #[error("render target {target} has format {target_format}, which does not match the active surface format {surface_format}")]
+    RenderTargetFormatMismatch {
+        target: u64,
+        target_format: String,
+        surface_format: String,
+    },
+    #[error(
+        "render target {target} cannot be sampled by material {material} while it is being written"
+    )]
+    RenderTargetSelfSampling { target: u64, material: u64 },
     #[error(
         "texture handle {handle} has dimensions {expected_width}x{expected_height}, not {actual_width}x{actual_height}"
     )]

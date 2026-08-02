@@ -10,6 +10,7 @@ on:
       - "Cargo.toml"
       - "corpus/consumers/tokimu-website-asteroids/**"
       - "corpus/consumers/tokimu-website-paint/**"
+      - "corpus/consumers/tokimu-website-visualizer/**"
       - "corpus/consumers/tokimu-website-kernel-ui/**"
       - "corpus/consumers/ui-resource-workbench/**"
       - "corpus/lib/particle-tools/**"
@@ -45,6 +46,7 @@ jobs:
           npm ci --prefix website
           npm ci --prefix corpus/consumers/tokimu-website-asteroids
           npm ci --prefix corpus/consumers/tokimu-website-paint
+          npm ci --prefix corpus/consumers/tokimu-website-visualizer
           npm ci --prefix corpus/consumers/tokimu-website-kernel-ui
 
       - name: Prepare Rust WebAssembly tools
@@ -60,6 +62,7 @@ jobs:
           npm run typecheck --prefix website
           npm run typecheck --prefix corpus/consumers/tokimu-website-asteroids
           npm run typecheck --prefix corpus/consumers/tokimu-website-paint
+          npm run typecheck --prefix corpus/consumers/tokimu-website-visualizer
           npm run typecheck --prefix corpus/consumers/tokimu-website-kernel-ui
           pwsh -NoProfile -File website/scripts/build-interactive.ps1
           # WASM binaries and wasm-bindgen bindings are rebuilt for deployment,
@@ -68,6 +71,10 @@ jobs:
             website/docs/javascripts/asset-observation.js \
             website/docs/javascripts/asteroids-game.js \
             website/docs/assets/islands/asteroids-game/asteroids.js \
+            website/docs/javascripts/tokimu-visualizer.js \
+            website/docs/assets/islands/tokimu-visualizer/index.html \
+            website/docs/assets/islands/tokimu-visualizer/visualizer.js \
+            website/docs/assets/islands/tokimu-visualizer/styles.css \
             website/docs/javascripts/tokimu-paint.js \
             website/docs/assets/islands/tokimu-paint/index.html \
             website/docs/assets/islands/tokimu-paint/lucide.svg \
@@ -84,6 +91,7 @@ jobs:
           website/tests/islands.test.mjs
           website/tests/asset-observation.test.mjs
           website/tests/asteroids-island.test.mjs
+          website/tests/visualizer-island.test.mjs
           website/tests/paint-island.test.mjs
           website/tests/kernel-ui-island.test.mjs
           website/tests/static-fallback.test.mjs

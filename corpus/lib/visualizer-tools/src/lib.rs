@@ -5,23 +5,38 @@
 //! waveform, spectrum, band, and beat observations.
 
 mod audio_analysis;
+mod native_visualizers;
 mod render_targets;
+mod spectrum;
 mod wav_fixture;
+mod waveform;
 
 pub use audio_analysis::{
-    observe_pcm_analysis_timing, PcmAnalysisBacklog, PcmAnalysisConfig, PcmAnalysisError,
-    PcmAnalysisFrame, PcmAnalysisState, PcmAnalysisTimingObservation, PcmAnalyzer, PcmAudioWindow,
+    observe_pcm_analysis_timing, observe_pcm_analysis_working_set, PcmAnalysisBacklog,
+    PcmAnalysisConfig, PcmAnalysisError, PcmAnalysisFrame, PcmAnalysisState,
+    PcmAnalysisTimingObservation, PcmAnalysisWorkingSetObservation, PcmAnalyzer, PcmAudioWindow,
     PcmBacklogOverflowPolicy, PcmBacklogPush, PcmBacklogSnapshot, PcmFixture, MAX_PCM_CHANNELS,
     MAX_PCM_FRAMES, MAX_PCM_MEASUREMENT_ITERATIONS, MAX_PCM_PENDING_WINDOWS,
 };
 
+pub use native_visualizers::{
+    NativeVisualizerDefinition, NativeVisualizerDefinitionError, NativeVisualizerKind,
+    NativeVisualizerParameter,
+};
+
 pub use render_targets::{
-    RenderTargetColorInterpretation, RenderTargetGraphError, RenderTargetLoadBehavior,
-    RenderTargetRequirement, RenderTargetSampling, VisualizerPassGraph, VisualizerPassRequirement,
-    VisualizerResource, MAX_RENDER_PASSES, MAX_RENDER_TARGETS, MAX_RENDER_TARGET_DIMENSION,
+    FeedbackInitialization, FeedbackTargetPairRequirement, RenderTargetColorInterpretation,
+    RenderTargetGraphError, RenderTargetLoadBehavior, RenderTargetRequirement,
+    RenderTargetSampling, VisualizerPassGraph, VisualizerPassGraphSummary,
+    VisualizerPassRequirement, VisualizerResource, MAX_RENDER_PASSES, MAX_RENDER_TARGETS,
+    MAX_RENDER_TARGET_DIMENSION,
+};
+pub use spectrum::{
+    VisualizerSpectrumBar, VisualizerSpectrumBars, VisualizerSpectrumBarsError, MAX_SPECTRUM_BARS,
 };
 
 pub use wav_fixture::{decode_pcm16_wav, encode_pcm16_wav_fixture, WavFixtureError};
+pub use waveform::{VisualizerWaveform, VisualizerWaveformError};
 
 use std::{
     f32::consts::{PI, TAU},

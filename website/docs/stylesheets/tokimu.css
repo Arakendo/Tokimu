@@ -844,6 +844,24 @@ th {
   background: #071012;
 }
 
+.visualizer-island {
+  grid-template-columns: 1fr auto;
+  min-height: 32rem;
+}
+
+.visualizer-island .island-mount {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.visualizer-frame {
+  display: block;
+  width: 100%;
+  height: clamp(32rem, 62vw, 46rem);
+  border: 0;
+  background: #050b0e;
+}
+
 .kernel-ui-island {
   grid-template-columns: 1fr auto;
   min-height: 34rem;

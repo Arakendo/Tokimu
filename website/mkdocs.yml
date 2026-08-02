@@ -33,6 +33,7 @@ nav:
   - Lab:
       - Interactive Island Contract: lab/island-contract.md
       - Tokimu Paint: lab/paint.md
+      - Tokimu Visualizer: lab/visualizer.md
       - Kernel UI Workbench: lab/kernel-ui.md
 
 markdown_extensions:
@@ -55,4 +56,5 @@ extra_javascript:
   - javascripts/asset-observation.js
   - javascripts/asteroids-game.js
   - javascripts/tokimu-paint.js
+  - javascripts/tokimu-visualizer.js
   - javascripts/kernel-ui.js

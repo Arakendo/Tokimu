@@ -1,0 +1,25 @@
+:root {
+  color-scheme: dark;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  background: #071113;
+  color: #d7f9f0;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 52% 22%, #0e292b, #050a0c 64%); }
+button, select { font: inherit; color: inherit; background: #0b2224; border: 1px solid #397a78; padding: 0.55rem 0.7rem; }
+button:hover, button:focus-visible, select:focus-visible { border-color: #63ead7; outline: 2px solid transparent; background: #103236; }
+.visualizer-shell { width: min(100%, 1080px); margin: 0 auto; padding: clamp(1rem, 3vw, 2rem); }
+.visualizer-header { display: flex; justify-content: space-between; gap: 1rem; align-items: start; border-bottom: 1px solid #2d625f; padding-bottom: 1rem; }
+.kicker { margin: 0 0 0.4rem; color: #64f1d8; font-size: 0.74rem; letter-spacing: 0.1em; }
+h1 { margin: 0; font-family: Georgia, serif; font-weight: 500; font-size: clamp(2rem, 6vw, 4.5rem); }
+output { max-width: 25rem; color: #a5cec7; font-size: 0.78rem; text-align: right; }
+.controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; padding: 1rem 0; }
+label { display: grid; gap: 0.35rem; color: #a5cec7; font-size: 0.75rem; }
+.viewport { border: 1px solid #3c7874; background: #020809; padding: 0.5rem; box-shadow: 12px 12px 0 rgba(62, 190, 174, 0.09); }
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.observation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 1rem 0; border-top: 1px solid #275653; border-left: 1px solid #275653; }
+.observation-grid div { min-width: 0; padding: 0.7rem; border-right: 1px solid #275653; border-bottom: 1px solid #275653; }
+dt { color: #78b8ad; font-size: 0.68rem; text-transform: uppercase; } dd { margin: 0.35rem 0 0; font-size: 0.85rem; overflow-wrap: anywhere; }
+.diagnostic { color: #a5cec7; font-size: 0.78rem; line-height: 1.6; }
+@media (max-width: 640px) { .visualizer-header { display: grid; } output { text-align: left; } .observation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -60,6 +60,7 @@ pub(super) fn create_derived_material(
 
     GpuMaterial {
         base_color,
+        texture: source.texture,
         _uniform_buffer: uniform_buffer,
         bind_group,
         texture_view: Arc::clone(&source.texture_view),

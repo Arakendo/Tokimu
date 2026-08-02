@@ -7,6 +7,7 @@ mod mesh_resources;
 mod pipeline_registry_impl;
 mod pipeline_support;
 mod present_impl;
+mod render_target_passes;
 mod renderer_impl;
 mod texture_resources;
 mod texture_support;
@@ -20,6 +21,40 @@ use bytemuck::{Pod, Zeroable};
 pub use error::WgpuBackendError;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+/// Reports the renderer-private consequences of replacing a render target.
+///
+/// Materials counted by `materials_requiring_rebind` still reference the old
+/// texture view until their caller uploads them again. This makes target
+/// replacement explicit rather than silently retaining stale bind groups.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RenderTargetReplacement {
+    pub width: u32,
+    pub height: u32,
+    pub materials_requiring_rebind: u32,
+    pub invalidated_derived_materials: u32,
+}
+
+/// A backend-local snapshot of renderer-owned offscreen target storage.
+///
+/// The estimates count the RGBA8 color image and matching `Depth32Float`
+/// image allocated for each live render target. They deliberately exclude
+/// driver allocation overhead, surface buffers, samplers, views, mip levels,
+/// caches, and GPU residency. This is diagnostic evidence, not a portable
+/// memory budget or resource-management policy.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RenderTargetResourceObservation {
+    /// Number of live renderer-owned offscreen targets.
+    pub target_count: u32,
+    /// Total color-image pixels across those targets.
+    pub color_pixels: u64,
+    /// Estimated bytes occupied by RGBA8 color images.
+    pub estimated_color_bytes: u64,
+    /// Estimated bytes occupied by matching `Depth32Float` images.
+    pub estimated_depth_bytes: u64,
+    /// Sum of the color and depth image estimates.
+    pub estimated_total_bytes: u64,
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -35,6 +70,7 @@ struct GpuMesh {
 
 struct GpuMaterial {
     base_color: Color,
+    texture: Option<TextureHandle>,
     _uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     texture_view: Arc<wgpu::TextureView>,
@@ -47,6 +83,8 @@ struct GpuMaterial {
 struct GpuTexture {
     texture: wgpu::Texture,
     view: Arc<wgpu::TextureView>,
+    _depth_texture: Option<wgpu::Texture>,
+    depth_view: Option<Arc<wgpu::TextureView>>,
     descriptor: Rgba8TextureDescriptor,
     role: GpuTextureRole,
 }

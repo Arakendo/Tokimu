@@ -734,9 +734,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-audio-analysis"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "visualizer-tools",
+]
+
+[[package]]
 name = "hello-audio-visualizer"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "tokimu",
  "tokimu-core",
  "visualizer-tools",
@@ -804,6 +813,14 @@ dependencies = [
  "tokimu",
  "tokimu-assets",
  "tokimu-core",
+]
+
+[[package]]
+name = "hello-milkdrop"
+version = "0.1.0"
+dependencies = [
+ "milkdrop-tools",
+ "serde_json",
 ]
 
 [[package]]
@@ -1442,6 +1459,15 @@ dependencies = [
  "log",
  "objc",
  "paste",
+]
+
+[[package]]
+name = "milkdrop-tools"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2577,6 +2603,16 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tokimu-website-visualizer-engine"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "visualizer-tools",
  "wasm-bindgen",
 ]
 

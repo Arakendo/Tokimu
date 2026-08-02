@@ -231,6 +231,7 @@ impl WgpuBackend {
             command_encoding: Some(command_encoding),
             queue_submit_call: Some(queue_submit_call),
             surface_present_call: Some(surface_present_call),
+            ..RenderFrameCpuTimings::default()
         });
         Ok(self.end_frame())
     }

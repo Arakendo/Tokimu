@@ -2,13 +2,58 @@ use std::sync::Arc;
 
 use wgpu::util::DeviceExt;
 
-use crate::{Material, MaterialHandle};
+use crate::{Color, Material, MaterialHandle};
 
 use super::material_support::{create_derived_material, derived_material_key};
 use super::texture_support::rgba8_point_sampler_descriptor;
 use super::{GpuMaterial, WgpuBackend, WgpuBackendError};
 
+pub(super) fn validate_material_color(color: Color) -> Result<(), WgpuBackendError> {
+    if [color.r, color.g, color.b, color.a]
+        .into_iter()
+        .all(f32::is_finite)
+    {
+        Ok(())
+    } else {
+        Err(WgpuBackendError::InvalidMaterialColor)
+    }
+}
+
+pub(super) fn material_uniform_buffer_usage() -> wgpu::BufferUsages {
+    wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
+}
+
 impl WgpuBackend {
+    /// Updates the color uniform of an uploaded material without rebuilding its
+    /// texture binding or bind group.
+    ///
+    /// This backend-local fast path is intentionally narrow: callers that
+    /// change texture identity still use `upload_material`, because a texture
+    /// change requires a new bind group.
+    pub fn update_material_color(
+        &mut self,
+        handle: MaterialHandle,
+        color: Color,
+    ) -> Result<(), WgpuBackendError> {
+        validate_material_color(color)?;
+
+        let material = self
+            .materials
+            .get_mut(&handle)
+            .ok_or(WgpuBackendError::MissingMaterial(handle.0))?;
+        if material.base_color == color {
+            return Ok(());
+        }
+
+        let uniform = [color.r, color.g, color.b, color.a];
+        self._queue
+            .write_buffer(&material._uniform_buffer, 0, bytemuck::cast_slice(&uniform));
+        material.base_color = color;
+        self.derived_materials.retain(|key, _| key.source != handle);
+        self.stats.record_uniform_buffer_write();
+        Ok(())
+    }
+
     pub fn upload_material(
         &mut self,
         handle: MaterialHandle,
@@ -29,7 +74,7 @@ impl WgpuBackend {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("tokimu-material-uniform-buffer"),
                 contents: bytemuck::cast_slice(&uniform),
-                usage: wgpu::BufferUsages::UNIFORM,
+                usage: material_uniform_buffer_usage(),
             });
         let (fallback_texture, fallback_view, fallback_sampler, texture_view, sampler) =
             if let Some(texture_handle) = material.texture {
@@ -117,6 +162,7 @@ impl WgpuBackend {
             handle,
             GpuMaterial {
                 base_color: material.base_color,
+                texture: material.texture,
                 _uniform_buffer: uniform_buffer,
                 bind_group,
                 texture_view,

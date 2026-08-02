@@ -244,6 +244,73 @@ impl PcmAnalysisTimingObservation {
     }
 }
 
+/// Portable structural working-set observation for one reference PCM analysis.
+///
+/// This is deliberately not an allocator profiler. It records the exact `f32`
+/// slots implied by the current algorithm: the retained mono waveform and
+/// spectrum plus the temporary Hann-window and direct-DFT spectrum buffers.
+/// It excludes the caller-owned interleaved input, `Vec` capacity and allocator
+/// overhead, analysis history, and all platform or audio-provider state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub struct PcmAnalysisWorkingSetObservation {
+    pub scope: &'static str,
+    pub allocation_model: &'static str,
+    pub frame_count: usize,
+    pub channels: u8,
+    pub spectrum_bins: usize,
+    pub retained_waveform_f32_slots: usize,
+    pub retained_spectrum_f32_slots: usize,
+    pub transient_window_f32_slots: usize,
+    pub transient_spectrum_f32_slots: usize,
+    pub analyzer_owned_f32_slots: usize,
+    pub analyzer_owned_bytes: usize,
+}
+
+impl PcmAnalysisWorkingSetObservation {
+    pub fn to_observation_json(&self) -> Result<String, PcmAnalysisError> {
+        serde_json::to_string_pretty(self)
+            .map_err(|error| PcmAnalysisError::Serialization(error.to_string()))
+    }
+}
+
+/// Observes the source-structural working set of the reference PCM analyzer.
+///
+/// The result is deterministic for a validated window and configuration. It
+/// does not report actual allocation calls or claim a portable memory budget.
+pub fn observe_pcm_analysis_working_set(
+    window: &PcmAudioWindow,
+    config: PcmAnalysisConfig,
+) -> Result<PcmAnalysisWorkingSetObservation, PcmAnalysisError> {
+    window.validate()?;
+    config.validate()?;
+
+    let frame_count = window.frame_count();
+    let maximum_bins = frame_count / 2 + 1;
+    if config.spectrum_bins > maximum_bins {
+        return Err(PcmAnalysisError::SpectrumExceedsNyquist {
+            bins: config.spectrum_bins,
+            maximum: maximum_bins,
+        });
+    }
+
+    let analyzer_owned_f32_slots = frame_count
+        .saturating_mul(2)
+        .saturating_add(config.spectrum_bins.saturating_mul(2));
+    Ok(PcmAnalysisWorkingSetObservation {
+        scope: "source-structural-working-set-not-allocation-profiler",
+        allocation_model: "reference-pcm-analysis-f32-slots-v1",
+        frame_count,
+        channels: window.channels,
+        spectrum_bins: config.spectrum_bins,
+        retained_waveform_f32_slots: frame_count,
+        retained_spectrum_f32_slots: config.spectrum_bins,
+        transient_window_f32_slots: frame_count,
+        transient_spectrum_f32_slots: config.spectrum_bins,
+        analyzer_owned_f32_slots,
+        analyzer_owned_bytes: analyzer_owned_f32_slots.saturating_mul(std::mem::size_of::<f32>()),
+    })
+}
+
 /// Measures the current reference analysis implementation over a fixed window.
 ///
 /// This is intentionally an observation helper, not a benchmark harness or a
@@ -789,6 +856,46 @@ mod tests {
                 MAX_PCM_MEASUREMENT_ITERATIONS + 1
             ),
             Err(PcmAnalysisError::InvalidMeasurementIterations { .. })
+        ));
+    }
+
+    #[test]
+    fn working_set_observation_records_reference_buffer_slots_without_allocator_claims() {
+        let window = PcmAudioWindow::new(vec![0.0; 8], 48_000, 1).unwrap();
+        let config = PcmAnalysisConfig {
+            spectrum_bins: 4,
+            ..PcmAnalysisConfig::default()
+        };
+
+        let observation = observe_pcm_analysis_working_set(&window, config).unwrap();
+
+        assert_eq!(
+            observation.scope,
+            "source-structural-working-set-not-allocation-profiler"
+        );
+        assert_eq!(observation.frame_count, 8);
+        assert_eq!(observation.retained_waveform_f32_slots, 8);
+        assert_eq!(observation.retained_spectrum_f32_slots, 4);
+        assert_eq!(observation.transient_window_f32_slots, 8);
+        assert_eq!(observation.transient_spectrum_f32_slots, 4);
+        assert_eq!(observation.analyzer_owned_f32_slots, 24);
+        assert_eq!(observation.analyzer_owned_bytes, 96);
+    }
+
+    #[test]
+    fn working_set_observation_matches_analysis_nyquist_validation() {
+        let window = PcmAudioWindow::new(vec![0.0; 8], 48_000, 1).unwrap();
+        let config = PcmAnalysisConfig {
+            spectrum_bins: 6,
+            ..PcmAnalysisConfig::default()
+        };
+
+        assert!(matches!(
+            observe_pcm_analysis_working_set(&window, config),
+            Err(PcmAnalysisError::SpectrumExceedsNyquist {
+                bins: 6,
+                maximum: 5
+            })
         ));
     }
 

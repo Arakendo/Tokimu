@@ -21,6 +21,8 @@ members = [
     "corpus/hello-3d-openxr",
     "corpus/hello-shader",
     "corpus/hello-audio-visualizer",
+    "corpus/hello-audio-analysis",
+    "corpus/hello-milkdrop",
     "corpus/hello-vector-draw",
 
     # Simulation and application corpus.
@@ -57,6 +59,7 @@ members = [
     "corpus/consumers/aspnet-wasm-asset-workbench/engine",
     "corpus/consumers/aspnet-wasm-presentation-workbench/engine",
     "corpus/consumers/tokimu-website-asteroids/engine",
+    "corpus/consumers/tokimu-website-visualizer/engine",
     "corpus/consumers/tokimu-website-paint/engine",
     "corpus/consumers/runtime-observation-workbench/engine",
     "corpus/consumers/ui-settings-workbench",
@@ -105,6 +108,7 @@ members = [
     "corpus/lib/ui-validation-corpus",
     "corpus/lib/ui-framework",
     "corpus/lib/visualizer-tools",
+    "corpus/lib/milkdrop-tools",
 
     # Cross-workspace integration tests.
     "tests",

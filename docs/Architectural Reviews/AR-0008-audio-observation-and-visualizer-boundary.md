@@ -4,11 +4,11 @@
 | --- | --- |
 | Status | Incubating |
 | Opened | 2026-08-01 |
-| Last reviewed | 2026-08-01 |
+| Last reviewed | 2026-08-02 |
 | Scope | Foundational audio-analysis, presentation, renderer, and provider boundary |
 | Trigger | The audio-visualizer corpus now transforms bounded PCM windows into deterministic provider-neutral observations without an audio device, window, or GPU. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007 |
-| Related evidence | `visualizer-tools`, `hello-audio-visualizer`, synthetic PCM fixtures, generated PCM16 WAVE byte fixtures, bounded backlog tests, and native-host timing observations |
+| Related evidence | `visualizer-tools`, `hello-audio-visualizer`, `hello-audio-analysis`, synthetic PCM fixtures, generated PCM16 WAVE byte fixtures, bounded backlog tests, and native-host timing observations |
 | Admission exception | None |
 
 ## Architectural Question
@@ -63,6 +63,10 @@ or parse MilkDrop presets.
   `PcmAudioWindow`. Generated fixtures round-trip through this seam before
   analysis, including a benign aligned unknown RIFF chunk; it does not claim
   general file decoding or playback.
+- Second-consumer evidence: `hello-audio-analysis` independently consumes the
+  generated PCM16 WAVE bytes, adapts them into `PcmAudioWindow`, and writes
+  source, analysis, timing, and working-set artifacts without a renderer,
+  window, audio device, or playback path.
 - Compatibility reference evidence: projectM and the MilkDrop authoring guide
   confirm that compatibility joins PCM analysis, preset equations, custom
   waves/shapes, pixel shaders, and renderer feedback. This supports the
@@ -75,7 +79,7 @@ or parse MilkDrop presets.
   - native and browser PCM providers mapped into the same input contract;
   - sample-rate adaptation, timestamp provenance, underrun, overrun, and
     disconnection semantics;
-  - a stable visualizer model used by a second independent consumer;
+- a stable visualizer model used by a second independent consumer;
   - render-target sampling, feedback, or multipass execution;
   - audio-derived texture or uniform requirements at a shader boundary;
   - media decoding, playback, spatial audio, and permission policy;
@@ -235,7 +239,7 @@ overrun must be diagnosed by the owning provider boundary.
 - [ ] Add one browser/WASM PCM provider after its permission and lifecycle
       behavior can be recorded honestly.
 - [ ] Add sample-rate, timestamp, underrun, and disconnection diagnostics.
-- [ ] Exercise analysis observations through a second visualizer or consumer.
+- [x] Exercise analysis observations through a second consumer.
 - [ ] Determine whether resolved audio observations need a shader resource
       contract without conflating them with raster-image requirements.
 - [ ] Reassess capability admission only after the named evidence exists.
@@ -287,6 +291,46 @@ Reopen or advance this review when:
   visualizer plan records the external-reference review and prerequisite preset
   provenance requirements.
 
+### Cycle 3 -- 2026-08-02
+
+- Status entering review: Incubating
+- New evidence: three provider-neutral structural pass graphs, three original
+  visualizer definitions, a renderer-local ping-pong feedback execution proof,
+  explicit resize/reset lifecycle diagnostics, a warm native frequency-sweep
+  observation with zero frame-local resource churn after frame 120, and a
+  runtime material-uniform regression test.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: a pass graph can remain structural while concrete WGPU execution
+  owns targets, views, bind groups, and submission order. The live feedback
+  proof also showed that a CPU-side material-write observation is insufficient
+  unless the backend buffer is allocated for runtime copy writes; the required
+  `UNIFORM | COPY_DST` usage remains renderer-local execution policy.
+- Disposition: Incubating
+- Resulting ADR or documentation change: no ADR or crate admission. The plan
+  records steady-state feedback evidence, explicit manual capture guidance,
+  and a direct surface-only graph fixture. Real audio providers, a second
+  consumer, and any provider-neutral multipass execution contract remain
+  required before capability admission.
+
+### Cycle 4 -- 2026-08-02
+
+- Status entering review: Incubating
+- New evidence: `hello-audio-analysis` independently exercises generated
+  PCM16 RIFF/WAVE bytes through the bounded source adapter, `PcmAudioWindow`,
+  reference analysis, timing observation, and source-structural working-set
+  observation. It writes one provenance-bearing inspection artifact per
+  fixture without a window, renderer, audio device, or playback mechanism.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: the source-byte-to-analysis handoff is reusable outside the
+  visualizer and remains understandable as a headless contract. This is
+  evidence for the existing ownership split, not evidence that capture or a
+  permanent audio capability has stabilized.
+- Disposition: Incubating
+- Resulting ADR or documentation change: no ADR or crate admission. The
+  second-consumer follow-up is complete; native/browser provider behavior,
+  timestamp and loss semantics, and a second consumer of the visualizer model
+  remain required.
+
 ## References
 
 - `docs/Plans/audio-reactive-visualizers-and-milkdrop-compatibility.md`
@@ -295,6 +339,7 @@ Reopen or advance this review when:
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`
 - `corpus/lib/visualizer-tools/src/audio_analysis.rs`
 - `corpus/lib/visualizer-tools/src/lib.rs`
+- `corpus/hello-audio-analysis/src/main.rs`
 - `corpus/hello-audio-visualizer/src/main.rs`
 - https://github.com/projectM-visualizer/projectm
 - https://milkdrop.org/resources/preset-authoring

@@ -3,9 +3,20 @@
 ## Status
 
 Implementation started on 2026-08-01. Deterministic visualizer observations
-and a single-pass native corpus application now incubate under `corpus/`.
-No MilkDrop parser, preset evaluator, audio analyzer, feedback renderer, or
+and a bounded native feedback corpus application now incubate under `corpus/`.
+No MilkDrop parser, preset evaluator, provider-neutral multipass renderer, or
 visualizer capability is currently admitted.
+
+Plan checkpoint: 2026-08-02. The corpus now emits validated three-pass and
+previous-frame feedback structural graphs with bounded pass/resource summaries.
+The structural graph remains provider-neutral evidence. The native WGPU corpus
+executes a deliberately narrow ping-pong feedback proof, but does not establish
+a provider-neutral multipass renderer API. The native route reuses material
+and instance bindings across ordinary frames; a native frequency-sweep run
+recorded zero frame-local resource churn after warmup. Three
+original native visualizer definitions now serialize as corpus-side structural
+evidence, with stable identities, bounded parameters, and distinct pass-graph
+shapes. They do not yet establish a shared visualizer execution model.
 
 The first implementation should incubate in focused corpus libraries and
 applications. This plan does not create `tokimu-audio`,
@@ -112,9 +123,8 @@ Tokimu already provides useful pieces:
 The current implementation does not yet prove:
 
 - audio capture, file playback, PCM ingestion, FFT, or beat analysis;
-- renderable offscreen textures;
-- sampling a render target in a later pass;
-- ping-pong previous-frame feedback;
+- resource-bound diagnostics or a renderer memory-budget policy;
+- provider-neutral ping-pong previous-frame feedback;
 - a provider-neutral multipass frame description;
 - stable visualizer parameter or preset semantics;
 - a safe equation evaluator;
@@ -223,8 +233,8 @@ Deliverables:
       boundaries in the initial corpus design.
 - [ ] Inventory the MilkDrop 1 and MilkDrop 2 preset constructs exercised by a
       deliberately small candidate set.
-- [x] Review projectM as a compatibility reference and possible optional
-      adapter, not as Tokimu's architectural model.
+- [x] Review projectM only as an external compatibility reference, not as a
+      Tokimu dependency, adapter, backend, or architectural model.
 - [ ] Select only presets and texture assets with recorded provenance,
       redistribution terms, upstream revision, and hashes.
 - [x] Define maturity labels: `native`, `compatible`, `partial`, `unsupported`,
@@ -234,12 +244,13 @@ Deliverables:
 
 Initial reference review, 2026-08-01:
 
-- [x] Record projectM as an optional compatibility reference, not a Tokimu
-      dependency or architectural template. Its public project description
-      combines preset parsing, PCM analysis, beat detection, and OpenGL
-      rendering, which reinforces the need to keep those responsibilities
-      separate in Tokimu. The core library is LGPL-2.1; preset packs are
-      separately distributed and require their own provenance review.
+- [x] Record projectM as an external compatibility reference, not a Tokimu
+      dependency, adapter, backend, or architectural template. Its public
+      project description combines preset parsing, PCM analysis, beat
+      detection, and OpenGL rendering, which reinforces the need to keep those
+      responsibilities separate in Tokimu. The core library is LGPL-2.1;
+      preset packs are separately distributed and require their own provenance
+      review.
 - [x] Record the initial MilkDrop construct inventory from the authoring
       documentation: preset parameters, initialization/per-frame/per-vertex
       equations, variable persistence, custom waves, custom shapes, and pixel
@@ -255,10 +266,13 @@ Reference links:
   lists the equation, variable, custom wave/shape, and pixel-shader constructs
   that a compatibility provider would need to inventory deliberately.
 
-This review admits neither projectM code nor external `.milk` presets. Before
+This review admits neither projectM code, binaries, libraries, runtime
+integration, nor external `.milk` presets. Before
 any preset becomes a fixture, record its exact upstream repository, revision,
 author/license information, redistribution terms, hash, intended construct,
 and expected maturity label.
+`corpus/hello-milkdrop/EXTERNAL-PRESET-ADMISSION.md` provides the required
+candidate record; it does not admit a preset by itself.
 
 Acceptance criteria:
 
@@ -306,7 +320,7 @@ Deliverables:
       including serialized input, a signal-preview image, and a manifest that
       explicitly rejects GPU framebuffer-equivalence claims.
 - [x] Emit deterministic shader-module, material-binding, and timing evidence.
-- [ ] Keep native-window screenshots as separately labeled manual evidence.
+- [x] Keep native-window screenshots as separately labeled manual evidence.
 - [x] Keep the first proof free of feedback, real audio, and MilkDrop parsing.
 
 Acceptance criteria:
@@ -349,17 +363,20 @@ Deliverables:
 - [x] Support explicit size, color interpretation, sampling, and clear/load
       behavior in the corpus contract.
 - [x] Allocate backend render targets inside `tokimu-render` adapters.
-- [ ] Support sampling one completed offscreen target in a later pass.
-- [ ] Add resize, replacement, release, and resource-bound diagnostics.
+- [x] Support sampling one completed offscreen target in a later pass.
+- [x] Add explicit non-destructive render-target release diagnostics.
+- [x] Add renderer-local render-target footprint diagnostics without claiming a
+      portable GPU-memory budget.
+- [x] Add deterministic resize and replacement diagnostics.
 - [x] Distinguish source textures, render targets, and surface images.
 
 Acceptance criteria:
 
-- [ ] A two-pass corpus renders pass A offscreen and samples it in pass B.
+- [x] A two-pass corpus renders pass A offscreen and samples it in pass B.
 - [x] No pass samples a target while that target is being written.
-- [ ] Resize behavior is deterministic and reports allocation/replacement
-      counters.
-- [ ] Render-target resources remain renderer-private.
+- [x] Resize behavior is deterministic and reports allocation/replacement
+      diagnostics.
+- [x] Render-target resources remain renderer-private.
 
 Current evidence: `visualizer-tools::VisualizerPassGraph` serializes a
 validated two-pass `signal -> present` graph to
@@ -368,8 +385,7 @@ missing targets, read-before-write ordering, same-pass read/write hazards,
 invalid target dimensions, and non-final surface writes before backend
 allocation or submission. It additionally rejects sampling a target declared
 `not-sampled` and writing one target more than once in a graph. This is
-structural corpus evidence, not yet an offscreen renderer implementation or a
-stable cross-capability API.
+structural corpus evidence rather than a stable cross-capability API.
 
 `tokimu-render::WgpuBackend::create_render_target_rgba8` now allocates an
 opaque, sampleable RGBA8 target with render-attachment usage from the existing
@@ -378,66 +394,144 @@ renderer-owned target, preserving the source-texture versus render-target
 distinction at the adapter boundary. The corpus command
 `hello-audio-visualizer --offscreen-probe` successfully allocated a headless
 640x360 sRGB target on 2026-08-01, including a repeat verification after the
-PCM16 WAVE fixture work. This proves allocation only: no pass has yet rendered
-into the target, sampled it, resized it, released it, or claimed GPU framebuffer
-equivalence.
+PCM16 WAVE fixture work.
+
+`WgpuBackend::draw_meshes_to_render_target` now provides the first deliberately
+narrow execution proof. It accepts a bounded slice of ordinary mesh draws,
+clears an existing renderer-owned target with a matching depth attachment, and
+submits that pass before normal surface presentation. `hello-audio-visualizer`
+writes its feedback pass into the alternate history target, then presents that
+completed target through an ordinary `Texture2d` material. The backend rejects
+target self-sampling during the write pass and target formats that do not match
+the active surface pipeline format. This is a backend-specific adapter method,
+not a new `Renderer` trait contract or a provider-neutral multipass API.
 
 Target replacement is intentionally not treated as an ordinary texture upload:
-uploaded materials cache backend bind groups built from a texture view. Replacing
-a target would therefore require explicit material dependency invalidation and
-rebinding. `WgpuBackend::try_upload_texture` now rejects replacement of a
-renderer-owned target, and the historical infallible upload helper delegates to
-that check. Resize and release remain deferred until this dependency lifecycle
-is represented deliberately.
+uploaded materials cache backend bind groups built from a texture view.
+`WgpuBackend::replace_render_target_rgba8` therefore preserves the opaque target
+handle while reporting how many dependent materials require rebinding and
+invalidating derived material bindings that retain the previous view. The native
+visualizer replaces both history targets when its window viewport changes, then
+immediately re-uploads their target-sampling materials. It emits the
+replacement dimensions plus rebind and invalidation counts.
+`WgpuBackend::render_target_resource_observation` now additionally reports the
+live target count, color-image pixels, and an estimated RGBA8-plus-Depth32
+image footprint. The visualizer records that snapshot with its warm and resize
+observations. It deliberately excludes driver overhead, surface images, views,
+samplers, caches, and GPU residency; it is diagnostic evidence rather than a
+portable memory budget.
 
-Execution boundary finding: the current `RenderCommand` stream can clear and
-draw only to the presentation surface. A real offscreen pass would need an
-explicit renderer-owned pass target, attachment/load policy, and material
-rebinding lifecycle. That is larger than target allocation and has no second
-consumer yet, so the corpus keeps validating provider-neutral graph intent
-instead of introducing a speculative multipass command API.
+`WgpuBackend::release_render_target` now makes target cleanup explicit without
+silently invalidating a material bind group: it refuses release while a material
+still samples the target and reports the opaque target handle plus reference
+count. Callers detach or replace the material binding first, then retry
+release. This remains backend-scoped lifecycle evidence; it does not admit a
+general public target-management API or a renderer memory-budget policy.
+
+Execution boundary finding: the public `RenderCommand` stream remains surface
+oriented. The execution proof is intentionally exposed only by the concrete
+WGPU adapter, where it can reuse its pipeline layouts and keep target views,
+attachments, and submission ordering renderer-private. Cross-format pipelines,
+resource-bound policy, and a public multipass command shape remain deferred
+until a second consumer establishes the right boundary.
 
 ### Slice 4: Previous-Frame Feedback
 
 Deliverables:
 
-- [ ] Add a bounded ping-pong target pair with explicit current and previous
-      frame roles.
-- [ ] Define first-frame initialization and reset semantics.
-- [ ] Add decay, warp, and blend parameters to the visualizer corpus.
-- [ ] Preserve feedback across ordinary frames and reset it on explicit preset,
+- [x] Add a bounded ping-pong target pair with explicit current and previous
+      frame roles as structural corpus evidence.
+- [x] Define structural first-frame initialization and reset intent.
+- [x] Add bounded decay and blend parameters to the visualizer corpus.
+- [x] Preserve feedback across ordinary frames and reset it on explicit preset,
       size, or lifecycle transitions.
-- [ ] Capture structural pass graphs and separately labeled image evidence.
+- [x] Capture structural pass graphs and native renderer-local feedback
+      execution evidence. Deterministic saved feedback images remain deferred.
 
 Acceptance criteria:
 
-- [ ] No frame reads and writes the same texture subresource.
-- [ ] Reset and first-frame output are deterministic.
-- [ ] Feedback survives steady-state rendering without CPU texture readback or
+- [x] No frame reads and writes the same texture subresource.
+- [x] Reset and first-frame output are deterministic.
+- [x] Feedback survives steady-state rendering without CPU texture readback or
       per-frame resource allocation.
-- [ ] The corpus diagnoses unsupported feedback formats or sampling features.
+- [x] The corpus diagnoses unsupported feedback sampling features. Feedback
+      format families remain deferred until a second concrete format appears.
+
+Current evidence: `VisualizerPassGraph::three_pass_feedback` records a bounded
+`signal -> feedback -> surface` frame plan. A named `history` pair has distinct
+`history-previous` and `history-current` targets; the feedback pass reads only
+the previous-frame role and writes only the current-frame role. The pair records
+an explicit clear initialization policy, and validation rejects unknown pairs,
+same-target pairs, unsampleable members, a current-frame write to the previous
+member, and a missing current-frame write. The structural summary records the
+pair and previous-frame read counts. This proves temporal resource intent and
+preflight diagnostics. The native WGPU corpus now creates two same-sized sRGB
+history targets, clears both at startup, samples only the previous target while
+writing only the alternate target, and swaps their roles after surface
+presentation. Explicit reset and resize clear history again. The feedback
+shader applies bounded decay and synthetic-signal injection. This remains a
+one-sampled-texture proof: it does not execute the separate structural signal
+target or establish a provider-neutral multipass API. Ordinary native feedback
+frames update the active material uniform in place and reuse the target-pass
+instance binding; target replacement deliberately rebinds affected materials
+at the resize boundary. A native frequency-sweep observation after frame 120
+reported `resource_churn=0`, `binding_allocations=0`,
+`pipeline_creations=0`, `mesh_uploads=0`, and `texture_allocations=0` while
+the feedback route continued submitting frames. This is CPU-side lifecycle
+evidence, not a GPU completion metric or automatic performance policy. The
+same live proof exposed a concrete WGPU execution defect: material uniforms
+created for runtime update required `COPY_DST` in addition to `UNIFORM`.
+Without it, `queue.write_buffer` could be counted by diagnostics while the GPU
+retained the initial phase value and the scan marker remained fixed. The
+backend now allocates `UNIFORM | COPY_DST`, protected by a focused renderer
+test.
 
 ### Slice 5: Provider-Neutral Multipass Description
 
 Deliverables:
 
-- [ ] Describe named passes, inputs, outputs, dependencies, and final surface
+- [x] Describe named passes, inputs, outputs, dependencies, and final surface
       output as bounded data.
-- [ ] Validate acyclic pass ordering and resource compatibility before backend
+- [x] Validate acyclic pass ordering and resource compatibility before backend
       execution.
-- [ ] Keep pipeline selection explicit per pass.
-- [ ] Add bounded intermediate-target and pass-count limits.
-- [ ] Expose pass timings and resource counts through diagnostics.
+- [x] Keep pipeline selection explicit per pass.
+- [x] Add bounded intermediate-target and pass-count limits.
+- [x] Expose bounded resource counts through structural diagnostics.
+- [x] Expose separately labeled CPU pass timings after an execution path exists.
 
 Acceptance criteria:
 
-- [ ] One corpus visualizer uses at least three passes, including feedback and
-      final compositing.
-- [ ] Cycles, missing outputs, incompatible formats, and excessive graphs fail
+- [x] One corpus visualizer declares at least three passes, including feedback
+      and final compositing.
+- [x] Cycles, missing outputs, incompatible formats, and excessive graphs fail
       before backend submission.
-- [ ] The graph contains no backend-native resources or command objects.
-- [ ] A single-pass shader remains straightforward and does not require a
+- [x] The graph contains no backend-native resources or command objects.
+- [x] A single-pass shader remains straightforward and does not require a
       ceremonial graph in application code.
+
+Current evidence: `VisualizerPassGraph::three_pass_signal` adds a bounded
+`signal -> composite -> surface` graph alongside the original two-pass fixture.
+Every pass now declares a provider-neutral pipeline label without carrying a
+renderer pipeline handle or shader object. `validate_with_summary` records pass
+count, target count, distinct pipeline count, source-texture reads,
+render-target reads and writes, surface outputs, and maximum target dimensions.
+`hello-audio-visualizer --write-artifacts` emits both graph forms plus the
+three-pass summary, while `--structural-fixture` prints the same evidence.
+Validation rejects read-before-completion cycle-like ordering, a missing final
+surface output, incompatible feedback-pair dimensions or color interpretation,
+and target or pass graphs beyond the explicit bounds before backend submission.
+This proves structural dependency ordering and bounded resource accounting. The
+native corpus separately proves its narrow one-sampled-texture execution path.
+`RenderFrameCpuTimings` now exposes accumulated offscreen target encoding and
+queue-submission call durations separately from surface phases, and the native
+corpus prints them as labeled CPU observations. These timings do not measure
+GPU completion or establish framebuffer equivalence.
+
+`visualizer-tools` has no renderer dependency and its graph records only
+strings, bounded requirements, and structural resources. It therefore cannot
+carry WGPU handles, command encoders, or backend views. A surface-only
+`VisualizerPassGraph::single_pass_surface` fixture validates without targets
+or feedback pairs, preserving a direct path for a simple fullscreen shader.
 
 ### Slice 6: Audio Analysis Incubation
 
@@ -452,11 +546,14 @@ Deliverables:
       and counters.
 - [x] Adapt a bounded deterministic PCM16 WAVE byte fixture into the same PCM
       analysis contract without admitting playback or a general media decoder.
+- [x] Add a renderer-free second corpus consumer that independently adapts the
+      generated PCM16 WAVE fixtures into analysis, timing, and working-set
+      evidence.
 - [x] Measure bounded native-host analysis latency under representative fixed
       windows without treating it as a cross-machine performance contract.
-- [ ] Establish a portable allocation-observation method before making any
-      allocation claim for audio analysis.
-- [ ] Compare the resulting requirement-resolution boundary with
+- [x] Establish a portable source-structural working-set observation before
+      making any allocation claim for audio analysis.
+- [x] Compare the resulting requirement-resolution boundary with
       `AR-0006-raster-image-requirement-pipeline.md`.
 
 Acceptance criteria:
@@ -488,9 +585,10 @@ also writes `pcm-backlog-drop-oldest.json`; the explicit
 `--pcm-backlog-fixture` mode prints the same compact structural snapshot.
 `hello-audio-visualizer --pcm-measure` runs each fixed window through 32
 reference analyses and prints a separately labeled native-host timing
-observation. It records workload shape and algorithm identity but does not
-declare a portable performance budget or allocation result. The same timing
-observations are written beside fixed analysis artifacts by
+observation plus a deterministic source-structural working-set observation.
+The latter records retained and transient `f32` slots implied by the reference
+algorithm, not allocator calls, `Vec` capacity, platform overhead, or a
+portable performance budget. Both observations are written beside fixed analysis artifacts by
 `--write-artifacts`, so corpus review does not depend on terminal output.
 `visualizer-tools::decode_pcm16_wav` now provides one deliberately narrow
 byte-source adapter: it accepts bounded canonical PCM16 little-endian
@@ -501,6 +599,12 @@ frame alignment fail before the analysis stage. `--wav-fixtures` prints the
 same source-to-window evidence; `--write-artifacts` records the fixture bytes,
 decoded analysis, and a source provenance record. This is not a file playback,
 device capture, or general media-decoding guarantee.
+`hello-audio-analysis` repeats that exact byte-source-to-analysis handoff from
+a renderer-free executable and writes one combined inspection artifact per
+fixture. It records decoded-window facts, analysis output, timing, and
+source-structural working-set evidence while explicitly declaring that no
+renderer, audio device, or playback path participated. This establishes a
+second consumer of the analysis seam, not a native or browser audio provider.
 
 ### Slice 7: Native And Browser Audio Providers
 
@@ -510,6 +614,9 @@ Deliverables:
       after the analysis contract stabilizes.
 - [x] Support a deterministic generated PCM16 WAVE source before microphone or
       system-loopback capture.
+- [x] Prove the generated PCM16 WAVE adapter through the renderer-free
+      `hello-audio-analysis` corpus consumer before treating a visualizer as
+      the analysis contract's only consumer.
 - [ ] Keep browser permission and autoplay behavior in the browser adapter.
 - [ ] Define bounded ring-buffer, latency, underrun, and overrun diagnostics.
 - [ ] Map both providers into the same analysis input contract.
@@ -527,24 +634,40 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Define a compact model for parameters, equations or expressions, passes,
-      waves, shapes, textures, and transitions.
-- [ ] Decide whether the first equation form is a bounded interpreter, an
-      ahead-of-time lowering input, or explicit Rust data based on corpus
-      pressure.
-- [ ] Provide a small built-in library of original Tokimu visualizers.
-- [ ] Preserve stable parameter identity for UI controls and automation.
-- [ ] Add deterministic serialization and validation.
+- [x] Define a compact corpus-side model for stable parameters and pass graphs;
+      waves, shapes, textures, transitions, and equations remain deferred.
+- [x] Select explicit Rust data for the first definitions. A bounded interpreter
+      or ahead-of-time lowering input needs independent corpus pressure.
+- [x] Provide a small corpus-side library of three original Tokimu visualizer
+      definitions: `signal-field`, `feedback-bloom`, and `signal-composite`.
+- [x] Preserve stable parameter identity for UI controls and automation in the
+      structural definitions.
+- [x] Add deterministic serialization and validation for the incubating
+      definitions and their pass graphs.
 
 Acceptance criteria:
 
-- [ ] At least three visually distinct original visualizers share the same
+- [x] At least three visually distinct original visualizers share the same
       frame-input and pass contracts.
-- [ ] One visualizer uses no feedback, one uses feedback, and one uses multiple
-      passes.
-- [ ] Invalid expressions, missing inputs, and excessive work fail within
-      documented bounds.
-- [ ] The model contains no MilkDrop parser objects or backend-native handles.
+- [x] Structural evidence includes one two-pass non-feedback definition, one
+      previous-frame feedback definition, and one three-pass signal definition.
+- [x] Invalid parameters, missing required graph inputs, and excessive graph
+      work fail within documented bounds. Expressions remain out of scope until
+      a bounded expression form is admitted for study.
+- [x] The structural model contains no MilkDrop parser objects or backend-native
+      handles.
+
+Current evidence: `visualizer-tools::NativeVisualizerDefinition` remains a
+corpus-local, provider-neutral description. It intentionally excludes equation
+evaluation, waves, shapes, textures, transition execution, MilkDrop parser
+objects, renderer handles, and backend resources. `hello-audio-visualizer`
+now executes `Signal Field` through its declared two-pass target-to-surface
+shape, `Feedback Bloom` through its narrow previous-frame proof, and `Signal
+Composite` through a distinct signal -> composite target -> surface route.
+Each route remains explicit corpus code; the implementation does not promote a
+general graph executor or visualizer language prematurely. Native manual
+evidence confirms that `Q`, `W`, and `E` select visibly distinct modes while a
+phase-driven scan marker advances under the shared `VisualizerFrameInput`.
 
 ### Slice 9: TypeScript Visualizer Authoring
 
@@ -572,40 +695,88 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Parse a deliberately selected MilkDrop 1 subset before MilkDrop 2 shader
+- [x] Parse a deliberately selected MilkDrop 1 subset before MilkDrop 2 shader
       compatibility.
-- [ ] Preserve source sections, variable names, equation order, and locations
+- [x] Preserve source sections, variable names, equation order, and locations
       for diagnostics.
-- [ ] Implement bounded initialization, per-frame, and per-pixel equation
-      semantics required by selected presets.
-- [ ] Define compatibility defaults explicitly rather than inferring them from
-      successful rendering.
-- [ ] Reject unknown, invalid, and excessive preset constructs deterministically.
+- [x] Implement bounded initialization and per-frame scalar equation semantics
+      required by the Tokimu-authored fixture.
+- [ ] Implement per-pixel equation semantics only after a renderer-facing
+      lowering contract has an honest consumer.
+- [x] Define selected scalar compatibility defaults explicitly rather than
+      inferring them from successful rendering.
+- [x] Reject unknown, invalid, and excessive preset constructs deterministically.
 
 Acceptance criteria:
 
-- [ ] Parser artifacts are deterministic and retain enough provenance to map a
+- [x] Parser artifacts are deterministic and retain enough provenance to map a
       diagnostic back to a preset line or section.
-- [ ] Equation fixtures match a documented compatibility oracle for selected
-      inputs.
+- [x] Selected initialization and per-frame equation fixtures produce a
+      deterministic scalar-state artifact.
+- [ ] Equation fixtures match a documented external compatibility oracle for
+      admitted third-party preset inputs.
 - [ ] Preset evaluation cannot access files, network, process state, or ambient
       randomness.
-- [ ] Unsupported MilkDrop 2 shader sections are labeled `unsupported`, not
+- [x] Unsupported MilkDrop 2 shader sections are labeled `unsupported`, not
       silently ignored.
+
+Current evidence: `milkdrop-tools` and `hello-milkdrop` establish a bounded,
+headless parser and scalar-evaluation boundary using a Tokimu-authored
+MilkDrop 1-style fixture.
+The parser preserves ordered sections, keys, values, and source lines while
+classifying selected scalar parameters plus initialization, per-frame, and
+per-pixel equation declarations. Custom waves, custom shapes, warp shaders,
+composite shaders, and unknown keys become explicit `unsupported` evidence.
+The selected initialization and per-frame scalar subset now evaluates in source
+order into an explicit, deterministic state map. Selected classic scalar keys
+resolve against documented Tokimu defaults, while duplicate and non-finite
+declarations are rejected rather than silently overwritten. The evaluator accepts numeric literals,
+variables, arithmetic, parentheses, and `sin`, `cos`, and `abs`; unsupported
+syntax, variables, functions, division by zero, excessive work, and non-finite
+results fail with the owning source line. Per-pixel equations, external preset
+loading, shader compilation, and rendering remain deferred. External preset
+provenance remains a prerequisite for admitting any third-party fixture.
+Regression coverage rejects unknown ambient-style identifiers and unsupported
+function calls before any host evaluation could occur. The evaluator has no
+file, network, device, renderer, random, or wall-clock input; that local proof
+does not replace the still-unmet external compatibility-oracle requirement.
+`hello-milkdrop` now emits separate artifacts for a parser-classification
+fixture, an equation matrix, and a construct matrix. The equation matrix
+verifies its expected scalar state before writing evidence, covering operator
+precedence, parenthesized terms, selected pure functions,
+initialization-to-frame state progression, and semicolon-delimited assignment
+ordering. The construct matrix proves that every selected classification branch
+is retained: scalar parameters and initialization/per-frame equations are
+admitted; per-pixel equations are explicitly deferred; custom waves, shapes,
+warp/composite shaders, and unknown keys are explicitly unsupported. It is
+first-party evidence for Tokimu's bounded subset, not an external compatibility
+oracle.
+Direct `milkdrop-tools` tests resolve all eleven admitted scalar keys and reject
+non-finite scalar values plus fractional or out-of-range echo orientations.
+Those tests make the selected scalar contract explicit without broadening the
+first-party subset or implying third-party preset compatibility.
 
 ### Slice 11: MilkDrop Waves, Shapes, Textures, And Shaders
 
 Deliverables:
 
-- [ ] Lower selected built-in waveform behavior into Tokimu presentation data.
+- [x] Lower one selected built-in waveform behavior into provider-neutral
+      presentation geometry.
+- [x] Lower bounded spectrum-bar rectangles from provider-neutral spectrum
+      observations.
+- [x] Render the same spectrum-bar lowering through the native quad pipeline
+      (`X` in `hello-audio-visualizer`) without a renderer-specific audio
+      analysis path.
 - [ ] Add custom wave and shape semantics incrementally from corpus evidence.
 - [ ] Resolve preset texture names through `tokimu-assets` and normalized image
       contracts.
 - [ ] Investigate bounded HLSL-compatible translation to WGSL for MilkDrop 2
       shaders.
 - [ ] Preserve blend, wrap, filtering, and previous-frame semantics explicitly.
-- [ ] Compare output and structural artifacts against projectM for selected
-      presets without treating pixels as the only oracle.
+- [ ] Where useful and legally permitted, compare output and structural
+      artifacts against a separately installed projectM executable for selected
+      presets without treating pixels as the only oracle or making projectM a
+      corpus prerequisite.
 
 Acceptance criteria:
 
@@ -616,45 +787,90 @@ Acceptance criteria:
 - [ ] Encoded texture formats and source paths do not leak into shaders.
 - [ ] Compatibility differences are recorded per feature and preset.
 
-### Slice 12: Optional projectM Adapter Study
+Current evidence: `visualizer-tools::VisualizerWaveform` lowers normalized
+waveform samples already carried by `VisualizerFrameInput` into a bounded
+provider-neutral line-strip point sequence. `VisualizerSpectrumBars` lowers
+the same frame's normalized spectrum into stable, non-overlapping rectangle
+geometry. Both reject invalid inputs and gain before producing geometry. The
+native `hello-audio-visualizer --write-artifacts` command writes deterministic
+`.waveform.json` and `.spectrum-bars.json` artifacts for every synthetic
+fixture beside its input and CPU preview evidence. These are original built-in
+presentation proofs only: they do not admit MilkDrop custom-wave semantics,
+custom shapes, texture resolution, shader translation, renderer mesh
+ownership, or third-party preset compatibility.
+
+### Slice 12: External projectM Compatibility Study
 
 Deliverables:
 
-- [ ] Evaluate libprojectM as an optional native backend or differential oracle.
-- [ ] Record OpenGL-context, render-to-texture, audio-ingestion, build, license,
-      native packaging, and WASM implications.
-- [ ] Keep projectM behind an adapter boundary if a proof is built.
-- [ ] Compare the adapter with Tokimu-native execution using the same application
-      audio and lifecycle policy where possible.
+- [ ] Treat projectM as an optional, separately installed differential oracle;
+      do not link, embed, copy, wrap, redistribute, or ship projectM as part of
+      Tokimu or its corpus libraries.
+- [ ] Record the exact external executable version, invocation, input hashes,
+      preset provenance, output assumptions, and comparison limitations for
+      every differential observation.
+- [ ] Compare Tokimu-native execution with externally captured projectM evidence
+      using equivalent audio and lifecycle inputs where practical.
+- [ ] Prefer Tokimu-authored structural assertions and focused compatibility
+      fixtures whenever an external comparison cannot be reproduced cleanly.
+- [ ] Require a separate Architectural Review and license/dependency review
+      before any future proposal to integrate projectM code or libraries.
 
 Acceptance criteria:
 
-- [ ] The study ends with an explicit `adopt`, `oracle-only`, or `defer` finding.
-- [ ] Tokimu remains usable without projectM.
-- [ ] No OpenGL object or projectM preset type crosses a public Tokimu semantic
-      boundary.
-- [ ] An adapter is not presented as native/WASM parity unless both are proven.
+- [ ] The study ends with an explicit `external-oracle-only` or `defer` finding.
+- [ ] A clean Tokimu checkout builds, tests, and runs its corpus without a
+      projectM checkout, executable, library, header, or runtime resource.
+- [ ] No projectM implementation type, OpenGL object, or projectM-specific
+      preset representation crosses a public Tokimu semantic boundary.
+- [ ] External comparison artifacts are labeled as observations rather than
+      guarantees, and absence of projectM skips only those optional comparisons.
+- [ ] No projectM source or implementation logic is copied into Tokimu under the
+      description of compatibility work.
 
 ### Slice 13: Visualizer Consumer And Website Lab
 
 Deliverables:
 
-- [ ] Build a consumer corpus with preset selection, audio-source selection,
+- [x] Build a consumer corpus with bounded synthetic-source selection,
       pause/reset, bounded parameters, diagnostics, and performance observations.
-- [ ] Publish one original Tokimu visualizer as a progressive-enhancement island
+- [ ] Deploy one original Tokimu visualizer as a progressive-enhancement island
       on the Tokimu website.
 - [ ] Add MilkDrop presets only after redistribution and browser execution are
       proven.
-- [ ] Keep the page useful when WASM, audio, or GPU initialization fails.
-- [ ] Label native, compatible, partial, and unsupported behavior visibly.
+- [x] Keep the page useful when WASM, audio, or GPU initialization fails.
+- [x] Label native, compatible, partial, and unsupported behavior visibly.
 
 Acceptance criteria:
 
-- [ ] The browser hosts and controls Tokimu but does not evaluate presets or
+- [x] The browser hosts and controls Tokimu but does not evaluate presets or
       redefine visualizer semantics in TypeScript.
-- [ ] Synthetic input works without microphone permission.
-- [ ] Resource and frame-time diagnostics remain bounded and inspectable.
-- [ ] Website evidence never claims compatibility beyond the selected corpus.
+- [x] Synthetic input works without microphone permission.
+- [x] Browser-side resource and frame-time diagnostics remain bounded and
+      inspectable.
+- [x] Website evidence never claims compatibility beyond the selected corpus.
+
+Implementation evidence, 2026-08-02:
+
+- `corpus/consumers/tokimu-website-visualizer` provides a Rust/WASM session
+  with five bounded synthetic fixture identities, deterministic frame
+  advancement, pause/reset controls, and provider-neutral waveform/band/beat
+  observations.
+- The TypeScript adapter renders only the returned frame observation on a
+  Canvas and owns DOM controls and lifecycle cleanup. It does not create an
+  `AudioContext`, request microphone access, or evaluate MilkDrop presets.
+- `website/docs/lab/visualizer.md` and the generated website payload expose the
+  proof as an explicit-activation iframe island with a useful static
+  explanation when activation fails. Deployment remains pending.
+- Website contract tests and the local build verify the public boundary,
+  generated payload, and bounded first-load artifact size. CI will run the
+  same checks after the consumer is committed. Native feedback remains stronger
+  renderer evidence; this browser proof establishes consumer composition, not
+  backend equivalence.
+- The standalone browser consumer retains one Canvas 2D context and reports
+  separately labeled WASM startup, frame-interval, and Canvas draw-duration
+  observations. These values are local browser-host evidence only and never
+  stand in for native WGPU encode, submit, or GPU-completion timings.
 
 ### Slice 14: Admission Review
 
@@ -729,7 +945,7 @@ No level implies compatibility with every community preset.
 | Native visualizer | three original definitions with different pass needs |
 | TypeScript authoring | deterministic lowering and source diagnostics |
 | MilkDrop parser | selected preset parse artifacts and malformed fixtures |
-| Compatibility | projectM differential evidence plus structural assertions |
+| Compatibility | Tokimu structural assertions plus optional external projectM differential evidence |
 | Browser | WASM consumer with synthetic and permitted audio paths |
 
 Preferred checks include:
@@ -754,7 +970,8 @@ The first version does not attempt:
 - system-wide audio loopback on every platform;
 - DRM-protected or browser-forbidden audio capture;
 - unrestricted runtime shader compilation from JavaScript;
-- projectM or OpenGL as a required Tokimu dependency;
+- projectM code, libraries, binaries, or OpenGL integration as a Tokimu
+  dependency, backend, shipped tool, or required corpus component;
 - an audio player, DAW, or general media framework;
 - video export or offline encoding;
 - simulation changes driven implicitly by visualizer state;
@@ -790,6 +1007,15 @@ unsupported operations.
 
 The projectM library does not ship presets, and external packs may have their
 own licensing and asset terms. Review each admitted selection independently.
+
+### Reference implementation becomes a hidden dependency
+
+Calling projectM a compatibility reference must not turn it into a linked
+library, wrapped backend, copied implementation, required test executable, or
+redistributed corpus tool. Tokimu owns its implementation and semantic
+contracts. Any projectM comparison remains an optional external observation;
+proposals for deeper integration require a separate Architectural Review and
+license/dependency decision.
 
 ### Browser audio appears equivalent prematurely
 

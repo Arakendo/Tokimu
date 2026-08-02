@@ -1,0 +1,25 @@
+; Tokimu-authored classification matrix.
+; Every selected parser classification appears at least once with a stable line.
+
+[preset00]
+fRating=2.0
+fDecay=0.95
+fGammaAdj=1.1
+fZoom=1.25
+fZoomExp=1.2
+fRot=0.1
+fWarpAmount=0.5
+fWarpAnimSpeed=1.5
+fVideoEchoAlpha=0.2
+fVideoEchoZoom=1.1
+nVideoEchoOrientation=2
+per_frame_init_1=q1=1;
+per_frame_1=q1=q1+1;
+per_pixel_1=zoom=1.0+0.02*sin(rad);
+wavecode_0=sample=sample*0.5;
+wave_0_enabled=1
+shapecode_0=rad=rad+0.1;
+shape_0_enabled=1
+warp_shader_0=float4 main() { return 0; }
+comp_shader_0=float4 main() { return 0; }
+future_extension=42

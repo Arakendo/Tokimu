@@ -13,6 +13,16 @@ pub struct RenderFrameCpuTimings {
     pub queue_submit_call: Option<Duration>,
     /// CPU wall time spent inside the surface presentation call.
     pub surface_present_call: Option<Duration>,
+    /// CPU wall time spent encoding renderer-owned offscreen target passes.
+    ///
+    /// This is provider-observable CPU work only. It does not measure GPU
+    /// execution or completion of the target pass.
+    pub render_target_command_encoding: Option<Duration>,
+    /// CPU wall time spent submitting renderer-owned offscreen target passes.
+    ///
+    /// This is provider-observable CPU work only. It does not measure GPU
+    /// execution or completion of the target pass.
+    pub render_target_queue_submit_call: Option<Duration>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -90,6 +100,8 @@ impl RenderFrameStats {
             command_encoding: None,
             queue_submit_call: None,
             surface_present_call: None,
+            render_target_command_encoding: None,
+            render_target_queue_submit_call: None,
         },
     };
 }
@@ -249,7 +261,32 @@ impl RenderStatsTracker {
     }
 
     pub(crate) fn record_frame_cpu_timings(&mut self, timings: RenderFrameCpuTimings) {
-        self.frame.cpu_timings = timings;
+        self.frame.cpu_timings.surface_acquire_call = timings.surface_acquire_call;
+        self.frame.cpu_timings.resource_preparation = timings.resource_preparation;
+        self.frame.cpu_timings.command_encoding = timings.command_encoding;
+        self.frame.cpu_timings.queue_submit_call = timings.queue_submit_call;
+        self.frame.cpu_timings.surface_present_call = timings.surface_present_call;
+    }
+
+    pub(crate) fn record_render_target_cpu_timings(
+        &mut self,
+        command_encoding: Duration,
+        queue_submit_call: Duration,
+    ) {
+        self.frame.cpu_timings.render_target_command_encoding = Some(
+            self.frame
+                .cpu_timings
+                .render_target_command_encoding
+                .unwrap_or_default()
+                .saturating_add(command_encoding),
+        );
+        self.frame.cpu_timings.render_target_queue_submit_call = Some(
+            self.frame
+                .cpu_timings
+                .render_target_queue_submit_call
+                .unwrap_or_default()
+                .saturating_add(queue_submit_call),
+        );
     }
 
     pub(crate) fn snapshot(&self) -> RenderStats {
@@ -307,6 +344,8 @@ mod tests {
         tracker.record_transparent_draw();
         tracker.record_derived_material_cache_hit();
         tracker.record_derived_material_cache_miss();
+        tracker
+            .record_render_target_cpu_timings(Duration::from_millis(3), Duration::from_millis(1));
         tracker.record_frame_cpu_timings(RenderFrameCpuTimings {
             command_encoding: Some(Duration::from_millis(2)),
             ..RenderFrameCpuTimings::default()
@@ -339,6 +378,14 @@ mod tests {
         assert_eq!(
             first.frame.cpu_timings.command_encoding,
             Some(Duration::from_millis(2))
+        );
+        assert_eq!(
+            first.frame.cpu_timings.render_target_command_encoding,
+            Some(Duration::from_millis(3))
+        );
+        assert_eq!(
+            first.frame.cpu_timings.render_target_queue_submit_call,
+            Some(Duration::from_millis(1))
         );
 
         tracker.begin_frame();

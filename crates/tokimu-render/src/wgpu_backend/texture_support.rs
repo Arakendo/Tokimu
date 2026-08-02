@@ -78,6 +78,42 @@ pub(super) fn validate_rgba8_render_target_creation(
     Ok(())
 }
 
+pub(super) fn validate_rgba8_render_target_replacement(
+    handle: TextureHandle,
+    existing_role: Option<GpuTextureRole>,
+    descriptor: Rgba8TextureDescriptor,
+) -> Result<(), WgpuBackendError> {
+    descriptor.expected_payload_len()?;
+    match existing_role {
+        Some(GpuTextureRole::RenderTarget) => Ok(()),
+        Some(GpuTextureRole::Source) => Err(WgpuBackendError::TextureIsNotRenderTarget(handle.0)),
+        None => Err(WgpuBackendError::MissingTexture(handle.0)),
+    }
+}
+
+/// Keeps target release deterministic and non-destructive when a material still
+/// retains the target's backend view through its bind group.
+pub(super) fn validate_rgba8_render_target_release(
+    handle: TextureHandle,
+    existing_role: Option<GpuTextureRole>,
+    material_references: u32,
+) -> Result<(), WgpuBackendError> {
+    match existing_role {
+        Some(GpuTextureRole::RenderTarget) => {}
+        Some(GpuTextureRole::Source) => {
+            return Err(WgpuBackendError::TextureIsNotRenderTarget(handle.0))
+        }
+        None => return Err(WgpuBackendError::MissingTexture(handle.0)),
+    }
+    if material_references > 0 {
+        return Err(WgpuBackendError::RenderTargetStillReferenced {
+            target: handle.0,
+            material_count: material_references,
+        });
+    }
+    Ok(())
+}
+
 pub(super) fn validate_rgba8_texture_update(
     handle: TextureHandle,
     expected: Option<Rgba8TextureDescriptor>,

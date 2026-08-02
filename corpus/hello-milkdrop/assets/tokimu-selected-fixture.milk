@@ -1,0 +1,14 @@
+; Tokimu-authored MilkDrop 1-style parser fixture.
+; It is not an external preset and does not claim preset compatibility.
+
+[preset00]
+fRating=3.0
+fDecay=0.970
+fGammaAdj=1.0
+fZoom=1.0
+per_frame_init_1=q1=0;
+per_frame_1=q1=q1+1;
+per_pixel_1=zoom=1.0+0.02*sin(rad);
+wavecode_0=sample=sample*0.5;
+comp_shader_1=float4 main() { return 0; }
+unknown_compatibility_key=42

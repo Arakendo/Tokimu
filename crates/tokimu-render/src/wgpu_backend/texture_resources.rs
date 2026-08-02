@@ -2,14 +2,33 @@ use std::sync::Arc;
 
 use crate::{Rgba8TextureColorSpace, Rgba8TextureDescriptor, Texture, TextureHandle};
 
+use super::pipeline_support::create_depth_texture;
 use super::texture_support::{
     rgba8_texture_format, validate_legacy_texture_replacement,
-    validate_rgba8_render_target_creation, validate_rgba8_texture_creation,
+    validate_rgba8_render_target_creation, validate_rgba8_render_target_release,
+    validate_rgba8_render_target_replacement, validate_rgba8_texture_creation,
     validate_rgba8_texture_update, write_rgba8_texture,
 };
-use super::{GpuTexture, GpuTextureRole, WgpuBackend, WgpuBackendError};
+use super::{
+    GpuTexture, GpuTextureRole, RenderTargetReplacement, RenderTargetResourceObservation,
+    WgpuBackend, WgpuBackendError,
+};
 
 impl WgpuBackend {
+    /// Reports the currently allocated offscreen target image footprint.
+    ///
+    /// This is intentionally an adapter-local diagnostic. It estimates only
+    /// the known RGBA8 color and Depth32Float images allocated for live
+    /// renderer-owned targets; it is not a cross-backend GPU-memory budget.
+    pub fn render_target_resource_observation(&self) -> RenderTargetResourceObservation {
+        render_target_resource_observation(
+            self.textures
+                .values()
+                .filter(|texture| texture.role == GpuTextureRole::RenderTarget)
+                .map(|texture| texture.descriptor),
+        )
+    }
+
     /// Creates one RGBA8 texture with explicit color interpretation.
     ///
     /// Creation rejects an existing handle and stores a stable texture/view
@@ -48,7 +67,67 @@ impl WgpuBackend {
             self.textures.contains_key(&handle),
             descriptor,
         )?;
-        self.allocate_render_target_rgba8(handle, descriptor);
+        self.allocate_render_target_rgba8(handle, descriptor, false);
+        Ok(())
+    }
+
+    /// Replaces the storage behind an existing renderer-owned render target.
+    ///
+    /// The opaque handle remains stable, but material bind groups capture a
+    /// concrete texture view. Callers must re-upload every reported material
+    /// before issuing another draw that samples this target. Derived material
+    /// bindings sourced from those materials are invalidated here because they
+    /// cannot safely retain the previous view.
+    pub fn replace_render_target_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+    ) -> Result<RenderTargetReplacement, WgpuBackendError> {
+        validate_rgba8_render_target_replacement(
+            handle,
+            self.textures.get(&handle).map(|texture| texture.role),
+            descriptor,
+        )?;
+        let materials_requiring_rebind = self
+            .materials
+            .values()
+            .filter(|material| material.texture == Some(handle))
+            .count() as u32;
+        let derived_before = self.derived_materials.len();
+        self.derived_materials.retain(|key, _| {
+            self.materials
+                .get(&key.source)
+                .is_none_or(|material| material.texture != Some(handle))
+        });
+        let invalidated_derived_materials =
+            (derived_before.saturating_sub(self.derived_materials.len())) as u32;
+
+        self.allocate_render_target_rgba8(handle, descriptor, true);
+        Ok(RenderTargetReplacement {
+            width: descriptor.width,
+            height: descriptor.height,
+            materials_requiring_rebind,
+            invalidated_derived_materials,
+        })
+    }
+
+    /// Releases a renderer-owned target after callers detach every dependent material.
+    ///
+    /// This never rewrites materials implicitly. A referenced target produces an
+    /// explicit diagnostic so callers can first upload an alternative material
+    /// binding and then retry release.
+    pub fn release_render_target(&mut self, handle: TextureHandle) -> Result<(), WgpuBackendError> {
+        let material_references = self
+            .materials
+            .values()
+            .filter(|material| material.texture == Some(handle))
+            .count() as u32;
+        validate_rgba8_render_target_release(
+            handle,
+            self.textures.get(&handle).map(|texture| texture.role),
+            material_references,
+        )?;
+        self.textures.remove(&handle);
         Ok(())
     }
 
@@ -163,6 +242,8 @@ impl WgpuBackend {
             GpuTexture {
                 texture: gpu_texture,
                 view,
+                _depth_texture: None,
+                depth_view: None,
                 descriptor,
                 role: GpuTextureRole::Source,
             },
@@ -175,6 +256,7 @@ impl WgpuBackend {
         &mut self,
         handle: TextureHandle,
         descriptor: Rgba8TextureDescriptor,
+        replaced_existing: bool,
     ) {
         let gpu_texture = self._device.create_texture(&wgpu::TextureDescriptor {
             label: Some("tokimu-render-target"),
@@ -191,15 +273,42 @@ impl WgpuBackend {
             view_formats: &[],
         });
         let view = Arc::new(gpu_texture.create_view(&wgpu::TextureViewDescriptor::default()));
+        let (depth_texture, depth_view) =
+            create_depth_texture(&self._device, descriptor.width, descriptor.height);
         self.textures.insert(
             handle,
             GpuTexture {
                 texture: gpu_texture,
                 view,
+                _depth_texture: Some(depth_texture),
+                depth_view: Some(Arc::new(depth_view)),
                 descriptor,
                 role: GpuTextureRole::RenderTarget,
             },
         );
-        self.stats.record_texture_allocation(false);
+        self.stats.record_texture_allocation(replaced_existing);
     }
+}
+
+pub(super) fn render_target_resource_observation(
+    descriptors: impl IntoIterator<Item = Rgba8TextureDescriptor>,
+) -> RenderTargetResourceObservation {
+    let mut observation = RenderTargetResourceObservation::default();
+    for descriptor in descriptors {
+        let pixels = u64::from(descriptor.width).saturating_mul(u64::from(descriptor.height));
+        let color_bytes = pixels.saturating_mul(4);
+        let depth_bytes = pixels.saturating_mul(4);
+        observation.target_count = observation.target_count.saturating_add(1);
+        observation.color_pixels = observation.color_pixels.saturating_add(pixels);
+        observation.estimated_color_bytes = observation
+            .estimated_color_bytes
+            .saturating_add(color_bytes);
+        observation.estimated_depth_bytes = observation
+            .estimated_depth_bytes
+            .saturating_add(depth_bytes);
+        observation.estimated_total_bytes = observation
+            .estimated_total_bytes
+            .saturating_add(color_bytes.saturating_add(depth_bytes));
+    }
+    observation
 }

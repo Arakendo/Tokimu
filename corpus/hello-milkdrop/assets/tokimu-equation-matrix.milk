@@ -1,0 +1,14 @@
+; Tokimu-authored scalar evaluator matrix.
+; Each assignment exercises an intentionally admitted expression feature.
+
+[preset00]
+fZoom=1.25
+fRot=0.125
+per_frame_init_1=q1=1+2*3;
+per_frame_init_2=q2=(1+2)*3;
+per_frame_init_3=q3=sin(0)+cos(0);
+per_frame_init_4=q4=abs(-2.5);
+per_frame_1=q1=q1+q2;
+per_frame_2=q2=q2/3;
+per_frame_3=q3=q3*q4;
+per_frame_4=q5=q1+q2; q6=q5-q3;

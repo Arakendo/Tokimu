@@ -1,9 +1,12 @@
 use super::{
     diagnostics::drain_backend_diagnostic_messages,
+    material_resources::{material_uniform_buffer_usage, validate_material_color},
     material_support::derived_material_key,
+    texture_resources::render_target_resource_observation,
     texture_support::{
         rgba8_point_sampler_descriptor, rgba8_texture_format, validate_legacy_texture_replacement,
-        validate_rgba8_render_target_creation, validate_rgba8_texture_creation,
+        validate_rgba8_render_target_creation, validate_rgba8_render_target_release,
+        validate_rgba8_render_target_replacement, validate_rgba8_texture_creation,
         validate_rgba8_texture_update,
     },
     GpuTextureRole, WgpuBackendError,
@@ -50,6 +53,21 @@ fn derived_material_keys_reuse_identical_overrides_and_split_distinct_ones() {
         derived_material_key(source, selected),
         derived_material_key(source, faded)
     );
+}
+
+#[test]
+fn material_color_updates_reject_non_finite_uniform_data_before_queue_write() {
+    assert!(validate_material_color(Color::rgba(0.1, 0.2, 0.3, 1.0)).is_ok());
+    assert!(matches!(
+        validate_material_color(Color::rgba(f32::NAN, 0.2, 0.3, 1.0)),
+        Err(WgpuBackendError::InvalidMaterialColor)
+    ));
+}
+
+#[test]
+fn material_color_uniforms_support_runtime_queue_updates() {
+    assert!(material_uniform_buffer_usage().contains(wgpu::BufferUsages::UNIFORM));
+    assert!(material_uniform_buffer_usage().contains(wgpu::BufferUsages::COPY_DST));
 }
 
 #[test]
@@ -109,6 +127,72 @@ fn render_target_creation_validation_rejects_duplicates_and_empty_dimensions() {
         Err(WgpuBackendError::InvalidTexture(
             TextureValidationError::InvalidDimensions { .. }
         ))
+    ));
+}
+
+#[test]
+fn render_target_observation_counts_color_and_depth_images_without_claiming_gpu_residency() {
+    let observation = render_target_resource_observation([
+        Rgba8TextureDescriptor::new(640, 360, Rgba8TextureColorSpace::Srgb),
+        Rgba8TextureDescriptor::new(320, 180, Rgba8TextureColorSpace::Linear),
+    ]);
+
+    assert_eq!(observation.target_count, 2);
+    assert_eq!(observation.color_pixels, 288_000);
+    assert_eq!(observation.estimated_color_bytes, 1_152_000);
+    assert_eq!(observation.estimated_depth_bytes, 1_152_000);
+    assert_eq!(observation.estimated_total_bytes, 2_304_000);
+}
+
+#[test]
+fn render_target_replacement_requires_an_existing_renderer_owned_target() {
+    let descriptor = Rgba8TextureDescriptor::new(640, 360, Rgba8TextureColorSpace::Srgb);
+    assert!(validate_rgba8_render_target_replacement(
+        TextureHandle(13),
+        Some(GpuTextureRole::RenderTarget),
+        descriptor,
+    )
+    .is_ok());
+    assert!(matches!(
+        validate_rgba8_render_target_replacement(TextureHandle(13), None, descriptor),
+        Err(WgpuBackendError::MissingTexture(13))
+    ));
+    assert!(matches!(
+        validate_rgba8_render_target_replacement(
+            TextureHandle(13),
+            Some(GpuTextureRole::Source),
+            descriptor,
+        ),
+        Err(WgpuBackendError::TextureIsNotRenderTarget(13))
+    ));
+}
+
+#[test]
+fn render_target_release_requires_detached_materials() {
+    assert!(validate_rgba8_render_target_release(
+        TextureHandle(14),
+        Some(GpuTextureRole::RenderTarget),
+        0,
+    )
+    .is_ok());
+    assert!(matches!(
+        validate_rgba8_render_target_release(
+            TextureHandle(14),
+            Some(GpuTextureRole::RenderTarget),
+            2,
+        ),
+        Err(WgpuBackendError::RenderTargetStillReferenced {
+            target: 14,
+            material_count: 2,
+        })
+    ));
+    assert!(matches!(
+        validate_rgba8_render_target_release(TextureHandle(14), Some(GpuTextureRole::Source), 0,),
+        Err(WgpuBackendError::TextureIsNotRenderTarget(14))
+    ));
+    assert!(matches!(
+        validate_rgba8_render_target_release(TextureHandle(14), None, 0),
+        Err(WgpuBackendError::MissingTexture(14))
     ));
 }
 

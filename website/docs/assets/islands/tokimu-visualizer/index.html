@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tokimu Signal Field</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="visualizer-shell">
+      <header class="visualizer-header">
+        <div>
+          <p class="kicker">TOKIMU / ORIGINAL VISUALIZER</p>
+          <h1>Signal field</h1>
+        </div>
+        <output data-status>Starting Rust/WASM observation...</output>
+      </header>
+
+      <section class="controls" aria-label="Visualizer controls">
+        <label>
+          Synthetic input
+          <select data-fixture>
+            <option value="frequency-sweep">Frequency sweep</option>
+            <option value="steady-tone">Steady tone</option>
+            <option value="seeded-band-pulses">Seeded band pulses</option>
+            <option value="impulse">Impulse</option>
+            <option value="silence">Silence</option>
+          </select>
+        </label>
+        <button type="button" data-pause>Pause</button>
+        <button type="button" data-reset>Reset</button>
+      </section>
+
+      <section class="viewport" aria-label="Tokimu visualizer output">
+        <canvas data-canvas width="960" height="540"></canvas>
+      </section>
+
+      <dl class="observation-grid">
+        <div><dt>Fixture</dt><dd data-fixture-label>frequency-sweep</dd></div>
+        <div><dt>Frame</dt><dd data-frame>0</dd></div>
+        <div><dt>Beat pulse</dt><dd data-pulse>0.000</dd></div>
+        <div><dt>Audio source</dt><dd data-source>synthetic-fixture</dd></div>
+        <div><dt>Canvas target</dt><dd data-canvas-target>one Canvas 2D context</dd></div>
+        <div><dt>Frame interval</dt><dd data-frame-ms>pending</dd></div>
+        <div><dt>Canvas draw</dt><dd data-draw-ms>pending</dd></div>
+        <div><dt>WASM startup</dt><dd data-startup-ms>pending</dd></div>
+      </dl>
+      <p class="diagnostic" data-diagnostic>
+        Synthetic input is intentional. No microphone permission or MilkDrop
+        preset evaluator is active in this consumer.
+      </p>
+    </main>
+    <script type="module" src="./visualizer.js"></script>
+  </body>
+</html>

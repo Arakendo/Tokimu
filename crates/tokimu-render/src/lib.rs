@@ -46,4 +46,6 @@ pub use shader::{
 pub use texture::{
     Rgba8TextureColorSpace, Rgba8TextureDescriptor, Texture, TextureValidationError,
 };
-pub use wgpu_backend::{WgpuBackend, WgpuBackendError};
+pub use wgpu_backend::{
+    RenderTargetReplacement, RenderTargetResourceObservation, WgpuBackend, WgpuBackendError,
+};
