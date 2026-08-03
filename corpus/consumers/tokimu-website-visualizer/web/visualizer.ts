@@ -118,7 +118,7 @@ function frame(now: number): void {
       ? ` Selected literal custom waves: ${state.milkdrop.customWaveCount}; Canvas draws Rust/WASM-lowered audio samples and does not execute custom-wave code.`
       : "";
     const customShapeDiagnostic = state.milkdrop && state.milkdrop.customShapeCount > 0
-      ? ` Selected literal custom shapes: ${state.milkdrop.customShapeCount}; Canvas chooses its local fill and outline presentation and does not execute shape code or textures.`
+      ? ` Selected custom shapes: ${state.milkdrop.customShapeCount}; bounded per-frame geometry is evaluated by Rust/WASM, while Canvas only draws returned points. General shape code and textures remain unsupported.`
       : "";
     diagnostic.textContent = `Provider: ${state.diagnostics.provider}. Microphone: ${state.diagnostics.microphonePermission}. Preset evaluator: ${state.diagnostics.presetEvaluator}.${state.milkdrop ? " Canvas is a browser observation view, not native feedback-shader equivalence." : ""}${customWaveDiagnostic}${customShapeDiagnostic}`;
   }
@@ -137,7 +137,7 @@ function updateMilkDropEvidence(state: Snapshot): void {
 
   executionModeLabel.textContent = "Rust/WASM selected subset";
   presetSourceLabel.textContent = "Tokimu-authored selected fixture";
-  literalGeometryLabel.textContent = `${state.milkdrop.customWaveCount} wave(s), ${state.milkdrop.customShapeCount} shape(s)`;
+  literalGeometryLabel.textContent = `${state.milkdrop.customWaveCount} literal wave(s), ${state.milkdrop.customShapeCount} bound shape(s)`;
   const inspection = state.milkdrop.shaderInspection;
   shaderHandlingLabel.textContent = `${inspection.entries} source entry(s), ${inspection.blockers} blocker(s); not translated`;
   textureHandlingLabel.textContent = `${inspection.textureSamplingEntries} texture source(s); not resolved`;

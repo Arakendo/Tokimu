@@ -1,6 +1,7 @@
 //! Bounded extraction of selected MilkDrop custom-shape scalar properties.
 //!
-//! Only literal properties in real `[shape_N]` sections are admitted here.
+//! Literal properties in real `[shape_N]` sections are admitted here, alongside
+//! a deliberately bounded first-party per-frame binding convention.
 //! `shapecode_N`, texture resolution, and renderer blend policy remain visible
 //! unsupported constructs rather than being silently approximated.
 
@@ -9,15 +10,19 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{section_index, MilkDropConstruct, MilkDropPresetDocument, MilkDropSourceLocation};
+use crate::{
+    section_index, MilkDropConstruct, MilkDropEvaluationState, MilkDropPresetDocument,
+    MilkDropSourceLocation,
+};
 
 pub const MAX_CUSTOM_SHAPE_SIDES: u8 = 100;
 const MIN_CUSTOM_SHAPE_SIDES: u8 = 3;
 
-/// Provider-neutral description of one selected literal MilkDrop custom shape.
+/// Provider-neutral description of one selected MilkDrop custom shape.
 ///
-/// The selected subset is a static convex polygon. It owns no mesh, shader,
-/// blend state, texture, or custom-code execution.
+/// The selected subset is a convex polygon whose source properties can be
+/// adjusted through bounded per-frame bindings. It owns no mesh, shader,
+/// blend state, texture, or general custom-code execution.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MilkDropCustomShape {
     pub index: u8,
@@ -98,7 +103,7 @@ pub fn resolve_selected_custom_shapes(
     Ok(shapes)
 }
 
-/// Lowers selected literal custom shapes into normalized convex-polygon points.
+/// Lowers selected custom shapes into normalized convex-polygon points.
 ///
 /// Disabled shapes are omitted. The provider deliberately does not choose a
 /// fill rule or generate a mesh. A requested texture is rejected explicitly
@@ -132,6 +137,65 @@ pub fn lower_selected_custom_shapes(
             })
         })
         .collect()
+}
+
+/// Applies the bounded per-frame custom-shape bindings admitted by Tokimu's
+/// first-party selected fixture.
+///
+/// A binding is named `shape_<index>_<property>`, where `property` is one of
+/// `x`, `y`, `rad`, or `ang`. The scalar evaluator owns the value; this module
+/// owns applying it to the provider-neutral shape description before lowering.
+/// The binding convention is intentionally narrower than MilkDrop's general
+/// `shapecode` language and does not claim third-party preset compatibility.
+pub fn apply_selected_shape_bindings(
+    shapes: &[MilkDropCustomShape],
+    state: &MilkDropEvaluationState,
+) -> Result<Vec<MilkDropCustomShape>, MilkDropCustomShapeError> {
+    shapes
+        .iter()
+        .cloned()
+        .map(|mut shape| {
+            let prefix = format!("shape_{}", shape.index);
+            if let Some(value) = state.value(&format!("{prefix}_x")) {
+                shape.center[0] = bound_binding(&shape, "x", value, 0.0, 1.0)?;
+            }
+            if let Some(value) = state.value(&format!("{prefix}_y")) {
+                shape.center[1] = bound_binding(&shape, "y", value, 0.0, 1.0)?;
+            }
+            if let Some(value) = state.value(&format!("{prefix}_rad")) {
+                shape.radius = bound_binding(&shape, "rad", value, 0.0, 1.0)?;
+            }
+            if let Some(value) = state.value(&format!("{prefix}_ang")) {
+                shape.angle_radians = bound_binding(
+                    &shape,
+                    "ang",
+                    value,
+                    -f64::from(std::f32::consts::TAU),
+                    f64::from(std::f32::consts::TAU),
+                )?;
+            }
+            Ok(shape)
+        })
+        .collect()
+}
+
+fn bound_binding(
+    shape: &MilkDropCustomShape,
+    property: &'static str,
+    value: f64,
+    minimum: f64,
+    maximum: f64,
+) -> Result<f32, MilkDropCustomShapeError> {
+    if !value.is_finite() || !(minimum..=maximum).contains(&value) {
+        return Err(MilkDropCustomShapeError::BindingOutOfRange {
+            shape_index: shape.index,
+            property,
+            value,
+            minimum,
+            maximum,
+        });
+    }
+    Ok(value as f32)
 }
 
 fn apply_property(
@@ -246,6 +310,14 @@ fn parse_finite(key: &str, value: &str, line: usize) -> Result<f32, MilkDropCust
 
 #[derive(Clone, Debug, Error, PartialEq)]
 pub enum MilkDropCustomShapeError {
+    #[error("MilkDrop custom-shape binding `shape_{shape_index}_{property}` resolved to {value}, outside {minimum}..={maximum}")]
+    BindingOutOfRange {
+        shape_index: u8,
+        property: &'static str,
+        value: f64,
+        minimum: f64,
+        maximum: f64,
+    },
     #[error("MilkDrop custom shape {shape_index} requests a texture, but no texture-resolution provider is admitted")]
     TextureResolutionRequired { shape_index: u8 },
     #[error("MilkDrop custom-shape property `{key}` is declared more than once; second declaration is at line {line}")]
@@ -281,7 +353,7 @@ pub enum MilkDropCustomShapeError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MilkDropPresetDocument;
+    use crate::{MilkDropEvaluationState, MilkDropPresetDocument};
 
     #[test]
     fn resolves_and_lowers_a_literal_convex_shape_without_executing_code() {
@@ -325,6 +397,39 @@ mod tests {
         assert!(matches!(
             lower_selected_custom_shapes(&shapes),
             Err(MilkDropCustomShapeError::TextureResolutionRequired { shape_index: 3 })
+        ));
+    }
+
+    #[test]
+    fn applies_only_bounded_shape_bindings_from_evaluated_state() {
+        let document =
+            MilkDropPresetDocument::parse("[shape_2]\nx=0.25\ny=0.75\nrad=0.2\nang=0.5").unwrap();
+        let shapes = resolve_selected_custom_shapes(&document).unwrap();
+        let mut state = MilkDropEvaluationState::default();
+        state.variables.insert("shape_2_x".to_owned(), 0.4);
+        state.variables.insert("shape_2_rad".to_owned(), 0.3);
+        state.variables.insert("unrelated".to_owned(), 7.0);
+
+        let bound = apply_selected_shape_bindings(&shapes, &state).unwrap();
+        assert_eq!(bound[0].center, [0.4, 0.75]);
+        assert_eq!(bound[0].radius, 0.3);
+        assert_eq!(bound[0].angle_radians, 0.5);
+    }
+
+    #[test]
+    fn rejects_out_of_range_shape_binding() {
+        let document = MilkDropPresetDocument::parse("[shape_0]\nrad=0.2").unwrap();
+        let shapes = resolve_selected_custom_shapes(&document).unwrap();
+        let mut state = MilkDropEvaluationState::default();
+        state.variables.insert("shape_0_rad".to_owned(), 1.1);
+
+        assert!(matches!(
+            apply_selected_shape_bindings(&shapes, &state),
+            Err(MilkDropCustomShapeError::BindingOutOfRange {
+                shape_index: 0,
+                property: "rad",
+                ..
+            })
         ));
     }
 }

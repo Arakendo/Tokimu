@@ -16,8 +16,9 @@ mod runtime;
 mod shader_inspection;
 
 pub use custom_shape::{
-    lower_selected_custom_shapes, resolve_selected_custom_shapes, MilkDropCustomShape,
-    MilkDropCustomShapeError, MilkDropCustomShapeFrame, MAX_CUSTOM_SHAPE_SIDES,
+    apply_selected_shape_bindings, lower_selected_custom_shapes, resolve_selected_custom_shapes,
+    MilkDropCustomShape, MilkDropCustomShapeError, MilkDropCustomShapeFrame,
+    MAX_CUSTOM_SHAPE_SIDES,
 };
 pub use custom_wave::{
     lower_selected_custom_waves, resolve_selected_custom_waves, MilkDropCustomWave,

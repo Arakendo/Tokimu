@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    evaluate_selected_equations, lower_selected_custom_shapes, lower_selected_custom_waves,
-    resolve_selected_custom_shapes, resolve_selected_custom_waves, resolve_selected_parameters,
-    MilkDropCustomShape, MilkDropCustomShapeError, MilkDropCustomShapeFrame, MilkDropCustomWave,
-    MilkDropCustomWaveError, MilkDropCustomWaveFrame, MilkDropEvaluationError,
-    MilkDropEvaluationPhase, MilkDropEvaluationState, MilkDropParseError, MilkDropPresetDocument,
-    MilkDropResolvedParameters,
+    apply_selected_shape_bindings, evaluate_selected_equations, lower_selected_custom_shapes,
+    lower_selected_custom_waves, resolve_selected_custom_shapes, resolve_selected_custom_waves,
+    resolve_selected_parameters, MilkDropCustomShape, MilkDropCustomShapeError,
+    MilkDropCustomShapeFrame, MilkDropCustomWave, MilkDropCustomWaveError, MilkDropCustomWaveFrame,
+    MilkDropEvaluationError, MilkDropEvaluationPhase, MilkDropEvaluationState, MilkDropParseError,
+    MilkDropPresetDocument, MilkDropResolvedParameters,
 };
 
 /// Renderer-neutral controls produced by Tokimu's selected MilkDrop subset.
@@ -30,9 +30,10 @@ pub struct MilkDropClassicFrameControls {
     /// This remains empty for [`MilkDropSelectedRuntime::step`], whose scalar
     /// frame API intentionally has no waveform or spectrum payload.
     pub custom_wave_frames: Vec<MilkDropCustomWaveFrame>,
-    /// Selected literal custom-shape descriptions resolved from source.
+    /// Selected custom-shape descriptions resolved from source.
     pub custom_shapes: Vec<MilkDropCustomShape>,
-    /// Selected literal custom shapes lowered to normalized polygon points.
+    /// Selected custom shapes lowered to normalized polygon points after their
+    /// bounded per-frame bindings have been applied.
     ///
     /// The points have no mesh, fill, blend, or texture execution policy.
     pub custom_shape_frames: Vec<MilkDropCustomShapeFrame>,
@@ -208,7 +209,8 @@ impl MilkDropSelectedRuntime {
             }
             None => Vec::new(),
         };
-        let custom_shape_frames = lower_selected_custom_shapes(&self.custom_shapes)?;
+        let custom_shapes = apply_selected_shape_bindings(&self.custom_shapes, &self.state)?;
+        let custom_shape_frames = lower_selected_custom_shapes(&custom_shapes)?;
 
         Ok(MilkDropClassicFrameControls {
             schema: "tokimu-milkdrop-classic-frame-v1".to_owned(),
@@ -219,7 +221,7 @@ impl MilkDropSelectedRuntime {
             zoom,
             custom_waves: self.custom_waves.clone(),
             custom_wave_frames,
-            custom_shapes: self.custom_shapes.clone(),
+            custom_shapes,
             custom_shape_frames,
             evaluated_assignments: self.evaluated_assignments,
             state: self.state.clone(),
@@ -344,5 +346,19 @@ mod tests {
             .iter()
             .flatten()
             .all(|value| value.is_finite()));
+    }
+
+    #[test]
+    fn selected_runtime_binds_shape_geometry_from_per_frame_state() {
+        let source = "[preset00]\nper_frame_1=shape_0_ang=sin(time)*0.8; shape_0_rad=0.15+mid*0.2\n[shape_0]\nsides=6\nrad=0.15";
+        let mut runtime = MilkDropSelectedRuntime::from_source(source).unwrap();
+        let first = runtime.step(1, 0.25, [0.0, 0.0, 0.0]).unwrap();
+        let second = runtime.step(2, 1.0, [0.0, 0.8, 0.0]).unwrap();
+
+        assert_ne!(
+            first.custom_shape_frames[0].points,
+            second.custom_shape_frames[0].points
+        );
+        assert!(second.custom_shapes[0].radius > first.custom_shapes[0].radius);
     }
 }

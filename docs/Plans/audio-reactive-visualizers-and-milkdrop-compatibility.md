@@ -732,7 +732,11 @@ MilkDrop 1-style fixture.
 The parser preserves ordered sections, keys, values, and source lines while
 classifying selected scalar parameters plus initialization, per-frame, and
 per-pixel equation declarations. Selected literal custom waves and convex
-custom shapes are separately classified for bounded lowering; custom code,
+custom shapes are separately classified for bounded lowering. The
+Tokimu-authored fixture additionally proves bounded per-frame
+`shape_<index>_{x,y,rad,ang}` bindings before shape lowering; this is an
+explicit first-party selected-provider convention, not a claim of general
+third-party `shapecode` compatibility. Custom code,
 warp shaders, composite shaders, and unknown keys remain explicit
 `unsupported` evidence.
 The selected initialization and per-frame scalar subset now evaluates in source

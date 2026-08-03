@@ -8,6 +8,9 @@ fGammaAdj=1.0
 fZoom=1.0
 per_frame_init_1=q1=0;
 per_frame_1=q1=q1+1;
+; First-party selected-shape bindings. These deliberately exercise the bounded
+; provider rule rather than claiming general third-party `shapecode` support.
+per_frame_2=shape_0_x=0.5+0.08*sin(time*0.7); shape_0_y=0.5+0.05*cos(time*1.1); shape_0_rad=0.14+mid*0.16; shape_0_ang=sin(time*0.8)*0.8;
 per_pixel_1=zoom=1.0+0.02*sin(rad);
 wavecode_0=sample=sample*0.5;
 comp_shader_1=float4 main() { return 0; }
