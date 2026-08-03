@@ -42,16 +42,12 @@ Push-Location $website
 try {
     Invoke-Checked { npm run build } "Website TypeScript build"
     Invoke-Checked { npm --prefix $asteroidsConsumer run build } "Asteroids TypeScript build"
-    Invoke-Checked { npm --prefix $visualizerConsumer run build } "Visualizer TypeScript build"
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $assetEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Asset workbench WASM build"
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $asteroidsEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Asteroids WASM build"
-    Invoke-Checked {
-        cargo build --manifest-path (Join-Path $visualizerEngine "Cargo.toml") --target wasm32-unknown-unknown --release
-    } "Visualizer WASM build"
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $paintEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Tokimu Paint WASM build"
@@ -75,11 +71,9 @@ try {
 
     New-Item -ItemType Directory -Force $visualizerOutput | Out-Null
     Invoke-Checked {
-        wasm-bindgen $visualizerWasm --target web --out-dir $visualizerOutput --out-name tokimu_website_visualizer_engine
-    } "Visualizer binding generation"
-    Copy-Item -LiteralPath (Join-Path $visualizerConsumer "web/index.html") -Destination $visualizerOutput -Force
-    Copy-Item -LiteralPath (Join-Path $visualizerConsumer "web/styles.css") -Destination $visualizerOutput -Force
-    Copy-Item -LiteralPath (Join-Path $visualizerConsumer "dist/visualizer.js") -Destination $visualizerOutput -Force
+        pwsh -NoProfile -File (Join-Path $visualizerConsumer "build.ps1")
+    } "Visualizer WASM and TypeScript build"
+    Copy-Item -Path (Join-Path $visualizerConsumer "dist/*") -Destination $visualizerOutput -Force
 
     Invoke-Checked { npm --prefix $paintConsumer run build } "Tokimu Paint TypeScript build"
     New-Item -ItemType Directory -Force $paintOutput | Out-Null

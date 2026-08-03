@@ -7,6 +7,7 @@ export class WasmVisualizerSession {
     constructor();
     reset(): void;
     set_fixture(fixture: string): void;
+    set_mode(mode: string): void;
     set_paused(paused: boolean): void;
     /**
      * Advances exactly one fixed semantic frame unless paused.
@@ -20,8 +21,9 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmvisualizersession_free: (a: number, b: number) => void;
     readonly wasmvisualizersession_new: () => [number, number, number];
-    readonly wasmvisualizersession_reset: (a: number) => void;
+    readonly wasmvisualizersession_reset: (a: number) => [number, number];
     readonly wasmvisualizersession_set_fixture: (a: number, b: number, c: number) => [number, number];
+    readonly wasmvisualizersession_set_mode: (a: number, b: number, c: number) => [number, number];
     readonly wasmvisualizersession_set_paused: (a: number, b: number) => void;
     readonly wasmvisualizersession_step_json: (a: number, b: number, c: number) => [number, number, number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;

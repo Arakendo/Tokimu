@@ -3,8 +3,9 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_wasmvisualizersession_free: (a: number, b: number) => void;
 export const wasmvisualizersession_new: () => [number, number, number];
-export const wasmvisualizersession_reset: (a: number) => void;
+export const wasmvisualizersession_reset: (a: number) => [number, number];
 export const wasmvisualizersession_set_fixture: (a: number, b: number, c: number) => [number, number];
+export const wasmvisualizersession_set_mode: (a: number, b: number, c: number) => [number, number];
 export const wasmvisualizersession_set_paused: (a: number, b: number) => void;
 export const wasmvisualizersession_step_json: (a: number, b: number, c: number) => [number, number, number, number];
 export const __wbindgen_externrefs: WebAssembly.Table;

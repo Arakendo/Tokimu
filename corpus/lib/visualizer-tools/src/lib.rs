@@ -6,6 +6,7 @@
 
 mod audio_analysis;
 mod native_visualizers;
+mod radial_shape;
 mod render_targets;
 mod spectrum;
 mod wav_fixture;
@@ -22,6 +23,11 @@ pub use audio_analysis::{
 pub use native_visualizers::{
     NativeVisualizerDefinition, NativeVisualizerDefinitionError, NativeVisualizerKind,
     NativeVisualizerParameter,
+};
+
+pub use radial_shape::{
+    VisualizerRadialShape, VisualizerRadialShapeError, VisualizerRadialShapeVertex,
+    MAX_RADIAL_SHAPE_SIDES, MIN_RADIAL_SHAPE_SIDES,
 };
 
 pub use render_targets::{

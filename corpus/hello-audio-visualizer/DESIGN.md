@@ -4,8 +4,9 @@
 
 `hello-audio-visualizer` is the first executable corpus proof for deterministic
 visualizer input and bounded fullscreen WGSL passes. It deliberately uses
-synthetic observations rather than an audio device, decoded file, or MilkDrop
-preset.
+synthetic observations rather than an audio device or decoded file. It also
+executes one Tokimu-authored MilkDrop 1-style fixture through a deliberately
+selected compatibility subset.
 
 ## Primary Proof
 
@@ -47,6 +48,8 @@ runtime material-parameter path can be justified and measured honestly.
 - `Q`: execute the two-pass `Signal Field` proof
 - `W`: execute the previous-frame `Feedback Bloom` proof
 - `E`: execute the three-pass `Signal Composite` proof
+- `X`: execute the provider-neutral spectrum-bar proof
+- `M`: execute the selected MilkDrop classic feedback subset
 
 ## Diagnostic Fixture
 
@@ -65,11 +68,13 @@ To write review artifacts instead:
 cargo run -p hello-audio-visualizer -- --write-artifacts
 ```
 
-This writes one input JSON file, CPU signal preview BMP, and manifest per
-fixture under `target/audio-visualizer/`. It also writes the WGSL source and a
-provider-neutral shader/material binding contract record, plus separately
-labeled fixed-workload native-host timing and source-structural working-set
-observations for every PCM fixture.
+This writes one input JSON file, deterministic waveform, spectrum-bar, and
+radial-shape geometry records, CPU signal preview BMP, and manifest per fixture
+under `target/audio-visualizer/`. The radial shape is an original Tokimu
+presentation proof; it does not claim MilkDrop custom-shape compatibility. The
+command also writes the WGSL source and a provider-neutral shader/material
+binding contract record, plus separately labeled fixed-workload native-host
+timing and source-structural working-set observations for every PCM fixture.
 It additionally writes three native visualizer definition records:
 `native-visualizer-signal-field.json`,
 `native-visualizer-feedback-bloom.json`, and
@@ -86,6 +91,26 @@ call count and excludes `Vec` capacity, allocator overhead, caller-owned input,
 and platform audio state. The preview is explicitly not a GPU framebuffer capture
 or an assertion of backend pixel equivalence. Native-window screenshots remain
 manual evidence.
+
+The command also writes the Tokimu-authored `.milk` source, parsed document,
+resolved scalar parameters, evaluated frame state, original compatibility
+WGSL, and shader-contract record. The admitted execution subset covers classic
+scalar decay/zoom controls plus bounded initialization and per-frame scalar
+equations. It also renders selected literal custom waves and untextured convex
+custom shapes through consumer-owned geometry. Per-pixel equations, texture
+lookup, embedded shaders, and third-party preset compatibility remain deferred.
+
+The selected first-party preset also proves one literal custom-wave path. When
+the caller supplies explicit waveform or spectrum samples, `milkdrop-tools`
+returns normalized point records without producing a mesh. The browser renders
+those Rust/WASM-produced points through Canvas, while this native consumer
+converts them into bounded line or dot triangle geometry over the feedback
+target. That conversion is intentionally consumer-owned. Its changing mesh
+uploads remain visible in runtime performance diagnostics. The selected
+`bAdditive=1` wave selects the renderer-neutral `BlendMode::Additive` policy;
+the provider preserves intent but never owns backend blend execution. Texture
+wrapping and filtering remain deferred because they require the unresolved
+raster texture-requirement contract.
 
 To exercise the bounded byte-source adapter without opening a file or audio
 device:
@@ -143,7 +168,8 @@ material-uniform path rather than to audio analysis.
 - FFT or beat-detection algorithms
 - a general previous-frame feedback execution API
 - a provider-neutral multipass backend execution contract
-- MilkDrop parsing or evaluation
+- general MilkDrop preset compatibility
+- MilkDrop per-pixel equations, texture lookup, or embedded shader translation
 - a permanent `tokimu-visualizer` capability
 
 ## Maturity
@@ -151,15 +177,18 @@ material-uniform path rather than to audio analysis.
 `native`: synthetic observation generation, one-pass shader response, and a
 bounded renderer-local previous-frame feedback proof.
 
-`compatible`: not assigned yet; compatibility requires an external visualizer
-definition to preserve its documented semantics through Tokimu's contracts.
+`compatible`: selected Tokimu-authored MilkDrop 1-style scalar parameters and
+initialization/per-frame equations reach a renderer-owned feedback pass. This
+is a bounded subset, not compatibility with arbitrary third-party presets.
 
 `partial`: the provider-neutral shader declaration describes a `Vector4`
 visualizer signal, but renderer execution currently carries that signal through
 the legacy four-float material slot.
 
 `unsupported`: real audio, provider-neutral feedback/multipass execution,
-MilkDrop semantics, and preset transitions.
+MilkDrop per-pixel/texture/shader semantics, and preset transitions. Selected
+literal waves, untextured convex shapes, and additive overlay intent are
+bounded compatible evidence only.
 
 `invalid`: malformed, non-finite, empty, over-frequency, and over-limit frame
 inputs are rejected before renderer submission with stable diagnostics.

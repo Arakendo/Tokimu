@@ -8,10 +8,11 @@ $dist = Join-Path $project "dist"
 
 Push-Location $project
 try {
-    npm run build
     cargo build --manifest-path $manifest --target wasm32-unknown-unknown --release
     New-Item -ItemType Directory -Force $dist | Out-Null
     wasm-bindgen $wasm --target web --out-dir $dist --out-name tokimu_website_visualizer_engine
+    Copy-Item -LiteralPath (Join-Path $dist "tokimu_website_visualizer_engine.d.ts") -Destination (Join-Path $project "web/tokimu_website_visualizer_engine.d.ts") -Force
+    npm run build
     Copy-Item -LiteralPath (Join-Path $project "web/index.html") -Destination $dist -Force
     Copy-Item -LiteralPath (Join-Path $project "web/styles.css") -Destination $dist -Force
 }

@@ -14,6 +14,7 @@ pub enum KeyCode {
     KeyW,
     KeyQ,
     KeyR,
+    KeyM,
     KeyX,
     KeyZ,
     ArrowLeft,

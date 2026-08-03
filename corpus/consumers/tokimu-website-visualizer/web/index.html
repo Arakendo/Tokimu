@@ -10,7 +10,7 @@
     <main class="visualizer-shell">
       <header class="visualizer-header">
         <div>
-          <p class="kicker">TOKIMU / ORIGINAL VISUALIZER</p>
+          <p class="kicker">TOKIMU / VISUALIZER EVIDENCE</p>
           <h1>Signal field</h1>
         </div>
         <output data-status>Starting Rust/WASM observation...</output>
@@ -25,6 +25,13 @@
             <option value="seeded-band-pulses">Seeded band pulses</option>
             <option value="impulse">Impulse</option>
             <option value="silence">Silence</option>
+          </select>
+        </label>
+        <label>
+          Execution mode
+          <select data-mode>
+            <option value="original">Original signal field</option>
+            <option value="milkdrop-selected">MilkDrop selected subset</option>
           </select>
         </label>
         <button type="button" data-pause>Pause</button>
@@ -44,10 +51,16 @@
         <div><dt>Frame interval</dt><dd data-frame-ms>pending</dd></div>
         <div><dt>Canvas draw</dt><dd data-draw-ms>pending</dd></div>
         <div><dt>WASM startup</dt><dd data-startup-ms>pending</dd></div>
+        <div><dt>Execution</dt><dd data-execution-mode>original signal field</dd></div>
+        <div><dt>Preset source</dt><dd data-preset-source>not selected</dd></div>
+        <div><dt>Literal geometry</dt><dd data-literal-geometry>not selected</dd></div>
+        <div><dt>Shader handling</dt><dd data-shader-handling>not requested</dd></div>
+        <div><dt>Texture handling</dt><dd data-texture-handling>not requested</dd></div>
       </dl>
       <p class="diagnostic" data-diagnostic>
-        Synthetic input is intentional. No microphone permission or MilkDrop
-        preset evaluator is active in this consumer.
+        Synthetic input is intentional. No microphone permission is required.
+        The optional MilkDrop mode evaluates one bounded, first-party scalar
+        subset in Rust/WASM; Canvas remains an observation view.
       </p>
     </main>
     <script type="module" src="./visualizer.js"></script>

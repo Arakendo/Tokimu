@@ -745,6 +745,7 @@ dependencies = [
 name = "hello-audio-visualizer"
 version = "0.1.0"
 dependencies = [
+ "milkdrop-tools",
  "serde_json",
  "tokimu",
  "tokimu-core",
@@ -2610,6 +2611,7 @@ dependencies = [
 name = "tokimu-website-visualizer-engine"
 version = "0.1.0"
 dependencies = [
+ "milkdrop-tools",
  "serde",
  "serde_json",
  "visualizer-tools",

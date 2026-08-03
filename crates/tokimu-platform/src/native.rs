@@ -240,6 +240,7 @@ fn map_key_code(key: PhysicalKey) -> Option<KeyCode> {
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyW) => Some(KeyCode::KeyW),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyQ) => Some(KeyCode::KeyQ),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyR) => Some(KeyCode::KeyR),
+        PhysicalKey::Code(winit::keyboard::KeyCode::KeyM) => Some(KeyCode::KeyM),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyX) => Some(KeyCode::KeyX),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyZ) => Some(KeyCode::KeyZ),
         PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => Some(KeyCode::ArrowLeft),

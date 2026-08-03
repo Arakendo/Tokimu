@@ -10,6 +10,28 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod custom_shape;
+mod custom_wave;
+mod runtime;
+mod shader_inspection;
+
+pub use custom_shape::{
+    lower_selected_custom_shapes, resolve_selected_custom_shapes, MilkDropCustomShape,
+    MilkDropCustomShapeError, MilkDropCustomShapeFrame, MAX_CUSTOM_SHAPE_SIDES,
+};
+pub use custom_wave::{
+    lower_selected_custom_waves, resolve_selected_custom_waves, MilkDropCustomWave,
+    MilkDropCustomWaveError, MilkDropCustomWaveFrame, MilkDropCustomWaveSampleSource,
+    MAX_CUSTOM_WAVE_SAMPLES,
+};
+pub use runtime::{
+    MilkDropClassicFrameControls, MilkDropSelectedRuntime, MilkDropSelectedRuntimeError,
+};
+pub use shader_inspection::{
+    inspect_shader_entries, MilkDropShaderFeature, MilkDropShaderInspection, MilkDropShaderStage,
+    MilkDropShaderTranslationBlocker, MilkDropShaderTranslationDisposition,
+};
+
 pub const MAX_PRESET_BYTES: usize = 64 * 1024;
 pub const MAX_PRESET_LINES: usize = 2_048;
 pub const MAX_SECTIONS: usize = 32;
@@ -32,6 +54,8 @@ pub enum MilkDropConstruct {
     InitEquation,
     PerFrameEquation,
     PerPixelEquation,
+    SelectedCustomWaveParameter,
+    SelectedCustomShapeParameter,
     UnsupportedCustomWave,
     UnsupportedCustomShape,
     UnsupportedWarpShader,
@@ -121,7 +145,8 @@ impl MilkDropPresetDocument {
                     maximum: MAX_ENTRIES,
                 });
             }
-            let construct = classify_construct(&key);
+            let section_name = &sections[section_index].name;
+            let construct = classify_construct(section_name, &key);
             if is_deferred(&construct) {
                 deferred_entries += 1;
             } else if is_unsupported(&construct) {
@@ -624,8 +649,12 @@ fn parse_entry(line: &str, location: usize) -> Result<(String, String), MilkDrop
     Ok((key.to_ascii_lowercase(), value.to_owned()))
 }
 
-fn classify_construct(key: &str) -> MilkDropConstruct {
-    if key.starts_with("per_frame_init_") {
+fn classify_construct(section_name: &str, key: &str) -> MilkDropConstruct {
+    if is_selected_custom_wave_section(section_name) && is_selected_custom_wave_key(key) {
+        MilkDropConstruct::SelectedCustomWaveParameter
+    } else if is_selected_custom_shape_section(section_name) && is_selected_custom_shape_key(key) {
+        MilkDropConstruct::SelectedCustomShapeParameter
+    } else if key.starts_with("per_frame_init_") {
         MilkDropConstruct::InitEquation
     } else if key.starts_with("per_frame_") {
         MilkDropConstruct::PerFrameEquation
@@ -644,6 +673,57 @@ fn classify_construct(key: &str) -> MilkDropConstruct {
     } else {
         MilkDropConstruct::UnsupportedUnknown
     }
+}
+
+fn is_selected_custom_wave_section(section_name: &str) -> bool {
+    section_index(section_name, "wave_").is_some()
+}
+
+fn is_selected_custom_shape_section(section_name: &str) -> bool {
+    section_index(section_name, "shape_").is_some()
+}
+
+pub(crate) fn section_index(section_name: &str, prefix: &str) -> Option<u8> {
+    let suffix = section_name.strip_prefix(prefix)?;
+    suffix.parse::<u8>().ok()
+}
+
+pub(crate) fn is_selected_custom_wave_key(key: &str) -> bool {
+    matches!(
+        key,
+        "enabled"
+            | "samples"
+            | "bspectrum"
+            | "busedots"
+            | "bdrawthick"
+            | "badditive"
+            | "scaling"
+            | "r"
+            | "g"
+            | "b"
+            | "a"
+            | "x"
+            | "y"
+    )
+}
+
+fn is_selected_custom_shape_key(key: &str) -> bool {
+    matches!(
+        key,
+        "enabled"
+            | "sides"
+            | "additive"
+            | "thickoutline"
+            | "textured"
+            | "x"
+            | "y"
+            | "rad"
+            | "ang"
+            | "r"
+            | "g"
+            | "b"
+            | "a"
+    )
 }
 
 fn is_known_scalar_parameter(key: &str) -> bool {

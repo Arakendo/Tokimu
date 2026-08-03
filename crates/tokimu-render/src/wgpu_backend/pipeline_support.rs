@@ -100,6 +100,18 @@ pub(super) fn create_custom_pipeline(
                 blend: match render_state.blend {
                     BlendMode::Opaque => None,
                     BlendMode::AlphaBlend => Some(wgpu::BlendState::ALPHA_BLENDING),
+                    BlendMode::Additive => Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
                 },
                 write_mask: color_write_mask(render_state.color_write),
             })],

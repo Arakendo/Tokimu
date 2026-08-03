@@ -279,6 +279,7 @@ fn map_key_code(code: &str) -> Option<KeyCode> {
         "KeyW" => Some(KeyCode::KeyW),
         "KeyQ" => Some(KeyCode::KeyQ),
         "KeyR" => Some(KeyCode::KeyR),
+        "KeyM" => Some(KeyCode::KeyM),
         "KeyX" => Some(KeyCode::KeyX),
         "KeyZ" => Some(KeyCode::KeyZ),
         "ArrowLeft" => Some(KeyCode::ArrowLeft),

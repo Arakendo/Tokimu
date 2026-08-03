@@ -75,6 +75,15 @@ or parse MilkDrop presets.
 - Presentation evidence: the visualizer consumes already-produced audio
   observations and explicit time; it neither obtains PCM nor mutates world
   state.
+- MilkDrop subset evidence: `milkdrop-tools` parses and evaluates a bounded,
+  Tokimu-authored MilkDrop 1-style fixture. It lowers literal custom-wave
+  descriptions and untextured convex custom-shape descriptions into
+  renderer-neutral data. `wavecode`, `shapecode`, MilkDrop 2 shaders, named
+  textures, and `textured=1` shapes stop with explicit provider diagnostics.
+- Native/WASM composition evidence: `hello-audio-visualizer` and the website
+  visualizer consumer execute the same selected scalar fixture from explicit
+  synthetic observations. Native WGPU feedback is renderer evidence; browser
+  Canvas is consumer-composition evidence, not backend-equivalence evidence.
 - Missing evidence:
   - native and browser PCM providers mapped into the same input contract;
   - sample-rate adaptation, timestamp provenance, underrun, overrun, and
@@ -205,6 +214,13 @@ The evidence supports these provisional findings:
    throughput, allocation, or production FFT guarantee.
 5. Audio presently resembles AR-0006's staged handoff pattern, but the shared
    vocabulary is not yet proven beyond a broad architectural observation.
+6. MilkDrop compatibility is a provider concern. The selected parser and
+   lowering subset is useful corpus evidence, but it is not a general preset,
+   texture, shader, or renderer contract.
+7. Structural multipass descriptions and WGPU ping-pong execution can remain
+   separated: the renderer owns targets, views, bindings, submission order,
+   and cache lifetime. The evidence does not yet justify a provider-neutral
+   multipass execution capability.
 
 The evidence does not establish:
 
@@ -217,10 +233,13 @@ The evidence does not establish:
 
 ## Disposition
 
-Incubating. Keep audio analysis and visualizer-input contracts in
-`corpus/lib/visualizer-tools` while a native or browser provider and a second
-consumer test whether their ownership and diagnostic vocabulary hold. Do not
-promote audio analysis, introduce `tokimu-audio`, or revise AR-0006 into a
+Incubating. Keep audio analysis, visualizer-input, and MilkDrop subset
+contracts in `corpus/lib/visualizer-tools` and `corpus/lib/milkdrop-tools`.
+The second headless analysis consumer and native/WASM visualizer consumers
+validate the present seams, but do not establish a capture provider, a
+provider-neutral multipass executor, a general preset capability, or stable
+audio-resource semantics. Do not promote audio analysis, introduce
+`tokimu-audio`, introduce `tokimu-visualizer`, or revise AR-0006 into a
 universal requirement model from this evidence alone.
 
 ## Consequences
@@ -330,6 +349,46 @@ Reopen or advance this review when:
   second-consumer follow-up is complete; native/browser provider behavior,
   timestamp and loss semantics, and a second consumer of the visualizer model
   remain required.
+
+### Cycle 5 -- 2026-08-02
+
+- Status entering review: Incubating
+- New evidence: selected MilkDrop 1 scalar runtime execution; renderer-neutral
+  custom-wave and untextured convex custom-shape lowering; explicit rejection
+  of textured shapes pending texture resolution; native WGPU feedback and
+  website Canvas consumers driven by the same synthetic fixture; and an
+  external-oracle-only projectM finding.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: the MilkDrop subset confirms that compatibility remains provider
+  work above provider-neutral observations and below renderer execution.
+  Structural pass descriptions do not establish a shared multipass executor;
+  WGPU retains concrete target and submission ownership. Native and browser
+  consumer evidence validates composition, not equivalent rendering.
+- Disposition: Incubating; capability admission deferred.
+- Resulting ADR or documentation change: no ADR or crate admission. The
+  visualizer plan closes its admission-review slice with explicit deferred
+  findings and retains capture, texture, shader, and external compatibility
+  evidence as reopening work.
+
+### Cycle 6 -- 2026-08-02
+
+- Status entering review: Incubating
+- New evidence: `milkdrop-tools::inspect_shader_entries` preserves selected
+  warp and composite shader source with its preset location, byte count,
+  stage, a bounded lexical feature inventory, and explicit blockers. The
+  inspection explicitly reports translation as deferred and has no renderer
+  dependency.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: shader-source inspection is provider-owned compatibility evidence,
+  not HLSL parsing, WGSL generation, shader compilation, or a renderer binding
+  contract. Texture sampling explicitly identifies the requirement pipeline
+  under AR-0006 as its blocker; control flow and preprocessing remain
+  provider-side translation blockers.
+- Disposition: Incubating; shader translation remains deferred.
+- Resulting ADR or documentation change: no ADR or crate admission. Future
+  translation requires legal source fixtures, a separately validated language
+  boundary, and texture requirement evidence before it can inform capability
+  admission.
 
 ## References
 

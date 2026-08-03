@@ -21,7 +21,10 @@ export class WasmVisualizerSession {
         return this;
     }
     reset() {
-        wasm.wasmvisualizersession_reset(this.__wbg_ptr);
+        const ret = wasm.wasmvisualizersession_reset(this.__wbg_ptr);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
     }
     /**
      * @param {string} fixture
@@ -30,6 +33,17 @@ export class WasmVisualizerSession {
         const ptr0 = passStringToWasm0(fixture, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.wasmvisualizersession_set_fixture(this.__wbg_ptr, ptr0, len0);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} mode
+     */
+    set_mode(mode) {
+        const ptr0 = passStringToWasm0(mode, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmvisualizersession_set_mode(this.__wbg_ptr, ptr0, len0);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }

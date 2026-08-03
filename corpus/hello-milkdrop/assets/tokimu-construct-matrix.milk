@@ -20,6 +20,6 @@ wavecode_0=sample=sample*0.5;
 wave_0_enabled=1
 shapecode_0=rad=rad+0.1;
 shape_0_enabled=1
-warp_shader_0=float4 main() { return 0; }
-comp_shader_0=float4 main() { return 0; }
+warp_shader_0=float4 main(float2 uv) { if (uv.x > 0) return tex2D(s, uv); return 0; }
+comp_shader_0=#define TOKIMU 1\nfloat4 main() { return TOKIMU; }
 future_extension=42

@@ -1,14 +1,18 @@
 use std::{fs, path::PathBuf, sync::Arc};
 
+use milkdrop_tools::{
+    MilkDropClassicFrameControls, MilkDropCustomShapeFrame, MilkDropCustomWaveFrame,
+    MilkDropSelectedRuntime,
+};
 use tokimu::{
-    run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
-    Instance2d, KeyCode, Material, MaterialDefinition, MaterialDefinitionId, MaterialHandle,
-    MaterialParameterDeclaration, MaterialParameterKind, MaterialParameterValue, Mesh, MeshHandle,
-    NativeWindow, Pipeline, PipelineHandle, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, RenderFrameStats, Renderer, Rgba8TextureColorSpace,
-    Rgba8TextureDescriptor, ShaderBindingDeclaration, ShaderBindingSource, ShaderModuleDefinition,
-    ShaderModuleValidationError, ShaderVertexInput, ShaderVertexSemantic, TextureHandle,
-    WgpuBackend, WindowConfig,
+    run_window_with_app, BlendMode, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand,
+    FrameOutcome, Instance2d, KeyCode, Material, MaterialDefinition, MaterialDefinitionId,
+    MaterialHandle, MaterialParameterDeclaration, MaterialParameterKind, MaterialParameterValue,
+    Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle, PipelineRenderState,
+    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, RenderFrameStats,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, ShaderBindingDeclaration,
+    ShaderBindingSource, ShaderModuleDefinition, ShaderModuleValidationError, ShaderVertexInput,
+    ShaderVertexSemantic, TextureHandle, WgpuBackend, WindowConfig,
 };
 use tokimu_core::math::{Mat4, Vec3};
 use visualizer_tools::{
@@ -16,8 +20,8 @@ use visualizer_tools::{
     observe_pcm_analysis_working_set, write_cpu_preview, NativeVisualizerDefinition,
     NativeVisualizerKind, PcmAnalysisBacklog, PcmAnalysisConfig, PcmAnalyzer,
     PcmBacklogOverflowPolicy, PcmFixture, SyntheticAudioFixture, SyntheticVisualizerConfig,
-    SyntheticVisualizerInput, VisualizerPassGraph, VisualizerSpectrumBars, VisualizerViewport,
-    VisualizerWaveform,
+    SyntheticVisualizerInput, VisualizerPassGraph, VisualizerRadialShape, VisualizerSpectrumBars,
+    VisualizerViewport, VisualizerWaveform,
 };
 
 const QUAD: MeshHandle = MeshHandle(1);
@@ -30,6 +34,26 @@ const PRESENT_SIGNAL_FIELD: MaterialHandle = MaterialHandle(6);
 const COMPOSITE_FROM_SIGNAL: MaterialHandle = MaterialHandle(7);
 const PRESENT_COMPOSITE: MaterialHandle = MaterialHandle(8);
 const SPECTRUM_BAR_MATERIAL: MaterialHandle = MaterialHandle(9);
+const MILKDROP_FROM_HISTORY_A: MaterialHandle = MaterialHandle(10);
+const MILKDROP_FROM_HISTORY_B: MaterialHandle = MaterialHandle(11);
+const MILKDROP_CUSTOM_WAVE_MESHES: [MeshHandle; 4] =
+    [MeshHandle(2), MeshHandle(3), MeshHandle(4), MeshHandle(5)];
+const MILKDROP_CUSTOM_WAVE_MATERIALS: [MaterialHandle; 4] = [
+    MaterialHandle(12),
+    MaterialHandle(13),
+    MaterialHandle(14),
+    MaterialHandle(15),
+];
+const MILKDROP_CUSTOM_SHAPE_MESHES: [MeshHandle; 4] =
+    [MeshHandle(6), MeshHandle(7), MeshHandle(8), MeshHandle(9)];
+const MILKDROP_CUSTOM_SHAPE_MATERIALS: [MaterialHandle; 4] = [
+    MaterialHandle(16),
+    MaterialHandle(17),
+    MaterialHandle(18),
+    MaterialHandle(19),
+];
+const MAX_NATIVE_CUSTOM_WAVES: usize = MILKDROP_CUSTOM_WAVE_MESHES.len();
+const MAX_NATIVE_CUSTOM_SHAPES: usize = MILKDROP_CUSTOM_SHAPE_MESHES.len();
 const FEEDBACK_CAMERA: CameraHandle = CameraHandle(1);
 const PRESENT_CAMERA: CameraHandle = CameraHandle(2);
 const HISTORY_A: TextureHandle = TextureHandle(2);
@@ -41,6 +65,50 @@ const FEEDBACK_WARMUP_FRAMES: u64 = 120;
 const FEEDBACK_WGSL: &str = include_str!("../assets/feedback.wgsl");
 const SIGNAL_FIELD_WGSL: &str = include_str!("../assets/signal_field.wgsl");
 const COMPOSITE_WGSL: &str = include_str!("../assets/composite.wgsl");
+const MILKDROP_CLASSIC_WGSL: &str = include_str!("../assets/milkdrop_classic.wgsl");
+const MILKDROP_SELECTED_FIXTURE: &str =
+    include_str!("../../hello-milkdrop/assets/tokimu-selected-fixture.milk");
+
+fn milkdrop_overlay_pipeline(
+    additive: bool,
+    alpha_pipeline: PipelineHandle,
+    additive_pipeline: PipelineHandle,
+) -> PipelineHandle {
+    if additive {
+        additive_pipeline
+    } else {
+        alpha_pipeline
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum VisualizerSelection {
+    Native(NativeVisualizerKind),
+    MilkDropClassic,
+}
+
+impl VisualizerSelection {
+    fn id(self) -> &'static str {
+        match self {
+            Self::Native(kind) => kind.id(),
+            Self::MilkDropClassic => "milkdrop-classic-selected",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Native(kind) => kind.label(),
+            Self::MilkDropClassic => "MilkDrop Classic / Selected Subset",
+        }
+    }
+
+    fn uses_feedback(self) -> bool {
+        matches!(
+            self,
+            Self::Native(NativeVisualizerKind::FeedbackBloom) | Self::MilkDropClassic
+        )
+    }
+}
 
 // These counters identify resource churn that should not occur after the
 // feedback targets and their material bindings have been initialized.
@@ -53,6 +121,93 @@ fn steady_state_resource_churn(stats: &RenderFrameStats) -> u32 {
         .saturating_add(stats.mesh_replacements)
         .saturating_add(stats.texture_allocations)
         .saturating_add(stats.texture_replacements)
+}
+
+/// Native-consumer lowering for the renderer-neutral custom-wave point
+/// contract. `milkdrop-tools` intentionally stops at normalized points; this
+/// example decides how thick lines and dots become triangle geometry.
+fn custom_wave_mesh(frame: &MilkDropCustomWaveFrame, aspect: f32) -> Option<Mesh> {
+    let map_point = |point: [f32; 2]| {
+        [
+            (point[0].clamp(0.0, 1.0) * 2.0 - 1.0) * aspect,
+            1.0 - point[1].clamp(0.0, 1.0) * 2.0,
+        ]
+    };
+    let half_width = if frame.wave.thick { 0.012 } else { 0.006 };
+    let mut positions = Vec::new();
+
+    if frame.wave.dots {
+        for point in frame
+            .points
+            .iter()
+            .copied()
+            .filter(|point| point[0].is_finite() && point[1].is_finite())
+        {
+            let [x, y] = map_point(point);
+            positions.extend_from_slice(&[
+                [x - half_width, y + half_width, 0.0],
+                [x - half_width, y - half_width, 0.0],
+                [x + half_width, y - half_width, 0.0],
+                [x - half_width, y + half_width, 0.0],
+                [x + half_width, y - half_width, 0.0],
+                [x + half_width, y + half_width, 0.0],
+            ]);
+        }
+    } else {
+        for pair in frame.points.windows(2) {
+            if pair
+                .iter()
+                .any(|point| !point[0].is_finite() || !point[1].is_finite())
+            {
+                continue;
+            }
+            let [ax, ay] = map_point(pair[0]);
+            let [bx, by] = map_point(pair[1]);
+            let dx = bx - ax;
+            let dy = by - ay;
+            let length = (dx * dx + dy * dy).sqrt();
+            if length <= f32::EPSILON {
+                continue;
+            }
+            let offset_x = -dy / length * half_width;
+            let offset_y = dx / length * half_width;
+            let a_left = [ax + offset_x, ay + offset_y, 0.0];
+            let a_right = [ax - offset_x, ay - offset_y, 0.0];
+            let b_left = [bx + offset_x, by + offset_y, 0.0];
+            let b_right = [bx - offset_x, by - offset_y, 0.0];
+            positions.extend_from_slice(&[a_left, a_right, b_right, a_left, b_right, b_left]);
+        }
+    }
+
+    (!positions.is_empty()).then(|| Mesh::uniform_normal(positions, [0.0, 0.0, 1.0]))
+}
+
+/// Native-consumer lowering for the selected literal convex custom-shape
+/// contract. The provider owns normalized polygon points only; this consumer
+/// chooses a simple triangle fan for its bounded convex subset.
+fn custom_shape_mesh(frame: &MilkDropCustomShapeFrame, aspect: f32) -> Option<Mesh> {
+    let points = frame
+        .points
+        .iter()
+        .copied()
+        .filter(|point| point[0].is_finite() && point[1].is_finite())
+        .map(|point| {
+            [
+                (point[0].clamp(0.0, 1.0) * 2.0 - 1.0) * aspect,
+                1.0 - point[1].clamp(0.0, 1.0) * 2.0,
+                0.0,
+            ]
+        })
+        .collect::<Vec<_>>();
+    if points.len() < 3 {
+        return None;
+    }
+
+    let mut positions = Vec::with_capacity((points.len() - 2) * 3);
+    for index in 1..points.len() - 1 {
+        positions.extend_from_slice(&[points[0], points[index], points[index + 1]]);
+    }
+    Some(Mesh::uniform_normal(positions, [0.0, 0.0, 1.0]))
 }
 
 fn main() -> PlatformResult<()> {
@@ -128,6 +283,7 @@ fn write_fixture_artifacts() -> PlatformResult<()> {
         ),
     )?;
     write_shader_contract_artifacts(&output)?;
+    write_milkdrop_compatibility_artifacts(&output, viewport)?;
     for fixture in PcmFixture::ALL {
         let window = fixture.window();
         let analysis = PcmAnalyzer::analyze(&window, PcmAnalysisConfig::default())?;
@@ -200,14 +356,62 @@ provider_scope=corpus-byte-source-adapter-not-playback-or-capture\n",
             output.join(format!("{stem}.spectrum-bars.json")),
             format!("{}\n", spectrum_bars.to_structural_json()?),
         )?;
+        let radial_shape = VisualizerRadialShape::from_frame(&frame, 24, 0.35, 0.4)?;
+        fs::write(
+            output.join(format!("{stem}.radial-shape.json")),
+            format!("{}\n", radial_shape.to_structural_json()?),
+        )?;
         write_cpu_preview(
             output.join(format!("{stem}.bmp")),
             output.join(format!("{stem}.preview.txt")),
             &frame,
         )?;
-        println!("wrote {stem} input, waveform, spectrum-bar, and CPU preview evidence");
+        println!(
+            "wrote {stem} input, waveform, spectrum-bar, radial-shape, and CPU preview evidence"
+        );
     }
     println!("wrote validated two-pass, three-pass, and feedback graph evidence");
+    Ok(())
+}
+
+fn write_milkdrop_compatibility_artifacts(
+    output: &std::path::Path,
+    viewport: VisualizerViewport,
+) -> PlatformResult<()> {
+    let mut runtime = MilkDropSelectedRuntime::from_source(MILKDROP_SELECTED_FIXTURE)?;
+    let source = SyntheticVisualizerInput::new(
+        SyntheticAudioFixture::FrequencySweep,
+        SyntheticVisualizerConfig::default(),
+    )?;
+    let observation = source.frame(90, viewport)?;
+    let signal = observation.shader_signal();
+    let controls = runtime.step_with_audio(
+        90,
+        observation.time_seconds,
+        [signal[1], signal[2], signal[3]],
+        &observation.waveform,
+        &observation.spectrum,
+    )?;
+
+    fs::write(
+        output.join("milkdrop-selected-fixture.milk"),
+        MILKDROP_SELECTED_FIXTURE,
+    )?;
+    fs::write(
+        output.join("milkdrop-selected-fixture.document.json"),
+        format!("{}\n", runtime.document().to_structural_json()?),
+    )?;
+    fs::write(
+        output.join("milkdrop-selected-fixture.parameters.json"),
+        format!("{}\n", serde_json::to_string_pretty(runtime.parameters())?),
+    )?;
+    fs::write(
+        output.join("milkdrop-selected-fixture.frame.json"),
+        format!("{}\n", controls.to_structural_json()?),
+    )?;
+    println!(
+        "wrote selected MilkDrop parse, parameter, equation, scalar-control, custom-wave-point, and custom-shape-point evidence"
+    );
     Ok(())
 }
 
@@ -250,6 +454,28 @@ native_screenshot=manual-evidence-only\n",
         ),
     )?;
     println!("wrote visualizer shader and binding contract evidence");
+
+    let milkdrop_module = milkdrop_classic_shader_module()?;
+    fs::write(
+        output.join("milkdrop-classic-selected.wgsl"),
+        &milkdrop_module.source,
+    )?;
+    fs::write(
+        output.join("milkdrop-classic-selected.contract.txt"),
+        format!(
+            "schema=tokimu-milkdrop-shader-contract-v1\n\
+shader_label={}\n\
+source_file=milkdrop-classic-selected.wgsl\n\
+source_fingerprint=fnv1a64:{:016x}\n\
+control_slot=phase,audio-energy,decay,zoom\n\
+execution_scope=selected-milkdrop-1-scalars-init-and-per-frame-equations\n\
+deferred=per-pixel-equations,custom-waves,custom-shapes,textures,embedded-shaders\n\
+projectm_dependency=none\n",
+            milkdrop_module.label,
+            fnv1a64(milkdrop_module.source.as_bytes()),
+        ),
+    )?;
+    println!("wrote selected MilkDrop shader contract evidence");
     Ok(())
 }
 
@@ -371,9 +597,20 @@ fn run_offscreen_probe() -> PlatformResult<()> {
 }
 
 fn visualizer_shader_module() -> Result<ShaderModuleDefinition, ShaderModuleValidationError> {
+    sampled_visualizer_shader_module("audio-visualizer-feedback", FEEDBACK_WGSL)
+}
+
+fn milkdrop_classic_shader_module() -> Result<ShaderModuleDefinition, ShaderModuleValidationError> {
+    sampled_visualizer_shader_module("milkdrop-classic-selected", MILKDROP_CLASSIC_WGSL)
+}
+
+fn sampled_visualizer_shader_module(
+    label: &str,
+    source: &str,
+) -> Result<ShaderModuleDefinition, ShaderModuleValidationError> {
     ShaderModuleDefinition::new(
-        "audio-visualizer-feedback",
-        FEEDBACK_WGSL,
+        label,
+        source,
         "vs_main",
         "fs_main",
         vec![
@@ -504,10 +741,12 @@ struct App {
     renderer: Option<WgpuBackend>,
     window: Option<Arc<NativeWindow>>,
     pipeline: PipelineHandle,
+    milkdrop_pipeline: PipelineHandle,
     signal_field_pipeline: PipelineHandle,
     composite_pipeline: PipelineHandle,
     present_pipeline: PipelineHandle,
     spectrum_bar_pipeline: PipelineHandle,
+    milkdrop_additive_pipeline: PipelineHandle,
     viewport: VisualizerViewport,
     feedback_target_viewport: VisualizerViewport,
     history_a_is_previous: bool,
@@ -519,7 +758,10 @@ struct App {
     time_scale: f32,
     paused: bool,
     feedback_warm_observed: bool,
-    selected_visualizer: NativeVisualizerKind,
+    selected_visualizer: VisualizerSelection,
+    milkdrop_runtime: MilkDropSelectedRuntime,
+    milkdrop_controls: MilkDropClassicFrameControls,
+    milkdrop_custom_shapes_uploaded: bool,
 }
 
 impl App {
@@ -531,15 +773,33 @@ impl App {
             SyntheticVisualizerConfig::default(),
         )
         .expect("default synthetic visualizer configuration is valid");
+        let initial_viewport = VisualizerViewport::new(1, 1).expect("unit viewport is valid");
+        let initial_observation = source
+            .frame(0, initial_viewport)
+            .expect("initial synthetic visualizer frame is valid");
+        let initial_signal = initial_observation.shader_signal();
+        let mut milkdrop_runtime = MilkDropSelectedRuntime::from_source(MILKDROP_SELECTED_FIXTURE)
+            .expect("Tokimu-authored MilkDrop fixture is valid");
+        let milkdrop_controls = milkdrop_runtime
+            .step_with_audio(
+                0,
+                initial_observation.time_seconds,
+                [initial_signal[1], initial_signal[2], initial_signal[3]],
+                &initial_observation.waveform,
+                &initial_observation.spectrum,
+            )
+            .expect("initial MilkDrop controls are valid");
         Self {
             renderer: None,
             window: None,
             pipeline: PipelineHandle(0),
+            milkdrop_pipeline: PipelineHandle(0),
             signal_field_pipeline: PipelineHandle(0),
             composite_pipeline: PipelineHandle(0),
             present_pipeline: PipelineHandle(0),
             spectrum_bar_pipeline: PipelineHandle(0),
-            viewport: VisualizerViewport::new(1, 1).expect("unit viewport is valid"),
+            milkdrop_additive_pipeline: PipelineHandle(0),
+            viewport: initial_viewport,
             feedback_target_viewport: VisualizerViewport::new(1, 1)
                 .expect("unit viewport is valid"),
             history_a_is_previous: true,
@@ -551,16 +811,23 @@ impl App {
             time_scale: 1.0,
             paused: false,
             feedback_warm_observed: false,
-            selected_visualizer: NativeVisualizerKind::FeedbackBloom,
+            selected_visualizer: VisualizerSelection::Native(NativeVisualizerKind::FeedbackBloom),
+            milkdrop_runtime,
+            milkdrop_controls,
+            milkdrop_custom_shapes_uploaded: false,
         }
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self) -> PlatformResult<()> {
         self.visualizer_frame = 0;
         self.step_accumulator = 0.0;
         self.history_a_is_previous = true;
         self.feedback_reset_pending = true;
         self.feedback_warm_observed = false;
+        self.milkdrop_custom_shapes_uploaded = false;
+        self.milkdrop_runtime.reset()?;
+        self.update_milkdrop_controls()?;
+        Ok(())
     }
 
     fn upload_feedback_material_bindings(
@@ -595,6 +862,34 @@ impl App {
             renderer.upload_material(
                 material,
                 &Material::new(label, Color::rgb(1.0, 1.0, 1.0)).with_texture(target),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn upload_milkdrop_material_bindings(
+        renderer: &mut WgpuBackend,
+        controls: [f32; 4],
+    ) -> PlatformResult<()> {
+        for (material, target, label) in [
+            (
+                MILKDROP_FROM_HISTORY_A,
+                HISTORY_A,
+                "milkdrop-classic-from-history-a",
+            ),
+            (
+                MILKDROP_FROM_HISTORY_B,
+                HISTORY_B,
+                "milkdrop-classic-from-history-b",
+            ),
+        ] {
+            renderer.upload_material(
+                material,
+                &Material::new(
+                    label,
+                    Color::rgba(controls[0], controls[1], controls[2], controls[3]),
+                )
+                .with_texture(target),
             )?;
         }
         Ok(())
@@ -636,31 +931,65 @@ impl App {
         Ok(())
     }
 
-    fn cycle_fixture(&mut self, direction: isize) {
+    fn cycle_fixture(&mut self, direction: isize) -> PlatformResult<()> {
         let count = SyntheticAudioFixture::ALL.len() as isize;
         self.fixture_index = (self.fixture_index as isize + direction).rem_euclid(count) as usize;
         self.source
             .set_fixture(SyntheticAudioFixture::ALL[self.fixture_index]);
-        self.reset();
+        self.reset()
     }
 
-    fn advance(&mut self, delta_seconds: f64) {
-        if self.paused {
+    fn select_visualizer(&mut self, selection: VisualizerSelection) {
+        if self.selected_visualizer == selection {
             return;
+        }
+        self.selected_visualizer = selection;
+        self.history_a_is_previous = true;
+        self.feedback_reset_pending = true;
+        self.feedback_warm_observed = false;
+    }
+
+    fn advance(&mut self, delta_seconds: f64) -> PlatformResult<()> {
+        if self.paused {
+            return Ok(());
         }
         self.step_accumulator += (delta_seconds as f32).clamp(0.0, 0.1) * self.time_scale;
         while self.step_accumulator >= FIXED_STEP_SECONDS {
             self.visualizer_frame = self.visualizer_frame.saturating_add(1);
             self.step_accumulator -= FIXED_STEP_SECONDS;
+            self.update_milkdrop_controls()?;
         }
+        Ok(())
+    }
+
+    fn update_milkdrop_controls(&mut self) -> PlatformResult<()> {
+        let observation = self.source.frame(self.visualizer_frame, self.viewport)?;
+        let signal = observation.shader_signal();
+        self.milkdrop_controls = self.milkdrop_runtime.step_with_audio(
+            self.visualizer_frame,
+            observation.time_seconds,
+            [signal[1], signal[2], signal[3]],
+            &observation.waveform,
+            &observation.spectrum,
+        )?;
+        Ok(())
     }
 
     fn render(&mut self) -> PlatformResult<FrameOutcome> {
         match self.selected_visualizer {
-            NativeVisualizerKind::SignalField => self.render_signal_field(),
-            NativeVisualizerKind::FeedbackBloom => self.render_feedback_bloom(),
-            NativeVisualizerKind::SignalComposite => self.render_signal_composite(),
-            NativeVisualizerKind::SpectrumBars => self.render_spectrum_bars(),
+            VisualizerSelection::Native(NativeVisualizerKind::SignalField) => {
+                self.render_signal_field()
+            }
+            VisualizerSelection::Native(NativeVisualizerKind::FeedbackBloom) => {
+                self.render_feedback_bloom()
+            }
+            VisualizerSelection::Native(NativeVisualizerKind::SignalComposite) => {
+                self.render_signal_composite()
+            }
+            VisualizerSelection::Native(NativeVisualizerKind::SpectrumBars) => {
+                self.render_spectrum_bars()
+            }
+            VisualizerSelection::MilkDropClassic => self.render_milkdrop_classic(),
         }
     }
 
@@ -808,6 +1137,140 @@ impl App {
     fn render_feedback_bloom(&mut self) -> PlatformResult<FrameOutcome> {
         let observation = self.source.frame(self.visualizer_frame, self.viewport)?;
         let signal = observation.shader_signal();
+        self.render_feedback_pass(
+            observation,
+            signal,
+            self.pipeline,
+            FEEDBACK_FROM_HISTORY_A,
+            FEEDBACK_FROM_HISTORY_B,
+            &[],
+        )
+    }
+
+    fn render_milkdrop_classic(&mut self) -> PlatformResult<FrameOutcome> {
+        let observation = self.source.frame(self.visualizer_frame, self.viewport)?;
+        let aspect = self.feedback_target_viewport.width as f32
+            / self.feedback_target_viewport.height as f32;
+        if !self.milkdrop_custom_shapes_uploaded {
+            let Some(renderer) = self.renderer.as_mut() else {
+                return Ok(FrameOutcome::Continue);
+            };
+            Self::upload_custom_shape_geometry(
+                renderer,
+                &self.milkdrop_controls.custom_shape_frames,
+                aspect,
+            )?;
+            self.milkdrop_custom_shapes_uploaded = true;
+        }
+        let overlay_draws = {
+            let Some(renderer) = self.renderer.as_mut() else {
+                return Ok(FrameOutcome::Continue);
+            };
+            let mut draws = Vec::new();
+            for (slot, frame) in self
+                .milkdrop_controls
+                .custom_wave_frames
+                .iter()
+                .take(MAX_NATIVE_CUSTOM_WAVES)
+                .enumerate()
+            {
+                let Some(mesh) = custom_wave_mesh(frame, aspect) else {
+                    continue;
+                };
+                renderer.upload_mesh(MILKDROP_CUSTOM_WAVE_MESHES[slot], &mesh);
+                renderer.update_material_color(
+                    MILKDROP_CUSTOM_WAVE_MATERIALS[slot],
+                    Color::rgba(
+                        frame.wave.color[0],
+                        frame.wave.color[1],
+                        frame.wave.color[2],
+                        frame.wave.color[3],
+                    ),
+                )?;
+                draws.push(DrawMeshCommand {
+                    mesh: MILKDROP_CUSTOM_WAVE_MESHES[slot],
+                    material: MILKDROP_CUSTOM_WAVE_MATERIALS[slot],
+                    pipeline: milkdrop_overlay_pipeline(
+                        frame.wave.additive,
+                        self.spectrum_bar_pipeline,
+                        self.milkdrop_additive_pipeline,
+                    ),
+                    instance: Instance2d::identity(),
+                    camera: Some(FEEDBACK_CAMERA),
+                    viewport: None,
+                });
+            }
+            for (slot, frame) in self
+                .milkdrop_controls
+                .custom_shape_frames
+                .iter()
+                .take(MAX_NATIVE_CUSTOM_SHAPES)
+                .enumerate()
+            {
+                if frame.points.len() < 3 {
+                    continue;
+                }
+                // The selected shape subset is convex. Its mesh was uploaded
+                // once per viewport because only presentation aspect changes
+                // its native coordinates; source properties remain provider
+                // data and do not imply per-frame mesh churn.
+                draws.push(DrawMeshCommand {
+                    mesh: MILKDROP_CUSTOM_SHAPE_MESHES[slot],
+                    material: MILKDROP_CUSTOM_SHAPE_MATERIALS[slot],
+                    pipeline: milkdrop_overlay_pipeline(
+                        frame.shape.additive,
+                        self.spectrum_bar_pipeline,
+                        self.milkdrop_additive_pipeline,
+                    ),
+                    instance: Instance2d::identity(),
+                    camera: Some(FEEDBACK_CAMERA),
+                    viewport: None,
+                });
+            }
+            draws
+        };
+        self.render_feedback_pass(
+            observation,
+            self.milkdrop_controls.shader_signal(),
+            self.milkdrop_pipeline,
+            MILKDROP_FROM_HISTORY_A,
+            MILKDROP_FROM_HISTORY_B,
+            &overlay_draws,
+        )
+    }
+
+    fn upload_custom_shape_geometry(
+        renderer: &mut WgpuBackend,
+        frames: &[MilkDropCustomShapeFrame],
+        aspect: f32,
+    ) -> PlatformResult<()> {
+        for (slot, frame) in frames.iter().take(MAX_NATIVE_CUSTOM_SHAPES).enumerate() {
+            let Some(mesh) = custom_shape_mesh(frame, aspect) else {
+                continue;
+            };
+            renderer.upload_mesh(MILKDROP_CUSTOM_SHAPE_MESHES[slot], &mesh);
+            renderer.update_material_color(
+                MILKDROP_CUSTOM_SHAPE_MATERIALS[slot],
+                Color::rgba(
+                    frame.shape.color[0],
+                    frame.shape.color[1],
+                    frame.shape.color[2],
+                    frame.shape.color[3],
+                ),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn render_feedback_pass(
+        &mut self,
+        observation: visualizer_tools::VisualizerFrameInput,
+        signal: [f32; 4],
+        pipeline: PipelineHandle,
+        from_history_a: MaterialHandle,
+        from_history_b: MaterialHandle,
+        overlay_draws: &[DrawMeshCommand],
+    ) -> PlatformResult<FrameOutcome> {
         let aspect = self.viewport.width as f32 / self.viewport.height as f32;
         let Some(renderer) = self.renderer.as_mut() else {
             return Ok(FrameOutcome::Continue);
@@ -815,9 +1278,9 @@ impl App {
 
         renderer.begin_frame();
         let (current_target, feedback_material, present_material) = if self.history_a_is_previous {
-            (HISTORY_B, FEEDBACK_FROM_HISTORY_A, PRESENT_HISTORY_B)
+            (HISTORY_B, from_history_a, PRESENT_HISTORY_B)
         } else {
-            (HISTORY_A, FEEDBACK_FROM_HISTORY_B, PRESENT_HISTORY_A)
+            (HISTORY_A, from_history_b, PRESENT_HISTORY_A)
         };
         // Texture identities are stable across ordinary frames, so only the
         // active feedback material color uniform changes with the audio signal.
@@ -845,17 +1308,20 @@ impl App {
         renderer.upload_camera(FEEDBACK_CAMERA, feedback_camera);
         let feedback_aspect = self.feedback_target_viewport.width as f32
             / self.feedback_target_viewport.height as f32;
+        let mut draws = Vec::with_capacity(1 + overlay_draws.len());
+        draws.push(DrawMeshCommand {
+            mesh: QUAD,
+            material: feedback_material,
+            pipeline,
+            instance: Instance2d::identity().with_scale([feedback_aspect, 1.0]),
+            camera: Some(FEEDBACK_CAMERA),
+            viewport: None,
+        });
+        draws.extend_from_slice(overlay_draws);
         renderer.draw_meshes_to_render_target(
             current_target,
             Color::rgb(0.015, 0.025, 0.045),
-            &[DrawMeshCommand {
-                mesh: QUAD,
-                material: feedback_material,
-                pipeline: self.pipeline,
-                instance: Instance2d::identity().with_scale([feedback_aspect, 1.0]),
-                camera: Some(FEEDBACK_CAMERA),
-                viewport: None,
-            }],
+            &draws,
         )?;
 
         let stats = Self::present_target(
@@ -906,15 +1372,33 @@ impl App {
         observation: &visualizer_tools::VisualizerFrameInput,
         target_resources: tokimu::RenderTargetResourceObservation,
     ) {
-        if self.selected_visualizer == NativeVisualizerKind::FeedbackBloom
+        if self.selected_visualizer.uses_feedback()
             && !self.feedback_warm_observed
             && self.visualizer_frame >= FEEDBACK_WARMUP_FRAMES
         {
-            let churn = steady_state_resource_churn(&stats.frame);
+            let expected_dynamic_mesh_updates = if matches!(
+                self.selected_visualizer,
+                VisualizerSelection::MilkDropClassic
+            ) {
+                self.milkdrop_controls
+                    .custom_wave_frames
+                    .len()
+                    .min(MAX_NATIVE_CUSTOM_WAVES) as u32
+            } else {
+                0
+            };
+            let expected_mesh_replacements = stats
+                .frame
+                .mesh_replacements
+                .min(expected_dynamic_mesh_updates);
+            let churn = steady_state_resource_churn(&stats.frame)
+                .saturating_sub(expected_mesh_replacements);
             println!(
-                "hello-audio-visualizer warm feedback observation: frame={}, resource_churn={}, binding_allocations={}, pipeline_creations={}, mesh_uploads={}, texture_allocations={}, render_targets={}, target_pixels={}, target_estimated_bytes={}",
+                "hello-audio-visualizer warm feedback observation: frame={}, unexpected_resource_churn={}, expected_dynamic_mesh_updates={}, mesh_replacements={}, binding_allocations={}, pipeline_creations={}, mesh_uploads={}, texture_allocations={}, render_targets={}, target_pixels={}, target_estimated_bytes={}",
                 self.visualizer_frame,
                 churn,
+                expected_dynamic_mesh_updates,
+                stats.frame.mesh_replacements,
                 stats.frame.binding_allocations,
                 stats.frame.pipeline_creations,
                 stats.frame.mesh_uploads,
@@ -958,7 +1442,7 @@ impl App {
     fn update_title(&self) {
         if let Some(window) = self.window.as_ref() {
             window.set_title(&format!(
-                "Tokimu Audio Visualizer | {} | {} | frame={} | {:.2}x | {} | Q signal | W feedback | E composite | X bars | Left/Right fixture | Space pause | Up/Down speed | R reset",
+                "Tokimu Audio Visualizer | {} | {} | frame={} | {:.2}x | {} | Q signal | W feedback | E composite | X bars | M MilkDrop | Left/Right fixture | Space pause | Up/Down speed | R reset",
                 self.selected_visualizer.label(),
                 self.source.fixture().label(),
                 self.visualizer_frame,
@@ -978,6 +1462,17 @@ impl PlatformEventHandler for App {
 
         let mut renderer = WgpuBackend::for_window(window, size.width, size.height)?;
         renderer.upload_mesh(QUAD, &Mesh::quad());
+        // A non-empty placeholder keeps every bounded custom-wave handle
+        // valid until the first audio-driven mesh replacement.
+        for mesh in MILKDROP_CUSTOM_WAVE_MESHES {
+            renderer.upload_mesh(mesh, &Mesh::triangle());
+        }
+        // Literal selected custom shapes use the same bounded placeholder
+        // policy. Their static convex geometry is uploaded before its first
+        // MilkDrop presentation frame or after a viewport-aspect change.
+        for mesh in MILKDROP_CUSTOM_SHAPE_MESHES {
+            renderer.upload_mesh(mesh, &Mesh::triangle());
+        }
         for target in [HISTORY_A, HISTORY_B, SIGNAL_FIELD_TARGET, COMPOSITE_TARGET] {
             renderer.create_render_target_rgba8(
                 target,
@@ -989,16 +1484,45 @@ impl PlatformEventHandler for App {
             )?;
         }
         Self::upload_feedback_material_bindings(&mut renderer, [0.0; 4])?;
+        Self::upload_milkdrop_material_bindings(
+            &mut renderer,
+            self.milkdrop_controls.shader_signal(),
+        )?;
         Self::upload_signal_field_material_bindings(&mut renderer, [0.0; 4])?;
         Self::upload_composite_material_bindings(&mut renderer)?;
         renderer.upload_material(
             SPECTRUM_BAR_MATERIAL,
             &Material::new("visualizer-spectrum-bars", Color::rgb(0.35, 0.95, 0.82)),
         )?;
+        for (slot, material) in MILKDROP_CUSTOM_WAVE_MATERIALS.into_iter().enumerate() {
+            renderer.upload_material(
+                material,
+                &Material::new(
+                    format!("milkdrop-custom-wave-{slot}"),
+                    Color::rgba(0.25, 0.85, 1.0, 0.8),
+                ),
+            )?;
+        }
+        for (slot, material) in MILKDROP_CUSTOM_SHAPE_MATERIALS.into_iter().enumerate() {
+            renderer.upload_material(
+                material,
+                &Material::new(
+                    format!("milkdrop-custom-shape-{slot}"),
+                    Color::rgba(1.0, 0.75, 0.2, 0.65),
+                ),
+            )?;
+        }
         let pipeline =
             Pipeline::custom_wgsl_module("audio-visualizer-feedback", visualizer_shader_module()?)?;
         pipeline.validate_draw_contract(&visualizer_material_definition()?, &Mesh::quad())?;
         self.pipeline = renderer.register_pipeline(&pipeline)?;
+        let milkdrop_pipeline = Pipeline::custom_wgsl_module(
+            "milkdrop-classic-selected",
+            milkdrop_classic_shader_module()?,
+        )?;
+        milkdrop_pipeline
+            .validate_draw_contract(&visualizer_material_definition()?, &Mesh::quad())?;
+        self.milkdrop_pipeline = renderer.register_pipeline(&milkdrop_pipeline)?;
         let signal_field_pipeline = Pipeline::custom_wgsl_module(
             "audio-visualizer-signal-field",
             signal_field_shader_module()?,
@@ -1021,6 +1545,16 @@ impl PlatformEventHandler for App {
             "audio-visualizer-spectrum-bars",
             tokimu::PipelineKind::SolidColor2d,
         ))?;
+        let milkdrop_additive_pipeline = Pipeline::new(
+            "milkdrop-additive-overlays",
+            tokimu::PipelineKind::SolidColor2d,
+        )
+        .with_render_state(PipelineRenderState {
+            blend: BlendMode::Additive,
+            ..PipelineRenderState::painter_ordered_2d()
+        })?;
+        self.milkdrop_additive_pipeline =
+            renderer.register_pipeline(&milkdrop_additive_pipeline)?;
         self.renderer = Some(renderer);
         self.update_title();
         Ok(())
@@ -1052,10 +1586,15 @@ impl PlatformEventHandler for App {
                                 replacement.invalidated_derived_materials;
                         }
                         self.feedback_target_viewport = viewport;
+                        self.milkdrop_custom_shapes_uploaded = false;
                         // Replacing target textures invalidates the views held
                         // by material bind groups. Rebind once at this explicit
                         // lifecycle boundary rather than on every frame.
                         Self::upload_feedback_material_bindings(renderer, [0.0; 4])?;
+                        Self::upload_milkdrop_material_bindings(
+                            renderer,
+                            self.milkdrop_controls.shader_signal(),
+                        )?;
                         Self::upload_signal_field_material_bindings(renderer, [0.0; 4])?;
                         Self::upload_composite_material_bindings(renderer)?;
                         self.feedback_reset_pending = true;
@@ -1074,16 +1613,25 @@ impl PlatformEventHandler for App {
                 }
             }
             PlatformInputEvent::KeyboardInput { key, pressed: true } => match key {
-                KeyCode::ArrowRight => self.cycle_fixture(1),
-                KeyCode::ArrowLeft => self.cycle_fixture(-1),
+                KeyCode::ArrowRight => self.cycle_fixture(1)?,
+                KeyCode::ArrowLeft => self.cycle_fixture(-1)?,
                 KeyCode::ArrowUp => self.time_scale = (self.time_scale * 2.0).min(4.0),
                 KeyCode::ArrowDown => self.time_scale = (self.time_scale * 0.5).max(0.25),
                 KeyCode::Space => self.paused = !self.paused,
-                KeyCode::KeyR => self.reset(),
-                KeyCode::KeyQ => self.selected_visualizer = NativeVisualizerKind::SignalField,
-                KeyCode::KeyW => self.selected_visualizer = NativeVisualizerKind::FeedbackBloom,
-                KeyCode::KeyE => self.selected_visualizer = NativeVisualizerKind::SignalComposite,
-                KeyCode::KeyX => self.selected_visualizer = NativeVisualizerKind::SpectrumBars,
+                KeyCode::KeyR => self.reset()?,
+                KeyCode::KeyQ => self.select_visualizer(VisualizerSelection::Native(
+                    NativeVisualizerKind::SignalField,
+                )),
+                KeyCode::KeyW => self.select_visualizer(VisualizerSelection::Native(
+                    NativeVisualizerKind::FeedbackBloom,
+                )),
+                KeyCode::KeyE => self.select_visualizer(VisualizerSelection::Native(
+                    NativeVisualizerKind::SignalComposite,
+                )),
+                KeyCode::KeyX => self.select_visualizer(VisualizerSelection::Native(
+                    NativeVisualizerKind::SpectrumBars,
+                )),
+                KeyCode::KeyM => self.select_visualizer(VisualizerSelection::MilkDropClassic),
                 _ => {}
             },
             _ => {}
@@ -1093,7 +1641,7 @@ impl PlatformEventHandler for App {
     }
 
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
-        self.advance(delta_seconds);
+        self.advance(delta_seconds)?;
         self.render()
     }
 }
@@ -1101,13 +1649,15 @@ impl PlatformEventHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        composite_shader_module, signal_field_shader_module, steady_state_resource_churn,
-        visualizer_material_definition, visualizer_shader_module,
+        composite_shader_module, custom_shape_mesh, custom_wave_mesh,
+        milkdrop_classic_shader_module, milkdrop_overlay_pipeline, signal_field_shader_module,
+        steady_state_resource_churn, visualizer_material_definition, visualizer_shader_module,
     };
+    use milkdrop_tools::{MilkDropCustomShape, MilkDropCustomShapeFrame, MilkDropCustomWaveFrame};
     use tokimu::{
         Color, MaterialDefinition, MaterialDefinitionId, MaterialParameterDeclaration,
         MaterialParameterKind, MaterialParameterValue, Mesh, Pipeline, PipelineDrawContractError,
-        RenderFrameStats, ShaderDiagnosticStage, ShaderMaterialCompatibilityError,
+        PipelineHandle, RenderFrameStats, ShaderDiagnosticStage, ShaderMaterialCompatibilityError,
     };
 
     #[test]
@@ -1130,6 +1680,21 @@ mod tests {
         let pipeline = Pipeline::custom_wgsl_module(
             "audio-visualizer-signal-field",
             signal_field_shader_module().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            pipeline
+                .validate_draw_contract(&visualizer_material_definition().unwrap(), &Mesh::quad()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn milkdrop_classic_contract_reuses_the_bounded_feedback_material_shape() {
+        let pipeline = Pipeline::custom_wgsl_module(
+            "milkdrop-classic-selected",
+            milkdrop_classic_shader_module().unwrap(),
         )
         .unwrap();
 
@@ -1183,6 +1748,93 @@ mod tests {
                 ShaderMaterialCompatibilityError::MaterialParameterKindMismatch { .. }
             )
         ));
+    }
+
+    #[test]
+    fn milkdrop_overlay_pipeline_preserves_selected_additive_intent() {
+        let alpha = PipelineHandle(41);
+        let additive = PipelineHandle(42);
+
+        assert_eq!(milkdrop_overlay_pipeline(false, alpha, additive), alpha);
+        assert_eq!(milkdrop_overlay_pipeline(true, alpha, additive), additive);
+    }
+
+    #[test]
+    fn native_custom_wave_line_lowering_produces_finite_triangle_geometry() {
+        let frame = MilkDropCustomWaveFrame {
+            wave: milkdrop_tools::MilkDropCustomWave {
+                index: 0,
+                enabled: true,
+                samples: 16,
+                spectrum: false,
+                dots: false,
+                thick: true,
+                additive: false,
+                scaling: 1.0,
+                color: [0.25, 0.85, 1.0, 0.8],
+                center: [0.5, 0.5],
+            },
+            source: milkdrop_tools::MilkDropCustomWaveSampleSource::Waveform,
+            points: vec![[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]],
+        };
+
+        let mesh = custom_wave_mesh(&frame, 16.0 / 9.0).expect("line geometry");
+        assert_eq!(mesh.vertex_count(), 12);
+        assert!(mesh
+            .positions
+            .iter()
+            .flatten()
+            .all(|value| value.is_finite()));
+    }
+
+    #[test]
+    fn native_custom_wave_dot_lowering_uses_one_quad_per_point() {
+        let frame = MilkDropCustomWaveFrame {
+            wave: milkdrop_tools::MilkDropCustomWave {
+                index: 0,
+                enabled: true,
+                samples: 16,
+                spectrum: false,
+                dots: true,
+                thick: false,
+                additive: false,
+                scaling: 1.0,
+                color: [0.25, 0.85, 1.0, 0.8],
+                center: [0.5, 0.5],
+            },
+            source: milkdrop_tools::MilkDropCustomWaveSampleSource::Waveform,
+            points: vec![[0.25, 0.25], [0.75, 0.75]],
+        };
+
+        let mesh = custom_wave_mesh(&frame, 1.0).expect("dot geometry");
+        assert_eq!(mesh.vertex_count(), 12);
+    }
+
+    #[test]
+    fn native_custom_shape_lowering_uses_a_finite_convex_triangle_fan() {
+        let frame = MilkDropCustomShapeFrame {
+            shape: MilkDropCustomShape {
+                index: 0,
+                enabled: true,
+                sides: 4,
+                additive: false,
+                thick_outline: true,
+                textured: false,
+                center: [0.5, 0.5],
+                radius: 0.2,
+                angle_radians: 0.0,
+                color: [1.0, 0.75, 0.2, 0.65],
+            },
+            points: vec![[0.3, 0.5], [0.5, 0.3], [0.7, 0.5], [0.5, 0.7]],
+        };
+
+        let mesh = custom_shape_mesh(&frame, 16.0 / 9.0).expect("convex shape geometry");
+        assert_eq!(mesh.vertex_count(), 6);
+        assert!(mesh
+            .positions
+            .iter()
+            .flatten()
+            .all(|value| value.is_finite()));
     }
 
     #[test]

@@ -1,13 +1,14 @@
 //! Headless MilkDrop parser and scalar-evaluator corpus consumer.
 //!
-//! This executable records selected scalar evidence only. It does not execute
-//! per-pixel equations, open an audio device, compile shaders, or render a
-//! frame.
+//! This executable records selected scalar and literal custom-wave evidence.
+//! It does not execute per-pixel or custom-wave equations, open an audio
+//! device, compile shaders, or render a frame.
 
 use std::{error::Error, fs, path::PathBuf};
 
 use milkdrop_tools::{
-    evaluate_selected_equations, resolve_selected_parameters, MilkDropEvaluationPhase,
+    evaluate_selected_equations, inspect_shader_entries, resolve_selected_custom_shapes,
+    resolve_selected_custom_waves, resolve_selected_parameters, MilkDropEvaluationPhase,
     MilkDropEvaluationState, MilkDropPresetDocument,
 };
 use serde_json::json;
@@ -88,6 +89,9 @@ fn main() -> AppResult<()> {
 fn build_artifact(fixture: &Fixture<'_>) -> AppResult<serde_json::Value> {
     let document = MilkDropPresetDocument::parse(fixture.source)?;
     let parameters = resolve_selected_parameters(&document)?;
+    let custom_waves = resolve_selected_custom_waves(&document)?;
+    let custom_shapes = resolve_selected_custom_shapes(&document)?;
+    let shader_inspection = inspect_shader_entries(&document);
     let mut evaluation = MilkDropEvaluationState::default();
     let initialization_equations = evaluate_selected_equations(
         &document,
@@ -113,15 +117,23 @@ fn build_artifact(fixture: &Fixture<'_>) -> AppResult<serde_json::Value> {
         "inspection": serde_json::from_str::<serde_json::Value>(&document.to_structural_json()?)?,
         "execution": {
             "selected_parameters": parameters,
+            "selected_custom_waves": custom_waves,
+            "selected_custom_shapes": custom_shapes,
+            "custom_wave_equations_executed": false,
+            "custom_shape_equations_executed": false,
+            "custom_wave_renderer_required": false,
+            "custom_shape_renderer_required": false,
             "equations_evaluated": true,
             "initialization_equations": initialization_equations,
             "per_frame_equations": per_frame_equations,
             "per_pixel_equations_deferred": document.sections.iter().flat_map(|section| &section.entries)
                 .filter(|entry| entry.construct == milkdrop_tools::MilkDropConstruct::PerPixelEquation)
                 .count(),
+            "shader_entries": shader_inspection,
             "scalar_state": evaluation,
             "audio_device_required": false,
             "renderer_required": false,
+            "shader_translation_performed": false,
             "shader_compilation_performed": false,
         },
     });

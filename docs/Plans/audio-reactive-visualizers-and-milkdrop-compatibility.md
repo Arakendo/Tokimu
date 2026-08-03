@@ -2,10 +2,11 @@
 
 ## Status
 
-Implementation started on 2026-08-01. Deterministic visualizer observations
-and a bounded native feedback corpus application now incubate under `corpus/`.
-No MilkDrop parser, preset evaluator, provider-neutral multipass renderer, or
-visualizer capability is currently admitted.
+Implementation started on 2026-08-01. Deterministic visualizer observations,
+a bounded native feedback corpus application, and a selected first-party
+MilkDrop parser/evaluator now incubate under `corpus/`. No general MilkDrop
+compatibility provider, provider-neutral multipass renderer, or visualizer
+capability is currently admitted.
 
 Plan checkpoint: 2026-08-02. The corpus now emits validated three-pass and
 previous-frame feedback structural graphs with bounded pass/resource summaries.
@@ -17,6 +18,11 @@ recorded zero frame-local resource churn after warmup. Three
 original native visualizer definitions now serialize as corpus-side structural
 evidence, with stable identities, bounded parameters, and distinct pass-graph
 shapes. They do not yet establish a shared visualizer execution model.
+The website consumer now executes the same selected first-party scalar fixture
+inside Rust/WASM and exposes its controls to Canvas as explicitly labeled
+browser observation evidence; it does not establish arbitrary preset support,
+projectM integration, microphone capture, or native feedback-renderer
+equivalence.
 
 The first implementation should incubate in focused corpus libraries and
 applications. This plan does not create `tokimu-audio`,
@@ -715,7 +721,7 @@ Acceptance criteria:
       deterministic scalar-state artifact.
 - [ ] Equation fixtures match a documented external compatibility oracle for
       admitted third-party preset inputs.
-- [ ] Preset evaluation cannot access files, network, process state, or ambient
+- [x] Preset evaluation cannot access files, network, process state, or ambient
       randomness.
 - [x] Unsupported MilkDrop 2 shader sections are labeled `unsupported`, not
       silently ignored.
@@ -725,8 +731,10 @@ headless parser and scalar-evaluation boundary using a Tokimu-authored
 MilkDrop 1-style fixture.
 The parser preserves ordered sections, keys, values, and source lines while
 classifying selected scalar parameters plus initialization, per-frame, and
-per-pixel equation declarations. Custom waves, custom shapes, warp shaders,
-composite shaders, and unknown keys become explicit `unsupported` evidence.
+per-pixel equation declarations. Selected literal custom waves and convex
+custom shapes are separately classified for bounded lowering; custom code,
+warp shaders, composite shaders, and unknown keys remain explicit
+`unsupported` evidence.
 The selected initialization and per-frame scalar subset now evaluates in source
 order into an explicit, deterministic state map. Selected classic scalar keys
 resolve against documented Tokimu defaults, while duplicate and non-finite
@@ -734,7 +742,8 @@ declarations are rejected rather than silently overwritten. The evaluator accept
 variables, arithmetic, parentheses, and `sin`, `cos`, and `abs`; unsupported
 syntax, variables, functions, division by zero, excessive work, and non-finite
 results fail with the owning source line. Per-pixel equations, external preset
-loading, shader compilation, and rendering remain deferred. External preset
+loading, general shader translation, and arbitrary preset rendering remain
+deferred. External preset
 provenance remains a prerequisite for admitting any third-party fixture.
 Regression coverage rejects unknown ambient-style identifiers and unsupported
 function calls before any host evaluation could occur. The evaluator has no
@@ -747,7 +756,8 @@ precedence, parenthesized terms, selected pure functions,
 initialization-to-frame state progression, and semicolon-delimited assignment
 ordering. The construct matrix proves that every selected classification branch
 is retained: scalar parameters and initialization/per-frame equations are
-admitted; per-pixel equations are explicitly deferred; custom waves, shapes,
+admitted; per-pixel equations are explicitly deferred; literal custom-wave and
+custom-shape properties are preserved for bounded lowering; custom code,
 warp/composite shaders, and unknown keys are explicitly unsupported. It is
 first-party evidence for Tokimu's bounded subset, not an external compatibility
 oracle.
@@ -755,6 +765,19 @@ Direct `milkdrop-tools` tests resolve all eleven admitted scalar keys and reject
 non-finite scalar values plus fractional or out-of-range echo orientations.
 Those tests make the selected scalar contract explicit without broadening the
 first-party subset or implying third-party preset compatibility.
+
+`MilkDropSelectedRuntime` now supplies the first bounded execution proof above
+the parser. It owns no clock, audio device, filesystem, network, renderer, or
+random source; callers explicitly provide a monotonically increasing semantic
+frame number, time, and normalized bass/mid/treble observations. The runtime
+evaluates initialization and per-frame equations, validates selected scalar
+state, and lowers that state into provider-neutral phase, audio-energy, decay,
+and zoom controls. `hello-audio-visualizer` executes those controls with `M`
+through an original Tokimu WGSL previous-frame feedback shader and records the
+preset source, parsed document, resolved parameters, frame state, shader, and
+binding contract as artifacts. This proves only the Tokimu-authored selected
+subset; it is neither projectM integration nor evidence that arbitrary
+third-party presets are compatible.
 
 ### Slice 11: MilkDrop Waves, Shapes, Textures, And Shaders
 
@@ -767,12 +790,36 @@ Deliverables:
 - [x] Render the same spectrum-bar lowering through the native quad pipeline
       (`X` in `hello-audio-visualizer`) without a renderer-specific audio
       analysis path.
-- [ ] Add custom wave and shape semantics incrementally from corpus evidence.
+- [x] Lower one original bounded radial shape from provider-neutral spectrum
+      and beat observations into deterministic presentation geometry.
+- [x] Resolve selected literal custom-wave section properties into bounded,
+      provider-neutral descriptions without executing `wavecode` or creating
+      renderer objects.
+- [x] Lower selected custom-wave descriptions through a renderer-neutral point
+      contract using explicit waveform or spectrum sample sources.
+- [x] Render that selected custom-wave point contract in the browser consumer
+      without TypeScript parsing preset source or executing `wavecode`.
+- [x] Prove the same selected custom-wave point contract through an independent
+      native presentation consumer before treating it as reusable capability
+      evidence.
+- [x] Add one selected literal convex custom-shape subset from corpus evidence:
+      bounded scalar properties lower to renderer-neutral normalized polygon
+      points without executing `shapecode`, selecting a fill rule, resolving a
+      texture, or owning renderer resources. A `textured=1` request is rejected
+      at the provider boundary until a resolved asset contract exists, rather
+      than being silently rendered as a solid polygon. The untextured contract
+      is asserted without audio input, serialized in the selected frame
+      artifact, observed through browser WASM, and lowered independently by the
+      native consumer.
 - [ ] Resolve preset texture names through `tokimu-assets` and normalized image
       contracts.
-- [ ] Investigate bounded HLSL-compatible translation to WGSL for MilkDrop 2
-      shaders.
-- [ ] Preserve blend, wrap, filtering, and previous-frame semantics explicitly.
+- [x] Investigate bounded HLSL-compatible translation to WGSL for MilkDrop 2
+      shaders by preserving shader-bearing entries as source inspections before
+      attempting translation.
+- [x] Preserve selected additive-blend intent and previous-frame semantics
+      explicitly.
+- [ ] Resolve texture wrap and filtering only through a normalized texture
+      requirement contract.
 - [ ] Where useful and legally permitted, compare output and structural
       artifacts against a separately installed projectM executable for selected
       presets without treating pixels as the only oracle or making projectM a
@@ -791,42 +838,92 @@ Current evidence: `visualizer-tools::VisualizerWaveform` lowers normalized
 waveform samples already carried by `VisualizerFrameInput` into a bounded
 provider-neutral line-strip point sequence. `VisualizerSpectrumBars` lowers
 the same frame's normalized spectrum into stable, non-overlapping rectangle
-geometry. Both reject invalid inputs and gain before producing geometry. The
+geometry. `VisualizerRadialShape` adds one original Tokimu-authored polygon
+proof with bounded side count, radius, and audio gain. All three reject invalid
+inputs before producing geometry. The
 native `hello-audio-visualizer --write-artifacts` command writes deterministic
-`.waveform.json` and `.spectrum-bars.json` artifacts for every synthetic
-fixture beside its input and CPU preview evidence. These are original built-in
-presentation proofs only: they do not admit MilkDrop custom-wave semantics,
-custom shapes, texture resolution, shader translation, renderer mesh
-ownership, or third-party preset compatibility.
+`.waveform.json`, `.spectrum-bars.json`, and `.radial-shape.json` artifacts for
+every synthetic fixture beside its input and CPU preview evidence. These are
+original built-in presentation proofs only: they do not admit MilkDrop
+custom-wave semantics, MilkDrop custom shapes, texture resolution, shader
+translation, renderer mesh ownership, or third-party preset compatibility.
+The same corpus now also preserves previous-frame sampling plus selected
+classic `decay` and `zoom` semantics for the Tokimu-authored MilkDrop fixture.
+That execution path deliberately stops before named textures, per-pixel
+equations, embedded shaders, or projectM behavior. It now
+also resolves one selected literal `[wave_0]` description into bounded semantic
+data (sample count, flags, color, scale, and center). Given explicit normalized
+waveform or spectrum observations, `milkdrop-tools` lowers that description
+into renderer-neutral point data. Both the browser consumer and the native
+`hello-audio-visualizer` consume that same point contract: Canvas selects its
+  own line/dot presentation, while the native corpus converts points into
+  triangle strips in the consumer and overlays them over the feedback target.
+  The provider still owns neither mesh generation nor blend execution. Native
+per-frame point-to-mesh uploads are intentionally visible in the renderer
+performance counters. The selected fixture additionally resolves one
+untextured literal `[shape_0]` description into bounded convex-polygon points.
+Canvas chooses a local fill/outline presentation, while the native consumer
+creates a convex triangle fan only on first use or after a viewport-aspect
+change. A `textured=1` request stops at the provider boundary with a
+  texture-resolution diagnostic; it cannot silently become a solid polygon.
+  Neither path executes `shapecode`, selects a fill rule, samples a texture, or
+  owns blend execution. The native consumer now maps selected `additive=1`
+  wave/shape intent through the renderer-neutral `BlendMode::Additive` pipeline
+  policy; this is intentionally below the MilkDrop provider boundary. Texture
+  wrapping and filtering remain deferred to the raster requirement review. The
+  selected custom-shape contract proves
+that untextured lowering does not depend on audio input and is serialized beside
+the custom-wave evidence. This remains a first-party selected-subset proof: it
+does not resolve textures or claim Canvas/native pixel equivalence.
+
+`milkdrop-tools::inspect_shader_entries` now records every selected
+warp/composite shader entry as provider-owned source evidence: pass identity,
+source line, byte count, detected HLSL-like feature markers, and explicit
+translation blockers. Each record labels translation as `deferred`; it does
+not parse HLSL, generate WGSL, compile a shader, or create renderer objects.
+The construct matrix covers function declarations, scalar/vector type spelling,
+texture-sampling tokens, control flow, and a preprocessor directive so a future
+lowering effort begins with explicit source facts rather than silent
+approximation. Texture sampling is diagnosed as a raster-requirement dependency
+under AR-0006; control flow, preprocessor directives, and HLSL translation
+remain provider-side work.
 
 ### Slice 12: External projectM Compatibility Study
 
 Deliverables:
 
-- [ ] Treat projectM as an optional, separately installed differential oracle;
+- [x] Treat projectM as an optional, separately installed differential oracle;
       do not link, embed, copy, wrap, redistribute, or ship projectM as part of
       Tokimu or its corpus libraries.
-- [ ] Record the exact external executable version, invocation, input hashes,
-      preset provenance, output assumptions, and comparison limitations for
-      every differential observation.
+- [x] Require any future external observation to record the exact executable
+      version, invocation, input hashes, preset provenance, output assumptions,
+      and comparison limitations.
 - [ ] Compare Tokimu-native execution with externally captured projectM evidence
       using equivalent audio and lifecycle inputs where practical.
-- [ ] Prefer Tokimu-authored structural assertions and focused compatibility
+- [x] Prefer Tokimu-authored structural assertions and focused compatibility
       fixtures whenever an external comparison cannot be reproduced cleanly.
-- [ ] Require a separate Architectural Review and license/dependency review
+- [x] Require a separate Architectural Review and license/dependency review
       before any future proposal to integrate projectM code or libraries.
 
 Acceptance criteria:
 
-- [ ] The study ends with an explicit `external-oracle-only` or `defer` finding.
-- [ ] A clean Tokimu checkout builds, tests, and runs its corpus without a
+- [x] The study ends with an explicit `external-oracle-only` or `defer` finding.
+- [x] A clean Tokimu checkout builds, tests, and runs its corpus without a
       projectM checkout, executable, library, header, or runtime resource.
-- [ ] No projectM implementation type, OpenGL object, or projectM-specific
+- [x] No projectM implementation type, OpenGL object, or projectM-specific
       preset representation crosses a public Tokimu semantic boundary.
-- [ ] External comparison artifacts are labeled as observations rather than
+- [x] External comparison artifacts are labeled as observations rather than
       guarantees, and absence of projectM skips only those optional comparisons.
-- [ ] No projectM source or implementation logic is copied into Tokimu under the
+- [x] No projectM source or implementation logic is copied into Tokimu under the
       description of compatibility work.
+
+Finding (2026-08-02): **defer; external oracle only**. Tokimu does not use,
+link, wrap, embed, redistribute, or require projectM. The clean workspace build
+and corpus validation have no projectM dependency. No external differential
+capture has been admitted yet, so the comparison deliverable remains open and
+skips without affecting Tokimu validation. Any future executable comparison is
+optional observational evidence; any proposal to integrate projectM code or a
+projectM library requires a separate Architectural Review and license review.
 
 ### Slice 13: Visualizer Consumer And Website Lab
 
@@ -834,12 +931,17 @@ Deliverables:
 
 - [x] Build a consumer corpus with bounded synthetic-source selection,
       pause/reset, bounded parameters, diagnostics, and performance observations.
-- [ ] Deploy one original Tokimu visualizer as a progressive-enhancement island
+- [x] Deploy one original Tokimu visualizer as a progressive-enhancement island
       on the Tokimu website.
-- [ ] Add MilkDrop presets only after redistribution and browser execution are
-      proven.
+- [x] Execute one Tokimu-authored selected MilkDrop fixture in browser
+      Rust/WASM without broadening the claim to third-party preset compatibility.
+- [x] Expose the selected browser subset's execution boundary in the island:
+      Rust/WASM preset evaluation and literal geometry are active; shader
+      translation and texture resolution remain visibly deferred.
 - [x] Keep the page useful when WASM, audio, or GPU initialization fails.
 - [x] Label native, compatible, partial, and unsupported behavior visibly.
+- [x] Let the public island distinguish executing selected-subset behavior from
+      inspected-only shader source and deferred texture resolution.
 
 Acceptance criteria:
 
@@ -859,9 +961,20 @@ Implementation evidence, 2026-08-02:
 - The TypeScript adapter renders only the returned frame observation on a
   Canvas and owns DOM controls and lifecycle cleanup. It does not create an
   `AudioContext`, request microphone access, or evaluate MilkDrop presets.
+- The browser session now selects either original Tokimu signal-field controls
+  or `MilkDropSelectedRuntime`, which evaluates the same Tokimu-authored
+  fixture as native execution from explicit synthetic frame/time/band inputs.
+  Canvas consumes the returned scalar controls as a labeled browser observation
+  only; it is not a native WGPU feedback-shader equivalence claim.
 - `website/docs/lab/visualizer.md` and the generated website payload expose the
   proof as an explicit-activation iframe island with a useful static
-  explanation when activation fails. Deployment remains pending.
+  explanation when activation fails. The generated island is included in the
+  website deployment.
+- The selected-mode WASM snapshot carries a bounded shader-inspection summary
+  from `milkdrop-tools`: source-entry count, blocker count, and the count of
+  texture-sampling entries. The TypeScript island presents those Rust-produced
+  facts as `not translated` and `not resolved`; it does not infer compatibility
+  or parse preset source itself.
 - Website contract tests and the local build verify the public boundary,
   generated payload, and bounded first-load artifact size. CI will run the
   same checks after the consumer is committed. Native feedback remains stronger
@@ -876,22 +989,32 @@ Implementation evidence, 2026-08-02:
 
 Deliverables:
 
-- [ ] Compare audio, visualizer, shader, texture, multipass, and renderer
+- [x] Compare audio, visualizer, shader, texture, multipass, and renderer
       ownership against the SDD, TTSDD, and accepted ADRs.
-- [ ] Decide whether audio analysis, multipass presentation, or visualizer
+- [x] Decide whether audio analysis, multipass presentation, or visualizer
       semantics have independent consumers sufficient for capability admission.
-- [ ] Record accepted and deferred MilkDrop compatibility findings.
-- [ ] Update architecture documents before extracting permanent crates.
-- [ ] Retain corpus evidence and rejected alternatives.
+- [x] Record accepted and deferred MilkDrop compatibility findings.
+- [x] Update architecture documents before extracting permanent crates.
+- [x] Retain corpus evidence and rejected alternatives.
 
 Acceptance criteria:
 
-- [ ] Crate extraction follows demonstrated ownership rather than this plan's
+- [x] Crate extraction follows demonstrated ownership rather than this plan's
       proposed names.
-- [ ] Audio capture, analysis, visualizer meaning, MilkDrop compatibility, and
+- [x] Audio capture, analysis, visualizer meaning, MilkDrop compatibility, and
       renderer execution remain distinguishable.
-- [ ] Native and WASM guarantees are stated separately where they differ.
-- [ ] Remaining compatibility gaps have explicit diagnostic ownership.
+- [x] Native and WASM guarantees are stated separately where they differ.
+- [x] Remaining compatibility gaps have explicit diagnostic ownership.
+
+Admission finding, 2026-08-02: **defer capability extraction**. The corpus
+establishes bounded headless audio analysis, a second analysis consumer,
+selected MilkDrop scalar and literal geometry lowering, native feedback
+execution, and a browser consumer. It does not establish capture-provider
+lifecycle semantics, audio-resource requirements, texture resolution,
+MilkDrop shader compatibility, an external preset oracle, or a reusable
+multipass executor. `visualizer-tools` and `milkdrop-tools` therefore remain
+corpus libraries. See `AR-0008-audio-observation-and-visualizer-boundary.md`
+Cycle 5 for the ownership decision and reopening triggers.
 
 ## Proposed Corpus Shape
 

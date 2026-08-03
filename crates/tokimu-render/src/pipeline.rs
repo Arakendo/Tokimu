@@ -23,6 +23,12 @@ pub enum BlendMode {
     /// Apply conventional source-alpha blending.
     #[default]
     AlphaBlend,
+    /// Add source color and alpha to the existing target color and alpha.
+    ///
+    /// This is useful for emissive overlays such as visualizer traces. It is a
+    /// pipeline policy rather than material data because the destination color
+    /// participates in the result.
+    Additive,
 }
 
 /// Provider-neutral depth-test policy for a render pipeline.
@@ -699,6 +705,19 @@ mod tests {
             .expect("valid render state");
 
         assert_eq!(pipeline.render_state, state);
+    }
+
+    #[test]
+    fn retains_additive_blend_as_a_provider_neutral_pipeline_policy() {
+        let state = PipelineRenderState {
+            blend: BlendMode::Additive,
+            ..PipelineRenderState::painter_ordered_2d()
+        };
+        let pipeline = Pipeline::new("additive-overlay", PipelineKind::SolidColor2d)
+            .with_render_state(state)
+            .expect("additive two-dimensional state is valid");
+
+        assert_eq!(pipeline.render_state.blend, BlendMode::Additive);
     }
 
     #[test]

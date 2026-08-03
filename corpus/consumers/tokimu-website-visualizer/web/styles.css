@@ -21,5 +21,6 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
 .observation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 1rem 0; border-top: 1px solid #275653; border-left: 1px solid #275653; }
 .observation-grid div { min-width: 0; padding: 0.7rem; border-right: 1px solid #275653; border-bottom: 1px solid #275653; }
 dt { color: #78b8ad; font-size: 0.68rem; text-transform: uppercase; } dd { margin: 0.35rem 0 0; font-size: 0.85rem; overflow-wrap: anywhere; }
+.observation-grid [data-shader-handling], .observation-grid [data-texture-handling] { color: #e7c66a; }
 .diagnostic { color: #a5cec7; font-size: 0.78rem; line-height: 1.6; }
 @media (max-width: 640px) { .visualizer-header { display: grid; } output { text-align: left; } .observation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
