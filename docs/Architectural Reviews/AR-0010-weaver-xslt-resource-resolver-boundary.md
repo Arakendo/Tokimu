@@ -8,7 +8,7 @@
 | Scope | Foundational service / capability / frontend / cross-cutting |
 | Trigger | Weaver's documented injected URI resolver may become an independent TypeScript/XML consumer of Tokimu Resource Space |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0005 |
-| Related evidence | AR-0009; `docs/Plans/memory-resource-store.md`; Weaver `ARCHITECTURE.md`, `SEMANTIC_BOUNDARIES.md`, and `URI_RESOLUTION.md` |
+| Related evidence | AR-0009; `docs/Plans/memory-resource-store.md`; pinned `third-party/weaver-xslt` source; Weaver `ARCHITECTURE.md`, `SEMANTIC_BOUNDARIES.md`, and `URI_RESOLUTION.md` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -19,11 +19,13 @@ semantics, URI policy, TypeScript execution, or platform I/O?
 
 ## Context
 
-Weaver is an external TypeScript-native XSLT project at
-`F:\LocalSource\TS XSLT`. Its architecture separates URI resolution, resource
-loading, and result publication. Weaver owns base-URI selection, relative URI
-resolution, and source identity propagation. Its host owns allowed schemes,
-canonicalization for host identity, loading mechanisms, and write policy.
+Weaver is an external TypeScript-native XSLT project, independently pinned as
+the `third-party/weaver-xslt` submodule at
+`e7472c6ae2894345f59ed38da38816092af34fea`. Its architecture separates URI
+resolution, resource loading, and result publication. Weaver owns base-URI
+selection, relative URI resolution, and source identity propagation. Its host
+owns allowed schemes, canonicalization for host identity, loading mechanisms,
+and write policy.
 
 Tokimu's provisional Resource Space contract separately owns qualified store,
 root, folder, and resource identity plus bounded byte lookup. Its current XML
@@ -230,6 +232,26 @@ missing resources structurally.
 - Resulting ADR or documentation change: AR-0009 now records Weaver as a
   reviewed prospective consumer; no ADR change.
 
+### Cycle 2 -- 2026-08-03
+
+- Status entering review: Proposed.
+- New evidence: Weaver is now pinned as `third-party/weaver-xslt` at
+  `e7472c6ae2894345f59ed38da38816092af34fea`. The
+  `corpus/consumers/weaver-xslt-resource-space` runner passed a controlled
+  XML/XSLT source-buffer baseline through interpreter and auto/native paths
+  without coupling TypeScript tooling into any Tokimu crate. The paths matched
+  semantically; a leading literal stylesheet newline remains recorded as
+  execution evidence rather than normalized away globally.
+- Findings: Weaver's documented `ResourceResolver` contract is a precise fit
+  for the candidate bridge, but the currently exposed `XsltProcessor` surface
+  does not yet accept that resolver. A real selected-session adapter would be
+  dishonest until Weaver exposes the contract or an equivalent public seam.
+- Disposition: retain Proposed. Exercise source-buffer transforms now; defer
+  the Resource Space adapter, resolver failures, and admission evidence until
+  the public resolver surface exists.
+- Resulting ADR or documentation change: added
+  `docs/Plans/weaver-xslt-resource-space-consumer-corpus.md`; no ADR change.
+
 ## References
 
 - `docs/Architectural Reviews/AR-0009-resource-store-identity-and-kernel-boundary.md`
@@ -237,6 +259,6 @@ missing resources structurally.
 - `docs/ADR/ADR-0001-engine-boundaries.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
-- `F:\LocalSource\TS XSLT\docs\ARCHITECTURE.md`
-- `F:\LocalSource\TS XSLT\docs\SEMANTIC_BOUNDARIES.md`
-- `F:\LocalSource\TS XSLT\docs\URI_RESOLUTION.md`
+- `third-party/weaver-xslt/docs/ARCHITECTURE.md`
+- `third-party/weaver-xslt/docs/SEMANTIC_BOUNDARIES.md`
+- `third-party/weaver-xslt/docs/URI_RESOLUTION.md`

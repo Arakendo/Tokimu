@@ -17,3 +17,6 @@
 [submodule "third-party/tosumu"]
 	path = third-party/tosumu
 	url = https://github.com/Arakendo/Tosumu.git
+[submodule "third-party/weaver-xslt"]
+	path = third-party/weaver-xslt
+	url = https://github.com/Arakendo/weaver-xslt.git

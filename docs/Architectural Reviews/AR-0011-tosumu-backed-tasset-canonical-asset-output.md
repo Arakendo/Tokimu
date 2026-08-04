@@ -132,9 +132,12 @@ process, WAL, protector, or synchronization session.
 - Corpus examples: Tokimu's SVG, CGM, glTF/GLB, FBX, raster, font, and
   consumer corpora already produce provider-neutral observations and derived
   geometry that a canonical package could preserve.
-- Automated tests: Tosumu reports unit, integration, property, fuzz, crash,
-  recovery, transaction, overflow-value, and encrypted reopen coverage. Tokimu
-  has not yet tested a `.tasset` semantic round trip through Tosumu.
+- Automated tests: Tosumu's accepted `TOKIMU-001` provider-boundary suite
+  passes 19 tests, with three explicitly ignored measurement workloads. It
+  covers the shared multi-record fixture, 64 MiB values, recovery, backup,
+  portable export, verification, structured newer-format and wrong-key errors,
+  and database identity isolation. Tokimu has not yet tested a `.tasset`
+  semantic round trip through Tosumu.
 - Audits or diagnostics: Tosumu exposes structured inspection and verification
   surfaces. Tokimu has established a project-wide preference for explicit
   diagnostics over silent fallback.
@@ -149,10 +152,9 @@ process, WAL, protector, or synchronization session.
   cross-version compatibility against application-shaped data rather than only
   synthetic KV workloads.
 - Missing evidence: canonical asset semantics and schema, deterministic
-  round-trip behavior, transaction rollback, crash recovery, corruption
-  diagnostics, migration behavior, portable export with the WAL resolved,
-  large-payload behavior, native/WASM strategy, and comparison with a simpler
-  directory or archive provider.
+  Tokimu-side round-trip behavior, application-level rollback and recovery,
+  Tokimu diagnostic translation, schema migration behavior, native/WASM
+  strategy, and comparison with a simpler directory or archive provider.
 
 The Tosumu documents copied into this repository were compared with the
 authoritative local checkout on 2026-08-03. The current reproducible source is
@@ -517,6 +519,24 @@ Reopen or advance this review when one or more of these occurs:
   semantic-change evidence without admitting synchronization or stronger
   security guarantees.
 - Resulting ADR or documentation change: AR-0011 expanded; no ADR opened.
+
+### Cycle 3 -- 2026-08-03
+
+- Status entering review: Incubating.
+- New evidence: Tosumu accepted `TOKIMU-001` for its provider-owned scope. The
+  complete `cargo test -p tosumu-core --test provider_boundary` suite passed:
+  19 tests passed and three measurement workloads remain intentionally ignored.
+- Participants or reviewers: project maintainer and Codex implementation
+  assistant.
+- Findings: Tosumu now has sufficient public-boundary evidence to act as the
+  first experimental durable provider. Backup, portable export, verification,
+  large values, recovery, and structured error classification are provider-side
+  evidence, not unresolved preconditions for Tokimu's first adapter.
+- Disposition: Remain Incubating. Begin a Tokimu-owned adapter and corpus
+  round-trip without treating the accepted provider boundary as a permanent
+  `.tasset` format or mandatory engine dependency.
+- Resulting ADR or documentation change: Tosumu `TOKIMU-001` marked accepted;
+  this review's remaining follow-up list is now consumer-side evidence.
 
 ## References
 
