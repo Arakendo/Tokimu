@@ -1,10 +1,15 @@
 mod animation;
+mod diff;
 mod presentation;
 
 pub use animation::{
     catalog_from_glb_bytes, load_hole_punch_catalog, sample_hole_punch_translations,
     verified_hole_punch_catalog_fixture, AnimationClipObservation, PlaybackCommand,
     PlaybackCommandResult, PlaybackDisposition, PlaybackMode, PlaybackPolicy, PlaybackState,
+};
+pub use diff::{
+    compare_observation_snapshots, ObservationComparisonConfig, ObservationDiffError,
+    ObservationDiffReport, ObservationProvenance,
 };
 pub use presentation::{
     IdentityMappingObservation, ImportedNodeId, PresentationCommand,

@@ -1,0 +1,19 @@
+[package]
+name = "hello-resource-space"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+resource-space = { path = "../lib/resource-space" }
+resource-space-assets = { path = "../lib/resource-space-assets" }
+resource-space-json = { path = "../lib/resource-space-json" }
+resource-space-xml = { path = "../lib/resource-space-xml" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1"
+tokimu-assets = { path = "../../crates/tokimu-assets" }
+
+[dev-dependencies]
+diff-tools = { path = "../lib/diff-tools" }

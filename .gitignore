@@ -55,3 +55,15 @@ third-party-no-redist/*
 
 # Check Asset Licenses for Redistribution
 corpus/assets/CheckLicense/
+
+# cargo-fuzz outputs for the incubating Diff Tools parser/applicator harness.
+corpus/lib/diff-tools/fuzz/artifacts/
+corpus/lib/diff-tools/fuzz/target/
+# libFuzzer grows this working corpus while exploring. Only the named seed
+# fixtures below are reviewed inputs; minimized regressions are promoted
+# deliberately into tests or fixtures.
+corpus/lib/diff-tools/fuzz/corpus/unified-parser-apply/*
+!corpus/lib/diff-tools/fuzz/corpus/unified-parser-apply/valid-single-edit.diff
+!corpus/lib/diff-tools/fuzz/corpus/unified-parser-apply/malformed-count.diff
+!corpus/lib/diff-tools/fuzz/corpus/unified-parser-apply/unicode-edit.diff
+!corpus/lib/diff-tools/fuzz/corpus/unified-parser-apply/missing-final-newline.diff

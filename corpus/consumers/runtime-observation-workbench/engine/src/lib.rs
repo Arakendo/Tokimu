@@ -1,6 +1,7 @@
 use hello_runtime_observation::{
-    verified_hole_punch_catalog_fixture, CommandRequest, ObservationLimits, PlaybackCommand,
-    RuntimeInspectionAdapter,
+    compare_observation_snapshots, verified_hole_punch_catalog_fixture, CommandRequest,
+    ObservationComparisonConfig, ObservationDiffReport, ObservationEnvelope, ObservationLimits,
+    PlaybackCommand, RuntimeInspectionAdapter,
 };
 use wasm_bindgen::prelude::*;
 
@@ -15,6 +16,8 @@ const MAX_PENDING_COMMANDS: usize = 16;
 #[wasm_bindgen]
 pub struct WasmRuntimeObservationSession {
     runtime: RuntimeInspectionAdapter,
+    previous_observation: Option<ObservationEnvelope>,
+    latest_observation_diff: Option<ObservationDiffReport>,
 }
 
 #[wasm_bindgen]
@@ -22,22 +25,33 @@ impl WasmRuntimeObservationSession {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<Self, JsValue> {
         build_runtime()
-            .map(|runtime| Self { runtime })
+            .map(|runtime| Self {
+                runtime,
+                previous_observation: None,
+                latest_observation_diff: None,
+            })
             .map_err(js_error)
     }
 
     /// Returns a bounded summary or selected-entity observation.
     pub fn observation_json(
-        &self,
+        &mut self,
         sequence: u32,
         selected_entity: Option<u32>,
     ) -> Result<String, JsValue> {
-        json(self.runtime.observe_entity_id(
+        let observation = self.runtime.observe_entity_id(
             u64::from(sequence),
             selected_entity.map(u64::from),
             ObservationLimits::default(),
-        ))
-        .map_err(js_error)
+        );
+        self.record_observation(observation.clone())?;
+        json(observation).map_err(js_error)
+    }
+
+    /// Returns the comparison between the two most recent browser-visible
+    /// observations. The first observation intentionally has no predecessor.
+    pub fn latest_observation_diff_json(&self) -> Result<String, JsValue> {
+        json(&self.latest_observation_diff).map_err(js_error)
     }
 
     /// Resolves the current observation into a provider-neutral semantic UI
@@ -106,6 +120,25 @@ impl WasmRuntimeObservationSession {
     }
 }
 
+impl WasmRuntimeObservationSession {
+    fn record_observation(&mut self, observation: ObservationEnvelope) -> Result<(), JsValue> {
+        self.latest_observation_diff = self
+            .previous_observation
+            .as_ref()
+            .map(|previous| {
+                compare_observation_snapshots(
+                    previous,
+                    &observation,
+                    &ObservationComparisonConfig::default(),
+                )
+            })
+            .transpose()
+            .map_err(js_error)?;
+        self.previous_observation = Some(observation);
+        Ok(())
+    }
+}
+
 fn build_runtime() -> Result<RuntimeInspectionAdapter, String> {
     RuntimeInspectionAdapter::from_animation_catalog(
         MAX_PENDING_COMMANDS,
@@ -124,7 +157,7 @@ fn js_error(error: impl std::fmt::Display) -> JsValue {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_runtime, MAX_PENDING_COMMANDS};
+    use super::{build_runtime, WasmRuntimeObservationSession, MAX_PENDING_COMMANDS};
     use hello_runtime_observation::{
         CommandAuthority, CommandRequest, ObservationLimits, PlaybackCommand, Position,
         RuntimeCommand, RuntimeInspectionAdapter,
@@ -220,5 +253,59 @@ mod tests {
             ),
             native.observe_entity_id(5, Some(native.arm_id().0), ObservationLimits::default()),
         );
+    }
+
+    #[test]
+    fn browser_observations_expose_a_provider_neutral_previous_snapshot_diff() {
+        let mut session = WasmRuntimeObservationSession {
+            runtime: build_runtime().expect("checked fixture should build a runtime"),
+            previous_observation: None,
+            latest_observation_diff: None,
+        };
+        let arm = session.runtime.arm_id().0;
+
+        session
+            .observation_json(
+                0,
+                Some(u32::try_from(arm).expect("fixture ID must fit WASM API")),
+            )
+            .expect("initial observation should serialize");
+        assert_eq!(
+            session
+                .latest_observation_diff_json()
+                .expect("initial comparison should serialize"),
+            "null"
+        );
+
+        session.runtime.enqueue(CommandRequest {
+            id: 1,
+            target: arm,
+            authority: CommandAuthority::Operator,
+            expected_revision: Some(0),
+            command: RuntimeCommand::MoveBy {
+                delta: Position {
+                    x: 0.25,
+                    y: 0.0,
+                    z: 0.0,
+                },
+            },
+        });
+        session.runtime.apply_pending_at_tick(1);
+        session
+            .observation_json(
+                1,
+                Some(u32::try_from(arm).expect("fixture ID must fit WASM API")),
+            )
+            .expect("changed observation should serialize");
+
+        let comparison: serde_json::Value = serde_json::from_str(
+            &session
+                .latest_observation_diff_json()
+                .expect("comparison should serialize"),
+        )
+        .expect("comparison must be JSON");
+        assert_eq!(comparison["before"]["revision"], 0);
+        assert_eq!(comparison["after"]["revision"], 1);
+        assert_eq!(comparison["payload"]["equal"], false);
     }
 }

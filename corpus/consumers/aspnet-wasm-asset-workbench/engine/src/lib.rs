@@ -16,6 +16,13 @@ use raster_image_corpus::{
     decode_bmp, decode_jpeg, decode_png, AlphaMode, ColorSpace, DecodeLimits as RasterDecodeLimits,
     DecodedImage, ImageOrientation, PixelFormat,
 };
+use resource_space::{
+    AddressCasePolicy, FolderId, InMemoryResourceSpace, ResourceEntry, ResourceMetadata,
+    ResourceRootDescriptor, ResourceRootId, ResourceSpaceLimits, StoreId,
+};
+use resource_space_assets::{
+    decode_gltf_from_resource_space, resolve_gltf_external_images_from_resource_space,
+};
 use serde::{Deserialize, Serialize};
 use tokimu::World;
 use ui_tools::{
@@ -25,6 +32,8 @@ use wasm_bindgen::prelude::*;
 
 const SCHEMA: u32 = 1;
 const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+const MAX_RESOURCE_SESSION_ENTRIES: usize = 32;
+const MAX_RESOURCE_SESSION_BYTES: usize = 128 * 1024 * 1024;
 // CGM paths are normalized into the unit square before entering this browser
 // diagnostic preview. This is a unit-space hairline, not CGM LINE WIDTH.
 const CGM_DIAGNOSTIC_STROKE_WIDTH: f32 = 0.0025;
@@ -168,6 +177,17 @@ pub struct PresentationSession {
     control: PresentationControl,
 }
 
+/// A bounded imported resource root owned by the WASM consumer.
+///
+/// Browser code supplies explicitly selected byte arrays and logical names.
+/// This session owns the provider-neutral hierarchy and dependency lookup; it
+/// neither reads browser paths nor asks TypeScript to resolve glTF references.
+#[wasm_bindgen]
+pub struct ResourceSession {
+    space: InMemoryResourceSpace,
+    folder: FolderId,
+}
+
 #[wasm_bindgen]
 pub fn engine_status() -> String {
     let mut world = World::default();
@@ -194,6 +214,132 @@ pub fn inspect_asset(file_name: &str, bytes: &[u8]) -> String {
     });
 
     serde_json::to_string(&observation).expect("asset observation should serialize")
+}
+
+#[wasm_bindgen]
+impl ResourceSession {
+    /// Creates an empty, transient imported root for one browser selection.
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Result<Self, JsValue> {
+        const STORE: StoreId = StoreId::from_u128(0xA55E_7001);
+        const ROOT: ResourceRootId = ResourceRootId::from_u128(0xA55E_7002);
+        const FOLDER: FolderId = FolderId::from_u128(0xA55E_7003);
+
+        let mut space = InMemoryResourceSpace::with_limits(
+            STORE,
+            AddressCasePolicy::Sensitive,
+            ResourceSpaceLimits {
+                max_entries: Some(MAX_RESOURCE_SESSION_ENTRIES),
+                max_total_bytes: Some(MAX_RESOURCE_SESSION_BYTES),
+                max_bytes_per_entry: Some(MAX_INPUT_BYTES),
+            },
+        );
+        let descriptor = ResourceRootDescriptor::new(ROOT, "Selected browser resources");
+        space
+            .create_root(descriptor, FOLDER, ResourceMetadata::default())
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        Ok(Self {
+            space,
+            folder: FOLDER,
+        })
+    }
+
+    /// Retains one explicitly selected resource beneath the session root.
+    ///
+    /// Names must be logical relative addresses. This first browser proof
+    /// admits same-folder glTF dependencies only, so nested paths are rejected
+    /// rather than being silently flattened.
+    pub fn add_resource(&mut self, name: &str, bytes: &[u8]) -> Result<(), JsValue> {
+        self.add_resource_inner(name, bytes)
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
+    /// Inspects one selected document, resolving same-folder glTF references
+    /// through the resource session instead of a frontend-side importer.
+    pub fn inspect_resource(&self, name: &str) -> Result<String, JsValue> {
+        self.inspect_resource_inner(name)
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
+    /// Returns one selected logical resource for a browser-owned download.
+    ///
+    /// The session never opens a browser save dialog or exposes host paths.
+    /// TypeScript owns the user gesture and turns these bytes into a download.
+    pub fn resource_bytes(&self, name: &str) -> Result<Vec<u8>, JsValue> {
+        self.resource_bytes_inner(name)
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
+    /// Returns bounded logical-store counts for host diagnostics.
+    pub fn summary(&self) -> String {
+        let summary = self.space.summary();
+        format!(
+            "roots={} folders={} resources={} retained_bytes={}",
+            summary.roots(),
+            summary.folders(),
+            summary.resources(),
+            summary.retained_bytes()
+        )
+    }
+}
+
+impl ResourceSession {
+    fn add_resource_inner(&mut self, name: &str, bytes: &[u8]) -> Result<(), String> {
+        if bytes.is_empty() {
+            return Err("selected resource is empty".into());
+        }
+        if bytes.len() > MAX_INPUT_BYTES {
+            return Err(format!(
+                "selected resource has {} bytes, exceeding the workbench limit of {}",
+                bytes.len(),
+                MAX_INPUT_BYTES
+            ));
+        }
+        let parsed = self.selected_resource_name(name)?;
+        self.space
+            .insert_resource(
+                self.folder,
+                parsed,
+                bytes.to_vec(),
+                ResourceMetadata::default(),
+            )
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
+    fn inspect_resource_inner(&self, name: &str) -> Result<String, String> {
+        let document = self.entry(name)?;
+        let observation = match classify(name) {
+            "gltf" => inspect_gltf_resource_asset(&self.space, self.folder, &document),
+            _ => inspect(name, document.bytes()),
+        }
+        .map_err(|message| message.to_string())?;
+        serde_json::to_string(&observation)
+            .map_err(|error| format!("asset observation did not serialize: {error}"))
+    }
+
+    fn resource_bytes_inner(&self, name: &str) -> Result<Vec<u8>, String> {
+        Ok(self.entry(name)?.bytes().to_vec())
+    }
+
+    fn entry(&self, name: &str) -> Result<ResourceEntry, String> {
+        let parsed = self.selected_resource_name(name)?;
+        self.space
+            .resource(self.folder, &parsed)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("selected resource `{name}` is not present in this session"))
+    }
+
+    fn selected_resource_name(&self, name: &str) -> Result<resource_space::ResourceName, String> {
+        if name.contains(['/', '\\', ':']) || matches!(name, "." | "..") {
+            return Err(format!(
+                "selected resource `{name}` must be a same-folder logical file name"
+            ));
+        }
+        self.space
+            .resource_name(name)
+            .map_err(|error| error.to_string())
+    }
 }
 
 #[wasm_bindgen]
@@ -773,6 +919,59 @@ fn inspect_gltf_asset(file_name: &str, bytes: &[u8]) -> Result<AssetObservation,
     ))
 }
 
+/// Produces the same bounded mesh observation as GLB, but resolves a JSON glTF
+/// document's same-folder buffers and image sources through resource-space.
+fn inspect_gltf_resource_asset(
+    space: &InMemoryResourceSpace,
+    folder: FolderId,
+    document: &ResourceEntry,
+) -> Result<AssetObservation, String> {
+    let inspection = inspect_gltf(document.bytes()).map_err(|error| error.to_string())?;
+    let decoded = decode_gltf_from_resource_space(space, folder, document)
+        .map_err(|error| error.to_string())?;
+    let images = resolve_gltf_external_images_from_resource_space(space, folder, document)
+        .map_err(|error| error.to_string())?;
+    let triangles = preview_triangles(&decoded.primitives, &decoded.nodes, &decoded.scenes);
+    let presentation_targets = mesh_presentation_targets(&decoded.primitives);
+    let mut observation = model_observation(
+        document.name().as_str(),
+        "gltf",
+        document.bytes().len(),
+        &decoded.summary,
+        vec![
+            property("Resolved external images", images.len()),
+            property("Resolved external buffers", inspection.buffers.len()),
+        ],
+    );
+    if triangles.is_empty() {
+        observation.diagnostics.push(
+            "No triangle primitives were admitted for browser preview after logical dependency resolution."
+                .into(),
+        );
+    } else {
+        observation.status = "renderable".into();
+        observation.summary = format!(
+            "Tokimu resolved {} same-folder dependencies and decoded {} glTF triangles into a provider-neutral scene preview.",
+            images.len() + inspection.buffers.len(),
+            triangles.len()
+        );
+        observation
+            .properties
+            .push(property("Preview triangles", triangles.len()));
+        observation.preview = Some(VectorPreview {
+            kind: "mesh-triangles".into(),
+            paths: Vec::new(),
+            triangles,
+        });
+        observation.presentation_targets = presentation_targets;
+        observation.diagnostics = vec![
+            "Browser preview is an interactive diagnostic perspective view of Tokimu-decoded scene geometry. The WASM resource session resolves same-folder external buffers and image references; image decoding, textures, materials, lighting, and animation remain separate capabilities."
+                .into(),
+        ];
+    }
+    Ok(observation)
+}
+
 fn model_observation(
     file_name: &str,
     format: &'static str,
@@ -1007,6 +1206,101 @@ mod tests {
         assert_eq!(classify("photo.JPEG"), "jpeg");
         assert_eq!(classify("bitmap.bmp"), "bmp");
         assert_eq!(classify("unknown.bin"), "unknown");
+    }
+
+    #[test]
+    fn resource_session_resolves_selected_gltf_buffer_inside_wasm() {
+        let document = include_bytes!(
+            "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF/Box.gltf"
+        );
+        let buffer = include_bytes!(
+            "../../../../../third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF/Box0.bin"
+        );
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+        session
+            .add_resource("Box.gltf", document)
+            .expect("document should be retained");
+        session
+            .add_resource("Box0.bin", buffer)
+            .expect("selected buffer should be retained");
+
+        let json = session
+            .inspect_resource("Box.gltf")
+            .expect("same-folder buffer should resolve in Rust/WASM");
+        let observation: AssetObservation =
+            serde_json::from_str(&json).expect("observation should remain serializable");
+
+        assert_eq!(observation.format, "gltf");
+        assert_eq!(observation.status, "renderable");
+        assert!(observation.preview.is_some());
+        assert!(
+            observation
+                .properties
+                .iter()
+                .any(|property| property.label == "Resolved external buffers"
+                    && property.value == "1")
+        );
+        assert!(session.summary().contains("resources=2"));
+    }
+
+    #[test]
+    fn resource_session_rejects_entries_beyond_its_explicit_selection_budget() {
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+        for index in 0..MAX_RESOURCE_SESSION_ENTRIES {
+            session
+                .add_resource(&format!("selected-{index}.bin"), &[index as u8])
+                .expect("entry within the selection limit should be retained");
+        }
+
+        let error = session
+            .add_resource_inner("over-limit.bin", &[0])
+            .expect_err("the next selected entry should exceed the session limit");
+
+        assert!(error.contains("entry limit"));
+        assert!(session
+            .summary()
+            .contains(&format!("resources={MAX_RESOURCE_SESSION_ENTRIES}")));
+    }
+
+    #[test]
+    fn resource_session_returns_selected_bytes_without_exposing_host_paths() {
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+        session
+            .add_resource("nested-name-is-rejected.bin", &[0xCA, 0xFE, 0xBA, 0xBE])
+            .expect("logical resource should be retained");
+
+        assert_eq!(
+            session
+                .resource_bytes_inner("nested-name-is-rejected.bin")
+                .expect("selected bytes should be readable"),
+            vec![0xCA, 0xFE, 0xBA, 0xBE]
+        );
+        assert!(session
+            .resource_bytes_inner("C:/host-path.bin")
+            .expect_err("host path syntax must not resolve")
+            .contains("same-folder logical file name"));
+    }
+
+    #[test]
+    fn repeated_browser_reads_do_not_change_session_retention() {
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+        session
+            .add_resource("selected.bin", &[0xCA, 0xFE, 0xBA, 0xBE])
+            .expect("logical resource should be retained");
+        let summary_before = session.summary();
+
+        for _ in 0..64 {
+            assert_eq!(
+                session
+                    .resource_bytes_inner("selected.bin")
+                    .expect("selected bytes should remain readable"),
+                vec![0xCA, 0xFE, 0xBA, 0xBE]
+            );
+        }
+
+        assert_eq!(session.summary(), summary_before);
+        assert!(summary_before.contains("resources=1"));
+        assert!(summary_before.contains("retained_bytes=4"));
     }
 
     #[test]

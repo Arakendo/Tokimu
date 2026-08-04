@@ -1,7 +1,7 @@
 import init, {
   engine_status,
-  inspect_asset,
   PresentationSession,
+  ResourceSession,
 } from "/tokimu/tokimu_asset_workbench_engine.js";
 
 type Property = { label: string; value: string };
@@ -56,6 +56,8 @@ const dropZone = required<HTMLElement>("drop-zone");
 const emptyState = required<HTMLElement>("empty-state");
 const fileInput = required<HTMLInputElement>("file-input");
 const chooseFile = required<HTMLButtonElement>("choose-file");
+const downloadResource = required<HTMLButtonElement>("download-resource");
+const selectionStatus = required<HTMLElement>("selection-status");
 const presentationControls = required<HTMLElement>("presentation-controls");
 const presentationTarget = required<HTMLSelectElement>("presentation-target");
 const presentationTint = required<HTMLInputElement>("presentation-tint");
@@ -66,6 +68,7 @@ const presentationReset = required<HTMLButtonElement>("presentation-reset");
 const presentationStatus = required<HTMLElement>("presentation-status");
 let engineReady = false;
 let currentObservation: AssetObservation | null = null;
+let resourceSession: ResourceSession | null = null;
 let presentationSession: PresentationSession | null = null;
 const resolvedPresentations = new Map<string, ResolvedPresentation>();
 const meshView = {
@@ -89,9 +92,9 @@ async function start(): Promise<void> {
 }
 
 chooseFile.addEventListener("click", () => fileInput.click());
+downloadResource.addEventListener("click", downloadSelectedResource);
 fileInput.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  if (file) void inspectFile(file);
+  if (fileInput.files?.length) void inspectFiles(fileInput.files);
 });
 
 for (const eventName of ["dragenter", "dragover"]) {
@@ -107,8 +110,8 @@ for (const eventName of ["dragleave", "drop"]) {
   });
 }
 dropZone.addEventListener("drop", (event) => {
-  const file = event.dataTransfer?.files[0];
-  if (file) void inspectFile(file);
+  const files = event.dataTransfer?.files;
+  if (files?.length) void inspectFiles(files);
 });
 window.addEventListener("resize", () => drawObservation(currentObservation));
 canvas.addEventListener("pointerdown", (event) => {
@@ -148,15 +151,26 @@ presentationVisible.addEventListener("change", () => applyPresentationOverride()
 presentationHotspot.addEventListener("click", toggleHotspotPresentation);
 presentationReset.addEventListener("click", clearPresentationOverride);
 
-async function inspectFile(file: File): Promise<void> {
+async function inspectFiles(files: Iterable<File>): Promise<void> {
   if (!engineReady) return;
+  const selected = Array.from(files);
+  const document = selected.find((file) => file.name.toLowerCase().endsWith(".gltf")) ?? selected[0];
+  if (!document) return;
+  const selectedNames = selected.map((file) => file.name);
   emptyState.hidden = true;
-  required("asset-name").textContent = file.name;
-  required("summary").textContent = "Transferring bytes into Tokimu WASM...";
+  required("asset-name").textContent = document.name;
+  required("summary").textContent = `Transferring ${selected.length} selected resource${selected.length === 1 ? "" : "s"} into Tokimu WASM...`;
+  selectionStatus.textContent = describeSelection(document.name, selectedNames);
 
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const observation = JSON.parse(inspect_asset(file.name, bytes)) as AssetObservation;
+    const session = new ResourceSession();
+    for (const file of selected) {
+      await session.add_resource(file.name, new Uint8Array(await file.arrayBuffer()));
+    }
+    const observation = JSON.parse(session.inspect_resource(document.name)) as AssetObservation;
+    selectionStatus.textContent = `${describeSelection(document.name, selectedNames)} Rust session: ${session.summary()}.`;
+    resourceSession = session;
+    downloadResource.disabled = false;
     currentObservation = observation;
     presentationSession = new PresentationSession(JSON.stringify(observation));
     resolvedPresentations.clear();
@@ -164,9 +178,43 @@ async function inspectFile(file: File): Promise<void> {
     presentObservation(observation);
   } catch (error) {
     currentObservation = null;
+    resourceSession = null;
+    downloadResource.disabled = true;
     presentationSession = null;
     resolvedPresentations.clear();
-    presentError(file.name, message(error));
+    selectionStatus.textContent = `${describeSelection(document.name, selectedNames)} Tokimu rejected the selection before retaining an inspectable session.`;
+    presentError(document.name, message(error));
+  } finally {
+    // Selecting the same files again should still issue a browser change event.
+    fileInput.value = "";
+  }
+}
+
+function describeSelection(documentName: string, selectedNames: readonly string[]): string {
+  const sidecars = selectedNames.filter((name) => name !== documentName);
+  if (sidecars.length === 0) {
+    return `Document: ${documentName}. No sidecars selected.`;
+  }
+  return `Document: ${documentName}. Same-folder sidecars: ${sidecars.join(", ")}.`;
+}
+
+function downloadSelectedResource(): void {
+  if (!resourceSession || !currentObservation) return;
+  try {
+    const bytes = resourceSession.resource_bytes(currentObservation.fileName);
+    // Copy the WASM view into a browser-owned ArrayBuffer before it outlives
+    // this synchronous call as a downloadable Blob.
+    const downloadable = new Uint8Array(bytes.byteLength);
+    downloadable.set(bytes);
+    const blob = new Blob([downloadable.buffer], { type: "application/octet-stream" });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = currentObservation.fileName;
+    anchor.click();
+    URL.revokeObjectURL(href);
+  } catch (error) {
+    required("summary").textContent = `Download request failed: ${message(error)}`;
   }
 }
 

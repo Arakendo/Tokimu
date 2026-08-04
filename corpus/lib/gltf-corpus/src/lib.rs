@@ -15,8 +15,9 @@ mod summary;
 
 #[cfg(feature = "decode")]
 pub use decode::{
-    decode_glb, decode_glb_file, decode_gltf, decode_gltf_file, DecodedAnimation, DecodedBounds,
-    DecodedModel, DecodedPrimitive, DecodedTranslationChannel, PrimitiveLocation,
+    decode_glb, decode_glb_file, decode_gltf, decode_gltf_file, decode_gltf_with_buffers,
+    DecodedAnimation, DecodedBounds, DecodedModel, DecodedPrimitive, DecodedTranslationChannel,
+    PrimitiveLocation,
 };
 pub use error::{CorpusError, CorpusResult};
 pub use glb::{inspect_glb, inspect_glb_file, GlbChunk, GlbChunkKind, GlbInspection};

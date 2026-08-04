@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use hello_runtime_observation::{
-    CommandAuthority, CommandResult, ObservationLimits, RuntimeCommand, RuntimeInspectionAdapter,
+    compare_observation_snapshots, CommandAuthority, CommandResult, ObservationComparisonConfig,
+    ObservationEnvelope, ObservationLimits, RuntimeCommand, RuntimeInspectionAdapter,
 };
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
@@ -48,6 +49,7 @@ struct RuntimeInspectorApp {
     sequence: u64,
     next_command_id: u64,
     last_result: Option<CommandResult>,
+    previous_observation: Option<ObservationEnvelope>,
     presentation_status: &'static str,
 }
 
@@ -66,6 +68,7 @@ impl RuntimeInspectorApp {
             sequence: 0,
             next_command_id: 1,
             last_result: None,
+            previous_observation: None,
             presentation_status: "UNSELECTED",
         })
     }
@@ -300,6 +303,31 @@ impl PlatformEventHandler for RuntimeInspectorApp {
         }
 
         let observation = self.observation();
+        let snapshot_diff = self
+            .previous_observation
+            .as_ref()
+            .map(|previous| {
+                compare_observation_snapshots(
+                    previous,
+                    &observation,
+                    &ObservationComparisonConfig::default(),
+                )
+                .map(|report| {
+                    if report.payload.equal {
+                        format!("SNAPSHOT: UNCHANGED @ REVISION {}", report.after.revision)
+                    } else {
+                        format!(
+                            "SNAPSHOT: {} CHANGES / R{} -> R{}",
+                            report.payload.differences.len(),
+                            report.before.revision,
+                            report.after.revision
+                        )
+                    }
+                })
+                .unwrap_or_else(|error| format!("SNAPSHOT: INCOMPATIBLE ({error})"))
+            })
+            .unwrap_or_else(|| "SNAPSHOT: INITIAL".to_owned());
+        self.previous_observation = Some(observation.clone());
         let selected = observation.payload.selected.as_ref();
         let component_count = selected.map(|detail| detail.components.len()).unwrap_or(0);
         let relationship_count = selected
@@ -392,7 +420,11 @@ impl PlatformEventHandler for RuntimeInspectorApp {
                 "LEFT/RIGHT SELECT   D MOVE   E DISABLE   X REJECT".to_owned(),
                 "SPACE APPLY   R TARGET   A CLIP   S PLAY".to_owned(),
             ],
-            diagnostic_lines: vec![diagnostics, format!("LAST COMMAND: {result}")],
+            diagnostic_lines: vec![
+                diagnostics,
+                snapshot_diff,
+                format!("LAST COMMAND: {result}"),
+            ],
         };
         let scene = ui::build_runtime_inspector_scene(self.window_size, &view);
         let resolved = scene.tree.resolve(scene.viewport).map_err(|error| {

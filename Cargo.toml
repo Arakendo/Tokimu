@@ -46,6 +46,7 @@ members = [
     "corpus/hello-hole-punch",
     "corpus/hello-xml-inspect",
     "corpus/hello-file-io",
+    "corpus/hello-resource-space",
     "corpus/hello-save-image",
     "corpus/hello-raster-image",
     "corpus/hello-streaming-texture",
@@ -94,8 +95,14 @@ members = [
 
     # Incubating shared corpus libraries.
     "corpus/lib/screenshot",
+    "corpus/lib/resource-space",
+    "corpus/lib/resource-space-assets",
+    "corpus/lib/resource-space-xml",
+    "corpus/lib/resource-space-json",
+    "corpus/lib/resource-space-native",
     "corpus/lib/network-tools",
     "corpus/lib/cgm-corpus",
+    "corpus/lib/diff-tools",
     "corpus/lib/fbx-corpus",
     "corpus/lib/gltf-corpus",
     "corpus/lib/presentation-control",
@@ -122,6 +129,7 @@ version = "0.1.0"
 
 [workspace.dependencies]
 anyhow = "1"
+blake3 = "1"
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"

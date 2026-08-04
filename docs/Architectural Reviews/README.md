@@ -174,3 +174,15 @@ across unrelated decisions.
   — Incubating; deterministic PCM analysis and bounded overload evidence are
   established while capture providers, shader resources, and capability
   admission remain unproven
+- [AR-0009: Resource Store Identity And Kernel Boundary](AR-0009-resource-store-identity-and-kernel-boundary.md)
+  — Incubating with provisional admission under ADR-0005; a reversible
+  foundational identity, folder, navigation, and store contract may gather
+  evidence while permanent and kernel admission remain under review
+- [AR-0010: Weaver XSLT Resource Resolver Boundary](AR-0010-weaver-xslt-resource-resolver-boundary.md)
+  — Proposed; a bounded adapter may test Weaver's explicit URI resolver against
+  selected Tokimu Resource Space bytes without admitting XSLT or URI policy
+  into Tokimu
+- [AR-0011: Tosumu-Backed Tasset Canonical Asset Output](AR-0011-tosumu-backed-tasset-canonical-asset-output.md)
+  — Incubating; Tosumu is the preferred first storage provider for a bounded
+  canonical `.tasset` study while Tokimu retains asset semantics and runtime,
+  interchange, migration, and portability boundaries remain explicit

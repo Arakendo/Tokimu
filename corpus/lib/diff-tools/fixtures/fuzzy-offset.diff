@@ -1,0 +1,6 @@
+--- greeting.txt
++++ greeting.txt
+@@ -7,2 +7,3 @@
+ hello
++tokimu
+ world

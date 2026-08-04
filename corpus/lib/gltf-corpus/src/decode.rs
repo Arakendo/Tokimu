@@ -76,6 +76,22 @@ pub fn decode_gltf(bytes: &[u8], base_path: impl AsRef<Path>) -> CorpusResult<De
     decode_document(&root, &buffers)
 }
 
+/// Decodes a JSON glTF document using caller-supplied external buffer bytes.
+///
+/// This is the provider-neutral counterpart to [`decode_gltf`]. Callers own
+/// URI resolution; the glTF decoder only validates the document's declared
+/// buffer contract and decodes the resulting payloads.
+pub fn decode_gltf_with_buffers(
+    bytes: &[u8],
+    external_buffers: Vec<Vec<u8>>,
+) -> CorpusResult<DecodedModel> {
+    let root: Value = serde_json::from_slice(bytes)?;
+    let summary = GltfSummary::from_root(&root);
+    ensure_version_2(&summary.asset_version)?;
+    validate_supplied_gltf_buffers(&root, &external_buffers)?;
+    decode_document(&root, &external_buffers)
+}
+
 pub fn decode_gltf_file(path: impl AsRef<Path>) -> CorpusResult<DecodedModel> {
     let path = path.as_ref();
     let bytes = fs::read(path).map_err(|source| CorpusError::Read {
@@ -313,6 +329,30 @@ fn load_gltf_buffers(root: &Value, base_path: &Path) -> CorpusResult<Vec<Vec<u8>
             Ok(bytes)
         })
         .collect()
+}
+
+fn validate_supplied_gltf_buffers(root: &Value, buffers: &[Vec<u8>]) -> CorpusResult<()> {
+    let declarations = array(root, "buffers")?;
+    if declarations.len() != buffers.len() {
+        return Err(invalid(format!(
+            "glTF declares {} external buffers but caller supplied {}",
+            declarations.len(),
+            buffers.len()
+        )));
+    }
+
+    for (index, (buffer, bytes)) in declarations.iter().zip(buffers).enumerate() {
+        let uri = buffer
+            .get("uri")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid(format!("buffer {index} has no URI outside a GLB")))?;
+        if uri.starts_with("data:") || uri.contains("://") || Path::new(uri).is_absolute() {
+            return Err(CorpusError::UnsupportedBufferUri(uri.to_owned()));
+        }
+        validate_buffer_length(buffer, index, Path::new(uri), bytes.len())?;
+    }
+
+    Ok(())
 }
 
 fn load_glb_buffers(root: &Value, binary_chunk: Option<&[u8]>) -> CorpusResult<Vec<Vec<u8>>> {

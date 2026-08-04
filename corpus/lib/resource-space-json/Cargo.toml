@@ -1,0 +1,12 @@
+[package]
+name = "resource-space-json"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+resource-space = { path = "../resource-space" }
+serde.workspace = true
+serde_json = "1"
+thiserror.workspace = true

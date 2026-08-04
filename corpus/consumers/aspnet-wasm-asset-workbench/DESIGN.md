@@ -133,7 +133,8 @@ renderer.
 
 Inputs:
 
-- one local file selected or dropped by the user;
+- one local file, or a same-folder multi-file selection containing a `.gltf`
+  document and its declared external buffers/images;
 - an admitted extension and at most 64 MiB of bytes.
 
 Outputs:

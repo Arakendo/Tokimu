@@ -1,0 +1,13 @@
+[package]
+name = "resource-space-assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gltf-corpus = { path = "../gltf-corpus" }
+resource-space = { path = "../resource-space" }
+tokimu-assets = { path = "../../../crates/tokimu-assets" }
+thiserror.workspace = true

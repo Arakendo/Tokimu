@@ -1,0 +1,23 @@
+[package]
+name = "diff-tools-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Keep libFuzzer and generated corpus artifacts outside Tokimu's normal
+# workspace dependency graph.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+diff-tools = { path = ".." }
+
+[[bin]]
+name = "unified-parser-apply"
+path = "fuzz_targets/unified_parser_apply.rs"
+test = false
+doc = false
+bench = false

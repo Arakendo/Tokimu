@@ -14,3 +14,6 @@
 	path = third-party/fonts/noto
 	url = https://github.com/notofonts/noto-fonts
 	ignore = all
+[submodule "third-party/tosumu"]
+	path = third-party/tosumu
+	url = https://github.com/Arakendo/Tosumu.git

@@ -14,6 +14,8 @@ fbx-corpus = { path = "../../../lib/fbx-corpus" }
 gltf-corpus = { path = "../../../lib/gltf-corpus", default-features = false, features = ["decode"] }
 presentation-control = { path = "../../../lib/presentation-control" }
 raster-image-corpus = { path = "../../../lib/raster-image-corpus" }
+resource-space = { path = "../../../lib/resource-space" }
+resource-space-assets = { path = "../../../lib/resource-space-assets" }
 serde = { workspace = true }
 serde_json = "1"
 tokimu = { path = "../../../../crates/tokimu" }
