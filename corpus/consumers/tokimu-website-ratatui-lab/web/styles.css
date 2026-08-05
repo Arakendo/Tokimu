@@ -1,0 +1,110 @@
+:root {
+  color-scheme: dark;
+  font-family: "Departure Mono", "JetBrains Mono", Consolas, monospace;
+  background: #081113;
+  color: #d8ebe7;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: #081113; }
+
+.ratatui-lab {
+  min-height: 100%;
+  padding: clamp(1rem, 3vw, 2rem);
+  background:
+    linear-gradient(rgba(116, 225, 205, .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(116, 225, 205, .08) 1px, transparent 1px),
+    #081113;
+  background-size: 26px 26px;
+}
+
+.masthead, .controls, .terminal-shell, .evidence, footer {
+  max-width: 1000px;
+  margin-inline: auto;
+}
+
+.masthead {
+  display: flex;
+  gap: 1rem;
+  align-items: end;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #4fe0ca;
+}
+
+.eyebrow, .status, .terminal-heading, footer {
+  font-size: .74rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.eyebrow { color: #74e1cd; margin: 0 0 .45rem; }
+h1 { margin: 0; font: 700 clamp(1.5rem, 4vw, 2.4rem)/1.05 Georgia, serif; }
+.status { color: #adbcbd; margin: 0; text-align: right; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .8rem;
+  padding: 1rem 0;
+}
+
+label { display: grid; gap: .35rem; color: #9db9bf; font-size: .8rem; }
+select {
+  min-width: 13rem;
+  padding: .55rem .65rem;
+  border: 1px solid #4f8f95;
+  background: #0c1a1e;
+  color: #e6f2ee;
+  font: inherit;
+}
+
+.terminal-shell {
+  border: 1px solid #63dac8;
+  background: #050b0d;
+  box-shadow: 10px 10px 0 rgba(40, 87, 90, .35);
+}
+
+.terminal-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .65rem .8rem;
+  color: #9ee9dc;
+  border-bottom: 1px solid #254d52;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #050b0d;
+}
+
+.evidence {
+  display: grid;
+  gap: .65rem;
+  margin-top: 1rem;
+  color: #b7d1ce;
+}
+
+.evidence p { margin: 0; }
+.evidence pre {
+  margin: 0;
+  padding: .75rem;
+  overflow: auto;
+  border-left: 3px solid #e4b653;
+  background: #0c1719;
+  color: #dce8e4;
+  white-space: pre-wrap;
+}
+
+footer { padding-top: 1rem; color: #8ea9ab; line-height: 1.55; }
+footer strong { color: #d7bd75; }
+
+@media (max-width: 560px) {
+  .masthead { align-items: start; flex-direction: column; }
+  .status { text-align: left; }
+  select { min-width: min(100%, 17rem); }
+}

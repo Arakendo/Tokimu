@@ -26,3 +26,7 @@ independent production consumers.
 - [`tokimu-website-paint`](tokimu-website-paint/DESIGN.md) is a Tier 2
   Rust/WASM raster-editing consumer that keeps editable document truth below
   browser and Canvas mechanisms.
+- [`tokimu-website-ratatui-lab`](tokimu-website-ratatui-lab/DESIGN.md) is a
+  Tier 3 Rust/WASM presentation proof where Ratatui writes retained cells into
+  a Tokimu-owned backend and Tokimu rasterizes those cells with Departure Mono.
+  Browser code receives pixels rather than recreating terminal layout.

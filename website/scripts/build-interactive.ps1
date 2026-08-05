@@ -22,6 +22,10 @@ $kernelUiConsumer = Join-Path $root "corpus/consumers/tokimu-website-kernel-ui"
 $kernelUiEngine = Join-Path $kernelUiConsumer "engine"
 $kernelUiWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_kernel_ui_engine.wasm"
 $kernelUiOutput = Join-Path $website "docs/assets/islands/kernel-ui"
+$ratatuiLabConsumer = Join-Path $root "corpus/consumers/tokimu-website-ratatui-lab"
+$ratatuiLabEngine = Join-Path $ratatuiLabConsumer "engine"
+$ratatuiLabWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_ratatui_lab_engine.wasm"
+$ratatuiLabOutput = Join-Path $website "docs/assets/islands/ratatui-lab"
 $fixture = Join-Path $root "third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/derived/shapes-rect-01-geometry.svg"
 
 function Invoke-Checked {
@@ -54,6 +58,14 @@ try {
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $kernelUiEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Kernel UI WASM build"
+    # Website owns the shared TypeScript toolchain; the island consumer only
+    # owns its source and TypeScript configuration.
+    Invoke-Checked {
+        npm exec -- tsc --project (Join-Path $ratatuiLabConsumer "tsconfig.json")
+    } "Ratatui template lab TypeScript build"
+    Invoke-Checked {
+        cargo build --manifest-path (Join-Path $ratatuiLabEngine "Cargo.toml") --target wasm32-unknown-unknown --release
+    } "Ratatui template lab WASM build"
 
     New-Item -ItemType Directory -Force $assetOutput | Out-Null
     Invoke-Checked {
@@ -93,6 +105,14 @@ try {
     Copy-Item -LiteralPath (Join-Path $kernelUiConsumer "web/index.html") -Destination $kernelUiOutput -Force
     Copy-Item -LiteralPath (Join-Path $kernelUiConsumer "web/styles.css") -Destination $kernelUiOutput -Force
     Copy-Item -LiteralPath (Join-Path $kernelUiConsumer "dist/kernel-ui.js") -Destination $kernelUiOutput -Force
+
+    New-Item -ItemType Directory -Force $ratatuiLabOutput | Out-Null
+    Invoke-Checked {
+        wasm-bindgen $ratatuiLabWasm --target web --out-dir $ratatuiLabOutput --out-name tokimu_website_ratatui_lab_engine
+    } "Ratatui template lab binding generation"
+    Copy-Item -LiteralPath (Join-Path $ratatuiLabConsumer "web/index.html") -Destination $ratatuiLabOutput -Force
+    Copy-Item -LiteralPath (Join-Path $ratatuiLabConsumer "web/styles.css") -Destination $ratatuiLabOutput -Force
+    Copy-Item -LiteralPath (Join-Path $ratatuiLabConsumer "dist/ratatui-lab.js") -Destination $ratatuiLabOutput -Force
 }
 finally {
     Pop-Location
@@ -104,3 +124,4 @@ Write-Host "  Asteroids game:    $asteroidsOutput"
 Write-Host "  Tokimu visualizer:$visualizerOutput"
 Write-Host "  Tokimu Paint:      $paintOutput"
 Write-Host "  Kernel UI:         $kernelUiOutput"
+Write-Host "  Ratatui templates: $ratatuiLabOutput"

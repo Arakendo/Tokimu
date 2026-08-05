@@ -14,14 +14,18 @@ Create a local environment and install the bounded site dependency:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m mkdocs serve -f mkdocs.yml
+pwsh -NoProfile -File .\scripts\build-site.ps1 -Serve
 ```
 
 Build the static output:
 
 ```powershell
-.\.venv\Scripts\python.exe -m mkdocs build -f mkdocs.yml --strict
+pwsh -NoProfile -File .\scripts\build-site.ps1 -Strict
 ```
+
+`mkdocs` is intentionally installed in `website/.venv`, not on the machine-wide
+`PATH`. The wrapper selects that environment explicitly so local validation and
+CI use the same project-pinned toolchain.
 
 Build the optional Tokimu-powered evidence island:
 
@@ -31,7 +35,7 @@ pwsh -NoProfile -File .\scripts\build-interactive.ps1
 ```
 
 The interactive build compiles the TypeScript browser adapters and refreshes
-five committed evidence payloads:
+six committed evidence payloads:
 
 - the ASP.NET asset-workbench Rust/WASM engine under
   `docs/assets/islands/asset-observation`; and
@@ -42,7 +46,9 @@ five committed evidence payloads:
 - the Tokimu visualizer Rust/WASM consumer under
   `docs/assets/islands/tokimu-visualizer`; and
 - the kernel UI Rust/WASM consumer under
-  `docs/assets/islands/kernel-ui`.
+  `docs/assets/islands/kernel-ui`; and
+- the Ratatui template lab Rust/WASM consumer under
+  `docs/assets/islands/ratatui-lab`.
 
 Ordinary MkDocs builds do not require Rust, Cargo, or `wasm-bindgen`. Publishing
  through GitHub Actions rebuilds every payload and rejects drift in their

@@ -20,3 +20,11 @@
 [submodule "third-party/weaver-xslt"]
 	path = third-party/weaver-xslt
 	url = https://github.com/Arakendo/weaver-xslt.git
+[submodule "third-party/fonts/departure-mono"]
+	path = third-party/fonts/departure-mono
+	url = https://github.com/rektdeckard/departure-mono.git
+	ignore = all
+[submodule "third-party/presentation-providers/ratatui"]
+	path = third-party/presentation-providers/ratatui
+	url = https://github.com/ratatui/ratatui.git
+	ignore = all

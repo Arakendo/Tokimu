@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tokimu Ratatui Template Lab</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="ratatui-lab">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Tokimu / presentation evidence</p>
+          <h1>Ratatui template laboratory</h1>
+        </div>
+        <p class="status" data-status>Preparing Rust/WASM cell grid</p>
+      </header>
+
+      <section class="controls" aria-label="Template controls">
+        <label>
+          <span>Template</span>
+          <select data-template></select>
+        </label>
+        <label>
+          <span>Terminal grid</span>
+          <select data-density>
+            <option value="72x24">72 x 24</option>
+            <option value="96x30">96 x 30</option>
+            <option value="120x36">120 x 36</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="terminal-shell" aria-labelledby="terminal-title">
+        <div class="terminal-heading">
+          <span id="terminal-title">Tokimu-rendered Ratatui projection</span>
+          <output data-grid-size></output>
+        </div>
+        <canvas data-terminal role="img" aria-label="Ratatui template output"></canvas>
+      </section>
+
+      <section class="evidence" aria-label="Projection evidence">
+        <p data-description></p>
+        <pre data-summary></pre>
+      </section>
+
+      <footer>
+        <strong>Boundary:</strong> Ratatui composes into a retained Tokimu backend,
+        and Tokimu rasterizes the bounded frame in Rust/WASM. The browser selects
+        a fixture and blits RGBA pixels; it owns neither terminal layout nor text.
+      </footer>
+    </main>
+    <script type="module" src="./ratatui-lab.js"></script>
+  </body>
+</html>

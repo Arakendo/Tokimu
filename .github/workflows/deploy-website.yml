@@ -12,8 +12,11 @@ on:
       - "corpus/consumers/tokimu-website-paint/**"
       - "corpus/consumers/tokimu-website-visualizer/**"
       - "corpus/consumers/tokimu-website-kernel-ui/**"
+      - "corpus/consumers/tokimu-website-ratatui-lab/**"
+      - "corpus/lib/ui-tools/**"
       - "corpus/consumers/ui-resource-workbench/**"
       - "corpus/lib/particle-tools/**"
+      - "third-party/fonts/departure-mono"
       - "website/**"
   workflow_dispatch:
 
@@ -30,6 +33,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Initialize website font fixture
+        run: git submodule update --init --depth 1 third-party/fonts/departure-mono
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -64,6 +70,7 @@ jobs:
           npm run typecheck --prefix corpus/consumers/tokimu-website-paint
           npm run typecheck --prefix corpus/consumers/tokimu-website-visualizer
           npm run typecheck --prefix corpus/consumers/tokimu-website-kernel-ui
+          npm exec --prefix website -- tsc --noEmit --project corpus/consumers/tokimu-website-ratatui-lab/tsconfig.json
           pwsh -NoProfile -File website/scripts/build-interactive.ps1
           # WASM binaries and wasm-bindgen bindings are rebuilt for deployment,
           # but are not byte-stable across Windows and Linux build hosts.
@@ -83,7 +90,11 @@ jobs:
             website/docs/javascripts/kernel-ui.js \
             website/docs/assets/islands/kernel-ui/index.html \
             website/docs/assets/islands/kernel-ui/kernel-ui.js \
-            website/docs/assets/islands/kernel-ui/styles.css
+            website/docs/assets/islands/kernel-ui/styles.css \
+            website/docs/javascripts/ratatui-lab.js \
+            website/docs/assets/islands/ratatui-lab/index.html \
+            website/docs/assets/islands/ratatui-lab/ratatui-lab.js \
+            website/docs/assets/islands/ratatui-lab/styles.css
 
       - name: Test interactive island contract
         run: >-
@@ -94,6 +105,7 @@ jobs:
           website/tests/visualizer-island.test.mjs
           website/tests/paint-island.test.mjs
           website/tests/kernel-ui-island.test.mjs
+          website/tests/ratatui-island.test.mjs
           website/tests/static-fallback.test.mjs
           website/tests/svg-evidence.test.mjs
           website/tests/cgm-evidence.test.mjs

@@ -35,6 +35,7 @@ nav:
       - Tokimu Paint: lab/paint.md
       - Tokimu Visualizer: lab/visualizer.md
       - Kernel UI Workbench: lab/kernel-ui.md
+      - Ratatui Template Lab: lab/ratatui.md
 
 markdown_extensions:
   - admonition
@@ -59,3 +60,4 @@ extra_javascript:
   - javascripts/tokimu-paint.js
   - javascripts/tokimu-visualizer.js
   - javascripts/kernel-ui.js
+  - javascripts/ratatui-lab.js
