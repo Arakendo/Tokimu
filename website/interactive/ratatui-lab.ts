@@ -19,6 +19,7 @@ window.TokimuIslands.register("ratatui-lab", async ({ root, config: rawConfig, s
   const frame = document.createElement("iframe");
   const loaded = waitForFrame(frame, signal);
 
+  prepareFrameLayout(mount, frame);
   frame.className = "ratatui-lab-frame";
   frame.title = "Tokimu Ratatui template laboratory";
   frame.src = new URL(config.frameUrl ?? defaultFrameUrl.href, scriptUrl).href;
@@ -38,6 +39,20 @@ window.TokimuIslands.register("ratatui-lab", async ({ root, config: rawConfig, s
 
   return { release: () => releaseFrame(frame, mount, fallback) };
 });
+
+function prepareFrameLayout(mount: HTMLElement, frame: HTMLIFrameElement): void {
+  // The generic island is a two-column fallback/status grid. Once activated,
+  // the evidence frame owns the full row even if a stale site stylesheet is
+  // still cached by the browser.
+  mount.style.gridColumn = "1 / -1";
+  mount.style.width = "100%";
+  mount.style.minWidth = "0";
+  frame.style.display = "block";
+  frame.style.width = "100%";
+  frame.style.maxWidth = "100%";
+  frame.style.height = "clamp(38rem, 68vw, 52rem)";
+  frame.style.border = "0";
+}
 
 function waitForFrame(frame: HTMLIFrameElement, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -59,6 +74,9 @@ function releaseFrame(frame: HTMLIFrameElement, mount: HTMLElement, fallback: HT
   frame.src = "about:blank";
   frame.remove();
   mount.replaceChildren();
+  mount.style.removeProperty("grid-column");
+  mount.style.removeProperty("width");
+  mount.style.removeProperty("min-width");
   mount.hidden = true;
   fallback.hidden = false;
 }

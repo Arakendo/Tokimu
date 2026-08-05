@@ -36,6 +36,18 @@ test("the Ratatui lab page states the provider and browser boundaries", async ()
   assert.match(source, /does not interpret Ratatui cells/);
 });
 
+test("the Ratatui host adapter fills the activated island", async () => {
+  const source = await readFile(
+    path.join(repositoryRoot, "website", "interactive", "ratatui-lab.ts"),
+    "utf8",
+  );
+
+  assert.match(source, /mount\.style\.gridColumn = "1 \/ -1"/);
+  assert.match(source, /mount\.style\.width = "100%"/);
+  assert.match(source, /frame\.style\.width = "100%"/);
+  assert.match(source, /frame\.style\.height = "clamp\(38rem, 68vw, 52rem\)"/);
+});
+
 test("the published Ratatui lab contains the Tokimu-rendered payload", async () => {
   const output = path.join(
     repositoryRoot,
