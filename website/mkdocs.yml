@@ -47,6 +47,7 @@ markdown_extensions:
 extra:
   canonical_domain: tokimuengine.org
   project_status: Early development
+  subreddit_url: https://www.reddit.com/r/Tokimu/
 
 extra_css:
   - stylesheets/tokimu.css
