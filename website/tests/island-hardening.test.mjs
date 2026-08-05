@@ -89,7 +89,9 @@ test("the published island payload remains inside its recorded launch budget", a
   // size. The Linux deployment build is currently larger than the committed
   // Windows artifact, so both the module and complete first-load contract use
   // explicit cross-host ceilings.
-  assert.ok(sizes[0] <= 1280 * 1024, `WASM payload grew to ${sizes[0]} bytes`);
+  // ZIP inspection and Resource Space import added one bounded consumer path.
+  // Keep a narrow cross-host allowance above the observed Linux artifact.
+  assert.ok(sizes[0] <= 1290 * 1024, `WASM payload grew to ${sizes[0]} bytes`);
   assert.ok(sizes[1] <= 24 * 1024, `WASM binding grew to ${sizes[1]} bytes`);
   assert.ok(sizes[2] <= 24 * 1024, `island adapter grew to ${sizes[2]} bytes`);
   assert.ok(sizes[3] <= 12 * 1024, `island lifecycle grew to ${sizes[3]} bytes`);
