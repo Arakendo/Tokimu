@@ -36,6 +36,7 @@ nav:
       - Tokimu Visualizer: lab/visualizer.md
       - Kernel UI Workbench: lab/kernel-ui.md
       - Ratatui Template Lab: lab/ratatui.md
+      - Runtime Observation Workbench: lab/runtime-observation.md
 
 markdown_extensions:
   - admonition
@@ -61,3 +62,4 @@ extra_javascript:
   - javascripts/tokimu-visualizer.js
   - javascripts/kernel-ui.js
   - javascripts/ratatui-lab.js
+  - javascripts/runtime-observation.js

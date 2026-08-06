@@ -10,7 +10,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 hello-runtime-observation = { path = "../../../hello-runtime-observation" }
+observation-shell = { path = "../../../lib/observation-shell" }
+ratatui = { version = "0.29.0", default-features = false }
 serde = { workspace = true }
 serde_json = "1"
 ui-tools = { path = "../../../lib/ui-tools" }
+unicode-width = "0.2"
 wasm-bindgen = { workspace = true }

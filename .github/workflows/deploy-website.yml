@@ -13,6 +13,8 @@ on:
       - "corpus/consumers/tokimu-website-visualizer/**"
       - "corpus/consumers/tokimu-website-kernel-ui/**"
       - "corpus/consumers/tokimu-website-ratatui-lab/**"
+      - "corpus/consumers/runtime-observation-workbench/**"
+      - "corpus/lib/observation-shell/**"
       - "corpus/lib/ui-tools/**"
       - "corpus/consumers/ui-resource-workbench/**"
       - "corpus/lib/particle-tools/**"
@@ -54,6 +56,7 @@ jobs:
           npm ci --prefix corpus/consumers/tokimu-website-paint
           npm ci --prefix corpus/consumers/tokimu-website-visualizer
           npm ci --prefix corpus/consumers/tokimu-website-kernel-ui
+          npm ci --prefix corpus/consumers/runtime-observation-workbench
 
       - name: Prepare Rust WebAssembly tools
         run: |
@@ -71,6 +74,7 @@ jobs:
           npm run typecheck --prefix corpus/consumers/tokimu-website-visualizer
           npm run typecheck --prefix corpus/consumers/tokimu-website-kernel-ui
           npm exec --prefix website -- tsc --noEmit --project corpus/consumers/tokimu-website-ratatui-lab/tsconfig.json
+          npm exec --prefix website -- tsc --noEmit --project corpus/consumers/runtime-observation-workbench/tsconfig.json
           pwsh -NoProfile -File website/scripts/build-interactive.ps1
           # WASM binaries and wasm-bindgen bindings are rebuilt for deployment,
           # but are not byte-stable across Windows and Linux build hosts.
@@ -106,6 +110,7 @@ jobs:
           website/tests/paint-island.test.mjs
           website/tests/kernel-ui-island.test.mjs
           website/tests/ratatui-island.test.mjs
+          website/tests/runtime-observation-island.test.mjs
           website/tests/static-fallback.test.mjs
           website/tests/svg-evidence.test.mjs
           website/tests/cgm-evidence.test.mjs

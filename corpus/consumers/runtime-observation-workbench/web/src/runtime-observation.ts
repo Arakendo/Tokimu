@@ -18,6 +18,36 @@ export interface RuntimeObservationWasm {
   advance_animation_fixed_step(): string;
 }
 
+/** A raw-text Observation Shell boundary. TypeScript never parses commands. */
+export interface ObservationShellWasm extends RuntimeObservationWasm {
+  execute_json(input: string, sequence: number): string;
+  command_catalog_json(): string;
+  ratatui_append_text(text: string): void;
+  ratatui_backspace(): void;
+  ratatui_clear_prompt(): void;
+  ratatui_submit(): string;
+  ratatui_history_up(): void;
+  ratatui_history_down(): void;
+  ratatui_scroll_by(lines: number): void;
+  ratatui_frame_rgba(width: number, height: number): Uint8Array;
+  ratatui_frame_width(): number;
+  ratatui_frame_height(): number;
+}
+
+export class ObservationShellClient {
+  private sequence = 0;
+
+  constructor(private readonly wasm: ObservationShellWasm) {}
+
+  execute(input: string): unknown {
+    return JSON.parse(this.wasm.execute_json(input, this.sequence++));
+  }
+
+  catalog(): unknown {
+    return JSON.parse(this.wasm.command_catalog_json());
+  }
+}
+
 export interface Position {
   x: number;
   y: number;

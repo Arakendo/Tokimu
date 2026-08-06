@@ -38,6 +38,9 @@ members = [
     "corpus/hello-cad",
     "corpus/hello-runtime-observation",
     "corpus/hello-runtime-inspector",
+    "corpus/hello-observation-shell",
+    "corpus/hello-observation-mud",
+    "corpus/hello-observation-workbench",
 
     # Data, interchange, and output corpus.
     "corpus/hello-svg",
@@ -117,6 +120,7 @@ members = [
     "corpus/lib/ui-framework",
     "corpus/lib/visualizer-tools",
     "corpus/lib/milkdrop-tools",
+    "corpus/lib/observation-shell",
 
     # Cross-workspace integration tests.
     "tests",

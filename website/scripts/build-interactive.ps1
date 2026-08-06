@@ -26,6 +26,8 @@ $ratatuiLabConsumer = Join-Path $root "corpus/consumers/tokimu-website-ratatui-l
 $ratatuiLabEngine = Join-Path $ratatuiLabConsumer "engine"
 $ratatuiLabWasm = Join-Path $root "target/wasm32-unknown-unknown/release/tokimu_website_ratatui_lab_engine.wasm"
 $ratatuiLabOutput = Join-Path $website "docs/assets/islands/ratatui-lab"
+$runtimeObservationConsumer = Join-Path $root "corpus/consumers/runtime-observation-workbench"
+$runtimeObservationOutput = Join-Path $website "docs/assets/islands/runtime-observation"
 $fixture = Join-Path $root "third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/derived/shapes-rect-01-geometry.svg"
 
 function Invoke-Checked {
@@ -66,6 +68,9 @@ try {
     Invoke-Checked {
         cargo build --manifest-path (Join-Path $ratatuiLabEngine "Cargo.toml") --target wasm32-unknown-unknown --release
     } "Ratatui template lab WASM build"
+    Invoke-Checked {
+        pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runtimeObservationConsumer "build.ps1")
+    } "Runtime observation workbench WASM and TypeScript build"
 
     New-Item -ItemType Directory -Force $assetOutput | Out-Null
     Invoke-Checked {
@@ -113,6 +118,9 @@ try {
     Copy-Item -LiteralPath (Join-Path $ratatuiLabConsumer "web/index.html") -Destination $ratatuiLabOutput -Force
     Copy-Item -LiteralPath (Join-Path $ratatuiLabConsumer "web/styles.css") -Destination $ratatuiLabOutput -Force
     Copy-Item -LiteralPath (Join-Path $ratatuiLabConsumer "dist/ratatui-lab.js") -Destination $ratatuiLabOutput -Force
+
+    New-Item -ItemType Directory -Force $runtimeObservationOutput | Out-Null
+    Copy-Item -Path (Join-Path $runtimeObservationConsumer "dist/*") -Destination $runtimeObservationOutput -Force
 }
 finally {
     Pop-Location
@@ -125,3 +133,4 @@ Write-Host "  Tokimu visualizer:$visualizerOutput"
 Write-Host "  Tokimu Paint:      $paintOutput"
 Write-Host "  Kernel UI:         $kernelUiOutput"
 Write-Host "  Ratatui templates: $ratatuiLabOutput"
+Write-Host "  Runtime observation: $runtimeObservationOutput"
