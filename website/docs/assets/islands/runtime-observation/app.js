@@ -21,9 +21,24 @@ let commandId = 1;
 let tick = 1;
 const show = (value) => {
     output.textContent = JSON.stringify(JSON.parse(value), null, 2);
+    scheduleDocumentHeight();
 };
 const showError = (error) => {
     output.textContent = JSON.stringify({ error: String(error) }, null, 2);
+    scheduleDocumentHeight();
+};
+let documentHeightPending = false;
+const scheduleDocumentHeight = () => {
+    if (documentHeightPending || window.parent === window)
+        return;
+    documentHeightPending = true;
+    requestAnimationFrame(() => {
+        documentHeightPending = false;
+        window.parent.postMessage({
+            type: "tokimu-runtime-observation-height",
+            height: Math.ceil(document.documentElement.scrollHeight),
+        }, "*");
+    });
 };
 const renderRatatuiShell = () => {
     const hostWidth = terminalCanvas.getBoundingClientRect().width;
@@ -151,6 +166,8 @@ terminalCanvas.addEventListener("wheel", (event) => {
 // Observe the actual host box rather than assuming a window resize is the only
 // way the bounded terminal surface changes.
 new ResizeObserver(scheduleRatatuiResize).observe(terminalCanvas);
+new ResizeObserver(scheduleDocumentHeight).observe(document.body);
 window.addEventListener("resize", scheduleRatatuiResize);
 show(runtime.observation_json(0, 7));
 renderRatatuiShell();
+scheduleDocumentHeight();

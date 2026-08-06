@@ -16,6 +16,7 @@
     const mount = required(root, "[data-island-mount]");
     const fallback = required(root, ".island-fallback");
     const frame = document.createElement("iframe");
+    const releaseHeightSync = installFrameHeightSync(frame);
     const loaded = waitForFrame(frame, signal);
 
     prepareFrameLayout(mount, frame);
@@ -32,11 +33,17 @@
       frame.focus({ preventScroll: true });
       frame.contentWindow?.focus();
     } catch (error) {
+      releaseHeightSync();
       releaseFrame(frame, mount, fallback);
       throw error;
     }
 
-    return { release: () => releaseFrame(frame, mount, fallback) };
+    return {
+      release: () => {
+        releaseHeightSync();
+        releaseFrame(frame, mount, fallback);
+      },
+    };
   });
 
   function prepareFrameLayout(mount, frame) {
@@ -46,8 +53,24 @@
     frame.style.display = "block";
     frame.style.width = "100%";
     frame.style.maxWidth = "100%";
-    frame.style.height = "clamp(44rem, 78vw, 66rem)";
+    // The child reports its document height after WASM has rendered. This
+    // fallback avoids a collapsed frame while the first report is in flight.
+    frame.style.height = "48rem";
     frame.style.border = "0";
+  }
+
+  function installFrameHeightSync(frame) {
+    const onMessage = (event) => {
+      if (event.source !== frame.contentWindow) return;
+      if (event.data?.type !== "tokimu-runtime-observation-height") return;
+
+      const height = Number(event.data.height);
+      if (!Number.isFinite(height) || height <= 0) return;
+      frame.style.height = `${Math.ceil(height)}px`;
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }
 
   function waitForFrame(frame, signal) {

@@ -11,9 +11,6 @@ input { min-width: 22rem; background: #050b0c; color: inherit; border: 1px solid
 pre {
   margin-top: 1.5rem;
   padding: 1rem;
-  min-height: 20rem;
-  overflow-y: auto;
-  overflow-x: hidden;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   background: #050b0c;

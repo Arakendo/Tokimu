@@ -27,13 +27,27 @@ test("runtime observation lab documents the bounded shared-session claim", async
   assert.match(page, /`AR-0013` remains incubating/);
 });
 
-test("runtime observation island reserves a full-width bounded frame", async () => {
+test("runtime observation island fills its width and follows the child document height", async () => {
   const loader = await read("website/docs/javascripts/runtime-observation.js");
 
   assert.match(loader, /mount\.style\.gridColumn = "1 \/ -1"/);
   assert.match(loader, /mount\.style\.width = "100%"/);
   assert.match(loader, /frame\.style\.width = "100%"/);
-  assert.match(loader, /frame\.style\.height = "clamp\(44rem, 78vw, 66rem\)"/);
+  assert.match(loader, /installFrameHeightSync/);
+  assert.match(loader, /tokimu-runtime-observation-height/);
+  assert.doesNotMatch(loader, /clamp\(44rem, 78vw, 66rem\)/);
+});
+
+test("runtime observation island presents Ratatui before expandable semantic evidence", async () => {
+  const page = await read("corpus/consumers/runtime-observation-workbench/web/index.html");
+  const styles = await read("corpus/consumers/runtime-observation-workbench/web/styles.css");
+  const app = await read("corpus/consumers/runtime-observation-workbench/web/app.ts");
+
+  assert.ok(page.indexOf('id="ratatui-shell"') < page.indexOf('id="output"'));
+  assert.match(styles, /white-space: pre-wrap/);
+  assert.doesNotMatch(styles, /overflow-y: auto/);
+  assert.match(app, /scheduleDocumentHeight/);
+  assert.match(app, /document\.documentElement\.scrollHeight/);
 });
 
 test("runtime observation island publishes the bounded WASM artifact set", async () => {
