@@ -592,6 +592,38 @@ projection-parity evidence before this review can recommend an ADR.
 - Resulting ADR or documentation change: no ADR; the plan records the
   browser-host evidence and its explicit limits.
 
+### Cycle 15 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: the runtime-observation browser workbench retained one
+  Rust-owned `ObservationShell` for both the TypeScript semantic controls and
+  the Tokimu-rendered Ratatui surface, but direct toolbar actions originally
+  updated the JSON observation without adding a corresponding Ratatui
+  transcript record. The hosts therefore observed related runtime state while
+  presenting different retained interaction histories. The shell now exposes a
+  typed application-query recording path. Browser controls use it to append
+  explicit `[ui]` records with a source field of `browser toolbar`; these
+  records are visible in Ratatui but excluded from prompt Up/Down command
+  recall. Focused regression coverage verifies that a toolbar selection
+  changes the returned Ratatui raster and retains the expected structured
+  shell record.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: a shared semantic session is not by itself sufficient cross-host
+  evidence. Each accepted interaction that changes observable state must have
+  an explicit projection policy for every retained host surface. The shell owns
+  the retained record and its bounded structure; the browser host owns the
+  toolbar gesture; Ratatui owns how that record is composed and rasterized.
+  Host-originated records are not user-entered commands and must not silently
+  alter command-history navigation.
+- Disposition: Incubating. The browser toolbar/Ratatui divergence is resolved
+  for this corpus workbench. Cross-host parity still requires broader evidence
+  for selection, diagnostics, redaction, and independently hosted live
+  sessions; this fix does not claim universal event sourcing or a generic UI
+  telemetry model.
+- Resulting ADR or documentation change: no ADR; this cycle records the
+  retained-transcript projection requirement and the explicit distinction
+  between host controls and command recall history.
+
 ## References
 
 - [`On Ratatui.md`](../Conversations/On%20Ratatui.md)
