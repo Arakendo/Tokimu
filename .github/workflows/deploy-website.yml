@@ -14,11 +14,13 @@ on:
       - "corpus/consumers/tokimu-website-kernel-ui/**"
       - "corpus/consumers/tokimu-website-ratatui-lab/**"
       - "corpus/consumers/runtime-observation-workbench/**"
+      - "corpus/consumers/aspnet-wasm-asset-workbench/**"
       - "corpus/lib/observation-shell/**"
       - "corpus/lib/ui-tools/**"
       - "corpus/consumers/ui-resource-workbench/**"
       - "corpus/lib/particle-tools/**"
       - "third-party/fonts/departure-mono"
+      - "third-party/tosumu"
       - "website/**"
   workflow_dispatch:
 
@@ -36,8 +38,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Initialize website font fixture
-        run: git submodule update --init --depth 1 third-party/fonts/departure-mono
+      - name: Initialize website build fixtures
+        run: |
+          # Departure Mono supplies the native terminal/font corpus, while the
+          # asset workbench's Rust/WASM engine links the accepted Tosumu
+          # provider through its pinned submodule path.
+          git submodule update --init --depth 1 third-party/fonts/departure-mono
+          git submodule update --init --depth 1 third-party/tosumu
 
       - name: Set up Python
         uses: actions/setup-python@v6
