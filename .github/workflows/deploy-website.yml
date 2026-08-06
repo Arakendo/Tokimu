@@ -68,6 +68,10 @@ jobs:
 
       - name: Typecheck and compile interactive source
         run: |
+          # Build WASM-bindgen output first. The runtime-observation TypeScript
+          # source imports its generated wrapper, which does not exist on a
+          # clean GitHub runner until this step has run.
+          pwsh -NoProfile -File website/scripts/build-interactive.ps1
           npm run typecheck --prefix website
           npm run typecheck --prefix corpus/consumers/tokimu-website-asteroids
           npm run typecheck --prefix corpus/consumers/tokimu-website-paint
@@ -75,7 +79,6 @@ jobs:
           npm run typecheck --prefix corpus/consumers/tokimu-website-kernel-ui
           npm exec --prefix website -- tsc --noEmit --project corpus/consumers/tokimu-website-ratatui-lab/tsconfig.json
           npm exec --prefix website -- tsc --noEmit --project corpus/consumers/runtime-observation-workbench/tsconfig.json
-          pwsh -NoProfile -File website/scripts/build-interactive.ps1
           # WASM binaries and wasm-bindgen bindings are rebuilt for deployment,
           # but are not byte-stable across Windows and Linux build hosts.
           git diff --exit-code -- \
