@@ -802,6 +802,82 @@ impl ObservationShell {
         self.execute_at_sequence_inner(source, input, sequence, Some(&mut handler))
     }
 
+    /// Retains a bounded application-owned observation initiated by a host
+    /// control rather than typed shell input.
+    ///
+    /// The host still owns its interaction affordance, while the shell owns
+    /// the retained transcript record and its provider-qualified semantics.
+    /// This keeps browser controls visible in terminal evidence without
+    /// misrepresenting them as user-entered commands.
+    pub fn record_application_query_at_sequence(
+        &mut self,
+        input: &str,
+        sequence: u64,
+        invocation: ApplicationCommandInvocation,
+        result: ApplicationQueryResult,
+    ) -> ShellRecord {
+        if sequence != self.current_sequence {
+            self.current_sequence = sequence;
+            self.commands_in_current_sequence = 0;
+        }
+        self.commands_in_current_sequence = self.commands_in_current_sequence.saturating_add(1);
+
+        let input = input.trim();
+        let mut response = if input.len() > self.boundary_limits.max_input_bytes {
+            budget_exceeded(
+                "shell",
+                "input",
+                format!(
+                    "input exceeds the shell byte limit ({} bytes)",
+                    self.boundary_limits.max_input_bytes
+                ),
+            )
+        } else if self.commands_in_current_sequence > self.boundary_limits.max_commands_per_sequence
+        {
+            budget_exceeded(
+                "shell",
+                "command rate",
+                format!(
+                    "logical sequence {sequence} exceeded the shell command budget ({})",
+                    self.boundary_limits.max_commands_per_sequence
+                ),
+            )
+        } else {
+            let owner = invocation.owner.clone();
+            let command = format!("application {} {}", invocation.owner, invocation.command);
+            success(
+                &owner,
+                &command,
+                ShellData::ApplicationQuery { invocation, result },
+            )
+        };
+        let mut projection = project(&response, self.format);
+        if projection.len() > self.boundary_limits.max_projection_bytes {
+            response = budget_exceeded(
+                "shell",
+                "projection",
+                format!(
+                    "response projection exceeds the shell output limit ({} bytes)",
+                    self.boundary_limits.max_projection_bytes
+                ),
+            );
+            projection = project(&response, self.format);
+        }
+        let record = ShellRecord {
+            input: input.to_owned(),
+            response,
+            projection,
+        };
+
+        if self.state != ShellSessionState::Closed {
+            self.history.push(record.clone());
+            if self.history.len() > self.history_limit {
+                self.history.remove(0);
+            }
+        }
+        record
+    }
+
     /// Routes one registered mutation through a caller-supplied application adapter.
     ///
     /// The handler exists for this invocation only. The shell retains neither
@@ -1955,6 +2031,34 @@ mod tests {
         shell.execute(&source, "list entities");
         assert_eq!(shell.history().len(), 2);
         assert_eq!(shell.history()[0].input, "inspect world");
+    }
+
+    #[test]
+    fn host_application_queries_are_retained_without_parsing_host_controls() {
+        let mut shell = ObservationShell::default();
+        let record = shell.record_application_query_at_sequence(
+            "[ui] observe",
+            7,
+            ApplicationCommandInvocation {
+                owner: "runtime".to_owned(),
+                command: "toolbar-observe".to_owned(),
+                arguments: Vec::new(),
+            },
+            ApplicationQueryResult {
+                summary: "Captured the current runtime observation.".to_owned(),
+                fields: vec![ApplicationQueryField::visible("source", "browser toolbar")],
+            },
+        );
+
+        assert_eq!(record.input, "[ui] observe");
+        assert_eq!(record.response.status, ShellStatus::Success);
+        let ShellData::ApplicationQuery { invocation, result } = &record.response.data else {
+            panic!("host controls must retain application-query evidence");
+        };
+        assert_eq!(invocation.owner, "runtime");
+        assert_eq!(invocation.command, "toolbar-observe");
+        assert_eq!(result.summary, "Captured the current runtime observation.");
+        assert_eq!(shell.history(), [record]);
     }
 
     #[test]

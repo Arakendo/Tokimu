@@ -205,38 +205,60 @@ impl WasmObservationShellSession {
             &mut self.latest_observation_diff,
             observation.clone(),
         )?;
+        self.record_toolbar_action(
+            "observe",
+            "Captured the current provider-neutral runtime observation.",
+        );
         json(observation).map_err(js_error)
     }
 
-    pub fn latest_observation_diff_json(&self) -> Result<String, JsValue> {
+    pub fn latest_observation_diff_json(&mut self) -> Result<String, JsValue> {
+        self.record_toolbar_action(
+            "latest-observation-diff",
+            "Requested the comparison between the latest two browser-visible observations.",
+        );
         json(&self.latest_observation_diff).map_err(js_error)
     }
 
     pub fn ui_snapshot_json(
-        &self,
+        &mut self,
         width: u32,
         height: u32,
         sequence: u32,
         selected_entity: Option<u32>,
     ) -> Result<String, JsValue> {
-        ui::build_runtime_ui_snapshot(
+        let snapshot = ui::build_runtime_ui_snapshot(
             &self.runtime,
             [width, height],
             u64::from(sequence),
             selected_entity.map(u64::from),
         )
-        .and_then(json)
-        .map_err(js_error)
+        .map_err(js_error)?;
+        self.record_toolbar_action(
+            "observe-ui-contract",
+            format!("Built a semantic UI snapshot for a {width} by {height} viewport."),
+        );
+        json(snapshot).map_err(js_error)
     }
 
     pub fn enqueue_json(&mut self, request_json: &str) -> Result<String, JsValue> {
         let request = serde_json::from_str::<CommandRequest>(request_json)
             .map_err(|error| JsValue::from_str(&format!("invalid runtime command: {error}")))?;
-        json(self.runtime.enqueue(request)).map_err(js_error)
+        let result = self.runtime.enqueue(request);
+        self.record_toolbar_action(
+            "queue-command",
+            "Queued a browser-requested runtime mutation for the next fixed-step application.",
+        );
+        json(result).map_err(js_error)
     }
 
     pub fn apply_json(&mut self, tick: u32) -> Result<String, JsValue> {
-        json(self.runtime.apply_pending_at_tick(u64::from(tick))).map_err(js_error)
+        let result = self.runtime.apply_pending_at_tick(u64::from(tick));
+        self.record_toolbar_action(
+            "apply-queue",
+            format!("Applied the pending runtime command queue at fixed tick {tick}."),
+        );
+        json(result).map_err(js_error)
     }
 
     pub fn presentation_json(&self) -> Result<String, JsValue> {
@@ -244,7 +266,12 @@ impl WasmObservationShellSession {
     }
 
     pub fn select_arm_presentation_json(&mut self) -> Result<String, JsValue> {
-        json(self.runtime.select_arm_presentation()).map_err(js_error)
+        let result = self.runtime.select_arm_presentation();
+        self.record_toolbar_action(
+            "select-presentation",
+            "Selected the scenario-owned arm presentation target.",
+        );
+        json(result).map_err(js_error)
     }
 
     pub fn animation_catalog_json(&self) -> Result<String, JsValue> {
@@ -258,12 +285,22 @@ impl WasmObservationShellSession {
     pub fn playback_command_json(&mut self, command_json: &str) -> Result<String, JsValue> {
         let command = serde_json::from_str::<PlaybackCommand>(command_json)
             .map_err(|error| JsValue::from_str(&format!("invalid playback command: {error}")))?;
-        json(self.runtime.apply_playback_command(command)).map_err(js_error)
+        let result = self.runtime.apply_playback_command(command);
+        self.record_toolbar_action(
+            "playback-command",
+            "Applied a browser-requested playback transition through the shared runtime session.",
+        );
+        json(result).map_err(js_error)
     }
 
     pub fn advance_animation_fixed_step(&mut self) -> Result<String, JsValue> {
         self.runtime.advance_animation_fixed_step();
-        self.playback_json()
+        let playback = self.runtime.playback().clone();
+        self.record_toolbar_action(
+            "advance-animation",
+            "Advanced scenario playback by one fixed animation step.",
+        );
+        json(playback).map_err(js_error)
     }
 
     /// Exposes discovery as a bounded catalog, not as a browser-owned command
@@ -305,6 +342,7 @@ impl WasmObservationShellSession {
             .shell
             .history()
             .iter()
+            .filter(|record| !record.input.starts_with("[ui] "))
             .map(|record| record.input.as_str())
             .collect();
         if inputs.is_empty() {
@@ -327,8 +365,14 @@ impl WasmObservationShellSession {
             .shell
             .history()
             .iter()
+            .filter(|record| !record.input.starts_with("[ui] "))
             .map(|record| record.input.as_str())
             .collect();
+        if inputs.is_empty() {
+            self.history_offset = 0;
+            self.prompt.clear();
+            return;
+        }
         self.prompt = inputs[inputs.len() - self.history_offset].to_owned();
     }
 
@@ -377,6 +421,31 @@ impl WasmObservationShellSession {
 
     pub fn ratatui_frame_height(&self) -> u32 {
         self.frame_height
+    }
+}
+
+impl WasmObservationShellSession {
+    /// Retains a browser-toolbar action in the same Rust-owned transcript as
+    /// terminal input without representing it as text the user typed.
+    fn record_toolbar_action(&mut self, action: &str, summary: impl Into<String>) {
+        let sequence = self.command_sequence;
+        self.command_sequence = self.command_sequence.saturating_add(1);
+        self.history_offset = 0;
+        self.transcript_scroll = 0;
+
+        self.shell.record_application_query_at_sequence(
+            &format!("[ui] {action}"),
+            u64::from(sequence),
+            ApplicationCommandInvocation {
+                owner: "runtime".to_owned(),
+                command: format!("toolbar-{action}"),
+                arguments: Vec::new(),
+            },
+            ApplicationQueryResult {
+                summary: summary.into(),
+                fields: vec![ApplicationQueryField::visible("source", "browser toolbar")],
+            },
+        );
     }
 }
 
@@ -1114,6 +1183,37 @@ mod tests {
         assert_eq!(
             shell_result["response"]["data"]["result"]["summary"],
             "1 resolved presentation targets"
+        );
+    }
+
+    #[test]
+    fn semantic_controls_append_explicit_ratatui_transcript_records() {
+        let mut session = WasmObservationShellSession::new()
+            .expect("the shared browser fixture should construct");
+        let idle = session
+            .ratatui_frame_rgba(720, 432)
+            .expect("idle Ratatui frame should render");
+
+        session
+            .select_arm_presentation_json()
+            .expect("semantic presentation selection should serialize");
+
+        let record = session
+            .shell
+            .history()
+            .last()
+            .expect("toolbar selection should be retained in the transcript");
+        assert_eq!(record.input, "[ui] select-presentation");
+        assert_eq!(record.response.owner, "runtime");
+        assert!(record.projection.contains("toolbar-select-presentation"));
+        assert!(record.projection.contains("browser toolbar"));
+
+        let updated = session
+            .ratatui_frame_rgba(720, 432)
+            .expect("toolbar transcript entry should render");
+        assert_ne!(
+            idle, updated,
+            "a semantic control must visibly update the shared Ratatui transcript"
         );
     }
 
