@@ -42,6 +42,13 @@ type AssetObservation = {
   preview: { kind: string; paths: PreviewPath[]; triangles: PreviewTriangle[] } | null;
   presentationTargets: PresentationTarget[];
 };
+type ArchiveImport = {
+  archiveName: string;
+  importedRoot: string;
+  importedEntries: string[];
+  primaryEntry: string | null;
+  diagnostics: string[];
+};
 type PresentationTarget = {
   kind: string;
   key: string;
@@ -164,11 +171,40 @@ async function inspectFiles(files: Iterable<File>): Promise<void> {
 
   try {
     const session = new ResourceSession();
-    for (const file of selected) {
-      await session.add_resource(file.name, new Uint8Array(await file.arrayBuffer()));
+    let inspectionName = document.name;
+    let archiveImport: ArchiveImport | null = null;
+
+    const archiveExtension = document.name.toLowerCase().split(".").at(-1);
+    if (archiveExtension === "zip" || archiveExtension === "tar" || archiveExtension === "7z") {
+      if (selected.length !== 1) {
+        throw new Error("Archive import accepts one archive at a time; select dependencies from inside the archive.");
+      }
+      archiveImport = JSON.parse(
+        archiveExtension === "7z"
+          ? session.import_seven_zip(document.name, new Uint8Array(await document.arrayBuffer()))
+          : archiveExtension === "tar"
+            ? session.import_tar(document.name, new Uint8Array(await document.arrayBuffer()))
+            : session.import_zip(document.name, new Uint8Array(await document.arrayBuffer())),
+      ) as ArchiveImport;
+      inspectionName = archiveImport.primaryEntry ?? document.name;
+    } else {
+      for (const file of selected) {
+        await session.add_resource(file.name, new Uint8Array(await file.arrayBuffer()));
+      }
     }
-    const observation = JSON.parse(session.inspect_resource(document.name)) as AssetObservation;
-    selectionStatus.textContent = `${describeSelection(document.name, selectedNames)} Rust session: ${session.summary()}.`;
+    const observation = JSON.parse(session.inspect_resource(inspectionName)) as AssetObservation;
+    if (archiveImport) {
+      observation.properties.push(
+        { label: `${archiveExtension?.toUpperCase() ?? "ARCHIVE"} import root`, value: archiveImport.importedRoot },
+        { label: "Imported resources", value: archiveImport.importedEntries.length.toString() },
+        { label: "Inspected entry", value: inspectionName },
+      );
+      observation.diagnostics.push(...archiveImport.diagnostics);
+      const resourceCount = archiveImport.importedEntries.length;
+      selectionStatus.textContent = `${archiveExtension?.toUpperCase() ?? "ARCHIVE"}: ${document.name}. Imported ${resourceCount} regular file${resourceCount === 1 ? "" : "s"} under ${archiveImport.importedRoot}/. Rust session: ${session.summary()}.`;
+    } else {
+      selectionStatus.textContent = `${describeSelection(document.name, selectedNames)} Rust session: ${session.summary()}.`;
+    }
     resourceSession = session;
     downloadResource.disabled = false;
     currentObservation = observation;
@@ -210,7 +246,7 @@ function downloadSelectedResource(): void {
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = href;
-    anchor.download = currentObservation.fileName;
+    anchor.download = currentObservation.fileName.split("/").at(-1) || "asset.bin";
     anchor.click();
     URL.revokeObjectURL(href);
   } catch (error) {

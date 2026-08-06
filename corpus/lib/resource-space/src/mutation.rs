@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{FolderId, ResourceKey, ResourceRootId};
+use crate::{FolderId, ResourceKey, ResourceRootId, ResourceVisibility};
 
 /// Structured result of a successful logical resource-space mutation.
 ///
@@ -58,6 +58,10 @@ pub enum ResourceMutationOutcome {
         source: ResourceKey,
         destination: ResourceKey,
         byte_len: usize,
+    },
+    ResourceVisibilityChanged {
+        key: ResourceKey,
+        visibility: ResourceVisibility,
     },
 }
 

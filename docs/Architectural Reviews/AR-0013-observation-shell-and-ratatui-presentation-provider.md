@@ -235,8 +235,9 @@ projection-parity evidence before this review can recommend an ADR.
 
 - [x] Complete deterministic semantic transcript and normalized-cell artifacts
       in `tokimu-console-command-window`.
-- [ ] Build one standalone Ratatui terminal host over the same shell session.
-- [ ] Build one bounded embedded Ratatui cell-grid region in a Tokimu UI host.
+- [x] Build one standalone Ratatui terminal host over the shared shell-session
+      execution path.
+- [x] Build one bounded embedded Ratatui cell-grid region in a Tokimu UI host.
 - [x] Replace the website lab's transitional `TestBackend`/JSON/canvas cell
       path with a direct retained `TokimuBackend` presentation path.
 - [ ] Compare command results, retained history, selection, and diagnostics
@@ -361,6 +362,235 @@ projection-parity evidence before this review can recommend an ADR.
 - Resulting ADR or documentation change: no ADR; the website lab and Slice 7
   progress now distinguish completed static raster evidence from open runtime
   and shell evidence.
+
+### Cycle 6 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: `corpus/lib/observation-shell` now has explicit read-only and
+  control session authorities plus bounded input, application-argument,
+  per-logical-sequence command-rate, retained-projection, history, navigation,
+  and watch limits. Its focused suite proves that read-only sessions reject
+  registered mutations before an owner handler runs; oversized input, command
+  floods, and oversized owner query results become structured boundary
+  failures while the session remains usable. The native
+  `hello-observation-workbench` independently maps graphical controls to the
+  same literal shell inputs and checks one result against a fresh scripted
+  session.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: bounded shell-session semantics remain independent of Ratatui and
+  of any particular host. Authority constrains dispatch but does not alter
+  discovery; bounded output can omit an oversized projection without retaining
+  owner output. Owner-specific redaction policy and malformed-byte decoding
+  remain outside this `&str` shell boundary and require their own adapter or
+  capability evidence.
+- Disposition: Incubating. The shell boundary has enough evidence to continue
+  as a corpus library, but standalone Ratatui-host parity, shared-session
+  parity across independent hosts, and policy-driven sensitive-observation
+  handling are still required before capability admission.
+- Resulting ADR or documentation change: no ADR; the Observation Shell plan
+  records the authority and budget evidence and keeps semantic redaction as an
+  explicit open policy question.
+
+### Cycle 7 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: `hello-observation-shell` now routes the existing runtime
+  playback lifecycle through the application-owner seam: pause, resume, seek,
+  stop, and reset join the earlier play, fixed advance, and state query. The
+  deterministic script also pauses after stopping, and the runtime returns
+  `RejectedUnsupported` with its `pause_not_playing` diagnostic while retaining
+  the stopped playback state. The same corpus now routes set-hotspot,
+  clear-selection, and clear-hotspot commands through scenario-owned target
+  mappings, and proves `RejectedUnknownTarget` with the
+  `presentation_target_unresolved` diagnostic for a deliberately absent target.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: lifecycle command syntax and numeric parsing may remain
+  scenario-local without making the shell a playback owner. Presentation target
+  resolution and target rejection likewise remain scenario-owned. The shell's
+  stable responsibility is the authority-checked, bounded owner-qualified
+  envelope and receipt projection; the runtime remains the sole owner of
+  lifecycle and presentation transition/rejection semantics.
+- Disposition: Incubating. The lifecycle and presentation-command paths are
+  now materially broader, but independent host session parity, standalone
+  terminal-host evidence, and policy-driven observation redaction remain open.
+- Resulting ADR or documentation change: no ADR; the plan records the completed
+  lifecycle evidence and preserves the remaining admission gaps.
+
+### Cycle 8 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: the browser-facing `runtime-observation-workbench` now exposes
+  `WasmObservationShellSession`. Its TypeScript client transports only raw
+  owner-qualified text and a monotonic logical sequence; the WASM boundary
+  returns owned JSON `ShellRecord` values. Rust registers the runtime catalog,
+  constructs observations, validates application arguments, and invokes the
+  scenario-owned playback and presentation operations. Focused tests prove
+  catalog discovery, a successful `application runtime list-animations` query,
+  an accepted `application runtime play 0` mutation, and rejection of
+  `application runtime play not-a-clip` without a browser command parser.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: the raw-text browser route can consume the same bounded shell
+  contract without constructing a TypeScript shadow runtime or exposing
+  provider-specific runtime requests. Direct JSON workbench controls remain
+  useful comparison evidence but are not part of the shell route. This proves
+  browser transport and owner dispatch only; it does not prove a standalone
+  terminal host, shared session parity across independent hosts, or Ratatui
+  command-session parity. A focused projection-isolation regression also
+  proves that browser-side edits to a returned playback JSON record cannot
+  alter the scenario-owned runtime observed by a subsequent shell query.
+- Disposition: Incubating. Browser command-boundary evidence is complete for
+  the current Slice 8 scope; the remaining host and provider questions remain
+  separate admission evidence.
+- Resulting ADR or documentation change: no ADR; Slice 8 now records the
+  completed TypeScript ownership criterion.
+
+### Cycle 9 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: the browser-facing runtime observation workbench now routes
+  copied, owner-labeled observations through `application runtime
+  world-summary`, `application runtime relationships`, and `application
+  diagnostics records`. The existing scripted shell, plain CLI adapter, MUD
+  consumer, native workbench, and browser workbench therefore all exercise the
+  same bounded session, catalog, typed invocation, authority, and projection
+  semantics while retaining different host interaction mechanics.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: the repeated semantics are session-local command history,
+  owner-qualified routing, bounded catalogs, structured result projection,
+  authority checks, and explicit boundary failures. World, relationship, and
+  diagnostic meaning remains with their respective owners; neither a terminal
+  nor TypeScript receives a shadow observation model. Asset and performance
+  commands are intentionally absent because their owners have not yet supplied
+  bounded consumer-ready observations. This absence is explicit evidence, not
+  an incomplete browser implementation.
+- Disposition: Incubating. The shell remains justified as a corpus library,
+  while policy-driven redaction for valid sensitive observations and
+  independent standalone-host/shared-session evidence remain required before
+  capability admission.
+- Resulting ADR or documentation change: no ADR; the observation-shell plan
+  now marks the completed cross-consumer comparison and identifies the exact
+  deferred owner contracts.
+
+### Cycle 10 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: `ApplicationQueryField` now carries an owner-supplied
+  disclosure result: either `Visible { value }` or `Redacted { reason }`.
+  Text and JSON shell projections preserve that result as a bounded structured
+  field. The focused shell suite exercises a mixed query where one field is
+  visible and another is redacted, proving that the withheld value never
+  reaches the projection boundary.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: redaction is an owner decision, not shell classification,
+  authorization, or secret discovery. The shell can faithfully carry a
+  redaction reason without receiving the corresponding value. This supports
+  bounded disclosure while retaining application ownership of what may be
+  exposed.
+- Disposition: Incubating. The contract is sufficient corpus evidence for
+  owner-supplied withholding, but a real independent sensitive-data owner,
+  reusable policy vocabulary, standalone-host/shared-session parity, and
+  bounded asset/performance owners remain necessary before capability
+  admission.
+- Resulting ADR or documentation change: no ADR; the Observation Shell plan
+  records owner-supplied disclosure as complete Slice 9 evidence and preserves
+  the remaining policy and host gaps.
+
+### Cycle 11 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: `runtime-observation-workbench` now hosts its existing
+  Rust-owned `ObservationShell` session inside a focused bounded Ratatui
+  terminal region. A corpus-local `TokimuBackend` implements Ratatui's public
+  `Backend::draw` seam, retains changed cells, and lowers the completed cell
+  surface through `ui-tools` and the pinned Departure Mono provider into an
+  RGBA frame. Rust/WASM accepts normalized text, editing, history, paging, and
+  wheel actions; TypeScript owns browser focus and frame blitting only.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: the embedded provider now drives a real semantic shell session
+  without `TestBackend`, JSON cell serialization, browser command parsing, or
+  TypeScript terminal layout. Ratatui remains provider-local: it owns terminal
+  composition, while the browser host owns focus, input dispatch, bounds, and
+  pixels. The existing plain JSON projection remains useful comparison
+  evidence, not a second shell.
+- Disposition: Incubating. Embedded browser proof is complete. A standalone
+  Ratatui host and trace parity across standalone, embedded, and headless
+  sessions remain material admission evidence.
+- Resulting ADR or documentation change: no ADR; the Observation Shell plan
+  records the completed embedded host and preserves the remaining parity work.
+
+### Cycle 12 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: `hello-observation-shell-ratatui` now provides an optional
+  native Crossterm/Ratatui terminal host. The host owns raw-mode lifecycle,
+  alternate-screen execution, terminal input, and terminal pixels. It reuses
+  the corpus-local `ShellFixture` execution path shared with the plain-text
+  adapter; a deterministic `help`, `inspect world`, and `list entities` trace
+  produces identical projections from independent host fixtures. Focused
+  tests pass and the optional `ratatui-standalone` feature compiles.
+- Participants or reviewers: project maintainer and Codex implementation review.
+- Findings: Ratatui can host the same literal Observation Shell command
+  semantics without entering engine crates or exposing Ratatui types through
+  the shell boundary. Native terminal mechanics remain host-owned, while the
+  shell continues to own command parsing and projection. This is not evidence
+  for a shared live retained session across native, embedded, and headless
+  hosts.
+- Disposition: Incubating. The standalone-host gap is closed at the command
+  execution boundary; retained-history, selection, diagnostics, and live
+  session parity across all hosts remain material admission evidence.
+- Resulting ADR or documentation change: no ADR; the plan now records the
+  standalone adapter and preserves the cross-host state-parity requirement.
+
+### Cycle 13 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: the optional `hello-observation-shell-ratatui` native binary
+  now owns a real Crossterm/Ratatui terminal lifecycle while its
+  `TerminalSession` routes submitted commands through the same `ShellFixture`
+  used by the plain-text adapter. Focused tests exercise character entry,
+  Enter submission, transcript projection, Up/Down history navigation,
+  Page Up/Down/Home/End and mouse-wheel viewport navigation, live-output
+  follow behavior, resize-time viewport clamping, and adapter-local `exit`
+  without a live terminal. Raw mode and alternate-screen acquisition now use
+  independent cleanup guards: raw mode is restored if alternate-screen setup
+  fails, and mouse capture plus the alternate screen are restored after their
+  acquisition.
+- Findings: Ratatui and Crossterm are replaceable presentation/input adapters.
+  The terminal host owns prompt editing, terminal mode, transcript viewport
+  navigation, and styling; `ObservationShell` remains the owner of command
+  parsing, retained command history, and projections. This is meaningful
+  native-host evidence, but not proof that browser, headless, and native hosts
+  share one retained session or one input-focus policy.
+- Disposition: Incubating. The standalone host criterion is satisfied. Shared
+  retained-session parity, selection/diagnostic parity, and independently
+  tested focus, clipping, and cursor behavior remain required before provider
+  or capability admission can be considered. Keyboard and native mouse-wheel
+  transcript navigation, bounded resize clamping, display-width wrapped
+  transcript scroll accounting, and bounded prompt-cursor placement are now
+  covered; none is evidence for cross-host viewport parity, exact rich-span
+  line breaking, grapheme-aware cursor editing, or physical clipping.
+  Terminal cleanup is host-local lifecycle evidence, not session semantics.
+- Resulting ADR or documentation change: no ADR. The corpus plan now records
+  native terminal mechanics as adapter-owned rather than shell-owned.
+
+### Cycle 14 -- 2026-08-05
+
+- Status entering review: Incubating
+- New evidence: the browser workbench's direct Rust/WASM Ratatui surface now
+  derives a bounded raster frame from the available host width, preserves its
+  intended surface aspect ratio, and explicitly focuses its canvas before
+  forwarding terminal input. Rust estimates transcript viewport bounds using
+  ordinary Unicode display width so long semantic records contribute wrapped
+  rows before Ratatui performs the authoritative final layout.
+- Findings: browser sizing, focus acquisition, and pixel blitting remain host
+  mechanics. Ratatui still owns terminal layout and style, while the shell
+  owns history and command meaning. A width-aware scroll estimate belongs with
+  the retained Ratatui surface rather than TypeScript.
+- Disposition: Incubating. This improves embedded-host resilience but does not
+  prove grapheme-aware editing, rich styled-span line-breaking parity, native
+  and browser viewport parity, or a shared retained session.
+- Resulting ADR or documentation change: no ADR; the plan records the
+  browser-host evidence and its explicit limits.
 
 ## References
 

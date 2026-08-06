@@ -156,6 +156,38 @@ fn resource_metadata_is_visible_by_explicit_default() {
 }
 
 #[test]
+fn resource_visibility_changes_without_replacing_retained_bytes() {
+    let (mut space, _, root_folder) = space_with_root();
+    let resource_name = name("hidden.svg");
+    space
+        .insert_resource(
+            root_folder,
+            resource_name.clone(),
+            &b"<svg/>"[..],
+            Default::default(),
+        )
+        .expect("resource");
+
+    let updated = space
+        .set_resource_visibility(root_folder, &resource_name, ResourceVisibility::Hidden)
+        .expect("visibility update");
+
+    assert_eq!(updated.metadata().visibility, ResourceVisibility::Hidden);
+    assert_eq!(updated.bytes().as_ref(), b"<svg/>");
+    assert!(space
+        .list_resources(root_folder, VisibilityQuery::VisibleOnly)
+        .expect("visible resources")
+        .is_empty());
+    assert_eq!(
+        space
+            .list_resources(root_folder, VisibilityQuery::HiddenOnly)
+            .expect("hidden resources")
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn roots_have_distinguished_immutable_folder_nodes() {
     let (mut space, root, root_folder) = space_with_root();
 

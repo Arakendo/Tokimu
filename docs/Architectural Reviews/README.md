@@ -186,3 +186,12 @@ across unrelated decisions.
   — Incubating; Tosumu is the preferred first storage provider for a bounded
   canonical `.tasset` study while Tokimu retains asset semantics and runtime,
   interchange, migration, and portability boundaries remain explicit
+- [AR-0012: Bundled Native Default Font Provider](AR-0012-bundled-native-default-font-provider.md)
+  — Accepted with provisional admission under ADR-0005; resulted in an ADR-0004
+  revision selecting Departure Mono as a replaceable first-party native default
+- [AR-0013: Observation Shell And Ratatui Presentation Provider](AR-0013-observation-shell-and-ratatui-presentation-provider.md)
+  — Incubating; separates provider-neutral observation-session semantics from
+  Ratatui terminal and embedded cell-grid presentation mechanics
+- [AR-0014: Native Terminal Text Surface And Ratatui Dependency Boundary](AR-0014-native-terminal-text-surface-and-ratatui-dependency-boundary.md)
+  — Incubating; measures Ratatui's real dependency cost and studies whether a
+  smaller provider-neutral terminal surface exists below shell semantics

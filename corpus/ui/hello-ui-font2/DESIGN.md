@@ -18,10 +18,15 @@ The example compares:
 - Inter TTF;
 - JetBrains Mono OTF;
 - Noto TTF;
+- Departure Mono OTF;
 - prose, digits, punctuation, ascenders, descenders, and repeated glyphs.
 
 The vector side additionally reports startup geometry cost, generated triangle
 count, glyph instance count, and cached local mesh count.
+
+Departure Mono is the provisionally admitted first-party native default
+provider. This comparison remains responsible for checking that the default
+does not weaken provider-neutral measurement, raster, or vector contracts.
 
 Startup diagnostics also report the viewport, shared pixel scale, and the two
 column anchors. These values are part of the visual evidence record; they make
@@ -45,9 +50,9 @@ frames report draw calls, mesh uploads, and replacements so setup and retained
 submission can be compared.
 
 The runtime parity report compares advance-based layout width with raster
-visible-ink width. The current Inter, JetBrains Mono, and Noto samples agree
-within approximately one pixel, which isolates remaining differences to
-presentation quality rather than line placement.
+visible-ink width. Inter, JetBrains Mono, Noto, and Departure Mono must each
+report their measured difference; the corpus must not claim parity for a newly
+admitted provider until its raster and vector evidence has been reviewed.
 
 Both columns use the same orthographic presentation convention. Glyph sizes
 use the viewport-height-derived pixel scale, while horizontal placement uses

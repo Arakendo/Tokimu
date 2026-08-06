@@ -1,0 +1,11 @@
+[package]
+name = "resource-space-compression"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+compression-provider = { path = "../compression-provider" }
+resource-space = { path = "../resource-space" }
+thiserror.workspace = true

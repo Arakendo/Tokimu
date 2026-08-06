@@ -105,6 +105,28 @@ The names above describe ownership direction, not an immediate crate split.
 `corpus/lib/ui-tools` remains the evidence layer while the APIs are
 proven by independent corpus examples.
 
+### Bundled Native Default Provider
+
+Departure Mono is provisionally admitted under ADR-0005 and AR-0012 as
+Tokimu's first-party native default font provider. This is provider resolution
+policy, not semantic text identity and not trusted-kernel meaning.
+
+The default has these constraints:
+
+- applications may explicitly select another font provider without changing
+  their semantic text requests;
+- the Departure Mono asset, OTF parser, rasterizer, and outline adapter remain
+  provider-owned and outside `tokimu-core` and `tokimu-runtime`;
+- provider resolution is fallible and diagnostic;
+- a missing bundled provider must not silently select an ambient system font;
+- the built-in bitmap provider remains the deterministic bootstrap and
+  emergency-diagnostics fallback when configured; and
+- the font's OFL license, source revision, and fixture checksum remain part of
+  its distribution provenance.
+
+This provisional selection does not establish permanent packaging, complex
+shaping, broad-script fallback, or final native/WASM loading policy.
+
 ## Current Implementation Status
 
 The evidence-layer implementation now contains prototype contracts for:
@@ -117,6 +139,10 @@ The evidence-layer implementation now contains prototype contracts for:
 - explicit missing-icon and provider-unavailable diagnostics;
 - backend-neutral vector icon assets and vector-provider resolution;
 - renderer-neutral text draw requests.
+
+The provider layer also exposes one centralized, fallible native-default
+resolver for Departure Mono. Semantic text nodes do not retain that provider
+identity, and consumers may override it explicitly.
 
 These contracts are intentionally still example-side. The current decision is
 to continue incubation in `ui-tools`; extraction into `tokimu-text` and
@@ -155,13 +181,19 @@ This decision adds a deliberate boundary between semantic layout and execution.
 That produces more explicit provider resolution and failure handling, but avoids
 putting specialized dependencies into the trusted core.
 
+The provisional native default adds one licensed font asset to first-party
+distribution and therefore requires reproducible provenance and package-size
+review. It also replaces repeated consumer-side provider choice with a single
+reversible policy point.
+
 The following remain deferred until corpus evidence and real consumers require
 them:
 
 - final crate graph and package names;
 - a specific TTF/OTF parser, shaping engine, or rasterizer;
 - glyph atlas strategy and GPU upload policy;
-- bundled default font or icon assets;
+- bundled default icon assets;
+- permanent native font-default admission and final packaging/loading policy;
 - kerning, complex shaping, bidi/RTL, rich text, and text editing;
 - WOFF2 decoding and system-font discovery policy.
 
@@ -170,7 +202,16 @@ them:
 - ADR-0001 Engine Boundaries — `docs/ADR/ADR-0001-engine-boundaries.md`
 - ADR-0003 Capability Ownership Boundary —
   `docs/ADR/ADR-0003-capability-ownership-boundary.md`
+- ADR-0005 Admission Evidence and Maintainer Exceptions —
+  `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
+- AR-0012 Bundled Native Default Font Provider —
+  `docs/Architectural Reviews/AR-0012-bundled-native-default-font-provider.md`
 - Kernel Principles — `docs/kernel-principles.md`
 - Foundational Presentation Text and Icon TODO —
   `.workbench/Todos/foundational-presentation-text-icon.md`
 - Text Presentation Corpus v1 — `.workbench/Todos/text-presentation-corpus-v1.md`
+
+## Revision History
+
+- 2026-08-04: provisionally admitted Departure Mono as the replaceable
+  first-party native default provider under ADR-0005 and AR-0012.

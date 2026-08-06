@@ -1,3 +1,7 @@
+use archive_provider::{
+    ArchiveEntryKind, ArchiveFormat, ArchiveProvider, ArchiveReadLimits, SevenZipArchiveProvider,
+    TarArchiveProvider, ZipArchiveProvider,
+};
 use cgm_corpus::{
     inspect_binary_cgm, lower_picture_primitives, summarize_diagnostics, CgmDeferredFeature,
     CgmInspection, DecodeLimits as CgmDecodeLimits,
@@ -18,12 +22,14 @@ use raster_image_corpus::{
 };
 use resource_space::{
     AddressCasePolicy, FolderId, InMemoryResourceSpace, ResourceEntry, ResourceMetadata,
-    ResourceRootDescriptor, ResourceRootId, ResourceSpaceLimits, StoreId,
+    ResourceName, ResourceRootDescriptor, ResourceRootId, ResourceSpaceLimits, StoreId,
+    VisibilityQuery,
 };
 use resource_space_assets::{
     decode_gltf_from_resource_space, resolve_gltf_external_images_from_resource_space,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 use tokimu::World;
 use ui_tools::{
     parse_svg_document_vector_records_with_viewport, SvgColor, SvgViewportSource, VectorPath,
@@ -34,9 +40,14 @@ const SCHEMA: u32 = 1;
 const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RESOURCE_SESSION_ENTRIES: usize = 32;
 const MAX_RESOURCE_SESSION_BYTES: usize = 128 * 1024 * 1024;
+const MAX_ARCHIVE_IMPORT_NODES: usize = MAX_RESOURCE_SESSION_ENTRIES - 1;
 // CGM paths are normalized into the unit square before entering this browser
 // diagnostic preview. This is a unit-space hairline, not CGM LINE WIDTH.
 const CGM_DIAGNOSTIC_STROKE_WIDTH: f32 = 0.0025;
+
+static ZIP_ARCHIVE_PROVIDER: ZipArchiveProvider = ZipArchiveProvider;
+static SEVEN_ZIP_ARCHIVE_PROVIDER: SevenZipArchiveProvider = SevenZipArchiveProvider;
+static TAR_ARCHIVE_PROVIDER: TarArchiveProvider = TarArchiveProvider;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,6 +197,30 @@ pub struct PresentationSession {
 pub struct ResourceSession {
     space: InMemoryResourceSpace,
     folder: FolderId,
+    resources: BTreeMap<String, SessionResource>,
+    next_folder_id: u128,
+}
+
+#[derive(Clone)]
+struct SessionResource {
+    folder: FolderId,
+    name: ResourceName,
+}
+
+struct StagedArchiveEntry {
+    logical_path: String,
+    components: Vec<ResourceName>,
+    bytes: Vec<u8>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ArchiveImportResult {
+    archive_name: String,
+    imported_root: String,
+    imported_entries: Vec<String>,
+    primary_entry: Option<String>,
+    diagnostics: Vec<String>,
 }
 
 #[wasm_bindgen]
@@ -241,6 +276,8 @@ impl ResourceSession {
         Ok(Self {
             space,
             folder: FOLDER,
+            resources: BTreeMap::new(),
+            next_folder_id: 0xA55E_8000,
         })
     }
 
@@ -251,6 +288,45 @@ impl ResourceSession {
     /// rather than being silently flattened.
     pub fn add_resource(&mut self, name: &str, bytes: &[u8]) -> Result<(), JsValue> {
         self.add_resource_inner(name, bytes)
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
+    /// Stages a bounded canonical archive, lowers its safe relative paths into
+    /// explicit Resource Space folders, and retains each regular entry before
+    /// selecting a supported document for ordinary inspection.
+    ///
+    /// Browser code supplies one archive byte array only. Archive decoding,
+    /// path validation, extraction, and dependency resolution remain inside
+    /// the Rust/WASM consumer boundary.
+    pub fn import_zip(&mut self, name: &str, bytes: &[u8]) -> Result<String, JsValue> {
+        self.import_archive_inner(name, bytes, ArchiveFormat::Zip)
+            .and_then(|result| {
+                serde_json::to_string(&result)
+                    .map_err(|error| format!("archive import result did not serialize: {error}"))
+            })
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
+    /// Materializes a bounded TAR archive through the same explicit Resource
+    /// Space path as the other canonical archive providers. TAR container
+    /// details stay inside Rust/WASM.
+    pub fn import_tar(&mut self, name: &str, bytes: &[u8]) -> Result<String, JsValue> {
+        self.import_archive_inner(name, bytes, ArchiveFormat::Tar)
+            .and_then(|result| {
+                serde_json::to_string(&result)
+                    .map_err(|error| format!("archive import result did not serialize: {error}"))
+            })
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
+    /// Materializes a bounded 7z archive through the same explicit Resource
+    /// Space path. Archive decoding stays inside the Rust/WASM boundary.
+    pub fn import_seven_zip(&mut self, name: &str, bytes: &[u8]) -> Result<String, JsValue> {
+        self.import_archive_inner(name, bytes, ArchiveFormat::SevenZip)
+            .and_then(|result| {
+                serde_json::to_string(&result)
+                    .map_err(|error| format!("archive import result did not serialize: {error}"))
+            })
             .map_err(|message| JsValue::from_str(&message))
     }
 
@@ -295,22 +371,250 @@ impl ResourceSession {
                 MAX_INPUT_BYTES
             ));
         }
+        if self.resources.contains_key(name) {
+            return Err(format!(
+                "selected resource `{name}` already exists in this session"
+            ));
+        }
         let parsed = self.selected_resource_name(name)?;
         self.space
             .insert_resource(
                 self.folder,
-                parsed,
+                parsed.clone(),
                 bytes.to_vec(),
                 ResourceMetadata::default(),
             )
             .map_err(|error| error.to_string())?;
+        self.resources.insert(
+            name.to_owned(),
+            SessionResource {
+                folder: self.folder,
+                name: parsed,
+            },
+        );
         Ok(())
     }
 
+    fn import_archive_inner(
+        &mut self,
+        name: &str,
+        bytes: &[u8],
+        format: ArchiveFormat,
+    ) -> Result<ArchiveImportResult, String> {
+        let label = archive_format_label(format);
+        if bytes.is_empty() {
+            return Err(format!("selected {label} archive is empty"));
+        }
+        if bytes.len() > MAX_INPUT_BYTES {
+            return Err(format!(
+                "selected {label} archive has {} bytes, exceeding the workbench limit of {}",
+                bytes.len(),
+                MAX_INPUT_BYTES
+            ));
+        }
+
+        let archive_name = self.selected_resource_name(name)?;
+        let archive_root = archive_root_name(name)?;
+        if self.resources.contains_key(name) {
+            return Err(format!(
+                "selected resource `{name}` already exists in this session"
+            ));
+        }
+        if self.resources.contains_key(&archive_root)
+            || self
+                .space
+                .list_folders(self.folder, VisibilityQuery::All)
+                .map_err(|error| error.to_string())?
+                .iter()
+                .any(|folder| {
+                    folder
+                        .name()
+                        .is_some_and(|folder_name| folder_name.as_str() == archive_root)
+                })
+        {
+            return Err(format!(
+                "{label} import root `{archive_root}` conflicts with an existing Resource Space entry"
+            ));
+        }
+
+        let limits = ArchiveReadLimits::default();
+        let provider = archive_provider(format)?;
+        let manifest = provider
+            .inspect(format, bytes, limits)
+            .map_err(|error| format!("{label} archive inspection failed: {error}"))?;
+        let mut staged = Vec::new();
+        let mut folder_paths = BTreeSet::new();
+
+        for entry in manifest
+            .entries
+            .iter()
+            .filter(|entry| entry.kind == ArchiveEntryKind::RegularFile)
+        {
+            let components = self.archive_path_components(&entry.normalized_name)?;
+            for index in 1..components.len() {
+                folder_paths.insert(
+                    components[..index]
+                        .iter()
+                        .map(ResourceName::as_str)
+                        .collect::<Vec<_>>()
+                        .join("/"),
+                );
+            }
+            let read = provider
+                .read_entry(format, bytes, &entry.normalized_name, limits)
+                .map_err(|error| {
+                    format!(
+                        "{label} entry `{}` could not be read: {error}",
+                        entry.normalized_name
+                    )
+                })?;
+            staged.push(StagedArchiveEntry {
+                logical_path: entry.normalized_name.clone(),
+                components,
+                bytes: read.bytes,
+            });
+        }
+
+        for entry in manifest
+            .entries
+            .iter()
+            .filter(|entry| entry.kind == ArchiveEntryKind::Directory)
+        {
+            let components = self.archive_path_components(&entry.normalized_name)?;
+            folder_paths.insert(
+                components
+                    .iter()
+                    .map(ResourceName::as_str)
+                    .collect::<Vec<_>>()
+                    .join("/"),
+            );
+        }
+
+        let node_count = staged
+            .len()
+            .saturating_add(folder_paths.len())
+            // The archive root folder and source archive are both retained.
+            .saturating_add(2);
+        if node_count > MAX_ARCHIVE_IMPORT_NODES {
+            return Err(format!(
+                "{label} archive requires {node_count} Resource Space nodes, exceeding the workbench import budget of {MAX_ARCHIVE_IMPORT_NODES}"
+            ));
+        }
+        let extracted_bytes = staged.iter().map(|entry| entry.bytes.len()).sum::<usize>();
+        if bytes.len().saturating_add(extracted_bytes) > MAX_RESOURCE_SESSION_BYTES {
+            return Err(format!(
+                "{label} archive and extracted entries require {} bytes, exceeding the workbench session limit of {}",
+                bytes.len().saturating_add(extracted_bytes), MAX_RESOURCE_SESSION_BYTES
+            ));
+        }
+
+        let retained_resources = self.space.summary().resources();
+        let archive_resources = staged.len().saturating_add(1);
+        let attempted_resources = retained_resources.saturating_add(archive_resources);
+        if attempted_resources > MAX_RESOURCE_SESSION_ENTRIES {
+            return Err(format!(
+                "{label} import would retain {attempted_resources} resources, exceeding the workbench session limit of {MAX_RESOURCE_SESSION_ENTRIES}"
+            ));
+        }
+
+        // All archive entries are read and every path is parsed before this
+        // mutation phase. Ordinary malformed or over-budget archive input therefore
+        // cannot leave a partial extracted hierarchy behind.
+        let archive_folder = self.create_import_folder(self.folder, &archive_root)?;
+        let mut folders = BTreeMap::new();
+        folders.insert(String::new(), archive_folder);
+        for path in &folder_paths {
+            let mut parent = archive_folder;
+            let mut accumulated = Vec::new();
+            for component in self.archive_path_components(path)? {
+                accumulated.push(component.as_str().to_owned());
+                let key = accumulated.join("/");
+                if let Some(folder) = folders.get(&key) {
+                    parent = *folder;
+                    continue;
+                }
+                let folder = self.create_import_folder(parent, component.as_str())?;
+                folders.insert(key, folder);
+                parent = folder;
+            }
+        }
+
+        self.space
+            .insert_resource(
+                self.folder,
+                archive_name.clone(),
+                bytes.to_vec(),
+                ResourceMetadata::default(),
+            )
+            .map_err(|error| error.to_string())?;
+        self.resources.insert(
+            name.to_owned(),
+            SessionResource {
+                folder: self.folder,
+                name: archive_name,
+            },
+        );
+
+        let mut imported_entries = Vec::with_capacity(staged.len());
+        for entry in staged {
+            let parent_key = entry.components[..entry.components.len() - 1]
+                .iter()
+                .map(ResourceName::as_str)
+                .collect::<Vec<_>>()
+                .join("/");
+            let parent = *folders
+                .get(&parent_key)
+                .expect("validated archive parent folder should be materialized");
+            let file_name = entry
+                .components
+                .last()
+                .expect("archive file has a final component")
+                .clone();
+            self.space
+                .insert_resource(
+                    parent,
+                    file_name.clone(),
+                    entry.bytes,
+                    ResourceMetadata::default(),
+                )
+                .map_err(|error| error.to_string())?;
+            let logical_name = format!("{archive_root}/{}", entry.logical_path);
+            self.resources.insert(
+                logical_name.clone(),
+                SessionResource {
+                    folder: parent,
+                    name: file_name,
+                },
+            );
+            imported_entries.push(logical_name);
+        }
+
+        let primary_entry = imported_entries
+            .iter()
+            .find(|entry| {
+                matches!(
+                    classify(entry),
+                    "svg" | "cgm" | "gltf" | "glb" | "fbx" | "png" | "jpeg" | "bmp"
+                )
+            })
+            .cloned();
+        Ok(ArchiveImportResult {
+            archive_name: name.to_owned(),
+            imported_root: archive_root,
+            imported_entries,
+            primary_entry,
+            diagnostics: vec![
+                format!("{label} entries were decoded, path-validated, and materialized into the transient Rust/WASM Resource Space; browser-native archive APIs were not used."),
+                "Only bounded regular-file contents are retained. Empty directories are represented as explicit Resource Space folders when present.".into(),
+            ],
+        })
+    }
+
     fn inspect_resource_inner(&self, name: &str) -> Result<String, String> {
+        let locator = self.resource_locator(name)?;
         let document = self.entry(name)?;
         let observation = match classify(name) {
-            "gltf" => inspect_gltf_resource_asset(&self.space, self.folder, &document),
+            "gltf" => inspect_gltf_resource_asset(&self.space, locator.folder, &document),
             _ => inspect(name, document.bytes()),
         }
         .map_err(|message| message.to_string())?;
@@ -323,11 +627,54 @@ impl ResourceSession {
     }
 
     fn entry(&self, name: &str) -> Result<ResourceEntry, String> {
-        let parsed = self.selected_resource_name(name)?;
+        let locator = self.resource_locator(name)?;
         self.space
-            .resource(self.folder, &parsed)
+            .resource(locator.folder, &locator.name)
             .map_err(|error| error.to_string())?
             .ok_or_else(|| format!("selected resource `{name}` is not present in this session"))
+    }
+
+    fn resource_locator(&self, name: &str) -> Result<&SessionResource, String> {
+        if name.contains(['\\', ':'])
+            || name.starts_with('/')
+            || name
+                .split('/')
+                .any(|segment| matches!(segment, "" | "." | ".."))
+        {
+            return Err(format!(
+                "selected resource `{name}` must be a same-folder logical file name or an archive-imported relative path"
+            ));
+        }
+        self.resources
+            .get(name)
+            .ok_or_else(|| format!("selected resource `{name}` is not present in this session"))
+    }
+
+    fn create_import_folder(&mut self, parent: FolderId, name: &str) -> Result<FolderId, String> {
+        let folder = FolderId::from_u128(self.next_folder_id);
+        self.next_folder_id = self.next_folder_id.saturating_add(1);
+        let parsed = self
+            .space
+            .resource_name(name)
+            .map_err(|error| error.to_string())?;
+        self.space
+            .create_folder(folder, parent, parsed, ResourceMetadata::default())
+            .map_err(|error| error.to_string())?;
+        Ok(folder)
+    }
+
+    fn archive_path_components(&self, path: &str) -> Result<Vec<ResourceName>, String> {
+        let path = path.trim_end_matches('/');
+        if path.is_empty() {
+            return Err("archive entry path is empty after normalization".into());
+        }
+        path.split('/')
+            .map(|segment| {
+                self.space
+                    .resource_name(segment)
+                    .map_err(|error| error.to_string())
+            })
+            .collect()
     }
 
     fn selected_resource_name(&self, name: &str) -> Result<resource_space::ResourceName, String> {
@@ -477,9 +824,12 @@ fn inspect(file_name: &str, bytes: &[u8]) -> Result<AssetObservation, String> {
         "glb" => inspect_glb_asset(file_name, bytes),
         "gltf" => inspect_gltf_asset(file_name, bytes),
         "fbx" => inspect_fbx(file_name, bytes),
+        "zip" => inspect_archive(file_name, bytes, ArchiveFormat::Zip),
+        "tar" => inspect_archive(file_name, bytes, ArchiveFormat::Tar),
+        "7z" => inspect_archive(file_name, bytes, ArchiveFormat::SevenZip),
         "png" | "jpg" | "jpeg" | "bmp" => inspect_raster_image(file_name, bytes),
         _ => Err(
-            "supported extensions are .svg, .cgm, .gltf, .glb, .fbx, .png, .jpg, .jpeg, and .bmp"
+            "supported extensions are .svg, .cgm, .gltf, .glb, .fbx, .zip, .tar, .7z, .png, .jpg, .jpeg, and .bmp"
                 .into(),
         ),
     }
@@ -496,10 +846,108 @@ fn classify(file_name: &str) -> &'static str {
         Some("gltf") => "gltf",
         Some("glb") => "glb",
         Some("fbx") => "fbx",
+        Some("zip") => "zip",
+        Some("tar") => "tar",
+        Some("7z") => "7z",
         Some("png") => "png",
         Some("jpg") | Some("jpeg") => "jpeg",
         Some("bmp") => "bmp",
         _ => "unknown",
+    }
+}
+
+/// Derives a stable, user-visible import root without treating the browser
+/// file name as a host path. The resulting value still passes Resource Space
+/// segment validation before a folder is created.
+fn archive_root_name(file_name: &str) -> Result<String, String> {
+    let stem = file_name
+        .rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(file_name)
+        .trim();
+    if stem.is_empty() || matches!(stem, "." | "..") {
+        return Err(format!(
+            "archive `{file_name}` does not provide a usable logical import root"
+        ));
+    }
+    Ok(stem.to_owned())
+}
+
+/// Inspects an explicitly selected archive inside Rust/WASM.
+///
+/// This consumer deliberately exposes only the provider-neutral archive
+/// manifest. ResourceSession archive-import methods own the separate bounded operation
+/// that materializes those entries into an explicit Resource Space tree.
+fn inspect_archive(
+    file_name: &str,
+    bytes: &[u8],
+    format: ArchiveFormat,
+) -> Result<AssetObservation, String> {
+    let label = archive_format_label(format);
+    let manifest = archive_provider(format)?
+        .inspect(format, bytes, ArchiveReadLimits::default())
+        .map_err(|error| format!("{label} archive inspection failed: {error}"))?;
+    let files = manifest
+        .entries
+        .iter()
+        .filter(|entry| entry.kind == ArchiveEntryKind::RegularFile)
+        .count();
+    let directories = manifest.entries.len().saturating_sub(files);
+    let entry_sample = manifest
+        .entries
+        .iter()
+        .take(5)
+        .map(|entry| entry.normalized_name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    Ok(AssetObservation {
+        schema: SCHEMA,
+        file_name: file_name.to_owned(),
+        format: classify(file_name).into(),
+        status: "inspected".into(),
+        byte_length: bytes.len(),
+        summary: format!(
+            "Tokimu inspected {} {label} entries inside the Rust/WASM boundary.",
+            manifest.entries.len()
+        ),
+        properties: vec![
+            property("Entries", manifest.entries.len()),
+            property("Files", files),
+            property("Directories", directories),
+            property("Declared output bytes", manifest.total_uncompressed_bytes),
+            property(
+                "Entry sample",
+                if entry_sample.is_empty() {
+                    "none".to_owned()
+                } else {
+                    entry_sample
+                },
+            ),
+        ],
+        diagnostics: vec![
+            format!("{label} inspection ran inside the Tokimu WASM boundary; browser-native archive APIs were not used."),
+            "This observation describes the archive manifest. Entry materialization is an explicit bounded ResourceSession operation."
+                .into(),
+        ],
+        preview: None,
+        presentation_targets: Vec::new(),
+    })
+}
+
+fn archive_provider(format: ArchiveFormat) -> Result<&'static dyn ArchiveProvider, String> {
+    match format {
+        ArchiveFormat::Zip => Ok(&ZIP_ARCHIVE_PROVIDER),
+        ArchiveFormat::SevenZip => Ok(&SEVEN_ZIP_ARCHIVE_PROVIDER),
+        ArchiveFormat::Tar => Ok(&TAR_ARCHIVE_PROVIDER),
+    }
+}
+
+fn archive_format_label(format: ArchiveFormat) -> &'static str {
+    match format {
+        ArchiveFormat::Zip => "ZIP",
+        ArchiveFormat::SevenZip => "7z",
+        ArchiveFormat::Tar => "TAR",
     }
 }
 
@@ -1203,9 +1651,219 @@ mod tests {
         assert_eq!(classify("shape.SVG"), "svg");
         assert_eq!(classify("part.glb"), "glb");
         assert_eq!(classify("texture.PNG"), "png");
+        assert_eq!(classify("bundle.ZIP"), "zip");
+        assert_eq!(classify("bundle.TAR"), "tar");
+        assert_eq!(classify("bundle.7Z"), "7z");
         assert_eq!(classify("photo.JPEG"), "jpeg");
         assert_eq!(classify("bitmap.bmp"), "bmp");
         assert_eq!(classify("unknown.bin"), "unknown");
+    }
+
+    #[test]
+    fn zip_observation_stays_at_the_wasm_archive_manifest_boundary() {
+        use archive_provider::{
+            ArchiveCompression, ArchiveWriteEntry, ArchiveWriteLimits, ArchiveWriter,
+        };
+
+        let source = ZipArchiveProvider
+            .write_archive(
+                ArchiveFormat::Zip,
+                &[
+                    ArchiveWriteEntry::directory("docs"),
+                    ArchiveWriteEntry::file(
+                        "docs/readme.txt",
+                        b"Tokimu archive browser evidence",
+                        ArchiveCompression::Stored,
+                    ),
+                ],
+                ArchiveWriteLimits::default(),
+            )
+            .expect("fixture ZIP should write");
+        let observation = inspect("evidence.zip", &source.bytes).expect("ZIP should inspect");
+
+        assert_eq!(observation.format, "zip");
+        assert_eq!(observation.status, "inspected");
+        assert!(observation.preview.is_none());
+        assert!(observation
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.contains("browser-native archive APIs were not used")));
+        assert!(observation
+            .properties
+            .iter()
+            .any(|property| property.label == "Entries" && property.value == "2"));
+    }
+
+    #[test]
+    fn malformed_zip_remains_an_archive_inspection_failure() {
+        let error = match inspect("broken.zip", b"not a ZIP archive") {
+            Ok(_) => panic!("malformed ZIP input must not become a generic observation"),
+            Err(error) => error,
+        };
+
+        assert!(error.starts_with("ZIP archive inspection failed:"));
+    }
+
+    #[test]
+    fn resource_session_materializes_safe_zip_entries_before_inspection() {
+        use archive_provider::{
+            ArchiveCompression, ArchiveWriteEntry, ArchiveWriteLimits, ArchiveWriter,
+        };
+
+        let source = ZipArchiveProvider
+            .write_archive(
+                ArchiveFormat::Zip,
+                &[
+                    ArchiveWriteEntry::directory("assets"),
+                    ArchiveWriteEntry::file(
+                        "assets/diagram.svg",
+                        br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>"#,
+                        ArchiveCompression::Stored,
+                    ),
+                    ArchiveWriteEntry::file(
+                        "notes.txt",
+                        b"Tokimu archive import evidence",
+                        ArchiveCompression::Stored,
+                    ),
+                ],
+                ArchiveWriteLimits::default(),
+            )
+            .expect("fixture ZIP should write");
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+
+        let import = session
+            .import_archive_inner("evidence.zip", &source.bytes, ArchiveFormat::Zip)
+            .expect("safe ZIP should materialize");
+
+        assert_eq!(import.imported_root, "evidence");
+        assert_eq!(import.imported_entries.len(), 2);
+        assert_eq!(
+            import.primary_entry.as_deref(),
+            Some("evidence/assets/diagram.svg")
+        );
+        assert_eq!(
+            session
+                .resource_bytes_inner("evidence/notes.txt")
+                .expect("nested archive entry should remain readable"),
+            b"Tokimu archive import evidence"
+        );
+        let observation: AssetObservation = serde_json::from_str(
+            &session
+                .inspect_resource_inner("evidence/assets/diagram.svg")
+                .expect("imported SVG should inspect through the ordinary path"),
+        )
+        .expect("observation should serialize");
+        assert_eq!(observation.format, "svg");
+        assert!(session.summary().contains("resources=3"));
+    }
+
+    #[test]
+    fn resource_session_materializes_safe_tar_entries_before_inspection() {
+        use archive_provider::{
+            ArchiveCompression, ArchiveWriteEntry, ArchiveWriteLimits, ArchiveWriter,
+        };
+
+        let source = TarArchiveProvider
+            .write_archive(
+                ArchiveFormat::Tar,
+                &[
+                    ArchiveWriteEntry::directory("assets"),
+                    ArchiveWriteEntry::file(
+                        "assets/diagram.svg",
+                        br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>"#,
+                        ArchiveCompression::Stored,
+                    ),
+                    ArchiveWriteEntry::file(
+                        "notes.txt",
+                        b"Tokimu archive import evidence",
+                        ArchiveCompression::Stored,
+                    ),
+                ],
+                ArchiveWriteLimits::default(),
+            )
+            .expect("fixture TAR should write");
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+
+        let import = session
+            .import_archive_inner("evidence.tar", &source.bytes, ArchiveFormat::Tar)
+            .expect("safe TAR should materialize");
+
+        assert_eq!(import.imported_root, "evidence");
+        assert_eq!(import.imported_entries.len(), 2);
+        assert_eq!(
+            import.primary_entry.as_deref(),
+            Some("evidence/assets/diagram.svg")
+        );
+        assert_eq!(
+            session
+                .resource_bytes_inner("evidence/notes.txt")
+                .expect("nested archive entry should remain readable"),
+            b"Tokimu archive import evidence"
+        );
+        let observation: AssetObservation = serde_json::from_str(
+            &session
+                .inspect_resource_inner("evidence/assets/diagram.svg")
+                .expect("imported SVG should inspect through the ordinary path"),
+        )
+        .expect("observation should serialize");
+        assert_eq!(observation.format, "svg");
+        assert!(session.summary().contains("resources=3"));
+    }
+
+    #[test]
+    fn resource_session_materializes_safe_seven_zip_entries_before_inspection() {
+        use std::io::Cursor;
+
+        use sevenz_rust2::{ArchiveEntry, ArchiveWriter};
+
+        // This writer exists only to create a deterministic test input. The
+        // production Workbench exposes the read-only 7z provider contract.
+        let mut writer = ArchiveWriter::new(Cursor::new(Vec::new()))
+            .expect("7z fixture writer should initialize");
+        writer
+            .push_archive_entry(
+                ArchiveEntry::new_file("assets/diagram.svg"),
+                Some(Cursor::new(
+                    br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>"#,
+                )),
+            )
+            .expect("7z fixture SVG entry should write");
+        writer
+            .push_archive_entry(
+                ArchiveEntry::new_file("notes.txt"),
+                Some(Cursor::new(b"Tokimu archive import evidence")),
+            )
+            .expect("7z fixture text entry should write");
+        let source = writer
+            .finish()
+            .expect("7z fixture should finish")
+            .into_inner();
+
+        let mut session = ResourceSession::new().expect("resource session should initialize");
+        let import = session
+            .import_archive_inner("evidence.7z", &source, ArchiveFormat::SevenZip)
+            .expect("safe 7z should materialize");
+
+        assert_eq!(import.imported_root, "evidence");
+        assert_eq!(import.imported_entries.len(), 2);
+        assert_eq!(
+            import.primary_entry.as_deref(),
+            Some("evidence/assets/diagram.svg")
+        );
+        assert_eq!(
+            session
+                .resource_bytes_inner("evidence/notes.txt")
+                .expect("nested archive entry should remain readable"),
+            b"Tokimu archive import evidence"
+        );
+        let observation: AssetObservation = serde_json::from_str(
+            &session
+                .inspect_resource_inner("evidence/assets/diagram.svg")
+                .expect("imported SVG should inspect through the ordinary path"),
+        )
+        .expect("observation should serialize");
+        assert_eq!(observation.format, "svg");
+        assert!(session.summary().contains("resources=3"));
     }
 
     #[test]

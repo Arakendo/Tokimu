@@ -1,0 +1,11 @@
+[package]
+name = "resource-space-archive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+archive-provider = { path = "../archive-provider" }
+resource-space = { path = "../resource-space" }
+thiserror.workspace = true

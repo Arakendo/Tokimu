@@ -3,6 +3,8 @@ pub enum UiTextInputOperation {
     Insert(char),
     MoveLeft,
     MoveRight,
+    MoveToStart,
+    MoveToEnd,
     DeleteBackward,
     DeleteForward,
     SelectAll,
@@ -43,6 +45,8 @@ impl UiTextInputState {
             UiTextInputOperation::Insert(character) => self.insert(character),
             UiTextInputOperation::MoveLeft => self.move_left(),
             UiTextInputOperation::MoveRight => self.move_right(),
+            UiTextInputOperation::MoveToStart => self.move_to_start(),
+            UiTextInputOperation::MoveToEnd => self.move_to_end(),
             UiTextInputOperation::DeleteBackward => self.delete_backward(),
             UiTextInputOperation::DeleteForward => self.delete_forward(),
             UiTextInputOperation::SelectAll => {
@@ -66,6 +70,16 @@ impl UiTextInputState {
 
     fn move_right(&mut self) {
         self.caret = (self.caret + 1).min(self.value.chars().count());
+        self.selection_anchor = None;
+    }
+
+    fn move_to_start(&mut self) {
+        self.caret = 0;
+        self.selection_anchor = None;
+    }
+
+    fn move_to_end(&mut self) {
+        self.caret = self.value.chars().count();
         self.selection_anchor = None;
     }
 
@@ -141,5 +155,15 @@ mod tests {
         assert_eq!(input.value(), "X");
         assert_eq!(input.caret(), 1);
         assert_eq!(input.selection_anchor(), None);
+    }
+
+    #[test]
+    fn home_and_end_move_the_caret_to_text_boundaries() {
+        let mut input = UiTextInputState::new("hello");
+        input.apply(UiTextInputOperation::MoveToStart);
+        assert_eq!(input.caret(), 0);
+
+        input.apply(UiTextInputOperation::MoveToEnd);
+        assert_eq!(input.caret(), 5);
     }
 }

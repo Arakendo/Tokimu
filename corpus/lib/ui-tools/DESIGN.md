@@ -749,6 +749,12 @@ In particular:
 - `svg/mod.rs` owns only the capability boundary and public importer exports.
 - `text/bitmap.rs` is the built-in bitmap provider; it does not define the
   provider-neutral text contract.
+- The built-in bitmap provider is a deterministic bootstrap and emergency
+  diagnostics fallback, not Tokimu's preferred everyday native font. Native
+  presentation should resolve a replaceable font provider through the shared
+  text contracts. Departure Mono is the provisionally admitted first-party
+  native default provider under ADR-0005 and AR-0012; selecting it does not
+  make its OTF parser or asset part of `tokimu-core`.
 - `controls/interaction.rs` owns focus, activation, events, and diagnostics.
 - `controls/button.rs` owns button measurement and activation behavior.
 - `controls/content.rs` owns passive labels, chips, and card specifications.

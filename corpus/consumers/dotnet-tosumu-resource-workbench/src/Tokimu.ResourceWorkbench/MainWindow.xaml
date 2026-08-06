@@ -1,0 +1,118 @@
+<Window x:Class="Tokimu.ResourceWorkbench.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tokimu Resource Workbench"
+        Width="960"
+        Height="700"
+        MinWidth="720"
+        MinHeight="460"
+        WindowStartupLocation="CenterScreen">
+  <Grid Margin="28">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="18" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <StackPanel>
+      <TextBlock FontSize="28" FontWeight="SemiBold" Text="Resource Workbench" />
+      <TextBlock Margin="0,8,0,0"
+                 TextWrapping="Wrap"
+                 Text="Tokimu consumer corpus: .NET host composition over Resource Space semantics." />
+    </StackPanel>
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <Border Padding="24" BorderBrush="SlateGray" BorderThickness="1" CornerRadius="4">
+        <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="16" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="16" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel>
+          <TextBlock FontSize="18" FontWeight="SemiBold" Text="Tokimu Resource Space session" />
+          <TextBlock x:Name="RepositoryStatus" Margin="0,8,0,0" TextWrapping="Wrap" />
+          <TextBlock x:Name="BridgeStatus" Margin="0,8,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+        <Grid Grid.Row="2">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <Button Padding="12,6" Click="OpenSession_Click" Content="Open in-memory session" />
+          <Button Grid.Column="1" Margin="8,0,0,0" Padding="12,6"
+                  Click="OpenTosumuSession_Click" Content="Open Tosumu session" />
+          <Button Grid.Column="2" Margin="8,0,0,0" Padding="12,6"
+                  Click="Refresh_Click" Content="Refresh observations" />
+          <Button Grid.Row="1" Margin="0,8,0,0" Padding="12,6"
+                  Click="CreateFolder_Click" Content="Create notes folder" />
+          <Button Grid.Row="1" Grid.Column="1" Margin="8,8,0,0" Padding="12,6"
+                  Click="PutSample_Click" Content="Add sample resource" />
+          <Button Grid.Row="1" Grid.Column="2" Margin="8,8,0,0" Padding="12,6"
+                  Click="ImportFile_Click" Content="Import file" />
+          <Button x:Name="ToggleVisibilityButton" Grid.Row="1" Grid.Column="3"
+                  Margin="8,8,0,0" Padding="12,6" Click="ToggleVisibility_Click"
+                  Content="Toggle selected visibility" IsEnabled="False" />
+        </Grid>
+        <Grid Grid.Row="4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="16" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock FontWeight="SemiBold" Text="Tokimu observations" />
+            <TextBox x:Name="ObservationText" Margin="0,8,0,0" MinHeight="120"
+                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+            <Grid Margin="0,12,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock FontWeight="SemiBold" Text="Current folder" />
+              <Button Grid.Column="1" Padding="8,3" Click="NavigateRoot_Click" Content="Root" />
+            </Grid>
+            <Border Margin="0,6,0,0" Padding="8,6" BorderBrush="SlateGray" BorderThickness="1">
+              <TextBlock x:Name="CurrentFolderText" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock Margin="0,8,0,0" FontWeight="SemiBold" Text="Folders" />
+            <ListBox x:Name="FolderList" Margin="0,4,0,0" MinHeight="72"
+                     DisplayMemberPath="Label" SelectionChanged="FolderList_SelectionChanged" />
+            <TextBlock Margin="0,8,0,0" FontWeight="SemiBold" Text="Resources" />
+            <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+              <TextBlock VerticalAlignment="Center" Text="Visibility" />
+              <ComboBox x:Name="VisibilityFilter" Width="96" Margin="8,0,0,0"
+                        SelectedIndex="0" SelectionChanged="VisibilityFilter_SelectionChanged">
+                <ComboBoxItem Content="All" Tag="all" />
+                <ComboBoxItem Content="Visible" Tag="visible" />
+                <ComboBoxItem Content="Hidden" Tag="hidden" />
+              </ComboBox>
+            </StackPanel>
+            <ListBox x:Name="ResourceList" Margin="0,4,0,0" MinHeight="72"
+                     DisplayMemberPath="Label" SelectionChanged="ResourceList_SelectionChanged" />
+            <TextBlock Margin="0,12,0,0" FontWeight="SemiBold" Text="Host session details" />
+            <TextBox x:Name="HostSessionText" Margin="0,8,0,0" MinHeight="72"
+                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock FontWeight="SemiBold" Text="Provider inspection" />
+            <TextBox x:Name="ProviderText" Margin="0,8,0,0" MinHeight="280"
+                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+            <TextBlock Margin="0,12,0,0" FontWeight="SemiBold" Text="Selected resource metadata" />
+            <TextBox x:Name="ResourceMetadataText" Margin="0,8,0,0" MinHeight="120"
+                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+            <TextBlock Margin="0,12,0,0" TextWrapping="Wrap"
+                       Text="Provider inspection is separately labeled Tosumu or in-memory evidence. This host never parses Tosumu pages, WAL frames, protectors, or CLI inspection output." />
+          </StackPanel>
+        </Grid>
+        </Grid>
+      </Border>
+    </ScrollViewer>
+  </Grid>
+</Window>

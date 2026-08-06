@@ -11,9 +11,11 @@ use ui_tools::{tessellate_general_fill, UiGlyphOutlineSegment, UiGlyphVectorOpti
 
 const QUAD: MeshHandle = MeshHandle(1);
 const CAMERA: CameraHandle = CameraHandle(1);
-const FONT_SIZE: f32 = 56.0;
+const FONT_SIZE: f32 = 44.0;
 const RASTER_COLUMN_X: f32 = -0.78;
 const VECTOR_COLUMN_X: f32 = 0.78;
+const PROVIDER_ROW_STRIDE: f32 = 0.47;
+const SAMPLE_LINE_STRIDE: f32 = 0.12;
 fn corpus_text(id: &str) -> &'static str {
     TEXT_CORPUS
         .iter()
@@ -66,7 +68,14 @@ fn report_vector_sizes(font: &UiFontRasterizer, sample_id: &str, sample: &str) {
 }
 
 fn main() -> PlatformResult<()> {
-    run_window_with_app(WindowConfig { title: "Tokimu Hello UI Font 2 | Inter-Regular.ttf (TTF) | JetBrainsMono-Regular.otf (OTF) | NotoSans-VF.ttf (TTF)".into(), width: 1440, height: 760 }, App::default())
+    run_window_with_app(
+        WindowConfig {
+            title: "Tokimu Hello UI Font 2 | four-provider comparison".into(),
+            width: 1440,
+            height: 900,
+        },
+        App::default(),
+    )
 }
 
 #[derive(Default)]
@@ -125,7 +134,7 @@ impl PlatformEventHandler for App {
         let vector_anchor = format!("{VECTOR_COLUMN_X:.2}");
         let source_revision =
             env::var("TOKIMU_CORPUS_REVISION").unwrap_or_else(|_| "unknown".to_owned());
-        let fixture_set = "inter:ttf,jetbrains-mono:otf,noto:ttf";
+        let fixture_set = "inter:ttf,jetbrains-mono:otf,noto:ttf,departure-mono:otf";
         write_manifest(
             artifact_dir.join("comparison.txt"),
             &[
@@ -162,6 +171,12 @@ impl PlatformEventHandler for App {
                 "NOTO SANS / TTF",
                 [0.78, 0.86, 0.96],
             ),
+            (
+                "departure-mono",
+                UiFontFormat::Otf,
+                "DEPARTURE MONO / OTF",
+                [0.42, 0.90, 0.82],
+            ),
         ];
         let lines = [
             corpus_text("sphinx"),
@@ -169,8 +184,12 @@ impl PlatformEventHandler for App {
             corpus_text("liquor-jugs"),
         ];
         for (font_index, (provider, format, label, color)) in fonts.into_iter().enumerate() {
-            let source = UiFontSource::from_prepared_corpus(provider, format)
-                .map_err(|error| error.to_string())?;
+            let source = if provider == "departure-mono" {
+                UiFontSource::from_native_default()
+            } else {
+                UiFontSource::from_prepared_corpus(provider, format)
+            }
+            .map_err(|error| error.to_string())?;
             println!(
                 "hello-ui-font2 fixture: provider={provider}, format={}, path={}, bytes={}",
                 format.extension(),
@@ -197,7 +216,7 @@ impl PlatformEventHandler for App {
                     Color::rgb(color[0], color[1], color[2]),
                 ),
             )?;
-            let heading = font.rasterize_text(label, 30.0);
+            let heading = font.rasterize_text(label, 24.0);
             if heading.width > 0 && heading.height > 0 {
                 let texture = TextureHandle(material_id);
                 let material = MaterialHandle(material_id);
@@ -216,7 +235,7 @@ impl PlatformEventHandler for App {
                     &Material::new("font2-heading", Color::rgb(color[0], color[1], color[2]))
                         .with_texture(texture),
                 )?;
-                let baseline_y = 0.91 - font_index as f32 * 0.64;
+                let baseline_y = 0.91 - font_index as f32 * PROVIDER_ROW_STRIDE;
                 self.glyphs.push(GlyphDraw {
                     material,
                     center: [
@@ -233,7 +252,7 @@ impl PlatformEventHandler for App {
                 });
                 material_id += 1;
 
-                let heading_layout = font.layout(label, 30.0);
+                let heading_layout = font.layout(label, 24.0);
                 // Match the raster quad's camera convention: one world unit
                 // spans half the viewport height in this orthographic scene.
                 let heading_scale = pixel_scale;
@@ -249,7 +268,7 @@ impl PlatformEventHandler for App {
                     local.pen_x = 0.0;
                     let triangles = match font.tessellate_positioned_glyph(
                         &local,
-                        30.0,
+                        24.0,
                         heading_scale,
                         [0.0, 0.0],
                         heading_scale * 0.35,
@@ -283,7 +302,9 @@ impl PlatformEventHandler for App {
             }
             for (line_index, line) in lines.iter().enumerate() {
                 let bitmap = font.rasterize_text(line, FONT_SIZE);
-                let baseline_y = 0.76 - font_index as f32 * 0.64 - line_index as f32 * 0.17;
+                let baseline_y = 0.76
+                    - font_index as f32 * PROVIDER_ROW_STRIDE
+                    - line_index as f32 * SAMPLE_LINE_STRIDE;
                 if bitmap.width == 0 || bitmap.height == 0 {
                     continue;
                 }

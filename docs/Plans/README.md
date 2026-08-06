@@ -19,6 +19,7 @@ than silently treating the plan as authority.
 - [TypeScript Shader, Material, And Presentation Control](typescript-shader-material-presentation-control.md)
 - [Particle Simulation And Presentation](particle-simulation-and-presentation.md)
 - [Tokimu Website](tokimu-website.md)
+- [Tokimu And Tosumu Reciprocal Website Evidence](tokimu-tosumu-reciprocal-website-evidence.md)
 - [Tokimu Paint Consumer Corpus](tokimu-paint-consumer-corpus.md)
 - [Runtime Observation And Command Corpus](runtime-observation-and-command-corpus.md)
 - [Tokimu Observation Shell Consumer Corpus](tokimu-observation-shell-consumer-corpus.md)
@@ -26,6 +27,9 @@ than silently treating the plan as authority.
 - [Streaming RGBA8 Texture Updates](streaming-rgba8-texture-updates.md)
 - [Audio-Reactive Visualizers And MilkDrop Compatibility](audio-reactive-visualizers-and-milkdrop-compatibility.md)
 - [MIDI Sequencing And Synthesis Provider](midi-sequencing-and-synthesis-provider.md)
+- [Tosumu .NET Resource Space Consumer Migration](tosumu-dotnet-resource-space-consumer-migration.md)
+- [Compression And Archive Providers](compression-and-archive-providers.md)
+- [Tokimu Console Command Window Corpus](tokimu-console-command-window-corpus.md)
 
 ## Completed Spikes
 

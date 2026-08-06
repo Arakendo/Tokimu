@@ -20,11 +20,11 @@
           <canvas id="preview" aria-label="Tokimu asset preview"></canvas>
           <div id="empty-state" class="empty-state">
             <strong>Drop an asset into Tokimu</strong>
-            <span>One asset, or a glTF document with same-folder sidecars, up to 64 MiB per file</span>
+            <span>One asset, a bounded ZIP/TAR/7z import, or a glTF document with same-folder sidecars, up to 64 MiB per file</span>
             <button id="choose-file" type="button">Choose file</button>
           </div>
         </div>
-        <input id="file-input" type="file" multiple accept=".svg,.cgm,.gltf,.glb,.fbx,.png,.jpg,.jpeg,.bmp" hidden>
+        <input id="file-input" type="file" multiple accept=".svg,.cgm,.gltf,.glb,.fbx,.zip,.tar,.7z,.png,.jpg,.jpeg,.bmp" hidden>
       </div>
 
       <aside>

@@ -24,8 +24,8 @@ Publish a self-contained consumer build into its local `publish/` folder:
 pwsh -NoProfile -File .\publish.ps1
 ```
 
-Open the URL printed by ASP.NET and drop an `.svg`, `.cgm`, `.gltf`, `.glb`, or
-`.fbx` file into the workbench.
+Open the URL printed by ASP.NET and drop an `.svg`, `.cgm`, `.gltf`, `.glb`,
+`.fbx`, `.zip`, `.tar`, `.7z`, or raster file into the workbench.
 
 For an external-buffer `.gltf`, select the document and its same-folder buffer
 files together. The browser transfers only explicit file names and bytes;
@@ -66,6 +66,12 @@ Known-good starting fixtures:
 - GLB: `third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb`
 - external-buffer glTF: select both `third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF/Box.gltf` and `third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF/Box0.bin`
 - FBX: `third-party/fixtures/fbx-corpus/upstream/data/maya_cube_7500_binary.fbx`
+
+ZIP, TAR, and read-only 7z files are decoded and materialized as a bounded
+explicit folder/resource tree inside Rust/WASM. The workbench inspects the first
+supported imported entry when present; the other imported entries remain in the
+same transient Resource Space for dependency resolution and download.
+Browser-native archive APIs are not used.
 
 SVG and CGM currently preview provider-neutral contours. GLB and admitted
 static FBX geometry preview through an interactive diagnostic perspective view:

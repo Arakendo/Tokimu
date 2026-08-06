@@ -9,6 +9,12 @@ export class ResourceSession {
   constructor();
   /** Retains one selected logical resource in the session root. */
   add_resource(name: string, bytes: Uint8Array): void;
+  /** Decodes a bounded ZIP archive into an explicit transient resource tree. */
+  import_zip(name: string, bytes: Uint8Array): string;
+  /** Decodes a bounded TAR archive into an explicit transient resource tree. */
+  import_tar(name: string, bytes: Uint8Array): string;
+  /** Decodes a bounded 7z archive into an explicit transient resource tree. */
+  import_seven_zip(name: string, bytes: Uint8Array): string;
   /** Inspects a resource, resolving bounded same-folder dependencies in Rust/WASM. */
   inspect_resource(name: string): string;
   /** Returns selected logical resource bytes for a user-initiated browser download. */

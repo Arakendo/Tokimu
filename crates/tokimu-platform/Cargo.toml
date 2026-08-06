@@ -19,6 +19,7 @@ web-sys = { workspace = true, features = [
 	"HtmlElement",
 	"KeyboardEvent",
 	"MouseEvent",
+	"WheelEvent",
 	"Window",
 ] }
 winit.workspace = true

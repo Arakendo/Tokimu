@@ -906,6 +906,47 @@ This review remains active. After a disposition, reopen or supersede it when:
   recursive transactions, richer visibility, and public content-addressed
   aliases are intentionally deferred until an independent consumer needs them.
 
+### Cycle 23 -- 2026-08-04
+
+- New evidence: the Tokimu-owned .NET Resource Workbench now runs the focused
+  `provider-operation-fixture-v1` against both the in-memory provider and a
+  Tosumu-backed provider through separate bridge processes. The emitted
+  `resource-space-provider-conformance-v1` artifact compares summary facts,
+  folder navigation, hidden-resource filtering before mutation, move and
+  visibility results, returned metadata, and exact resource bytes.
+- Boundary finding: the compared artifact is built only from public Resource
+  Space observations. Tosumu durable reopen and `provider.inspect` evidence
+  remain separately labeled provider-only facts; no host path, Tosumu key,
+  page, WAL, or record representation crosses into the shared contract.
+- Result: the persistent-provider graduation evidence is now materially
+  satisfied for the focused operation profile. The provider did not require a
+  new Resource Space semantic or a wider provider trait.
+- Remaining evidence: interrupted-write, corruption, transaction, and
+  resource-limit behavior remain durable-provider evidence rather than
+  in-memory conformance requirements. Browser multi-file selection of
+  `Box.gltf` with `Box0.bin` remains the other outstanding consumer-boundary
+  observation.
+- Admission impact: this strengthens the provisional foundational-capability
+  finding, but does not yet extract a permanent crate or admit persistence to
+  the trusted core.
+
+### Cycle 24 -- 2026-08-04
+
+- Migration finding: the historical C# `MemoryStore` is now explicitly
+  classified as source evidence for Resource Space rather than a library to
+  port wholesale. Its useful logical-resource semantics map to the
+  provisionally admitted Resource Space boundary; its in-memory storage model,
+  filesystem-shaped convenience surface, and host-specific helpers do not.
+- Ownership finding: the migration is into Tokimu's foundational capability
+  layer during incubation, not directly into `tokimu-core`. This preserves the
+  accepted exclusions for retained bytes, persistence, platform mechanisms,
+  and host UI while still retiring the historical duplicate-root, hidden-item,
+  duplicate-store, and missing-folder failure modes.
+- Guardrail: every remaining historical `ClassLibrary` abstraction must be
+  classified independently as a Tokimu capability, consumer-local host glue,
+  separately owned provider/support project, or rejected/deferred work. No
+  broad source migration is implied by the `MemoryStore` disposition.
+
 ## References
 
 - `docs/Plans/memory-resource-store.md`

@@ -595,12 +595,42 @@ impl RuntimeInspectionAdapter {
     }
 
     pub fn select_arm_presentation(&mut self) -> PresentationCommandResult {
-        let target = self
-            .presentation
-            .mapping_for_entity(self.arm_id().0)
-            .expect("static arm presentation mapping must exist")
-            .presentation_target
-            .clone();
+        let target = self.arm_presentation_target();
+        self.presentation
+            .apply(PresentationCommand::Select { target })
+    }
+
+    /// Applies the scenario's hotspot command to its explicit arm mapping.
+    /// The caller need not reconstruct importer or presentation identifiers.
+    pub fn set_arm_hotspot_presentation(&mut self) -> PresentationCommandResult {
+        let target = self.arm_presentation_target();
+        self.presentation
+            .apply(PresentationCommand::SetHotspot { target })
+    }
+
+    /// Clears the scenario's selected arm presentation override.
+    pub fn clear_arm_selection_presentation(&mut self) -> PresentationCommandResult {
+        let target = self.arm_presentation_target();
+        self.presentation
+            .apply(PresentationCommand::ClearSelection { target })
+    }
+
+    /// Clears the scenario's hotspot arm presentation override.
+    pub fn clear_arm_hotspot_presentation(&mut self) -> PresentationCommandResult {
+        let target = self.arm_presentation_target();
+        self.presentation
+            .apply(PresentationCommand::ClearHotspot { target })
+    }
+
+    /// Exercises the scenario provider's unknown-target rejection without
+    /// exposing raw renderer handles or teaching an external consumer target
+    /// construction rules.
+    pub fn select_missing_presentation(&mut self) -> PresentationCommandResult {
+        let target = presentation_control::PresentationTargetId::new(
+            presentation_control::PresentationTargetKind::MeshPrimitive,
+            "hole-punch/missing",
+        )
+        .expect("static missing target must satisfy identifier syntax");
         self.presentation
             .apply(PresentationCommand::Select { target })
     }
@@ -628,6 +658,14 @@ impl RuntimeInspectionAdapter {
     pub fn apply_playback_command(&mut self, command: PlaybackCommand) -> PlaybackCommandResult {
         self.playback
             .apply_command(&self.animation_catalog, command)
+    }
+
+    fn arm_presentation_target(&self) -> presentation_control::PresentationTargetId {
+        self.presentation
+            .mapping_for_entity(self.arm_id().0)
+            .expect("static arm presentation mapping must exist")
+            .presentation_target
+            .clone()
     }
 
     pub fn advance_animation_fixed_step(&mut self) {

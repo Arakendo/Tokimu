@@ -1,5 +1,10 @@
 [workspace]
 resolver = "2"
+exclude = [
+    # Tosumu remains an independently versioned workspace even when a corpus
+    # bridge consumes its public crates by local submodule path.
+    "third-party/tosumu",
+]
 members = [
     # Engine crates.
     "crates/tokimu",
@@ -52,6 +57,8 @@ members = [
     "corpus/hello-resource-space",
     "corpus/hello-save-image",
     "corpus/hello-raster-image",
+    "corpus/hello-compression",
+    "corpus/hello-archive",
     "corpus/hello-streaming-texture",
     "corpus/hello-texture-color-space",
 
@@ -70,6 +77,9 @@ members = [
     "corpus/consumers/ui-resource-workbench",
     "corpus/consumers/tokimu-website-kernel-ui/engine",
     "corpus/consumers/tokimu-website-ratatui-lab/engine",
+    "corpus/consumers/dotnet-tosumu-resource-workbench/engine",
+    "corpus/consumers/tosumu-tql-cli-consumer",
+    "corpus/consumers/tokimu-console-command-window",
 
     # UI corpus.
     "corpus/ui/hello-ui",
@@ -104,8 +114,13 @@ members = [
     "corpus/lib/resource-space-xml",
     "corpus/lib/resource-space-json",
     "corpus/lib/resource-space-native",
+    "corpus/lib/resource-space-compression",
+    "corpus/lib/resource-space-archive",
     "corpus/lib/network-tools",
     "corpus/lib/cgm-corpus",
+    "corpus/lib/compression-provider",
+    "corpus/lib/archive-provider",
+    "corpus/lib/archive-file-adapter",
     "corpus/lib/diff-tools",
     "corpus/lib/fbx-corpus",
     "corpus/lib/gltf-corpus",

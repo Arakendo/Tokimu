@@ -4,7 +4,7 @@ These fonts are reference and embedding candidates for Tokimu's UI and glyph
 corpus examples. They are not all required in every build. Examples should
 select a small, explicit fixture and identify its provider and format.
 
-All three candidates use the SIL Open Font License. Keep the license file with
+All four candidates use the SIL Open Font License. Keep the license file with
 any copied or embedded font asset.
 
 ## Recommended Set
@@ -48,6 +48,25 @@ noisy and unnecessarily large. A practical first fixture is
 `NotoSans-VF.ttf`. Noto Serif remains a useful future contrast fixture, but it
 should not change the first broad-coverage experiment's variables.
 
+### Departure Mono
+
+- Role: pixel-oriented monospace candidate for native diagnostics, compact
+  tools, and intentionally retro presentation
+- Tests: low-resolution readability, fixed advances, punctuation, status
+  labels, and integer-scale behavior around the family's native 11-pixel rhythm
+- Preferred fixture: `public/assets/DepartureMono-Regular.otf`
+- Source: `third-party/fonts/departure-mono`
+- License: `third-party/fonts/departure-mono/public/assets/LICENSE`
+- Pinned revision: `75152a3f1e6dacdd248a6c397c97dbf27e33eea0`
+- Fixture SHA-256:
+  `4d53f663155cf8bf7ffc8e688776e719625f7bbb80a8d90073438b249261a2e0`
+
+Departure Mono is provisionally admitted as Tokimu's first-party native
+default font provider under ADR-0005 and AR-0012. It remains replaceable and
+does not move font parsing or font assets into `tokimu-core`. The hand-built
+bitmap font remains a small deterministic bootstrap and emergency-diagnostics
+fallback; it should not need to grow into Tokimu's full everyday alphabet.
+
 ## Suggested Corpus Matrix
 
 | Candidate | Format | Primary evidence |
@@ -55,6 +74,7 @@ should not change the first broad-coverage experiment's variables.
 | Inter Regular | TTF | UI baseline and proportional layout |
 | JetBrains Mono Regular | TTF | Monospace advances and code text |
 | Noto Sans fixture | TTF | Coverage, fallback, and metric variation |
+| Departure Mono Regular | OTF | Native diagnostics and pixel-oriented UI text |
 
 The first two should be stable required fixtures for local corpus examples.
 Noto can remain an optional extended-coverage fixture until the font fallback
@@ -97,6 +117,12 @@ Noto Sans
   mixed-script samples
   missing-glyph fallback
   LTR/RTL boundary cases later
+
+Departure Mono
+  STATUS: READY
+  0O1Il|{}[]()<>+-=/
+  native diagnostics and compact tool labels
+  11 px and integer multiples of 11 px
 ```
 
 ## Embedding Rules

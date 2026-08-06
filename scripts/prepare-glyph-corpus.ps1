@@ -14,6 +14,7 @@ $providers = @{
     inter = Join-Path $repoRoot "third-party\fonts\inter"
     jetbrains_mono = Join-Path $repoRoot "third-party\fonts\jetbrains-mono"
     noto = Join-Path $repoRoot "third-party\fonts\noto"
+    "departure-mono" = Join-Path $repoRoot "third-party\fonts\departure-mono"
 }
 
 if ($Clean -and (Test-Path -LiteralPath $outputRoot)) {
@@ -49,7 +50,7 @@ foreach ($icon in $iconFiles) {
 }
 
 $fontPatterns = @("*.ttf", "*.otf", "*.woff2")
-$fontFiles = foreach ($name in @("inter", "jetbrains_mono", "noto")) {
+$fontFiles = foreach ($name in @("inter", "jetbrains_mono", "noto", "departure-mono")) {
     foreach ($pattern in $fontPatterns) {
         Get-ChildItem -LiteralPath $providers[$name] -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -notmatch "\\node_modules\\|\\test\\|\\tests\\" } |
@@ -80,9 +81,10 @@ $referenceNames = @{
     inter = @("Inter[opsz,wght].ttf", "Inter-Regular.ttf")
     jetbrains_mono = @("JetBrainsMono-Regular.otf", "JetBrainsMono-Regular.ttf")
     noto = @("NotoSans-VF.ttf", "NotoSans-Regular.ttf")
+    "departure-mono" = @("DepartureMono-Regular.otf", "DepartureMono-1.500.otf")
 }
 $referenceFixtures = [ordered]@{}
-foreach ($name in @("inter", "jetbrains_mono", "noto")) {
+foreach ($name in @("inter", "jetbrains_mono", "noto", "departure-mono")) {
     $candidates = @(Get-ChildItem -LiteralPath (Join-Path $fontsRoot $name) -Recurse -File |
         Where-Object { $_.Name -in $referenceNames[$name] } |
         Sort-Object FullName)
@@ -112,13 +114,18 @@ $manifest = [ordered]@{
 }
 
 foreach ($name in $providers.Keys) {
+    $relativePath = $providers[$name].Substring($repoRoot.Length).TrimStart([char]92, [char]47)
     $revision = git -C $providers[$name] rev-parse HEAD 2>$null
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($revision)) {
-        $revision = "unknown"
+        $gitlink = git -C $repoRoot ls-files --stage -- $relativePath 2>$null
+        if ($LASTEXITCODE -eq 0 -and $gitlink -match '^160000 ([0-9a-f]{40})') {
+            $revision = $Matches[1]
+        } else {
+            $revision = "unknown"
+        }
     } else {
         $revision = $revision.Trim()
     }
-    $relativePath = $providers[$name].Substring($repoRoot.Length).TrimStart([char]92, [char]47)
     $manifest.providers[$name] = [ordered]@{
         path = $relativePath.Replace([char]92, [char]47)
         revision = $revision

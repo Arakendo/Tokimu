@@ -29,12 +29,33 @@ where
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlatformInputEvent {
     CloseRequested,
-    Resized { width: u32, height: u32 },
-    KeyboardInput { key: KeyCode, pressed: bool },
+    Resized {
+        width: u32,
+        height: u32,
+    },
+    KeyboardInput {
+        key: KeyCode,
+        pressed: bool,
+    },
     TextInput(String),
-    CursorMoved { x: f32, y: f32 },
-    MouseMotion { delta_x: f32, delta_y: f32 },
-    MouseInput { button: MouseButton, pressed: bool },
+    CursorMoved {
+        x: f32,
+        y: f32,
+    },
+    MouseMotion {
+        delta_x: f32,
+        delta_y: f32,
+    },
+    /// Raw platform scroll delta. Consumers decide whether it means viewport
+    /// navigation, zoom, or another local interaction.
+    MouseWheel {
+        delta_x: f32,
+        delta_y: f32,
+    },
+    MouseInput {
+        button: MouseButton,
+        pressed: bool,
+    },
 }
 
 impl PlatformInputEvent {
@@ -46,7 +67,7 @@ impl PlatformInputEvent {
             }),
             Self::TextInput(text) => Some(InputEvent::TextInput(text.clone())),
             Self::CursorMoved { x, y } => Some(InputEvent::CursorMoved { x: *x, y: *y }),
-            Self::MouseMotion { .. } => None,
+            Self::MouseMotion { .. } | Self::MouseWheel { .. } => None,
             Self::MouseInput { button, pressed } => Some(InputEvent::MouseInput {
                 button: *button,
                 pressed: *pressed,

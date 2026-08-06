@@ -9,6 +9,13 @@ pub enum UiFontFormat {
     Otf,
 }
 
+/// Provisionally admitted first-party native font provider.
+///
+/// This is provider resolution policy, not part of Tokimu's semantic text
+/// identity. Applications remain free to select another provider.
+pub const TOKIMU_NATIVE_DEFAULT_FONT_PROVIDER: &str = "departure-mono";
+pub const TOKIMU_NATIVE_DEFAULT_FONT_FORMAT: UiFontFormat = UiFontFormat::Otf;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UiFontProviderId(pub String);
 
@@ -88,6 +95,17 @@ impl UiFontSource {
 }
 
 impl UiFontSource {
+    /// Resolves Tokimu's provisionally admitted native default provider.
+    ///
+    /// The source remains fallible so callers can retain the built-in bitmap
+    /// provider as an explicit bootstrap or emergency fallback.
+    pub fn from_native_default() -> Result<Self, String> {
+        Self::from_prepared_corpus(
+            TOKIMU_NATIVE_DEFAULT_FONT_PROVIDER,
+            TOKIMU_NATIVE_DEFAULT_FONT_FORMAT,
+        )
+    }
+
     pub fn from_prepared_corpus(provider: &str, format: UiFontFormat) -> Result<Self, String> {
         let relative = PathBuf::from("target/glyph-corpus/fonts").join(provider);
         let repository_relative = PathBuf::from("third-party/fonts").join(provider);
@@ -153,12 +171,7 @@ fn find_font(root: &Path, provider: &str, format: UiFontFormat) -> Option<PathBu
         }
     }
     matches.sort();
-    let preferred = match provider {
-        "inter" => ["InterVariable.ttf", "Inter-Regular.ttf"].as_slice(),
-        "jetbrains-mono" => ["JetBrainsMono-Regular.otf", "JetBrainsMono-Regular.ttf"].as_slice(),
-        "noto" => ["NotoSans-VF.ttf", "NotoSans-Regular.ttf"].as_slice(),
-        _ => &[],
-    };
+    let preferred = preferred_font_names(provider);
     preferred
         .iter()
         .find_map(|name| {
@@ -168,6 +181,16 @@ fn find_font(root: &Path, provider: &str, format: UiFontFormat) -> Option<PathBu
                 .cloned()
         })
         .or_else(|| matches.into_iter().next())
+}
+
+fn preferred_font_names(provider: &str) -> &'static [&'static str] {
+    match provider {
+        "inter" => ["InterVariable.ttf", "Inter-Regular.ttf"].as_slice(),
+        "jetbrains-mono" => ["JetBrainsMono-Regular.otf", "JetBrainsMono-Regular.ttf"].as_slice(),
+        "noto" => ["NotoSans-VF.ttf", "NotoSans-Regular.ttf"].as_slice(),
+        "departure-mono" => ["DepartureMono-Regular.otf", "DepartureMono-1.500.otf"].as_slice(),
+        _ => &[],
+    }
 }
 
 #[cfg(test)]
@@ -187,5 +210,25 @@ mod tests {
     fn font_handles_distinguish_reused_provider_slots() {
         assert_ne!(UiFontHandle::new(4, 1), UiFontHandle::new(4, 2));
         assert_eq!(UiFontHandle::new(4, 1), UiFontHandle::new(4, 1));
+    }
+
+    #[test]
+    fn departure_mono_prefers_the_canonical_regular_fixture() {
+        assert_eq!(
+            preferred_font_names("departure-mono").first().copied(),
+            Some("DepartureMono-Regular.otf")
+        );
+    }
+
+    #[test]
+    fn native_default_is_provider_policy_not_an_ambient_system_font() {
+        assert_eq!(TOKIMU_NATIVE_DEFAULT_FONT_PROVIDER, "departure-mono");
+        assert_eq!(TOKIMU_NATIVE_DEFAULT_FONT_FORMAT, UiFontFormat::Otf);
+        assert_eq!(
+            preferred_font_names(TOKIMU_NATIVE_DEFAULT_FONT_PROVIDER)
+                .first()
+                .copied(),
+            Some("DepartureMono-Regular.otf")
+        );
     }
 }

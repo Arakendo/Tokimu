@@ -1,0 +1,12 @@
+[package]
+name = "compression-provider"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+brotli = "=8.0.4"
+flate2 = "=1.1.9"
+serde.workspace = true
+thiserror.workspace = true

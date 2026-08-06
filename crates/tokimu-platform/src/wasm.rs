@@ -12,7 +12,7 @@ use tokimu_input::{KeyCode, MouseButton};
 use wasm_bindgen::{closure::Closure, JsCast};
 
 #[cfg(target_arch = "wasm32")]
-use web_sys::{window, Document, HtmlCanvasElement, KeyboardEvent, MouseEvent, Window};
+use web_sys::{window, Document, HtmlCanvasElement, KeyboardEvent, MouseEvent, WheelEvent, Window};
 
 #[cfg(target_arch = "wasm32")]
 fn boxed_error(message: impl Into<String>) -> Box<dyn std::error::Error> {
@@ -185,6 +185,20 @@ fn attach_mouse_listeners(
         }
     }) as Box<dyn FnMut(web_sys::Event)>);
 
+    let wheel_handler = event_handler.clone();
+    let wheel = Closure::wrap(Box::new(move |event: web_sys::Event| {
+        if let Ok(wheel_event) = event.dyn_into::<WheelEvent>() {
+            wheel_event.prevent_default();
+            emit_event(
+                &wheel_handler,
+                PlatformInputEvent::MouseWheel {
+                    delta_x: wheel_event.delta_x() as f32,
+                    delta_y: wheel_event.delta_y() as f32,
+                },
+            );
+        }
+    }) as Box<dyn FnMut(web_sys::Event)>);
+
     canvas
         .add_event_listener_with_callback("mousemove", cursor_moved.as_ref().unchecked_ref())
         .map_err(|error| boxed_error(format!("{:?}", error)))?;
@@ -193,6 +207,9 @@ fn attach_mouse_listeners(
         .map_err(|error| boxed_error(format!("{:?}", error)))?;
     canvas
         .add_event_listener_with_callback("mouseup", mouse_button.as_ref().unchecked_ref())
+        .map_err(|error| boxed_error(format!("{:?}", error)))?;
+    canvas
+        .add_event_listener_with_callback_and_bool("wheel", wheel.as_ref().unchecked_ref(), false)
         .map_err(|error| boxed_error(format!("{:?}", error)))?;
 
     let document_for_lock_state = document.clone();
@@ -215,6 +232,7 @@ fn attach_mouse_listeners(
 
     cursor_moved.forget();
     mouse_button.forget();
+    wheel.forget();
     pointer_lock_change.forget();
     Ok(())
 }
@@ -272,6 +290,8 @@ fn map_key_code(code: &str) -> Option<KeyCode> {
         "Enter" => Some(KeyCode::Enter),
         "Backspace" => Some(KeyCode::Backspace),
         "Delete" => Some(KeyCode::Delete),
+        "Home" => Some(KeyCode::Home),
+        "End" => Some(KeyCode::End),
         "KeyE" => Some(KeyCode::KeyE),
         "KeyA" => Some(KeyCode::KeyA),
         "KeyD" => Some(KeyCode::KeyD),

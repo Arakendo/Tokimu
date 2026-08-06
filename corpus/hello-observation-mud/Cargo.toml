@@ -1,0 +1,10 @@
+[package]
+name = "hello-observation-mud"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+observation-shell = { path = "../lib/observation-shell" }
+tokimu-core = { path = "../../crates/tokimu-core" }

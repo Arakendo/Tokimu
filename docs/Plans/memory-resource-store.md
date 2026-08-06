@@ -43,6 +43,31 @@ This evidence is valuable, but the C# API is not itself the Rust contract. The
 port should preserve behavior that survives Tokimu's ownership boundaries and
 Rust's type model rather than translating every method literally.
 
+### ClassLibrary Migration Disposition
+
+`MemoryStore` is the first deliberate migration from the historical
+maintainer-local `ClassLibrary` into Tokimu-owned semantics. It is not a
+request to port that library wholesale or to preserve the `MemoryStore` name.
+The name incorrectly centers one provider; Resource Space centers the logical
+contract that native, WASM, and persistent providers can all satisfy.
+
+The migration rule is:
+
+```text
+historical behavior and failure evidence
+        ↓
+provider-neutral Resource Space semantics
+        ↓
+replaceable in-memory, platform, or persistent provider
+```
+
+Only the middle layer is a Tokimu capability candidate. Byte retention,
+filesystem mechanisms, browser handles, database persistence, and host UI
+helpers remain below or beside that boundary. Other historical `ClassLibrary`
+abstractions must receive their own explicit disposition--Tokimu capability,
+consumer-local host glue, independent provider, or rejection--before source
+is adapted. Convenience is not admission evidence.
+
 ## Known Failure Evidence
 
 Earlier `MemoryStore` use exposed four recurring failures that the Rust design
@@ -782,9 +807,12 @@ permanent capability decision:
 - **Persistent `StoreId` scope:** Tosumu must establish whether a stable store
   ID survives reopen and process boundaries, and how durable create/open
   conflicts are reported.
-- **Virtual or derived folders:** no current consumer needs them. They remain
-  outside V1 rather than coexisting speculatively with explicit materialized
-  folders.
+- **Virtual or derived folders:** no completed consumer currently needs them.
+  The archive-backed read-only view proposed in
+  `compression-and-archive-providers.md` is the first concrete experiment that
+  may apply this pressure. It remains outside V1 until that corpus proves
+  qualified provenance, invalidation, read-only policy, and explicit
+  materialization without weakening ordinary folder semantics.
 - **Content-addressed deduplication or aliases:** provider optimization may
   share bytes, but no public alias or content-addressed identity model is
   admitted without a consumer requiring it.

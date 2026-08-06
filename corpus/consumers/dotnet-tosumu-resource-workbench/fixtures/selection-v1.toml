@@ -1,0 +1,7 @@
+schema = 1
+selection = "dotnet-tosumu-resource-workbench-v1"
+
+# No database fixture is admitted until the headless Tokimu bridge exists.
+# This preserves the distinction between host scaffolding and persistent
+# provider evidence.
+fixtures = []

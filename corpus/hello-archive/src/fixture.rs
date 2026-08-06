@@ -1,0 +1,16 @@
+// First-party stored ZIP fixture generated once with .NET ZipArchive.
+// Its three entries are intentionally tiny and the hex is retained here so
+// corpus evidence does not depend on host tools, timestamps, or filesystems.
+const ZIP_FIXTURE_HEX: &str = "504b0304140000000000c46c045d00000000000000000000000005000000646f63732f504b0304140000000000c46c045dc15f4bbf17000000170000000f000000646f63732f726561646d652e747874546f6b696d7520617263686976652065766964656e6365504b0304140000000000c46c045d58f8357b050000000500000008000000646174612e62696e00010203ff504b01021400140000000000c46c045d000000000000000000000000050000000000000000000000000000000000646f63732f504b01021400140000000000c46c045dc15f4bbf17000000170000000f0000000000000000000000000023000000646f63732f726561646d652e747874504b01021400140000000000c46c045d58f8357b0500000005000000080000000000000000000000000067000000646174612e62696e504b05060000000003000300a6000000920000000000";
+
+pub fn zip_fixture() -> Vec<u8> {
+    assert_eq!(ZIP_FIXTURE_HEX.len() % 2, 0, "fixture hex must be paired");
+    ZIP_FIXTURE_HEX
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let text = std::str::from_utf8(pair).expect("fixture hex must be ASCII");
+            u8::from_str_radix(text, 16).expect("fixture hex must contain only hexadecimal digits")
+        })
+        .collect()
+}

@@ -7,7 +7,7 @@ use tokimu_core::FrameOutcome;
 use tokimu_input::{KeyCode, MouseButton};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, Ime, WindowEvent};
+use winit::event::{ElementState, Ime, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, NamedKey, PhysicalKey};
 use winit::window::{Window, WindowAttributes, WindowId};
@@ -210,6 +210,18 @@ where
                     },
                 );
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let (delta_x, delta_y) = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => (x * 48.0, y * 48.0),
+                    MouseScrollDelta::PixelDelta(position) => {
+                        (position.x as f32, position.y as f32)
+                    }
+                };
+                self.emit(
+                    event_loop,
+                    PlatformInputEvent::MouseWheel { delta_x, delta_y },
+                );
+            }
             WindowEvent::MouseInput { state, button, .. } => {
                 if let Some(button) = map_mouse_button(button) {
                     self.emit(
@@ -233,6 +245,8 @@ fn map_key_code(key: PhysicalKey) -> Option<KeyCode> {
         PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => Some(KeyCode::Enter),
         PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => Some(KeyCode::Backspace),
         PhysicalKey::Code(winit::keyboard::KeyCode::Delete) => Some(KeyCode::Delete),
+        PhysicalKey::Code(winit::keyboard::KeyCode::Home) => Some(KeyCode::Home),
+        PhysicalKey::Code(winit::keyboard::KeyCode::End) => Some(KeyCode::End),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => Some(KeyCode::KeyE),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => Some(KeyCode::KeyA),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => Some(KeyCode::KeyD),
@@ -277,6 +291,10 @@ mod tests {
         assert_eq!(
             map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft)),
             Some(KeyCode::ArrowLeft)
+        );
+        assert_eq!(
+            map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::Home)),
+            Some(KeyCode::Home)
         );
     }
 

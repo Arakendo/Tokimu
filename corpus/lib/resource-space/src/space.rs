@@ -10,7 +10,7 @@ use crate::{
     AddressCasePolicy, FolderId, ResourceAddress, ResourceAddressError, ResourceEntry, ResourceKey,
     ResourceMetadata, ResourceMutationObservation, ResourceMutationOutcome, ResourceName,
     ResourceRootDescriptor, ResourceRootId, ResourceSearchQuery, ResourceSpaceLimits,
-    ResourceSpaceSummary, StoreId, VisibilityQuery,
+    ResourceSpaceSummary, ResourceVisibility, StoreId, VisibilityQuery,
 };
 
 /// A provider-owned in-memory hierarchy that retains immutable resource bytes.
@@ -356,6 +356,41 @@ impl InMemoryResourceSpace {
             key: entry.key().clone(),
             previous_byte_len: previous_len,
             byte_len: entry.byte_len(),
+        });
+        Ok(entry)
+    }
+
+    /// Changes only the explicit visibility metadata of one retained resource.
+    ///
+    /// Visibility is logical Resource Space state, rather than an inferred
+    /// filename convention or provider-specific hidden-file attribute.
+    pub fn set_resource_visibility(
+        &mut self,
+        parent: FolderId,
+        name: &ResourceName,
+        visibility: ResourceVisibility,
+    ) -> Result<ResourceEntry, ResourceSpaceError> {
+        let parent_entry = self
+            .folders
+            .get(&parent)
+            .ok_or(ResourceSpaceError::FolderNotFound { folder: parent })?;
+        let root = parent_entry.root;
+        let canonical_name = self.require_policy_name(name.clone())?;
+        let stored = {
+            let stored = self
+                .resources
+                .get_mut(&(parent, canonical_name.clone()))
+                .ok_or_else(|| ResourceSpaceError::ResourceNotFound {
+                    parent,
+                    name: canonical_name.clone(),
+                })?;
+            stored.metadata.visibility = visibility;
+            stored.clone()
+        };
+        let entry = self.resource_entry(root, stored);
+        self.record_mutation(ResourceMutationOutcome::ResourceVisibilityChanged {
+            key: entry.key().clone(),
+            visibility,
         });
         Ok(entry)
     }

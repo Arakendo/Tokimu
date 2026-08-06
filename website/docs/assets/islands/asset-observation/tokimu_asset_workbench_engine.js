@@ -106,6 +106,260 @@ export class PresentationSession {
 if (Symbol.dispose) PresentationSession.prototype[Symbol.dispose] = PresentationSession.prototype.free;
 
 /**
+ * A bounded imported resource root owned by the WASM consumer.
+ *
+ * Browser code supplies explicitly selected byte arrays and logical names.
+ * This session owns the provider-neutral hierarchy and dependency lookup; it
+ * neither reads browser paths nor asks TypeScript to resolve glTF references.
+ */
+export class ResourceSession {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        ResourceSessionFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_resourcesession_free(ptr, 0);
+    }
+    /**
+     * Retains one explicitly selected resource beneath the session root.
+     *
+     * Names must be logical relative addresses. This first browser proof
+     * admits same-folder glTF dependencies only, so nested paths are rejected
+     * rather than being silently flattened.
+     * @param {string} name
+     * @param {Uint8Array} bytes
+     */
+    add_resource(name, bytes) {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.resourcesession_add_resource(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Materializes a bounded 7z archive through the same explicit Resource
+     * Space path. Archive decoding stays inside the Rust/WASM boundary.
+     * @param {string} name
+     * @param {Uint8Array} bytes
+     * @returns {string}
+     */
+    import_seven_zip(name, bytes) {
+        let deferred4_0;
+        let deferred4_1;
+        try {
+            const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+            const len1 = WASM_VECTOR_LEN;
+            const ret = wasm.resourcesession_import_seven_zip(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+            var ptr3 = ret[0];
+            var len3 = ret[1];
+            if (ret[3]) {
+                ptr3 = 0; len3 = 0;
+                throw takeFromExternrefTable0(ret[2]);
+            }
+            deferred4_0 = ptr3;
+            deferred4_1 = len3;
+            return getStringFromWasm0(ptr3, len3);
+        } finally {
+            wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        }
+    }
+    /**
+     * Materializes a bounded TAR archive through the same explicit Resource
+     * Space path as the other canonical archive providers. TAR container
+     * details stay inside Rust/WASM.
+     * @param {string} name
+     * @param {Uint8Array} bytes
+     * @returns {string}
+     */
+    import_tar(name, bytes) {
+        let deferred4_0;
+        let deferred4_1;
+        try {
+            const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+            const len1 = WASM_VECTOR_LEN;
+            const ret = wasm.resourcesession_import_tar(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+            var ptr3 = ret[0];
+            var len3 = ret[1];
+            if (ret[3]) {
+                ptr3 = 0; len3 = 0;
+                throw takeFromExternrefTable0(ret[2]);
+            }
+            deferred4_0 = ptr3;
+            deferred4_1 = len3;
+            return getStringFromWasm0(ptr3, len3);
+        } finally {
+            wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        }
+    }
+    /**
+     * Stages a bounded canonical archive, lowers its safe relative paths into
+     * explicit Resource Space folders, and retains each regular entry before
+     * selecting a supported document for ordinary inspection.
+     *
+     * Browser code supplies one archive byte array only. Archive decoding,
+     * path validation, extraction, and dependency resolution remain inside
+     * the Rust/WASM consumer boundary.
+     * @param {string} name
+     * @param {Uint8Array} bytes
+     * @returns {string}
+     */
+    import_zip(name, bytes) {
+        let deferred4_0;
+        let deferred4_1;
+        try {
+            const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+            const len1 = WASM_VECTOR_LEN;
+            const ret = wasm.resourcesession_import_zip(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+            var ptr3 = ret[0];
+            var len3 = ret[1];
+            if (ret[3]) {
+                ptr3 = 0; len3 = 0;
+                throw takeFromExternrefTable0(ret[2]);
+            }
+            deferred4_0 = ptr3;
+            deferred4_1 = len3;
+            return getStringFromWasm0(ptr3, len3);
+        } finally {
+            wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        }
+    }
+    /**
+     * Inspects one selected document, resolving same-folder glTF references
+     * through the resource session instead of a frontend-side importer.
+     * @param {string} name
+     * @returns {string}
+     */
+    inspect_resource(name) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+            const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.resourcesession_inspect_resource(this.__wbg_ptr, ptr0, len0);
+            var ptr2 = ret[0];
+            var len2 = ret[1];
+            if (ret[3]) {
+                ptr2 = 0; len2 = 0;
+                throw takeFromExternrefTable0(ret[2]);
+            }
+            deferred3_0 = ptr2;
+            deferred3_1 = len2;
+            return getStringFromWasm0(ptr2, len2);
+        } finally {
+            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        }
+    }
+    /**
+     * Creates an empty, transient imported root for one browser selection.
+     */
+    constructor() {
+        const ret = wasm.resourcesession_new();
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0];
+        ResourceSessionFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Returns one selected logical resource for a browser-owned download.
+     *
+     * The session never opens a browser save dialog or exposes host paths.
+     * TypeScript owns the user gesture and turns these bytes into a download.
+     * @param {string} name
+     * @returns {Uint8Array}
+     */
+    resource_bytes(name) {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.resourcesession_resource_bytes(this.__wbg_ptr, ptr0, len0);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        return v2;
+    }
+    /**
+     * Returns bounded logical-store counts for host diagnostics.
+     * @returns {string}
+     */
+    summary() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.resourcesession_summary(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+}
+if (Symbol.dispose) ResourceSession.prototype[Symbol.dispose] = ResourceSession.prototype.free;
+
+/**
+ * Compresses multiple entries into a 7z archive in WebAssembly environment.
+ *
+ * This function creates a compressed archive from multiple file entries,
+ * designed specifically for WASM targets.
+ *
+ * # Arguments
+ * * `entries` - Vector of JavaScript strings representing file names/paths
+ * * `datas` - Vector of Uint8Arrays containing the file data corresponding to entries
+ * @param {string[]} entries
+ * @param {Uint8Array[]} datas
+ * @returns {Uint8Array}
+ */
+export function compress(entries, datas) {
+    const ptr0 = passArrayJsValueToWasm0(entries, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayJsValueToWasm0(datas, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.compress(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Decompresses a 7z archive in WebAssembly environment.
+ *
+ * This function is specifically designed for WASM targets and uses JavaScript interop
+ * to handle the decompression process with a callback function.
+ *
+ * # Arguments
+ * * `src` - Uint8Array containing the compressed archive data
+ * * `pwd` - Password string for encrypted archives (use empty string for unencrypted)
+ * * `f` - JavaScript callback function to handle extracted entries
+ * @param {Uint8Array} src
+ * @param {string} pwd
+ * @param {Function} f
+ */
+export function decompress(src, pwd, f) {
+    const ptr0 = passStringToWasm0(pwd, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decompress(src, ptr0, len0, f);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
  * @returns {string}
  */
 export function engine_status() {
@@ -145,8 +399,42 @@ export function inspect_asset(file_name, bytes) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
+        __wbg___wbindgen_string_get_b0ca35b86a603356: function(arg0, arg1) {
+            const obj = arg1;
+            const ret = typeof(obj) === 'string' ? obj : undefined;
+            var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            var len1 = WASM_VECTOR_LEN;
+            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+        },
         __wbg___wbindgen_throw_344f42d3211c4765: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
+        },
+        __wbg_call_e3b662382210db98: function() { return handleError(function (arg0, arg1, arg2, arg3) {
+            const ret = arg0.call(arg1, arg2, arg3);
+            return ret;
+        }, arguments); },
+        __wbg_length_1f0964f4a5e2c6d8: function(arg0) {
+            const ret = arg0.length;
+            return ret;
+        },
+        __wbg_new_from_slice_77cdfb7977362f3c: function(arg0, arg1) {
+            const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
+            return ret;
+        },
+        __wbg_new_with_length_e6785c33c8e4cce8: function(arg0) {
+            const ret = new Uint8Array(arg0 >>> 0);
+            return ret;
+        },
+        __wbg_prototypesetcall_4770620bbe4688a0: function(arg0, arg1, arg2) {
+            Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), arg2);
+        },
+        __wbg_set_4d7dd76f3dae2926: function(arg0, arg1, arg2) {
+            arg0.set(getArrayU8FromWasm0(arg1, arg2));
+        },
+        __wbg_slice_ecaaa67ec7cf96c1: function(arg0, arg1, arg2) {
+            const ret = arg0.slice(arg1 >>> 0, arg2 >>> 0);
+            return ret;
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
@@ -172,6 +460,28 @@ function __wbg_get_imports() {
 const PresentationSessionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_presentationsession_free(ptr, 1));
+const ResourceSessionFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_resourcesession_free(ptr, 1));
+
+function addToExternrefTable0(obj) {
+    const idx = wasm.__externref_table_alloc();
+    wasm.__wbindgen_externrefs.set(idx, obj);
+    return idx;
+}
+
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+let cachedDataViewMemory0 = null;
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
+}
 
 function getStringFromWasm0(ptr, len) {
     return decodeText(ptr >>> 0, len);
@@ -185,10 +495,33 @@ function getUint8ArrayMemory0() {
     return cachedUint8ArrayMemory0;
 }
 
+function handleError(f, args) {
+    try {
+        return f.apply(this, args);
+    } catch (e) {
+        const idx = addToExternrefTable0(e);
+        wasm.__wbindgen_exn_store(idx);
+    }
+}
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1, 1) >>> 0;
     getUint8ArrayMemory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    for (let i = 0; i < array.length; i++) {
+        const add = addToExternrefTable0(array[i]);
+        getDataViewMemory0().setUint32(ptr + 4 * i, add, true);
+    }
+    WASM_VECTOR_LEN = array.length;
     return ptr;
 }
 
@@ -269,6 +602,7 @@ function __wbg_finalize_init(instance, module) {
     wasmInstance = instance;
     wasm = instance.exports;
     wasmModule = module;
+    cachedDataViewMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;

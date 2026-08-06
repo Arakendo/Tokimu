@@ -10,4 +10,5 @@ silently rewriting its conclusions.
 
 ## Current Notes
 
+- [CompressionTools Migration Ledger](compression-tools-migration-ledger.md)
 - [Text Corpus v1 Validation](text-corpus-v1-validation.md)

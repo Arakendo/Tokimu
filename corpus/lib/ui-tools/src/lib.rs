@@ -67,7 +67,8 @@ pub mod provider {
         UiIconHandle, UiIconId, UiIconMetrics, UiIconProviderId, UiIconResolution, UiIconSpec,
         UiIconTint, UiIconVectorAsset, UiIconVectorProvider, UiRasterGlyph, UiRasterText,
         UiRasterTextBitmap, UiRasterTextBlock, UiRasterTextGlyph, UiRasterTextMetricsProvider,
-        UiTextMetrics, UiTextMetricsProvider,
+        UiTextMetrics, UiTextMetricsProvider, TOKIMU_NATIVE_DEFAULT_FONT_FORMAT,
+        TOKIMU_NATIVE_DEFAULT_FONT_PROVIDER,
     };
 }
 
@@ -109,7 +110,10 @@ pub use draw::{
     UiDrawListError, UiDrawListStatistics, UiDrawer, UiSurfaceCommand, UiSurfaceVectorLayer,
     UiSurfaceVectorLayerKind, UiTextCommand,
 };
-pub use font::{UiFontFormat, UiFontHandle, UiFontIdentity, UiFontProviderId, UiFontSource};
+pub use font::{
+    UiFontFormat, UiFontHandle, UiFontIdentity, UiFontProviderId, UiFontSource,
+    TOKIMU_NATIVE_DEFAULT_FONT_FORMAT, TOKIMU_NATIVE_DEFAULT_FONT_PROVIDER,
+};
 pub use font_outline::{
     UiGlyphContour, UiGlyphFillTopology, UiGlyphOutline, UiGlyphOutlineDiagnostic,
     UiGlyphOutlineDiagnosticKind, UiGlyphOutlineSegment, UiGlyphVectorDiagnostic,

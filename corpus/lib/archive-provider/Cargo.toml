@@ -1,0 +1,13 @@
+[package]
+name = "archive-provider"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
+tar = { version = "=0.4.46", default-features = false }
+sevenz-rust2 = { version = "=0.21.3", default-features = false, features = ["default_wasm"] }

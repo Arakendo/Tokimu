@@ -30,3 +30,11 @@ independent production consumers.
   Tier 3 Rust/WASM presentation proof where Ratatui writes retained cells into
   a Tokimu-owned backend and Tokimu rasterizes those cells with Departure Mono.
   Browser code receives pixels rather than recreating terminal layout.
+- [`dotnet-tosumu-resource-workbench`](dotnet-tosumu-resource-workbench/DESIGN.md)
+  is a Tier 3 Windows host for the independent Tosumu-backed Resource Space
+  provider proof. Its current headless bridge proves Resource Space semantics
+  with an in-memory provider; Tosumu durability remains an explicit next slice.
+- [`tosumu-tql-cli-consumer`](tosumu-tql-cli-consumer/DESIGN.md) is a Tier 3
+  external-process consumer of Tosumu's provisional TQL JSON contract. It
+  validates the bounded read-only command surface without parsing TQL or
+  opening Tosumu storage directly.

@@ -9,6 +9,7 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+archive-provider = { path = "../../../lib/archive-provider" }
 cgm-corpus = { path = "../../../lib/cgm-corpus" }
 fbx-corpus = { path = "../../../lib/fbx-corpus" }
 gltf-corpus = { path = "../../../lib/gltf-corpus", default-features = false, features = ["decode"] }
@@ -21,3 +22,8 @@ serde_json = "1"
 tokimu = { path = "../../../../crates/tokimu" }
 ui-tools = { path = "../../../lib/ui-tools" }
 wasm-bindgen = { workspace = true }
+
+[dev-dependencies]
+# Test-only fixture generation proves the public read-only 7z import route
+# without making a 7z writer part of the Workbench or archive-provider API.
+sevenz-rust2 = { version = "=0.21.3", default-features = false, features = ["default_wasm"] }
