@@ -121,6 +121,12 @@ try {
 
     New-Item -ItemType Directory -Force $runtimeObservationOutput | Out-Null
     Copy-Item -Path (Join-Path $runtimeObservationConsumer "dist/*") -Destination $runtimeObservationOutput -Force
+    $runtimeObservationSourceOutput = Join-Path $runtimeObservationOutput "src"
+    New-Item -ItemType Directory -Force $runtimeObservationSourceOutput | Out-Null
+    Copy-Item -LiteralPath @(
+        (Join-Path $runtimeObservationConsumer "dist/src/ratatui-input.js"),
+        (Join-Path $runtimeObservationConsumer "dist/src/runtime-observation.js")
+    ) -Destination $runtimeObservationSourceOutput -Force
 }
 finally {
     Pop-Location

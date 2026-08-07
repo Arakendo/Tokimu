@@ -6,6 +6,30 @@ import test from "node:test";
 const repoRoot = path.resolve(import.meta.dirname, "..", "..");
 const read = (relativePath) => readFile(path.join(repoRoot, relativePath), "utf8");
 
+async function assertLocalModuleGraph(entryPath, assetRoot) {
+  const visited = new Set();
+
+  async function visit(modulePath) {
+    const normalizedPath = path.normalize(modulePath);
+    if (visited.has(normalizedPath)) return;
+    visited.add(normalizedPath);
+
+    const source = await readFile(normalizedPath, "utf8");
+    const imports = source.matchAll(/(?:from\s+|import\s*\()\s*["'](\.[^"']+)["']/g);
+    for (const [, specifier] of imports) {
+      const dependency = path.resolve(path.dirname(normalizedPath), specifier);
+      assert.ok(
+        dependency.startsWith(`${assetRoot}${path.sep}`),
+        `Published module escapes its island asset root: ${specifier}`,
+      );
+      await access(dependency);
+      if (path.extname(dependency) === ".js") await visit(dependency);
+    }
+  }
+
+  await visit(entryPath);
+}
+
 test("runtime observation browser consumer retains one Rust-owned shell session", async () => {
   const app = await read("corpus/consumers/runtime-observation-workbench/web/app.ts");
   const engine = await read("corpus/consumers/runtime-observation-workbench/engine/src/lib.rs");
@@ -105,4 +129,9 @@ test("runtime observation island publishes the bounded WASM artifact set", async
   assert.match(app, /WasmObservationShellSession/);
   assert.match(app, /putImageData/);
   assert.doesNotMatch(app, /new WasmRuntimeObservationSession\(\)/);
+});
+
+test("runtime observation island publishes its complete local module graph", async () => {
+  const assetRoot = path.join(repoRoot, "website", "docs", "assets", "islands", "runtime-observation");
+  await assertLocalModuleGraph(path.join(assetRoot, "app.js"), assetRoot);
 });
