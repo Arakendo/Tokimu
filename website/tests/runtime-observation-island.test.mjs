@@ -50,6 +50,24 @@ test("runtime observation island presents Ratatui before expandable semantic evi
   assert.match(app, /document\.documentElement\.scrollHeight/);
 });
 
+test("runtime observation readiness follows Rust/WASM startup rather than iframe load", async () => {
+  const child = await read("corpus/consumers/runtime-observation-workbench/web/app.ts");
+  const page = await read("corpus/consumers/runtime-observation-workbench/web/index.html");
+  const loader = await read("website/docs/javascripts/runtime-observation.js");
+  const islands = await read("website/docs/javascripts/islands.js");
+
+  assert.match(child, /tokimu-runtime-observation-state/);
+  assert.match(child, /state: "startup_failed"/);
+  assert.match(child, /void start\(\)\.catch\(reportStartupFailure\)/);
+  assert.match(page, /id="startup-error"/);
+  assert.match(page, /role="alert"/);
+  assert.match(loader, /waitForRuntime/);
+  assert.match(loader, /event\.data\.state === "ready"/);
+  assert.match(loader, /event\.data\.state === "error"/);
+  assert.doesNotMatch(loader, /const onLoad = .*resolve/);
+  assert.match(islands, /error\?\.message/);
+});
+
 test("runtime observation island publishes the bounded WASM artifact set", async () => {
   const assetRoot = path.join(repoRoot, "website", "docs", "assets", "islands", "runtime-observation");
   const requiredAssets = [

@@ -147,7 +147,10 @@
           );
           return;
         }
-        this.setState("failed", "The Tokimu evidence consumer failed to load.");
+        this.setState(
+          "failed",
+          error?.message || "The Tokimu evidence consumer failed to load.",
+        );
         console.error(`Tokimu island "${this.kind}" failed`, error);
       }
     }

@@ -17,7 +17,7 @@
     const fallback = required(root, ".island-fallback");
     const frame = document.createElement("iframe");
     const releaseHeightSync = installFrameHeightSync(frame);
-    const loaded = waitForFrame(frame, signal);
+    const ready = waitForRuntime(frame, signal);
 
     prepareFrameLayout(mount, frame);
     frame.className = "runtime-observation-frame";
@@ -29,7 +29,7 @@
     fallback.hidden = true;
 
     try {
-      await loaded;
+      await ready;
       frame.focus({ preventScroll: true });
       frame.contentWindow?.focus();
     } catch (error) {
@@ -73,17 +73,32 @@
     return () => window.removeEventListener("message", onMessage);
   }
 
-  function waitForFrame(frame, signal) {
+  function waitForRuntime(frame, signal) {
     return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("The runtime observation workbench did not report readiness within 20 seconds."));
+      }, 20_000);
       const cleanup = () => {
-        frame.removeEventListener("load", onLoad);
+        window.clearTimeout(timeout);
+        window.removeEventListener("message", onMessage);
         frame.removeEventListener("error", onError);
         signal.removeEventListener("abort", onAbort);
       };
-      const onLoad = () => { cleanup(); resolve(); };
+      const onMessage = (event) => {
+        if (event.source !== frame.contentWindow) return;
+        if (event.data?.type !== "tokimu-runtime-observation-state") return;
+        if (event.data.state === "ready") {
+          cleanup();
+          resolve();
+        } else if (event.data.state === "error") {
+          cleanup();
+          reject(new Error(event.data.detail || "The runtime observation workbench failed to initialize."));
+        }
+      };
       const onError = () => { cleanup(); reject(new Error("The runtime observation workbench failed to load.")); };
       const onAbort = () => { cleanup(); reject(new DOMException("Runtime observation activation was cancelled.", "AbortError")); };
-      frame.addEventListener("load", onLoad, { once: true });
+      window.addEventListener("message", onMessage);
       frame.addEventListener("error", onError, { once: true });
       signal.addEventListener("abort", onAbort, { once: true });
     });

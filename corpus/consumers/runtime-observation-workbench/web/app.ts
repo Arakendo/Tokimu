@@ -22,6 +22,51 @@ if (!terminalCanvas || !terminalStatus) {
 const terminalContext = terminalCanvas.getContext("2d", { alpha: false });
 if (!terminalContext) throw new Error("Ratatui shell host has no 2D context");
 
+const startupError = document.querySelector<HTMLElement>("#startup-error");
+const startupErrorDetail = document.querySelector<HTMLElement>("#startup-error-detail");
+const runtimeControls = Array.from(
+  document.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button, input"),
+);
+
+const postRuntimeState = (state: "loading" | "ready" | "error", detail: string) => {
+  if (window.parent === window) return;
+  window.parent.postMessage({
+    type: "tokimu-runtime-observation-state",
+    state,
+    detail,
+  }, "*");
+};
+
+const postDocumentHeight = () => {
+  if (window.parent === window) return;
+  window.parent.postMessage({
+    type: "tokimu-runtime-observation-height",
+    height: Math.ceil(document.documentElement.scrollHeight),
+  }, "*");
+};
+
+const reportStartupFailure = (error: unknown) => {
+  const detail = error instanceof Error ? error.message : String(error);
+  document.body.dataset.runtimeState = "error";
+  runtimeControls.forEach((control) => { control.disabled = true; });
+  terminalCanvas.tabIndex = -1;
+  terminalCanvas.setAttribute("aria-disabled", "true");
+  terminalStatus.textContent = `Runtime observation failed to start: ${detail}`;
+  output.textContent = JSON.stringify({
+    state: "startup_failed",
+    error: detail,
+  }, null, 2);
+  if (startupError && startupErrorDetail) {
+    startupErrorDetail.textContent = detail;
+    startupError.hidden = false;
+  }
+  postRuntimeState("error", `Runtime observation failed to start: ${detail}`);
+  requestAnimationFrame(postDocumentHeight);
+};
+
+postRuntimeState("loading", "Loading the Rust/WASM runtime observation facade...");
+
+const start = async () => {
 await init();
 // One Rust/WASM session powers both the semantic browser controls and the
 // Ratatui terminal. They are two projections of the same runtime scenario.
@@ -47,10 +92,7 @@ const scheduleDocumentHeight = () => {
   documentHeightPending = true;
   requestAnimationFrame(() => {
     documentHeightPending = false;
-    window.parent.postMessage({
-      type: "tokimu-runtime-observation-height",
-      height: Math.ceil(document.documentElement.scrollHeight),
-    }, "*");
+    postDocumentHeight();
   });
 };
 
@@ -184,4 +226,12 @@ window.addEventListener("resize", scheduleRatatuiResize);
 
 show(runtime.observation_json(0, 7));
 renderRatatuiShell();
+runtimeControls.forEach((control) => { control.disabled = false; });
+terminalCanvas.tabIndex = 0;
+terminalCanvas.setAttribute("aria-disabled", "false");
+document.body.dataset.runtimeState = "ready";
 scheduleDocumentHeight();
+postRuntimeState("ready", "Rust/WASM runtime observation facade ready.");
+};
+
+void start().catch(reportStartupFailure);

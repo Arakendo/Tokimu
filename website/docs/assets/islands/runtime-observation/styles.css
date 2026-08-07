@@ -2,7 +2,11 @@
 body { margin: 0; } main { max-width: 900px; margin: 3rem auto; padding: 2rem; border: 1px solid #3b7772; }
 p { color: #70e2d1; text-transform: uppercase; letter-spacing: .12em; } .description { max-width: 62ch; color: #b6d2ce; text-transform: none; letter-spacing: normal; line-height: 1.5; } .controls { display: flex; flex-wrap: wrap; gap: .6rem; }
 button { background: #102a2c; color: inherit; border: 1px solid #4fcabc; padding: .65rem .8rem; cursor: pointer; } button:hover { background: #17454a; }
+button:disabled, input:disabled { cursor: not-allowed; opacity: .48; }
 input { min-width: 22rem; background: #050b0c; color: inherit; border: 1px solid #4fcabc; padding: .65rem .8rem; font: inherit; }
+.startup-error { display: grid; gap: .5rem; margin: 1rem 0; padding: 1rem; border: 1px solid #e69b66; background: #2b1712; color: #ffd4b8; }
+.startup-error[hidden] { display: none; }
+.startup-error span { overflow-wrap: anywhere; }
 .shell { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #234846; } .shell h2 { margin: 0; }
 .ratatui-shell { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #234846; }
 .ratatui-shell h2 { margin: 0; }

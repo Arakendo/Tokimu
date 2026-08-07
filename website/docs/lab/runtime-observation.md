@@ -81,6 +81,11 @@ runtime, position terminal glyphs, or interpret Ratatui styles.
 - The browser owns only the containing island, canvas focus, input forwarding,
   resize notifications, and RGBA frame presentation.
 
+The iframe document loading is not runtime-readiness evidence. The child reports
+`loading`, `ready`, or `error` only after Rust/WASM initialization. Startup
+failures remain visible inside the consumer and propagate to the containing
+island instead of leaving a blank terminal beneath a false ready state.
+
 `AR-0013` remains incubating. The still-open questions are shared live
 sessions across standalone/native and embedded hosts, host-level viewport
 parity, and permanent provider admission.
