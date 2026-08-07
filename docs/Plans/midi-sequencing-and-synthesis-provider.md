@@ -2,13 +2,20 @@
 
 ## Status
 
-Proposed on 2026-08-02. No MIDI importer, sequencer, synthesizer, live MIDI
+Proposed on 2026-08-02 and refined on 2026-08-06 around a first audible
+application milestone. No MIDI importer, sequencer, synthesizer, live MIDI
 provider, or audio-output capability is currently admitted.
 
 The first implementation should incubate in focused corpus libraries and
 applications. This plan does not create `tokimu-midi`, `tokimu-audio`, or a
 general media framework by itself. Capability admission requires independent
 consumer pressure and Architectural Review.
+
+The immediate implementation target is intentionally smaller than the full
+plan: authored note events, deterministic sequencing, one tiny software
+synthesizer, a WAVE evidence artifact, and one native playback consumer. MIDI
+file import, SoundFonts, hardware MIDI, spatial audio, streaming, and browser
+playback remain later slices.
 
 ## Purpose
 
@@ -30,6 +37,34 @@ MIDI is timed control data, not audio. A MIDI sequence can be inspected and
 scheduled without a speaker, while audible output additionally requires a
 synthesis provider and an audio-output provider.
 
+## Working Meaning Of "MIDI-Style"
+
+For the first milestone, **MIDI-style audio** means compact, timed note and cue
+events driving a small synthesizer. It does not yet mean complete Standard MIDI
+File compatibility, General MIDI instruments, a hardware MIDI port, or a
+SoundFont player.
+
+The first public vocabulary should therefore describe the semantics Tokimu
+actually needs:
+
+```text
+NoteSequence
+NoteEvent
+InstrumentRequirement
+Cue
+TransportState
+PcmBlock
+```
+
+It should not acquire `Midi*` names unless the type truly promises MIDI
+protocol or file-format behavior. A later MIDI importer may lower `.mid` bytes
+into the same note-sequence model, and a later system MIDI provider may consume
+compatible events, without either technology defining the application-facing
+contract.
+
+This distinction keeps the first implementation useful for basic applications
+even if full MIDI compatibility never becomes an admitted Tokimu capability.
+
 ## Architectural Thesis
 
 > Applications own musical intent. MIDI semantics own timed musical events.
@@ -40,8 +75,8 @@ synthesis provider and an audio-output provider.
 application cue / score intent
             |
             v
-provider-neutral MIDI sequence
-notes / programs / controllers / tempo
+provider-neutral note sequence
+notes / instruments / controls / tempo
             |
             v
 deterministic sequencer
@@ -65,7 +100,8 @@ audio-output provider       audio analysis
 native / browser            optional observer
 ```
 
-An imported Standard MIDI File is one source of a provider-neutral sequence:
+An imported Standard MIDI File is one possible source of a provider-neutral
+note sequence:
 
 ```text
 MIDI file bytes
@@ -85,6 +121,11 @@ sequenced MIDI events
 Neither route defines the semantic contract alone.
 
 ## Governing Documents
+
+- [`On Audio.md`](../Conversations/On%20Audio.md) decomposes audio assets,
+  playback, spatialization, mixing, effects, and streaming rather than treating
+  them as one `play sound` subsystem. This plan intentionally begins with only
+  note sequencing, synthesis, and bounded playback.
 
 - [`Tokimu Software Design Document.md`](../Tokimu%20Software%20Design%20Document.md)
   keeps device and presentation mechanisms outside the trusted simulation
@@ -140,9 +181,10 @@ The corpus must answer these questions before capability admission:
 The application must not parse provider-native device handles or redefine MIDI
 file syntax.
 
-### Provider-neutral MIDI semantics own
+### Provider-neutral note-sequence semantics own
 
-- notes, channels, program changes, controller changes, and pitch bend;
+- notes, voices/channels, instrument requirements, selected controls, and
+  pitch bend;
 - explicit tempo and time-signature observations where available;
 - bounded tracks and deterministic event ordering;
 - sequence identity, duration, and source diagnostics;
@@ -232,8 +274,27 @@ The first sequence model should support only evidence-backed essentials:
 - explicit duration and loop regions; and
 - end-of-sequence behavior.
 
-General MIDI may be a compatibility profile. It is not automatically Tokimu's
-instrument ontology.
+General MIDI may become a compatibility profile. It is not automatically
+Tokimu's instrument ontology.
+
+### Phase A application scope
+
+The first audible application proof needs less than the complete semantic
+scope above. It should support:
+
+- note on and note off;
+- velocity;
+- one provider-neutral instrument requirement resolved to a built-in waveform;
+- explicit tempo;
+- deterministic event ordering;
+- bounded polyphony;
+- one loop region;
+- start, pause, resume, and stop; and
+- one music cue plus one independently triggered sound-effect cue.
+
+Program changes, pan, sustain, pitch bend, multitrack import, and richer
+controller behavior remain in the broader sequence model but must not block
+the first audible proof.
 
 ## Non-Goals
 
@@ -306,6 +367,29 @@ independent provider.
 
 ## Implementation Slices
 
+### Implementation Order
+
+Slice numbers describe architectural concerns, not a requirement to complete
+every slice numerically. The first useful path is:
+
+```text
+Slice 0: boundary and authored fixture
+    -> Slice 1: bounded note events
+    -> Slice 2: deterministic transport
+    -> Slice 4: tiny software synthesizer
+    -> Slice 6: native output adapter
+    -> Slice 7: basic application cue consumer
+```
+
+Slice 3 (MIDI file import) is deliberately deferred until the authored event
+and synthesis path is audible and structurally tested. This prevents file
+format work from delaying useful application audio or defining the semantic
+model accidentally.
+
+The first implementation may incubate in a focused `corpus/lib` library. It
+must not create a permanent engine crate merely to make the corpus directory
+look tidy.
+
 ### Slice 0: Boundary Review And Fixture Definition
 
 Deliverables:
@@ -325,7 +409,7 @@ Acceptance criteria:
       `tokimu-runtime`.
 - [ ] The fixture can be inspected without a window, GPU, or audio device.
 
-### Slice 1: Provider-Neutral MIDI Event Model
+### Slice 1: Provider-Neutral Note Event Model
 
 Deliverables:
 
@@ -343,6 +427,8 @@ Acceptance criteria:
       explicitly.
 - [ ] The public corpus contract contains no file-parser or device-native
       objects.
+- [ ] The application-facing contract does not claim MIDI file or hardware
+      semantics merely because its note model is MIDI-compatible.
 
 ### Slice 2: Deterministic Sequencer And Transport
 
@@ -389,6 +475,8 @@ Deliverables:
 - [ ] Produce normalized finite PCM in explicit sample-rate/channel blocks.
 - [ ] Diagnose voice stealing, missing instruments, and non-finite output.
 - [ ] Emit bounded PCM statistics and a deterministic artifact fingerprint.
+- [ ] Write one canonical PCM result as a simple WAVE artifact for listening
+      and inspection without making WAVE the runtime audio contract.
 
 Acceptance criteria:
 
@@ -397,6 +485,8 @@ Acceptance criteria:
 - [ ] Silence, note lifecycle, sustain, polyphony limit, and stop cleanup are
       covered by tests.
 - [ ] Synthesis requires no window, GPU, or live audio device.
+- [ ] The WAVE artifact records sample rate, channel count, duration, peak,
+      clipping count, and source-fixture identity beside its fingerprint.
 
 ### Slice 5: PCM Handoff And Audio Analysis Reuse
 
@@ -425,6 +515,8 @@ Deliverables:
 - [ ] Add a bounded producer/consumer queue with documented overflow policy.
 - [ ] Keep the device callback free of MIDI parsing and application policy.
 - [ ] Demonstrate a looping game-style track and interruptible cue.
+- [ ] Expose a minimal application adapter for play, pause, resume, stop, and
+      one-shot cue requests without exposing the device handle.
 
 Acceptance criteria:
 
@@ -433,6 +525,8 @@ Acceptance criteria:
       fallback.
 - [ ] Warm playback does not allocate or create provider resources per sample
       block without explicit evidence and review.
+- [ ] A basic corpus application can start music and trigger a note-driven
+      effect without parsing MIDI or managing PCM buffers itself.
 
 ### Slice 7: Game Cue And Transition Consumer
 
@@ -608,15 +702,39 @@ The work is ready for admission review when:
 
 ## Suggested First Increment
 
-Start with Slice 0 through Slice 2 only:
+Build the shortest path to an audible, inspectable application proof:
 
 1. author one four-bar corpus fixture in code;
-2. represent its notes, program requirement, tempo change, sustain event, and
-   loop region;
-3. advance it with fixed deterministic steps;
-4. emit an ordered JSON event trace and summary; and
-5. test stop, seek, loop, and simultaneous-event ordering.
+2. author one short sound-effect cue using the same note-event contract;
+3. represent their notes, instrument requirements, tempo, and loop region;
+4. advance them with fixed deterministic steps;
+5. synthesize them through a tiny Tokimu-authored oscillator provider;
+6. emit ordered event JSON plus a deterministic PCM fingerprint and WAVE
+   artifact; and
+7. play the looping music and interruptible cue through one native output
+   adapter controlled by a basic corpus application.
 
-That increment can prove whether the MIDI semantic and timing model is useful
-before selecting an audio library, synthesis engine, instrument bank, or device
-API.
+MIDI file import is not part of this first increment. It begins only after the
+authored-note path proves the semantic model, scheduling, synthesis, artifact,
+and application-control boundaries.
+
+## Phase A Definition Of Done
+
+Phase A is complete when:
+
+- [ ] Headless tests prove deterministic event ordering, looping, transport,
+      note cleanup, and PCM fingerprints.
+- [ ] The generated WAVE artifact is non-silent, finite, bounded, and reports
+      clipping explicitly.
+- [ ] A basic native corpus application can start, pause, resume, and stop one
+      music cue and trigger one overlapping sound-effect cue.
+- [ ] The application supplies musical intent without parsing MIDI, choosing
+      an audio device, or managing PCM buffers.
+- [ ] The synthesizer and output adapter can be tested independently through
+      the shared note-event and PCM handoffs.
+- [ ] Missing output devices, unsupported instrument requirements, queue
+      pressure, and invalid events produce bounded diagnostics rather than
+      silent fallback.
+- [ ] No claim is made yet for MIDI files, General MIDI, hardware MIDI,
+      SoundFonts, spatial audio, streaming, browser playback, or production
+      mixing.
