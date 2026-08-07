@@ -52,6 +52,7 @@ runtime, position terminal glyphs, or interpret Ratatui styles.
       This is consumer evidence only. It does not claim native/browser session
       handoff, full terminal emulation, or permanent Ratatui admission.
     </p>
+    <p class="runtime-observation-failure" data-runtime-observation-error hidden></p>
     <button class="button button-primary" type="button" data-island-action="activate">
       Open runtime observation workbench
     </button>

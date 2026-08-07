@@ -15,6 +15,7 @@
     const config = rawConfig;
     const mount = required(root, "[data-island-mount]");
     const fallback = required(root, ".island-fallback");
+    const failure = root.querySelector("[data-runtime-observation-error]");
     const frame = document.createElement("iframe");
     const releaseHeightSync = installFrameHeightSync(frame);
     const ready = waitForRuntime(frame, signal);
@@ -27,6 +28,10 @@
     mount.replaceChildren(frame);
     mount.hidden = false;
     fallback.hidden = true;
+    if (failure) {
+      failure.hidden = true;
+      failure.textContent = "";
+    }
 
     try {
       await ready;
@@ -35,6 +40,10 @@
     } catch (error) {
       releaseHeightSync();
       releaseFrame(frame, mount, fallback);
+      if (failure) {
+        failure.textContent = error instanceof Error ? error.message : String(error);
+        failure.hidden = false;
+      }
       throw error;
     }
 

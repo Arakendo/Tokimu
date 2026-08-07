@@ -16,8 +16,8 @@ try {
     # compiled app is staged in dist, that wrapper lives beside app.js.
     $compiledApp = Join-Path $dist "app.js"
     $compiledSource = (Get-Content -LiteralPath $compiledApp -Raw).Replace(
-        'from "../dist/runtime_observation_workbench_engine.js"',
-        'from "./runtime_observation_workbench_engine.js"'
+        '../dist/runtime_observation_workbench_engine.js',
+        './runtime_observation_workbench_engine.js'
     )
     [System.IO.File]::WriteAllText(
         $compiledApp,

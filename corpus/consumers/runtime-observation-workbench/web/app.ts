@@ -1,6 +1,3 @@
-import init, {
-  WasmObservationShellSession,
-} from "../dist/runtime_observation_workbench_engine.js";
 import {
   ObservationShellClient,
   type RuntimeObservationWasm,
@@ -66,11 +63,38 @@ const reportStartupFailure = (error: unknown) => {
 
 postRuntimeState("loading", "Loading the Rust/WASM runtime observation facade...");
 
+const withStartupTimeout = async <T>(
+  stage: string,
+  operation: Promise<T>,
+  timeoutMs = 12_000,
+): Promise<T> => {
+  let timeoutId: number | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          reject(new Error(`${stage} did not complete within ${timeoutMs / 1_000} seconds.`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+  }
+};
+
 const start = async () => {
-await init();
+const runtimeModule = await withStartupTimeout(
+  "Runtime observation module/WASM startup",
+  (async () => {
+    const module = await import("../dist/runtime_observation_workbench_engine.js");
+    await module.default();
+    return module;
+  })(),
+);
 // One Rust/WASM session powers both the semantic browser controls and the
 // Ratatui terminal. They are two projections of the same runtime scenario.
-const shellWasm = new WasmObservationShellSession() as unknown as ObservationShellWasm;
+const shellWasm = new runtimeModule.WasmObservationShellSession() as unknown as ObservationShellWasm;
 const runtime = shellWasm as RuntimeObservationWasm;
 const shell = new ObservationShellClient(shellWasm);
 let commandId = 1;

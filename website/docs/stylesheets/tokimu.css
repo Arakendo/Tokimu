@@ -804,6 +804,44 @@ th {
   display: none;
 }
 
+.runtime-observation-failure {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 2px solid var(--gold);
+  background: rgba(255, 196, 64, 0.06);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.runtime-observation-island[data-state="failed"] {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.runtime-observation-island[data-state="failed"] .island-fallback {
+  align-self: stretch;
+  max-width: none;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.runtime-observation-island[data-state="failed"] .island-fallback h2 {
+  max-width: 22ch;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.runtime-observation-island[data-state="failed"] .island-status {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  border-left: 0;
+}
+
+.runtime-observation-island[data-state="failed"] .island-status span:last-child {
+  overflow-wrap: anywhere;
+}
+
 .island-mount {
   min-width: 0;
 }

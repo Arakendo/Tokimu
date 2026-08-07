@@ -10,7 +10,7 @@ test("runtime observation browser consumer retains one Rust-owned shell session"
   const app = await read("corpus/consumers/runtime-observation-workbench/web/app.ts");
   const engine = await read("corpus/consumers/runtime-observation-workbench/engine/src/lib.rs");
 
-  assert.match(app, /new WasmObservationShellSession\(\)/);
+  assert.match(app, /new runtimeModule\.WasmObservationShellSession\(\)/);
   assert.match(app, /const runtime = shellWasm as RuntimeObservationWasm/);
   assert.match(app, /renderRatatuiShell/);
   assert.doesNotMatch(app, /new WasmRuntimeObservationSession\(\)/);
@@ -59,6 +59,9 @@ test("runtime observation readiness follows Rust/WASM startup rather than iframe
   assert.match(child, /tokimu-runtime-observation-state/);
   assert.match(child, /state: "startup_failed"/);
   assert.match(child, /void start\(\)\.catch\(reportStartupFailure\)/);
+  assert.match(child, /import\("\.\.\/dist\/runtime_observation_workbench_engine\.js"\)/);
+  assert.match(child, /withStartupTimeout/);
+  assert.doesNotMatch(child, /^import init,/m);
   assert.match(page, /id="startup-error"/);
   assert.match(page, /role="alert"/);
   assert.match(loader, /waitForRuntime/);
@@ -66,6 +69,17 @@ test("runtime observation readiness follows Rust/WASM startup rather than iframe
   assert.match(loader, /event\.data\.state === "error"/);
   assert.doesNotMatch(loader, /const onLoad = .*resolve/);
   assert.match(islands, /error\?\.message/);
+});
+
+test("runtime observation failures expose their cause in a compact recovery state", async () => {
+  const page = await read("website/docs/lab/runtime-observation.md");
+  const loader = await read("website/docs/javascripts/runtime-observation.js");
+  const styles = await read("website/docs/stylesheets/tokimu.css");
+
+  assert.match(page, /data-runtime-observation-error/);
+  assert.match(loader, /failure\.textContent = error instanceof Error/);
+  assert.match(styles, /\.runtime-observation-island\[data-state="failed"\]/);
+  assert.match(styles, /grid-template-columns: minmax\(0, 1fr\)/);
 });
 
 test("runtime observation island publishes the bounded WASM artifact set", async () => {
