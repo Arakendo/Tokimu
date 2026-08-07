@@ -22,6 +22,8 @@ sampling, filtering, and shader color handling.
 ```text
 corpus/assets/
   GLB/                 local glTF binary fixtures
+  DOOM/                shareware fixture metadata and local inspections
+  archive/DOOM/        canonical shareware ZIP packages
   Vector/              SVG source/reference files
   PNG/
     Dark/              dark texture variant
@@ -45,6 +47,15 @@ directory or copy assets into individual example directories.
 When a corpus entry needs one of these assets, use the PNG variants for mesh or
 shader material tests. Use the SVG files when testing vector loading,
 triangulation, or vector-to-mesh behavior.
+
+The ZIP files under `archive/DOOM/` preserve the reviewed shareware package
+boundaries. The corresponding metadata under `DOOM/` records how those
+archives are used as corpus evidence.
+Extracted WADs and package trees are local inspection copies and are not
+standalone distribution units. Consumers should mount a package through the
+archive provider and address its WAD as a logical Resource Space member. See
+`DOOM/README.md` and `DOOM/inventory-v1.toml` for provenance, hashes, and the
+separate Doom and Heretic publication constraints.
 
 ## Reference-corpus status
 

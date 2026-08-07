@@ -1,0 +1,22 @@
+Tokimu compact corpus package: Heretic shareware v1.2
+
+Status: Internal derived corpus artifact. This is not the canonical
+redistribution package and is not approved for public publication.
+
+Source archive: corpus/assets/archive/DOOM/DOSBOX_HERETIC.ZIP
+Source SHA-256: f4ca7bffd27ab3e671beb3cadee7a39c3b7b8c330e5e0591f4a42c2f7b6bb944
+
+Included source members:
+- HERETIC1.WAD
+- LICENSE.DOC
+- VENDOR.DOC
+- README.TXT
+
+The DOS executables, launchers, configuration, order, and support files are
+omitted because they do not exercise Tokimu's archive, Resource Space, or
+WAD-container boundaries.
+
+Heretic's license permits electronic distribution in compressed form but does
+not clearly admit a reduced repackaging. The original complete source archive
+therefore remains the authoritative reviewed distribution unit. Generate this
+internal package with scripts/prepare-doom-corpus-packages.ps1.

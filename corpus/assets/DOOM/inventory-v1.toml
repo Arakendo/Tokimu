@@ -1,0 +1,104 @@
+schema = 2
+inventory = "shareware-package-fixtures-v1"
+distribution = "canonical-archives-with-local-extraction-copies"
+license_finding = "engine-source-licenses-do-not-license-wad-game-data"
+review_references = [
+    "https://doomwiki.org/wiki/Licences",
+    "https://doomwiki.org/wiki/Shareware",
+    "https://sources.debian.org/src/doom-wad-shareware/1.9.fixed-2/debian/copyright/",
+    "https://doomwiki.org/wiki/DOOM1.WAD",
+]
+
+[[packages]]
+file = "../archive/DOOM/DOSBOX_DOOM.ZIP"
+role = "canonical-doom-shareware-package"
+bytes = 2357547
+sha256 = "9ed3172e728d403962f874eaba93b4b973af1e57a8608bd803fc6e02d137fbc6"
+primary_member = "DOOM1.WAD"
+notice_members = ["README.TXT"]
+standalone_license_member = false
+redistribution = "reviewed-unchanged-no-fee-non-free"
+distribution_unit = "complete-archive"
+repository_status = "package-candidate-pending-publication-review"
+
+[[packages]]
+file = "../archive/DOOM/DOSBOX_HERETIC.ZIP"
+role = "canonical-heretic-shareware-package"
+bytes = 2794870
+sha256 = "f4ca7bffd27ab3e671beb3cadee7a39c3b7b8c330e5e0591f4a42c2f7b6bb944"
+primary_member = "HERETIC1.WAD"
+notice_members = ["LICENSE.DOC", "VENDOR.DOC", "README.TXT"]
+standalone_license_member = true
+redistribution = "reviewed-electronic-distribution-requires-compressed-format"
+distribution_unit = "complete-compressed-archive"
+repository_status = "package-candidate-pending-publication-review"
+
+[[derived_packages]]
+file = "packages/doom-shareware-corpus-v1.zip"
+source_package = "../archive/DOOM/DOSBOX_DOOM.ZIP"
+role = "internal-compact-resource-space-fixture"
+bytes = 1810639
+sha256 = "b99cc1c170cdfc7fe951ad91df4632c50e3486df6806abd8ceff6e6ff45cbe45"
+members = ["DOOM1.WAD", "README.TXT", "HELPME.TXT", "PROVENANCE.txt"]
+redistribution = "internal-only-pending-derived-package-review"
+canonical_distribution = false
+generated_by = "scripts/prepare-doom-corpus-packages.ps1"
+
+[[derived_packages]]
+file = "packages/heretic-shareware-corpus-v1.zip"
+source_package = "../archive/DOOM/DOSBOX_HERETIC.ZIP"
+role = "internal-compact-resource-space-fixture"
+bytes = 2366228
+sha256 = "db59e902b34033030e5c2cf1c7a79a3d6118012d48d69447c8d08d4204b214fb"
+members = ["HERETIC1.WAD", "LICENSE.DOC", "VENDOR.DOC", "README.TXT", "PROVENANCE.txt"]
+redistribution = "internal-only-pending-derived-package-review"
+canonical_distribution = false
+generated_by = "scripts/prepare-doom-corpus-packages.ps1"
+
+[[fixtures]]
+package = "DOSBOX_DOOM.ZIP"
+file = "DOOM1.WAD"
+logical_address = "DOSBOX_DOOM.ZIP/DOOM1.WAD"
+role = "initial-doom-semantic-target"
+release_identity = "doom-1.9-shareware-iwad"
+bytes = 4196020
+signature = "IWAD"
+lumps = 1264
+directory_offset = 4175796
+sha256 = "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771"
+md5 = "f0cefca49926d00903cf57551d901abe"
+semantic_scope = "doom"
+distribution = "archive-member-not-standalone-download"
+map_markers = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"]
+observed_invalid_ranges = 0
+
+[[fixtures]]
+package = "DOSBOX_HERETIC.ZIP"
+file = "HERETIC1.WAD"
+logical_address = "DOSBOX_HERETIC.ZIP/HERETIC1.WAD"
+role = "comparative-wad-container-evidence"
+release_identity = "heretic-shareware-iwad"
+bytes = 5120920
+signature = "IWAD"
+lumps = 1374
+directory_offset = 5098936
+sha1 = "b4c50ca9bea07f7c35250a1a11906091971c05ae"
+sha256 = "3ab2f21828877e49e5eb3220785aaf8798050b7c4132003b5db7b8f3678bede4"
+semantic_scope = "container-only"
+distribution = "archive-member-not-standalone-download"
+map_markers = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"]
+observed_invalid_ranges = 0
+
+[[documents]]
+package = "DOSBOX_HERETIC.ZIP"
+file = "LICENSE.DOC"
+sha1 = "c97b176fe0458039219eb426ad315dc5ff155324"
+sha256 = "d91e4c0571f67cde0ffdf0fe8e5958bd57debda2d31e823c84ca4463c0761279"
+finding = "electronic-distribution-permitted-only-in-compressed-format"
+
+[[documents]]
+package = "DOSBOX_HERETIC.ZIP"
+file = "VENDOR.DOC"
+sha1 = "a4360e93169602b3daa7e87364e1c341cbc02282"
+sha256 = "c8efc8346f7176828e939a6986bcb83eac490f2b93ca4c98d78069bb10606c4a"
+finding = "package-vendor-distribution-record"

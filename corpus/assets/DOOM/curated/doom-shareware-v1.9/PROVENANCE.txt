@@ -1,0 +1,20 @@
+Tokimu compact corpus package: Doom shareware v1.9
+
+Status: Internal derived corpus artifact. This is not the canonical
+redistribution package and is not approved for public publication.
+
+Source archive: corpus/assets/archive/DOOM/DOSBOX_DOOM.ZIP
+Source SHA-256: 9ed3172e728d403962f874eaba93b4b973af1e57a8608bd803fc6e02d137fbc6
+
+Included source members:
+- DOOM1.WAD
+- README.TXT
+- HELPME.TXT
+
+The DOS executables, launchers, modem/IPX configuration, order form, and
+multiplayer support files are omitted because they do not exercise Tokimu's
+archive, Resource Space, WAD-container, or Doom-semantic boundaries.
+
+The original source archive remains authoritative and untouched. Doom game
+data remains non-free shareware. Generate this package with
+scripts/prepare-doom-corpus-packages.ps1.
