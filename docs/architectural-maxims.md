@@ -68,6 +68,14 @@ They should not define them.
 Tokimu should own semantic models while allowing multiple implementations behind
 stable capability contracts.
 
+### Consumers choose optional provider cost.
+
+Deployment targets constrain provider composition, not semantic ownership. A
+web consumer should ship only the optional providers it actually needs and
+record its payload budget; a native consumer may choose a richer composition
+but still records its runtime and size evidence. Provider convenience must not
+silently become a mandatory transitive cost for every consumer.
+
 ### Frontends author meaning.
 
 They do not own runtime truth.

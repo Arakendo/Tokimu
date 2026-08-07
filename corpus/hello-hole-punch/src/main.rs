@@ -17,6 +17,21 @@ const FLOOR_MATERIAL: MaterialHandle = MaterialHandle(2);
 const HOLE_PUNCH_SOURCE: &str = "corpus/assets/CheckLicense/hole_punch1.glb";
 
 fn main() -> PlatformResult<()> {
+    if std::env::args()
+        .skip(1)
+        .any(|argument| argument == "--verify-assets")
+    {
+        let path = hole_punch_path();
+        let model = decode_glb_file(&path)?;
+        println!(
+            "verified hole-punch asset: {} (meshes={}, animations={})",
+            path.display(),
+            model.summary.meshes,
+            model.summary.animations
+        );
+        return Ok(());
+    }
+
     run_window_with_app(
         WindowConfig {
             title: "Tokimu Hello Hole Punch".into(),
@@ -196,6 +211,14 @@ impl PlatformEventHandler for HelloHolePunchApp {
 }
 
 fn hole_punch_path() -> PathBuf {
+    let staged_asset = std::env::current_exe()
+        .ok()
+        .and_then(|executable| executable.parent().map(PathBuf::from))
+        .map(|directory| directory.join("assets/CheckLicense/hole_punch1.glb"));
+    if let Some(path) = staged_asset.filter(|path| path.is_file()) {
+        return path;
+    }
+
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join(HOLE_PUNCH_SOURCE)

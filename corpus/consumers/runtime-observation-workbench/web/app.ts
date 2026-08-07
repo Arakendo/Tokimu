@@ -6,6 +6,11 @@ import {
   type RuntimeObservationWasm,
   type ObservationShellWasm,
 } from "./src/runtime-observation.js";
+import {
+  mapRatatuiKeyboardInput,
+  mapRatatuiWheelDelta,
+  type BrowserRatatuiInput,
+} from "./src/ratatui-input.js";
 
 const output = document.querySelector<HTMLPreElement>("#output");
 if (!output) throw new Error("runtime observation output is missing");
@@ -130,54 +135,44 @@ terminalCanvas.addEventListener("pointerdown", () => {
   terminalStatus.textContent = "Ratatui shell focused. Rust owns the prompt, transcript, history, and command outcome.";
 });
 
+const dispatchRatatuiInput = (input: BrowserRatatuiInput) => {
+  switch (input.kind) {
+    case "submit":
+      show(shellWasm.ratatui_submit());
+      break;
+    case "backspace":
+      shellWasm.ratatui_backspace();
+      break;
+    case "clear_prompt":
+      shellWasm.ratatui_clear_prompt();
+      break;
+    case "history_up":
+      shellWasm.ratatui_history_up();
+      break;
+    case "history_down":
+      shellWasm.ratatui_history_down();
+      break;
+    case "scroll":
+      shellWasm.ratatui_scroll_by(input.lines);
+      break;
+    case "append_text":
+      shellWasm.ratatui_append_text(input.text);
+      break;
+  }
+};
+
 terminalCanvas.addEventListener("keydown", (event) => {
-  if (event.ctrlKey || event.altKey || event.metaKey) return;
-
-  let handled = true;
-  renderRatatuiShellAfter(() => {
-    switch (event.key) {
-      case "Enter":
-        show(shellWasm.ratatui_submit());
-        break;
-      case "Backspace":
-        shellWasm.ratatui_backspace();
-        break;
-      case "Escape":
-        shellWasm.ratatui_clear_prompt();
-        break;
-      case "ArrowUp":
-        shellWasm.ratatui_history_up();
-        break;
-      case "ArrowDown":
-        shellWasm.ratatui_history_down();
-        break;
-      case "PageUp":
-        shellWasm.ratatui_scroll_by(-8);
-        break;
-      case "PageDown":
-        shellWasm.ratatui_scroll_by(8);
-        break;
-      case "Home":
-        shellWasm.ratatui_scroll_by(-1000);
-        break;
-      case "End":
-        shellWasm.ratatui_scroll_by(1000);
-        break;
-      default:
-        if (event.key.length === 1) {
-          shellWasm.ratatui_append_text(event.key);
-        } else {
-          handled = false;
-        }
-    }
-  });
-
-  if (handled) event.preventDefault();
+  const input = mapRatatuiKeyboardInput(event);
+  if (!input) return;
+  event.preventDefault();
+  renderRatatuiShellAfter(() => dispatchRatatuiInput(input));
 });
 
 terminalCanvas.addEventListener("wheel", (event) => {
+  const input = mapRatatuiWheelDelta(event.deltaY);
+  if (!input) return;
   event.preventDefault();
-  renderRatatuiShellAfter(() => shellWasm.ratatui_scroll_by(event.deltaY > 0 ? 3 : -3));
+  renderRatatuiShellAfter(() => dispatchRatatuiInput(input));
 }, { passive: false });
 
 // The surrounding documentation shell can resize independently of the window.

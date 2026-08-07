@@ -2,6 +2,10 @@
   "name": "runtime-observation-workbench",
   "private": true,
   "type": "module",
-  "scripts": { "build": "tsc", "typecheck": "tsc --noEmit" },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test:input": "npm run build && node dist/src/ratatui-input-check.js"
+  },
   "devDependencies": { "typescript": "^5.9.2" }
 }

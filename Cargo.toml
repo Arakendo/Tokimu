@@ -44,8 +44,10 @@ members = [
     "corpus/hello-runtime-observation",
     "corpus/hello-runtime-inspector",
     "corpus/hello-observation-shell",
+    "corpus/hello-terminal-surface",
     "corpus/hello-observation-mud",
     "corpus/hello-observation-workbench",
+    "corpus/hello-tui-tools",
 
     # Data, interchange, and output corpus.
     "corpus/hello-svg",
@@ -136,6 +138,7 @@ members = [
     "corpus/lib/visualizer-tools",
     "corpus/lib/milkdrop-tools",
     "corpus/lib/observation-shell",
+    "corpus/lib/tui-tools",
 
     # Cross-workspace integration tests.
     "tests",
