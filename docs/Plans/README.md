@@ -16,6 +16,7 @@ than silently treating the plan as authority.
 - [XML Tools Incubation Library](xml-tools.md)
 - [Performance Diagnostics and Runtime Observation](performance-diagnostics-and-runtime-observation.md)
 - [Ring 0 Third-Party Source Audit And Migration](ring-zero-third-party-source-audit-and-migration.md)
+- [Native Math Vocabulary And Foreign-Type Case Study](native-math-vocabulary-foreign-type-case-study.md)
 - [Consumer Corpora](consumer-corpora.md)
 - [TypeScript Shader, Material, And Presentation Control](typescript-shader-material-presentation-control.md)
 - [Particle Simulation And Presentation](particle-simulation-and-presentation.md)

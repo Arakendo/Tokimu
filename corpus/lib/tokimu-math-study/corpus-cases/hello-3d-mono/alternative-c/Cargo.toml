@@ -1,0 +1,11 @@
+[package]
+name = "tokimu-math-study-hello-3d-mono-c"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+tokimu = { path = "../../../../../../crates/tokimu", features = ["platform", "render"] }
+tokimu-math-study = { path = "../../.." }

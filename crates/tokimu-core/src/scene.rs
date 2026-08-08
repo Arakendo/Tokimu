@@ -1,31 +1,30 @@
 use crate::World;
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SceneDoc {
     pub entities: Vec<SceneEntityDoc>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SceneEntityDoc {
     pub position: Option<ScenePosition>,
     pub parent: Option<usize>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScenePosition {
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SceneHistoryRecord {
     pub what: SceneChange,
     pub system: String,
     pub why: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SceneChange {
     SpawnedEntity,
     SetPosition {

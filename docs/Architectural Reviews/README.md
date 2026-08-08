@@ -195,3 +195,19 @@ across unrelated decisions.
 - [AR-0014: Native Terminal Text Surface And Ratatui Dependency Boundary](AR-0014-native-terminal-text-surface-and-ratatui-dependency-boundary.md)
   — Incubating; measures Ratatui's real dependency cost and studies whether a
   smaller provider-neutral terminal surface exists below shell semantics
+- [AR-0015: Ring 0 Provenance Enforcement And Audit Closure](AR-0015-ring-zero-provenance-enforcement-and-audit-closure.md)
+  — Under Review; records local ADR-0010 provenance enforcement, the retained
+  `glam` source decision, and the CI, release, publication, and update evidence
+  still required for closure
+- [AR-0016: Native Ring Performance And Code Quality Conformance](AR-0016-native-ring-performance-and-code-quality-conformance.md)
+  — Under Review; records evidence that ADR-0008's proportional gate changes
+  real Native Ring decisions and retains its measurement and hygiene gaps
+- [AR-0017: Ring-Based Verification And Recovery Conformance](AR-0017-ring-based-verification-and-recovery-conformance.md)
+  — Under Review; records ADR-0009 verification evidence and the negative,
+  containment, and recovery proof still required at future boundaries
+- [AR-0018: Ring-Based Security, Authority, And Trust Conformance](AR-0018-ring-based-security-authority-and-trust-conformance.md)
+  — Under Review; records ADR-0011's build-provenance application while runtime
+  authority, hostile-input, and isolation evidence remains open
+- [AR-0019: Native Math Vocabulary And Foreign-Type Boundary](AR-0019-native-math-vocabulary-and-foreign-type-boundary.md)
+  — Incubating; retains `glam` as the current audited provider while studying a
+  Tokimu-owned public math vocabulary and a reusable foreign-type admission method

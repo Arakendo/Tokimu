@@ -1,0 +1,14 @@
+{
+  "roots": [
+    "tokimu-assets",
+    "tokimu-core",
+    "tokimu-input",
+    "tokimu-runtime"
+  ],
+  "approvedRingZeroSources": [
+    {
+      "name": "deliberately missing fixture source",
+      "path": "third-party/ring-0/not-present"
+    }
+  ]
+}

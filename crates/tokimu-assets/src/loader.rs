@@ -1,5 +1,6 @@
 pub trait AssetLoader {
     type Output;
+    type Error: std::error::Error;
 
-    fn load(&self, source: &[u8]) -> anyhow::Result<Self::Output>;
+    fn load(&self, source: &[u8]) -> Result<Self::Output, Self::Error>;
 }

@@ -28,3 +28,6 @@
 	path = third-party/presentation-providers/ratatui
 	url = https://github.com/ratatui/ratatui.git
 	ignore = all
+[submodule "third-party/ring-0/glam"]
+	path = third-party/ring-0/glam
+	url = https://github.com/bitshifter/glam-rs.git

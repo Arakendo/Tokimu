@@ -4,6 +4,9 @@ exclude = [
     # Tosumu remains an independently versioned workspace even when a corpus
     # bridge consumes its public crates by local submodule path.
     "third-party/tosumu",
+    # Ring 0 source remains at its upstream workspace root while Tokimu
+    # consumes the audited glam package through an explicit path dependency.
+    "third-party/ring-0/glam",
 ]
 members = [
     # Engine crates.
@@ -139,6 +142,9 @@ members = [
     "corpus/lib/milkdrop-tools",
     "corpus/lib/observation-shell",
     "corpus/lib/tui-tools",
+    "corpus/lib/tokimu-math-study",
+    "corpus/lib/tokimu-math-study/corpus-cases/hello-3d-mono/alternative-b",
+    "corpus/lib/tokimu-math-study/corpus-cases/hello-3d-mono/alternative-c",
 
     # Cross-workspace integration tests.
     "tests",
@@ -160,7 +166,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 tracing-wasm = "0.2"
 console_error_panic_hook = "0.1"
-glam = "0.29"
+glam = { path = "third-party/ring-0/glam", version = "0.29.3", default-features = false, features = ["std"] }
 wgpu = "23"
 winit = "0.30"
 pollster = "0.4"

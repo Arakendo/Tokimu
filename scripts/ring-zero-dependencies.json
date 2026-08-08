@@ -1,0 +1,14 @@
+{
+  "roots": [
+    "tokimu-assets",
+    "tokimu-core",
+    "tokimu-input",
+    "tokimu-runtime"
+  ],
+  "approvedRingZeroSources": [
+    {
+      "name": "glam",
+      "path": "third-party/ring-0/glam"
+    }
+  ]
+}

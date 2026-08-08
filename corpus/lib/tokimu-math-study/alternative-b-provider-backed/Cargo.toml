@@ -1,0 +1,13 @@
+[package]
+name = "tokimu-math-study-provider-backed"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+glam = { path = "../../../../third-party/ring-0/glam", default-features = false, features = ["std"] }
+
+[workspace]

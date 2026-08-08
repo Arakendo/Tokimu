@@ -1,0 +1,16 @@
+[package]
+name = "tokimu-math-study"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+glam.workspace = true
+tokimu = { path = "../../../crates/tokimu", features = ["render"] }
+tokimu-core = { path = "../../../crates/tokimu-core" }
+
+[dev-dependencies]
+gltf-corpus = { path = "../gltf-corpus" }
+wasm-bindgen-test = "=0.3.76"

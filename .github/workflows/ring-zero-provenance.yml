@@ -1,0 +1,79 @@
+name: Ring 0 provenance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ring-zero-provenance.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'crates/tokimu-core/**'
+      - 'docs/Dependency Audits/Ring 0/**'
+      - 'docs/Plans/ring-zero-third-party-source-audit-and-migration.md'
+      - 'scripts/audit-ring-zero-dependencies.ps1'
+      - 'scripts/ring-zero-dependencies.json'
+      - 'scripts/test-audit-ring-zero-dependencies.ps1'
+      - 'scripts/tests/ring-zero-unapproved-source.json'
+      - 'third-party/ring-0/glam'
+      - '.gitmodules'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ring-zero-provenance.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'crates/tokimu-core/**'
+      - 'docs/Dependency Audits/Ring 0/**'
+      - 'docs/Plans/ring-zero-third-party-source-audit-and-migration.md'
+      - 'scripts/audit-ring-zero-dependencies.ps1'
+      - 'scripts/ring-zero-dependencies.json'
+      - 'scripts/test-audit-ring-zero-dependencies.ps1'
+      - 'scripts/tests/ring-zero-unapproved-source.json'
+      - 'third-party/ring-0/glam'
+      - '.gitmodules'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audited tokimu-core closure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out parent repository
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - name: Initialize the declared Ring 0 source
+        run: git submodule update --init --depth 1 third-party/ring-0/glam
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Prove audit acceptance and rejection paths
+        run: pwsh -NoProfile -File scripts/test-audit-ring-zero-dependencies.ps1
+
+      - name: Build and test every audited native root without registry retrieval
+        run: >-
+          cargo test
+          -p tokimu-assets
+          -p tokimu-core
+          -p tokimu-input
+          -p tokimu-runtime
+          --locked
+          --offline
+
+      - name: Build the audited WebAssembly closure without registry retrieval
+        run: >-
+          cargo build
+          -p tokimu-assets
+          -p tokimu-core
+          -p tokimu-input
+          -p tokimu-runtime
+          --target wasm32-unknown-unknown
+          --locked
+          --offline

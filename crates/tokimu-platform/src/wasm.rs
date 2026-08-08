@@ -166,7 +166,7 @@ fn attach_mouse_listeners(
         }
     }) as Box<dyn FnMut(web_sys::Event)>);
 
-    let button_handler = event_handler;
+    let button_handler = event_handler.clone();
     let canvas_for_button = canvas.clone();
     let mouse_button = Closure::wrap(Box::new(move |event: web_sys::Event| {
         if let Ok(mouse_event) = event.dyn_into::<MouseEvent>() {

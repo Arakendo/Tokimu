@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed on 2026-08-07. Read-only inventory and source mapping may begin while
-ADR-0010 is Proposed. Submodule admission, Cargo source rewiring, and claims of
-Ring 0 compliance require ADR-0010 to be Accepted.
+Active on 2026-08-07. ADR-0010 is Accepted. The current Ring 0 closure remains
+noncompliant until source audit, submodule pinning, local Cargo resolution, and
+CI enforcement are complete.
 
 ## Purpose
 
@@ -127,6 +127,12 @@ Current feature observations:
 All packages above currently resolve from crates.io. No current package is
 approved or grandfathered by ADR-0010.
 
+The active baseline and open findings are retained in
+`docs/Dependency Audits/Ring 0/migration-baseline-2026-08-07.md`. The initial
+audit harness is `scripts/audit-ring-zero-dependencies.ps1`; its intentionally
+failing current result is the machine-checkable record of the registry-source
+finding, not a compliance result.
+
 ## Repository Grouping Hypothesis
 
 The eight packages likely map to six upstream source repositories:
@@ -174,11 +180,11 @@ docs/Dependency Audits/Ring 0/<library>-<revision>.md
 
 ### Deliverables
 
-- [ ] Complete review of ADR-0010 and mark it Accepted or revise it.
-- [ ] Record the eight current packages as the finite migration set.
-- [ ] Freeze new Ring 0 third-party dependencies and feature expansion.
+- [x] Complete review of ADR-0010 and mark it Accepted or revise it.
+- [x] Record the eight current packages as the finite migration set.
+- [x] Freeze new Ring 0 third-party dependencies and feature expansion.
 - [ ] Require ADR-0005 evidence for any urgent exception during migration.
-- [ ] Announce that current Ring 0 builds are not yet ADR-0010 compliant.
+- [x] Announce that current Ring 0 builds are not yet ADR-0010 compliant.
 
 ### Acceptance criteria
 
@@ -191,15 +197,35 @@ docs/Dependency Audits/Ring 0/<library>-<revision>.md
 
 ### Deliverables
 
-- [ ] Inventory every workspace package and feature set that owns Native Ring
+- [x] Inventory every workspace package and feature set that owns Native Ring
       semantics under ADR-0003 and ADR-0008.
-- [ ] Distinguish Native contracts from Outer implementations inside mixed
+- [x] Distinguish Native contracts from Outer implementations inside mixed
       crates such as render, platform, asset, input, and runtime packages.
-- [ ] Define the exact Cargo roots and feature combinations used to derive the
+- [x] Define the exact Cargo roots and feature combinations used to derive the
       trusted dependency closure.
-- [ ] Record dev-only tools separately from code that generates or links Ring 0
+- [x] Record dev-only tools separately from code that generates or links Ring 0
       artifacts.
-- [ ] Record build scripts and procedural macros as trusted build-time code.
+- [x] Record build scripts and procedural macros as trusted build-time code.
+
+### Current root classification
+
+The machine-readable roots in `scripts/ring-zero-dependencies.json` are the
+following full crates, with their default feature sets:
+
+| Workspace area | Classification | Audit treatment | Reason |
+| --- | --- | --- | --- |
+| `tokimu-core` | Native Ring | Root | World, scheduling, time, commands, diagnostics, and math semantics. |
+| `tokimu-input` | Native Ring | Root | ADR-0003 classifies normalized input as universal engine meaning. |
+| `tokimu-runtime` | Native Ring | Root | ADR-0006 assigns application lifecycle and execution coordination to Tokimu. |
+| `tokimu-assets` | Native Ring | Root | Asset identity, handles, lifecycle observations, and the provider-neutral loader contract. Its unused `anyhow` dependency was removed rather than admitted. |
+| `tokimu-render`, `tokimu-platform`, `tokimu-wasm` | Outer adapter/composition | Not roots | They integrate renderer, OS, browser, and target mechanisms. Their dependencies are not thereby Native Ring sources. |
+| `tokimu-rule`, `tokimu-ts-frontend` | Optional capability / authoring frontend | Not roots | Rule and frontend semantics are not universal engine meaning. |
+| `tokimu` facade and corpus/test packages | Composition, evidence, or application code | Not roots | They consume the Native contracts but do not define the Ring 0 closure. |
+
+No declared root currently has a build script or procedural macro edge. The
+audit still follows those edge kinds so a future root change cannot bypass the
+policy. Dev-only dependencies remain outside this build-source closure unless
+they generate, rewrite, or link a Ring 0 artifact.
 
 ### Structural decision rule
 
@@ -227,24 +253,26 @@ trusted closure.
 
 ### Deliverables
 
-- [ ] Add a machine-readable allowlist of approved Tokimu workspace roots and
+- [x] Add a machine-readable allowlist of approved Tokimu workspace roots and
       Ring 0 submodule source paths.
-- [ ] Add a script that invokes Cargo metadata and derives the relevant runtime,
+- [x] Add a script that invokes Cargo metadata and derives the relevant runtime,
       build, and proc-macro closure.
-- [ ] Record package name, version, source, feature set, target conditions, and
+- [x] Record package name, version, source, feature set, target conditions, and
       dependency kind for every node.
-- [ ] Reject registry, remote Git, developer-local, and unapproved path sources.
-- [ ] Detect missing, wrong-revision, and dirty Ring 0 submodules.
+- [x] Reject registry, remote Git, developer-local, and unapproved path sources.
+- [x] Detect missing, wrong-revision, and dirty Ring 0 submodules.
 - [ ] Produce a stable human-readable diff when the closure changes.
-- [ ] Add an audit-record template covering every ADR-0010 requirement.
+- [x] Add an audit-record template covering every ADR-0010 requirement.
 
 ### Acceptance criteria
 
 - [ ] Running the harness against the current tree fails for the known registry
       sources and names all eight migration packages.
 - [ ] `syn` 3.x is not falsely attributed to the `tokimu-core` closure.
-- [ ] A deliberately introduced unapproved source fails with an actionable
-      diagnostic in a harness test.
+- [x] A deliberately introduced unapproved source fails with an actionable
+      diagnostic in a harness test (`scripts/test-audit-ring-zero-dependencies.ps1`).
+- [x] A deliberately dirtied isolated Ring 0 submodule fails with an actionable
+      diagnostic without changing the working checkout.
 - [ ] The harness contains no hard-coded assumption that there will always be
       exactly eight packages or six repositories.
 
@@ -252,12 +280,12 @@ trusted closure.
 
 ### Deliverables
 
-- [ ] Identify the canonical upstream repository for every migration package.
-- [ ] Find the exact commit corresponding to each current published package.
+- [x] Identify the canonical upstream repository for every migration package.
+- [x] Find the exact commit corresponding to each current published package.
 - [ ] Compare packaged source with the upstream tree and record exclusions,
       generated files, patches, and metadata differences.
-- [ ] Verify registry checksums against the current lockfile.
-- [ ] Record whether multiple packages share one upstream commit.
+- [x] Verify registry checksums against the current lockfile.
+- [x] Record whether multiple packages share one upstream commit.
 - [ ] Reject or investigate any package that cannot be mapped reproducibly.
 - [ ] Record a mirror/fork strategy if upstream availability is insufficient for
       long-term source retrieval.
@@ -371,15 +399,15 @@ Begin only for dependencies whose audits conclude they may remain in Ring 0.
 
 ### Deliverables
 
-- [ ] Initialize required Ring 0 submodules explicitly in CI.
-- [ ] Run the metadata-based source audit before Ring 0 compilation.
-- [ ] Fail on missing, dirty, wrong-revision, registry, remote Git, or unapproved
+- [x] Initialize required Ring 0 submodules explicitly in CI.
+- [x] Run the metadata-based source audit before Ring 0 compilation.
+- [x] Fail on missing, dirty, wrong-revision, registry, remote Git, or unapproved
       path source.
 - [ ] Retain a readable dependency/feature diff when the closure changes.
 - [ ] Run focused Native tests plus workspace validation from ADR-0008 and
       ADR-0009.
-- [ ] Add native and WASM source-selection checks.
-- [ ] Document the local developer command matching CI.
+- [x] Add native and WASM source-selection checks.
+- [x] Document the local developer command matching CI.
 
 ### Acceptance criteria
 
@@ -444,12 +472,12 @@ state; completing a source review does not force retention.
 
 | Dependency/repository | Current role | Initial state | Final disposition | Evidence |
 | --- | --- | --- | --- | --- |
-| `glam` | Math implementation and public types | Undecided |  |  |
-| `serde` family | Serialization traits and derives | Undecided |  |  |
-| `proc-macro2` | Derive build-time support | Undecided |  |  |
-| `quote` | Derive token generation | Undecided |  |  |
-| `syn` 2.x | Derive syntax parsing | Undecided |  |  |
-| `unicode-ident` | Derive identifier support | Undecided |  |  |
+| `glam` | Math implementation and public types | Undecided | Retain | `glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md` |
+| `serde` family | Serialization traits and derives | Undecided | Move out of Ring 0 | Removal of Native Ring derives; baseline audit |
+| `proc-macro2` | Derive build-time support | Undecided | Remove from Ring 0 | Removed with Native Ring derives; baseline audit |
+| `quote` | Derive token generation | Undecided | Remove from Ring 0 | Removed with Native Ring derives; baseline audit |
+| `syn` 2.x | Derive syntax parsing | Undecided | Remove from Ring 0 | Removed with Native Ring derives; baseline audit |
+| `unicode-ident` | Derive identifier support | Undecided | Remove from Ring 0 | Removed with Native Ring derives; baseline audit |
 
 Permitted final dispositions:
 

@@ -1,0 +1,10 @@
+[package]
+name = "tokimu-math-study-owned-subset"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[workspace]
