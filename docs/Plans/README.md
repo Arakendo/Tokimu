@@ -17,6 +17,7 @@ than silently treating the plan as authority.
 - [Performance Diagnostics and Runtime Observation](performance-diagnostics-and-runtime-observation.md)
 - [Ring 0 Third-Party Source Audit And Migration](ring-zero-third-party-source-audit-and-migration.md)
 - [Native Math Vocabulary And Foreign-Type Case Study](native-math-vocabulary-foreign-type-case-study.md)
+- [DOOM TypeScript Boundary Stress Plan](DOOM/DOOM%20TypeScript%20Boundary%20Stress%20Plan.md)
 - [Consumer Corpora](consumer-corpora.md)
 - [TypeScript Shader, Material, And Presentation Control](typescript-shader-material-presentation-control.md)
 - [Particle Simulation And Presentation](particle-simulation-and-presentation.md)

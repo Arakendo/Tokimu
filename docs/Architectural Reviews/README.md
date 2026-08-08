@@ -211,3 +211,6 @@ across unrelated decisions.
 - [AR-0019: Native Math Vocabulary And Foreign-Type Boundary](AR-0019-native-math-vocabulary-and-foreign-type-boundary.md)
   — Incubating; retains `glam` as the current audited provider while studying a
   Tokimu-owned public math vocabulary and a reusable foreign-type admission method
+- [AR-0020: TypeScript Authoring Boundary And Corpus Conformance](AR-0020-typescript-authoring-boundary-and-corpus-conformance.md)
+  — Under Review; classifies TypeScript corpus roles and studies enforceable
+  TTSDD conformance before promoting the boundary into a binding ADR
