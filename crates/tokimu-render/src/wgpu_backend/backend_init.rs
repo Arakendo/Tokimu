@@ -166,7 +166,12 @@ impl WgpuBackend {
         width: u32,
         height: u32,
     ) -> Result<Self, WgpuBackendError> {
-        let instance = wgpu::Instance::default();
+        // Browser WebGPU availability is asynchronous. WGPU's own helper probes
+        // it before fixing the instance backend set, which avoids treating a
+        // synchronous `Instance::default()` construction as browser readiness.
+        let instance =
+            wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor::default())
+                .await;
         let value: &wasm_bindgen::JsValue = &canvas;
         let obj = std::ptr::NonNull::from(value).cast();
         let raw_window_handle = WebCanvasWindowHandle::new(obj).into();

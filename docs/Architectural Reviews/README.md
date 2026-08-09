@@ -214,3 +214,7 @@ across unrelated decisions.
 - [AR-0020: TypeScript Authoring Boundary And Corpus Conformance](AR-0020-typescript-authoring-boundary-and-corpus-conformance.md)
   — Under Review; classifies TypeScript corpus roles and studies enforceable
   TTSDD conformance before promoting the boundary into a binding ADR
+- [AR-0021: Geometry Orientation And Facing Conformance](AR-0021-geometry-orientation-and-facing-conformance.md)
+  — Incubating; records independent E1M1 and decoded `Box.glb` workbench
+  inside-out-facing observations and requires a bounded renderer-orientation
+  contract before any global engine conclusion

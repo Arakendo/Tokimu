@@ -1,0 +1,8 @@
+{
+  "name": "tokimu-render-orientation-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs"
+  }
+}

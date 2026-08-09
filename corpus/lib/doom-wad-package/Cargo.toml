@@ -1,0 +1,13 @@
+[package]
+name = "doom-wad-package"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+archive-provider = { path = "../archive-provider" }
+doom-wad-provider = { path = "../doom-wad-provider" }
+resource-space = { path = "../resource-space" }
+resource-space-archive = { path = "../resource-space-archive" }
+thiserror.workspace = true

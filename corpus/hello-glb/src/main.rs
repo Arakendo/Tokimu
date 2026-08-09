@@ -140,7 +140,7 @@ impl HelloGlbApp {
                 .and_then(|entry| entry.source.as_deref())
                 .unwrap_or("models/cube.glb");
             window.set_title(&format!(
-                "Tokimu Hello GLB | source={} | presentation={} | E cycles | elapsed={:.1}s",
+                "Tokimu Hello GLB | source={} | opaque-cull=back | presentation={} | E cycles | elapsed={:.1}s",
                 source,
                 presentation_step_name(self.presentation_step),
                 self.elapsed_seconds
@@ -403,8 +403,10 @@ impl PlatformEventHandler for HelloGlbApp {
             FLOOR_MATERIAL,
             &Material::new("glb-floor", Color::rgb(0.08, 0.10, 0.13)),
         )?;
-        self.pipeline =
-            renderer.register_pipeline(&Pipeline::new("glb-pipeline", PipelineKind::LitColor3d))?;
+        self.pipeline = renderer.register_pipeline(
+            &Pipeline::new("glb-pipeline", PipelineKind::LitColor3d)
+                .with_render_state(opaque_model_render_state())?,
+        )?;
         self.transparent_pipeline = renderer.register_pipeline(
             &Pipeline::new("glb-transparent-pipeline", PipelineKind::LitColor3d)
                 .with_render_state(transparent_render_state())?,
@@ -470,9 +472,22 @@ fn presentation_step_name(step: usize) -> &'static str {
     }
 }
 
+/// The opaque Box path is the native culling proof: its source mesh retains
+/// Khronos winding and back-face culling is deliberately enabled.
+const fn opaque_model_render_state() -> PipelineRenderState {
+    PipelineRenderState {
+        blend: BlendMode::Opaque,
+        depth_test: DepthTest::LessEqual,
+        depth_write: true,
+        cull_mode: CullMode::Back,
+        color_write: ColorWriteMask::ALL,
+    }
+}
+
 /// First-proof transparency policy: alpha blend against previously submitted
-/// draws, with depth testing but no depth writes. Intersecting transparent
-/// geometry intentionally has no stronger ordering guarantee.
+/// draws, with depth testing but no depth writes. Culling is intentionally
+/// disabled only for this diagnostic presentation state: its opacity does not
+/// establish the opaque model's front-face policy.
 const fn transparent_render_state() -> PipelineRenderState {
     PipelineRenderState {
         blend: BlendMode::AlphaBlend,
@@ -672,6 +687,20 @@ mod tests {
                 depth_test: DepthTest::LessEqual,
                 depth_write: false,
                 cull_mode: CullMode::None,
+                color_write: ColorWriteMask::ALL,
+            }
+        );
+    }
+
+    #[test]
+    fn opaque_box_pipeline_explicitly_culls_back_faces() {
+        assert_eq!(
+            opaque_model_render_state(),
+            PipelineRenderState {
+                blend: BlendMode::Opaque,
+                depth_test: DepthTest::LessEqual,
+                depth_write: true,
+                cull_mode: CullMode::Back,
                 color_write: ColorWriteMask::ALL,
             }
         );

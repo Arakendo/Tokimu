@@ -3,6 +3,15 @@ import init, {
   PresentationSession,
   ResourceSession,
 } from "/tokimu/tokimu_asset_workbench_engine.js";
+import {
+  isFrontFacing,
+  orbitFromDrag,
+  projectMeshPoint,
+  screenSpaceWinding,
+  type MeshProjection,
+  type ProjectedPoint,
+  type Vec3,
+} from "./mesh-preview.js";
 
 type Property = { label: string; value: string };
 type PreviewContour = { points: [number, number][]; closed: boolean };
@@ -18,8 +27,6 @@ type PreviewTriangle = {
   points: [[number, number, number], [number, number, number], [number, number, number]];
   target: PresentationTargetRef | null;
 };
-type Vec3 = [number, number, number];
-type ProjectedPoint = { x: number; y: number; depth: number };
 type PresentationTargetRef = { kind: string; key: string };
 type ResolvedPresentation = {
   color: { red: number; green: number; blue: number };
@@ -131,9 +138,13 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 canvas.addEventListener("pointermove", (event) => {
   if (!meshView.dragging) return;
-  // Orbit the diagnostic model in the same direction as the drag gesture.
-  meshView.yaw -= (event.clientX - meshView.pointerX) * 0.012;
-  meshView.pitch = clamp(meshView.pitch - (event.clientY - meshView.pointerY) * 0.012, -1.35, 1.35);
+  const orbit = orbitFromDrag(
+    meshView,
+    event.clientX - meshView.pointerX,
+    event.clientY - meshView.pointerY,
+  );
+  meshView.yaw = orbit.yaw;
+  meshView.pitch = orbit.pitch;
   meshView.pointerX = event.clientX;
   meshView.pointerY = event.clientY;
   drawObservation(currentObservation);
@@ -500,8 +511,8 @@ function drawMeshPreview(triangles: PreviewTriangle[]): void {
     const [a, b, c] = points;
     // Canvas has a downward-facing Y axis, so front-facing GLB triangles
     // arrive with positive screen-space winding after projection.
-    const normalZ = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    if (normalZ <= 0) return [];
+    const normalZ = screenSpaceWinding(points);
+    if (!isFrontFacing(points)) return [];
     const depth = (a.depth + b.depth + c.depth) / 3;
     const brightness = clamp(0.48 + Math.abs(normalZ) * 0.00002, 0.48, 0.9);
     return [{ points, depth, brightness, resolved }];
@@ -546,28 +557,16 @@ function meshBounds(points: Vec3[]): { center: Vec3; radius: number } {
   return { center, radius: Math.max(0.001, Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2) };
 }
 
-function meshCamera(bounds: { center: Vec3; radius: number }): { center: Vec3; distance: number; focal: number } {
+function meshCamera(bounds: { center: Vec3; radius: number }): MeshProjection {
   return {
     center: bounds.center,
     distance: (bounds.radius * 3.2) / meshView.zoom,
     focal: Math.min(canvas.width, canvas.height) * 0.72,
+    viewportWidth: canvas.width,
+    viewportHeight: canvas.height,
+    yaw: meshView.yaw,
+    pitch: meshView.pitch,
   };
-}
-
-function projectMeshPoint(point: Vec3, view: { center: Vec3; distance: number; focal: number }): ProjectedPoint {
-  const x = point[0] - view.center[0];
-  const y = point[1] - view.center[1];
-  const z = point[2] - view.center[2];
-  const cosYaw = Math.cos(meshView.yaw);
-  const sinYaw = Math.sin(meshView.yaw);
-  const yawX = cosYaw * x + sinYaw * z;
-  const yawZ = -sinYaw * x + cosYaw * z;
-  const cosPitch = Math.cos(meshView.pitch);
-  const sinPitch = Math.sin(meshView.pitch);
-  const pitchY = cosPitch * y - sinPitch * yawZ;
-  const depth = sinPitch * y + cosPitch * yawZ + view.distance;
-  const scale = view.focal / Math.max(depth, 0.001);
-  return { x: canvas.width / 2 + yawX * scale, y: canvas.height / 2 - pitchY * scale, depth };
 }
 
 function drawMeshHelp(): void {

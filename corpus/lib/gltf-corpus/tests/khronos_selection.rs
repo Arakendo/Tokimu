@@ -92,6 +92,19 @@ fn box_positions_normals_and_indices_decode() {
         .iter()
         .flatten()
         .all(|component| component.is_finite()));
+    for indices in primitive.indices.chunks_exact(3) {
+        let a = primitive.positions[indices[0] as usize];
+        let b = primitive.positions[indices[1] as usize];
+        let c = primitive.positions[indices[2] as usize];
+        let geometric_normal = cross(subtract(b, a), subtract(c, a));
+        for index in indices {
+            let authored_normal = primitive.normals[*index as usize];
+            assert!(
+                dot(geometric_normal, authored_normal) > 0.0,
+                "Box triangle {indices:?} winding disagrees with normal at vertex {index}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -232,4 +245,20 @@ fn fixture_root() -> PathBuf {
         root.display()
     );
     root
+}
+
+fn subtract(left: [f32; 3], right: [f32; 3]) -> [f32; 3] {
+    [left[0] - right[0], left[1] - right[1], left[2] - right[2]]
+}
+
+fn cross(left: [f32; 3], right: [f32; 3]) -> [f32; 3] {
+    [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    ]
+}
+
+fn dot(left: [f32; 3], right: [f32; 3]) -> f32 {
+    left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
 }

@@ -1,0 +1,15 @@
+artifact=native-wgpu.png
+captured=2026-08-08
+surface=WGPU native window
+dimensions=1216x839 including window frame
+fixture_rows=identity,rotate-translate,reflect-x-uncompensated,reflect-x-compensated
+fixture_columns=cull-none,cull-back,cull-front
+front_color=green
+back_color=magenta
+normal_lighting=shared +Z authored normal
+depth_test=less-equal
+depth_write=true
+result=visual matrix agrees with retained fixture expectations
+gpu_adapter=AMD Radeon RX 7900 XTX
+gpu_adapter_identity=also retained in captured window title
+wasm_comparison=pending

@@ -1,9 +1,8 @@
-use std::time::Instant;
-
 use wgpu::util::DeviceExt;
 
 use crate::{RenderFrameCpuTimings, RenderStats, Renderer};
 
+use super::cpu_timer::CpuTimer;
 use super::material_support::derived_material_key;
 use super::{
     GpuCameraBinding, GpuCameraUniform, GpuInstanceBinding, GpuInstanceUniform, WgpuBackend,
@@ -20,14 +19,14 @@ impl WgpuBackend {
             return Ok(self.end_frame());
         };
 
-        let surface_acquire_start = Instant::now();
+        let surface_acquire_start = CpuTimer::start();
         let frame = surface_state
             .surface
             .get_current_texture()
             .map_err(|error| WgpuBackendError::SurfaceAcquire(error.to_string()))?;
-        let surface_acquire_call = surface_acquire_start.elapsed();
+        let surface_acquire_call = surface_acquire_start.map(CpuTimer::elapsed);
 
-        let resource_preparation_start = Instant::now();
+        let resource_preparation_start = CpuTimer::start();
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -124,9 +123,9 @@ impl WgpuBackend {
                 self.stats.record_binding_allocation();
             }
         }
-        let resource_preparation = resource_preparation_start.elapsed();
+        let resource_preparation = resource_preparation_start.map(CpuTimer::elapsed);
 
-        let command_encoding_start = Instant::now();
+        let command_encoding_start = CpuTimer::start();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("tokimu-clear-pass"),
@@ -215,22 +214,22 @@ impl WgpuBackend {
             }
         }
         let command_buffer = encoder.finish();
-        let command_encoding = command_encoding_start.elapsed();
+        let command_encoding = command_encoding_start.map(CpuTimer::elapsed);
 
-        let queue_submit_start = Instant::now();
+        let queue_submit_start = CpuTimer::start();
         self._queue.submit(std::iter::once(command_buffer));
-        let queue_submit_call = queue_submit_start.elapsed();
+        let queue_submit_call = queue_submit_start.map(CpuTimer::elapsed);
 
-        let surface_present_start = Instant::now();
+        let surface_present_start = CpuTimer::start();
         frame.present();
-        let surface_present_call = surface_present_start.elapsed();
+        let surface_present_call = surface_present_start.map(CpuTimer::elapsed);
 
         self.stats.record_frame_cpu_timings(RenderFrameCpuTimings {
-            surface_acquire_call: Some(surface_acquire_call),
-            resource_preparation: Some(resource_preparation),
-            command_encoding: Some(command_encoding),
-            queue_submit_call: Some(queue_submit_call),
-            surface_present_call: Some(surface_present_call),
+            surface_acquire_call,
+            resource_preparation,
+            command_encoding,
+            queue_submit_call,
+            surface_present_call,
             ..RenderFrameCpuTimings::default()
         });
         Ok(self.end_frame())

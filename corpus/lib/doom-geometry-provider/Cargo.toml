@@ -1,0 +1,10 @@
+[package]
+name = "doom-geometry-provider"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+doom-map-provider = { path = "../doom-map-provider" }
+thiserror.workspace = true

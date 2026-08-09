@@ -1,4 +1,5 @@
 mod backend_init;
+mod cpu_timer;
 mod diagnostics;
 mod error;
 mod material_resources;

@@ -270,23 +270,27 @@ impl RenderStatsTracker {
 
     pub(crate) fn record_render_target_cpu_timings(
         &mut self,
-        command_encoding: Duration,
-        queue_submit_call: Duration,
+        command_encoding: Option<Duration>,
+        queue_submit_call: Option<Duration>,
     ) {
-        self.frame.cpu_timings.render_target_command_encoding = Some(
-            self.frame
-                .cpu_timings
-                .render_target_command_encoding
-                .unwrap_or_default()
-                .saturating_add(command_encoding),
-        );
-        self.frame.cpu_timings.render_target_queue_submit_call = Some(
-            self.frame
-                .cpu_timings
-                .render_target_queue_submit_call
-                .unwrap_or_default()
-                .saturating_add(queue_submit_call),
-        );
+        if let Some(command_encoding) = command_encoding {
+            self.frame.cpu_timings.render_target_command_encoding = Some(
+                self.frame
+                    .cpu_timings
+                    .render_target_command_encoding
+                    .unwrap_or_default()
+                    .saturating_add(command_encoding),
+            );
+        }
+        if let Some(queue_submit_call) = queue_submit_call {
+            self.frame.cpu_timings.render_target_queue_submit_call = Some(
+                self.frame
+                    .cpu_timings
+                    .render_target_queue_submit_call
+                    .unwrap_or_default()
+                    .saturating_add(queue_submit_call),
+            );
+        }
     }
 
     pub(crate) fn snapshot(&self) -> RenderStats {
@@ -344,8 +348,10 @@ mod tests {
         tracker.record_transparent_draw();
         tracker.record_derived_material_cache_hit();
         tracker.record_derived_material_cache_miss();
-        tracker
-            .record_render_target_cpu_timings(Duration::from_millis(3), Duration::from_millis(1));
+        tracker.record_render_target_cpu_timings(
+            Some(Duration::from_millis(3)),
+            Some(Duration::from_millis(1)),
+        );
         tracker.record_frame_cpu_timings(RenderFrameCpuTimings {
             command_encoding: Some(Duration::from_millis(2)),
             ..RenderFrameCpuTimings::default()

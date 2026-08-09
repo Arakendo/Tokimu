@@ -835,6 +835,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "doom-geometry-provider"
+version = "0.1.0"
+dependencies = [
+ "doom-map-provider",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "doom-map-provider"
+version = "0.1.0"
+dependencies = [
+ "doom-wad-package",
+ "doom-wad-provider",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "doom-raster-provider"
+version = "0.1.0"
+dependencies = [
+ "doom-wad-provider",
+ "raster-image-corpus",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "doom-wad-package"
+version = "0.1.0"
+dependencies = [
+ "archive-provider",
+ "doom-wad-provider",
+ "resource-space",
+ "resource-space-archive",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "doom-wad-provider"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1394,6 +1440,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-render-orientation"
+version = "0.1.0"
+dependencies = [
+ "render-orientation-conformance",
+ "tokimu",
+]
+
+[[package]]
+name = "hello-render-orientation-web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "render-orientation-conformance",
+ "tokimu",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "hello-resource-space"
 version = "0.1.0"
 dependencies = [
@@ -1720,6 +1786,20 @@ version = "0.1.0"
 dependencies = [
  "tokimu",
  "tokimu-core",
+]
+
+[[package]]
+name = "hello-wad-inspect"
+version = "0.1.0"
+dependencies = [
+ "archive-provider",
+ "doom-geometry-provider",
+ "doom-map-provider",
+ "doom-raster-provider",
+ "doom-wad-package",
+ "doom-wad-provider",
+ "resource-space",
+ "resource-space-archive",
 ]
 
 [[package]]
@@ -2859,6 +2939,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5102a6aaa05aa011a238e178e6bca86d2cb56fc9f586d37cb80f5bca6e07759"
 dependencies = [
  "bitflags 2.13.0",
+]
+
+[[package]]
+name = "render-orientation-conformance"
+version = "0.1.0"
+dependencies = [
+ "tokimu-render",
 ]
 
 [[package]]

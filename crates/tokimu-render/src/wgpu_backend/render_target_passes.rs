@@ -1,9 +1,10 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use wgpu::util::DeviceExt;
 
 use crate::{CameraHandle, Color, DrawMeshCommand, TextureHandle};
 
+use super::cpu_timer::CpuTimer;
 use super::texture_support::rgba8_texture_format;
 use super::{
     GpuCameraBinding, GpuCameraUniform, GpuInstanceUniform, GpuTextureRole, WgpuBackend,
@@ -97,7 +98,7 @@ impl WgpuBackend {
             instance_binding_indices.push(binding_index);
         }
 
-        let command_encoding_start = Instant::now();
+        let command_encoding_start = CpuTimer::start();
         let mut encoder = self
             ._device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -160,10 +161,10 @@ impl WgpuBackend {
             }
         }
         let command_buffer = encoder.finish();
-        let command_encoding = command_encoding_start.elapsed();
-        let queue_submit_start = Instant::now();
+        let command_encoding = command_encoding_start.map(CpuTimer::elapsed);
+        let queue_submit_start = CpuTimer::start();
         self._queue.submit(std::iter::once(command_buffer));
-        let queue_submit_call = queue_submit_start.elapsed();
+        let queue_submit_call = queue_submit_start.map(CpuTimer::elapsed);
         self.stats.record_submit_call();
         self.stats.record_draw_calls(draws.len() as u32);
         self.stats

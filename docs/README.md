@@ -40,6 +40,8 @@ Recent cross-cutting decisions:
 
 ## Evidence And History
 
+- [Lessons Learned](lessions/): compact operational references earned from
+  corpus investigations. These are quick guidance, not binding architecture.
 - [Conversations](Conversations/): source discussions and exploratory design
   material. These are evidence and context, not authoritative contracts.
 - [Archive](archive/): superseded or intentionally retained historical
@@ -53,6 +55,7 @@ Accepted architectural decision?  -> docs/ADR/
 Architecture under review?        -> docs/Architectural Reviews/
 Executable implementation work?  -> docs/Plans/
 Observation or investigation?     -> docs/Notes/
+Reusable operational lesson?      -> docs/lessions/
 Source conversation?              -> docs/Conversations/
 Superseded historical material?   -> docs/archive/
 Current architecture or policy?   -> docs/ root

@@ -26,6 +26,9 @@ for the asset seam.
 - A model-shaped scene can be shown without exposing file-format concerns to the renderer
 - Repeated uploads still preserve Tokimu ownership boundaries
 - A compact example can validate the first GLB-proof slice without pretending to be a complete importer
+- The ordinary opaque Box presentation uses explicit back-face culling; its
+  separate translucent diagnostic posture remains two-sided and cannot be used
+  as orientation evidence.
 
 ## Scene Shape
 

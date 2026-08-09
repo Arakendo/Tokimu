@@ -15,4 +15,8 @@ tokimu-core = { path = "../tokimu-core" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
-web-sys = { workspace = true, features = ["HtmlCanvasElement"] }
+web-sys = { workspace = true, features = [
+    "HtmlCanvasElement",
+    "Performance",
+    "Window",
+] }

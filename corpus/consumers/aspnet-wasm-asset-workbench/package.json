@@ -1,9 +1,11 @@
 {
   "name": "tokimu-aspnet-wasm-asset-workbench",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:orientation": "npm run build && node --test tests/mesh-preview.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

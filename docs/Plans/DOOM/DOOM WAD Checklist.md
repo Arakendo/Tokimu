@@ -167,10 +167,14 @@ means.
       source archives remain the authoritative redistribution artifacts.
 - [ ] Complete an explicit repository, CI, and website deployment review before
       publishing either package from Tokimu infrastructure.
-- [ ] Add a tiny Tokimu-authored synthetic WAD for deterministic CI coverage.
-- [ ] Reject unknown, truncated, overlapping, and out-of-bounds lump ranges.
-- [ ] Bound input bytes, lump count, individual lump size, map counts, and
-      decoded allocation totals.
+- [x] Add a tiny Tokimu-authored synthetic WAD fixture builder for deterministic
+      CI coverage.
+- [x] Reject unknown, truncated, overlapping, and out-of-bounds WAD directory
+      and lump ranges.
+- [x] Bound WAD input bytes, lump count, individual lump size, and total
+      declared lump bytes through explicit provider inputs.
+- [ ] Bound map counts and decoded allocation totals when map/asset decoding is
+      introduced; the container provider does not decode those formats.
 
 Acceptance criteria:
 
@@ -214,16 +218,18 @@ also relies on an external preserved record.
 
 ## Slice 1: WAD Container Inspection
 
-- [ ] Parse the `IWAD` and `PWAD` signatures.
-- [ ] Decode the little-endian lump count and directory offset.
-- [ ] Decode bounded directory entries: offset, size, and 8-byte name.
-- [ ] Preserve source order and duplicate lump names.
-- [ ] Expose each lump through a provider-neutral observation.
-- [ ] Project marker-delimited namespaces without pretending markers contain
+- [x] Parse the `IWAD` and `PWAD` signatures.
+- [x] Decode the little-endian lump count and directory offset.
+- [x] Decode bounded directory entries: offset, size, and 8-byte name.
+- [x] Preserve source order and duplicate lump names.
+- [x] Expose each lump through a provider-neutral observation.
+- [x] Project marker-delimited namespaces without pretending markers contain
       bytes or are ordinary files.
-- [ ] Add diagnostic output for malformed names, duplicate identities,
-      impossible ranges, and unsupported container variants.
-- [ ] Add a `hello-wad-inspect` corpus consumer.
+- [x] Add diagnostic output for malformed names, duplicate source-name
+      observations, impossible ranges, malformed marker pairs, and unsupported
+      container signatures. Source order plus index remains the identity until
+      Slice 2 introduces consumer lookup rules.
+- [x] Add a `hello-wad-inspect` corpus consumer.
 
 Acceptance criteria:
 
@@ -234,19 +240,20 @@ Acceptance criteria:
 
 ## Slice 2: Doom Resource Namespaces
 
-- [ ] Mount the reviewed Doom ZIP through the bounded archive provider.
-- [ ] Resolve `DOOM1.WAD` through a Resource Space package/member address.
-- [ ] Retain package identity, member identity, member hash, and archive hash
-      in importer observations.
-- [ ] Prove the first consumer does not require permanent extraction or a
+- [x] Mount the reviewed Doom ZIP through the bounded archive provider.
+- [x] Resolve `DOOM1.WAD` through a Resource Space package/member address.
+- [x] Retain package identity, member identity, member hash, and archive hash
+      in container observations.
+- [x] Prove the first consumer does not require permanent extraction or a
       Doom-specific Resource Space rule.
-- [ ] Identify global lumps and map-marker boundaries.
-- [ ] Recognize sprite, flat, and patch marker ranges.
-- [ ] Represent WAD names independently from host filesystem paths.
-- [ ] Decide and document case normalization without losing source spelling.
-- [ ] Resolve map-local lump sets without depending on directory adjacency
-      outside the reviewed Doom map format.
-- [ ] Diagnose missing, duplicated, or reordered required map lumps.
+- [x] Identify global lumps and map-marker boundaries.
+- [x] Recognize sprite, flat, and patch marker ranges.
+- [x] Represent WAD names independently from host filesystem paths.
+- [x] Retain exact source spelling without case normalization; any later lookup
+      normalization must be admitted and tested at its consumer boundary.
+- [x] Resolve map-local lump sets using the reviewed classic Doom map-block
+      contract, bounded by the next `E#M#` marker or directory end.
+- [x] Diagnose missing, duplicated, or reordered required map lumps.
 - [ ] Exercise WAD contents through Resource Space without changing Resource
       Space semantics to fit Doom.
 
@@ -258,18 +265,31 @@ Acceptance criteria:
 
 ## Slice 3: Doom Map Decoding
 
-- [ ] Decode `THINGS`.
-- [ ] Decode `LINEDEFS`.
-- [ ] Decode `SIDEDEFS`.
-- [ ] Decode `VERTEXES`.
-- [ ] Decode `SEGS`.
-- [ ] Decode `SSECTORS`.
-- [ ] Decode `NODES`.
-- [ ] Decode `SECTORS`.
-- [ ] Inspect `REJECT` and `BLOCKMAP` with bounded validation.
-- [ ] Preserve source indices so diagnostics can reference original records.
-- [ ] Validate every cross-table index before semantic lowering.
-- [ ] Emit a provider-neutral map summary and a top-down diagnostic view.
+- [x] Decode `THINGS`.
+- [x] Decode `LINEDEFS`.
+- [x] Decode `SIDEDEFS`.
+- [x] Decode `VERTEXES`.
+- [x] Decode `SEGS`.
+- [x] Decode `SSECTORS`.
+- [x] Decode `NODES`.
+- [x] Decode `SECTORS`.
+- [x] Inspect `REJECT` and `BLOCKMAP` with bounded validation.
+- [x] Preserve source indices so diagnostics can reference original records.
+- [x] Validate decoded linedef vertex/sidedef, sidedef sector, seg
+      vertex/linedef/direction, subsector seg-range, BSP child, REJECT bitset,
+      and BLOCKMAP table/list/linedef references before semantic lowering.
+- [x] Emit a provider-neutral map summary and a deterministic top-down source
+      topology diagnostic view. `hello-wad-inspect --map-svg E1M1 <output.svg>`
+      writes decoded linedef boundaries (one-sided teal, two-sided gray) and
+      raw `THINGS` positions (amber, with source-indexed metadata). Every
+      boundary and thing retains a source record in SVG metadata/tooltips. It
+      also overlays the raw classic `BLOCKMAP` extent as a dashed violet
+      diagnostic boundary and marks the reviewed player-one source thing cyan,
+      without asserting collision or runtime spawn behavior. It
+      is explicitly not renderer input or a claim about visible geometry,
+      sectors, materials, or textures.
+- [x] Retain a bounded, deterministic raw `THINGS` inventory by numeric kind
+      and flag-set count before assigning any gameplay meaning to those values.
 
 Acceptance criteria:
 
@@ -281,18 +301,26 @@ Acceptance criteria:
 
 ## Slice 4: Palette, Texture, Flat, And Sprite Assets
 
-- [ ] Decode `PLAYPAL` palettes.
-- [ ] Inspect `COLORMAP` without prematurely baking software-lighting behavior
-      into Tokimu's renderer.
-- [ ] Decode patch image column/post data and transparent regions.
-- [ ] Decode `PNAMES` and `TEXTURE1`/`TEXTURE2` composition records.
-- [ ] Compose wall textures from patches with deterministic clipping.
-- [ ] Decode 64x64 flats.
-- [ ] Decode sprite rotations and frame-name conventions.
-- [ ] Lower decoded indexed images into provider-neutral raster observations.
-- [ ] Record color-space and alpha/coverage assumptions explicitly.
-- [ ] Add visual and structural artifacts for palette, patch, texture, flat,
-      and sprite samples.
+- [x] Decode `PLAYPAL` palettes.
+- [x] Inspect `COLORMAP` as source index-remapping data without prematurely
+      baking software-lighting behavior into Tokimu's renderer.
+- [x] Decode patch image column/post data and transparent regions.
+- [x] Decode `PNAMES` and `TEXTURE1`/`TEXTURE2` composition records.
+- [x] Compose wall textures from patches with deterministic clipping.
+- [x] Decode 64x64 flats.
+- [x] Decode sprite rotations and frame-name conventions.
+- [x] Lower decoded indexed images into provider-neutral raster observations.
+- [x] Record color-space and alpha/coverage assumptions explicitly.
+- [x] Add a deterministic palette structural artifact.
+- [x] Add a deterministic patch structural artifact.
+- [x] Add a deterministic texture structural artifact.
+- [x] Add a deterministic flat structural artifact.
+- [x] Add a deterministic sprite-frame structural artifact.
+- [x] Add a representative palette visual artifact.
+- [x] Add a representative patch visual artifact.
+- [x] Add a representative texture visual artifact.
+- [x] Add a representative flat visual artifact.
+- [x] Add a representative sprite visual artifact.
 
 Acceptance criteria:
 
@@ -302,29 +330,194 @@ Acceptance criteria:
 
 ## Slice 5: Static World Geometry
 
-- [ ] Build floor and ceiling regions from sector/subsector evidence.
-- [ ] Build one-sided wall geometry.
-- [ ] Build two-sided upper, lower, and middle wall geometry.
-- [ ] Respect floor and ceiling heights.
-- [ ] Compute stable texture coordinates.
-- [ ] Handle upper/lower unpegged flags explicitly.
-- [ ] Identify sky surfaces without making sky behavior a generic mesh concern.
-- [ ] Preserve source linedef, sidedef, sector, and subsector identities on
-      lowered presentation records.
-- [ ] Detect and diagnose degenerate or unsupported topology.
-- [ ] Add wireframe, sector-color, normal, and textured diagnostic modes.
+Implementation sequence:
+
+1. Create a Doom-specific, headless geometry provider outside `tokimu-render`.
+   It consumes decoded map observations, produces ordinary position/UV/index
+   records plus source identities, and does not own WAD bytes, palette choice,
+   GPU resources, or draw submission.
+2. Establish a bounded E1M1 sector/subsector topology audit before emitting
+   floor or ceiling triangles. Ambiguous, degenerate, or unsupported topology
+   must remain a diagnostic instead of being silently triangulated.
+3. Lower floor/ceiling surfaces first, then one-sided walls, then two-sided
+   openings. Each step retains source record identities and produces headless
+   structural artifacts before a renderer consumes it.
+4. Admit texture coordinates, pegging, sky classification, materials, and
+   diagnostic presentation modes only after their source semantics are visible
+   in the headless output.
+
+- [x] Resolve linedef endpoints and right/left sidedef-sector ownership into
+      source-traceable headless wall candidates; reject zero-length linedefs
+      and linedefs with neither side instead of inventing geometry.
+- [x] Audit E1M1 wall topology before mesh emission: retain one-sided,
+      two-sided, and same-sector two-sided counts as structural evidence.
+- [x] Retain root-to-leaf BSP partition paths for every E1M1 subsector (depth
+      5 through 18), so the later floor/ceiling proof can account for partition
+      boundaries not represented by map-wall `SEGS` alone.
+- [x] Produce bounded candidate BSP regions for all E1M1 subsectors without
+      emitting triangles (959 boundary vertices total); retain the 34 of 1,464
+      source `SEG` endpoints outside idealized integer half-planes as explicit
+      topology evidence. The maximum outside distance is 512 map units, so no
+      epsilon or rounding repair is admitted.
+- [x] Resolve source-traceable sector ownership for all 237 E1M1 subsectors
+      from `SEG` direction and `LINEDEF` sidedef relationships; all 85 decoded
+      sectors are represented and no subsector mixes ownership.
+- [x] Resolve E1M1 floor/ceiling boundaries through bounded BSP-region polygons,
+      not an invented `SEGS`-only loop repair. The strict `SEGS` reconstruction
+      closes 55 of 237 leaves and retains the remaining 182 rejections (104
+      fewer than three source segs and 78 open chains, including subsector 1)
+      as source diagnostics. Every admitted surface boundary instead derives
+      from the finite map extent clipped by its retained root-to-leaf BSP path;
+      it has at least three vertices and a non-zero signed area before triangle
+      lowering. This is the resolved headless geometry boundary, not a claim
+      that raw `SEGS` alone encode every closed leaf.
+- [x] Build renderer-neutral floor and ceiling triangle candidates from bounded
+      BSP leaves and source-traceable sector ownership (E1M1: 485 floor and
+      485 ceiling triangles). This does not yet assert texture placement,
+      visible-wall correctness, or a rendered scene.
+- [x] Build renderer-neutral full-height, untextured one-sided wall candidates
+      from their sole owning sector (E1M1: 604 triangles from 302 linedefs).
+      Two-sided opening and texture semantics remain separate work.
+- [x] Build two-sided upper, lower, and middle wall geometry.
+  - [x] Build renderer-neutral upper and lower height-discontinuity bands while
+        retaining the authored sidedef texture name (E1M1: 188 upper and 210
+        lower triangles); no material or UV interpretation is asserted.
+  - [x] Build two-sided middle-texture geometry with an explicit openness and
+        clipping policy: emit the positive shared sector opening only (26 E1M1
+        triangles from 13 observations), and emit nothing for closed/inverted
+        openings. Material alpha, portal behavior, and gameplay collision are
+        deliberately not inferred by this geometry rule.
+  - [x] Inventory authored middle textures before choosing that policy (E1M1:
+        13 observations across 4 texture names); retain their source side and
+        vertical opening without emitting geometry.
+- [x] Respect floor and ceiling heights for the admitted floor/ceiling, one-sided,
+      and two-sided wall geometry. Middle walls use their explicit positive
+      shared-opening clip; their material alpha and portal behavior remain
+      separate presentation concerns.
+- [x] Compute stable source texture coordinates where the classic source format
+      has a map-space contract, and explicitly characterize the plane case
+      where it does not.
+  - [x] Retain deterministic raw sidedef texture axes before pegging (E1M1:
+        613 authored texture observations with U start/end, V offset, and raw
+        linedef flags for later unpegged interpretation).
+  - [x] Apply texture-size-aware V placement and pegging from the admitted
+        source texture extents and retained linedef flags. The original anchor
+        rules are retained in
+        [`Classic Doom wall V placement evidence.md`](Classic%20Doom%20wall%20V%20placement%20evidence.md);
+        613 E1M1 texture records now resolve a source-traceable `texturemid`
+        anchor through the explicit right/left-to-front/back mapping. The
+        admitted one-sided and all two-sided wall triangle records now
+        derive per-vertex source-texel U/V coordinates from those anchors
+        (1,024 E1M1 triangles); material alpha remains separate.
+  - [x] Resolve every authored E1M1 wall-texture axis against plain named
+        width/height extents supplied by the raster catalog (613 bindings),
+        without making geometry depend on raster implementation types.
+  - [x] Establish that original Doom floor/ceiling mapping is a view-dependent
+        span operation, not a source-map per-vertex UV contract. The retained
+        source evidence is in
+        [`Classic Doom plane mapping evidence.md`](Classic%20Doom%20plane%20mapping%20evidence.md);
+        a later presentation decision must choose original span behavior or an
+        explicitly non-equivalent static mapping.
+- [x] Handle upper/lower unpegged flags explicitly for the admitted textured
+      triangle lowering, using the retained original-renderer anchor rules.
+  - [x] Carry raw linedef flags with texture-axis observations; no flag-derived
+        coordinate transform is applied before texture-size-aware placement.
+  - [x] Audit E1M1 source pressure before choosing that transform: 108 of 148
+        authored upper axes and 79 of 150 lower axes carry their respective
+        unpegged bits.
+- [x] Identify `F_SKY1` source surfaces without making sky behavior a generic
+      mesh concern (E1M1: 74 headless sky-surface observations).
+- [x] Preserve source linedef, sidedef, sector, and subsector identities on
+      lowered presentation records. Focused lowering tests now assert the
+      required identities across BSP surfaces, one-sided walls, and two-sided
+      height bands; the types make those fields non-optional.
+- [x] Detect and diagnose degenerate or unsupported topology for every admitted
+      headless geometry input; retain source-indexed diagnostics rather than
+      repairing unsupported source structure.
+  - [x] Establish and test the raw WAD sidedef-to-winding convention: slot 0
+        (`right_sidedef`) is the original front side and slot 1
+        (`left_sidedef`) is the back side. The shared wall-quad helper, all
+        static wall families, and the cyan/magenta normal SVG now agree; see
+        [`Classic Doom wall side and winding evidence.md`](Classic%20Doom%20wall%20side%20and%20winding%20evidence.md).
+  - [x] Audit every E1M1 subsector under the strict `SEGS`-only closure rule,
+        retaining all 182 source-indexed rejections instead of reporting only
+        the first failure. This is diagnostic evidence, not a repair or a
+        reason to discard the separately bounded BSP-region geometry.
+  - [x] Audit raw vertical clearance before portal/middle-texture policy: E1M1
+        has 4 sectors and 9 of 173 two-sided relationships without positive
+        clearance. These remain source diagnostics, not repaired geometry.
+- [x] Add headless source-geometry diagnostic modes without admitting material
+      sampling or GPU presentation.
+  - [x] Emit a source-topology wireframe SVG with raw linedef, thing, and
+        BLOCKMAP identities and tooltips; it remains outside renderer input.
+  - [x] Emit a separate deterministic source-sector-color SVG. Each linedef
+        is colored from one explicit right-then-left sidedef sector selection,
+        while raw right/left sidedef references remain visible in the tooltip;
+        it does not assert a sector fill or portal policy.
+  - [x] Emit a top-down wall-normal SVG whose cyan right-side and magenta
+        left-side arrows are the tested WAD front/back normals for each source
+        linedef direction. SVG's top-down Y inversion mirrors their apparent
+        screen-side direction; it diagnoses candidate winding only and makes
+        no lighting, culling, or visibility claim.
+  - [x] Retain source texture names, extent bindings, pegging anchors, and
+        per-vertex texel coordinates as the texture diagnostic for every
+        admitted wall triangle. Raster sampling, alpha behavior, and a visual
+        textured view are deliberately moved to Slice 5B because they require
+        the renderer/material boundary rather than further WAD geometry work.
 
 Acceptance criteria:
 
-- A static `E1M1` scene renders with recognizable walls, floors, ceilings, and
-  texture placement.
-- Presentation geometry can be rebuilt headlessly and inspected before GPU
-  submission.
+- [x] Presentation geometry can be rebuilt headlessly and inspected before GPU
+      submission.
+- [x] The headless lowerer exposes only ordinary triangle, source-identity,
+      texture-name, and source-texel-coordinate requirements; it has no GPU,
+      material, or raster implementation dependency.
+- [x] Unsupported raw `SEGS` closure, invalid vertical openings, sky behavior,
+      material alpha, and plane mapping remain visible diagnostics or explicit
+      deferrals instead of silent geometry repairs.
+
+## Slice 5B: Static E1M1 Presentation Admission
+
+Slice 5B is intentionally separate from the completed headless geometry seam.
+It consumes Slice 5's ordinary triangles and material requirements but must not
+move Doom format semantics, WAD ownership, or mutable game state into the
+renderer. It is also a direct consumer of the orientation evidence tracked by
+[`AR-0021`](../../Architectural%20Reviews/AR-0021-geometry-orientation-and-facing-conformance.md).
+
+- [ ] Establish the renderer orientation contract and native/WASM conformance
+      fixture required by AR-0021 before relying on front/back culling for Doom
+      walls.
+- [ ] Select and document a material representation for indexed Doom textures,
+      palette choice, wrapping, filtering, and masked-middle alpha behavior.
+- [ ] Select either original view-dependent plane spans or a documented,
+      intentionally non-equivalent plane mapping; do not imply that Slice 5's
+      wall texel coordinates decide this.
+- [ ] Submit a static E1M1 scene with its source-traceable floors, ceilings,
+      walls, sky classification, and admitted material requirements.
+- [ ] Capture deterministic native and WASM artifacts that make omissions,
+      winding, material, and texture-placement failures inspectable.
+
+Acceptance criteria:
+
+- A static E1M1 scene renders recognizable walls, floors, ceilings, and the
+  selected texture-placement policy.
 - The renderer consumes ordinary geometry and material requirements only.
+- Any unsupported texture/alpha/plane behavior is visible in the capture and
+  diagnostics rather than silently approximated.
 
 ## Slice 6: Camera, Movement, And Collision
 
 - [ ] Spawn from a reviewed player-start thing.
+  - [x] Resolve exactly one classic player-one start (`THING` type `1`) as a
+        source-traceable import observation; missing or duplicate starts fail
+        explicitly. E1M1 resolves `THINGS` record 0 at `(1056, -3616)`, angle
+        `90`, flags `0x0007`. Runtime-owned spawn state remains later work.
+  - [x] Locate the observed E1M1 player-one start through a strict retained BSP
+        path to subsector 103 and source sector 38. A point on a partition
+        boundary is rejected rather than assigned through an implicit tie-break.
+  - [x] Retain the resolved start sector's raw vertical interval: E1M1 sector
+        38 has floor height 0 and ceiling height 72. No player height or
+        clearance policy is inferred from this observation.
 - [ ] Add first-person yaw and pitch policy appropriate to the selected proof.
 - [ ] Normalize keyboard, mouse, and gamepad input through `tokimu-input`.
 - [ ] Implement bounded player radius and height.
@@ -333,6 +526,11 @@ Acceptance criteria:
 - [ ] Decide whether the first proof uses `BLOCKMAP`, BSP traversal, or a
       simpler deterministic broad phase; record the choice as implementation
       evidence rather than universal Doom behavior.
+  - [x] Retain bounded, row-major source `BLOCKMAP` cells and their validated
+        linedef candidate lists as one measured option. At E1M1's reviewed
+        player start, cell 338 (column 14, row 9) yields 6 candidates rather
+        than scanning all 475 linedefs. This is not yet a collision choice,
+        nor does it define blockmap traversal outside the decoded grid.
 - [ ] Add reset, noclip diagnostic mode, and current-sector observations.
 
 Acceptance criteria:
@@ -361,7 +559,11 @@ Acceptance criteria:
 
 ## Slice 8: Interactive Map Semantics
 
-- [ ] Classify Doom linedef and sector specials used by `E1M1`.
+- [x] Classify Doom linedef and sector specials used by `E1M1`; retain the
+      source evidence and minimum future owner in
+      [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
+  - [x] Inventory raw nonzero codes before assigning behavior: linedef
+        `[1:8,11:1,36:1,48:8,88:1]`; sector `[1:1,7:4,8:2,9:3,12:1]`.
 - [ ] Add deterministic use/activation requests.
 - [ ] Implement doors as runtime-owned moving-sector state.
 - [ ] Implement lifts and moving floors needed by the selected map.

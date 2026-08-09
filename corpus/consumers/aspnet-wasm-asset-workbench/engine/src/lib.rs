@@ -2066,12 +2066,58 @@ mod tests {
         assert_eq!(observation.status, "renderable");
         let preview = observation.preview.expect("Box should provide a preview");
         assert_eq!(preview.kind, "mesh-triangles");
-        assert!(!preview.triangles.is_empty());
+        assert_eq!(preview.triangles.len(), 12);
+        let center = preview_center(&preview.triangles);
+        for triangle in &preview.triangles {
+            let [a, b, c] = triangle.points;
+            let geometric_normal = cross(subtract(b, a), subtract(c, a));
+            let centroid = [
+                (a[0] + b[0] + c[0]) / 3.0,
+                (a[1] + b[1] + c[1]) / 3.0,
+                (a[2] + b[2] + c[2]) / 3.0,
+            ];
+            assert!(
+                dot(geometric_normal, subtract(centroid, center)) > 0.0,
+                "Box preview transport must retain outward triangle winding"
+            );
+        }
         assert_eq!(observation.presentation_targets.len(), 1);
         let target = &observation.presentation_targets[0];
         assert_eq!(target.kind, PresentationTargetKind::MeshPrimitive);
         assert_eq!(target.key, "mesh/0/primitive/0");
         assert_eq!(target.source_name.as_deref(), Some("Mesh 0 / Primitive 0"));
+    }
+
+    fn preview_center(triangles: &[PreviewTriangle]) -> [f32; 3] {
+        let mut minimum = [f32::INFINITY; 3];
+        let mut maximum = [f32::NEG_INFINITY; 3];
+        for point in triangles.iter().flat_map(|triangle| triangle.points) {
+            for axis in 0..3 {
+                minimum[axis] = minimum[axis].min(point[axis]);
+                maximum[axis] = maximum[axis].max(point[axis]);
+            }
+        }
+        [
+            (minimum[0] + maximum[0]) / 2.0,
+            (minimum[1] + maximum[1]) / 2.0,
+            (minimum[2] + maximum[2]) / 2.0,
+        ]
+    }
+
+    fn subtract(left: [f32; 3], right: [f32; 3]) -> [f32; 3] {
+        [left[0] - right[0], left[1] - right[1], left[2] - right[2]]
+    }
+
+    fn cross(left: [f32; 3], right: [f32; 3]) -> [f32; 3] {
+        [
+            left[1] * right[2] - left[2] * right[1],
+            left[2] * right[0] - left[0] * right[2],
+            left[0] * right[1] - left[1] * right[0],
+        ]
+    }
+
+    fn dot(left: [f32; 3], right: [f32; 3]) -> f32 {
+        left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
     }
 
     #[test]

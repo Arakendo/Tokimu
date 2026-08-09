@@ -193,8 +193,14 @@ The workbench preview is clamped to a viewport-bounded stage, while the
 inspector scrolls independently. Diagnostics from a verbose importer must not
 silently expand the preview canvas and distort its coordinate system.
 
-The first GLB and static-FBX previews are intentionally interactive diagnostic perspective
-view of decoded triangle geometry. The browser adapter applies projection,
+The first GLB and static-FBX previews are intentionally interactive diagnostic
+perspective views of decoded triangle geometry. The browser adapter applies projection,
 depth ordering, and back-face culling to provider-neutral triangles from
 Tokimu; it does not parse model data or own scene semantics. Materials,
 lighting, textures, animation, and production scene rendering remain pending.
+The preview's tested interaction convention is a camera orbit around a fixed
+model: pointer deltas subtract the view yaw and pitch, so the model does not
+move with the pointer. Its tested facing convention accounts for Canvas's
+downward-positive Y axis: an outward triangle facing the identity camera has
+positive projected screen-space winding. These are diagnostic-browser rules,
+not yet a general Tokimu renderer contract; AR-0021 retains that larger question.
