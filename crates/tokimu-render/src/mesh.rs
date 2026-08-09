@@ -1,12 +1,42 @@
+use thiserror::Error;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Mesh {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
+    /// Optional per-vertex texture coordinates. When present, this stream is
+    /// aligned one-to-one with [`Self::positions`].
+    pub texture_coordinates: Vec<[f32; 2]>,
 }
 
 impl Mesh {
     pub fn new(positions: Vec<[f32; 3]>, normals: Vec<[f32; 3]>) -> Self {
-        Self { positions, normals }
+        Self {
+            positions,
+            normals,
+            texture_coordinates: Vec::new(),
+        }
+    }
+
+    /// Adds one provider-neutral UV coordinate for every mesh position.
+    ///
+    /// Empty coordinates mean the mesh does not supply texture coordinates;
+    /// they are accepted for untextured mesh use. A non-empty stream must be
+    /// aligned with positions before it can reach a renderer backend.
+    pub fn with_texture_coordinates(
+        mut self,
+        texture_coordinates: Vec<[f32; 2]>,
+    ) -> Result<Self, MeshValidationError> {
+        validate_texture_coordinates(self.positions.len(), &texture_coordinates)?;
+        self.texture_coordinates = texture_coordinates;
+        Ok(self)
+    }
+
+    /// Returns whether this mesh has a complete supplied texture-coordinate
+    /// stream suitable for a shader that declares `TextureCoordinate2`.
+    pub fn has_texture_coordinates(&self) -> bool {
+        !self.texture_coordinates.is_empty()
+            && self.texture_coordinates.len() == self.positions.len()
     }
 
     /// Assigns one shading normal to every position in a triangle-list mesh.
@@ -140,9 +170,33 @@ impl Mesh {
     }
 }
 
+/// Provider-neutral mesh input validation errors.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum MeshValidationError {
+    #[error("mesh has {positions} positions but {texture_coordinates} texture coordinates")]
+    TextureCoordinateCountMismatch {
+        positions: usize,
+        texture_coordinates: usize,
+    },
+}
+
+fn validate_texture_coordinates(
+    positions: usize,
+    texture_coordinates: &[[f32; 2]],
+) -> Result<(), MeshValidationError> {
+    if texture_coordinates.is_empty() || texture_coordinates.len() == positions {
+        Ok(())
+    } else {
+        Err(MeshValidationError::TextureCoordinateCountMismatch {
+            positions,
+            texture_coordinates: texture_coordinates.len(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Mesh;
+    use super::{Mesh, MeshValidationError};
 
     #[test]
     fn built_in_mesh_normals_agree_with_triangle_winding() {
@@ -168,6 +222,23 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn texture_coordinates_must_align_with_positions_when_present() {
+        let mesh = Mesh::triangle()
+            .with_texture_coordinates(vec![[0.0, 0.0]; 3])
+            .expect("aligned texture coordinates should be accepted");
+        assert!(mesh.has_texture_coordinates());
+
+        assert_eq!(
+            Mesh::triangle().with_texture_coordinates(vec![[0.0, 0.0]; 2]),
+            Err(MeshValidationError::TextureCoordinateCountMismatch {
+                positions: 3,
+                texture_coordinates: 2,
+            })
+        );
+        assert!(!Mesh::triangle().has_texture_coordinates());
     }
 
     fn subtract(left: [f32; 3], right: [f32; 3]) -> [f32; 3] {

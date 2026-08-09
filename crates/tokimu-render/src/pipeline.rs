@@ -12,6 +12,9 @@ pub enum PipelineKind {
     SolidColor2d,
     Texture2d,
     LitColor3d,
+    /// A generic textured 3D mesh pipeline. It requires caller-supplied UVs
+    /// and preserves the existing `Texture2d` derived-coordinate behavior.
+    Textured3d,
     CustomWgsl2d,
 }
 
@@ -165,13 +168,16 @@ impl PipelineKind {
             PipelineKind::SolidColor2d => Some(default_2d_shader_source()),
             PipelineKind::Texture2d => Some(default_texture_2d_shader_source()),
             PipelineKind::LitColor3d => Some(default_lit_3d_shader_source()),
+            PipelineKind::Textured3d => Some(default_textured_3d_shader_source()),
             PipelineKind::CustomWgsl2d => None,
         }
     }
 
     pub const fn default_render_state(self) -> PipelineRenderState {
         match self {
-            PipelineKind::LitColor3d => PipelineRenderState::depth_writing_3d(),
+            PipelineKind::LitColor3d | PipelineKind::Textured3d => {
+                PipelineRenderState::depth_writing_3d()
+            }
             PipelineKind::SolidColor2d | PipelineKind::Texture2d | PipelineKind::CustomWgsl2d => {
                 PipelineRenderState::painter_ordered_2d()
             }
@@ -290,6 +296,30 @@ fn fs_main(@location(0) normal: vec3<f32>) -> @location(0) vec4<f32> {
     let diffuse = max(dot(normalize(normal), light_direction), 0.0);
     let lighting = 0.20 + diffuse * 0.80;
     return vec4<f32>(material_color.color.rgb * lighting, material_color.color.a);
+}
+"#
+    .trim()
+}
+
+pub fn default_textured_3d_shader_source() -> &'static str {
+    r#"
+@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(0) @binding(1) var material_texture: texture_2d<f32>;
+@group(0) @binding(2) var material_sampler: sampler;
+struct InstanceParams { translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, };
+@group(1) @binding(0) var<uniform> instance_params: InstanceParams;
+@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
+struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
+@vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) _normal: vec3<f32>, @location(2) uv: vec2<f32>) -> VertexOutput {
+    let scaled = position.xy * instance_params.scale;
+    let rotated = vec2<f32>((scaled.x * instance_params.rotation.y) - (scaled.y * instance_params.rotation.x), (scaled.x * instance_params.rotation.x) + (scaled.y * instance_params.rotation.y));
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(rotated.x + instance_params.translation.x, rotated.y + instance_params.translation.y, position.z, 1.0);
+    output.uv = uv;
+    return output;
+}
+@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    return textureSample(material_texture, material_sampler, uv) * material_color;
 }
 "#
     .trim()
@@ -574,11 +604,16 @@ mod tests {
             ("vs_main", "fs_main")
         );
         assert_eq!(
+            PipelineKind::Textured3d.default_entry_points(),
+            ("vs_main", "fs_main")
+        );
+        assert_eq!(
             PipelineKind::CustomWgsl2d.default_entry_points(),
             ("vs_main", "fs_main")
         );
         assert!(PipelineKind::SolidColor2d.default_shader_source().is_some());
         assert!(PipelineKind::LitColor3d.default_shader_source().is_some());
+        assert!(PipelineKind::Textured3d.default_shader_source().is_some());
         assert!(PipelineKind::CustomWgsl2d.default_shader_source().is_none());
     }
 
@@ -622,6 +657,21 @@ mod tests {
         );
         assert_eq!(pipeline.vertex_entry_point, "vs_main");
         assert_eq!(pipeline.fragment_entry_point, "fs_main");
+        assert_eq!(
+            pipeline.render_state,
+            PipelineRenderState::depth_writing_3d()
+        );
+    }
+
+    #[test]
+    fn creates_default_textured_3d_pipeline() {
+        let pipeline = Pipeline::new("textured", PipelineKind::Textured3d);
+
+        assert_eq!(pipeline.kind, PipelineKind::Textured3d);
+        assert_eq!(
+            pipeline.shader_source.as_deref(),
+            Some(default_textured_3d_shader_source())
+        );
         assert_eq!(
             pipeline.render_state,
             PipelineRenderState::depth_writing_3d()
@@ -793,6 +843,26 @@ mod tests {
             )
         ));
         assert_eq!(error.stage(), ShaderDiagnosticStage::DrawContractValidation);
+    }
+
+    #[test]
+    fn textured_3d_draw_contract_rejects_a_mesh_without_uvs() {
+        let pipeline = Pipeline::new("textured", PipelineKind::Textured3d);
+        let material = MaterialDefinition::solid_color(
+            crate::MaterialDefinitionId::new("surface").expect("valid material id"),
+            crate::Color::rgb(1.0, 1.0, 1.0),
+        );
+
+        let error = pipeline
+            .validate_draw_contract(&material, &crate::Mesh::triangle())
+            .expect_err("textured meshes without UVs must reject before backend submission");
+        assert!(matches!(
+            error,
+            PipelineDrawContractError::Mesh(ShaderMeshCompatibilityError::MissingVertexInput {
+                semantic: ShaderVertexSemantic::TextureCoordinate2,
+                ..
+            })
+        ));
     }
 
     #[test]

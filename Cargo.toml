@@ -34,6 +34,7 @@ members = [
     "corpus/hello-vector-draw",
     "corpus/hello-render-orientation",
     "corpus/hello-render-orientation-web",
+    "corpus/hello-textured-box-web",
 
     # Simulation and application corpus.
     "corpus/hello-rule-model",
@@ -58,6 +59,7 @@ members = [
     "corpus/hello-svg",
     "corpus/hello-cgm",
     "corpus/hello-glb",
+    "corpus/hello-textured-box",
     "corpus/hello-hole-punch",
     "corpus/hello-xml-inspect",
     "corpus/hello-file-io",
@@ -67,6 +69,7 @@ members = [
     "corpus/hello-compression",
     "corpus/hello-archive",
     "corpus/hello-wad-inspect",
+    "corpus/hello-doom-e1m1",
     "corpus/hello-streaming-texture",
     "corpus/hello-texture-color-space",
 
@@ -76,6 +79,7 @@ members = [
 
     # Downstream application-shaped consumer corpus.
     "corpus/consumers/aspnet-wasm-asset-workbench/engine",
+    "corpus/consumers/doom-ts-boundary-workbench/engine",
     "corpus/consumers/aspnet-wasm-presentation-workbench/engine",
     "corpus/consumers/tokimu-website-asteroids/engine",
     "corpus/consumers/tokimu-website-visualizer/engine",

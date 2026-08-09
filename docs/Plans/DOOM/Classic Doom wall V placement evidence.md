@@ -53,3 +53,25 @@ The wall V-placement portion of Slice 5 is complete. The remaining presentation
 work is deliberately separate: material sampling, alpha treatment for masked
 middles, portal behavior, and final renderer submission must not reopen or
 duplicate the source-anchor calculation.
+
+## Slice 5B static normalization policy
+
+The first static E1M1 consumer normalizes the already-retained source texels
+without recalculating a pegging anchor:
+
+```text
+u_normalized = source_u / selected_texture_width
+v_normalized = source_v / selected_texture_height
+```
+
+The source `v = texture_mid_y - world_y` convention already grows toward
+successive top-row-first raster rows as world height decreases. Therefore this
+normalization has no additional V inversion. Point/repeat sampling is the
+selected initial material policy; it is supplied by the consumer under
+ADR-0012, not inferred by `doom-geometry-provider` or the renderer.
+
+Two-sided masked-middle observations remain excluded by their retained source
+classification until AR-0023 admits a generic alpha/cutout policy. One-sided
+middle walls retain the `Middle` role but are not masked-middle observations;
+they remain eligible for the opaque candidate path if their selected raster is
+fully covered.

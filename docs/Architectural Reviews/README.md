@@ -218,3 +218,9 @@ across unrelated decisions.
   — Incubating; records independent E1M1 and decoded `Box.glb` workbench
   inside-out-facing observations and requires a bounded renderer-orientation
   contract before any global engine conclusion
+- [AR-0022: Textured Mesh Coordinate And Sampling Boundary](AR-0022-textured-mesh-coordinate-and-sampling-boundary.md)
+  — Accepted; resulted in ADR-0012 admitting checked supplied UVs and declared
+  point/linear plus clamp/repeat sampling, while alpha/depth stays in AR-0023
+- [AR-0023: Textured Surface Alpha And Depth Policy](AR-0023-textured-surface-alpha-and-depth-policy.md)
+  — Proposed; separates source alpha facts from an unselected renderer
+  cutout/blend/depth policy so AR-0022's UV/sampler decision can close cleanly

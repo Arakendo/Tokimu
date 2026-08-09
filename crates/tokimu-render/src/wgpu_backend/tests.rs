@@ -4,7 +4,7 @@ use super::{
     material_support::derived_material_key,
     texture_resources::render_target_resource_observation,
     texture_support::{
-        rgba8_point_sampler_descriptor, rgba8_texture_format, validate_legacy_texture_replacement,
+        rgba8_sampler_descriptor, rgba8_texture_format, validate_legacy_texture_replacement,
         validate_rgba8_render_target_creation, validate_rgba8_render_target_release,
         validate_rgba8_render_target_replacement, validate_rgba8_texture_creation,
         validate_rgba8_texture_update,
@@ -13,7 +13,7 @@ use super::{
 };
 use crate::{
     Color, MaterialHandle, MaterialOverride, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
-    TextureHandle, TextureValidationError,
+    TextureAddressMode, TextureFilter, TextureHandle, TextureSampler, TextureValidationError,
 };
 use std::sync::Mutex;
 
@@ -84,7 +84,7 @@ fn rgba8_color_space_maps_to_explicit_backend_formats() {
 
 #[test]
 fn rgba8_profile_preserves_point_filtering_and_clamp_addressing() {
-    let descriptor = rgba8_point_sampler_descriptor();
+    let descriptor = rgba8_sampler_descriptor(TextureSampler::default());
 
     assert_eq!(descriptor.address_mode_u, wgpu::AddressMode::ClampToEdge);
     assert_eq!(descriptor.address_mode_v, wgpu::AddressMode::ClampToEdge);
@@ -92,6 +92,20 @@ fn rgba8_profile_preserves_point_filtering_and_clamp_addressing() {
     assert_eq!(descriptor.mag_filter, wgpu::FilterMode::Nearest);
     assert_eq!(descriptor.min_filter, wgpu::FilterMode::Nearest);
     assert_eq!(descriptor.mipmap_filter, wgpu::FilterMode::Nearest);
+}
+
+#[test]
+fn rgba8_sampler_maps_declared_linear_repeat_policy() {
+    let descriptor = rgba8_sampler_descriptor(TextureSampler {
+        filter: TextureFilter::Linear,
+        address_u: TextureAddressMode::Repeat,
+        address_v: TextureAddressMode::Repeat,
+    });
+
+    assert_eq!(descriptor.address_mode_u, wgpu::AddressMode::Repeat);
+    assert_eq!(descriptor.address_mode_v, wgpu::AddressMode::Repeat);
+    assert_eq!(descriptor.mag_filter, wgpu::FilterMode::Linear);
+    assert_eq!(descriptor.min_filter, wgpu::FilterMode::Linear);
 }
 
 #[test]

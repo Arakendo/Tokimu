@@ -1,5 +1,8 @@
 use super::{GpuTextureRole, WgpuBackendError};
-use crate::{Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle};
+use crate::{
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureAddressMode, TextureFilter,
+    TextureHandle, TextureSampler,
+};
 
 pub(super) fn rgba8_texture_format(color_space: Rgba8TextureColorSpace) -> wgpu::TextureFormat {
     match color_space {
@@ -8,16 +11,32 @@ pub(super) fn rgba8_texture_format(color_space: Rgba8TextureColorSpace) -> wgpu:
     }
 }
 
-pub(super) fn rgba8_point_sampler_descriptor() -> wgpu::SamplerDescriptor<'static> {
+pub(super) fn rgba8_sampler_descriptor(
+    sampler: TextureSampler,
+) -> wgpu::SamplerDescriptor<'static> {
     wgpu::SamplerDescriptor {
-        label: Some("tokimu-rgba8-point-clamp-sampler"),
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        label: Some("tokimu-rgba8-material-sampler"),
+        address_mode_u: address_mode(sampler.address_u),
+        address_mode_v: address_mode(sampler.address_v),
         address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Nearest,
-        min_filter: wgpu::FilterMode::Nearest,
+        mag_filter: filter_mode(sampler.filter),
+        min_filter: filter_mode(sampler.filter),
         mipmap_filter: wgpu::FilterMode::Nearest,
         ..wgpu::SamplerDescriptor::default()
+    }
+}
+
+fn address_mode(mode: TextureAddressMode) -> wgpu::AddressMode {
+    match mode {
+        TextureAddressMode::Clamp => wgpu::AddressMode::ClampToEdge,
+        TextureAddressMode::Repeat => wgpu::AddressMode::Repeat,
+    }
+}
+
+fn filter_mode(filter: TextureFilter) -> wgpu::FilterMode {
+    match filter {
+        TextureFilter::Point => wgpu::FilterMode::Nearest,
+        TextureFilter::Linear => wgpu::FilterMode::Linear,
     }
 }
 

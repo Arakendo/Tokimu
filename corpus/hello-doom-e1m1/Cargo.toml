@@ -1,0 +1,19 @@
+[package]
+name = "hello-doom-e1m1"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+archive-provider = { path = "../lib/archive-provider" }
+doom-geometry-provider = { path = "../lib/doom-geometry-provider" }
+doom-map-provider = { path = "../lib/doom-map-provider" }
+doom-raster-provider = { path = "../lib/doom-raster-provider" }
+doom-wad-package = { path = "../lib/doom-wad-package" }
+doom-wad-provider = { path = "../lib/doom-wad-provider" }
+resource-space = { path = "../lib/resource-space" }
+resource-space-archive = { path = "../lib/resource-space-archive" }
+thiserror.workspace = true
+tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
+tokimu-core = { path = "../../crates/tokimu-core" }

@@ -1,0 +1,4 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>DOOM browser intake</title>
+<body><main><h1>DOOM browser intake</h1><p>Local bytes only; no upload or WAD parsing in TypeScript.</p>
+<button id="select">Select reviewed package</button><button id="inspect" disabled>Inspect DOOM1.WAD</button><button id="render" disabled>Render static E1M1</button><button id="download" disabled>Download browser PNG</button><button id="clear" disabled>Clear intake</button><input id="package" type="file" accept=".zip,application/zip" hidden>
+<pre id="result">Ready — select a local package.</pre><canvas id="scene" width="960" height="600" aria-label="Static E1M1 browser frame"></canvas></main><script type="module" src="./app/main.js"></script></body></html>

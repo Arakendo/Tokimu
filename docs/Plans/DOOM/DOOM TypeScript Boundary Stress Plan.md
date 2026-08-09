@@ -180,15 +180,15 @@ authoring, runtime hosting, external providers, and presentation mechanisms.
 
 ### Deliverables
 
-- [ ] Create the workbench design document and classify every TypeScript unit
+- [x] Create the workbench design document and classify every TypeScript unit
       using AR-0020's inventory schema.
-- [ ] Record reads, outputs, durable-state owner, semantic authority,
+- [x] Record reads, outputs, durable-state owner, semantic authority,
       execution authority, and retained evidence for every experiment.
-- [ ] Define the common authority-delta artifact and its retained test or
+- [x] Define the common authority-delta artifact and its retained structural
       structural evidence for slices 1 through 9.
-- [ ] Name the exact WAD-plan observations and requests consumed by the
+- [x] Name the exact WAD-plan observations and requests consumed by the
       TypeScript workbench.
-- [ ] Retain a Rust/native baseline result from the WAD plan for every behavior
+- [x] Retain a Rust/native baseline result from the WAD plan for every behavior
       later compared through TypeScript.
 - [ ] Define boundary versioning, structured diagnostics, and unsupported
       behavior without exposing Rust/provider-native objects.
@@ -207,16 +207,37 @@ authoring, runtime hosting, external providers, and presentation mechanisms.
 
 ### Deliverables
 
-- [ ] Accept user-selected, drag-and-drop, and optionally fetched package/WAD
+- [x] Accept one user-selected package/WAD byte source through browser
+      TypeScript. The local browser workbench retained the reviewed compact
+      package through the Rust/WASM session; drag/drop and fetch remain later
+      separate exercises.
       bytes through browser TypeScript.
 - [ ] Require an explicit user gesture for local file access.
+  - [x] Add the TypeScript button-to-file-input binding. It opens the picker
+        only from a click handler, forwards the resulting file to the typed
+        Rust/WASM session, and clears the browser input after the request.
 - [ ] Submit bytes, source label, media hint, and caller-selected limits through
       a versioned Rust/WASM request.
-- [ ] Have Resource Store compute and retain identity, content hash, bytes,
+- [x] Have Resource Store compute and retain identity, content hash, bytes,
       visibility, and diagnostics.
+  - [x] Establish the Rust/WASM one-selection session in
+        `doom-ts-boundary-workbench-engine`: it bounds a selection to 64 MiB,
+        retains bytes in a one-entry Resource Space root, returns schema-v1
+        JSON with BLAKE3 fingerprint and retained-byte counts, and atomically
+        replaces/disposes the prior selection. ZIP/WAD interpretation remains
+        deliberately outside this first request.
 - [ ] Return provider-neutral resource observations to TypeScript.
+  - [x] Return the Rust-owned canonical-member observation to TypeScript. The
+        browser result confirmed `DOOM1.WAD` as an IWAD with 419,602 transient
+        derived bytes and 1,264 lumps, while the selected ZIP remained the
+        single retained Resource Space resource.
 - [ ] Exercise cancellation, repeated selection, duplicate bytes, replacement,
       oversized input, empty input, and interrupted-session behavior.
+  - [x] Retain Rust regression coverage for replacement, empty input, empty
+        source label, over-limit input, and disposal. The browser has matching
+        retained/cancelled/rejected outcomes plus an explicit Clear intake
+        action. Browser exercise confirmed repeat selection, cancellation, and
+        explicit disposal; interrupted-session evidence remains separate.
 - [ ] Record boundary copies, startup bytes, retained bytes, allocation totals,
       and browser memory.
 

@@ -1180,6 +1180,28 @@ shared conformance suite rather than added opportunistically to a candidate.
   as external supply-chain evidence for the existing review, not a substitute
   for Tokimu-specific audit or migration evidence.
 
+### Cycle 50 -- 2026-08-09
+
+- Status entering review: Incubating.
+- New evidence: focused `cargo test -p hello-doom-e1m1` on the current pinned
+  `third-party/ring-0/glam` source emits repeated Rust `unused_attributes`
+  warnings. The upstream source applies `#[must_use]` to trait methods in impl
+  blocks; the current compiler accepts it with a warning and says that
+  acceptance is being phased out and may become a hard error in a future
+  compiler. The local E1M1 failure in the same build was an unrelated consumer
+  closure error and was fixed; all three focused tests then passed.
+- Findings: this is compiler-compatibility and maintenance evidence for the
+  executed foreign Ring 0 provider, not a current numerical defect and not a
+  DOOM Slice 5B failure. Source pinning and audit make the cause visible, but
+  they do not remove a future toolchain-upgrade obligation.
+- Disposition: retain Incubating status. Record the warnings as a recurring
+  pre-upgrade check for the pinned `glam` revision. If a Rust upgrade turns
+  them into errors, assess an audited upstream revision, a local compatible
+  patch with provenance, or the existing B/C ownership alternatives under the
+  ADR-0010 gate; do not silently suppress or broaden the warning policy.
+- Resulting ADR or documentation change: no ADR change; recorded the dated
+  foreign-provider compiler-compatibility watch item.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`

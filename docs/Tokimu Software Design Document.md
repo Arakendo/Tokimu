@@ -427,6 +427,14 @@ being hidden inside material state. Materials describe bound data, while draw
 commands decide which mesh, material, and pipeline resources participate in a
 specific presentation step.
 
+ADR-0012 admits one deliberately narrow textured-3D seam: a mesh may supply a
+checked per-vertex UV stream; `Textured3d` requires that stream rather than
+deriving UVs from 3D position; and materials declare only point/linear filtering
+plus clamp/repeat U/V addressing. The legacy position-derived `Texture2d` path
+remains a separate 2D mechanism. Asset decoding, GLB/WAD meaning, alpha/cutout
+policy, transparent ordering, and renderer-owned material graphs remain outside
+this contract.
+
 Reusable renderable resources may bundle mesh, material, and pipeline handles
 for convenience, but they should remain presentation-facing tuples rather than
 quietly becoming scene ownership, transform storage, or simulation truth.

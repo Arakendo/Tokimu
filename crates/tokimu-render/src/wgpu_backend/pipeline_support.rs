@@ -77,6 +77,11 @@ pub(super) fn create_custom_pipeline(
                         offset: std::mem::size_of::<[f32; 3]>() as u64,
                         shader_location: 1,
                     },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: (std::mem::size_of::<[f32; 3]>() * 2) as u64,
+                        shader_location: 2,
+                    },
                 ],
             }],
             compilation_options: wgpu::PipelineCompilationOptions::default(),

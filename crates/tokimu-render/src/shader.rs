@@ -55,8 +55,14 @@ impl ShaderModuleDefinition {
         })?;
 
         let mut vertex_inputs = vec![ShaderVertexInput::new(0, ShaderVertexSemantic::Position3)];
-        if kind == PipelineKind::LitColor3d {
+        if matches!(kind, PipelineKind::LitColor3d | PipelineKind::Textured3d) {
             vertex_inputs.push(ShaderVertexInput::new(1, ShaderVertexSemantic::Normal3));
+        }
+        if kind == PipelineKind::Textured3d {
+            vertex_inputs.push(ShaderVertexInput::new(
+                2,
+                ShaderVertexSemantic::TextureCoordinate2,
+            ));
         }
 
         Self::new(
@@ -185,6 +191,7 @@ impl ShaderModuleDefinition {
                 ShaderVertexSemantic::Normal3 => {
                     !mesh.normals.is_empty() && mesh.normals.len() == mesh.positions.len()
                 }
+                ShaderVertexSemantic::TextureCoordinate2 => mesh.has_texture_coordinates(),
             };
             if !supplied {
                 return Err(ShaderMeshCompatibilityError::MissingVertexInput {
@@ -262,6 +269,7 @@ impl ShaderVertexInput {
 pub enum ShaderVertexSemantic {
     Position3,
     Normal3,
+    TextureCoordinate2,
 }
 
 /// The ownership boundary at which shader authoring failed.
@@ -444,6 +452,30 @@ mod tests {
         assert_eq!(shader.fragment_entry_point, "fs_main");
         assert_eq!(shader.vertex_inputs.len(), 2);
         assert_eq!(shader.bindings.len(), 5);
+    }
+
+    #[test]
+    fn textured_3d_requires_a_supplied_texture_coordinate_stream() {
+        let shader = ShaderModuleDefinition::built_in(PipelineKind::Textured3d)
+            .expect("built-in shader declaration must be valid");
+        let mesh = Mesh::triangle();
+
+        assert_eq!(shader.vertex_inputs.len(), 3);
+        assert_eq!(
+            shader.validate_mesh(&mesh),
+            Err(ShaderMeshCompatibilityError::MissingVertexInput {
+                shader: "builtin-Textured3d".to_owned(),
+                location: 2,
+                semantic: ShaderVertexSemantic::TextureCoordinate2,
+            })
+        );
+        assert!(shader
+            .validate_mesh(
+                &mesh
+                    .with_texture_coordinates(vec![[0.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+                    .expect("aligned coordinates should be valid"),
+            )
+            .is_ok());
     }
 
     #[test]

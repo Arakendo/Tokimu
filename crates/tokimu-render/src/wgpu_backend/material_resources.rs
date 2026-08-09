@@ -5,7 +5,7 @@ use wgpu::util::DeviceExt;
 use crate::{Color, Material, MaterialHandle};
 
 use super::material_support::{create_derived_material, derived_material_key};
-use super::texture_support::rgba8_point_sampler_descriptor;
+use super::texture_support::rgba8_sampler_descriptor;
 use super::{GpuMaterial, WgpuBackend, WgpuBackendError};
 
 pub(super) fn validate_material_color(color: Color) -> Result<(), WgpuBackendError> {
@@ -85,8 +85,9 @@ impl WgpuBackend {
                         None,
                         Arc::clone(&texture.view),
                         Arc::new(
-                            self._device
-                                .create_sampler(&rgba8_point_sampler_descriptor()),
+                            self._device.create_sampler(&rgba8_sampler_descriptor(
+                                material.texture_sampler,
+                            )),
                         ),
                     )
                 } else {
@@ -129,7 +130,7 @@ impl WgpuBackend {
                 let view = Arc::new(texture.create_view(&wgpu::TextureViewDescriptor::default()));
                 let sampler = Arc::new(
                     self._device
-                        .create_sampler(&rgba8_point_sampler_descriptor()),
+                        .create_sampler(&rgba8_sampler_descriptor(material.texture_sampler)),
                 );
                 (
                     Some(texture),

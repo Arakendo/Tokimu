@@ -12,7 +12,16 @@ impl WgpuBackend {
             .iter()
             .copied()
             .zip(mesh.normals.iter().copied())
-            .map(|(position, normal)| GpuVertex { position, normal })
+            .enumerate()
+            .map(|(index, (position, normal))| GpuVertex {
+                position,
+                normal,
+                texture_coordinates: mesh
+                    .texture_coordinates
+                    .get(index)
+                    .copied()
+                    .unwrap_or([0.0, 0.0]),
+            })
             .collect();
         let vertex_buffer = self
             ._device
@@ -27,6 +36,7 @@ impl WgpuBackend {
             GpuMesh {
                 vertex_buffer,
                 vertex_count: mesh.vertex_count(),
+                has_texture_coordinates: mesh.has_texture_coordinates(),
             },
         );
         self.stats.record_mesh_upload(replaced_existing);

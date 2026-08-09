@@ -22,9 +22,10 @@ pub use instance::Instance2d;
 pub use material::{
     Material, MaterialDefinition, MaterialDefinitionId, MaterialFloatRange, MaterialInstance,
     MaterialModelError, MaterialOverride, MaterialParameterDeclaration, MaterialParameterKind,
-    MaterialParameterValue, MAX_MATERIAL_PARAMETERS,
+    MaterialParameterValue, TextureAddressMode, TextureFilter, TextureSampler,
+    MAX_MATERIAL_PARAMETERS,
 };
-pub use mesh::Mesh;
+pub use mesh::{Mesh, MeshValidationError};
 pub use pipeline::{
     BlendMode, ColorWriteMask, CullMode, DepthTest, Pipeline, PipelineDrawContractError,
     PipelineKind, PipelineRegistry, PipelineRenderState, PipelineRenderStateError,

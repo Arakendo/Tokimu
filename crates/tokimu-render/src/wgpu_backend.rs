@@ -62,11 +62,13 @@ pub struct RenderTargetResourceObservation {
 struct GpuVertex {
     position: [f32; 3],
     normal: [f32; 3],
+    texture_coordinates: [f32; 2],
 }
 
 struct GpuMesh {
     vertex_buffer: wgpu::Buffer,
     vertex_count: u32,
+    has_texture_coordinates: bool,
 }
 
 struct GpuMaterial {

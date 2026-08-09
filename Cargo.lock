@@ -861,6 +861,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "doom-ts-boundary-workbench-engine"
+version = "0.1.0"
+dependencies = [
+ "archive-provider",
+ "doom-map-provider",
+ "doom-raster-provider",
+ "doom-wad-package",
+ "doom-wad-provider",
+ "hello-doom-e1m1",
+ "resource-space",
+ "resource-space-archive",
+ "serde",
+ "serde_json",
+ "tokimu",
+ "tokimu-core",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "doom-wad-package"
 version = "0.1.0"
 dependencies = [
@@ -1309,6 +1330,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-doom-e1m1"
+version = "0.1.0"
+dependencies = [
+ "archive-provider",
+ "doom-geometry-provider",
+ "doom-map-provider",
+ "doom-raster-provider",
+ "doom-wad-package",
+ "doom-wad-provider",
+ "resource-space",
+ "resource-space-archive",
+ "thiserror 1.0.69",
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
 name = "hello-file-io"
 version = "0.1.0"
 dependencies = [
@@ -1568,6 +1606,30 @@ name = "hello-texture-color-space"
 version = "0.1.0"
 dependencies = [
  "tokimu",
+]
+
+[[package]]
+name = "hello-textured-box"
+version = "0.1.0"
+dependencies = [
+ "gltf-corpus",
+ "raster-image-corpus",
+ "tokimu",
+ "tokimu-core",
+]
+
+[[package]]
+name = "hello-textured-box-web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "gltf-corpus",
+ "raster-image-corpus",
+ "tokimu",
+ "tokimu-core",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

@@ -429,7 +429,10 @@ fn decode_named_doom_patch(
         .filter(|namespace| namespace.kind == namespace_kind)
         .flat_map(|namespace| namespace.lump_indices.iter())
         .filter_map(|index| manifest.lumps.get(*index as usize))
-        .find(|lump| lump.name == name)
+        // Classic Doom lump identity is ASCII case-insensitive. Preserve the
+        // source spelling on the selected lump for diagnostics, but compare
+        // the PNAMES/TEXTURE reference at the Doom semantic lookup boundary.
+        .find(|lump| lump.name.eq_ignore_ascii_case(name))
         .ok_or_else(|| DoomRasterDecodeError::MissingPatch {
             name: name.to_owned(),
         })?;
@@ -685,7 +688,7 @@ pub fn decode_doom_flat(
         .filter(|namespace| namespace.kind == doom_wad_provider::WadNamespaceKind::Flats)
         .flat_map(|namespace| namespace.lump_indices.iter())
         .filter_map(|index| manifest.lumps.get(*index as usize))
-        .find(|lump| lump.name == name)
+        .find(|lump| lump.name.eq_ignore_ascii_case(name))
         .ok_or_else(|| DoomRasterDecodeError::MissingFlat {
             name: name.to_owned(),
         })?;

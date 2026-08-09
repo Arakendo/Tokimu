@@ -1,0 +1,28 @@
+[package]
+name = "doom-ts-boundary-workbench-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+archive-provider = { path = "../../../lib/archive-provider" }
+doom-wad-package = { path = "../../../lib/doom-wad-package" }
+doom-wad-provider = { path = "../../../lib/doom-wad-provider" }
+doom-map-provider = { path = "../../../lib/doom-map-provider" }
+doom-raster-provider = { path = "../../../lib/doom-raster-provider" }
+hello-doom-e1m1 = { path = "../../../hello-doom-e1m1" }
+resource-space = { path = "../../../lib/resource-space" }
+resource-space-archive = { path = "../../../lib/resource-space-archive" }
+serde = { workspace = true }
+serde_json = "1"
+wasm-bindgen = { workspace = true }
+tokimu = { path = "../../../../crates/tokimu", features = ["render"] }
+tokimu-core = { path = "../../../../crates/tokimu-core" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true, features = ["HtmlCanvasElement"] }
+wasm-bindgen-futures = "0.4"

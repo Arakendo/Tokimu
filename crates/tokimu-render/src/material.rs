@@ -7,6 +7,36 @@ use std::collections::BTreeMap;
 /// renderer-specific binding allocation.
 pub const MAX_MATERIAL_PARAMETERS: usize = 64;
 
+/// Provider-neutral source-texture filtering policy.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum TextureFilter {
+    /// Select the nearest source texel.
+    #[default]
+    Point,
+    /// Interpolate neighboring source texels.
+    Linear,
+}
+
+/// Provider-neutral texture-coordinate addressing policy.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum TextureAddressMode {
+    /// Clamp coordinates outside the texture to its edge.
+    #[default]
+    Clamp,
+    /// Repeat the texture for coordinates outside the unit interval.
+    Repeat,
+}
+
+/// The bounded sampling declaration associated with one execution-ready
+/// material. This does not expose renderer-native sampler objects or mip
+/// policy.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct TextureSampler {
+    pub filter: TextureFilter,
+    pub address_u: TextureAddressMode,
+    pub address_v: TextureAddressMode,
+}
+
 /// Execution-ready material data accepted by the current renderer backends.
 ///
 /// Pipeline selection remains explicit in draw submission. Higher-level material
@@ -16,6 +46,7 @@ pub struct Material {
     pub label: String,
     pub base_color: Color,
     pub texture: Option<TextureHandle>,
+    pub texture_sampler: TextureSampler,
 }
 
 impl Material {
@@ -24,11 +55,17 @@ impl Material {
             label: label.into(),
             base_color,
             texture: None,
+            texture_sampler: TextureSampler::default(),
         }
     }
 
     pub fn with_texture(mut self, texture: TextureHandle) -> Self {
         self.texture = Some(texture);
+        self
+    }
+
+    pub fn with_texture_sampler(mut self, texture_sampler: TextureSampler) -> Self {
+        self.texture_sampler = texture_sampler;
         self
     }
 }

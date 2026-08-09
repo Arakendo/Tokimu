@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-state="loading">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tokimu Textured Box Browser Evidence</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Textured box · browser/WASM evidence</p>
+          <h1>GLB geometry + corpus PNG sampling</h1>
+        </div>
+        <p id="status" role="status">loading WASM</p>
+      </header>
+      <p class="scope">Pinned Khronos <code>Box.glb</code>; embedded Tokimu grid texture; supplied planar UVs with repeat addressing.</p>
+      <div class="controls" aria-label="Textured-box comparison controls">
+        <button type="button" data-key="m">M · texture</button>
+        <button type="button" data-key="r">R · sampler</button>
+        <button type="button" data-key="x">X · UV mapping</button>
+      </div>
+      <canvas id="textured-box-canvas" width="960" height="720"></canvas>
+      <footer>Browser evidence is a separate consumer. It does not claim imported GLB material semantics.</footer>
+    </main>
+    <script type="module">
+      const status = document.querySelector("#status");
+      document.querySelectorAll("[data-key]").forEach((button) => {
+        button.addEventListener("click", () => window.dispatchEvent(new KeyboardEvent("keydown", { key: button.dataset.key })));
+      });
+      const setFailure = (state, detail) => {
+        document.documentElement.dataset.state = state;
+        status.textContent = `${state} | ${detail}`;
+      };
+      window.addEventListener("error", (event) => setFailure("failed", event.error?.stack ?? event.message ?? "unhandled browser error"));
+      window.addEventListener("unhandledrejection", (event) => setFailure("failed", event.reason?.stack ?? event.reason?.message ?? String(event.reason)));
+      const settleWithin = (promise, milliseconds, label) => Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${milliseconds / 1000} seconds`)), milliseconds)),
+      ]);
+      if (!("gpu" in navigator)) {
+        setFailure("unsupported", "this browser does not expose WebGPU");
+      } else {
+        try {
+          status.textContent = "checking browser WebGPU adapter";
+          const adapter = await settleWithin(navigator.gpu.requestAdapter(), 5000, "browser WebGPU adapter request");
+          if (!adapter) throw new Error("browser WebGPU did not provide an adapter");
+          status.textContent = "browser adapter ready | checking browser WebGPU device";
+          const device = await settleWithin(adapter.requestDevice(), 5000, "browser WebGPU device request");
+          if (!device) throw new Error("browser WebGPU did not provide a device");
+          status.textContent = "browser adapter and device ready | initializing Tokimu WASM";
+          const { default: init, start_fixture: startFixture } = await import("./pkg/hello-textured-box-web.js");
+          await init();
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          startFixture();
+          setTimeout(() => {
+            if (document.documentElement.dataset.state === "loading") {
+              setFailure("unsupported", "browser adapter and device preflight passed, but Tokimu WebGPU initialization timed out");
+            }
+          }, 10000);
+        } catch (error) {
+          setFailure("unsupported", String(error));
+        }
+      }
+    </script>
+  </body>
+</html>

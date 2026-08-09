@@ -484,18 +484,169 @@ move Doom format semantics, WAD ownership, or mutable game state into the
 renderer. It is also a direct consumer of the orientation evidence tracked by
 [`AR-0021`](../../Architectural%20Reviews/AR-0021-geometry-orientation-and-facing-conformance.md).
 
-- [ ] Establish the renderer orientation contract and native/WASM conformance
-      fixture required by AR-0021 before relying on front/back culling for Doom
-      walls.
+- [x] Establish the provisional renderer orientation contract and native/WASM
+      conformance fixture required by AR-0021 before relying on front/back
+      culling for Doom walls. The shared fixture's native and browser/WASM
+      captures agree; any later binding public renderer contract remains an
+      AR-0021 decision.
 - [ ] Select and document a material representation for indexed Doom textures,
       palette choice, wrapping, filtering, and masked-middle alpha behavior.
-- [ ] Select either original view-dependent plane spans or a documented,
+  - [x] Record the existing honest inputs: palette-selected, top-down RGBA8
+        pixels with source coverage; source-traceable wall texel coordinates;
+        and source-traceable flat names. These do not yet select a renderer
+        color-space, sampler, alpha, or plane policy.
+  - [x] Resolve the generic textured-mesh UV and sampler boundary under
+        [ADR-0012](../../ADR/ADR-0012-supplied-mesh-texture-coordinates-and-sampling-policy.md).
+    AR-0022's corpus evidence now binds a generic supplied-UV `Textured3d`
+    contract and declared point/linear plus clamp/repeat sampling. This is not
+    Doom material admission.
+  - [x] Select the first consumer material profile for fully covered Doom
+        rasters: palette zero, sRGB upload interpretation, and point/repeat
+        sampling. A source raster with any uncovered pixel returns a counted
+        deferred-alpha result rather than selecting blend or cutout behavior.
+  - [ ] Keep alpha/cutout open; do not treat the generic fixture's opaque
+        profile as masked-middle behavior. Alpha/cutout policy is tracked
+        separately by
+        [AR-0023](../../Architectural%20Reviews/AR-0023-textured-surface-alpha-and-depth-policy.md).
+- [x] Select either original view-dependent plane spans or a documented,
       intentionally non-equivalent plane mapping; do not imply that Slice 5's
       wall texel coordinates decide this.
-- [ ] Submit a static E1M1 scene with its source-traceable floors, ceilings,
+  - [x] Select the bounded map-axis static mapping documented in
+        [Classic Doom plane mapping evidence](Classic%20Doom%20plane%20mapping%20evidence.md):
+        `u = x / 64`, `v = -z / 64` for the E1M1 64-by-64 flat sources, with
+        point/repeat sampling. This is a declared Tokimu presentation policy,
+        not original Doom span equivalence. Sky and masked middles remain
+        source-traceable omissions in the first opaque scene.
+  - [x] Implement and test the application-local `hello-doom-e1m1` flat
+        lowerer. It converts one retained `DoomSurfaceTriangle` into a
+        supplied-UV `tokimu::Mesh` while retaining source subsector, sector,
+        plane, and flat-name evidence beside the mesh. It rejects zero extents
+        and degenerate source triangles rather than fabricating a draw.
+  - [x] Assemble an opaque-candidate flat batch from retained surface and sky
+        observations. The first consumer excludes sky only by the retained
+        source classification and preserves the omitted records for capture;
+        it does not infer sky behavior from a texture-name check.
+  - [x] Normalize retained wall source texels by their selected source texture
+        extent without duplicating Doom pegging. The first wall batch excludes
+        only retained two-sided masked-middle classifications, preserving them
+        for AR-0023 evidence while leaving one-sided middle walls eligible for
+        a later opaque-coverage check.
+- [x] Submit a static E1M1 scene with its source-traceable floors, ceilings,
       walls, sky classification, and admitted material requirements.
-- [ ] Capture deterministic native and WASM artifacts that make omissions,
-      winding, material, and texture-placement failures inspectable.
+  - [x] Prepare E1M1 flats and selected flat rasters through the existing map,
+        geometry, and raster providers before renderer allocation. The consumer
+        retains the static assembly and upload-ready RGBA8 payloads separately.
+  - [x] Add a canonical-package E1M1 preflight executable. It accepts the
+        reviewed ZIP/member path, retains only the ZIP at the Resource Space
+        edge, reads the WAD as a bounded derived member, prepares flats/walls
+        and their selected rasters, then prints the deterministic report.
+        Execution against the local reviewed package remains required evidence;
+        no WAD or ZIP payload is committed for this corpus consumer.
+  - [x] Emit a deterministic pre-upload summary containing selected flat-triangle,
+        sky-omission, opaque-texture, and deferred-alpha-texture counts.
+    - [x] Extend that summary with opaque-wall, masked-middle, selected-wall-name,
+          wall-opaque, and wall-deferred-alpha counts.
+    - [x] Record individual degenerate flat candidates as source-traceable
+          omissions and include their count in the report. Only a confirmed
+          zero-area candidate may be omitted; all other lowering errors remain
+          fatal. Reopen topology/triangulation evidence if omissions eliminate
+          an expected surface, cluster materially by subsector/sector, or show
+          visible topology loss.
+    - [x] Canonical `DOOM1.WAD` preflight reports 43 omitted flat candidates
+          across 21 subsectors and 13 sectors, but no completely omitted
+          subsector; the flat omission rule remains a bounded retained-evidence
+          result. The 16 omitted wall candidates belong to eight completely
+          omitted linedefs (155, 156, 245, 246, 320, 323, 337, and 338), which
+          were inspected through the retained report: each is an authored
+          zero-height middle span (`minimum_height == maximum_height`) using
+          `DOORTRAK` or `DOORSTOP`, not a nonzero source surface lost during
+          conversion. Keep the detailed source identities in the canonical
+          preflight and do not weaken the omission rule or replace it with a
+          generic invalid-surface skip.
+  - [x] Decode and classify the source wall-texture catalog required by the
+        prepared wall batch; retain missing, uncovered, and masked-middle
+        source identities as diagnostics.
+    - [x] Add bounded palette-zero wall texture preparation through the
+          existing PNAMES/TEXTURE catalog and patch-composition provider.
+          The consumer canonicalizes requested names and returns each source
+          raster as an opaque candidate or counted deferred-alpha result.
+    - [x] Connect the prepared wall batch's source names and extents to this
+          catalog; record missing-name, masked-middle, and uncovered outcomes
+          in the pre-upload report. Canonical E1M1 selected 29 wall names;
+          all 29 classify opaque under the deliberately narrow palette-zero
+          profile, while 13 source-classified masked middles remain omissions
+          for AR-0023 rather than alpha-policy inference.
+      - [x] Derive a sorted, deduplicated source-name inventory from opaque-candidate
+            wall meshes; it remains separate from renderer handles.
+      - [x] Build the wall batch from E1M1 map records and catalog-derived
+            extents. It preserves source-classified masked-middle omissions and
+            ordinary source-textured wall candidates before raster upload.
+  - [x] Allocate textures and opaque point/repeat materials only for selected
+        fully covered source rasters; retain a stable source-name-to-handle map.
+    - [x] Build and test the application-local deterministic upload plan. It
+          allocates handles only for opaque flat/wall rasters, sorts within each
+          source kind, preserves palette-zero sRGB plus point/repeat intent,
+          and gives deferred-alpha rasters no renderer handle.
+  - [x] Convert the prepared opaque static scene to ordinary mesh/material draw
+        entries for the native first-frame proof.
+    - [x] Build and test the application-local draw-plan seam: retained Doom
+          source labels stay diagnostic-only while the renderer-facing list is
+          only ordinary `Mesh` plus `MaterialHandle` entries.
+    - [x] Add the native `hello-doom-e1m1 --bin static_scene` first-frame
+          target. It consumes the prepared upload/draw plans, selects explicit
+          opaque/depth-writing/back-culling `Textured3d` state, derives a fixed
+          overview camera from ordinary mesh bounds, and compiles without
+          putting a Doom type in the renderer.
+  - [x] Build an ordinary `Textured3d` draw list for the prepared flat and wall
+        meshes with explicit opaque, depth-writing state and reviewed culling.
+  - [x] Add a fixed E1M1 observer camera and submit the first native scene.
+    - [x] Native visual execution rendered the 1,835-draw static scene from the
+          canonical package. The initial blank result was camera-only: the
+          general perspective helper has a 100-unit far plane while E1M1 spans
+          thousands of units. The corpus target now owns an explicit
+          bounds-based overview projection; it does not change a renderer-wide
+          camera default or encode Doom scale in `tokimu-render`.
+  - [x] Add the equivalent browser/WASM scene bootstrap and record readiness
+        separately from first-frame presentation.
+    - [x] Add the consumer-local `render_static_e1m1(canvas)` Rust/WASM bridge
+          to the existing explicit-local-selection workbench session. It reads
+          only the Rust-owned retained ZIP, derives `DOOM1.WAD` through the
+          bounded package provider, and passes a supplied browser canvas only
+          to `WgpuBackend`; TypeScript neither receives nor constructs Doom
+          geometry, textures, materials, or renderer policy.
+    - [x] Compile the bridge for `wasm32-unknown-unknown`, generate its Web
+          binding, and type-check the browser caller. This is build evidence,
+          not browser readiness or first-frame evidence.
+    - [x] Exercise one selected local reviewed package through the browser and
+          retain the readiness/first-frame result separately from the native
+          result. The workbench reported `browser first frame presented: 1835
+          draws` and showed the fixed-camera textured E1M1 scene. This is a
+          manual browser observation, not yet a committed capture artifact.
+- [ ] Retain fixed-camera native and browser visual observations with their
+      provenance. These are not pixel-deterministic rendering specifications;
+      deterministic evidence is the fixed scene/package, draw and handle
+      inventory, source omissions, and structural manifests.
+  - [x] Persist the pre-upload report and a source-name/handle inventory in
+        [`E1M1 static presentation evidence.md`](E1M1%20static%20presentation%20evidence.md).
+        The executable remains the authoritative reproducible source for the
+        complete deterministic inventory; the retained document records the
+        reviewed package invocation, counts, visual observation, and scope.
+  - [x] Retain deterministic scene evidence: the reviewed package identity,
+        fixed observer policy, 1,835 submitted draws, source-to-handle
+        inventory, and explicit sky/masked-middle/degenerate omission counts.
+  - [ ] Commit fixed-camera native and browser image observations beside target,
+        adapter, build, package, and camera provenance. Do not compare their
+        PNG bytes as a rendering contract.
+    - [x] Expose a browser-presentation-only PNG download after a successful
+          fixed-camera frame. It serializes the displayed canvas and does not
+          receive Doom semantics or render policy; retaining a reviewed output
+          and a comparable native image remains pending.
+  - [x] Emit companion structural evidence for submitted/omitted walls, flats,
+        sky, and masked-middle records. The deterministic preflight now reports
+        463 submitted floors, 390 submitted ceilings, and 588/184/210 submitted
+        middle/upper/lower walls beside retained sky, masked-middle, and
+        degenerate omission counts; the retained evidence document records the
+        same bounded categories.
 
 Acceptance criteria:
 
