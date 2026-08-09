@@ -44,6 +44,18 @@ material.
 See the [Software Design Document](docs/Tokimu%20Software%20Design%20Document.md)
 for the full architecture, subsystem breakdown, and milestone plan.
 
+## GPU Validation Disclaimer
+
+Current hands-on renderer validation covers AMD Radeon hardware through Vulkan
+and Apple GPU hardware through Metal. Comparable NVIDIA hardware is not
+currently available to the maintainer, so NVIDIA Vulkan and D3D12 execution
+paths remain unverified and may contain gaps. Passing AMD, Apple, or browser
+WebGPU corpus evidence must not be interpreted as NVIDIA conformance.
+
+See the [GPU adapter validation coverage note](docs/lessions/gpu-adapter-validation-coverage.md)
+for the evidence and reporting rules used until NVIDIA hardware observations
+are available.
+
 ## Goals
 
 * Rust-native engine architecture

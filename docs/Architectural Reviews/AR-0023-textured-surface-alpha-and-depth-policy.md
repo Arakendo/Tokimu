@@ -8,7 +8,7 @@
 | Scope | Cross-cutting renderer/material and backend boundary |
 | Trigger | AR-0022 established a narrow opaque textured-mesh path, while its alpha audit found that `Textured3d` combines source-alpha blending with depth writes and has no cutout threshold or ordering policy. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009 |
-| Related evidence | AR-0006, AR-0022 Cycle 10, `tokimu-render` pipeline/shader/backend code, DOOM Slice 5B source coverage facts |
+| Related evidence | AR-0006, AR-0022 Cycle 10, `tokimu-render` pipeline/shader/backend code, DOOM Slice 5B source coverage facts, `docs/Plans/textured-surface-alpha-policy-comparative-corpus.md` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -136,9 +136,11 @@ No PNG, GLB, WAD, palette, or coverage-provider type crosses into
 ## Disposition
 
 Proposed. Retain opaque `Textured3d` as the only demonstrated corpus profile.
-Do not use source alpha to select blending or discard automatically. This review
-will choose, defer, or reject a bounded cutout or blended-surface policy only
-when a real caller supplies its required semantics and focused evidence.
+Do not use source alpha to select blending or discard automatically. Run the
+bounded comparative alpha-policy corpus before choosing a shared vocabulary or
+separate capability contracts. This review will admit, split, move outward,
+defer, or reject cutout and blending only after shared fixtures, independent
+real callers, and native/browser evidence expose their semantics and costs.
 
 ## Consequences
 
@@ -151,11 +153,15 @@ when a real caller supplies its required semantics and focused evidence.
 
 ## Required Follow-Up
 
-- [ ] Identify the first real caller: cutout, blended surface, or neither.
-- [ ] If cutout is proposed, state a provider-neutral threshold policy and add
-      a small documented alpha fixture.
-- [ ] If blending is proposed, state draw-order and depth-write responsibility
-      and add native/browser conformance evidence.
+- [x] Design a bounded comparative corpus that holds RGBA8 input constant while
+      varying opaque, cutout, blend, depth-write, and caller-order declarations.
+- [ ] Execute the shared synthetic fixture and interaction matrix.
+- [ ] Exercise Doom masked middles as independent real cutout pressure.
+- [ ] Identify a separate first-party continuous-alpha caller or explicitly
+      park blend admission.
+- [ ] State and test threshold comparison, draw-order, and depth-write
+      responsibility before proposing stable vocabulary.
+- [ ] Apply ADR-0008 and ADR-0009 gates to any proposed renderer crossing.
 - [ ] Create or revise an ADR only if this review accepts a binding renderer
       contract.
 
@@ -198,11 +204,88 @@ when a real caller supplies its required semantics and focused evidence.
   admission questions rather than downstream implementation details.
 - Resulting ADR or documentation change: none.
 
+### Cycle 3 -- 2026-08-09
+
+- Status entering review: Proposed.
+- New evidence: maintainer discussion found that choosing cutout first could
+  stabilize two contracts without ever testing their interaction, shared
+  vocabulary, depth semantics, or ordering ownership against the same inputs.
+- Findings: a comparative corpus should hold image data constant while varying
+  declared opaque, cutout, and blend policy; Doom can supply real cutout
+  pressure, while blending requires a separate continuous-alpha caller.
+- Disposition: retain opaque-only admission while the comparative study runs.
+  Do not design the public enum before the fixtures expose whether the
+  capabilities are genuinely related.
+- Resulting ADR or documentation change: added the Textured Surface
+  Alpha-Policy Comparative Corpus plan.
+
+### Cycle 4 -- 2026-08-09
+
+- Status entering review: Proposed.
+- New evidence: Slice 0 and the headless portion of Slice 1 now provide six
+  manifest-locked exact RGBA8 fixtures, seven fixed scene identities, explicit
+  `<` and `<=` threshold candidates, caller-order observations, conventional
+  straight-alpha reference contribution, and typed negative evidence.
+- Findings: the exact `128/255` fixture makes threshold equality observable;
+  opaque, cutout, and blend produce distinct semantics from identical bytes.
+  Initial scene generation incorrectly tied transforms to submission index;
+  the retained regression now proves reversed blend cases change only caller
+  order. The headless evidence still does not justify public renderer
+  vocabulary.
+- Disposition: continue the corpus-local study. Retain opaque-only admission
+  and return to this review before introducing a stable renderer crossing.
+- Resulting ADR or documentation change: added `hello-alpha-policy` and its
+  browser boundary record; no ADR change.
+
+### Cycle 5 -- 2026-08-09
+
+- Status entering review: Proposed.
+- New evidence: the corpus now has an optional native Slice 2 visual target.
+  It realizes the frozen mixed-alpha source under an explicit opaque control
+  and two labelled cutout candidates (`discard below 128/255` and `discard at
+  or below 128/255`). A second panel places the binary mask over an opaque
+  background with declared depth writes. The target uses existing
+  `Pipeline::custom_wgsl` support, supplied UVs, and explicit opaque depth
+  state; no `tokimu-render` public type, default, or shader was changed.
+- Findings: the equality decision is visible in a real backend realization
+  without allowing a conventional threshold to masquerade as a public
+  default. A redundant private WGPU mesh cache was exposed by the focused
+  strict lint check and removed; adding the optional target also exposed an
+  ambiguous default corpus executable, repaired by declaring the headless
+  report as the crate's `default-run`. Mesh/shader compatibility continues to
+  be checked from the source mesh before upload.
+- Disposition: retain Proposed and opaque-only admission. Native visual
+  observation, zero/one threshold cases, negative backend validation, blend
+  comparison, and browser/WASM evidence remain required before any contract
+  decision.
+- Resulting ADR or documentation change: none; this is a corpus-local
+  experimental realization only.
+
+### Cycle 6 -- 2026-08-09
+
+- Status entering review: Proposed.
+- New evidence: the native Vulkan target (AMD Radeon RX 7900 XTX) presented
+  the Slice 2 scene at 960 × 600. The opaque control displayed all five
+  `mixed-alpha` texels; `discard below 128/255` retained the exact 128-alpha
+  texel; and `discard at or below 128/255` omitted it. The binary-mask depth
+  panel exposed its opaque blue backing through discarded pixels.
+- Findings: this matches the frozen headless classification and makes the
+  comparison boundary observable on a real GPU. It is one native observation,
+  not a cross-target or cross-vendor guarantee or a basis for selecting a
+  default threshold. Current direct hardware access covers AMD/Vulkan and
+  Apple/Metal, but not NVIDIA; NVIDIA alpha/depth behavior remains explicitly
+  unverified and may contain gaps.
+- Disposition: continue Slice 2 with the same shared source on browser/WASM;
+  retain opaque-only admission and do not promote the custom-WGSL candidates.
+- Resulting ADR or documentation change: retained the native visual record in
+  `corpus/hello-alpha-policy/results/`.
+
 ## References
 
 - `docs/Architectural Reviews/AR-0006-raster-image-requirement-pipeline.md`
 - `docs/Architectural Reviews/AR-0022-textured-mesh-coordinate-and-sampling-boundary.md`
 - `docs/Plans/textured-box-glb-png-corpus.md`
+- `docs/Plans/textured-surface-alpha-policy-comparative-corpus.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
 - `crates/tokimu-render/src/pipeline.rs`
 - `crates/tokimu-render/src/wgpu_backend/pipeline_support.rs`

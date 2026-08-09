@@ -50,6 +50,17 @@ deferred.
 - Transparency does not currently claim order-independent composition.
 - Browser workbenches are corpus consumers, not polished production tools.
 
+## GPU hardware coverage
+
+- Current hands-on native renderer observations cover AMD Radeon hardware
+  through Vulkan and Apple GPU hardware through Metal.
+- Comparable NVIDIA hardware is not currently available to the maintainer.
+  NVIDIA Vulkan and D3D12 paths are therefore unverified and may contain gaps;
+  they are not known to be either conformant or defective.
+- Passing AMD, Apple, or browser WebGPU evidence does not establish NVIDIA
+  conformance. Adapter, backend, device, driver, target, and build identity are
+  retained where available so future NVIDIA results can be assessed honestly.
+
 ## Networking and XR
 
 - Networking has bounded envelope and loopback evidence, not a production

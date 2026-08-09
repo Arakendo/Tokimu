@@ -68,7 +68,6 @@ struct GpuVertex {
 struct GpuMesh {
     vertex_buffer: wgpu::Buffer,
     vertex_count: u32,
-    has_texture_coordinates: bool,
 }
 
 struct GpuMaterial {

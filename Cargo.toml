@@ -35,6 +35,7 @@ members = [
     "corpus/hello-render-orientation",
     "corpus/hello-render-orientation-web",
     "corpus/hello-textured-box-web",
+    "corpus/hello-alpha-policy",
 
     # Simulation and application corpus.
     "corpus/hello-rule-model",

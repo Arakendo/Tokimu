@@ -36,7 +36,6 @@ impl WgpuBackend {
             GpuMesh {
                 vertex_buffer,
                 vertex_count: mesh.vertex_count(),
-                has_texture_coordinates: mesh.has_texture_coordinates(),
             },
         );
         self.stats.record_mesh_upload(replaced_existing);

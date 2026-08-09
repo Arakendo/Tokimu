@@ -13,10 +13,12 @@ ADR, or an active Architectural Review.
 - [Geometry orientation and orbit controls](geometry-and-orbit-quick-reference.md)
   — winding versus normals, Canvas projection, reflections, culling, and drag
   sign conventions.
+- [GPU adapter validation coverage](gpu-adapter-validation-coverage.md) —
+  currently available AMD/Vulkan and Apple/Metal evidence, plus the explicit
+  NVIDIA hardware coverage gap.
 
 ## Maintenance Rule
 
 Keep a lesson compact and evidence-linked. When a lesson becomes a binding
 ownership rule or public contract, promote the decision into an ADR and retain
 this file only as implementation guidance.
-
