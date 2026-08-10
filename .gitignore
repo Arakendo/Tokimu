@@ -20,6 +20,10 @@ __pycache__/
 **/wwwroot/tokimu/
 **/bin/
 **/obj/
+# Rust supports additional binary targets in `src/bin/`; those are source,
+# not generated .NET-style build output.
+!**/src/bin/
+!**/src/bin/**/*.rs
 
 # WebAssembly / wasm-pack
 /pkg/

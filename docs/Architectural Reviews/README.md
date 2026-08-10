@@ -228,3 +228,7 @@ across unrelated decisions.
   — Accepted; establishes that the AR-0023 empty frame was valid GPU clipping,
   not an uncaught backend error, and keeps GL-style Tokimu camera meaning while
   adapting explicitly to WebGPU depth at the WGPU upload boundary
+- [AR-0025: Camera Candidate Selection And Visibility Culling](AR-0025-camera-candidate-selection-and-visibility-culling.md)
+  — Under Review; keeps explicit full submission as the current contract while
+  studying corpus-local conservative camera-frustum candidate selection before
+  any generic culling, Doom visibility, or GPU-occlusion capability

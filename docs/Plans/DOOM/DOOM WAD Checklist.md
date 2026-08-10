@@ -650,6 +650,10 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         middle/upper/lower walls beside retained sky, masked-middle, and
         degenerate omission counts; the retained evidence document records the
         same bounded categories.
+  - [x] Open [AR-0025](../../Architectural%20Reviews/AR-0025-camera-candidate-selection-and-visibility-culling.md)
+        after interactive source-spawn observation exposed camera-motion
+        submission pressure. It separates corpus-local frustum evidence from
+        Doom visibility data and any future generic culling capability.
 
 Acceptance criteria:
 
