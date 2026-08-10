@@ -430,10 +430,15 @@ specific presentation step.
 ADR-0012 admits one deliberately narrow textured-3D seam: a mesh may supply a
 checked per-vertex UV stream; `Textured3d` requires that stream rather than
 deriving UVs from 3D position; and materials declare only point/linear filtering
-plus clamp/repeat U/V addressing. The legacy position-derived `Texture2d` path
-remains a separate 2D mechanism. Asset decoding, GLB/WAD meaning, alpha/cutout
-policy, transparent ordering, and renderer-owned material graphs remain outside
-this contract.
+plus clamp/repeat U/V addressing. ADR-0013 separately admits caller-declared
+categorical Cutout: a finite explicit threshold and explicit below versus
+at-or-below comparison discard failing fragments, while retained fragments use
+ordinary textured-3D depth test/write behavior. Cutout is not inferred from
+source alpha and is not a general alpha-policy enum. The legacy
+position-derived `Texture2d` path remains a separate 2D mechanism. Asset
+decoding, GLB/WAD meaning, continuous Blend ordering/depth semantics,
+renderer-owned sorting, PBR, and material graphs remain outside these
+contracts.
 
 Reusable renderable resources may bundle mesh, material, and pipeline handles
 for convenience, but they should remain presentation-facing tuples rather than
@@ -489,6 +494,12 @@ separate matrix-based view and projection payloads, can be sized from the
 native window while preserving an explicit logical world height owned by the
 example, and the active camera is still a presentation choice, not a
 simulation owner.
+
+Tokimu camera projection matrices use the GL-style `[-1, 1]` clip-depth
+convention. Rendering providers adapt that stable camera meaning at their
+upload boundary when their native clip space differs. In particular, the WGPU
+adapter explicitly remaps Tokimu depth into WebGPU's `[0, 1]` interval in its
+private camera uniform; callers do not pre-convert camera matrices for WGPU.
 
 That renderer API should also avoid baking in assumptions that only sprites or
 only meshes matter. Cameras, transforms, render commands, visibility, and

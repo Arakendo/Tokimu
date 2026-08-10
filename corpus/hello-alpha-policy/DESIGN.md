@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Slices 0–1 complete; Slice 2 native cutout candidate implemented, awaiting retained visual and browser observations |
-| Purpose | Compare opaque, categorical cutout, and continuous blend semantics without pre-admitting renderer vocabulary |
+| Status | AR-0023 comparison is complete; ADR-0013 Cutout is migrating through native/browser corpus targets |
+| Purpose | Retain the comparison that admitted categorical Cutout while keeping continuous Blend incubating |
 | Governing review | [AR-0023](../../docs/Architectural%20Reviews/AR-0023-textured-surface-alpha-and-depth-policy.md) |
 | Inputs | First-party exact RGBA8 fixtures and corpus-owned scene/profile requests |
 | Outputs | Deterministic fixture, fragment, depth, ordering, validation, and scene observations |
 | Durable state | None; reports are derived from explicit inputs |
-| Semantic authority | Corpus-local candidate semantics only; no public renderer precedent |
+| Semantic authority | Corpus owns fixture selection; ADR-0013 owns the narrow renderer Cutout capability |
 | Execution authority | Headless CPU evaluation only in the initial slices |
 
 ## Boundary Assertion
@@ -17,8 +17,8 @@ The default headless crate deliberately has no active dependency on `tokimu`,
 `tokimu-render`, WGPU, PNG, GLB, WAD, or Doom providers. It freezes source
 bytes and compares candidate semantics before a GPU implementation can make one
 API shape look inevitable. Its optional `native-visual` target is a separate
-corpus executable; it realizes only frozen cases through existing custom-WGSL
-and ordinary textured-mesh seams.
+corpus executable; it realizes Cutout through ADR-0013 and retains corpus-local
+WGSL only for the unadmitted Blend study.
 
 ```text
 exact first-party RGBA8
@@ -40,7 +40,8 @@ empty order is rejected rather than inferred.
 - WGPU source-alpha blending exists as a mechanism.
 - The current blend-plus-depth-write combination is not an admitted general
   transparent-surface contract.
-- Cutout has no admitted threshold or comparison vocabulary.
+- ADR-0013 admits checked caller-declared Cutout threshold/comparison with
+  ordinary opaque depth behavior.
 - This crate's `StudyProfile` and related types are experimental corpus terms,
   not proposed public names.
 
@@ -67,13 +68,11 @@ renderer-generated sort.
 `cargo run -p hello-alpha-policy --features native-visual --bin native_scene`
 opens the Slice 2 comparison scene. It displays the same `mixed-alpha` source
 under explicit opaque, `discard below 128/255`, and `discard at-or-below
-128/255` custom-shader candidates, plus a cutout-over-opaque depth case.
+128/255` Cutout declarations, plus a cutout-over-opaque depth case.
 
-The two discard shaders are corpus source strings selected by the executable;
-they are not `tokimu-render` pipeline kinds, do not add a public threshold
-parameter, and do not change `Textured3d` defaults. The target is evidence that
-the existing custom-WGSL mechanism can realize the frozen comparison, not a
-decision that custom shader source is the eventual cutout contract.
+The target invokes `Pipeline::textured_3d_cutout` rather than passing custom
+cutout WGSL. It keeps `Textured3d` unchanged and leaves the Blend study's
+custom WGSL explicitly outside the admitted capability.
 
 ## References
 

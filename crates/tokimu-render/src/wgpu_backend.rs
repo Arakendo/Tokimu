@@ -22,6 +22,7 @@ use bytemuck::{Pod, Zeroable};
 pub use error::WgpuBackendError;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokimu_core::math::{Mat4, Vec4};
 
 /// Reports the renderer-private consequences of replacing a render target.
 ///
@@ -139,6 +140,22 @@ struct GpuInstanceUniform {
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 struct GpuCameraUniform {
     view_projection: [[f32; 4]; 4],
+}
+
+/// Converts Tokimu's GL-style `[-1, 1]` clip depth to WGPU's `[0, 1]` depth.
+///
+/// Camera projection matrices remain Tokimu-owned values. The WGPU provider
+/// adapts those values only while constructing its private GPU uniform.
+fn wgpu_camera_uniform(camera: Camera) -> GpuCameraUniform {
+    let tokimu_to_wgpu_clip = Mat4::from_cols(
+        Vec4::X,
+        Vec4::Y,
+        Vec4::new(0.0, 0.0, 0.5, 0.0),
+        Vec4::new(0.0, 0.0, 0.5, 1.0),
+    );
+    GpuCameraUniform {
+        view_projection: (tokimu_to_wgpu_clip * camera.projection * camera.view).to_cols_array_2d(),
+    }
 }
 
 struct GpuInstanceBinding {

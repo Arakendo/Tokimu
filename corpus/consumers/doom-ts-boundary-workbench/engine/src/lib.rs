@@ -16,8 +16,10 @@ use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 use hello_doom_e1m1::{
-    build_static_draw_plan, build_static_texture_uploads, prepare_e1m1_flat_textures,
-    prepare_e1m1_flats, prepare_e1m1_wall_textures, prepare_e1m1_walls,
+    build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
+    build_static_draw_plan, build_static_texture_uploads, experimental_masked_cutout_wgsl,
+    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
+    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
@@ -143,7 +145,20 @@ impl BrowserIntakeSession {
     /// package. This is a consumer-local WASM proof, not a browser renderer API.
     #[cfg(target_arch = "wasm32")]
     pub async fn render_static_e1m1(&self, canvas: HtmlCanvasElement) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas)
+        self.render_static_e1m1_inner(canvas, false)
+            .await
+            .map_err(js_error)
+    }
+
+    /// Presents the same fixed E1M1 scene plus its corpus-local, source-
+    /// selected masked-middle cutout candidates. TypeScript still supplies only
+    /// a canvas; Rust owns all Doom parsing and policy selection.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn render_static_e1m1_masked_cutouts(
+        &self,
+        canvas: HtmlCanvasElement,
+    ) -> Result<String, JsValue> {
+        self.render_static_e1m1_inner(canvas, true)
             .await
             .map_err(js_error)
     }
@@ -265,7 +280,11 @@ impl BrowserIntakeSession {
     }
 
     #[cfg(target_arch = "wasm32")]
-    async fn render_static_e1m1_inner(&self, canvas: HtmlCanvasElement) -> Result<String, String> {
+    async fn render_static_e1m1_inner(
+        &self,
+        canvas: HtmlCanvasElement,
+        include_masked_cutouts: bool,
+    ) -> Result<String, String> {
         let name = ResourceName::parse("selected-doom-package", AddressCasePolicy::Sensitive)
             .map_err(|error| error.to_string())?;
         let _selected_package = self
@@ -326,6 +345,35 @@ impl BrowserIntakeSession {
         let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
         let draws =
             build_static_draw_plan(&flats, &walls, &uploads).map_err(|error| error.to_string())?;
+        let (cutout_uploads, cutout_draws) = if include_masked_cutouts {
+            let masked = prepare_e1m1_masked_middle_cutouts(
+                &read.bytes,
+                &read.observation.wad,
+                MAP_LIMITS,
+                TEXTURE_LIMITS,
+            )
+            .map_err(|error| error.to_string())?;
+            let masked_names = prepared_e1m1_masked_middle_texture_names(&walls);
+            let masked_textures = prepare_e1m1_wall_textures(
+                &read.bytes,
+                &read.observation.wad,
+                &masked_names,
+                RASTER_LIMITS,
+                TEXTURE_LIMITS,
+                PATCH_LIMITS,
+                COMPOSE_LIMITS,
+            )
+            .map_err(|error| error.to_string())?;
+            let uploads = build_experimental_cutout_texture_uploads(
+                &masked_textures,
+                uploads.len() as u64 + 1,
+            );
+            let draws = build_experimental_cutout_draw_plan(&masked, &uploads)
+                .map_err(|error| error.to_string())?;
+            (uploads, draws)
+        } else {
+            (Vec::new(), Vec::new())
+        };
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
         let mut renderer = WgpuBackend::for_window(canvas, width, height)
@@ -342,6 +390,16 @@ impl BrowserIntakeSession {
                 .upload_material(upload.material, &upload.material_value)
                 .map_err(|error| error.to_string())?;
         }
+        if include_masked_cutouts {
+            for upload in &cutout_uploads {
+                renderer
+                    .create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)
+                    .map_err(|error| error.to_string())?;
+                renderer
+                    .upload_material(upload.material, &upload.material_value)
+                    .map_err(|error| error.to_string())?;
+            }
+        }
         let pipeline = renderer
             .register_pipeline(
                 &Pipeline::new("doom-e1m1-browser-opaque", PipelineKind::Textured3d)
@@ -355,9 +413,31 @@ impl BrowserIntakeSession {
                     .map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string())?;
+        let cutout_pipeline = if include_masked_cutouts {
+            Some(
+                renderer
+                    .register_pipeline(
+                        &Pipeline::custom_wgsl(
+                            "doom-e1m1-browser-masked-cutout",
+                            experimental_masked_cutout_wgsl(),
+                        )
+                        .with_render_state(PipelineRenderState {
+                            blend: BlendMode::Opaque,
+                            depth_test: DepthTest::LessEqual,
+                            depth_write: true,
+                            cull_mode: CullMode::Back,
+                            color_write: ColorWriteMask::ALL,
+                        })
+                        .map_err(|error| error.to_string())?,
+                    )
+                    .map_err(|error| error.to_string())?,
+            )
+        } else {
+            None
+        };
         let mut minimum = [f32::INFINITY; 3];
         let mut maximum = [f32::NEG_INFINITY; 3];
-        for draw in &draws {
+        for draw in draws.iter().chain(cutout_draws.iter()) {
             for position in &draw.mesh.positions {
                 for axis in 0..3 {
                     minimum[axis] = minimum[axis].min(position[axis]);
@@ -403,11 +483,33 @@ impl BrowserIntakeSession {
                 viewport: None,
             }));
         }
+        if include_masked_cutouts {
+            let cutout_pipeline = cutout_pipeline
+                .ok_or_else(|| "masked-cutout pipeline was not prepared".to_owned())?;
+            for (offset, draw) in cutout_draws.iter().enumerate() {
+                let mesh = MeshHandle(draws.len() as u64 + offset as u64 + 1);
+                renderer.upload_mesh(mesh, &draw.mesh);
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh,
+                    material: draw.material,
+                    pipeline: cutout_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CameraHandle(1)),
+                    viewport: None,
+                }));
+            }
+        }
         renderer.submit(&commands);
         renderer.present().map_err(|error| error.to_string())?;
+        let draw_count = draws.len()
+            + if include_masked_cutouts {
+                cutout_draws.len()
+            } else {
+                0
+            };
         Ok(format!(
-            "browser first frame presented: {} draws; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
-            draws.len(), width, height
+            "browser first frame presented: {draw_count} draws; cutouts={include_masked_cutouts}; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
+            width, height
         ))
     }
 }

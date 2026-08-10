@@ -263,14 +263,31 @@ Deliverables:
         mechanism without changing `tokimu-render` pipeline vocabulary.
 - [ ] Exercise zero, interior, and one thresholds plus byte values below,
       equal to, and above the boundary.
-- [ ] Prove discarded fragments do not write color or depth and retained
+  - [x] The headless oracle covers `0.0`, `128/255`, and `1.0`, including the
+        distinct `<`/`<=` behavior at transparent, exact-boundary, and opaque
+        source alpha.
+  - [ ] Native/browser visual observations currently cover the interior
+        `128/255` threshold only; zero/one visual variants remain open.
+- [x] Prove discarded fragments do not write color or depth and retained
       fragments follow the explicitly declared depth state.
-- [ ] Run the same mixed-alpha texture under opaque and cutout while changing
+  - [x] The headless oracle asserts discarded fragments are ineligible for
+        depth writes, and the retained native depth panel exposes its opaque
+        backing through discarded binary-mask texels.
+- [x] Run the same mixed-alpha texture under opaque and cutout while changing
       no source bytes, UVs, geometry, camera, or transforms.
-- [ ] Retain shader/pipeline validation failures and backend diagnostics.
-  - [x] Focused native target construction, shader-source assertions, and
-        focused tests compile cleanly. Invalid candidate-request diagnostics
-        remain pending because no renderer-facing candidate request exists.
+  - [x] Native and browser executables import the same exact fixture,
+        corpus-local WGSL generator, threshold, viewport, UV geometry, and
+        visual layout constants from `hello-alpha-policy`.
+- [x] Retain shader/pipeline validation failures and backend diagnostics.
+  - [x] The corpus retains a typed provider-neutral rejection for a missing
+        custom candidate shader; it cannot fall back to an opaque/default
+        pipeline.
+  - [x] The existing generic `hello-shader --backend-diagnostic-fixture` path
+        registered deliberately invalid WGSL on the native backend, drained the
+        renderer diagnostic sink, preserved its module and entry-point identity,
+        and exited without submitting the invalid pipeline. Alpha policy reuses
+        that backend evidence rather than duplicating a malformed-shader
+        mechanism.
 
 Acceptance criteria:
 
@@ -279,107 +296,299 @@ Acceptance criteria:
 - [ ] Threshold ownership and comparison semantics are explicit and tested.
 - [ ] Native and browser observations agree on categorical outcomes, or the
       study retains a precise cross-target blocker.
+  - [x] Native AMD/Vulkan observation agrees with the headless oracle.
+  - [x] Browser/WASM source compiles, bindings generate, the local host serves,
+        adapter/device preflight succeeds, and first presentation is observed.
+  - [x] Browser/WebGPU observation matches the native categorical interior
+        threshold result. The browser does not expose a useful adapter name;
+        that absence is retained in the observation rather than inferred.
 
 ### Slice 3: Compare Blending, Depth, And Caller Ordering
 
 Deliverables:
 
-- [ ] Exercise the continuous-gradient and mixed-alpha fixtures with straight
+- [x] Implement a native corpus-local comparison with fixed RGBA8 source
+      data, explicit `AlphaBlend`, caller submission order, and separately
+      declared depth-write states.
+  - [x] `native_blend_scene` holds source texture, UVs, camera, blend equation,
+        and transforms constant across its far-then-near, near-then-far,
+        depth-write-off, and depth-write-on panels.
+  - [x] Retain native first-presentation and visual observations before treating
+        the candidate execution as demonstrated.
+    - [x] AR-0024 localized the first empty frame to positive world Z mapping
+          outside WebGPU's clip-depth interval under Tokimu's current GL-style
+          projection. Maintainers selected explicit WGPU-boundary conversion;
+          both upload paths now share the tested mapping and the corpus has
+          restored positive GL depths. AMD/Vulkan visibly presented all panels,
+          the opaque control, and `diagnostic=none`; the retained observation
+          is `native-blend-observation-2026-08-09.md`.
+- [x] Exercise the continuous-gradient and mixed-alpha fixtures with straight
       source-alpha blending.
-- [ ] Compare explicit depth writes on and off; do not inherit a default and
+  - [x] Native `native_blend_scene` uploads both immutable sources. Its
+        upper-left control blends all 256 continuous-alpha bytes over opaque
+        blue; its four comparison panels retain `mixed-alpha` for ordering and
+        depth-write differences.
+  - [x] Browser/WASM `?mode=blend` imports the same gradient and mixed-alpha
+        source identities, blend WGSL, layout, camera depths, and declared
+        pipeline states from `hello-alpha-policy`.
+  - [x] Native AMD/Vulkan observation retained
+        `native-blend-observation-2026-08-09.md`: the added gradient and all
+        four comparison panels visibly presented; first=12 draws/12 material
+        resolutions/6 pipeline switches/13 binding allocations and warm=the
+        same draws/material/pipeline work with zero binding allocations,
+        uniform writes, and mesh uploads.
+  - [x] Browser/WASM observation retained
+        `browser-blend-observation-2026-08-09.md`: the gradient, both caller
+        orders, and both depth-write states visibly presented with 12 draws and
+        `diagnostic=none`; its identical warm frame retained the same
+        draw/material/pipeline work with zero binding allocations and mesh
+        uploads.
+- [x] Compare explicit depth writes on and off; do not inherit a default and
       call it correct.
-- [ ] Submit overlapping translucent quads front-to-back and back-to-front,
+- [x] Submit overlapping translucent quads front-to-back and back-to-front,
       retaining the exact caller sequence in every observation.
-- [ ] Define an experimental way for the caller to state ordering intent or
+  - [x] The corpus-only fixed `LessEqual` depth oracle proves that the same
+        far/near reversal preserves opaque and retained-cutout output when
+        those profiles write depth, while no-depth-write Blend changes output.
+        This is a bounded reference result, not a renderer sorting contract.
+- [x] Instrument the existing renderer behavior before proposing submission,
+      shader-resource, batching, or ordering vocabulary.
+  - [x] The fixtures retain the current submission sequence; WGPU reports
+        per-frame material resolutions, pipeline switches, binding allocations,
+        uniform writes, and mesh uploads without introducing a render queue or
+        a public shader-resource contract.
+  - [x] The native fixture uploads fixed meshes and its initial camera before
+        its frame boundary, so its second frame reports renderer reuse rather
+        than fixture-authored static-mesh churn. The browser fixture presents
+        the identical command array twice to retain first-versus-warm counters.
+  - [x] Retain the updated native and browser first-versus-warm observations.
+    - [x] Browser/WASM retained first=12 draws/12 material resolutions/6
+          pipeline switches/13 binding allocations/0 mesh uploads and warm=12
+          draws/12 material resolutions/6 pipeline switches/0 binding
+          allocations/0 mesh uploads, with `diagnostic=none`.
+    - [x] Native AMD/Vulkan retained the same setup-to-warm reuse result as
+          browser/WASM: thirteen first-frame binding allocations and zero
+          warm-frame binding allocations, uniform writes, or mesh uploads.
+        A binding allocation is a provider-observable resource allocation, not
+        a claim that all providers expose WGPU bind groups.
+- [x] Define an experimental way for the caller to state ordering intent or
       record that no adequate diagnosable declaration was found.
-- [ ] Reject any case that claims correct general blending while ordering
+  - [x] The corpus-local `StudyProfile::Blend` requires `CallerOrdering`, and
+        records typed missing, empty, empty-identity, and duplicate-identity
+        rejections. The frozen scene manifest and both executable fixtures
+        retain far-then-near, near-then-far, and near-then-far-with-depth-write
+        sequences; no renderer ordering contract is proposed.
+- [x] Reject any case that claims correct general blending while ordering
       responsibility is absent or ambiguous.
-- [ ] Exercise recovery after invalid/unsupported state without losing the
+  - [x] Missing, empty, and duplicate caller-order declarations are typed corpus
+        rejections; valid observations retain the exact source order. No
+        renderer ordering or general-correctness claim is made.
+- [x] Exercise recovery after invalid/unsupported state without losing the
       next valid frame.
+  - [x] Both native and browser Slice 3 setup deliberately reject a depth-write
+        request with `DepthTest::Disabled` before preparing their valid fixed
+        scene. Browser/WASM then presented valid first and warm frames; native
+        AMD/Vulkan likewise visibly presented the expanded first and warm
+        frames. Both targets retain rejection before valid setup and later
+        successful presentation.
 
 Acceptance criteria:
 
-- [ ] Evidence separates blend factors, depth writes, and draw ordering rather
+- [x] Evidence separates blend factors, depth writes, and draw ordering rather
       than treating them as one switch.
-- [ ] “Caller-owned ordering” is visible in retained input and diagnostics.
-- [ ] No renderer-owned sorting service is introduced by implication.
+- [x] “Caller-owned ordering” is visible in retained input and diagnostics.
+  - [x] The corpus records exact caller submission input and provider-observable
+        pipeline/material/resource-churn counters.
+  - [x] Missing, empty, empty-identity, and duplicate ordering declarations
+        have typed corpus rejections. Valid renderer frames correctly report
+        `diagnostic=none`; no public Blend ordering diagnostic is admitted.
+- [x] No renderer-owned sorting service is introduced by implication.
 
 ### Slice 4: Exercise Interaction And Cross-Target Behavior
 
 Deliverables:
 
-- [ ] Run cutout in front of opaque geometry, blend in front of opaque
+- [x] Run cutout in front of opaque geometry, blend in front of opaque
       geometry, and intersecting cutout/blend geometry.
-- [ ] Render identical RGBA8, geometry, UV, camera, and transforms under every
-      candidate profile.
-- [ ] Execute the full minimum matrix on native WGPU and browser/WebGPU using
+  - [x] Add one fixed native/browser interaction scene with three panels:
+        categorical cutout over opaque, continuous Blend over opaque, and a
+        cutout plane crossing a sloped blended plane over opaque backing.
+    - [x] Native `native_interaction_scene` uses the fixed shared layouts and
+          exact binary-mask/mixed-alpha fixture identities. Its sloped mesh
+          test proves vertices occur on both sides of the cutout depth.
+    - [x] Native AMD/Vulkan visual observation retained in
+          `native-interaction-observation-2026-08-09.md`: seven draws with no
+          diagnostic; categorical cutout, continuous Blend, and the
+          depth-crossing interaction are separately visible. It records the
+          source build identity and locked interaction manifest
+          `0a99c714c258bac7f91eb5dd39748651abca8db96bfc1a410d823a18d2c23d93`.
+    - [x] Browser/WASM `?mode=interaction` realizes the same three fixed
+          panels, shared texture identities, UV-bearing meshes, camera,
+          transforms, submission order, and declared depth states. The
+          `wasm32-unknown-unknown` build and binding generation succeed; the
+          browser adapter/device/first-presentation observation is retained in
+          `browser-interaction-observation-2026-08-09.md`.
+  - [x] Keep source fixtures, UVs, camera, transforms, declared depth states,
+        and submission order manifest-locked for each panel. The crossing case
+        must use geometry that actually meets in depth, not only screen-space
+        overlap. Shared constants define the panel layout and depths; native
+        and browser issue the same seven draws: opaque backing then cutout;
+        opaque backing then no-depth-write Blend; opaque backing then
+        depth-writing sloped Blend then cutout.
+- [x] Render identical RGBA8, geometry, UV, camera, and transforms under every
+      candidate profile. Slice 2 supplies the same-texture profile comparison;
+      the Slice 4 panels retain the independently meaningful binary-mask and
+      mixed-alpha consumers without changing their per-panel inputs.
+- [x] Execute the full minimum matrix on native WGPU and browser/WebGPU using
       the established asynchronous browser readiness/presentation pattern.
-- [ ] Retain adapter, backend, device kind, viewport, build identity, fixture
+- [x] Retain adapter, backend, device kind, viewport, build identity, fixture
       hash, scene hash, and presented-frame status.
   - [ ] Retain NVIDIA execution evidence when suitable hardware becomes
         available; until then, report NVIDIA as an explicit coverage gap rather
         than silently reducing the adapter matrix.
-- [ ] Capture fixed-camera visual observations without pixel-golden claims.
-- [ ] Compare structural observations across targets before interpreting image
-      differences.
+- [x] Capture fixed-camera visual observations without pixel-golden claims.
+- [x] Compare structural observations across targets before interpreting image
+      differences. Both targets retain the same manifest, viewport, source
+      fixture hashes, seven submissions, first-presentation status, and
+      `diagnostic=none`; visual agreement is interpreted only at that bounded
+      scene level.
 
 Acceptance criteria:
 
-- [ ] A reviewer can identify whether a difference came from policy, depth,
+- [x] A reviewer can identify whether a difference came from policy, depth,
       order, input, or target.
-- [ ] Successful compilation, adapter acquisition, device readiness, and first
+- [x] Successful compilation, adapter acquisition, device readiness, and first
       presentation remain separate states.
-- [ ] Cross-target failure is retained as evidence and does not silently reduce
-      the matrix.
+- [x] Cross-target failure is retained as evidence and does not silently reduce
+      the matrix. No available-target failure occurred; NVIDIA remains an
+      explicit uncovered target rather than an implied pass.
+
+Slice 4 is complete for the available native AMD/Vulkan and browser/WebGPU
+paths. NVIDIA execution remains parked as the repository-wide explicit
+coverage gap, not as a blocker to interpreting this bounded cross-target
+comparison.
 
 ### Slice 5: Independent Real-Caller Pressure
 
 Deliverables:
 
-- [ ] Select at least one source-traceable Doom masked-middle case and lower
+- [x] Select at least one source-traceable Doom masked-middle case and lower
       its classification into the experimental generic cutout candidate.
-- [ ] Keep Doom threshold choice and original-behavior claims at the Doom
-      consumer boundary; pass only generic declared intent onward.
-- [ ] Select a separate first-party continuous-alpha consumer that genuinely
+      E1M1 retains 13 source classifications across four texture names and
+      lowers 26 non-degenerate wall triangles; see
+      [E1M1 masked-middle cutout intake evidence](DOOM/E1M1%20masked-middle%20cutout%20intake%20evidence.md).
+- [x] Keep Doom threshold choice and original-behavior claims at the Doom
+      consumer boundary; pass only generic declared intent onward. The local
+      binary-coverage experiment declares discard at or below RGBA8 alpha zero
+      with depth write enabled. It changes neither the opaque E1M1 draw plan
+      nor any renderer contract.
+- [x] Select a separate first-party continuous-alpha consumer that genuinely
       needs blending and does not borrow Doom as a synthetic justification.
-- [ ] Compare each real caller against the matching shared fixture behavior.
+      `hello-glb`'s application-owned inspection state makes the retained Box
+      mesh continuously translucent at opacity `0.35`, retaining alpha blend,
+      disabled depth writes, and explicitly limited submission-order behavior.
+      Its opacity override is independent of its GLB source material and of
+      Doom; its focused policy tests pass.
+- [x] Compare each real caller against the matching shared fixture behavior.
+  - [x] The E1M1 opt-in cutout path reached native AMD/Vulkan first-frame
+        initialization with the shared fixture's corresponding explicit
+        opaque/depth-writing state and 26 additional source-selected draws.
+        This is structural integration evidence only; a fixed-camera native
+        visual capture remains open.
+  - [x] The existing Rust/WASM browser workbench now builds a separate local
+        `render_static_e1m1_masked_cutouts(canvas)` request and regenerates its
+        bindings/TypeScript surface. Its normal opaque request remains isolated
+        from candidate preparation and custom-pipeline validation.
+  - [x] Browser/WebGPU visibly presented the selected canonical package through
+        both fixed-camera actions: opaque `1835` draws and masked-cutout `1861`
+        draws. The workbench returned `cutouts=false`/`true` respectively with
+        `backend=browser-webgpu`, `device=other`, blank adapter identity, and
+        `canvas=960x600`; this is retained bounded visual evidence, not
+        pixel-golden or stable-contract evidence.
 - [ ] Record migration/API pressure, diagnostics quality, native/WASM behavior,
       and any duplicated or awkward vocabulary.
+  - [x] Retain the initial caller-to-fixture mapping and boundary/API-pressure
+        comparison in
+        [Alpha-policy real-caller comparison](alpha-policy-real-caller-comparison.md).
+        The E1M1 browser observation is retained; native E1M1 and transparent
+        GLB visual comparisons remain open and are not represented as completed
+        two-caller evidence.
+  - [x] The GLB capture entry now freezes its normal orbit/mesh transforms at
+        the initial frame. Its valid AMD/Vulkan first frame retained two draws,
+        four setup binding allocations, and no uniform or mesh uploads; warm
+        frames retained the same two draws with zero new bindings, uniform
+        writes, or mesh uploads. This is diagnostics/performance evidence, not
+        a visual or browser comparison.
+  - [x] A reviewer visibly observed the frozen native GLB capture with the
+        translucent Box over its opaque floor and title
+        `presentation=transparent`. The GLB entry intentionally remains native
+        only; its shared-fixture counterpart, rather than a new browser GLB
+        application, supplies the browser/WASM Blend observation.
 
 Acceptance criteria:
 
-- [ ] Cutout has independent real pressure beyond the synthetic fixture.
-- [ ] Blending is not admitted without an independent continuous-alpha caller.
-- [ ] Neither caller passes format-specific types or policy inference into the
-      renderer.
+- [x] Cutout has independent real pressure beyond the synthetic fixture.
+- [x] Blending is not admitted without an independent continuous-alpha caller.
+      `hello-glb` supplies the required independent caller, but AR-0023 still
+      admits neither Blend nor cutout as a stable renderer capability.
+- [x] Neither caller passes format-specific types or policy inference into the
+      renderer. The retained boundary table separates source ownership from
+      renderer-facing generic intent.
+- [x] The real callers map to separate shared-fixture roles without forcing a
+      shared public alpha vocabulary, renderer-owned ordering service, shader
+      resource interface, PBR contract, or source-format renderer term.
 
 ### Slice 6: Performance, Failure Containment, And Review
 
 Deliverables:
 
-- [ ] Apply ADR-0008's full performance gate to any proposed stable renderer
+- [x] Apply ADR-0008's full performance gate to any proposed stable renderer
       crossing: pipeline variants, shader branching, allocation, batching,
       draw-order preparation, native behavior, and the sequential WASM path.
-- [ ] Apply ADR-0009's verification/failure-containment gate: unit tests,
+  - [x] Retain the pre-admission gate ledger in
+        [Alpha-policy Slice 6 gate review](alpha-policy-slice6-gate-review.md).
+        No stable crossing is proposed, so the implementation-specific full
+        gate is explicitly pending rather than ritualistically marked passed.
+- [x] Apply ADR-0009's verification/failure-containment gate: unit tests,
       corpus tests, malformed inputs, backend failures, error capture, recovery,
       and retained evidence.
-- [ ] Verify no source-alpha scan or heuristic occurs on the steady-state draw
+  - [x] The same ledger records the existing typed invalid-input, shader/
+        state rejection, valid-frame recovery, diagnostic, and containment
+        evidence—and its deliberate recovery limits.
+- [x] Verify no source-alpha scan or heuristic occurs on the steady-state draw
       path to select policy.
-- [ ] Compare API pressure for separate cutout/blend declarations against a
+  - [x] Candidate selection and source decoding happen in bounded preparation;
+        fixed frame submission consumes prebuilt meshes/materials/pipelines.
+- [x] Compare API pressure for separate cutout/blend declarations against a
       common policy shape without making either public prematurely.
-- [ ] Update AR-0023 with findings, rejected shapes, unresolved questions, and
+  - [x] The ledger rejects a common public policy shape because cutout and
+        Blend differ in threshold, depth, and ordering ownership.
+- [x] Update AR-0023 with findings, rejected shapes, unresolved questions, and
       a disposition.
-- [ ] Create or revise an ADR only for semantics the review accepts as a
+  - [x] Cycle 26 retains the gate ledger and completes the pre-admission review;
+        it deliberately leaves the stable disposition to maintainer judgment.
+- [x] Create or revise an ADR only for semantics the review accepts as a
       stable renderer contract.
+  - [x] ADR-0013 admits categorical Cutout only; it expressly keeps Blend
+        incubating and rejects a common alpha-policy shape.
 
 Acceptance criteria:
 
-- [ ] Every proposed admission has an independent caller, native/browser
+- [x] Every proposed admission has an independent caller, native/browser
       evidence, negative tests, diagnostics, and proportional performance
       evidence.
-- [ ] “N/A” gate answers carry a local reason.
-- [ ] The review can choose among the dispositions below without treating a
+  - [x] The review proposes no stable admission; the retained ledger records
+        what the corpus evidence proves and what future implementation evidence
+        would still be required for each candidate.
+- [x] “N/A” gate answers carry a local reason.
+  - [x] The Slice 6 ledger records why no implementation-specific full gate,
+        benchmark, recovery service, or ADR can exist before a stable crossing
+        is selected.
+- [x] The review can choose among the dispositions below without treating a
       successful demo as automatic admission.
+  - [x] The maintainer selected bounded Cutout after the evidence split it from
+        Blend; `docs/Plans/categorical-cutout-capability-admission.md` carries
+        the remaining concrete implementation and full-gate work.
 
 ## Candidate Review Outcomes
 

@@ -11,8 +11,9 @@ use doom_wad_package::{read_wad_package_member, InspectWadPackageRequest};
 use doom_wad_provider::WadReadLimits;
 use hello_doom_e1m1::{
     build_static_draw_plan, build_static_texture_uploads, fully_omitted_wall_details,
-    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_wall_textures, prepare_e1m1_walls,
-    prepared_e1m1_scene_report,
+    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
+    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
+    prepared_e1m1_scene_report, StaticTextureEligibility,
 };
 use resource_space::{
     AddressCasePolicy, FolderId, InMemoryResourceSpace, ResourceMetadata, ResourceName,
@@ -132,6 +133,12 @@ fn preflight(package: &str, member: &str) -> Result<String, Box<dyn std::error::
         MAP_LIMITS,
         TEXTURE_LIMITS,
     )?;
+    let masked_middle_cutouts = prepare_e1m1_masked_middle_cutouts(
+        &read.bytes,
+        &read.observation.wad,
+        MAP_LIMITS,
+        TEXTURE_LIMITS,
+    )?;
     let flat_textures = prepare_e1m1_flat_textures(
         &read.bytes,
         &read.observation.wad,
@@ -144,6 +151,16 @@ fn preflight(package: &str, member: &str) -> Result<String, Box<dyn std::error::
         &read.bytes,
         &read.observation.wad,
         &names,
+        RASTER_LIMITS,
+        TEXTURE_LIMITS,
+        PATCH_LIMITS,
+        COMPOSE_LIMITS,
+    )?;
+    let masked_middle_names = prepared_e1m1_masked_middle_texture_names(&walls);
+    let masked_middle_textures = prepare_e1m1_wall_textures(
+        &read.bytes,
+        &read.observation.wad,
+        &masked_middle_names,
         RASTER_LIMITS,
         TEXTURE_LIMITS,
         PATCH_LIMITS,
@@ -163,8 +180,29 @@ fn preflight(package: &str, member: &str) -> Result<String, Box<dyn std::error::
         })
         .collect::<Vec<_>>()
         .join(",");
+    let masked_middle_coverage = masked_middle_textures
+        .iter()
+        .map(|texture| match &texture.eligibility {
+            StaticTextureEligibility::Opaque(opaque) => {
+                format!("{}:fully-covered", opaque.texture_name)
+            }
+            StaticTextureEligibility::DeferredAlpha {
+                texture_name,
+                uncovered_pixels,
+                ..
+            } => format!("{texture_name}:uncovered={uncovered_pixels}"),
+        })
+        .collect::<Vec<_>>()
+        .join(",");
     Ok(format!(
-        "{report} static_uploads={} static_draws={} static_upload_inventory=[{inventory}] fully_omitted_wall_details={details:?}",
+        "{report} masked_middle_texture_names={masked_middle_names:?} masked_middle_coverage=[{masked_middle_coverage}] experimental_cutout_candidates={} experimental_cutout_omitted_degenerate={} experimental_cutout_intent={:?} static_uploads={} static_draws={} static_upload_inventory=[{inventory}] fully_omitted_wall_details={details:?}",
+        masked_middle_cutouts.assembly.candidates.len(),
+        masked_middle_cutouts.assembly.omitted_degenerate.len(),
+        masked_middle_cutouts
+            .assembly
+            .candidates
+            .first()
+            .map(|candidate| candidate.intent),
         uploads.len(),
         draws.len(),
     ))

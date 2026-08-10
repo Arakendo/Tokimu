@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-alpha-policy-state="loading">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tokimu Alpha Policy Comparison</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><p class="eyebrow">AR-0023 · Browser/WASM evidence</p><h1>Alpha policy comparison</h1></div>
+        <p id="status" role="status">loading WASM</p>
+      </header>
+      <section class="labels" id="comparison-labels"><span>opaque</span><span>discard &lt; 128/255</span><span>discard &lt;= 128/255</span></section>
+      <canvas id="alpha-policy-canvas" width="960" height="600"></canvas>
+      <footer>Identical RGBA8 source · explicit opaque depth writes · no inferred alpha policy</footer>
+    </main>
+    <script type="module">
+      const status = document.querySelector("#status");
+      const fail = (kind, detail) => {
+        document.documentElement.dataset.alphaPolicyState = kind;
+        status.textContent = `${kind} | ${detail}`;
+      };
+      window.addEventListener("error", event => fail("failed", event.error?.stack ?? event.message));
+      window.addEventListener("unhandledrejection", event => fail("failed", event.reason?.stack ?? event.reason));
+      const within = (promise, ms, label) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms))]);
+      if (!("gpu" in navigator)) {
+        fail("unsupported", "this browser does not expose WebGPU");
+      } else {
+        try {
+          status.textContent = "checking browser WebGPU adapter";
+          const adapter = await within(navigator.gpu.requestAdapter(), 5000, "adapter request");
+          if (!adapter) throw new Error("browser did not provide a WebGPU adapter");
+          status.textContent = "checking browser WebGPU device";
+          await within(adapter.requestDevice(), 5000, "device request");
+          status.textContent = "browser preflight ready | loading Tokimu WASM";
+          const query = new URLSearchParams(location.search);
+          const threshold = query.get("threshold") ?? "interior";
+          const mode = query.get("mode") ?? "cutout";
+          const {
+            default: init,
+            start_fixture: startFixture,
+            start_blend_fixture: startBlendFixture,
+            start_interaction_fixture: startInteractionFixture,
+          } = await import("./pkg/hello-alpha-policy-web.js");
+          await init();
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          if (mode === "interaction") {
+            document.querySelector("#comparison-labels").textContent = "cutout over opaque · blend over opaque · cutout / depth-crossing blend / opaque";
+            startInteractionFixture();
+          } else if (mode === "blend") {
+            document.querySelector("#comparison-labels").textContent = "continuous alpha · caller order (far → near / near → far) · depth write off / on";
+            startBlendFixture();
+          } else {
+            startFixture(threshold);
+          }
+          setTimeout(() => {
+            if (document.documentElement.dataset.alphaPolicyState === "loading") fail("unsupported", "Tokimu WebGPU initialization timed out after browser preflight");
+          }, 10000);
+        } catch (error) { fail("unsupported", error?.stack ?? error); }
+      }
+    </script>
+  </body>
+</html>

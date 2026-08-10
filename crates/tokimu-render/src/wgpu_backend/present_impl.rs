@@ -5,7 +5,7 @@ use crate::{RenderFrameCpuTimings, RenderStats, Renderer};
 use super::cpu_timer::CpuTimer;
 use super::material_support::derived_material_key;
 use super::{
-    GpuCameraBinding, GpuCameraUniform, GpuInstanceBinding, GpuInstanceUniform, WgpuBackend,
+    wgpu_camera_uniform, GpuCameraBinding, GpuInstanceBinding, GpuInstanceUniform, WgpuBackend,
     WgpuBackendError,
 };
 
@@ -86,9 +86,7 @@ impl WgpuBackend {
                 .get(&camera_handle)
                 .copied()
                 .unwrap_or_default();
-            let uniform = GpuCameraUniform {
-                view_projection: (camera.projection * camera.view).to_cols_array_2d(),
-            };
+            let uniform = wgpu_camera_uniform(camera);
             if let Some(binding) = self.camera_bindings.get_mut(&camera_handle) {
                 if binding.uniform != uniform {
                     self._queue

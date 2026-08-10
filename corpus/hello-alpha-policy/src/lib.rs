@@ -10,6 +10,31 @@ use thiserror::Error;
 
 pub const VIEWPORT: [u32; 2] = [960, 600];
 pub const INTERIOR_THRESHOLD: f32 = 128.0 / 255.0;
+pub const VISUAL_PROFILE_TRANSLATIONS: [[f32; 2]; 3] = [[-1.0, 0.35], [0.0, 0.35], [1.0, 0.35]];
+pub const VISUAL_PROFILE_SCALE: [f32; 2] = [0.52, 0.52];
+pub const VISUAL_DEPTH_TRANSLATION: [f32; 2] = [0.0, -0.55];
+pub const VISUAL_DEPTH_SCALE: [f32; 2] = [0.95, 0.36];
+pub const VISUAL_FOREGROUND_DEPTH: f32 = 0.0;
+pub const VISUAL_BACKGROUND_DEPTH: f32 = 0.5;
+pub const BLEND_NEAR_DEPTH: f32 = 0.5;
+pub const BLEND_FAR_DEPTH: f32 = 0.25;
+pub const BLEND_BACKGROUND_DEPTH: f32 = 0.0;
+pub const BLEND_REFERENCE_DEPTH: f32 = 0.75;
+pub const BLEND_PANEL_SCALE: [f32; 2] = [0.64, 0.44];
+pub const BLEND_PANELS: [[f32; 2]; 4] =
+    [[-0.55, 0.36], [0.55, 0.36], [-0.55, -0.44], [0.55, -0.44]];
+pub const BLEND_FAR_OFFSET: [f32; 2] = [-0.09, 0.0];
+pub const BLEND_NEAR_OFFSET: [f32; 2] = [0.09, 0.0];
+pub const BLEND_REFERENCE_TRANSLATION: [f32; 2] = [-0.84, 0.84];
+pub const INTERACTION_PANELS: [[f32; 2]; 3] = [[-0.58, 0.34], [0.58, 0.34], [0.0, -0.46]];
+pub const INTERACTION_PANEL_SCALE: [f32; 2] = [0.68, 0.42];
+// Under the established 2D orthographic fixture camera, larger positive
+// Tokimu Z is nearer after the WGPU boundary conversion. Keep the backing at
+// zero and make the sloped Blend cross the fixed cutout plane at 0.5.
+pub const INTERACTION_BACKGROUND_DEPTH: f32 = 0.0;
+pub const INTERACTION_FOREGROUND_DEPTH: f32 = 0.5;
+pub const INTERACTION_BLEND_LEFT_DEPTH: f32 = 0.6;
+pub const INTERACTION_BLEND_RIGHT_DEPTH: f32 = 0.3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -184,6 +209,68 @@ pub enum ThresholdComparison {
     DiscardAtOrBelow,
 }
 
+/// Builds the corpus-local cutout realization shared by native and browser
+/// targets. This is executable study evidence, not admitted renderer
+/// vocabulary or a proposed stable shader-authoring contract.
+pub fn cutout_shader_source(comparison: ThresholdComparison, threshold: CutoutThreshold) -> String {
+    let operator = match comparison {
+        ThresholdComparison::DiscardBelow => "<",
+        ThresholdComparison::DiscardAtOrBelow => "<=",
+    };
+    let threshold = threshold.get();
+    format!(
+        r#"
+@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(0) @binding(1) var material_texture: texture_2d<f32>;
+@group(0) @binding(2) var material_sampler: sampler;
+struct InstanceParams {{ translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, }};
+@group(1) @binding(0) var<uniform> instance_params: InstanceParams;
+@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
+struct VertexOutput {{ @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, }};
+@vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) _normal: vec3<f32>, @location(2) uv: vec2<f32>) -> VertexOutput {{
+    let scaled = position.xy * instance_params.scale;
+    let rotated = vec2<f32>((scaled.x * instance_params.rotation.y) - (scaled.y * instance_params.rotation.x), (scaled.x * instance_params.rotation.x) + (scaled.y * instance_params.rotation.y));
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(rotated.x + instance_params.translation.x, rotated.y + instance_params.translation.y, position.z, 1.0);
+    output.uv = uv;
+    return output;
+}}
+@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {{
+    let sampled = textureSample(material_texture, material_sampler, uv) * material_color;
+    if (sampled.a {operator} {threshold:.7}) {{ discard; }}
+    return sampled;
+}}
+"#
+    )
+}
+
+/// Builds the corpus-local straight-alpha blend realization used by the
+/// ordering/depth comparison. The blend equation remains the experimental
+/// pipeline state; this shader merely preserves the supplied RGBA sample.
+/// It is not a public shader or material contract.
+pub fn blend_shader_source() -> &'static str {
+    r#"
+@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(0) @binding(1) var material_texture: texture_2d<f32>;
+@group(0) @binding(2) var material_sampler: sampler;
+struct InstanceParams { translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, };
+@group(1) @binding(0) var<uniform> instance_params: InstanceParams;
+@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
+struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
+@vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) _normal: vec3<f32>, @location(2) uv: vec2<f32>) -> VertexOutput {
+    let scaled = position.xy * instance_params.scale;
+    let rotated = vec2<f32>((scaled.x * instance_params.rotation.y) - (scaled.y * instance_params.rotation.x), (scaled.x * instance_params.rotation.x) + (scaled.y * instance_params.rotation.y));
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(rotated.x + instance_params.translation.x, rotated.y + instance_params.translation.y, position.z, 1.0);
+    output.uv = uv;
+    return output;
+}
+@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    return textureSample(material_texture, material_sampler, uv) * material_color;
+}
+"#
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CallerOrdering {
     draw_ids: Vec<String>,
@@ -345,6 +432,99 @@ pub struct SceneCase {
     pub fixture: FixtureId,
     pub draws: Vec<StudyDraw>,
     pub variable: &'static str,
+}
+
+/// Fixed Slice 4 submission evidence shared by the native and browser
+/// realizations. This is corpus-local manifest data, not renderer vocabulary.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct InteractionManifest {
+    pub viewport: [u32; 2],
+    pub panels: [[f32; 2]; 3],
+    pub panel_scale: [f32; 2],
+    pub backing_depth: f32,
+    pub cutout_depth: f32,
+    pub blend_left_depth: f32,
+    pub blend_right_depth: f32,
+    pub binary_fixture_fingerprint_blake3: String,
+    pub mixed_fixture_fingerprint_blake3: String,
+    pub submissions: Vec<InteractionSubmission>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct InteractionSubmission {
+    pub id: &'static str,
+    pub fixture: Option<FixtureId>,
+    pub profile: &'static str,
+    pub depth_shape: &'static str,
+}
+
+pub fn interaction_manifest() -> InteractionManifest {
+    let fixture_fingerprint = |id| {
+        fixtures()
+            .into_iter()
+            .find(|fixture| fixture.id() == id)
+            .expect("fixed alpha fixture exists")
+            .fingerprint_blake3()
+    };
+    InteractionManifest {
+        viewport: VIEWPORT,
+        panels: INTERACTION_PANELS,
+        panel_scale: INTERACTION_PANEL_SCALE,
+        backing_depth: INTERACTION_BACKGROUND_DEPTH,
+        cutout_depth: INTERACTION_FOREGROUND_DEPTH,
+        blend_left_depth: INTERACTION_BLEND_LEFT_DEPTH,
+        blend_right_depth: INTERACTION_BLEND_RIGHT_DEPTH,
+        binary_fixture_fingerprint_blake3: fixture_fingerprint(FixtureId::BinaryMask),
+        mixed_fixture_fingerprint_blake3: fixture_fingerprint(FixtureId::MixedAlpha),
+        submissions: vec![
+            interaction_submission("cutout-backing", None, "opaque", "flat-backing"),
+            interaction_submission(
+                "cutout-foreground",
+                Some(FixtureId::BinaryMask),
+                "cutout-discard-below-depth-write",
+                "flat-foreground",
+            ),
+            interaction_submission("blend-backing", None, "opaque", "flat-backing"),
+            interaction_submission(
+                "blend-foreground",
+                Some(FixtureId::MixedAlpha),
+                "blend-no-depth-write",
+                "flat-foreground",
+            ),
+            interaction_submission("crossing-backing", None, "opaque", "flat-backing"),
+            interaction_submission(
+                "crossing-blend",
+                Some(FixtureId::MixedAlpha),
+                "blend-depth-write",
+                "sloped-left-near-right-far",
+            ),
+            interaction_submission(
+                "crossing-cutout",
+                Some(FixtureId::BinaryMask),
+                "cutout-discard-below-depth-write",
+                "flat-foreground",
+            ),
+        ],
+    }
+}
+
+pub fn interaction_manifest_fingerprint() -> Result<String, serde_json::Error> {
+    let json = serde_json::to_vec(&interaction_manifest())?;
+    Ok(blake3::hash(&json).to_hex().to_string())
+}
+
+const fn interaction_submission(
+    id: &'static str,
+    fixture: Option<FixtureId>,
+    profile: &'static str,
+    depth_shape: &'static str,
+) -> InteractionSubmission {
+    InteractionSubmission {
+        id,
+        fixture,
+        profile,
+        depth_shape,
+    }
 }
 
 pub fn scene_cases() -> Vec<SceneCase> {
@@ -698,6 +878,31 @@ mod tests {
         values.iter().map(|value| (*value).to_owned()).collect()
     }
 
+    // Corpus-only reference compositor for the fixed LessEqual-depth cases.
+    // It establishes the question the visual fixtures exercise; it does not
+    // specify a renderer-owned ordering or depth API.
+    fn composite_layers(profile: &StudyProfile, layers: &[(f32, [u8; 4])]) -> [f32; 4] {
+        let mut destination = [0.0, 0.0, 0.0, 1.0];
+        let mut stored_depth = 1.0;
+        for (depth, source) in layers {
+            if *depth > stored_depth {
+                continue;
+            }
+            let observation = evaluate_fragment(profile, *source, denormalize(destination));
+            if let Some(result) = observation.resulting_rgba {
+                destination = result;
+                if observation.writes_depth {
+                    stored_depth = *depth;
+                }
+            }
+        }
+        destination
+    }
+
+    fn denormalize(rgba: [f32; 4]) -> [u8; 4] {
+        rgba.map(|channel| (channel * 255.0).round() as u8)
+    }
+
     #[test]
     fn fixture_matrix_is_complete_and_well_formed() {
         let fixtures = fixtures();
@@ -809,6 +1014,39 @@ mod tests {
         );
         assert_eq!(
             evaluate_fragment(&at_or_below, equal, [0; 4]).action,
+            FragmentAction::Discard
+        );
+    }
+
+    #[test]
+    fn zero_and_one_thresholds_keep_their_explicit_boundary_meanings() {
+        let transparent = [255, 255, 255, 0];
+        let opaque = [255, 255, 255, 255];
+        let zero = CutoutThreshold::new(0.0).unwrap();
+        let one = CutoutThreshold::new(1.0).unwrap();
+
+        let discard_below_zero =
+            StudyProfile::cutout(zero, ThresholdComparison::DiscardBelow, true);
+        let discard_at_or_below_zero =
+            StudyProfile::cutout(zero, ThresholdComparison::DiscardAtOrBelow, true);
+        assert_eq!(
+            evaluate_fragment(&discard_below_zero, transparent, [0; 4]).action,
+            FragmentAction::Keep
+        );
+        assert_eq!(
+            evaluate_fragment(&discard_at_or_below_zero, transparent, [0; 4]).action,
+            FragmentAction::Discard
+        );
+
+        let discard_below_one = StudyProfile::cutout(one, ThresholdComparison::DiscardBelow, true);
+        let discard_at_or_below_one =
+            StudyProfile::cutout(one, ThresholdComparison::DiscardAtOrBelow, true);
+        assert_eq!(
+            evaluate_fragment(&discard_below_one, opaque, [0; 4]).action,
+            FragmentAction::Keep
+        );
+        assert_eq!(
+            evaluate_fragment(&discard_at_or_below_one, opaque, [0; 4]).action,
             FragmentAction::Discard
         );
     }
@@ -928,6 +1166,40 @@ mod tests {
     }
 
     #[test]
+    fn opaque_and_cutout_are_depth_order_invariant_while_blend_is_not() {
+        let background = (0.9, [16, 32, 64, 255]);
+        let far = (0.65, [255, 0, 0, 128]);
+        let near = (0.35, [0, 255, 0, 128]);
+        let far_then_near = [background, far, near];
+        let near_then_far = [background, near, far];
+
+        let opaque = StudyProfile::opaque(true);
+        assert_eq!(
+            composite_layers(&opaque, &far_then_near),
+            composite_layers(&opaque, &near_then_far),
+            "opaque coverage remains governed by the nearer depth, not submission order"
+        );
+
+        let cutout = StudyProfile::cutout(
+            CutoutThreshold::new(INTERIOR_THRESHOLD).unwrap(),
+            ThresholdComparison::DiscardBelow,
+            true,
+        );
+        assert_eq!(
+            composite_layers(&cutout, &far_then_near),
+            composite_layers(&cutout, &near_then_far),
+            "retained cutout coverage remains governed by the nearer depth"
+        );
+
+        let blend = StudyProfile::blend(false, Some(ids(&["far", "near"]))).unwrap();
+        assert_ne!(
+            composite_layers(&blend, &far_then_near),
+            composite_layers(&blend, &near_then_far),
+            "continuous blending remains sensitive to caller submission order"
+        );
+    }
+
+    #[test]
     fn scene_fingerprints_match_the_retained_manifest() {
         let expected = BTreeMap::from([
             (
@@ -967,6 +1239,15 @@ mod tests {
                 case.id
             );
         }
+    }
+
+    #[test]
+    fn interaction_manifest_is_fingerprint_locked() {
+        assert_eq!(
+            interaction_manifest_fingerprint().unwrap(),
+            "0a99c714c258bac7f91eb5dd39748651abca8db96bfc1a410d823a18d2c23d93",
+            "Slice 4 source fixtures, layout, depths, or submission order drifted"
+        );
     }
 
     #[test]

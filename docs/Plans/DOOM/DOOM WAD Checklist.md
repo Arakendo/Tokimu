@@ -504,10 +504,12 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         rasters: palette zero, sRGB upload interpretation, and point/repeat
         sampling. A source raster with any uncovered pixel returns a counted
         deferred-alpha result rather than selecting blend or cutout behavior.
-  - [ ] Keep alpha/cutout open; do not treat the generic fixture's opaque
-        profile as masked-middle behavior. Alpha/cutout policy is tracked
-        separately by
-        [AR-0023](../../Architectural%20Reviews/AR-0023-textured-surface-alpha-and-depth-policy.md).
+  - [x] Preserve alpha/cutout as an AR-0023 decision rather than treating the
+        generic fixture's opaque profile as masked-middle behavior. E1M1's 13
+        source-classified masked middles now lower to 26 corpus-local
+        experimental cutout candidates under a Doom-owned binary-coverage
+        declaration; they remain outside the static opaque draw plan. See
+        [E1M1 masked-middle cutout intake evidence](E1M1%20masked-middle%20cutout%20intake%20evidence.md).
 - [x] Select either original view-dependent plane spans or a documented,
       intentionally non-equivalent plane mapping; do not imply that Slice 5's
       wall texel coordinates decide this.

@@ -1272,6 +1272,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-alpha-policy-web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "hello-alpha-policy",
+ "tokimu",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "hello-archive"
 version = "0.1.0"
 dependencies = [

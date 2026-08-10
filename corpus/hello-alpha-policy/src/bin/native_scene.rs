@@ -1,18 +1,22 @@
 //! Native Slice 2 visual comparison for AR-0023.
 //!
-//! The cutout shaders are deliberately corpus-local candidate mechanisms. They
-//! do not change `Textured3d`, introduce renderer vocabulary, or infer policy
-//! from the fixture bytes.
+//! The cutout profiles exercise ADR-0013's admitted renderer capability. The
+//! fixture still owns policy selection and does not infer it from source bytes.
 
 use std::{io, sync::Arc};
 
-use hello_alpha_policy::{fixtures, FixtureId, INTERIOR_THRESHOLD, VIEWPORT};
+use hello_alpha_policy::{
+    fixtures, FixtureId, INTERIOR_THRESHOLD, VIEWPORT, VISUAL_BACKGROUND_DEPTH, VISUAL_DEPTH_SCALE,
+    VISUAL_DEPTH_TRANSLATION, VISUAL_FOREGROUND_DEPTH, VISUAL_PROFILE_SCALE,
+    VISUAL_PROFILE_TRANSLATIONS,
+};
 use tokimu::{
-    run_window_with_app, BlendMode, Camera, CameraHandle, ClearCommand, Color, CullMode, DepthTest,
-    DrawMeshCommand, FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle,
-    NativeWindow, Pipeline, PipelineHandle, PipelineKind, PipelineRenderState,
-    PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer,
-    Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend, WindowConfig,
+    run_window_with_app, BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color,
+    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, FrameOutcome,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline, PipelineHandle,
+    PipelineKind, PipelineRenderState, PlatformEventHandler, PlatformInputEvent, PlatformResult,
+    RenderCommand, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle,
+    WgpuBackend, WindowConfig,
 };
 
 const CAMERA: CameraHandle = CameraHandle(1);
@@ -31,41 +35,69 @@ struct App {
     renderer: Option<WgpuBackend>,
     window: Option<Arc<NativeWindow>>,
     size: [f32; 2],
+    threshold: f32,
     opaque_pipeline: PipelineHandle,
     cutout_below_pipeline: PipelineHandle,
     cutout_at_or_below_pipeline: PipelineHandle,
     meshes: [(MeshHandle, Mesh); 5],
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    fn new(threshold: f32) -> Self {
         Self {
             renderer: None,
             window: None,
             size: [VIEWPORT[0] as f32, VIEWPORT[1] as f32],
+            threshold,
             opaque_pipeline: PipelineHandle(0),
             cutout_below_pipeline: PipelineHandle(0),
             cutout_at_or_below_pipeline: PipelineHandle(0),
             meshes: [
-                (OPAQUE_MESH, quad_at_depth(0.0)),
-                (CUTOUT_BELOW_MESH, quad_at_depth(0.0)),
-                (CUTOUT_AT_OR_BELOW_MESH, quad_at_depth(0.0)),
-                (DEPTH_BACKGROUND_MESH, quad_at_depth(0.5)),
-                (DEPTH_CUTOUT_MESH, quad_at_depth(0.0)),
+                (OPAQUE_MESH, quad_at_depth(VISUAL_FOREGROUND_DEPTH)),
+                (CUTOUT_BELOW_MESH, quad_at_depth(VISUAL_FOREGROUND_DEPTH)),
+                (
+                    CUTOUT_AT_OR_BELOW_MESH,
+                    quad_at_depth(VISUAL_FOREGROUND_DEPTH),
+                ),
+                (
+                    DEPTH_BACKGROUND_MESH,
+                    quad_at_depth(VISUAL_BACKGROUND_DEPTH),
+                ),
+                (DEPTH_CUTOUT_MESH, quad_at_depth(VISUAL_FOREGROUND_DEPTH)),
             ],
         }
     }
 }
 
 fn main() -> PlatformResult<()> {
+    let threshold = selected_threshold()?;
     run_window_with_app(
         WindowConfig {
             title: "Tokimu Alpha Policy | loading comparative cutout scene".into(),
             width: VIEWPORT[0],
             height: VIEWPORT[1],
         },
-        App::default(),
+        App::new(threshold),
     )
+}
+
+fn selected_threshold() -> PlatformResult<f32> {
+    let mut threshold = INTERIOR_THRESHOLD;
+    for argument in std::env::args().skip(1) {
+        threshold = match argument.as_str() {
+            "--threshold=0" => 0.0,
+            "--threshold=interior" => INTERIOR_THRESHOLD,
+            "--threshold=1" => 1.0,
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "expected --threshold=0, --threshold=interior, or --threshold=1",
+                )
+                .into())
+            }
+        };
+    }
+    Ok(threshold)
 }
 
 impl PlatformEventHandler for App {
@@ -104,18 +136,25 @@ impl PlatformEventHandler for App {
             &Pipeline::new("alpha-study-opaque", PipelineKind::Textured3d)
                 .with_render_state(opaque_state)?,
         )?;
-        self.cutout_below_pipeline = renderer.register_pipeline(
-            &Pipeline::custom_wgsl("alpha-study-cutout-below", cutout_shader("<"))
-                .with_render_state(opaque_state)?,
-        )?;
-        self.cutout_at_or_below_pipeline = renderer.register_pipeline(
-            &Pipeline::custom_wgsl("alpha-study-cutout-at-or-below", cutout_shader("<="))
-                .with_render_state(opaque_state)?,
-        )?;
+        self.cutout_below_pipeline = renderer.register_pipeline(&Pipeline::textured_3d_cutout(
+            "alpha-study-cutout-below",
+            CategoricalCutout::new(
+                CutoutThreshold::new(self.threshold)?,
+                CutoutComparison::DiscardBelow,
+            ),
+        ))?;
+        self.cutout_at_or_below_pipeline =
+            renderer.register_pipeline(&Pipeline::textured_3d_cutout(
+                "alpha-study-cutout-at-or-below",
+                CategoricalCutout::new(
+                    CutoutThreshold::new(self.threshold)?,
+                    CutoutComparison::DiscardAtOrBelow,
+                ),
+            ))?;
 
         window.set_title(&format!(
             "Tokimu Alpha Policy | opaque | cutout < / <= {:.7} | depth write | backend={} device={} adapter={}",
-            INTERIOR_THRESHOLD,
+            self.threshold,
             renderer.backend_api(),
             renderer.device_kind(),
             renderer.adapter_name(),
@@ -156,36 +195,36 @@ impl PlatformEventHandler for App {
                 OPAQUE_MESH,
                 MIXED_MATERIAL,
                 self.opaque_pipeline,
-                [-1.0, 0.35],
-                [0.52, 0.52],
+                VISUAL_PROFILE_TRANSLATIONS[0],
+                VISUAL_PROFILE_SCALE,
             ),
             draw(
                 CUTOUT_BELOW_MESH,
                 MIXED_MATERIAL,
                 self.cutout_below_pipeline,
-                [0.0, 0.35],
-                [0.52, 0.52],
+                VISUAL_PROFILE_TRANSLATIONS[1],
+                VISUAL_PROFILE_SCALE,
             ),
             draw(
                 CUTOUT_AT_OR_BELOW_MESH,
                 MIXED_MATERIAL,
                 self.cutout_at_or_below_pipeline,
-                [1.0, 0.35],
-                [0.52, 0.52],
+                VISUAL_PROFILE_TRANSLATIONS[2],
+                VISUAL_PROFILE_SCALE,
             ),
             draw(
                 DEPTH_BACKGROUND_MESH,
                 BACKGROUND_MATERIAL,
                 self.opaque_pipeline,
-                [0.0, -0.55],
-                [0.95, 0.36],
+                VISUAL_DEPTH_TRANSLATION,
+                VISUAL_DEPTH_SCALE,
             ),
             draw(
                 DEPTH_CUTOUT_MESH,
                 BINARY_MATERIAL,
                 self.cutout_below_pipeline,
-                [0.0, -0.55],
-                [0.95, 0.36],
+                VISUAL_DEPTH_TRANSLATION,
+                VISUAL_DEPTH_SCALE,
             ),
         ]);
         renderer.present()?;
@@ -258,41 +297,20 @@ impl MeshDepthExt for Mesh {
     }
 }
 
-fn cutout_shader(comparison: &str) -> String {
-    format!(
-        r#"
-@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
-@group(0) @binding(1) var material_texture: texture_2d<f32>;
-@group(0) @binding(2) var material_sampler: sampler;
-struct InstanceParams {{ translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, }};
-@group(1) @binding(0) var<uniform> instance_params: InstanceParams;
-@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
-struct VertexOutput {{ @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, }};
-@vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) _normal: vec3<f32>, @location(2) uv: vec2<f32>) -> VertexOutput {{
-    let scaled = position.xy * instance_params.scale;
-    let rotated = vec2<f32>((scaled.x * instance_params.rotation.y) - (scaled.y * instance_params.rotation.x), (scaled.x * instance_params.rotation.x) + (scaled.y * instance_params.rotation.y));
-    var output: VertexOutput;
-    output.position = camera_params * vec4<f32>(rotated.x + instance_params.translation.x, rotated.y + instance_params.translation.y, position.z, 1.0);
-    output.uv = uv;
-    return output;
-}}
-@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {{
-    let sampled = textureSample(material_texture, material_sampler, uv) * material_color;
-    if (sampled.a {comparison} {INTERIOR_THRESHOLD:.7}) {{ discard; }}
-    return sampled;
-}}
-"#
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn native_scene_uses_the_shared_threshold_as_explicit_shader_input() {
-        assert!(cutout_shader("<").contains("sampled.a < 0.5019608"));
-        assert!(cutout_shader("<=").contains("sampled.a <= 0.5019608"));
+    fn native_scene_uses_the_shared_threshold_as_explicit_cutout_input() {
+        let threshold = CutoutThreshold::new(INTERIOR_THRESHOLD).unwrap();
+        let pipeline = Pipeline::textured_3d_cutout(
+            "native-scene-cutout",
+            CategoricalCutout::new(threshold, CutoutComparison::DiscardBelow),
+        );
+        assert_eq!(pipeline.categorical_cutout().unwrap().threshold, threshold);
+        assert_eq!(pipeline.render_state.blend, BlendMode::Opaque);
+        assert!(pipeline.render_state.depth_write);
     }
 
     #[test]
@@ -300,5 +318,16 @@ mod tests {
         let mesh = quad_at_depth(0.25);
         assert!(mesh.has_texture_coordinates());
         assert!(mesh.positions.iter().all(|position| position[2] == 0.25));
+    }
+
+    #[test]
+    fn missing_candidate_shader_is_a_typed_pipeline_rejection() {
+        let error = Pipeline::custom_wgsl("alpha-study-missing-source", "")
+            .validate()
+            .expect_err("candidate shaders must not silently fall back");
+        assert_eq!(
+            error.to_string(),
+            "custom WGSL pipeline `alpha-study-missing-source` is missing shader source"
+        );
     }
 }

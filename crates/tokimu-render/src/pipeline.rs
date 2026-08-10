@@ -15,6 +15,9 @@ pub enum PipelineKind {
     /// A generic textured 3D mesh pipeline. It requires caller-supplied UVs
     /// and preserves the existing `Texture2d` derived-coordinate behavior.
     Textured3d,
+    /// A generic textured 3D mesh pipeline with caller-declared categorical
+    /// coverage. This is intentionally separate from continuous blending.
+    Textured3dCutout,
     CustomWgsl2d,
 }
 
@@ -32,6 +35,66 @@ pub enum BlendMode {
     /// pipeline policy rather than material data because the destination color
     /// participates in the result.
     Additive,
+}
+
+/// The categorical comparison a textured cutout surface applies to resolved
+/// fragment alpha.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CutoutComparison {
+    /// Discard fragments whose resolved alpha is strictly below the threshold.
+    DiscardBelow,
+    /// Discard fragments whose resolved alpha is at or below the threshold.
+    DiscardAtOrBelow,
+}
+
+/// A finite categorical-cutout threshold in the inclusive range `[0.0, 1.0]`.
+///
+/// The value is private so a cutout declaration cannot carry NaN or an
+/// out-of-range value to a renderer adapter.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CutoutThreshold(f32);
+
+impl Eq for CutoutThreshold {}
+
+impl CutoutThreshold {
+    pub fn new(value: f32) -> Result<Self, CutoutThresholdError> {
+        if !value.is_finite() {
+            return Err(CutoutThresholdError::NotFinite);
+        }
+        if !(0.0..=1.0).contains(&value) {
+            return Err(CutoutThresholdError::OutsideInclusiveRange { value });
+        }
+        Ok(Self(value))
+    }
+
+    pub const fn get(self) -> f32 {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, Error, PartialEq)]
+pub enum CutoutThresholdError {
+    #[error("cutout threshold must be finite")]
+    NotFinite,
+    #[error("cutout threshold {value} is outside inclusive range 0..=1")]
+    OutsideInclusiveRange { value: f32 },
+}
+
+/// Caller-declared categorical fragment coverage for one textured 3D
+/// pipeline. It is not a general alpha-policy vocabulary.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CategoricalCutout {
+    pub threshold: CutoutThreshold,
+    pub comparison: CutoutComparison,
+}
+
+impl CategoricalCutout {
+    pub const fn new(threshold: CutoutThreshold, comparison: CutoutComparison) -> Self {
+        Self {
+            threshold,
+            comparison,
+        }
+    }
 }
 
 /// Provider-neutral depth-test policy for a render pipeline.
@@ -112,6 +175,17 @@ impl PipelineRenderState {
         }
     }
 
+    /// Ordinary opaque 3D depth behavior used by retained Cutout fragments.
+    pub const fn opaque_depth_writing_3d() -> Self {
+        Self {
+            blend: BlendMode::Opaque,
+            depth_test: DepthTest::LessEqual,
+            depth_write: true,
+            cull_mode: CullMode::None,
+            color_write: ColorWriteMask::ALL,
+        }
+    }
+
     pub fn validate(self) -> Result<(), PipelineRenderStateError> {
         if self.depth_test == DepthTest::Disabled && self.depth_write {
             return Err(PipelineRenderStateError::DepthWriteWithoutDepthTest);
@@ -143,6 +217,14 @@ pub enum PipelineValidationError {
         #[source]
         source: PipelineRenderStateError,
     },
+    #[error("textured cutout pipeline `{label}` is missing its categorical cutout declaration")]
+    MissingCutoutDeclaration { label: String },
+    #[error("textured cutout pipeline `{label}` must use ordinary opaque depth-writing 3D state")]
+    InvalidCutoutRenderState { label: String },
+    #[error(
+        "pipeline `{label}` carries a cutout declaration but is not a textured cutout pipeline"
+    )]
+    UnexpectedCutoutDeclaration { label: String },
     #[error("pipeline `{label}` has an invalid shader module: {source}")]
     InvalidShaderModule {
         label: String,
@@ -169,6 +251,7 @@ impl PipelineKind {
             PipelineKind::Texture2d => Some(default_texture_2d_shader_source()),
             PipelineKind::LitColor3d => Some(default_lit_3d_shader_source()),
             PipelineKind::Textured3d => Some(default_textured_3d_shader_source()),
+            PipelineKind::Textured3dCutout => None,
             PipelineKind::CustomWgsl2d => None,
         }
     }
@@ -178,6 +261,7 @@ impl PipelineKind {
             PipelineKind::LitColor3d | PipelineKind::Textured3d => {
                 PipelineRenderState::depth_writing_3d()
             }
+            PipelineKind::Textured3dCutout => PipelineRenderState::opaque_depth_writing_3d(),
             PipelineKind::SolidColor2d | PipelineKind::Texture2d | PipelineKind::CustomWgsl2d => {
                 PipelineRenderState::painter_ordered_2d()
             }
@@ -325,6 +409,41 @@ struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: v
     .trim()
 }
 
+/// Builds the built-in textured-3D cutout shader from a checked caller
+/// declaration. This remains renderer-owned shader realization; callers do
+/// not author shader source or provider-specific bindings.
+pub fn textured_3d_cutout_shader_source(cutout: CategoricalCutout) -> String {
+    let comparison = match cutout.comparison {
+        CutoutComparison::DiscardBelow => "<",
+        CutoutComparison::DiscardAtOrBelow => "<=",
+    };
+    let threshold = cutout.threshold.get();
+    format!(
+        r#"
+@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(0) @binding(1) var material_texture: texture_2d<f32>;
+@group(0) @binding(2) var material_sampler: sampler;
+struct InstanceParams {{ translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, }};
+@group(1) @binding(0) var<uniform> instance_params: InstanceParams;
+@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
+struct VertexOutput {{ @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, }};
+@vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) _normal: vec3<f32>, @location(2) uv: vec2<f32>) -> VertexOutput {{
+    let scaled = position.xy * instance_params.scale;
+    let rotated = vec2<f32>((scaled.x * instance_params.rotation.y) - (scaled.y * instance_params.rotation.x), (scaled.x * instance_params.rotation.x) + (scaled.y * instance_params.rotation.y));
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(rotated.x + instance_params.translation.x, rotated.y + instance_params.translation.y, position.z, 1.0);
+    output.uv = uv;
+    return output;
+}}
+@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {{
+    let resolved = textureSample(material_texture, material_sampler, uv) * material_color;
+    if (resolved.a {comparison} {threshold:.7}) {{ discard; }}
+    return resolved;
+}}
+"#
+    )
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Pipeline {
     pub label: String,
@@ -333,6 +452,7 @@ pub struct Pipeline {
     pub vertex_entry_point: String,
     pub fragment_entry_point: String,
     pub render_state: PipelineRenderState,
+    cutout: Option<CategoricalCutout>,
     shader_module: Option<ShaderModuleDefinition>,
 }
 
@@ -351,8 +471,33 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: kind.default_render_state(),
+            cutout: None,
             shader_module: None,
         }
+    }
+
+    /// Creates the admitted caller-declared categorical-cutout pipeline.
+    ///
+    /// Retained fragments use ordinary opaque textured-3D depth behavior.
+    /// Continuous blend remains a separate, unadmitted concern.
+    pub fn textured_3d_cutout(label: impl Into<String>, cutout: CategoricalCutout) -> Self {
+        let kind = PipelineKind::Textured3dCutout;
+        let (vertex_entry_point, fragment_entry_point) = kind.default_entry_points();
+        Self {
+            label: label.into(),
+            kind,
+            shader_source: Some(textured_3d_cutout_shader_source(cutout)),
+            vertex_entry_point: vertex_entry_point.into(),
+            fragment_entry_point: fragment_entry_point.into(),
+            render_state: kind.default_render_state(),
+            cutout: Some(cutout),
+            shader_module: None,
+        }
+    }
+
+    /// Returns the admitted categorical-coverage declaration, when present.
+    pub const fn categorical_cutout(&self) -> Option<CategoricalCutout> {
+        self.cutout
     }
 
     pub fn custom_wgsl(label: impl Into<String>, shader_source: impl Into<String>) -> Self {
@@ -366,6 +511,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            cutout: None,
             shader_module: None,
         }
     }
@@ -383,6 +529,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            cutout: None,
             shader_module: None,
         }
     }
@@ -405,6 +552,7 @@ impl Pipeline {
             vertex_entry_point: shader_module.vertex_entry_point.clone(),
             fragment_entry_point: shader_module.fragment_entry_point.clone(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            cutout: None,
             shader_module: Some(shader_module),
         })
     }
@@ -428,6 +576,12 @@ impl Pipeline {
     ) -> Result<ShaderModuleDefinition, ShaderModuleValidationError> {
         if let Some(shader_module) = &self.shader_module {
             return Ok(shader_module.clone());
+        }
+        if self.kind == PipelineKind::Textured3dCutout {
+            return ShaderModuleDefinition::built_in_with_source(
+                self.kind,
+                self.shader_source.clone().unwrap_or_default(),
+            );
         }
         if self.kind != PipelineKind::CustomWgsl2d {
             return ShaderModuleDefinition::built_in(self.kind);
@@ -498,6 +652,28 @@ impl Pipeline {
                 source,
             }
         })?;
+
+        match (self.kind, self.cutout) {
+            (PipelineKind::Textured3dCutout, None) => {
+                return Err(PipelineValidationError::MissingCutoutDeclaration {
+                    label: self.label.clone(),
+                });
+            }
+            (PipelineKind::Textured3dCutout, Some(_))
+                if self.render_state != PipelineRenderState::opaque_depth_writing_3d() =>
+            {
+                return Err(PipelineValidationError::InvalidCutoutRenderState {
+                    label: self.label.clone(),
+                });
+            }
+            (PipelineKind::Textured3dCutout, Some(_)) => {}
+            (_, Some(_)) => {
+                return Err(PipelineValidationError::UnexpectedCutoutDeclaration {
+                    label: self.label.clone(),
+                });
+            }
+            (_, None) => {}
+        }
 
         if self.vertex_entry_point.trim().is_empty() {
             return Err(PipelineValidationError::EmptyEntryPoint {
@@ -614,6 +790,9 @@ mod tests {
         assert!(PipelineKind::SolidColor2d.default_shader_source().is_some());
         assert!(PipelineKind::LitColor3d.default_shader_source().is_some());
         assert!(PipelineKind::Textured3d.default_shader_source().is_some());
+        assert!(PipelineKind::Textured3dCutout
+            .default_shader_source()
+            .is_none());
         assert!(PipelineKind::CustomWgsl2d.default_shader_source().is_none());
     }
 
@@ -675,6 +854,95 @@ mod tests {
         assert_eq!(
             pipeline.render_state,
             PipelineRenderState::depth_writing_3d()
+        );
+    }
+
+    #[test]
+    fn creates_checked_categorical_cutout_pipeline_with_ordinary_depth_state() {
+        let threshold = CutoutThreshold::new(0.5).expect("finite threshold in range");
+        let cutout = CategoricalCutout::new(threshold, CutoutComparison::DiscardAtOrBelow);
+        let pipeline = Pipeline::textured_3d_cutout("masked", cutout);
+
+        assert_eq!(pipeline.kind, PipelineKind::Textured3dCutout);
+        assert_eq!(pipeline.categorical_cutout(), Some(cutout));
+        assert_eq!(
+            pipeline.render_state,
+            PipelineRenderState::opaque_depth_writing_3d()
+        );
+        assert_eq!(pipeline.render_state.blend, BlendMode::Opaque);
+        assert!(pipeline.render_state.depth_write);
+        assert!(pipeline.validate().is_ok());
+        assert!(pipeline
+            .shader_module_definition()
+            .expect("cutout shader module must retain its generated source")
+            .source
+            .contains("discard;"));
+    }
+
+    #[test]
+    fn cutout_threshold_rejects_non_finite_and_out_of_range_values() {
+        assert_eq!(
+            CutoutThreshold::new(f32::NAN),
+            Err(CutoutThresholdError::NotFinite)
+        );
+        assert_eq!(
+            CutoutThreshold::new(-0.01),
+            Err(CutoutThresholdError::OutsideInclusiveRange { value: -0.01 })
+        );
+        assert_eq!(
+            CutoutThreshold::new(1.01),
+            Err(CutoutThresholdError::OutsideInclusiveRange { value: 1.01 })
+        );
+    }
+
+    #[test]
+    fn cutout_shader_keeps_both_explicit_threshold_comparisons_visible() {
+        let threshold = CutoutThreshold::new(0.5).expect("valid threshold");
+        let below = textured_3d_cutout_shader_source(CategoricalCutout::new(
+            threshold,
+            CutoutComparison::DiscardBelow,
+        ));
+        let at_or_below = textured_3d_cutout_shader_source(CategoricalCutout::new(
+            threshold,
+            CutoutComparison::DiscardAtOrBelow,
+        ));
+
+        assert!(below.contains("resolved.a < 0.5000000"));
+        assert!(at_or_below.contains("resolved.a <= 0.5000000"));
+        assert!(below
+            .contains("textureSample(material_texture, material_sampler, uv) * material_color"));
+    }
+
+    #[test]
+    fn cutout_kind_without_checked_declaration_rejects_before_backend_submission() {
+        let pipeline = Pipeline::new("missing-cutout", PipelineKind::Textured3dCutout);
+
+        assert_eq!(
+            pipeline.validate(),
+            Err(PipelineValidationError::MissingCutoutDeclaration {
+                label: "missing-cutout".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn cutout_pipeline_rejects_relaxed_depth_or_blend_state() {
+        let cutout = CategoricalCutout::new(
+            CutoutThreshold::new(0.0).expect("zero is valid"),
+            CutoutComparison::DiscardBelow,
+        );
+        let pipeline = Pipeline::textured_3d_cutout("invalid-cutout-state", cutout)
+            .with_render_state(PipelineRenderState {
+                blend: BlendMode::AlphaBlend,
+                ..PipelineRenderState::opaque_depth_writing_3d()
+            })
+            .expect("general render state remains structurally valid");
+
+        assert_eq!(
+            pipeline.validate(),
+            Err(PipelineValidationError::InvalidCutoutRenderState {
+                label: "invalid-cutout-state".to_owned(),
+            })
         );
     }
 
@@ -859,7 +1127,7 @@ mod tests {
         assert!(matches!(
             error,
             PipelineDrawContractError::Mesh(ShaderMeshCompatibilityError::MissingVertexInput {
-                semantic: ShaderVertexSemantic::TextureCoordinate2,
+                semantic: crate::ShaderVertexSemantic::TextureCoordinate2,
                 ..
             })
         ));

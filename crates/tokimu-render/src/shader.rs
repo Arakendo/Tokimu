@@ -54,11 +54,41 @@ impl ShaderModuleDefinition {
             }
         })?;
 
+        Self::built_in_with_source_parts(kind, source, vertex_entry_point, fragment_entry_point)
+    }
+
+    /// Creates a built-in semantic shader declaration whose source is
+    /// specialized by an already-validated renderer declaration.
+    pub(crate) fn built_in_with_source(
+        kind: PipelineKind,
+        source: impl Into<String>,
+    ) -> Result<Self, ShaderModuleValidationError> {
+        let (vertex_entry_point, fragment_entry_point) = kind.default_entry_points();
+        Self::built_in_with_source_parts(
+            kind,
+            source.into(),
+            vertex_entry_point,
+            fragment_entry_point,
+        )
+    }
+
+    fn built_in_with_source_parts(
+        kind: PipelineKind,
+        source: impl Into<String>,
+        vertex_entry_point: impl Into<String>,
+        fragment_entry_point: impl Into<String>,
+    ) -> Result<Self, ShaderModuleValidationError> {
         let mut vertex_inputs = vec![ShaderVertexInput::new(0, ShaderVertexSemantic::Position3)];
-        if matches!(kind, PipelineKind::LitColor3d | PipelineKind::Textured3d) {
+        if matches!(
+            kind,
+            PipelineKind::LitColor3d | PipelineKind::Textured3d | PipelineKind::Textured3dCutout
+        ) {
             vertex_inputs.push(ShaderVertexInput::new(1, ShaderVertexSemantic::Normal3));
         }
-        if kind == PipelineKind::Textured3d {
+        if matches!(
+            kind,
+            PipelineKind::Textured3d | PipelineKind::Textured3dCutout
+        ) {
             vertex_inputs.push(ShaderVertexInput::new(
                 2,
                 ShaderVertexSemantic::TextureCoordinate2,

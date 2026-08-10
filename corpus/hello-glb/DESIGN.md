@@ -68,6 +68,13 @@ Prefer simple model lighting, clear silhouettes, and a restrained palette. The
 point is to make the format boundary visible, not to build a polished asset
 browser.
 
+For AR-0023's real-caller evidence, `cargo run -p hello-glb -- --transparent`
+starts the existing application-owned inspection opacity state directly and
+freezes the normal orbit/mesh transforms at their initial frame. It is the same
+`0.35` continuous-opacity state reachable by pressing `E` three times; the
+frozen camera is only a corpus capture convenience, not a GLB material or
+renderer API.
+
 ## Architectural Assertions
 
 This example demonstrates:

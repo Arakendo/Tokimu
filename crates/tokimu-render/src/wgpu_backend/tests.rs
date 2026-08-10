@@ -9,13 +9,28 @@ use super::{
         validate_rgba8_render_target_replacement, validate_rgba8_texture_creation,
         validate_rgba8_texture_update,
     },
-    GpuTextureRole, WgpuBackendError,
+    wgpu_camera_uniform, GpuTextureRole, WgpuBackendError,
 };
 use crate::{
-    Color, MaterialHandle, MaterialOverride, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
-    TextureAddressMode, TextureFilter, TextureHandle, TextureSampler, TextureValidationError,
+    Camera, Color, MaterialHandle, MaterialOverride, Rgba8TextureColorSpace,
+    Rgba8TextureDescriptor, TextureAddressMode, TextureFilter, TextureHandle, TextureSampler,
+    TextureValidationError,
 };
 use std::sync::Mutex;
+use tokimu_core::math::{Mat4, Vec3};
+
+#[test]
+fn wgpu_camera_upload_converts_tokimu_clip_depth_without_changing_camera() {
+    let camera = Camera::new(Mat4::IDENTITY, Mat4::IDENTITY);
+    let original = camera;
+    let uploaded = Mat4::from_cols_array_2d(&wgpu_camera_uniform(camera).view_projection);
+
+    for (tokimu_depth, expected_wgpu_depth) in [(-1.0, 0.0), (0.0, 0.5), (1.0, 1.0)] {
+        let uploaded_depth = uploaded.project_point3(Vec3::new(0.0, 0.0, tokimu_depth)).z;
+        assert!((uploaded_depth - expected_wgpu_depth).abs() <= f32::EPSILON);
+    }
+    assert_eq!(camera, original);
+}
 
 #[test]
 fn backend_diagnostic_sink_drains_into_tokimu_records() {

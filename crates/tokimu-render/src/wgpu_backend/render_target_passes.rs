@@ -7,7 +7,7 @@ use crate::{CameraHandle, Color, DrawMeshCommand, TextureHandle};
 use super::cpu_timer::CpuTimer;
 use super::texture_support::rgba8_texture_format;
 use super::{
-    GpuCameraBinding, GpuCameraUniform, GpuInstanceUniform, GpuTextureRole, WgpuBackend,
+    wgpu_camera_uniform, GpuCameraBinding, GpuInstanceUniform, GpuTextureRole, WgpuBackend,
     WgpuBackendError,
 };
 
@@ -180,9 +180,7 @@ impl WgpuBackend {
             return Ok(());
         }
         let camera = self.cameras.get(&handle).copied().unwrap_or_default();
-        let uniform = GpuCameraUniform {
-            view_projection: (camera.projection * camera.view).to_cols_array_2d(),
-        };
+        let uniform = wgpu_camera_uniform(camera);
         let Some(surface_state) = self.surface_state.as_ref() else {
             return Ok(());
         };

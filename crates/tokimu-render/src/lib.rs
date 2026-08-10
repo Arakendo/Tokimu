@@ -27,9 +27,9 @@ pub use material::{
 };
 pub use mesh::{Mesh, MeshValidationError};
 pub use pipeline::{
-    BlendMode, ColorWriteMask, CullMode, DepthTest, Pipeline, PipelineDrawContractError,
-    PipelineKind, PipelineRegistry, PipelineRenderState, PipelineRenderStateError,
-    PipelineValidationError,
+    BlendMode, CategoricalCutout, ColorWriteMask, CullMode, CutoutComparison, CutoutThreshold,
+    CutoutThresholdError, DepthTest, Pipeline, PipelineDrawContractError, PipelineKind,
+    PipelineRegistry, PipelineRenderState, PipelineRenderStateError, PipelineValidationError,
 };
 pub use renderable::Renderable;
 pub use renderer::{

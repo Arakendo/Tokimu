@@ -5,7 +5,7 @@
 
 use doom_geometry_provider::{
     DoomMiddleTextureObservation, DoomSkySurfaceObservation, DoomSurfacePlane, DoomSurfaceTriangle,
-    DoomTextureExtent, DoomTexturedWallTriangle, DoomWallTextureRole,
+    DoomTextureExtent, DoomTexturedWallTriangle, DoomWallSideKind, DoomWallTextureRole,
 };
 use doom_map_provider::DoomSourceRecord;
 use doom_raster_provider::{
@@ -71,6 +71,35 @@ pub struct StaticWallAssembly {
     pub omitted_degenerate: Vec<DoomTexturedWallTriangle>,
 }
 
+/// Corpus-local cutout declaration for E1M1's source-classified masked
+/// middles. The exact `0` cutoff is selected by this Doom consumer because
+/// its raster provider lowers coverage to only RGBA8 alpha `0` or `255`.
+/// It is neither a renderer API nor a claim that this value is suitable for
+/// other sources.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ExperimentalCutoutIntent {
+    pub discard_at_or_below_alpha: u8,
+    pub depth_write: bool,
+}
+
+/// One source-traceable wall prepared for the AR-0023 cutout experiment.
+/// The generic intent is deliberately declared here, at the Doom consumer
+/// boundary; WAD/source terminology does not cross into renderer vocabulary.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExperimentalCutoutWall {
+    pub source: DoomMiddleTextureObservation,
+    pub wall: StaticWallMesh,
+    pub intent: ExperimentalCutoutIntent,
+}
+
+/// Experimental masked-middle lowering results. Degenerate candidates remain
+/// explicit evidence and no unrelated lowering failure is swallowed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExperimentalCutoutWallAssembly {
+    pub candidates: Vec<ExperimentalCutoutWall>,
+    pub omitted_degenerate: Vec<DoomTexturedWallTriangle>,
+}
+
 /// Consumer-owned eligibility for the first opaque static scene. It neither
 /// uploads pixels nor treats source coverage as a renderer alpha policy.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -79,6 +108,11 @@ pub enum StaticTextureEligibility {
     DeferredAlpha {
         texture_name: String,
         uncovered_pixels: usize,
+        /// Retained upload facts for a later caller-owned alpha experiment;
+        /// their presence does not select an alpha policy or schedule upload.
+        descriptor: Rgba8TextureDescriptor,
+        sampler: TextureSampler,
+        selected_palette: u16,
     },
 }
 
@@ -131,6 +165,14 @@ pub struct PreparedE1m1Flats {
 pub struct PreparedE1m1Walls {
     pub map_name: String,
     pub wall_assembly: StaticWallAssembly,
+}
+
+/// Source-traceable, non-submitted masked-middle candidates for the AR-0023
+/// real-caller study.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreparedE1m1MaskedMiddleCutouts {
+    pub map_name: String,
+    pub assembly: ExperimentalCutoutWallAssembly,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -241,6 +283,85 @@ pub fn build_static_texture_uploads(
     uploads
 }
 
+/// Builds corpus-only upload inputs for already-declared cutout candidates.
+/// The caller supplies the first free handle so these resources cannot alias
+/// the opaque static scene. This helper does not upload, schedule, or choose a
+/// pipeline.
+pub fn build_experimental_cutout_texture_uploads(
+    textures: &[PreparedStaticTexture],
+    first_handle: u64,
+) -> Vec<StaticTextureUpload> {
+    // Source classification, not the texture's coverage bytes, chose these
+    // inputs. A Doom masked middle can be fully covered (for example,
+    // `BROWNGRN`) and still be part of the caller's cutout experiment.
+    let mut selected = textures
+        .iter()
+        .filter_map(|texture| match &texture.eligibility {
+            StaticTextureEligibility::Opaque(opaque) => Some((
+                &opaque.texture_name,
+                &opaque.descriptor,
+                &opaque.sampler,
+                &texture.rgba8,
+            )),
+            StaticTextureEligibility::DeferredAlpha {
+                texture_name,
+                descriptor,
+                sampler,
+                ..
+            } => Some((texture_name, descriptor, sampler, &texture.rgba8)),
+        })
+        .collect::<Vec<_>>();
+    selected.sort_by_key(|(name, _, _, _)| *name);
+    selected
+        .into_iter()
+        .enumerate()
+        .map(|(offset, (name, descriptor, sampler, rgba8))| {
+            let handle = first_handle + offset as u64;
+            StaticTextureUpload {
+                source_kind: StaticTextureSourceKind::Wall,
+                source_name: name.clone(),
+                texture: TextureHandle(handle),
+                material: MaterialHandle(handle),
+                descriptor: *descriptor,
+                rgba8: rgba8.clone(),
+                material_value: Material::new(
+                    format!("doom-cutout-candidate-{name}"),
+                    Color::rgb(1.0, 1.0, 1.0),
+                )
+                .with_texture(TextureHandle(handle))
+                .with_texture_sampler(*sampler),
+            }
+        })
+        .collect()
+}
+
+/// Corpus-local WGSL for the E1M1 masked-middle experiment. It is deliberately
+/// not a public renderer shader contract: the Doom consumer has already
+/// selected the candidate and supplied a binary-alpha declaration.
+pub fn experimental_masked_cutout_wgsl() -> &'static str {
+    r#"
+@group(0) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(0) @binding(1) var material_texture: texture_2d<f32>;
+@group(0) @binding(2) var material_sampler: sampler;
+struct InstanceParams { translation: vec2<f32>, scale: vec2<f32>, rotation: vec2<f32>, padding: vec2<f32>, };
+@group(1) @binding(0) var<uniform> _instance_params: InstanceParams;
+@group(2) @binding(0) var<uniform> camera_params: mat4x4<f32>;
+struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
+@vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) _normal: vec3<f32>, @location(2) uv: vec2<f32>) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = camera_params * vec4<f32>(position, 1.0);
+    output.uv = uv;
+    return output;
+}
+@fragment fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    let sampled = textureSample(material_texture, material_sampler, uv) * material_color;
+    if (sampled.a <= 0.0) { discard; }
+    return sampled;
+}
+"#
+    .trim()
+}
+
 /// Lowers prepared application evidence to ordinary mesh/material draw inputs.
 /// The renderer receives neither Doom identifiers nor source classifications.
 pub fn build_static_draw_plan(
@@ -282,6 +403,38 @@ pub fn build_static_draw_plan(
         });
     }
     Ok(draws)
+}
+
+/// Converts only the corpus-local experimental cutout candidates into ordinary
+/// renderer inputs. Source classification and alpha declaration remain beside
+/// this consumer path rather than inside `tokimu-render`.
+pub fn build_experimental_cutout_draw_plan(
+    prepared: &PreparedE1m1MaskedMiddleCutouts,
+    uploads: &[StaticTextureUpload],
+) -> Result<Vec<StaticDrawPlanEntry>, StaticDrawPlanError> {
+    prepared
+        .assembly
+        .candidates
+        .iter()
+        .map(|candidate| {
+            let material = uploads
+                .iter()
+                .find(|upload| upload.source_name == candidate.wall.texture_name)
+                .map(|upload| upload.material)
+                .ok_or_else(|| StaticDrawPlanError::MissingMaterial {
+                    source_kind: StaticTextureSourceKind::Wall,
+                    source_name: candidate.wall.texture_name.clone(),
+                })?;
+            Ok(StaticDrawPlanEntry {
+                mesh: candidate.wall.mesh.clone(),
+                material,
+                source_label: format!(
+                    "cutout:{}:{}",
+                    candidate.wall.source_linedef.record_index, candidate.wall.texture_name
+                ),
+            })
+        })
+        .collect()
 }
 
 /// Counts the independently identifiable source records affected by the
@@ -442,6 +595,21 @@ pub fn prepared_e1m1_wall_texture_names(prepared: &PreparedE1m1Walls) -> Vec<Str
     names
 }
 
+/// Sorted, deduplicated authored names for the source-classified two-sided
+/// masked-middle observations. These remain Doom-consumer evidence only: the
+/// helper does not choose coverage policy or allocate renderer resources.
+pub fn prepared_e1m1_masked_middle_texture_names(prepared: &PreparedE1m1Walls) -> Vec<String> {
+    let mut names = prepared
+        .wall_assembly
+        .omitted_masked_middles
+        .iter()
+        .map(|middle| middle.texture_name.clone())
+        .collect::<Vec<_>>();
+    names.sort();
+    names.dedup();
+    names
+}
+
 /// Compact deterministic preparation evidence emitted before renderer upload.
 pub fn prepared_e1m1_report(
     prepared: &PreparedE1m1Flats,
@@ -530,6 +698,41 @@ pub enum E1m1PreparationError {
     Flat(#[from] StaticFlatLoweringError),
     #[error("E1M1 raster preparation failed: {0}")]
     Raster(#[from] doom_raster_provider::DoomRasterDecodeError),
+}
+
+struct E1m1WallInputs {
+    map_name: String,
+    walls: Vec<DoomTexturedWallTriangle>,
+    masked_middles: Vec<DoomMiddleTextureObservation>,
+    extents: Vec<DoomTextureExtent>,
+}
+
+fn decode_e1m1_wall_inputs(
+    wad_bytes: &[u8],
+    manifest: &WadManifest,
+    map_limits: doom_map_provider::DoomMapDecodeLimits,
+    texture_limits: DoomTextureDecodeLimits,
+) -> Result<E1m1WallInputs, E1m1PreparationError> {
+    let selection = select_doom_episode_map(manifest, "E1M1")?;
+    let map = doom_map_provider::decode_doom_map_core(wad_bytes, &selection, map_limits)?;
+    let catalog = decode_doom_texture_catalog(wad_bytes, manifest, texture_limits)?;
+    let extents = catalog
+        .textures
+        .iter()
+        .map(|texture| DoomTextureExtent {
+            name: texture.name.clone(),
+            width: texture.width,
+            height: texture.height,
+        })
+        .collect::<Vec<_>>();
+    let walls = doom_geometry_provider::lower_doom_textured_wall_triangles(&map, &extents)?;
+    let masked_middles = doom_geometry_provider::observe_doom_two_sided_middle_textures(&map)?;
+    Ok(E1m1WallInputs {
+        map_name: selection.map_name,
+        walls,
+        masked_middles,
+        extents,
+    })
 }
 
 /// Decodes caller-selected wall texture names through the retained composition
@@ -627,23 +830,34 @@ pub fn prepare_e1m1_walls(
     map_limits: doom_map_provider::DoomMapDecodeLimits,
     texture_limits: DoomTextureDecodeLimits,
 ) -> Result<PreparedE1m1Walls, E1m1PreparationError> {
-    let selection = select_doom_episode_map(manifest, "E1M1")?;
-    let map = doom_map_provider::decode_doom_map_core(wad_bytes, &selection, map_limits)?;
-    let catalog = decode_doom_texture_catalog(wad_bytes, manifest, texture_limits)?;
-    let extents = catalog
-        .textures
-        .iter()
-        .map(|texture| DoomTextureExtent {
-            name: texture.name.clone(),
-            width: texture.width,
-            height: texture.height,
-        })
-        .collect::<Vec<_>>();
-    let walls = doom_geometry_provider::lower_doom_textured_wall_triangles(&map, &extents)?;
-    let masked = doom_geometry_provider::observe_doom_two_sided_middle_textures(&map)?;
+    let inputs = decode_e1m1_wall_inputs(wad_bytes, manifest, map_limits, texture_limits)?;
     Ok(PreparedE1m1Walls {
-        map_name: selection.map_name,
-        wall_assembly: assemble_static_opaque_walls(&walls, &masked, &extents)?,
+        map_name: inputs.map_name,
+        wall_assembly: assemble_static_opaque_walls(
+            &inputs.walls,
+            &inputs.masked_middles,
+            &inputs.extents,
+        )?,
+    })
+}
+
+/// Replays E1M1's retained source classification into only the corpus-local
+/// cutout candidate. It is intentionally distinct from `prepare_e1m1_walls`,
+/// which prepares the opaque static scene.
+pub fn prepare_e1m1_masked_middle_cutouts(
+    wad_bytes: &[u8],
+    manifest: &WadManifest,
+    map_limits: doom_map_provider::DoomMapDecodeLimits,
+    texture_limits: DoomTextureDecodeLimits,
+) -> Result<PreparedE1m1MaskedMiddleCutouts, E1m1PreparationError> {
+    let inputs = decode_e1m1_wall_inputs(wad_bytes, manifest, map_limits, texture_limits)?;
+    Ok(PreparedE1m1MaskedMiddleCutouts {
+        map_name: inputs.map_name,
+        assembly: assemble_experimental_masked_middle_cutouts(
+            &inputs.walls,
+            &inputs.masked_middles,
+            &inputs.extents,
+        )?,
     })
 }
 
@@ -801,6 +1015,55 @@ pub fn assemble_static_opaque_walls(
     })
 }
 
+/// Lowers only explicitly source-classified two-sided masked middles into the
+/// corpus-local AR-0023 cutout candidate. This remains separate from the
+/// static opaque scene: it uploads nothing and establishes no renderer-facing
+/// alpha contract.
+pub fn assemble_experimental_masked_middle_cutouts(
+    walls: &[DoomTexturedWallTriangle],
+    masked_middles: &[DoomMiddleTextureObservation],
+    extents: &[DoomTextureExtent],
+) -> Result<ExperimentalCutoutWallAssembly, StaticFlatLoweringError> {
+    let mut candidates = Vec::new();
+    let mut omitted_degenerate = Vec::new();
+    for wall in walls {
+        let Some(source) = masked_middles.iter().find(|middle| {
+            wall.role == DoomWallTextureRole::Middle
+                && middle.source_linedef == wall.source_linedef
+                && middle.source_sidedef == wall.source_sidedef
+                && middle.side == wall.side
+                && middle.texture_name == wall.texture_name
+        }) else {
+            continue;
+        };
+        let extent = extents
+            .iter()
+            .find(|extent| extent.name == wall.texture_name)
+            .cloned()
+            .ok_or_else(|| StaticFlatLoweringError::MissingWallTextureExtent {
+                name: wall.texture_name.clone(),
+            })?;
+        match lower_static_wall_triangle(wall, extent) {
+            Ok(lowered) => candidates.push(ExperimentalCutoutWall {
+                source: source.clone(),
+                wall: lowered,
+                intent: ExperimentalCutoutIntent {
+                    discard_at_or_below_alpha: 0,
+                    depth_write: true,
+                },
+            }),
+            Err(StaticFlatLoweringError::DegenerateTriangle) => {
+                omitted_degenerate.push(wall.clone())
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(ExperimentalCutoutWallAssembly {
+        candidates,
+        omitted_degenerate,
+    })
+}
+
 /// Chooses the bounded palette-zero/sRGB/point-repeat profile only when every
 /// source pixel is covered. Any hole remains an explicit AR-0023 deferral.
 pub fn classify_static_texture(image: &DoomIndexedImage) -> StaticTextureEligibility {
@@ -809,6 +1072,17 @@ pub fn classify_static_texture(image: &DoomIndexedImage) -> StaticTextureEligibi
         return StaticTextureEligibility::DeferredAlpha {
             texture_name: image.texture_name.clone(),
             uncovered_pixels,
+            descriptor: Rgba8TextureDescriptor::new(
+                u32::from(image.width),
+                u32::from(image.height),
+                Rgba8TextureColorSpace::Srgb,
+            ),
+            sampler: TextureSampler {
+                filter: TextureFilter::Point,
+                address_u: TextureAddressMode::Repeat,
+                address_v: TextureAddressMode::Repeat,
+            },
+            selected_palette: 0,
         };
     }
     StaticTextureEligibility::Opaque(StaticOpaqueTexture {
@@ -1065,6 +1339,115 @@ mod tests {
     }
 
     #[test]
+    fn masked_middle_lowering_declares_binary_cutout_without_changing_opaque_assembly() {
+        let wall = wall_candidate();
+        let masked = DoomMiddleTextureObservation {
+            source_linedef: wall.source_linedef,
+            source_sidedef: wall.source_sidedef,
+            source_sector: wall.source_sector,
+            side: wall.side,
+            texture_name: wall.texture_name.clone(),
+            opening_floor: 0,
+            opening_ceiling: 64,
+        };
+        let mut degenerate = wall.clone();
+        degenerate.positions[2] = degenerate.positions[1];
+        let assembly = assemble_experimental_masked_middle_cutouts(
+            &[wall, degenerate],
+            &[masked.clone()],
+            &[DoomTextureExtent {
+                name: "STARTAN3".into(),
+                width: 128,
+                height: 128,
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(assembly.candidates.len(), 1);
+        assert_eq!(assembly.candidates[0].source, masked);
+        assert_eq!(
+            assembly.candidates[0].intent,
+            ExperimentalCutoutIntent {
+                discard_at_or_below_alpha: 0,
+                depth_write: true,
+            }
+        );
+        assert_eq!(assembly.omitted_degenerate.len(), 1);
+    }
+
+    #[test]
+    fn masked_middle_name_inventory_is_sorted_and_separate_from_opaque_walls() {
+        let masked = vec![
+            DoomMiddleTextureObservation {
+                source_linedef: DoomSourceRecord {
+                    lump_index: 1,
+                    record_index: 2,
+                },
+                source_sidedef: DoomSourceRecord {
+                    lump_index: 3,
+                    record_index: 4,
+                },
+                source_sector: DoomSourceRecord {
+                    lump_index: 5,
+                    record_index: 6,
+                },
+                side: DoomWallSideKind::Right,
+                texture_name: "Z_MASK".into(),
+                opening_floor: 0,
+                opening_ceiling: 8,
+            },
+            DoomMiddleTextureObservation {
+                source_linedef: DoomSourceRecord {
+                    lump_index: 1,
+                    record_index: 5,
+                },
+                source_sidedef: DoomSourceRecord {
+                    lump_index: 3,
+                    record_index: 6,
+                },
+                source_sector: DoomSourceRecord {
+                    lump_index: 5,
+                    record_index: 7,
+                },
+                side: DoomWallSideKind::Left,
+                texture_name: "A_MASK".into(),
+                opening_floor: 0,
+                opening_ceiling: 8,
+            },
+            DoomMiddleTextureObservation {
+                source_linedef: DoomSourceRecord {
+                    lump_index: 1,
+                    record_index: 7,
+                },
+                source_sidedef: DoomSourceRecord {
+                    lump_index: 3,
+                    record_index: 8,
+                },
+                source_sector: DoomSourceRecord {
+                    lump_index: 5,
+                    record_index: 8,
+                },
+                side: DoomWallSideKind::Right,
+                texture_name: "A_MASK".into(),
+                opening_floor: 0,
+                opening_ceiling: 8,
+            },
+        ];
+        let prepared = PreparedE1m1Walls {
+            map_name: "E1M1".into(),
+            wall_assembly: StaticWallAssembly {
+                opaque_walls: Vec::new(),
+                omitted_masked_middles: masked,
+                omitted_degenerate: Vec::new(),
+            },
+        };
+        assert_eq!(
+            prepared_e1m1_masked_middle_texture_names(&prepared),
+            ["A_MASK", "Z_MASK"]
+        );
+    }
+
+    #[test]
     fn opaque_raster_selects_the_declared_static_material_profile() {
         assert_eq!(
             classify_static_texture(&raster(vec![true; 4])),
@@ -1088,6 +1471,13 @@ mod tests {
             StaticTextureEligibility::DeferredAlpha {
                 texture_name: "STARTAN3".into(),
                 uncovered_pixels: 2,
+                descriptor: Rgba8TextureDescriptor::new(2, 2, Rgba8TextureColorSpace::Srgb),
+                sampler: TextureSampler {
+                    filter: TextureFilter::Point,
+                    address_u: TextureAddressMode::Repeat,
+                    address_v: TextureAddressMode::Repeat,
+                },
+                selected_palette: 0,
             }
         );
     }
@@ -1102,6 +1492,13 @@ mod tests {
                     eligibility: StaticTextureEligibility::DeferredAlpha {
                         texture_name: "MASKED".into(),
                         uncovered_pixels: 1,
+                        descriptor: Rgba8TextureDescriptor::new(2, 2, Rgba8TextureColorSpace::Srgb),
+                        sampler: TextureSampler {
+                            filter: TextureFilter::Point,
+                            address_u: TextureAddressMode::Repeat,
+                            address_v: TextureAddressMode::Repeat,
+                        },
+                        selected_palette: 0,
                     },
                     rgba8: vec![0; 16],
                 },
@@ -1115,6 +1512,36 @@ mod tests {
         assert_eq!(uploads[1].source_name, "ZFLAT");
         assert_eq!(uploads[2].source_kind, StaticTextureSourceKind::Wall);
         assert_eq!(uploads[2].material, MaterialHandle(3));
+    }
+
+    #[test]
+    fn experimental_cutout_uploads_follow_selected_source_names_not_coverage() {
+        let uploads = build_experimental_cutout_texture_uploads(
+            &[
+                opaque_prepared("BROWNGRN"),
+                PreparedStaticTexture {
+                    eligibility: StaticTextureEligibility::DeferredAlpha {
+                        texture_name: "BRNBIGC".into(),
+                        uncovered_pixels: 1,
+                        descriptor: Rgba8TextureDescriptor::new(2, 2, Rgba8TextureColorSpace::Srgb),
+                        sampler: TextureSampler {
+                            filter: TextureFilter::Point,
+                            address_u: TextureAddressMode::Repeat,
+                            address_v: TextureAddressMode::Repeat,
+                        },
+                        selected_palette: 0,
+                    },
+                    rgba8: vec![0; 16],
+                },
+            ],
+            41,
+        );
+
+        assert_eq!(uploads.len(), 2);
+        assert_eq!(uploads[0].source_name, "BRNBIGC");
+        assert_eq!(uploads[0].texture, TextureHandle(41));
+        assert_eq!(uploads[1].source_name, "BROWNGRN");
+        assert_eq!(uploads[1].texture, TextureHandle(42));
     }
 
     #[test]

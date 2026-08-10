@@ -222,5 +222,9 @@ across unrelated decisions.
   — Accepted; resulted in ADR-0012 admitting checked supplied UVs and declared
   point/linear plus clamp/repeat sampling, while alpha/depth stays in AR-0023
 - [AR-0023: Textured Surface Alpha And Depth Policy](AR-0023-textured-surface-alpha-and-depth-policy.md)
-  — Proposed; separates source alpha facts from an unselected renderer
-  cutout/blend/depth policy so AR-0022's UV/sampler decision can close cleanly
+  — Accepted in part; ADR-0013 admits caller-declared categorical Cutout while
+  continuous Blend remains incubating pending an explicit ordering/depth contract
+- [AR-0024: Renderer Failure Observation And Diagnostic Boundary](AR-0024-renderer-failure-observation-and-diagnostic-boundary.md)
+  — Accepted; establishes that the AR-0023 empty frame was valid GPU clipping,
+  not an uncaught backend error, and keeps GL-style Tokimu camera meaning while
+  adapting explicitly to WebGPU depth at the WGPU upload boundary

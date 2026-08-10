@@ -107,3 +107,17 @@ not a committed image artifact or a pixel-equivalence claim. Future browser
 captures include the returned backend, device-kind, adapter, and canvas-size
 metadata; native startup emits analogous metadata beside its fixed-camera
 invocation.
+
+## Experimental Masked-Cutout Browser Request
+
+For AR-0023 Slice 5, the same bounded session now also exposes
+`render_static_e1m1_masked_cutouts(canvas)`. The request is deliberately
+separate from `render_static_e1m1(canvas)`: opaque presentation does not create
+or validate the experimental candidate pipeline. The new request reuses the
+Rust-owned package/member path, selects retained E1M1 source classifications,
+and draws 26 corpus-local masked-middle candidates alongside the 1,835 opaque
+draws. TypeScript receives only the completion string and canvas presentation.
+
+The request compiles for `wasm32-unknown-unknown`; bindings and the browser
+presentation script regenerate successfully. A selected-package browser visual
+observation remains required before treating it as cross-target cutout evidence.

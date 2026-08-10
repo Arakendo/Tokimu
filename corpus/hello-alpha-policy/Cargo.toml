@@ -20,3 +20,13 @@ tokimu = { path = "../../crates/tokimu", features = ["platform", "render"], opti
 name = "native_scene"
 path = "src/bin/native_scene.rs"
 required-features = ["native-visual"]
+
+[[bin]]
+name = "native_blend_scene"
+path = "src/bin/native_blend_scene.rs"
+required-features = ["native-visual"]
+
+[[bin]]
+name = "native_interaction_scene"
+path = "src/bin/native_interaction_scene.rs"
+required-features = ["native-visual"]

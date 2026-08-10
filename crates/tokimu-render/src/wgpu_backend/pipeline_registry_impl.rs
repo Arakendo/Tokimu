@@ -51,7 +51,9 @@ impl WgpuBackend {
                 &pipeline.fragment_entry_point,
                 pipeline.render_state,
             ),
-            PipelineKind::LitColor3d | PipelineKind::Textured3d => create_custom_pipeline(
+            PipelineKind::LitColor3d
+            | PipelineKind::Textured3d
+            | PipelineKind::Textured3dCutout => create_custom_pipeline(
                 &self._device,
                 surface_state.config.format,
                 DEPTH_FORMAT,

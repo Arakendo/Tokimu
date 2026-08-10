@@ -28,13 +28,21 @@ const KHRONOS_BOX_SOURCE: &str =
 const MODEL_TARGET_KEY: &str = "khronos-box/node/0/mesh/0/primitive/0";
 
 fn main() -> PlatformResult<()> {
+    let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments.iter().any(|argument| argument != "--transparent") {
+        return Err("usage: hello-glb [--transparent]".into());
+    }
+    let mut app = HelloGlbApp::new();
+    if arguments.iter().any(|argument| argument == "--transparent") {
+        app.activate_transparent_inspection()?;
+    }
     run_window_with_app(
         WindowConfig {
             title: "Tokimu Hello GLB".into(),
             width: 1280,
             height: 720,
         },
-        HelloGlbApp::new(),
+        app,
     )
 }
 
@@ -54,6 +62,7 @@ struct HelloGlbApp {
     model_material_instance: MaterialInstance,
     model_material_override: Option<MaterialOverride>,
     presentation_step: usize,
+    fixed_capture: bool,
     presentation_frames_since_change: u32,
     model_visible: bool,
     frame_index: u64,
@@ -100,6 +109,7 @@ impl Default for HelloGlbApp {
             model_material_instance,
             model_material_override: None,
             presentation_step: 0,
+            fixed_capture: false,
             presentation_frames_since_change: 0,
             model_visible: true,
             frame_index: 0,
@@ -129,6 +139,14 @@ impl Default for HelloGlbApp {
 impl HelloGlbApp {
     fn new() -> Self {
         Self::default()
+    }
+
+    /// Corpus-only fixed entry point for AR-0023 visual evidence. Interactive
+    /// use still cycles through the same application-owned presentation state.
+    fn activate_transparent_inspection(&mut self) -> PlatformResult<()> {
+        self.presentation_step = 2;
+        self.fixed_capture = true;
+        self.cycle_model_presentation()
     }
 
     fn update_window_title(&self) {
@@ -266,7 +284,11 @@ impl HelloGlbApp {
     }
 
     fn render_scene(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
-        let seconds = self.elapsed_seconds as f32;
+        let seconds = if self.fixed_capture {
+            0.0
+        } else {
+            self.elapsed_seconds as f32
+        };
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
         let orbit = seconds * 0.28;
         let eye = Vec3::new(
@@ -411,6 +433,13 @@ impl PlatformEventHandler for HelloGlbApp {
             &Pipeline::new("glb-transparent-pipeline", PipelineKind::LitColor3d)
                 .with_render_state(transparent_render_state())?,
         )?;
+        println!(
+            "hello-glb renderer initialized: backend={}; device={}; adapter={}; transparent_pipeline={}",
+            renderer.backend_api(),
+            renderer.device_kind(),
+            renderer.adapter_name(),
+            self.transparent_pipeline.0,
+        );
         self.renderer = Some(renderer);
         self.refresh_model_presentation()?;
         self.update_window_title();
@@ -653,6 +682,21 @@ mod tests {
         assert_eq!(app.presentation_step, 0);
         assert!(app.model_material_override.is_none());
         assert_eq!(app.source_model_material().unwrap(), source_material);
+    }
+
+    #[test]
+    fn transparent_capture_entry_selects_fixed_continuous_alpha_state() {
+        let mut app = HelloGlbApp::default();
+        app.activate_transparent_inspection().unwrap();
+
+        assert!(app.fixed_capture);
+        assert_eq!(app.presentation_step, 3);
+        assert_eq!(
+            app.model_material_override
+                .expect("transparent capture should resolve an opacity override")
+                .opacity_multiplier(),
+            0.35
+        );
     }
 
     #[test]

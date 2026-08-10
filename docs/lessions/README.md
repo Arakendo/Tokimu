@@ -16,6 +16,9 @@ ADR, or an active Architectural Review.
 - [GPU adapter validation coverage](gpu-adapter-validation-coverage.md) —
   currently available AMD/Vulkan and Apple/Metal evidence, plus the explicit
   NVIDIA hardware coverage gap.
+- [Camera clip depth and provider adaptation](camera-clip-depth-provider-adaptation.md)
+  — why accepted draws can produce an empty frame and where GL-to-WebGPU depth
+  conversion belongs.
 
 ## Maintenance Rule
 
