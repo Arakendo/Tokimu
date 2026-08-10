@@ -1,8 +1,9 @@
 # E1M1 Masked-Middle Cutout Intake Evidence
 
-Date: 2026-08-09  
+Date: 2026-08-10
 Scope: Slice 5 of the alpha-policy comparative corpus / AR-0023.  
-Status: corpus-local real-caller evidence; not a renderer admission.
+Status: independent real-caller evidence for ADR-0013 Cutout; Blend remains
+unadmitted.
 
 ## Reproduction
 
@@ -34,7 +35,7 @@ The source classification produces 26 non-degenerate wall-triangle candidates
 middle despite its fully covered current raster. Therefore alpha/coverage
 bytes are not used to decide whether the Doom consumer requests the candidate.
 
-## Corpus-local declaration
+## Caller declaration and renderer crossing
 
 The Doom consumer lowers only those retained source classifications into an
 `ExperimentalCutoutWall`. Each candidate carries the generic declaration:
@@ -44,10 +45,12 @@ discard at or below RGBA8 alpha 0
 depth write true
 ```
 
-The choice is local to this experiment. Doom patch composition has binary
-coverage, which the raster provider lowers to alpha `0` or `255`; the
-declaration is not a general threshold recommendation, an original-Doom
-behavior claim, or a `tokimu-render` API.
+The choice remains Doom-local: patch composition has binary coverage, which
+the raster provider lowers to alpha `0` or `255`. The consumer crosses this
+specific declaration through ADR-0013's `CategoricalCutout` capability using
+`CutoutThreshold(0.0)` and `DiscardAtOrBelow`; `tokimu-render` receives no WAD
+term or source-format policy. It is not an original-Doom behavior claim or a
+general threshold recommendation.
 
 The opaque static E1M1 draw plan remains unchanged: its 13 masked-middle
 observations are still deferred and no experimental candidate is uploaded or
@@ -84,20 +87,24 @@ their candidate upload by their retained Doom classification, not by coverage.
 The local candidate selector now includes both uncovered and fully covered
 selected source textures; a focused regression covers that distinction.
 
-This startup observation establishes that the generic corpus-local shader and
-pipeline can present the selected real inputs. A fixed-camera visual capture
-and browser/WASM counterpart remain separate Slice 5 evidence; neither is
-implied by successful native initialization.
+The earlier startup observation retained the pre-admission custom-shader path.
+On 2026-08-10 the native E1M1 consumer and browser/WASM engine were migrated
+to the admitted generic categorical-cutout constructor; focused E1M1 tests and
+the browser engine's `wasm32-unknown-unknown` check pass. The browser visual
+observation below verifies the migrated browser path; native visual observation
+of that implementation remains separate evidence and is not implied by build
+or initialization.
 
-### Browser/WASM visual observation
+### Browser/WASM visual observation of the admitted implementation
 
-On 2026-08-09, a reviewer selected the same local reviewed package in the
-browser workbench and presented both fixed-camera actions at `960x600`:
+On 2026-08-10, after rebuilding the browser bundle from the migrated Rust/WASM
+engine, a reviewer selected the same local reviewed package in the browser
+workbench and presented both fixed-camera actions at `960x600`:
 
 | Action | Returned observation | Visual result |
 | --- | --- | --- |
 | Static opaque E1M1 | `1835 draws; cutouts=false; backend=browser-webgpu; device=other; adapter=` | textured fixed-camera overview presented |
-| E1M1 masked cutouts | `1861 draws; cutouts=true; backend=browser-webgpu; device=other; adapter=` | the corresponding overview presented with the 26 corpus-local candidate draws enabled |
+| E1M1 masked cutouts | `1861 draws; cutouts=true; backend=browser-webgpu; device=other; adapter=` | corresponding overview presented through the admitted generic Cutout path, with the expected 26 source-selected draws enabled |
 
 The blank adapter field is retained as browser capability absence, not guessed
 metadata. The native/browser comparison is structural and visual at this
@@ -108,14 +115,36 @@ stable renderer cutout admission.
 ## Result
 
 This establishes independent real cutout pressure beyond the shared synthetic
-fixture, while preserving the boundary required by AR-0023:
+fixture, while preserving the boundary required by ADR-0013:
 
 ```text
 Doom source classification and exact threshold choice
-    -> corpus-local generic cutout declaration
+    -> explicit generic categorical-cutout declaration
     -> no Doom terms or policy inference in the renderer
 ```
 
 Native visual capture remains useful, but the browser/WASM rendering of these
-candidates is now observed. Neither result admits a cutout capability.
-Continuous blending remains unadmitted and needs a separate real caller.
+candidates is now observed. The admitted browser/WASM implementation is
+  visually observed; native/Vulkan observation is retained below. Continuous
+  blending remains unadmitted and needs a separate real caller.
+
+### Native visual observation of the admitted implementation
+
+On 2026-08-10, the source-spawn observer visibly presented the migrated
+masked-cutout path on the available native target:
+
+```text
+opaque_draws=1835
+cutout_draws=26
+cutouts_enabled=true
+camera=source-spawn-observer
+backend=vulkan
+device=discrete-gpu
+adapter=AMD Radeon RX 7900 XTX
+```
+
+The fixed view used reviewed `THINGS` record 0 at `(1056, -3616)`, heading
+`90`, in sector 38 with a corpus-only vertical-midpoint eye at `y=36`. The
+window title reported `1861 draws`. This is a manual native observation of the
+same fixed package/camera specification as the browser evidence, not a PNG
+golden or a claim that the midpoint is Doom player-height policy.

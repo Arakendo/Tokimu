@@ -5,7 +5,7 @@
 
 use doom_geometry_provider::{
     DoomMiddleTextureObservation, DoomSkySurfaceObservation, DoomSurfacePlane, DoomSurfaceTriangle,
-    DoomTextureExtent, DoomTexturedWallTriangle, DoomWallSideKind, DoomWallTextureRole,
+    DoomTextureExtent, DoomTexturedWallTriangle, DoomWallTextureRole,
 };
 use doom_map_provider::DoomSourceRecord;
 use doom_raster_provider::{
@@ -1391,7 +1391,7 @@ mod tests {
                     lump_index: 5,
                     record_index: 6,
                 },
-                side: DoomWallSideKind::Right,
+                side: doom_geometry_provider::DoomWallSideKind::Right,
                 texture_name: "Z_MASK".into(),
                 opening_floor: 0,
                 opening_ceiling: 8,
@@ -1409,7 +1409,7 @@ mod tests {
                     lump_index: 5,
                     record_index: 7,
                 },
-                side: DoomWallSideKind::Left,
+                side: doom_geometry_provider::DoomWallSideKind::Left,
                 texture_name: "A_MASK".into(),
                 opening_floor: 0,
                 opening_ceiling: 8,
@@ -1427,7 +1427,7 @@ mod tests {
                     lump_index: 5,
                     record_index: 8,
                 },
-                side: DoomWallSideKind::Right,
+                side: doom_geometry_provider::DoomWallSideKind::Right,
                 texture_name: "A_MASK".into(),
                 opening_floor: 0,
                 opening_ceiling: 8,

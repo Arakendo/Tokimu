@@ -779,6 +779,33 @@ part of this alpha study; the camera decision is preserved separately in
   open; the earlier custom-WGSL observations are retained as pre-admission
   evidence rather than relabeled as proof of this implementation.
 
+### Cycle 30 -- 2026-08-10
+
+- Migration: E1M1's 26 retained source-selected masked-middle candidates now
+  cross the renderer boundary through `Pipeline::textured_3d_cutout` in both
+  the native consumer and browser/WASM workbench engine. Doom still owns the
+  selection and explicitly declares `CutoutThreshold(0.0)` with
+  `DiscardAtOrBelow`; no WAD vocabulary, alpha inference, or custom shader
+  reaches `tokimu-render`.
+- Validation: `cargo test -p hello-doom-e1m1` passes all 15 focused tests, and
+  `cargo check -p doom-ts-boundary-workbench-engine --target
+  wasm32-unknown-unknown` passes. This is migration and boundary evidence, not
+  a fresh visual observation of the admitted implementation.
+- Browser observation: after rebuilding the WASM bindings, the reviewed package
+  visibly presented at `960x600` through the migrated path: opaque reported
+  `1835` draws and Cutout reported `1861`, the expected 26-draw difference.
+  Browser returned `backend=browser-webgpu`, `device=other`, and an unavailable
+  adapter name. This is manual visual evidence, not a pixel-golden artifact.
+- Native observation: the source-spawn observer visibly presented through
+  Vulkan on the available AMD Radeon RX 7900 XTX. It reported 1,835 opaque and
+  26 cutout draws (`1861` in the window title), with no renderer diagnostic.
+  The camera is corpus-only evidence: reviewed THINGS #0, sector 38, and the
+  raw vertical interval midpoint; it does not claim player runtime policy.
+- Closeout evidence now covers the admitted E1M1 caller on browser/WebGPU and
+  native Vulkan. Blend remains incubating; neither the migration nor its
+  constructor is evidence for a general alpha policy, ordering contract, PBR,
+  or public shader-resource API.
+
 ## References
 
 - `docs/Architectural Reviews/AR-0006-raster-image-requirement-pipeline.md`

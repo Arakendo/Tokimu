@@ -108,16 +108,20 @@ captures include the returned backend, device-kind, adapter, and canvas-size
 metadata; native startup emits analogous metadata beside its fixed-camera
 invocation.
 
-## Experimental Masked-Cutout Browser Request
+## Masked-Cutout Browser Request
 
 For AR-0023 Slice 5, the same bounded session now also exposes
 `render_static_e1m1_masked_cutouts(canvas)`. The request is deliberately
 separate from `render_static_e1m1(canvas)`: opaque presentation does not create
-or validate the experimental candidate pipeline. The new request reuses the
-Rust-owned package/member path, selects retained E1M1 source classifications,
-and draws 26 corpus-local masked-middle candidates alongside the 1,835 opaque
-draws. TypeScript receives only the completion string and canvas presentation.
+or validate the cutout pipeline. The request reuses the Rust-owned
+package/member path, selects retained E1M1 source classifications, and draws
+26 masked-middle candidates alongside the 1,835 opaque draws through ADR-0013's
+generic categorical-cutout declaration. TypeScript receives only the completion
+string and canvas presentation.
 
 The request compiles for `wasm32-unknown-unknown`; bindings and the browser
-presentation script regenerate successfully. A selected-package browser visual
-observation remains required before treating it as cross-target cutout evidence.
+presentation script regenerate successfully. On 2026-08-10, the rebuilt
+admitted path visibly presented the reviewed package at `960x600`: opaque
+reported 1,835 draws and masked cutout reported 1,861 draws. This is a manual
+cross-target observation with browser device `other` and an unavailable adapter
+name, not a committed image artifact or pixel-equivalence claim.

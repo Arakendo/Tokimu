@@ -506,9 +506,10 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         deferred-alpha result rather than selecting blend or cutout behavior.
   - [x] Preserve alpha/cutout as an AR-0023 decision rather than treating the
         generic fixture's opaque profile as masked-middle behavior. E1M1's 13
-        source-classified masked middles now lower to 26 corpus-local
-        experimental cutout candidates under a Doom-owned binary-coverage
-        declaration; they remain outside the static opaque draw plan. See
+        source-classified masked middles lower to 26 candidates under a
+        Doom-owned binary-coverage declaration; their explicit categorical
+        cutout crosses through ADR-0013's generic renderer capability and they
+        remain outside the static opaque draw plan. See
         [E1M1 masked-middle cutout intake evidence](E1M1%20masked-middle%20cutout%20intake%20evidence.md).
 - [x] Select either original view-dependent plane spans or a documented,
       intentionally non-equivalent plane mapping; do not imply that Slice 5's
@@ -671,6 +672,11 @@ Acceptance criteria:
   - [x] Retain the resolved start sector's raw vertical interval: E1M1 sector
         38 has floor height 0 and ceiling height 72. No player height or
         clearance policy is inferred from this observation.
+  - [x] Add an opt-in static source-spawn observer to `static_scene`. It maps
+        the reviewed start X/Y and heading into the corpus X/Z world, uses the
+        source sector midpoint only for a capture camera, and reports complete
+        source/vertical provenance. It does not create runtime player state or
+        settle the later player-height policy.
 - [ ] Add first-person yaw and pitch policy appropriate to the selected proof.
 - [ ] Normalize keyboard, mouse, and gamepad input through `tokimu-input`.
 - [ ] Implement bounded player radius and height.

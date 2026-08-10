@@ -17,15 +17,15 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
-    build_static_draw_plan, build_static_texture_uploads, experimental_masked_cutout_wgsl,
-    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
-    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
+    build_static_draw_plan, build_static_texture_uploads, prepare_e1m1_flat_textures,
+    prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts, prepare_e1m1_wall_textures,
+    prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
-    BlendMode, Camera, CameraHandle, ClearCommand, Color, ColorWriteMask, CullMode, DepthTest,
-    DrawMeshCommand, Instance2d, MeshHandle, Pipeline, PipelineKind, PipelineRenderState,
-    RenderCommand, Renderer, WgpuBackend,
+    BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color, ColorWriteMask,
+    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d,
+    MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand, Renderer, WgpuBackend,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu_core::math::{Mat4, Vec3};
@@ -416,20 +416,13 @@ impl BrowserIntakeSession {
         let cutout_pipeline = if include_masked_cutouts {
             Some(
                 renderer
-                    .register_pipeline(
-                        &Pipeline::custom_wgsl(
-                            "doom-e1m1-browser-masked-cutout",
-                            experimental_masked_cutout_wgsl(),
-                        )
-                        .with_render_state(PipelineRenderState {
-                            blend: BlendMode::Opaque,
-                            depth_test: DepthTest::LessEqual,
-                            depth_write: true,
-                            cull_mode: CullMode::Back,
-                            color_write: ColorWriteMask::ALL,
-                        })
-                        .map_err(|error| error.to_string())?,
-                    )
+                    .register_pipeline(&Pipeline::textured_3d_cutout(
+                        "doom-e1m1-browser-masked-cutout",
+                        CategoricalCutout::new(
+                            CutoutThreshold::new(0.0).map_err(|error| error.to_string())?,
+                            CutoutComparison::DiscardAtOrBelow,
+                        ),
+                    ))
                     .map_err(|error| error.to_string())?,
             )
         } else {

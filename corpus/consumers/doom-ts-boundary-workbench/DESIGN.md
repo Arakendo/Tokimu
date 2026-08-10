@@ -86,13 +86,13 @@ plan's canonical importer nor substitutes for native/WASM conformance capture.
 ## Experimental Masked-Cutout Browser Bridge
 
 The separate `render_static_e1m1_masked_cutouts(canvas)` WASM request is an
-AR-0023/Slice-5 experiment. After the same explicit local selection, Rust/WASM
+AR-0023/Slice-5 real-caller path. After the same explicit local selection, Rust/WASM
 reopens the bounded package and selects E1M1's retained Doom masked-middle
-observations. It passes only ordinary mesh, texture, material, camera, and a
-corpus-local custom pipeline to WGPU. TypeScript still owns no WAD parsing,
-source classification, threshold, or renderer policy; it merely exposes the
-distinct request and presents the returned observation.
+observations. It passes ordinary mesh, texture, material, camera, and ADR-0013's
+generic categorical-cutout declaration to WGPU. TypeScript still owns no WAD
+parsing, source classification, threshold, or renderer policy; it merely exposes
+the distinct request and presents the returned observation.
 
 The original opaque request remains isolated: it does not prepare masked
-inputs or register the experimental pipeline. Neither request is a browser
-renderer API or a stable `tokimu-render` alpha contract.
+inputs or register the cutout pipeline. Neither request makes TypeScript a
+browser renderer API; continuous Blend remains outside the admitted contract.

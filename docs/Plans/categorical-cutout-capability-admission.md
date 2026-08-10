@@ -81,10 +81,17 @@ targets, while malformed declarations are visible and contained.
 
 ## Slice 4 — Independent real caller and closeout
 
-- [ ] Migrate E1M1's 26 source-selected masked-middle candidates from its
-      custom cutout shader to the admitted generic capability.
-- [ ] Preserve Doom's source selection and zero-alpha classification outside
-      `tokimu-render`; retain native/browser structural and visual observations.
+- [x] Migrate E1M1's 26 source-selected masked-middle candidates from its
+      custom cutout shader to the admitted generic capability in both native
+      and browser/WASM callers.
+- [x] Preserve Doom's source selection and zero-alpha classification outside
+      `tokimu-render`; the focused E1M1 suite and browser `wasm32` check pass.
+  - [x] Retain a fresh browser/WebGPU visual observation of the admitted path:
+        the reviewed package presents `1835` opaque and `1861` cutout draws at
+        `960x600`; pre-admission captures remain historical evidence only.
+  - [x] Retain a comparable native Vulkan/AMD visual observation at the fixed
+        source-spawn camera: 1,835 opaque plus 26 cutout draws, with the window
+        reporting 1,861 submitted draws.
 - [ ] Update AR-0023, the DOOM checklist, gate ledger, and SDD with final
       evidence and explicit remaining Blend limits.
 - [ ] Complete the ADR-0008/0009 ledger, including any locally justified

@@ -12,3 +12,4 @@ silently rewriting its conclusions.
 
 - [CompressionTools Migration Ledger](compression-tools-migration-ledger.md)
 - [Text Corpus v1 Validation](text-corpus-v1-validation.md)
+- [TypeScript-Attached Behavior Editor Proposition](typescript-attached-behavior-editor-proposition.md)
