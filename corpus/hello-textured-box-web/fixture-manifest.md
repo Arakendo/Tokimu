@@ -22,7 +22,7 @@ The native fixture manifest contains source provenance and PNG profile details:
 | Concern | Declared value |
 | --- | --- |
 | Geometry/material relation | Independent sources; the selected PNG is not a `Box.glb` material. |
-| UV generation | Corpus-owned planar mapping selected from position/normal, then scaled by `3.25` so clamp/repeat is observable. |
+| UV generation | Corpus-owned planar mapping selected from position/normal. Default extent is `[0,1]` per face; `E` selects an explicit `3.25` addressing-stress extent. |
 | UV modes | Identity, U flip, U/V swap. |
 | Sampler modes | Point/clamp, point/repeat, linear/clamp, linear/repeat. |
 | Pipeline | `Textured3d`, back-face culling, depth-writing 3D state. |

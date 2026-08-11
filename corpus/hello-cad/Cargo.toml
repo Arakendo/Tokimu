@@ -9,3 +9,6 @@ repository.workspace = true
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
 tokimu-core = { path = "../../crates/tokimu-core" }
 ui-tools = { path = "../lib/ui-tools" }
+
+[dev-dependencies]
+render-orientation-conformance = { path = "../lib/render-orientation-conformance" }

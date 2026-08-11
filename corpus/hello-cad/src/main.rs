@@ -451,3 +451,52 @@ fn ray_intersects_aabb(origin: Vec3, direction: Vec3, min: Vec3, max: Vec3) -> b
 
     t_max >= 0.0
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use render_orientation_conformance::{picking_ray_from_ndc, project_world_point};
+
+    #[test]
+    fn cad_projection_and_pick_ray_agree_on_the_model_center() {
+        let app = HelloCadApp {
+            window_size: [1280.0, 720.0],
+            ..HelloCadApp::default()
+        };
+        let camera = app.camera_for_scene();
+        let view_projection = camera.projection * camera.view;
+        let model_center = Vec3::new(0.0, 0.2, 0.0);
+        let projected = project_world_point(view_projection, model_center).unwrap();
+        let ray =
+            picking_ray_from_ndc(view_projection, [projected.ndc.x, projected.ndc.y]).unwrap();
+
+        assert!(ray_intersects_aabb(
+            ray.origin,
+            ray.direction,
+            model_center - Vec3::splat(0.53),
+            model_center + Vec3::splat(0.53),
+        ));
+    }
+
+    #[test]
+    fn cad_screen_right_is_derived_from_its_own_oblique_view() {
+        let app = HelloCadApp {
+            window_size: [1280.0, 720.0],
+            ..HelloCadApp::default()
+        };
+        let camera = app.camera_for_scene();
+        let view_projection = camera.projection * camera.view;
+        let center_ray = picking_ray_from_ndc(view_projection, [0.0, 0.0]).unwrap();
+        let right_ray = picking_ray_from_ndc(view_projection, [0.25, 0.0]).unwrap();
+        let world_screen_right = camera
+            .view
+            .inverse()
+            .transform_vector3(Vec3::X)
+            .normalize_or_zero();
+
+        assert!((right_ray.direction - center_ray.direction).dot(world_screen_right) > 0.0);
+        // This CAD view derives screen-right from its view matrix; it does not
+        // import the first-person fixture's initial world `-X` shortcut.
+        assert!(world_screen_right != Vec3::NEG_X);
+    }
+}

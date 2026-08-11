@@ -228,7 +228,18 @@ across unrelated decisions.
   — Accepted; establishes that the AR-0023 empty frame was valid GPU clipping,
   not an uncaught backend error, and keeps GL-style Tokimu camera meaning while
   adapting explicitly to WebGPU depth at the WGPU upload boundary
-- [AR-0025: Camera Candidate Selection And Visibility Culling](AR-0025-camera-candidate-selection-and-visibility-culling.md)
-  — Under Review; keeps explicit full submission as the current contract while
-  studying corpus-local conservative camera-frustum candidate selection before
-  any generic culling, Doom visibility, or GPU-occlusion capability
+- [AR-0025: Comparative Camera Candidate-Selection And Visibility Study](AR-0025-camera-candidate-selection-and-visibility-culling.md)
+  — Under Review; compares explicit submission, generic CPU selection,
+  Doom-specific spatial methods, and deferred GPU research before considering
+  any shared visibility capability
+- [AR-0026: Non-Euclidean Spatial Charts And Authored Angular Topology](AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md)
+  — Incubating; explores non-Euclidean simulation as first-class Tokimu meaning
+  through locally Euclidean charts, explicit transitions, and authored angular
+  deficit/excess without yet assigning Ring placement or public contracts
+- [AR-0027: Diagnostic Error Presentation And Standard Error Texture](AR-0027-diagnostic-error-presentation-and-standard-error-texture.md)
+  — Under Review; begins with an explicit corpus-only diagnostic stand-in while
+  testing whether provider-neutral diagnostic presentation or a standard asset
+  earns admission
+- [AR-0028: Coordinate-Frame Handedness And Directional Conformance](AR-0028-coordinate-frame-handedness-and-directional-conformance.md)
+  — Incubating; investigates the linked E1M1 texture-axis, camera-yaw, and
+  strafe-direction findings before admitting any Tokimu-wide spatial convention

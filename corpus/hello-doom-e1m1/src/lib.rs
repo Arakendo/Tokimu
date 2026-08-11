@@ -21,6 +21,7 @@ use tokimu::{
     Color, Material, MaterialHandle, Mesh, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
     TextureAddressMode, TextureFilter, TextureHandle, TextureSampler,
 };
+use tokimu_core::math::{Mat4, Vec3, Vec4};
 
 /// Source identity retained beside a submitted mesh rather than embedded in a
 /// renderer type or material label.
@@ -59,6 +60,9 @@ pub struct StaticWallMesh {
     pub source_linedef: DoomSourceRecord,
     pub source_sidedef: DoomSourceRecord,
     pub source_sector: DoomSourceRecord,
+    /// Retained Doom source orientation for texture-placement diagnostics. It
+    /// is not a renderer culling or material property.
+    pub side: doom_geometry_provider::DoomWallSideKind,
     pub role: DoomWallTextureRole,
     pub texture_name: String,
     pub mesh: Mesh,
@@ -198,11 +202,271 @@ pub struct StaticTextureUpload {
     pub material_value: Material,
 }
 
+/// Corpus-only source provenance kept beside a prepared draw while AR-0025
+/// compares source topology with presentation candidate granularity. It never
+/// crosses into renderer commands.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StaticDrawSource {
+    Flat {
+        source_subsector: DoomSourceRecord,
+        plane: DoomSurfacePlane,
+    },
+    Wall {
+        source_linedef: DoomSourceRecord,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct StaticDrawPlanEntry {
     pub mesh: Mesh,
     pub material: MaterialHandle,
     pub source_label: String,
+    pub source: StaticDrawSource,
+}
+
+/// Corpus-local conservative bounds for one prepared static-scene draw. The
+/// bounds are evidence used by AR-0025 candidate selection; they are neither a
+/// renderer resource nor a source identity.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StaticDrawAabb {
+    minimum: Vec3,
+    maximum: Vec3,
+}
+
+/// Corpus-local enclosing sphere for one prepared static-scene draw. It exists
+/// solely to compare conservative bound shapes in AR-0025; it is not renderer
+/// or source identity vocabulary.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StaticDrawSphere {
+    center: Vec3,
+    radius: f32,
+}
+
+/// One homogeneous clip plane that wholly excludes a prepared static draw.
+/// This stays corpus-local while AR-0025 determines whether any general
+/// candidate-selection vocabulary is earned.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StaticDrawFrustumRejection {
+    Left,
+    Right,
+    Bottom,
+    Top,
+    Near,
+    Far,
+}
+
+type ClipPlaneTest = fn(Vec4) -> bool;
+
+impl StaticDrawAabb {
+    /// Builds finite ordered bounds for a corpus-only derived volume.
+    pub fn from_minimum_maximum(minimum: Vec3, maximum: Vec3) -> Option<Self> {
+        (minimum.is_finite()
+            && maximum.is_finite()
+            && minimum.x <= maximum.x
+            && minimum.y <= maximum.y
+            && minimum.z <= maximum.z)
+            .then_some(Self { minimum, maximum })
+    }
+
+    /// Derives conservative bounds from supplied mesh positions. Empty or
+    /// non-finite position streams produce no bounds so callers can fail open.
+    pub fn from_positions(positions: &[[f32; 3]]) -> Option<Self> {
+        let mut minimum = Vec3::splat(f32::INFINITY);
+        let mut maximum = Vec3::splat(f32::NEG_INFINITY);
+        for position in positions {
+            let position = Vec3::new(position[0], position[1], position[2]);
+            if !position.is_finite() {
+                return None;
+            }
+            minimum = minimum.min(position);
+            maximum = maximum.max(position);
+        }
+        (!positions.is_empty()).then_some(Self { minimum, maximum })
+    }
+
+    /// Returns the smallest AABB enclosing every supplied finite bound. An
+    /// empty group has no declared bound so callers can retain it fail-open.
+    pub fn enclosing(bounds: &[Self]) -> Option<Self> {
+        Self::enclosing_iter(bounds.iter().copied())
+    }
+
+    /// Iterator form used by corpus grouping experiments to avoid making a
+    /// group allocation part of the selection measurement.
+    pub fn enclosing_iter(bounds: impl IntoIterator<Item = Self>) -> Option<Self> {
+        let mut iter = bounds.into_iter();
+        let first = iter.next()?;
+        Some(iter.fold(first, |combined, bounds| Self {
+            minimum: combined.minimum.min(bounds.minimum),
+            maximum: combined.maximum.max(bounds.maximum),
+        }))
+    }
+
+    /// Corpus-only derived-bound accessors. These expose no renderer resource
+    /// or source identity and exist solely for AR-0025 index experiments.
+    pub const fn minimum(self) -> Vec3 {
+        self.minimum
+    }
+
+    /// See [`Self::minimum`].
+    pub const fn maximum(self) -> Vec3 {
+        self.maximum
+    }
+
+    fn corners(self) -> [Vec3; 8] {
+        let min = self.minimum;
+        let max = self.maximum;
+        [
+            Vec3::new(min.x, min.y, min.z),
+            Vec3::new(max.x, min.y, min.z),
+            Vec3::new(min.x, max.y, min.z),
+            Vec3::new(max.x, max.y, min.z),
+            Vec3::new(min.x, min.y, max.z),
+            Vec3::new(max.x, min.y, max.z),
+            Vec3::new(min.x, max.y, max.z),
+            Vec3::new(max.x, max.y, max.z),
+        ]
+    }
+}
+
+impl StaticDrawSphere {
+    /// Derives an enclosing sphere from supplied finite mesh positions. Empty
+    /// or non-finite input produces no sphere so callers can fail open.
+    pub fn from_positions(positions: &[[f32; 3]]) -> Option<Self> {
+        let bounds = StaticDrawAabb::from_positions(positions)?;
+        let center = (bounds.minimum + bounds.maximum) * 0.5;
+        let mut radius_squared = 0.0_f32;
+        for position in positions {
+            let position = Vec3::new(position[0], position[1], position[2]);
+            if !position.is_finite() {
+                return None;
+            }
+            radius_squared = radius_squared.max(center.distance_squared(position));
+        }
+        Some(Self {
+            center,
+            radius: radius_squared.sqrt(),
+        })
+    }
+}
+
+/// Returns a rejection only when every AABB corner lies outside the same
+/// homogeneous GL-style clip plane. It is therefore conservative: intersecting
+/// or uncertain geometry remains a candidate.
+pub fn classify_static_draw_frustum_rejection(
+    bounds: StaticDrawAabb,
+    view_projection: Mat4,
+) -> Option<StaticDrawFrustumRejection> {
+    let clip = bounds
+        .corners()
+        .map(|point| view_projection * Vec4::new(point.x, point.y, point.z, 1.0));
+    let tests: [(StaticDrawFrustumRejection, ClipPlaneTest); 6] = [
+        (StaticDrawFrustumRejection::Left, |point| point.x < -point.w),
+        (StaticDrawFrustumRejection::Right, |point| point.x > point.w),
+        (StaticDrawFrustumRejection::Bottom, |point| {
+            point.y < -point.w
+        }),
+        (StaticDrawFrustumRejection::Top, |point| point.y > point.w),
+        (StaticDrawFrustumRejection::Near, |point| point.z < -point.w),
+        (StaticDrawFrustumRejection::Far, |point| point.z > point.w),
+    ];
+    tests
+        .into_iter()
+        .find_map(|(reason, outside)| clip.iter().copied().all(outside).then_some(reason))
+}
+
+/// Returns a rejection only when the complete enclosing sphere lies outside a
+/// homogeneous GL-style clip plane. Sphere tests are deliberately compared
+/// with AABBs as AR-0025 evidence; neither shape is an admitted contract.
+pub fn classify_static_draw_sphere_frustum_rejection(
+    sphere: StaticDrawSphere,
+    view_projection: Mat4,
+) -> Option<StaticDrawFrustumRejection> {
+    let row = |index| {
+        let columns = [
+            view_projection.x_axis,
+            view_projection.y_axis,
+            view_projection.z_axis,
+            view_projection.w_axis,
+        ];
+        Vec4::new(
+            columns[0][index],
+            columns[1][index],
+            columns[2][index],
+            columns[3][index],
+        )
+    };
+    let left = row(0) + row(3);
+    let right = row(3) - row(0);
+    let bottom = row(1) + row(3);
+    let top = row(3) - row(1);
+    let near = row(2) + row(3);
+    let far = row(3) - row(2);
+    [
+        (StaticDrawFrustumRejection::Left, left),
+        (StaticDrawFrustumRejection::Right, right),
+        (StaticDrawFrustumRejection::Bottom, bottom),
+        (StaticDrawFrustumRejection::Top, top),
+        (StaticDrawFrustumRejection::Near, near),
+        (StaticDrawFrustumRejection::Far, far),
+    ]
+    .into_iter()
+    .find_map(|(reason, plane)| {
+        let distance = plane.truncate().dot(sphere.center) + plane.w;
+        let support = plane.truncate().length() * sphere.radius;
+        (distance + support < 0.0).then_some(reason)
+    })
+}
+
+/// Maps classic Doom heading degrees onto this corpus's X/Z world convention:
+/// angle zero points +X and 90 points +Z. It supplies no player policy.
+pub fn doom_heading_forward(angle: u16) -> Vec3 {
+    let radians = f32::from(angle).to_radians();
+    Vec3::new(radians.cos(), 0.0, radians.sin())
+}
+
+/// Converts a corpus X/Z source heading into observer-camera yaw, where yaw
+/// zero points +Z.
+pub fn observer_yaw_from_forward(forward: Vec3) -> f32 {
+    forward.x.atan2(forward.z)
+}
+
+/// Converts classic Doom heading degrees into the current observer yaw. Doom
+/// zero points +X; observer yaw zero points +Z.
+pub fn doom_heading_degrees_to_observer_yaw(degrees: f32) -> f32 {
+    observer_yaw_from_forward(Vec3::new(
+        degrees.to_radians().cos(),
+        0.0,
+        degrees.to_radians().sin(),
+    ))
+}
+
+/// Inverse orientation conversion retained for AR-0028 round-trip evidence.
+pub fn observer_yaw_to_doom_heading_degrees(yaw: f32) -> f32 {
+    (90.0 - yaw.to_degrees()).rem_euclid(360.0)
+}
+
+/// Produces a right-handed first-person observer direction. Positive yaw turns
+/// from +Z toward +X; positive pitch looks up. It is corpus evidence helper,
+/// not an admitted runtime input or player policy.
+pub fn observer_direction(yaw: f32, pitch: f32) -> Vec3 {
+    Vec3::new(
+        yaw.sin() * pitch.cos(),
+        pitch.sin(),
+        yaw.cos() * pitch.cos(),
+    )
+}
+
+/// Derives this corpus observer's horizontal screen-right direction from a
+/// world-space forward vector and its declared `+Y` up axis.
+///
+/// This helper retains the cross-product order that `look_at_rh` presents as
+/// camera right. It is corpus evidence for AR-0028, not an admitted Tokimu
+/// camera-basis contract.
+pub fn observer_right(forward: Vec3) -> Vec3 {
+    Vec3::new(forward.x, 0.0, forward.z)
+        .normalize_or_zero()
+        .cross(Vec3::Y)
+        .normalize_or_zero()
 }
 
 /// Aggregate impact of the explicitly omitted zero-area candidates. This is
@@ -296,19 +560,19 @@ pub fn build_experimental_cutout_texture_uploads(
     // `BROWNGRN`) and still be part of the caller's cutout experiment.
     let mut selected = textures
         .iter()
-        .filter_map(|texture| match &texture.eligibility {
-            StaticTextureEligibility::Opaque(opaque) => Some((
+        .map(|texture| match &texture.eligibility {
+            StaticTextureEligibility::Opaque(opaque) => (
                 &opaque.texture_name,
                 &opaque.descriptor,
                 &opaque.sampler,
                 &texture.rgba8,
-            )),
+            ),
             StaticTextureEligibility::DeferredAlpha {
                 texture_name,
                 descriptor,
                 sampler,
                 ..
-            } => Some((texture_name, descriptor, sampler, &texture.rgba8)),
+            } => (texture_name, descriptor, sampler, &texture.rgba8),
         })
         .collect::<Vec<_>>();
     selected.sort_by_key(|(name, _, _, _)| *name);
@@ -390,6 +654,10 @@ pub fn build_static_draw_plan(
                 "flat:{}:{}",
                 flat.source.sector.record_index, flat.source.flat_name
             ),
+            source: StaticDrawSource::Flat {
+                source_subsector: flat.source.subsector,
+                plane: flat.source.plane,
+            },
         });
     }
     for wall in &walls.wall_assembly.opaque_walls {
@@ -400,6 +668,9 @@ pub fn build_static_draw_plan(
                 "wall:{}:{}",
                 wall.source_linedef.record_index, wall.texture_name
             ),
+            source: StaticDrawSource::Wall {
+                source_linedef: wall.source_linedef,
+            },
         });
     }
     Ok(draws)
@@ -432,6 +703,9 @@ pub fn build_experimental_cutout_draw_plan(
                     "cutout:{}:{}",
                     candidate.wall.source_linedef.record_index, candidate.wall.texture_name
                 ),
+                source: StaticDrawSource::Wall {
+                    source_linedef: candidate.wall.source_linedef,
+                },
             })
         })
         .collect()
@@ -968,6 +1242,7 @@ pub fn lower_static_wall_triangle(
         source_linedef: triangle.source_linedef,
         source_sidedef: triangle.source_sidedef,
         source_sector: triangle.source_sector,
+        side: triangle.side,
         role: triangle.role,
         texture_name: triangle.texture_name.clone(),
         mesh,
@@ -1282,9 +1557,12 @@ mod tests {
             texture_name: "F_SKY1".into(),
         };
 
-        let assembly =
-            assemble_static_opaque_flats(&[floor, ceiling], &[sky.clone()], FlatExtent::E1M1)
-                .unwrap();
+        let assembly = assemble_static_opaque_flats(
+            &[floor, ceiling],
+            std::slice::from_ref(&sky),
+            FlatExtent::E1M1,
+        )
+        .unwrap();
 
         assert_eq!(assembly.opaque_flats.len(), 1);
         assert_eq!(
@@ -1326,7 +1604,7 @@ mod tests {
         };
         let assembly = assemble_static_opaque_walls(
             &[wall],
-            &[masked.clone()],
+            std::slice::from_ref(&masked),
             &[DoomTextureExtent {
                 name: "STARTAN3".into(),
                 width: 128,
@@ -1354,7 +1632,7 @@ mod tests {
         degenerate.positions[2] = degenerate.positions[1];
         let assembly = assemble_experimental_masked_middle_cutouts(
             &[wall, degenerate],
-            &[masked.clone()],
+            std::slice::from_ref(&masked),
             &[DoomTextureExtent {
                 name: "STARTAN3".into(),
                 width: 128,

@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 render-orientation-conformance = { path = "../lib/render-orientation-conformance" }
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
+tokimu-core = { path = "../../crates/tokimu-core" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook.workspace = true
@@ -16,8 +17,9 @@ wasm-bindgen-futures = "0.4"
 web-sys = { workspace = true, features = [
     "Document",
     "Element",
-    "HtmlCanvasElement",
-    "HtmlElement",
-    "Window",
+	"HtmlCanvasElement",
+	"HtmlElement",
+	"KeyboardEvent",
+	"MouseEvent",
+	"Window",
 ] }
-

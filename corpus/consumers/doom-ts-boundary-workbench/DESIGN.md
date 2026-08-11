@@ -96,3 +96,30 @@ the distinct request and presents the returned observation.
 The original opaque request remains isolated: it does not prepare masked
 inputs or register the cutout pipeline. Neither request makes TypeScript a
 browser renderer API; continuous Blend remains outside the admitted contract.
+
+## AR-0025 Selected-Cutout Browser Evidence
+
+`render_static_e1m1_selected_cutouts(canvas)` is a third, deliberately
+corpus-local request. Rust/WASM resolves the same E1M1 player-one start and
+sector context used by the native observer, derives the source heading, applies
+the fixed yaw-plus-90 evidence pose, and filters ordinary prepared draws whose
+conservative AABBs are wholly outside that camera's homogeneous clip frustum.
+TypeScript only exposes the button, forwards the canvas, and displays the
+returned count/presentation observation.
+
+This is not a browser scene API, a TypeScript-owned camera, a Doom visibility
+rule in the renderer, or an admitted Tokimu culling contract. All meshes are
+still uploaded for the one-shot browser fixture before the corpus filter
+chooses submitted commands, so this path may prove cross-target selection and
+visual behavior but not browser upload or steady-state performance savings.
+
+For local observation after generating `web/pkg/` and `web/app/`, serve the
+workbench from its `web/` directory, for example:
+
+```powershell
+python -m http.server 4176 --directory corpus/consumers/doom-ts-boundary-workbench/web
+```
+
+Select the reviewed ZIP, then use **Render E1M1 selected cutouts**. The
+returned observation must retain the candidate/rejected/submitted counts;
+the browser should not be treated as a timing benchmark.

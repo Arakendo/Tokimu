@@ -13,6 +13,7 @@ archive-provider = { path = "../../../lib/archive-provider" }
 doom-wad-package = { path = "../../../lib/doom-wad-package" }
 doom-wad-provider = { path = "../../../lib/doom-wad-provider" }
 doom-map-provider = { path = "../../../lib/doom-map-provider" }
+doom-geometry-provider = { path = "../../../lib/doom-geometry-provider" }
 doom-raster-provider = { path = "../../../lib/doom-raster-provider" }
 hello-doom-e1m1 = { path = "../../../hello-doom-e1m1" }
 resource-space = { path = "../../../lib/resource-space" }

@@ -5,12 +5,14 @@ const button = document.querySelector<HTMLButtonElement>("#select");
 const inspect = document.querySelector<HTMLButtonElement>("#inspect");
 const render = document.querySelector<HTMLButtonElement>("#render");
 const renderCutouts = document.querySelector<HTMLButtonElement>("#render-cutouts");
+const renderSelected = document.querySelector<HTMLButtonElement>("#render-selected");
+const renderExitsign = document.querySelector<HTMLButtonElement>("#render-exitsign");
 const download = document.querySelector<HTMLButtonElement>("#download");
 const clear = document.querySelector<HTMLButtonElement>("#clear");
 const input = document.querySelector<HTMLInputElement>("#package");
 const result = document.querySelector<HTMLElement>("#result");
 const canvas = document.querySelector<HTMLCanvasElement>("#scene");
-if (button === null || inspect === null || render === null || renderCutouts === null || download === null || clear === null || input === null || result === null || canvas === null) throw new Error("intake DOM is incomplete");
+if (button === null || inspect === null || render === null || renderCutouts === null || renderSelected === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null) throw new Error("intake DOM is incomplete");
 
 await init();
 const session = new BrowserIntakeSession();
@@ -19,6 +21,8 @@ const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
   inspect.disabled = outcome.kind !== "retained";
   render.disabled = outcome.kind !== "retained";
   renderCutouts.disabled = outcome.kind !== "retained";
+  renderSelected.disabled = outcome.kind !== "retained";
+  renderExitsign.disabled = outcome.kind !== "retained";
   download.disabled = true;
   clear.disabled = outcome.kind !== "retained";
 });
@@ -27,6 +31,8 @@ clear.addEventListener("click", () => {
   inspect.disabled = true;
   render.disabled = true;
   renderCutouts.disabled = true;
+  renderSelected.disabled = true;
+  renderExitsign.disabled = true;
   download.disabled = true;
   clear.disabled = true;
   result.textContent = JSON.stringify({ kind: "disposed", retainedResources: 0, retainedBytes: 0 }, null, 2);
@@ -60,6 +66,30 @@ renderCutouts.addEventListener("click", async () => {
     result.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error) }, null, 2);
   } finally {
     renderCutouts.disabled = false;
+  }
+});
+renderSelected.addEventListener("click", async () => {
+  renderSelected.disabled = true;
+  result.textContent = "Preparing source-spawn E1M1 with corpus-local AABB/frustum selection...";
+  try {
+    result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_static_e1m1_selected_cutouts(canvas) }, null, 2);
+    download.disabled = false;
+  } catch (error) {
+    result.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error) }, null, 2);
+  } finally {
+    renderSelected.disabled = false;
+  }
+});
+renderExitsign.addEventListener("click", async () => {
+  renderExitsign.disabled = true;
+  result.textContent = "Preparing the canonical E1M1 EXITSIGN orientation view...";
+  try {
+    result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_e1m1_exitsign(canvas) }, null, 2);
+    download.disabled = false;
+  } catch (error) {
+    result.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error) }, null, 2);
+  } finally {
+    renderExitsign.disabled = false;
   }
 });
 download.addEventListener("click", () => {

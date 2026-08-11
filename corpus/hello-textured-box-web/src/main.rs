@@ -142,7 +142,7 @@ impl UvMode {
     fn apply(self, [u, v]: [f32; 2]) -> [f32; 2] {
         match self {
             Self::Identity => [u, v],
-            Self::FlipU => [ADDRESSING_UV_SCALE - u, v],
+            Self::FlipU => [1.0 - u, v],
             Self::SwapUv => [v, u],
         }
     }
@@ -152,6 +152,36 @@ impl UvMode {
             Self::Identity => "uv identity",
             Self::FlipU => "uv flip-u",
             Self::SwapUv => "uv swap",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+enum UvExtent {
+    #[default]
+    OnePerFace,
+    AddressingStress,
+}
+
+impl UvExtent {
+    fn next(self) -> Self {
+        match self {
+            Self::OnePerFace => Self::AddressingStress,
+            Self::AddressingStress => Self::OnePerFace,
+        }
+    }
+
+    fn apply(self, [u, v]: [f32; 2]) -> [f32; 2] {
+        match self {
+            Self::OnePerFace => [u, v],
+            Self::AddressingStress => [u * ADDRESSING_UV_SCALE, v * ADDRESSING_UV_SCALE],
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::OnePerFace => "one texture per face",
+            Self::AddressingStress => "3.25x addressing stress",
         }
     }
 }
@@ -166,6 +196,7 @@ struct BrowserApp {
     texture_index: usize,
     sampler_mode: SamplerMode,
     uv_mode: UvMode,
+    uv_extent: UvExtent,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -188,7 +219,7 @@ pub fn start_fixture() -> Result<(), JsValue> {
                     set_state("failed");
                 } else {
                     set_status(&format!(
-                        "ready | WebGPU adapter: {adapter} | {} | M texture; R sampler; X UV",
+                        "ready | WebGPU adapter: {adapter} | {} | M texture; R sampler; X UV; E extent",
                         app.borrow().selection_label()
                     ));
                     set_state("ready");
@@ -268,6 +299,7 @@ async fn initialize(canvas: HtmlCanvasElement) -> Result<(BrowserApp, String), S
         texture_index: 0,
         sampler_mode: SamplerMode::default(),
         uv_mode: UvMode::default(),
+        uv_extent: UvExtent::default(),
     };
     app.redraw()?;
     Ok((app, adapter))
@@ -280,7 +312,10 @@ impl BrowserApp {
             .positions
             .iter()
             .zip(&self.normals)
-            .map(|(&position, &normal)| self.uv_mode.apply(planar_uv(position, normal)))
+            .map(|(&position, &normal)| {
+                self.uv_extent
+                    .apply(self.uv_mode.apply(planar_uv(position, normal)))
+            })
             .collect();
         let mesh = Mesh::new(self.positions.clone(), self.normals.clone())
             .with_texture_coordinates(uvs)
@@ -324,12 +359,13 @@ impl BrowserApp {
             "m" => self.texture_index = (self.texture_index + 1) % TEXTURES.len(),
             "r" => self.sampler_mode = self.sampler_mode.next(),
             "x" => self.uv_mode = self.uv_mode.next(),
+            "e" => self.uv_extent = self.uv_extent.next(),
             _ => return Ok(false),
         }
         self.redraw()?;
         let fixture = TEXTURES[self.texture_index];
         set_status(&format!(
-            "ready | {} | M texture; R sampler; X UV",
+            "ready | {} | M texture; R sampler; X UV; E extent",
             self.selection_label()
         ));
         Ok(true)
@@ -337,10 +373,11 @@ impl BrowserApp {
 
     fn selection_label(&self) -> String {
         format!(
-            "{} | {} | {}",
+            "{} | {} | {} | {}",
             TEXTURES[self.texture_index].label,
             self.sampler_mode.label(),
-            self.uv_mode.label()
+            self.uv_mode.label(),
+            self.uv_extent.label()
         )
     }
 }
@@ -373,7 +410,7 @@ fn planar_uv([x, y, z]: [f32; 3], normal: [f32; 3]) -> [f32; 2] {
     } else {
         [x + 0.5, z + 0.5]
     };
-    [uv[0] * ADDRESSING_UV_SCALE, uv[1] * ADDRESSING_UV_SCALE]
+    uv
 }
 
 #[cfg(test)]
@@ -413,19 +450,21 @@ mod tests {
 
     #[test]
     fn uv_modes_transform_the_same_corpus_coordinates_deterministically() {
-        let coordinates = [0.5, 1.25];
+        let coordinates = [0.25, 0.75];
         assert_eq!(UvMode::Identity.apply(coordinates), coordinates);
-        assert_eq!(UvMode::FlipU.apply(coordinates), [2.75, 1.25]);
-        assert_eq!(UvMode::SwapUv.apply(coordinates), [1.25, 0.5]);
+        assert_eq!(UvMode::FlipU.apply(coordinates), [0.75, 0.75]);
+        assert_eq!(UvMode::SwapUv.apply(coordinates), [0.75, 0.25]);
         assert_eq!(UvMode::SwapUv.next().label(), "uv identity");
     }
 
     #[test]
-    fn planar_mapping_intentionally_exceeds_the_unit_interval() {
-        assert_eq!(planar_uv([0.5, -0.5, 0.0], [0.0, 0.0, 1.0]), [3.25, 3.25]);
-        assert!(planar_uv([0.5, -0.5, 0.0], [0.0, 0.0, 1.0])
-            .iter()
-            .any(|coordinate| *coordinate > 1.0));
+    fn planar_mapping_is_readable_by_default_and_stress_is_explicit() {
+        assert_eq!(planar_uv([0.5, -0.5, 0.0], [0.0, 0.0, 1.0]), [1.0, 1.0]);
+        assert_eq!(UvExtent::OnePerFace.apply([1.0, 1.0]), [1.0, 1.0]);
+        assert_eq!(
+            UvExtent::AddressingStress.apply([1.0, 1.0]),
+            [ADDRESSING_UV_SCALE, ADDRESSING_UV_SCALE]
+        );
     }
 }
 

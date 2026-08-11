@@ -8,7 +8,7 @@
 | Scope | Native Ring / third-party public vocabulary / cross-cutting |
 | Trigger | ADR-0010 audit retained `glam` as the current Ring 0 math implementation while exposing its types through Tokimu's public API |
 | Related ADRs | ADR-0003, ADR-0005, ADR-0008, ADR-0009, ADR-0010, ADR-0011 |
-| Related evidence | `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`; AR-0015; `crates/tokimu-core/src/math.rs`; 3D corpus consumers |
+| Related evidence | `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`; AR-0015; AR-0026; `crates/tokimu-core/src/math.rs`; 3D corpus consumers |
 | Related plan | `docs/Plans/native-math-vocabulary-foreign-type-case-study.md` |
 | Admission exception | None |
 
@@ -288,6 +288,28 @@ collision, rendering, or imported-data paths add pressure not represented by
 the frozen 0.1 inventory. New pressure must be named in the inventory and
 shared conformance suite rather than added opportunistically to a candidate.
 
+## Deferred Non-Euclidean Spatial Pressure
+
+AR-0026 introduces long-horizon pressure that the current five-type inventory
+does not represent. Locally Euclidean charts, angular deficit/excess junctions,
+and explicit transition maps may need typed local coordinates, chart/region
+identity, transition composition, transformed directions or queries, and
+validation that cannot be expressed honestly as one global `Mat4` plus
+unqualified `Vec3` values.
+
+This does not prove that those concepts belong in `tokimu_core::math`, that the
+current `glam` provider is unsuitable, or that Tokimu should invent manifold
+math now. It does prove that AR-0019 must not select a permanent public math
+vocabulary solely from today's globally Euclidean renderer callers. A future
+AR-0026 corpus may reveal that some required values are spatial semantic types
+above ordinary vectors and matrices rather than additional math primitives.
+
+AR-0019 therefore retains ordinary vector/matrix mechanics as one separable
+question and chart/topology meaning as another. Any later selection must test
+whether the chosen ownership boundary can support strongly distinguished local
+coordinates and transitions without leaking a foreign provider's type system
+into the spatial semantic contract.
+
 ## Reopening Triggers
 
 - A second foreign Native dependency exposes a public type or trait and needs
@@ -302,6 +324,9 @@ shared conformance suite rather than added opportunistically to a candidate.
   acceptable measured costs—or demonstrates that the seam is not worthwhile.
 - A future FFI, serialization, reflection, or TypeScript-facing boundary makes
   `glam` representation part of an externally visible contract.
+- AR-0026 produces an executable chart/transition corpus whose local-coordinate
+  or transition-composition needs cannot be represented without changing the
+  current five-type public vocabulary or its ownership boundary.
 
 ## Review History
 
@@ -1202,6 +1227,21 @@ shared conformance suite rather than added opportunistically to a candidate.
 - Resulting ADR or documentation change: no ADR change; recorded the dated
   foreign-provider compiler-compatibility watch item.
 
+### Cycle 51 -- 2026-08-10
+
+- Status entering review: Incubating.
+- New pressure: AR-0026 records future authored chart, transition-map, and
+  angular deficit/excess semantics. Those may require spatially qualified local
+  values whose meaning is not captured by an unqualified global `Vec3`/`Mat4`.
+- Findings: non-Euclidean pressure strengthens the case for separating Tokimu
+  semantic vocabulary from provider mechanics, but does not establish that
+  new chart types belong in the math layer or that `glam` must be replaced.
+- Disposition: retain Incubating status. Revisit after an executable AR-0026
+  corpus identifies actual operations and ownership; do not expand the current
+  math candidates speculatively.
+- Resulting ADR or documentation change: no ADR change; cross-review pressure
+  is now explicit.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
@@ -1211,6 +1251,7 @@ shared conformance suite rather than added opportunistically to a candidate.
 - `docs/ADR/ADR-0010-ring-zero-third-party-source-admission.md`
 - `docs/ADR/ADR-0011-ring-based-security-authority-and-trust-boundaries.md`
 - `docs/Architectural Reviews/AR-0015-ring-zero-provenance-enforcement-and-audit-closure.md`
+- `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`
 - `crates/tokimu-core/src/math.rs`
 - Microsoft Threat Intelligence and Microsoft Defender Security Research Team,

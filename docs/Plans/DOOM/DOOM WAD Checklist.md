@@ -534,6 +534,12 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         only retained two-sided masked-middle classifications, preserving them
         for AR-0023 evidence while leaving one-sided middle walls eligible for
         a later opaque-coverage check.
+    - [x] Preserve Doom's side-local horizontal texture direction after the
+          Doom-2D-to-Tokimu-3D lift: right/front sidedefs advance opposite the
+          stored linedef while left/back sidedefs advance along it. The
+          canonical `EXITSIGN` evidence is right/front; this repair remains a
+          Doom-provider mapping, not a change to the generic supplied-UV
+          renderer contract, and endpoint regressions cover both directions.
 - [x] Submit a static E1M1 scene with its source-traceable floors, ceilings,
       walls, sky classification, and admitted material requirements.
   - [x] Prepare E1M1 flats and selected flat rasters through the existing map,
@@ -654,6 +660,17 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         after interactive source-spawn observation exposed camera-motion
         submission pressure. It separates corpus-local frustum evidence from
         Doom visibility data and any future generic culling capability.
+    - [x] Retain the Stage 0 full-submission and initial Stage 1
+          frustum/AABB measurements in
+          [`E1M1 camera candidate-selection evidence.md`](E1M1%20camera%20candidate-selection%20evidence.md).
+          The opt-in corpus filter preserves draw order, fails open on uncertain
+          bounds, changes no renderer API, and leaves full submission as the
+          default contract.
+    - [x] Add a deterministic yaw-plus-90 source-spawn pose that retains 1,025
+          opaque and all 26 cutout draws under conservative selection.
+    - [ ] Complete AR-0025 Stage 1 visual/target evidence: compare native
+          full-submission and selected images at the retained pose and exercise
+          equivalent browser/WASM selection.
 
 Acceptance criteria:
 

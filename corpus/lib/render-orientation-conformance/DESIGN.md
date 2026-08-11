@@ -7,6 +7,12 @@ required by AR-0021. Native WGPU and browser/WASM consumers must use the same
 geometry, shader, render states, transforms, and expectations rather than
 maintaining visually similar copies.
 
+The AR-0028 extension replaces symmetric triangle-only evidence with paired
+chamfered panels and a generated labeled atlas. See
+[`fixture-manifest.md`](fixture-manifest.md) for the exact positions, winding,
+UVs, labels, transforms, and cull matrix. Geometry facing and texture-axis
+orientation are deliberately diagnosable without relying on one another.
+
 The fixture is not a general coordinate-system abstraction and does not decide
 Tokimu's binding front-face policy. It exists to measure the current boundary
 before that decision is made.
@@ -15,9 +21,11 @@ before that decision is made.
 
 - Ordered positions define geometric facing.
 - The fixture's supplied `+Z` normals are deliberate shading evidence and do
-  not classify either triangle as front.
-- WGSL's `front_facing` input selects green or magenta independently from the
-  normal-derived brightness.
+  not classify either panel as front.
+- WGSL's `front_facing` input selects the labeled `FRONT` or `BACK` atlas half
+  independently from the normal-derived brightness.
+- Caller-supplied UVs select readable U/V labels and four distinct corners;
+  the renderer does not infer or repair their orientation.
 - Cull mode independently selects which classified fragments survive.
 - Identity and rotation/translation preserve orientation.
 - Reflection reverses orientation; the compensated reflection reverses each

@@ -865,6 +865,7 @@ name = "doom-ts-boundary-workbench-engine"
 version = "0.1.0"
 dependencies = [
  "archive-provider",
+ "doom-geometry-provider",
  "doom-map-provider",
  "doom-raster-provider",
  "doom-wad-package",
@@ -1326,6 +1327,7 @@ dependencies = [
 name = "hello-cad"
 version = "0.1.0"
 dependencies = [
+ "render-orientation-conformance",
  "tokimu",
  "tokimu-core",
  "ui-tools",
@@ -1362,11 +1364,14 @@ dependencies = [
  "doom-raster-provider",
  "doom-wad-package",
  "doom-wad-provider",
+ "render-orientation-conformance",
  "resource-space",
  "resource-space-archive",
  "thiserror 1.0.69",
  "tokimu",
  "tokimu-core",
+ "tokimu-input",
+ "winit",
 ]
 
 [[package]]
@@ -1506,6 +1511,8 @@ version = "0.1.0"
 dependencies = [
  "render-orientation-conformance",
  "tokimu",
+ "tokimu-core",
+ "winit",
 ]
 
 [[package]]
@@ -1515,6 +1522,7 @@ dependencies = [
  "console_error_panic_hook",
  "render-orientation-conformance",
  "tokimu",
+ "tokimu-core",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -3030,6 +3038,7 @@ dependencies = [
 name = "render-orientation-conformance"
 version = "0.1.0"
 dependencies = [
+ "tokimu-core",
  "tokimu-render",
 ]
 

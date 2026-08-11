@@ -32,7 +32,7 @@ sampler declaration, alpha declaration, camera, and retained observation.
 | Mode | Input difference | Required conclusion |
 | --- | --- | --- |
 | UV orientation | Door/axis fixture and supplied UV mapping | A reviewer can identify a U/V inversion or face rotation. |
-| Addressing | UVs deliberately scaled to `3.25` outside `[0, 1]`, clamp versus repeat | The material declaration, not source format, selects visible edge smear or tiling behavior. |
+| Addressing | Default UVs map one complete image per face; `E` explicitly selects a `3.25` stress extent for clamp versus repeat | The material declaration, not source format, selects visible edge smear or tiling behavior. |
 | Filtering | Fine grid at a non-integer screen scale, point versus linear | The material declaration reaches the backend sampler. `R` cycles all four filter/address combinations independently. |
 | Palette variation | Matching dark and green door inputs | Texture identity may change without changing source geometry or UVs. |
 | Alpha | A future documented first-party alpha fixture | The renderer behavior is declared explicitly, or returns an explicit unsupported result. |

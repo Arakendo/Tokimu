@@ -33,8 +33,8 @@ const TEXTURES: [TextureFixture; 3] = [
 const CAMERA: CameraHandle = CameraHandle(1);
 const BOX_SOURCE: &str =
     "third-party/fixtures/khronos-gltf-sample-assets/upstream/Models/Box/glTF-Binary/Box.glb";
-/// Intentionally exceeds the unit interval so sampler modes exercise
-/// addressing rather than relying on an accidental visual difference.
+/// Explicit stress extent used only when the maintainer selects tiled address
+/// evidence. The default maps one complete source image to each Box face.
 const ADDRESSING_UV_SCALE: f32 = 3.25;
 
 #[derive(Clone, Copy)]
@@ -73,7 +73,7 @@ impl UvMode {
     fn apply(self, [u, v]: [f32; 2]) -> [f32; 2] {
         match self {
             Self::Identity => [u, v],
-            Self::FlipU => [ADDRESSING_UV_SCALE - u, v],
+            Self::FlipU => [1.0 - u, v],
             Self::SwapUv => [v, u],
         }
     }
@@ -83,6 +83,36 @@ impl UvMode {
             Self::Identity => "uv identity",
             Self::FlipU => "uv flip-u",
             Self::SwapUv => "uv swap",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+enum UvExtent {
+    #[default]
+    OnePerFace,
+    AddressingStress,
+}
+
+impl UvExtent {
+    fn next(self) -> Self {
+        match self {
+            Self::OnePerFace => Self::AddressingStress,
+            Self::AddressingStress => Self::OnePerFace,
+        }
+    }
+
+    fn apply(self, [u, v]: [f32; 2]) -> [f32; 2] {
+        match self {
+            Self::OnePerFace => [u, v],
+            Self::AddressingStress => [u * ADDRESSING_UV_SCALE, v * ADDRESSING_UV_SCALE],
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::OnePerFace => "one texture per face",
+            Self::AddressingStress => "3.25x addressing stress",
         }
     }
 }
@@ -136,6 +166,7 @@ struct App {
     texture_index: usize,
     sampler_mode: SamplerMode,
     uv_mode: UvMode,
+    uv_extent: UvExtent,
 }
 
 fn main() -> PlatformResult<()> {
@@ -153,7 +184,7 @@ impl PlatformEventHandler for App {
     fn on_native_window_created(&mut self, window: Arc<NativeWindow>) -> PlatformResult<()> {
         let size = window.inner_size();
         self.size = [size.width.max(1) as f32, size.height.max(1) as f32];
-        self.mesh = load_box_mesh_with_planar_uvs(self.uv_mode)?;
+        self.mesh = load_box_mesh_with_planar_uvs(self.uv_mode, self.uv_extent)?;
 
         let mut renderer = WgpuBackend::for_window(window.clone(), size.width, size.height)?;
         for fixture in TEXTURES {
@@ -204,7 +235,12 @@ impl PlatformEventHandler for App {
                 }
                 tokimu::KeyCode::KeyX => {
                     self.uv_mode = self.uv_mode.next();
-                    self.mesh = load_box_mesh_with_planar_uvs(self.uv_mode)?;
+                    self.mesh = load_box_mesh_with_planar_uvs(self.uv_mode, self.uv_extent)?;
+                    self.update_material()?;
+                }
+                tokimu::KeyCode::KeyE => {
+                    self.uv_extent = self.uv_extent.next();
+                    self.mesh = load_box_mesh_with_planar_uvs(self.uv_mode, self.uv_extent)?;
                     self.update_material()?;
                 }
                 _ => {}
@@ -258,17 +294,18 @@ impl App {
             )?;
         if let Some(window) = &self.window {
             window.set_title(&format!(
-                "Tokimu Textured Box | {} | {} | {} | M texture; R sampler; X UV",
+                "Tokimu Textured Box | {} | {} | {} | {} | M texture; R sampler; X UV; E extent",
                 fixture.label,
                 self.sampler_mode.label(),
                 self.uv_mode.label(),
+                self.uv_extent.label(),
             ));
         }
         Ok(())
     }
 }
 
-fn load_box_mesh_with_planar_uvs(uv_mode: UvMode) -> PlatformResult<Mesh> {
+fn load_box_mesh_with_planar_uvs(uv_mode: UvMode, uv_extent: UvExtent) -> PlatformResult<Mesh> {
     let model = decode_glb_file(workspace_path(BOX_SOURCE))?;
     let primitive = model
         .primitives
@@ -289,7 +326,7 @@ fn load_box_mesh_with_planar_uvs(uv_mode: UvMode) -> PlatformResult<Mesh> {
             .ok_or_else(|| io::Error::other("Box index outside normals"))?;
         positions.push(position);
         normals.push(normal);
-        uvs.push(uv_mode.apply(planar_uv(position, normal)));
+        uvs.push(uv_extent.apply(uv_mode.apply(planar_uv(position, normal))));
     }
     Mesh::new(positions, normals)
         .with_texture_coordinates(uvs)
@@ -305,10 +342,7 @@ fn planar_uv(position: [f32; 3], normal: [f32; 3]) -> [f32; 2] {
     } else {
         [x + 0.5, z + 0.5]
     };
-    [
-        coordinates[0] * ADDRESSING_UV_SCALE,
-        coordinates[1] * ADDRESSING_UV_SCALE,
-    ]
+    coordinates
 }
 
 fn workspace_path(relative: &str) -> PathBuf {
@@ -323,22 +357,32 @@ mod tests {
 
     #[test]
     fn decoded_box_expands_to_supplied_uvs() {
-        let mesh =
-            load_box_mesh_with_planar_uvs(UvMode::Identity).expect("Box conversion should succeed");
+        let mesh = load_box_mesh_with_planar_uvs(UvMode::Identity, UvExtent::OnePerFace)
+            .expect("Box conversion should succeed");
         assert_eq!(mesh.positions.len(), 36);
         assert_eq!(mesh.positions.len(), mesh.texture_coordinates.len());
         assert!(mesh.has_texture_coordinates());
         assert!(mesh
             .texture_coordinates
             .iter()
-            .any(|coordinates| coordinates[0] > 1.0 || coordinates[1] > 1.0));
+            .all(|coordinates| (0.0..=1.0).contains(&coordinates[0])
+                && (0.0..=1.0).contains(&coordinates[1])));
     }
 
     #[test]
     fn uv_modes_transform_the_same_source_coordinates_deterministically() {
-        let coordinates = [0.5, 1.25];
+        let coordinates = [0.25, 0.75];
         assert_eq!(UvMode::Identity.apply(coordinates), coordinates);
-        assert_eq!(UvMode::FlipU.apply(coordinates), [2.75, 1.25]);
-        assert_eq!(UvMode::SwapUv.apply(coordinates), [1.25, 0.5]);
+        assert_eq!(UvMode::FlipU.apply(coordinates), [0.75, 0.75]);
+        assert_eq!(UvMode::SwapUv.apply(coordinates), [0.75, 0.25]);
+    }
+
+    #[test]
+    fn addressing_stress_is_explicit_and_default_extent_is_readable() {
+        assert_eq!(UvExtent::OnePerFace.apply([1.0, 1.0]), [1.0, 1.0]);
+        assert_eq!(
+            UvExtent::AddressingStress.apply([1.0, 1.0]),
+            [ADDRESSING_UV_SCALE, ADDRESSING_UV_SCALE]
+        );
     }
 }

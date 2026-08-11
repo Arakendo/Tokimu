@@ -125,6 +125,16 @@ pub struct DoomSubsectorSectorOwnership {
     pub sector_index: u16,
 }
 
+/// The source BSP leaves that contain one original linedef through their
+/// `SEGS`. Membership is intentionally one-to-many: a partitioned linedef can
+/// occur in multiple subsectors. This is Doom-topology evidence, not renderer
+/// scene membership or a visibility decision.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomLinedefSubsectorMembership {
+    pub source_linedef: DoomSourceRecord,
+    pub source_subsectors: Vec<DoomSourceRecord>,
+}
+
 /// The uniquely located source BSP leaf for an integer map point.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DoomPointSubsectorObservation {
@@ -136,6 +146,29 @@ pub struct DoomPointSubsectorObservation {
 pub enum DoomSurfacePlane {
     Floor,
     Ceiling,
+}
+
+/// Explicit corpus-provider lift from classic Doom's map plane plus height to
+/// the current Tokimu-facing 3D embedding. This is Doom source conversion,
+/// not a renderer or global-world convention.
+pub fn doom_point_to_tokimu(source_xy: [f64; 2], height: f64) -> [f64; 3] {
+    [source_xy[0], height, source_xy[1]]
+}
+
+/// Exact inverse of [`doom_point_to_tokimu`] for retained round-trip evidence.
+pub fn tokimu_point_to_doom(world: [f64; 3]) -> ([f64; 2], f64) {
+    ([world[0], world[2]], world[1])
+}
+
+/// Lifts a Doom planar direction plus vertical component without applying
+/// translation or normalization.
+pub fn doom_direction_to_tokimu(source_xy: [f64; 2], vertical: f64) -> [f64; 3] {
+    [source_xy[0], vertical, source_xy[1]]
+}
+
+/// Exact inverse of [`doom_direction_to_tokimu`].
+pub fn tokimu_direction_to_doom(world: [f64; 3]) -> ([f64; 2], f64) {
+    ([world[0], world[2]], world[1])
 }
 
 /// One renderer-neutral triangle from a bounded BSP leaf surface.
@@ -230,7 +263,15 @@ pub enum DoomWallTextureRole {
     Middle,
 }
 
-/// The stable, source-local horizontal axis for one authored wall texture.
+/// The stable, side-local horizontal axis for one authored wall texture.
+///
+/// `u_start` and `u_end` correspond to the linedef's stored start and end
+/// vertices after Doom's 2D coordinates are lifted into Tokimu's 3D frame.
+/// That lift reverses the horizontal screen direction of a right/front
+/// sidedef, so its texture axis decreases along the stored linedef; a
+/// left/back sidedef advances along it. This preserves readable source art
+/// without asking a generic mesh or renderer consumer to understand Doom
+/// sidedefs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DoomWallTextureAxisObservation {
     pub source_linedef: DoomSourceRecord,
@@ -867,6 +908,34 @@ pub fn resolve_doom_subsector_sector_ownership(
         .collect()
 }
 
+/// Resolves the source BSP-leaf membership of every linedef from `SSECTORS`
+/// and their `SEGS`, preserving source order and a one-to-many result.
+pub fn resolve_doom_linedef_subsector_membership(
+    map: &DoomMapCore,
+) -> Vec<DoomLinedefSubsectorMembership> {
+    let mut memberships = vec![Vec::new(); map.linedefs.len()];
+    for subsector in &map.subsectors {
+        let first = usize::from(subsector.first_seg);
+        let end = first + usize::from(subsector.seg_count);
+        for seg in &map.segs[first..end] {
+            let membership = &mut memberships[usize::from(seg.linedef)];
+            if !membership.contains(&subsector.source) {
+                membership.push(subsector.source);
+            }
+        }
+    }
+    map.linedefs
+        .iter()
+        .zip(memberships)
+        .map(
+            |(linedef, source_subsectors)| DoomLinedefSubsectorMembership {
+                source_linedef: linedef.source,
+                source_subsectors,
+            },
+        )
+        .collect()
+}
+
 /// Lowers each bounded BSP leaf into floor and ceiling triangle candidates.
 ///
 /// This preserves the BSP-leaf partition rather than attempting to merge
@@ -890,13 +959,13 @@ pub fn lower_doom_subsector_surfaces(
                 DoomSurfacePlane::Floor,
                 sector.floor_height,
                 sector.floor_texture.as_str(),
-                false,
+                true,
             ),
             (
                 DoomSurfacePlane::Ceiling,
                 sector.ceiling_height,
                 sector.ceiling_texture.as_str(),
-                true,
+                false,
             ),
         ] {
             for index in 1..region.vertices.len() - 1 {
@@ -912,7 +981,7 @@ pub fn lower_doom_subsector_surfaces(
                         [points[1][0], f64::from(height), points[1][1]],
                     ]
                 } else {
-                    points.map(|point| [point[0], f64::from(height), point[1]])
+                    points.map(|point| doom_point_to_tokimu(point, f64::from(height)))
                 };
                 triangles.push(DoomSurfaceTriangle {
                     source_subsector: region.source_subsector,
@@ -943,26 +1012,12 @@ pub fn lower_doom_one_sided_walls(
             _ => continue,
         };
         let sector = &map.sectors[usize::from(ownership.sector_index)];
-        let start_floor = [
-            f64::from(candidate.start[0]),
-            f64::from(sector.floor_height),
-            f64::from(candidate.start[1]),
-        ];
-        let end_floor = [
-            f64::from(candidate.end[0]),
-            f64::from(sector.floor_height),
-            f64::from(candidate.end[1]),
-        ];
-        let start_ceiling = [
-            f64::from(candidate.start[0]),
-            f64::from(sector.ceiling_height),
-            f64::from(candidate.start[1]),
-        ];
-        let end_ceiling = [
-            f64::from(candidate.end[0]),
-            f64::from(sector.ceiling_height),
-            f64::from(candidate.end[1]),
-        ];
+        let source_start = candidate.start.map(f64::from);
+        let source_end = candidate.end.map(f64::from);
+        let start_floor = doom_point_to_tokimu(source_start, f64::from(sector.floor_height));
+        let end_floor = doom_point_to_tokimu(source_end, f64::from(sector.floor_height));
+        let start_ceiling = doom_point_to_tokimu(source_start, f64::from(sector.ceiling_height));
+        let end_ceiling = doom_point_to_tokimu(source_end, f64::from(sector.ceiling_height));
         let positions =
             doom_wall_quad_triangles(side, start_floor, end_floor, start_ceiling, end_ceiling);
         triangles.extend(positions.map(|positions| DoomWallTriangle {
@@ -1293,8 +1348,14 @@ pub fn observe_doom_wall_texture_axes(
                         side,
                         role,
                         texture_name: texture_name.to_owned(),
-                        u_start: f64::from(ownership.x_offset),
-                        u_end: f64::from(ownership.x_offset) + length,
+                        u_start: match side {
+                            DoomWallSideKind::Right => f64::from(ownership.x_offset) + length,
+                            DoomWallSideKind::Left => f64::from(ownership.x_offset),
+                        },
+                        u_end: match side {
+                            DoomWallSideKind::Right => f64::from(ownership.x_offset),
+                            DoomWallSideKind::Left => f64::from(ownership.x_offset) + length,
+                        },
                         v_offset: ownership.y_offset,
                     });
                 }
@@ -1507,26 +1568,12 @@ fn append_two_sided_band(
     ownership: &DoomWallSide,
     request: DoomWallBandRequest<'_>,
 ) {
-    let start_bottom = [
-        f64::from(candidate.start[0]),
-        f64::from(request.bottom),
-        f64::from(candidate.start[1]),
-    ];
-    let end_bottom = [
-        f64::from(candidate.end[0]),
-        f64::from(request.bottom),
-        f64::from(candidate.end[1]),
-    ];
-    let start_top = [
-        f64::from(candidate.start[0]),
-        f64::from(request.top),
-        f64::from(candidate.start[1]),
-    ];
-    let end_top = [
-        f64::from(candidate.end[0]),
-        f64::from(request.top),
-        f64::from(candidate.end[1]),
-    ];
+    let source_start = candidate.start.map(f64::from);
+    let source_end = candidate.end.map(f64::from);
+    let start_bottom = doom_point_to_tokimu(source_start, f64::from(request.bottom));
+    let end_bottom = doom_point_to_tokimu(source_end, f64::from(request.bottom));
+    let start_top = doom_point_to_tokimu(source_start, f64::from(request.top));
+    let end_top = doom_point_to_tokimu(source_end, f64::from(request.top));
     let positions =
         doom_wall_quad_triangles(request.side, start_bottom, end_bottom, start_top, end_top);
     triangles.extend(positions.map(|positions| DoomTwoSidedWallTriangle {
@@ -1548,26 +1595,12 @@ fn append_two_sided_middle_wall(
     opening_floor: i16,
     opening_ceiling: i16,
 ) {
-    let start_bottom = [
-        f64::from(candidate.start[0]),
-        f64::from(opening_floor),
-        f64::from(candidate.start[1]),
-    ];
-    let end_bottom = [
-        f64::from(candidate.end[0]),
-        f64::from(opening_floor),
-        f64::from(candidate.end[1]),
-    ];
-    let start_top = [
-        f64::from(candidate.start[0]),
-        f64::from(opening_ceiling),
-        f64::from(candidate.start[1]),
-    ];
-    let end_top = [
-        f64::from(candidate.end[0]),
-        f64::from(opening_ceiling),
-        f64::from(candidate.end[1]),
-    ];
+    let source_start = candidate.start.map(f64::from);
+    let source_end = candidate.end.map(f64::from);
+    let start_bottom = doom_point_to_tokimu(source_start, f64::from(opening_floor));
+    let end_bottom = doom_point_to_tokimu(source_end, f64::from(opening_floor));
+    let start_top = doom_point_to_tokimu(source_start, f64::from(opening_ceiling));
+    let end_top = doom_point_to_tokimu(source_end, f64::from(opening_ceiling));
     let positions = doom_wall_quad_triangles(side, start_bottom, end_bottom, start_top, end_top);
     triangles.extend(positions.map(|positions| DoomTwoSidedMiddleWallTriangle {
         source_linedef: candidate.source_linedef,
@@ -1630,21 +1663,24 @@ fn point_for_vertex(map: &DoomMapCore, vertex_index: u16) -> [i16; 2] {
 mod tests {
     use doom_map_provider::{
         DoomBlockmapObservation, DoomBspChild, DoomLinedef, DoomMapCore, DoomNode,
-        DoomRejectObservation, DoomSector, DoomSeg, DoomSidedef, DoomSourceRecord, DoomSubsector,
+        DoomRejectMatrix, DoomSector, DoomSeg, DoomSidedef, DoomSourceRecord, DoomSubsector,
         DoomVertex,
     };
 
     use super::{
         audit_doom_pegging_flags, audit_doom_subsector_bsp_paths,
         audit_doom_subsector_loop_closure, audit_doom_vertical_topology, audit_doom_wall_topology,
-        locate_doom_point_subsector, lower_doom_one_sided_walls, lower_doom_subsector_surfaces,
+        doom_direction_to_tokimu, doom_point_to_tokimu, locate_doom_point_subsector,
+        lower_doom_one_sided_walls, lower_doom_subsector_surfaces,
         lower_doom_textured_wall_triangles, lower_doom_two_sided_middle_walls,
         lower_doom_two_sided_wall_bands, observe_doom_sky_surfaces,
         observe_doom_two_sided_middle_textures, observe_doom_wall_texture_axes,
-        resolve_doom_subsector_bsp_paths, resolve_doom_subsector_loops,
-        resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
-        resolve_doom_wall_candidates, resolve_doom_wall_texture_bindings, DoomBspSide,
-        DoomGeometryError, DoomSurfacePlane, DoomTextureExtent, DoomWallBand, DoomWallSideKind,
+        resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
+        resolve_doom_subsector_loops, resolve_doom_subsector_regions,
+        resolve_doom_subsector_sector_ownership, resolve_doom_wall_candidates,
+        resolve_doom_wall_texture_bindings, tokimu_direction_to_doom, tokimu_point_to_doom,
+        DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership, DoomSurfacePlane,
+        DoomTextureExtent, DoomWallBand, DoomWallSideKind,
     };
 
     #[test]
@@ -1986,6 +2022,32 @@ mod tests {
     }
 
     #[test]
+    fn retains_one_to_many_linedef_subsector_membership_from_source_segs() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.segs = vec![seg(0, 0, 1), seg(1, 1, 0)];
+        map.subsectors = vec![
+            DoomSubsector {
+                source: source(3),
+                seg_count: 1,
+                first_seg: 0,
+            },
+            DoomSubsector {
+                source: source(7),
+                seg_count: 1,
+                first_seg: 1,
+            },
+        ];
+
+        assert_eq!(
+            resolve_doom_linedef_subsector_membership(&map),
+            vec![DoomLinedefSubsectorMembership {
+                source_linedef: source(0),
+                source_subsectors: vec![source(3), source(7)],
+            }]
+        );
+    }
+
+    #[test]
     fn lowers_bsp_leaf_regions_to_floor_and_ceiling_triangles() {
         let mut map = map_with_linedef(Some(0), None);
         map.vertices = vec![
@@ -2060,6 +2122,16 @@ mod tests {
                 .iter()
                 .all(|position| position[1] == 0.0 || position[1] == 128.0)
         }));
+        for triangle in &triangles {
+            let normal_y = (triangle.positions[1][2] - triangle.positions[0][2])
+                * (triangle.positions[2][0] - triangle.positions[0][0])
+                - (triangle.positions[1][0] - triangle.positions[0][0])
+                    * (triangle.positions[2][2] - triangle.positions[0][2]);
+            match triangle.plane {
+                DoomSurfacePlane::Floor => assert!(normal_y > 0.0),
+                DoomSurfacePlane::Ceiling => assert!(normal_y < 0.0),
+            }
+        }
     }
 
     #[test]
@@ -2098,6 +2170,19 @@ mod tests {
     }
 
     #[test]
+    fn doom_point_and_direction_lifts_round_trip_exactly() {
+        let source_point = ([1056.0, -3616.0], 36.0);
+        let world_point = doom_point_to_tokimu(source_point.0, source_point.1);
+        assert_eq!(world_point, [1056.0, 36.0, -3616.0]);
+        assert_eq!(tokimu_point_to_doom(world_point), source_point);
+
+        let source_direction = ([20.0, -40.0], 12.0);
+        let world_direction = doom_direction_to_tokimu(source_direction.0, source_direction.1);
+        assert_eq!(world_direction, [20.0, 12.0, -40.0]);
+        assert_eq!(tokimu_direction_to_doom(world_direction), source_direction);
+    }
+
+    #[test]
     fn lowers_one_sided_wall_with_source_texel_coordinates() {
         let mut map = map_with_linedef(Some(0), None);
         map.sidedefs[0].x_offset = 7;
@@ -2128,6 +2213,66 @@ mod tests {
         assert!(coordinates.contains(&[7.0, 125.0]));
         assert!(coordinates.contains(&[7.0, -3.0]));
         assert!(coordinates.iter().any(|coordinate| coordinate[0] > 30.0));
+    }
+
+    #[test]
+    fn lowers_left_sided_wall_with_the_forward_source_u_axis() {
+        let mut map = map_with_linedef(None, Some(0));
+        map.sidedefs[0].x_offset = 7;
+        map.sidedefs[0].middle_texture = "WALL".to_owned();
+
+        let triangles = lower_doom_textured_wall_triangles(
+            &map,
+            &[DoomTextureExtent {
+                name: "WALL".to_owned(),
+                width: 64,
+                height: 128,
+            }],
+        )
+        .unwrap();
+
+        let line_length = (800.0_f64).sqrt();
+        let texture_u_at = |position: [f64; 3]| {
+            triangles
+                .iter()
+                .flat_map(|triangle| triangle.positions.iter().zip(triangle.texture_coordinates))
+                .find_map(|(candidate, coordinate)| {
+                    (*candidate == position).then_some(coordinate[0])
+                })
+                .expect("both linedef endpoints occur in the lowered wall")
+        };
+
+        // In Tokimu's lifted 3D frame, a left/back sidedef advances in the
+        // stored linedef direction, preserving its horizontal screen axis.
+        assert_eq!(texture_u_at([10.0, 0.0, 20.0]), 7.0);
+        assert_eq!(texture_u_at([30.0, 0.0, 40.0]), 7.0 + line_length);
+    }
+
+    #[test]
+    fn right_and_left_sidedefs_retain_opposed_source_u_axes() {
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.sidedefs[0].x_offset = 7;
+        map.sidedefs[0].middle_texture = "RIGHT_LABEL".to_owned();
+        map.sidedefs[1].x_offset = 11;
+        map.sidedefs[1].middle_texture = "LEFT_LABEL".to_owned();
+
+        let axes = observe_doom_wall_texture_axes(&map).unwrap();
+        let right = axes
+            .iter()
+            .find(|axis| axis.texture_name == "RIGHT_LABEL")
+            .unwrap();
+        let left = axes
+            .iter()
+            .find(|axis| axis.texture_name == "LEFT_LABEL")
+            .unwrap();
+        let length = (800.0_f64).sqrt();
+
+        assert_eq!(right.side, DoomWallSideKind::Right);
+        assert_eq!(right.u_start, 7.0 + length);
+        assert_eq!(right.u_end, 7.0);
+        assert_eq!(left.side, DoomWallSideKind::Left);
+        assert_eq!(left.u_start, 11.0);
+        assert_eq!(left.u_end, 11.0 + length);
     }
 
     #[test]
@@ -2270,8 +2415,8 @@ mod tests {
         let axes = observe_doom_wall_texture_axes(&map).unwrap();
         assert_eq!(axes.len(), 1);
         assert_eq!(axes[0].texture_name, "WALL");
-        assert_eq!(axes[0].u_start, 7.0);
-        assert_eq!(axes[0].u_end, 7.0 + (800.0_f64).sqrt());
+        assert_eq!(axes[0].u_start, 7.0 + (800.0_f64).sqrt());
+        assert_eq!(axes[0].u_end, 7.0);
         assert_eq!(axes[0].v_offset, -3);
         assert_eq!(axes[0].linedef_flags, 0x0018);
         let audit = audit_doom_pegging_flags(&map).unwrap();
@@ -2351,11 +2496,7 @@ mod tests {
             segs: Vec::new(),
             subsectors: Vec::new(),
             nodes: Vec::new(),
-            reject: DoomRejectObservation {
-                lump_index: 0,
-                byte_len: 0,
-                required_min_bytes: 0,
-            },
+            reject: DoomRejectMatrix::default(),
             blockmap: DoomBlockmapObservation {
                 lump_index: 0,
                 origin_x: 0,

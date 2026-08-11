@@ -35,6 +35,11 @@ consumer. It intentionally distinguishes browser capability failure from
 Tokimu provider failure, but it is not a second renderer provider and does not
 define ordinary application bootstrap policy.
 
+`web/camera.html` is the AR-0028 Slice 3 browser consumer. It uses the same
+corpus-local camera pose, basis, commands, pointer observation, and
+first-person mapping policy as the native fixture. Browser pointer lock remains
+an acquisition mechanism and does not become camera meaning.
+
 The retained
 `corpus/lib/render-orientation-conformance/results/browser-wasm.png` capture
 reaches `ready` and agrees with the native fixture in all 12 cells. WGPU 23 does

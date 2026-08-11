@@ -129,6 +129,74 @@ pub struct DoomRejectObservation {
     pub required_min_bytes: usize,
 }
 
+/// Source-faithful Doom `REJECT` information.
+///
+/// Classic Doom uses this bit matrix as a monster-sight prefilter: a set bit
+/// says a monster in the row sector cannot sight a player in the column
+/// sector. It is deliberately not named or exposed as rendering visibility.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomRejectMatrix {
+    pub observation: DoomRejectObservation,
+    sector_count: usize,
+    bits: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum DoomRejectLookupError {
+    #[error("REJECT {role} sector {sector} is outside its {sector_count}-sector matrix")]
+    SectorOutOfBounds {
+        role: &'static str,
+        sector: usize,
+        sector_count: usize,
+    },
+}
+
+impl DoomRejectMatrix {
+    /// Returns the original Doom REJECT meaning for one monster/player sector
+    /// pair. The matrix is row-major and least-significant-bit first.
+    pub fn forbids_monster_sight(
+        &self,
+        monster_sector: usize,
+        player_sector: usize,
+    ) -> Result<bool, DoomRejectLookupError> {
+        if monster_sector >= self.sector_count {
+            return Err(DoomRejectLookupError::SectorOutOfBounds {
+                role: "monster",
+                sector: monster_sector,
+                sector_count: self.sector_count,
+            });
+        }
+        if player_sector >= self.sector_count {
+            return Err(DoomRejectLookupError::SectorOutOfBounds {
+                role: "player",
+                sector: player_sector,
+                sector_count: self.sector_count,
+            });
+        }
+        let bit_index = monster_sector * self.sector_count + player_sector;
+        let byte = self.bits[bit_index / 8];
+        Ok(byte & (1 << (bit_index % 8)) != 0)
+    }
+
+    pub fn sector_count(&self) -> usize {
+        self.sector_count
+    }
+}
+
+impl Default for DoomRejectMatrix {
+    fn default() -> Self {
+        Self {
+            observation: DoomRejectObservation {
+                lump_index: 0,
+                byte_len: 0,
+                required_min_bytes: 0,
+            },
+            sector_count: 0,
+            bits: Vec::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoomBlockmapObservation {
     pub lump_index: u32,
@@ -163,7 +231,7 @@ pub struct DoomMapCore {
     pub segs: Vec<DoomSeg>,
     pub subsectors: Vec<DoomSubsector>,
     pub nodes: Vec<DoomNode>,
-    pub reject: DoomRejectObservation,
+    pub reject: DoomRejectMatrix,
     pub blockmap: DoomBlockmapObservation,
 }
 
@@ -863,7 +931,7 @@ fn validate_reject(
     lump_index: u32,
     sectors: usize,
     limits: DoomMapDecodeLimits,
-) -> Result<DoomRejectObservation, DoomMapDecodeError> {
+) -> Result<DoomRejectMatrix, DoomMapDecodeError> {
     if bytes.len() > limits.max_reject_bytes {
         return Err(DoomMapDecodeError::AuxiliaryLumpLimitExceeded {
             table: "REJECT",
@@ -883,10 +951,14 @@ fn validate_reject(
             sectors,
         });
     }
-    Ok(DoomRejectObservation {
-        lump_index,
-        byte_len: bytes.len(),
-        required_min_bytes,
+    Ok(DoomRejectMatrix {
+        observation: DoomRejectObservation {
+            lump_index,
+            byte_len: bytes.len(),
+            required_min_bytes,
+        },
+        sector_count: sectors,
+        bits: bytes.to_vec(),
     })
 }
 
@@ -1222,7 +1294,11 @@ mod tests {
         assert_eq!(core.segs.len(), 1);
         assert_eq!(core.subsectors[0].seg_count, 1);
         assert_eq!(core.nodes[0].right_child, DoomBspChild::Subsector(0));
-        assert_eq!(core.reject.required_min_bytes, 1);
+        assert_eq!(core.reject.observation.required_min_bytes, 1);
+        assert!(!core
+            .reject
+            .forbids_monster_sight(0, 0)
+            .expect("one-sector REJECT lookup remains in bounds"));
         assert_eq!(core.blockmap.cells, 1);
         assert_eq!(core.blockmap.cell_linedefs[0].linedefs, vec![0]);
         assert_eq!(
@@ -1290,6 +1366,32 @@ mod tests {
         assert!(matches!(
             validate_blockmap(&blockmap, 11, 1, limits()),
             Err(DoomMapDecodeError::BlockmapListMissingLeadingZero { word_offset: 5 })
+        ));
+    }
+
+    #[test]
+    fn reject_preserves_doom_row_major_lsb_first_monster_sight_meaning() {
+        // Three sectors need nine bits. Set bit 3 (monster sector 1, player
+        // sector 0) and bit 8 (monster sector 2, player sector 2).
+        let reject = validate_reject(&[0b0000_1000, 0b0000_0001], 10, 3, limits())
+            .expect("complete synthetic REJECT matrix should validate");
+
+        assert!(!reject
+            .forbids_monster_sight(0, 1)
+            .expect("matrix lookup remains in bounds"));
+        assert!(reject
+            .forbids_monster_sight(1, 0)
+            .expect("bit three is monster one/player zero"));
+        assert!(reject
+            .forbids_monster_sight(2, 2)
+            .expect("bit eight is monster two/player two"));
+        assert!(matches!(
+            reject.forbids_monster_sight(3, 0),
+            Err(DoomRejectLookupError::SectorOutOfBounds {
+                role: "monster",
+                sector: 3,
+                sector_count: 3,
+            })
         ));
     }
 

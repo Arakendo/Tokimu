@@ -20,6 +20,11 @@ for the current renderer yields 36 triangle-list vertices. The fixture's
 source geometry still does not prove a texture-coordinate stream; its
 corpus-owned planar stream is a separate declared input.
 
+The default planar extent maps `[0,1]` across each face so labeled textures
+remain readable. `E` switches to a deliberate `3.25` extent for addressing
+stress; this keeps tiling evidence available without making it the visual
+control baseline.
+
 ## Initial PNG Selection
 
 | ID | Fixture | SHA-256 | Profile | Reason |

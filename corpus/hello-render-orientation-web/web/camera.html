@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-orientation-state="loading">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tokimu Camera Direction Conformance</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">AR-0028 · browser/WASM evidence</p>
+          <h1>Camera basis and input policy</h1>
+        </div>
+        <p id="status" role="status">loading WASM</p>
+      </header>
+      <p class="scope">Click the canvas to capture. Escape releases. W/S move forward, A/D strafe, Q/E move vertically, arrows apply deterministic yaw/pitch.</p>
+      <canvas id="camera-canvas" width="960" height="600"></canvas>
+      <footer>X is red · Y is green · Z is blue · positive landmarks are brighter and larger</footer>
+    </main>
+    <script type="module">
+      const status = document.querySelector("#status");
+      const setFailure = (state, detail) => {
+        document.documentElement.dataset.orientationState = state;
+        status.textContent = `${state} | ${detail}`;
+      };
+      window.addEventListener("error", (event) => setFailure("failed", event.error?.stack ?? event.message ?? "unhandled browser error"));
+      window.addEventListener("unhandledrejection", (event) => setFailure("failed", event.reason?.stack ?? event.reason?.message ?? String(event.reason)));
+      if (!("gpu" in navigator)) {
+        setFailure("unsupported", "this browser does not expose WebGPU");
+      } else {
+        try {
+          status.textContent = "initializing Tokimu WASM camera fixture";
+          const { default: init, start_camera_fixture: startCameraFixture } = await import("./pkg/hello-render-orientation-web.js");
+          await init();
+          startCameraFixture();
+        } catch (error) {
+          setFailure("failed", String(error));
+        }
+      }
+    </script>
+  </body>
+</html>

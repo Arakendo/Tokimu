@@ -15,11 +15,22 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
+use doom_geometry_provider::{
+    locate_doom_point_subsector, resolve_doom_subsector_bsp_paths,
+    resolve_doom_subsector_sector_ownership,
+};
+#[cfg(target_arch = "wasm32")]
+use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start};
+#[cfg(target_arch = "wasm32")]
+use doom_wad_package::select_doom_episode_map;
+#[cfg(target_arch = "wasm32")]
 use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
-    build_static_draw_plan, build_static_texture_uploads, prepare_e1m1_flat_textures,
-    prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts, prepare_e1m1_wall_textures,
-    prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
+    build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
+    doom_heading_forward, observer_direction, observer_yaw_from_forward,
+    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
+    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
+    StaticDrawAabb, StaticDrawSource,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
@@ -145,7 +156,7 @@ impl BrowserIntakeSession {
     /// package. This is a consumer-local WASM proof, not a browser renderer API.
     #[cfg(target_arch = "wasm32")]
     pub async fn render_static_e1m1(&self, canvas: HtmlCanvasElement) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas, false)
+        self.render_static_e1m1_inner(canvas, false, false, false)
             .await
             .map_err(js_error)
     }
@@ -158,7 +169,30 @@ impl BrowserIntakeSession {
         &self,
         canvas: HtmlCanvasElement,
     ) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas, true)
+        self.render_static_e1m1_inner(canvas, true, false, false)
+            .await
+            .map_err(js_error)
+    }
+
+    /// Presents source-spawn E1M1 after corpus-local conservative AABB/frustum
+    /// selection. This is AR-0025 target evidence, not a general renderer
+    /// visibility contract or a TypeScript-owned scene operation.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn render_static_e1m1_selected_cutouts(
+        &self,
+        canvas: HtmlCanvasElement,
+    ) -> Result<String, JsValue> {
+        self.render_static_e1m1_inner(canvas, true, true, false)
+            .await
+            .map_err(js_error)
+    }
+
+    /// Presents the canonical E1M1 EXITSIGN walls from their owning side.
+    /// This fixed corpus camera exists only for AR-0028 browser orientation
+    /// evidence; neither the renderer nor TypeScript interprets Doom sides.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn render_e1m1_exitsign(&self, canvas: HtmlCanvasElement) -> Result<String, JsValue> {
+        self.render_static_e1m1_inner(canvas, false, false, true)
             .await
             .map_err(js_error)
     }
@@ -284,6 +318,8 @@ impl BrowserIntakeSession {
         &self,
         canvas: HtmlCanvasElement,
         include_masked_cutouts: bool,
+        select_by_frustum: bool,
+        focus_exitsign: bool,
     ) -> Result<String, String> {
         let name = ResourceName::parse("selected-doom-package", AddressCasePolicy::Sensitive)
             .map_err(|error| error.to_string())?;
@@ -314,6 +350,35 @@ impl BrowserIntakeSession {
             &ZipArchiveProvider,
         )
         .map_err(|error| error.to_string())?;
+        let source_spawn = if select_by_frustum {
+            let selection = select_doom_episode_map(&read.observation.wad, "E1M1")
+                .map_err(|error| error.to_string())?;
+            let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)
+                .map_err(|error| error.to_string())?;
+            let start =
+                resolve_doom_player_one_start(&map.things).map_err(|error| error.to_string())?;
+            let paths =
+                resolve_doom_subsector_bsp_paths(&map).map_err(|error| error.to_string())?;
+            let location = locate_doom_point_subsector(start.position, &paths)
+                .map_err(|error| error.to_string())?;
+            let ownership =
+                resolve_doom_subsector_sector_ownership(&map).map_err(|error| error.to_string())?;
+            let sector = ownership
+                .iter()
+                .find(|entry| entry.source_subsector == location.source_subsector)
+                .ok_or_else(|| "player-one start subsector has no sector ownership".to_owned())?;
+            let vertical = &map.sectors[usize::from(sector.sector_index)];
+            Some((
+                Vec3::new(
+                    f32::from(start.position[0]),
+                    (f32::from(vertical.floor_height) + f32::from(vertical.ceiling_height)) * 0.5,
+                    f32::from(start.position[1]),
+                ),
+                doom_heading_forward(start.angle),
+            ))
+        } else {
+            None
+        };
         let flats = prepare_e1m1_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)
             .map_err(|error| error.to_string())?;
         let walls = prepare_e1m1_walls(
@@ -345,6 +410,9 @@ impl BrowserIntakeSession {
         let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
         let draws =
             build_static_draw_plan(&flats, &walls, &uploads).map_err(|error| error.to_string())?;
+        let exitsign_view = focus_exitsign
+            .then(|| exitsign_camera(&draws))
+            .transpose()?;
         let (cutout_uploads, cutout_draws) = if include_masked_cutouts {
             let masked = prepare_e1m1_masked_middle_cutouts(
                 &read.bytes,
@@ -454,19 +522,51 @@ impl BrowserIntakeSession {
             (radius * 0.0001).max(0.1),
             radius * 4.0,
         );
-        camera.view = Mat4::look_at_rh(
-            center + Vec3::new(radius, radius * 0.72, radius),
-            center,
-            Vec3::Y,
-        );
+        camera.view = if let Some((position, target)) = exitsign_view {
+            Mat4::look_at_rh(position, target, Vec3::Y)
+        } else if let Some((position, source_forward)) = source_spawn {
+            let yaw = observer_yaw_from_forward(source_forward) + std::f32::consts::FRAC_PI_2;
+            Mat4::look_at_rh(
+                position,
+                position + observer_direction(yaw, 0.0) * 128.0,
+                Vec3::Y,
+            )
+        } else {
+            Mat4::look_at_rh(
+                center + Vec3::new(radius, radius * 0.72, radius),
+                center,
+                Vec3::Y,
+            )
+        };
         renderer.upload_camera(CameraHandle(1), camera);
         renderer.begin_frame();
         let mut commands = vec![RenderCommand::Clear(ClearCommand {
             color: Color::rgb(0.015, 0.02, 0.025),
         })];
+        let view_projection = camera.projection * camera.view;
+        let opaque_bounds = draws
+            .iter()
+            .map(|draw| StaticDrawAabb::from_positions(&draw.mesh.positions))
+            .collect::<Vec<_>>();
+        let cutout_bounds = cutout_draws
+            .iter()
+            .map(|draw| StaticDrawAabb::from_positions(&draw.mesh.positions))
+            .collect::<Vec<_>>();
+        let mut opaque_rejected = 0_usize;
+        let mut cutout_rejected = 0_usize;
         for (index, draw) in draws.iter().enumerate() {
             let mesh = MeshHandle(index as u64 + 1);
             renderer.upload_mesh(mesh, &draw.mesh);
+            let selected = !select_by_frustum
+                || opaque_bounds[index]
+                    .and_then(|bounds| {
+                        classify_static_draw_frustum_rejection(bounds, view_projection)
+                    })
+                    .is_none();
+            if !selected {
+                opaque_rejected += 1;
+                continue;
+            }
             commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                 mesh,
                 material: draw.material,
@@ -482,6 +582,16 @@ impl BrowserIntakeSession {
             for (offset, draw) in cutout_draws.iter().enumerate() {
                 let mesh = MeshHandle(draws.len() as u64 + offset as u64 + 1);
                 renderer.upload_mesh(mesh, &draw.mesh);
+                let selected = !select_by_frustum
+                    || cutout_bounds[offset]
+                        .and_then(|bounds| {
+                            classify_static_draw_frustum_rejection(bounds, view_projection)
+                        })
+                        .is_none();
+                if !selected {
+                    cutout_rejected += 1;
+                    continue;
+                }
                 commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                     mesh,
                     material: draw.material,
@@ -494,17 +604,61 @@ impl BrowserIntakeSession {
         }
         renderer.submit(&commands);
         renderer.present().map_err(|error| error.to_string())?;
-        let draw_count = draws.len()
-            + if include_masked_cutouts {
-                cutout_draws.len()
-            } else {
-                0
-            };
+        let opaque_submitted = draws.len() - opaque_rejected;
+        let cutout_submitted = if include_masked_cutouts {
+            cutout_draws.len() - cutout_rejected
+        } else {
+            0
+        };
+        let draw_count = opaque_submitted + cutout_submitted;
         Ok(format!(
-            "browser first frame presented: {draw_count} draws; cutouts={include_masked_cutouts}; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
+            "browser first frame presented: {draw_count} draws; candidates={}; rejected={}; opaque={opaque_submitted}/{}; cutouts={cutout_submitted}/{}; frustum_aabb={select_by_frustum}; camera={}; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
+            draws.len() + if include_masked_cutouts { cutout_draws.len() } else { 0 },
+            opaque_rejected + cutout_rejected,
+            draws.len(),
+            if include_masked_cutouts { cutout_draws.len() } else { 0 },
+            if focus_exitsign { "canonical-exitsign" } else if select_by_frustum { "source-spawn-plus-90" } else { "overview" },
             width, height
         ))
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn exitsign_camera(draws: &[hello_doom_e1m1::StaticDrawPlanEntry]) -> Result<(Vec3, Vec3), String> {
+    let exitsign = draws
+        .iter()
+        .filter(|draw| {
+            matches!(
+                draw.source,
+                StaticDrawSource::Wall { source_linedef }
+                    if source_linedef.record_index == 342
+            ) && draw.source_label.contains("EXITSIGN")
+        })
+        .collect::<Vec<_>>();
+    if exitsign.is_empty() {
+        return Err("canonical E1M1 EXITSIGN draws are absent".to_owned());
+    }
+
+    let mut position_sum = Vec3::ZERO;
+    let mut normal_sum = Vec3::ZERO;
+    let mut position_count = 0_usize;
+    for draw in exitsign {
+        for position in &draw.mesh.positions {
+            position_sum += Vec3::from_array(*position);
+            position_count += 1;
+        }
+        for normal in &draw.mesh.normals {
+            normal_sum += Vec3::from_array(*normal);
+        }
+    }
+    let target = position_sum / position_count as f32;
+    let owning_side_normal = normal_sum.normalize_or_zero();
+    if owning_side_normal == Vec3::ZERO {
+        return Err(
+            "canonical E1M1 EXITSIGN linedef 342 has no stable owning-side normal".to_owned(),
+        );
+    }
+    Ok((target + owning_side_normal * 96.0, target))
 }
 
 fn js_error(message: String) -> JsValue {

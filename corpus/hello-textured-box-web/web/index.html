@@ -15,11 +15,12 @@
         </div>
         <p id="status" role="status">loading WASM</p>
       </header>
-      <p class="scope">Pinned Khronos <code>Box.glb</code>; embedded Tokimu grid texture; supplied planar UVs with repeat addressing.</p>
+      <p class="scope">Pinned Khronos <code>Box.glb</code>; embedded Tokimu textures; one supplied planar image per face by default. Press E for addressing stress.</p>
       <div class="controls" aria-label="Textured-box comparison controls">
         <button type="button" data-key="m">M · texture</button>
         <button type="button" data-key="r">R · sampler</button>
         <button type="button" data-key="x">X · UV mapping</button>
+        <button type="button" data-key="e">E · UV extent</button>
       </div>
       <canvas id="textured-box-canvas" width="960" height="720"></canvas>
       <footer>Browser evidence is a separate consumer. It does not claim imported GLB material semantics.</footer>

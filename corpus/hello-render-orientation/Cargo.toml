@@ -8,4 +8,5 @@ repository.workspace = true
 [dependencies]
 render-orientation-conformance = { path = "../lib/render-orientation-conformance" }
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
-
+tokimu-core = { path = "../../crates/tokimu-core" }
+winit.workspace = true

@@ -1,19 +1,22 @@
 use std::sync::Arc;
 
 use render_orientation_conformance::{
-    conformance_pipeline, cull_modes, fixture_cases, fixture_layout,
+    conformance_pipeline, cull_modes, directional_atlas_rgba8, fixture_cases, fixture_layout,
+    DIRECTIONAL_ATLAS_HEIGHT, DIRECTIONAL_ATLAS_WIDTH,
 };
 use tokimu::{
     run_window_with_app, Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, FrameOutcome,
     Instance2d, Material, MaterialHandle, MeshHandle, NativeWindow, PipelineHandle,
     PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer,
-    ViewportRect, WgpuBackend, WindowConfig,
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, ViewportRect, WgpuBackend,
+    WindowConfig,
 };
 
 const WIDTH: u32 = 1200;
 const HEIGHT: u32 = 800;
 const CAMERA: CameraHandle = CameraHandle(1);
 const MATERIAL: MaterialHandle = MaterialHandle(1);
+const DIRECTIONAL_ATLAS: TextureHandle = TextureHandle(1);
 const FIRST_MESH: u64 = 1;
 
 fn main() -> PlatformResult<()> {
@@ -48,9 +51,19 @@ impl PlatformEventHandler for OrientationApp {
         for (index, case) in fixture_cases().into_iter().enumerate() {
             renderer.upload_mesh(MeshHandle(FIRST_MESH + index as u64), &case.mesh);
         }
+        renderer.create_texture_rgba8(
+            DIRECTIONAL_ATLAS,
+            Rgba8TextureDescriptor::new(
+                DIRECTIONAL_ATLAS_WIDTH,
+                DIRECTIONAL_ATLAS_HEIGHT,
+                Rgba8TextureColorSpace::Srgb,
+            ),
+            &directional_atlas_rgba8(),
+        )?;
         renderer.upload_material(
             MATERIAL,
-            &Material::new("orientation-fixture-material", Color::rgb(1.0, 1.0, 1.0)),
+            &Material::new("orientation-fixture-material", Color::rgb(1.0, 1.0, 1.0))
+                .with_texture(DIRECTIONAL_ATLAS),
         )?;
         renderer.upload_camera(CAMERA, Camera::default());
         self.pipelines = cull_modes()

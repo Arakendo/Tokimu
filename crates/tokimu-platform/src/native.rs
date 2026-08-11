@@ -7,7 +7,7 @@ use tokimu_core::FrameOutcome;
 use tokimu_input::{KeyCode, MouseButton};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, Ime, MouseScrollDelta, WindowEvent};
+use winit::event::{DeviceEvent, DeviceId, ElementState, Ime, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, NamedKey, PhysicalKey};
 use winit::window::{Window, WindowAttributes, WindowId};
@@ -108,6 +108,23 @@ impl<F> ApplicationHandler for NativeWindowApp<F>
 where
     F: PlatformEventHandler,
 {
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        if let DeviceEvent::MouseMotion { delta } = event {
+            self.emit(
+                event_loop,
+                PlatformInputEvent::MouseMotion {
+                    delta_x: delta.0 as f32,
+                    delta_y: delta.1 as f32,
+                },
+            );
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + DEFAULT_FRAME_INTERVAL,

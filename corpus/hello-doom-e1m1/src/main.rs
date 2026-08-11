@@ -168,6 +168,57 @@ fn preflight(package: &str, member: &str) -> Result<String, Box<dyn std::error::
     )?;
     let report = prepared_e1m1_scene_report(&flats, &walls, &flat_textures, &wall_textures);
     let details = fully_omitted_wall_details(&walls);
+    let exitsign_walls = walls
+        .wall_assembly
+        .opaque_walls
+        .iter()
+        .filter(|wall| wall.texture_name == "EXITSIGN")
+        .map(|wall| {
+            let (minimum_u, maximum_u) = wall.mesh.texture_coordinates.iter().fold(
+                (f32::INFINITY, f32::NEG_INFINITY),
+                |(minimum, maximum), uv| (minimum.min(uv[0]), maximum.max(uv[0])),
+            );
+            let center = wall
+                .mesh
+                .positions
+                .iter()
+                .map(|position| tokimu_core::math::Vec3::from_array(*position))
+                .sum::<tokimu_core::math::Vec3>()
+                / wall.mesh.positions.len() as f32;
+            let normal = wall
+                .mesh
+                .normals
+                .first()
+                .copied()
+                .unwrap_or([0.0; 3]);
+            let vertex_uv = wall
+                .mesh
+                .positions
+                .iter()
+                .zip(&wall.mesh.texture_coordinates)
+                .map(|(position, uv)| {
+                    format!(
+                        "p=[{:.1},{:.1},{:.1}]:uv=[{:.3},{:.3}]",
+                        position[0], position[1], position[2], uv[0], uv[1]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(";");
+            format!(
+                "linedef={} sidedef={} side={:?} role={:?} u=[{minimum_u:.3},{maximum_u:.3}] center=[{:.1},{:.1},{:.1}] normal=[{:.3},{:.3},{:.3}] vertices=[{vertex_uv}]",
+                wall.source_linedef.record_index,
+                wall.source_sidedef.record_index,
+                wall.side,
+                wall.role,
+                center.x,
+                center.y,
+                center.z,
+                normal[0],
+                normal[1],
+                normal[2],
+            )
+        })
+        .collect::<Vec<_>>();
     let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
     let draws = build_static_draw_plan(&flats, &walls, &uploads)?;
     let inventory = uploads
@@ -195,7 +246,7 @@ fn preflight(package: &str, member: &str) -> Result<String, Box<dyn std::error::
         .collect::<Vec<_>>()
         .join(",");
     Ok(format!(
-        "{report} masked_middle_texture_names={masked_middle_names:?} masked_middle_coverage=[{masked_middle_coverage}] experimental_cutout_candidates={} experimental_cutout_omitted_degenerate={} experimental_cutout_intent={:?} static_uploads={} static_draws={} static_upload_inventory=[{inventory}] fully_omitted_wall_details={details:?}",
+        "{report} masked_middle_texture_names={masked_middle_names:?} masked_middle_coverage=[{masked_middle_coverage}] exitsign_walls={exitsign_walls:?} experimental_cutout_candidates={} experimental_cutout_omitted_degenerate={} experimental_cutout_intent={:?} static_uploads={} static_draws={} static_upload_inventory=[{inventory}] fully_omitted_wall_details={details:?}",
         masked_middle_cutouts.assembly.candidates.len(),
         masked_middle_cutouts.assembly.omitted_degenerate.len(),
         masked_middle_cutouts
