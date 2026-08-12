@@ -427,6 +427,12 @@ impl HelloShaderApp {
             println!(
                 "hello-shader backend diagnostic fixture passed: module=hello-shader-intentional-invalid, vertex=vs_fixture, fragment=fs_fixture"
             );
+            println!(
+                "hello-shader backend diagnostic fixture continued with valid frame: draws={}, material_resolutions={}, pipeline_switches={}",
+                stats.frame.draw_calls,
+                stats.frame.material_resolutions,
+                stats.frame.pipeline_switches,
+            );
             return Ok(self.finish_fixture());
         }
         if self.verify_steady_state && self.frame_index >= 2 {

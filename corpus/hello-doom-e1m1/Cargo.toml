@@ -14,9 +14,11 @@ doom-wad-package = { path = "../lib/doom-wad-package" }
 doom-wad-provider = { path = "../lib/doom-wad-provider" }
 resource-space = { path = "../lib/resource-space" }
 resource-space-archive = { path = "../lib/resource-space-archive" }
+raster-image-corpus = { path = "../lib/raster-image-corpus" }
 render-orientation-conformance = { path = "../lib/render-orientation-conformance" }
 thiserror.workspace = true
 tokimu = { path = "../../crates/tokimu", features = ["platform", "render"] }
 tokimu-core = { path = "../../crates/tokimu-core" }
 tokimu-input = { path = "../../crates/tokimu-input" }
+ui-tools = { path = "../lib/ui-tools" }
 winit.workspace = true

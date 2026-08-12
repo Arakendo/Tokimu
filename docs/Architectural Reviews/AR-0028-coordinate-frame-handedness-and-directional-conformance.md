@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | No Change |
+| Status | Reopened |
 | Opened | 2026-08-10 |
-| Last reviewed | 2026-08-10 |
+| Last reviewed | 2026-08-11 |
 | Scope | Cross-cutting coordinate, camera, geometry, input, and source-provider conformance |
 | Trigger | The E1M1 corpus exposed reversed right/front wall art, A/D strafe, and mouse yaw while moving Doom coordinates into Tokimu's first-person presentation. |
 | Related ADRs | ADR-0003, ADR-0008, ADR-0009, ADR-0012, ADR-0013 |
@@ -228,8 +228,11 @@ No shared coordinate/camera admission is justified unless evidence shows:
 
 ## Current Disposition
 
-**No Change; Alternative A is the supported operating rule.** The review found
-no missing universal Tokimu basis. It found several differently owned
+**Reopened; Alternative A remains the investigation rule, not a completed
+disposition.** Cycle 4 falsified the earlier inference that exact point and
+direction round trips were sufficient orientation evidence. The review has
+not yet selected a repair or found evidence for a universal Tokimu basis. Its
+earlier work still found several differently owned
 directional rules that had been implicit: Doom source conversion, application
 camera-control policy, caller-supplied renderer inputs, and WGPU clip-depth
 adaptation. Those rules are now explicit and tested at their owning boundaries.
@@ -242,6 +245,9 @@ inputs; Alternative C's implicit provider autonomy remains rejected.
 The comparative result and complete ownership table are retained in
 [`coordinate-frame-comparative-results.md`](../Plans/Tests/coordinate-frame-comparative-results.md).
 No ADR is produced because no Native or stable public meaning changed.
+
+The current headless result and reproduction command are retained in
+[`doom-source-world-spatial-orientation-evidence.md`](../Plans/Tests/doom-source-world-spatial-orientation-evidence.md).
 
 ### Conformance Progress — 2026-08-10
 
@@ -311,22 +317,165 @@ caller-supplied geometry/UVs, and one provider-owned clip-depth adaptation.
   changing a public contract; or
 - current E1M1 repairs fail an asymmetric source-direction fixture.
 
+### Outside-Landmark Falsification Pressure — 2026-08-11
+
+Interactive comparison of the E1M1 exterior with a canonical Doom capture
+raised a plausible spatial concern: the small exterior hut appeared on the
+opposite screen side from an informal recollection of the source view. The
+same Tokimu observation was made after `--spawn-yaw-plus-90` and free movement,
+so it is **not** source-faithful positional or heading evidence and does not
+justify an axis flip.
+
+The current adapter lift is numerically direct and exactly invertible:
+
+```text
+Doom map (x, y) -> corpus world (x, height, y)
+```
+
+and retained point/direction inverse tests continue to cover that exact rule.
+That does **not** prove orientation preservation relative to Tokimu world-up.
+For source right/east `(1, 0)` and forward/north `(0, 1)`, the new headless
+observation records:
+
+```text
+source cross2(right, forward)               = +1
+lifted right                                = +X
+lifted forward                              = +Z
+dot(cross(lifted right, lifted forward), +Y) = -1
+observer camera-right for forward +Z         = -X
+dot(lifted source-right, camera-right)        = -1
+```
+
+The old round-trip evidence and this handedness evidence can both be true.
+The former proves reversibility; the latter proves that the current lift and
+right-handed observer basis disagree about which lifted direction represents
+source screen-right. This is a genuine reopening trigger, but it does not yet
+identify whether the correct repair is the map embedding, heading/camera
+conversion, or a more narrowly source-owned composition rule.
+
+The investigation now separates:
+
+- **H1 — world embedding reflection:** source landmark handedness reverses
+  before a camera exists;
+- **H2 — camera-basis reflection:** landmarks remain coherent, but source-right
+  and presented camera-right oppose each other; and
+- **H3 — uncontrolled comparison:** yaw offset, walked pose, FOV, or landmark
+  identity explains the screenshot difference.
+
+The purple sky experiment also established that neighbouring black regions can
+be absent prepared geometry rather than a world-frame error. Before reopening
+the disposition, a controlled landmark fixture must hold all of the following
+constant: source position, source heading, yaw offset, pitch, field of view,
+and landmark/source identity. It must compare the canonical source view with
+the unmodified `--spawn-observer` path (not `--spawn-yaw-plus-90` and not a
+walked pose). Only a mismatched identified landmark under that controlled
+comparison is directional-conformance evidence.
+
+No conversion sign is changed in this review cycle. The next evidence must use
+identified non-collinear E1M1 records and a fixed unmodified source-spawn view;
+renderer UVs, WGPU adaptation, and normalized platform input are explicitly
+outside the repair surface.
+
+The first source-record fixture now uses `THINGS #0` `(1056,-3616)`, the
+midpoint of start-door `LINEDEFS #0` `(1056,-3680)`, and the midpoint of the
+interactively identified exterior `BROWN1` hut wall `LINEDEFS #208`
+`(2176,-3824)`. Its ordered source determinant is `+71,680`; after the current
+lift, the corresponding cross product dotted with world `+Y` is `-71,680`.
+This upgrades H1 from a unit-basis suspicion to canonical-package structural
+evidence. The same fixture places the hut `+1,120` along Doom source-right but
+`-1,120` along the current observer camera-right, giving H2 canonical landmark
+support as well. Fixed-pose visual-reference equivalence remains open.
+
+### Comparative Embedding Checkpoint
+
+Three corpus-local embeddings now consume identical decoded Doom directions:
+
+```text
+CurrentReflected: east -> +X, north -> +Z
+PreserveEast:     east -> +X, north -> -Z
+PreserveNorth:    east -> -X, north -> +Z
+```
+
+All three are exactly invertible. Both candidates restore source orientation
+and source-right/camera-right alignment to `+1`. Preserve East and Preserve
+North differ by a 180-degree world-Y rotation when applied coherently, so a
+Doom-relative screenshot cannot select between them. Selection requires an
+independent axis relationship or an explicit Doom adapter policy.
+
+Repository inspection also found that the existing Doom wall texture-axis
+documentation explicitly names the current lift's right/front screen
+reflection and reverses right/front U direction to keep source art readable.
+The corrected `EXITSIGN` is therefore a known source-owned compensation for
+the reflected embedding, not independent evidence that the embedding is
+correct. Any candidate migration must reconsider that compensation alongside
+wall winding and normals without changing ADR-0012's supplied-UV renderer
+contract.
+
+The running matrix is retained in
+[`doom-orientation-embedding-comparison.md`](../Plans/Tests/doom-orientation-embedding-comparison.md).
+
+The first migration probe now runs the real source-derived sidedef fixture
+under both candidates. Because either candidate reflects the current prepared
+geometry, each must rebuild winding and normals; preserving renderer culling
+cannot repair the source relationship. The fixture also explicitly removes
+the existing reflected U compensation. Both candidates retain source-side
+facing and readable camera-right U progression. A five-heading headless replay
+likewise preserves transformed source-forward movement, source-right strafe,
+and screen-right pointer look without introducing candidate-specific input
+signs. These results narrow the affected seam to Doom source-to-world geometry,
+UV, heading, and related source correspondence, but still cannot choose
+Preserve East over Preserve North because the candidates remain related by a
+coherent 180-degree world-Y rotation.
+
+The maintainer then inspected canonical native E1M1 at the unchanged source
+spawn under each candidate. Preserve East and Preserve North both place the
+identified exterior hut on source-right and both retain readable `EXITSIGN`
+art. This closes the fixed-spawn native visual control and confirms that the
+wall-U/winding migration is coherent. It also supplies direct negative
+selection evidence: Doom-relative presentation cannot decide which world
+cardinal relationship Tokimu should preserve. Collision, Doom-membership
+selection, dynamic doors, and browser parity remain explicitly outside this
+observation.
+
+The provisional architectural result is therefore narrower and stronger than
+an axis choice: **source embeddings must not reverse orientation accidentally;
+the remaining coherent 180-degree world-Y alignment is conventional and must
+be owned explicitly outside Doom-relative evidence.** E1M1 has falsified the
+reflection but cannot choose a global Tokimu cardinal convention.
+
+The next source-correspondence probes preserve that conclusion. Exact picking
+under both candidates retains the same hit distance after transforming the ray
+and prepared mesh together. A source-owned collision wrapper lowers candidate
+positions/deltas into the unchanged Doom blockmap and lifts the resolved
+position back; both candidates retain contacted linedef identity, broad-phase
+evidence, and the resolved source position. Interactive floor transitions now
+use the same explicit conversion.
+
+The maintainer subsequently walked both candidate E1M1 compositions with
+collision enabled and observed coherent movement, wall blocking, and floor
+transitions. After transforming the conservative subsector AABBs, both
+candidates also produce the same source-membership observations: the overview
+retains `237/237` subsectors and `1861` draws, while the fixed
+source-spawn-yaw-plus-90 pose retains `61/237` and `474`. Flat facing is likewise
+identical at `463` floor-up and `390` ceiling-down with zero inverted cases.
+These results remove collision, floors, flat winding, and conservative source
+membership as possible selectors between the two cardinal alignments. Dynamic
+door re-lowering and browser parity remain open.
+
+An asymmetric diagnostic texture then exposed one more coupled migration
+surface that ordinary Doom flats could not reveal. The retained purple
+`texture_01.png` source reads `WALL`, but sky-omission ceiling meshes presented
+the label right-to-left under both Preserve East and Preserve North. Reversing
+only the continuous source-spatial flat U coordinate made `WALL` readable
+under both candidates. This result is independent of the candidates' 180-degree
+cardinal alignment and does not implicate PNG decoding or the generic
+caller-supplied renderer UV contract; the independent directional and Box/PNG
+fixtures retain those controls. The candidate migration now reverses flat U
+about the source origin while retaining the separate wall-side U policy. It
+must not reflect each triangle around its local UV extent, because that would
+make triangulation boundaries change texture phase.
+
 ## Review History
-
-### Cycle 3 -- 2026-08-10
-
-- Status entering review: Incubating under Alternative A.
-- New evidence: complete native right/front and left/back labeled Doom art;
-  canonical native/browser `EXITSIGN`; cross-target orientation and camera
-  controls; CPU projection/picking; independent CAD and Box/PNG controls.
-- Participants or reviewers: maintainer, Codex.
-- Findings: every exercised sign/conversion has an identifiable source,
-  application, renderer-input, or backend owner. Native/browser agreement is
-  provider parity evidence, not proof of a universal basis. Future semantic
-  frame/chart roles may sit above raw math but are not yet earned.
-- Disposition: No Change. Retain explicit boundary conversions under
-  Alternative A, reject global renderer/platform normalization, and produce no
-  ADR.
 
 ### Cycle 1 -- 2026-08-10
 
@@ -358,6 +507,39 @@ caller-supplied geometry/UVs, and one provider-owned clip-depth adaptation.
   falsification work without selecting a public convention or API.
 - Resulting ADR or documentation change: expanded AR-0028 conformance plan and
   `docs/Plans/Tests/coordinate-frame-directional-conformance.md`.
+
+### Cycle 3 -- 2026-08-10
+
+- Status entering review: Incubating under Alternative A.
+- New evidence: complete native right/front and left/back labeled Doom art;
+  canonical native/browser `EXITSIGN`; cross-target orientation and camera
+  controls; CPU projection/picking; independent CAD and Box/PNG controls.
+- Participants or reviewers: maintainer, Codex.
+- Findings: every exercised sign/conversion has an identifiable source,
+  application, renderer-input, or backend owner. Native/browser agreement is
+  provider parity evidence, not proof of a universal basis. Future semantic
+  frame/chart roles may sit above raw math but are not yet earned.
+- Disposition: No Change. Retain explicit boundary conversions under
+  Alternative A, reject global renderer/platform normalization, and produce no
+  ADR.
+
+### Cycle 4 -- 2026-08-11
+
+- Status entering review: No Change.
+- New evidence: canonical-versus-Tokimu exterior comparison placed a recognizable
+  hut on the opposite screen side; a headless basis observation then proved
+  that the direct Doom X/Y-to-world X/Z lift reverses signed orientation about
+  world `+Y`, and that lifted source-right opposes observer camera-right.
+- Participants or reviewers: maintainer, Monday, Codex.
+- Findings: invertibility did not establish handedness preservation. H1 and H2
+  are now independently testable; the uncontrolled screenshot remains H3
+  pressure rather than sufficient repair evidence. Both orientation-preserving
+  candidates pass the first structural basis checks, but are rotationally
+  equivalent for Doom-relative presentation. Existing right/front U behavior
+  is coupled compensation for the reflected lift.
+- Disposition: Reopened under Alternative A. Retain the current implementation
+  while identifying canonical source landmarks and the precise conversion
+  boundary. Do not compensate in renderer, UV, platform input, or WGPU code.
 
 ## References
 

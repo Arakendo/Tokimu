@@ -292,6 +292,7 @@ fn map_key_code(code: &str) -> Option<KeyCode> {
         "Delete" => Some(KeyCode::Delete),
         "Home" => Some(KeyCode::Home),
         "End" => Some(KeyCode::End),
+        "Backquote" => Some(KeyCode::Backquote),
         "KeyE" => Some(KeyCode::KeyE),
         "KeyA" => Some(KeyCode::KeyA),
         "KeyD" => Some(KeyCode::KeyD),

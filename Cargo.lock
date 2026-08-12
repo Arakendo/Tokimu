@@ -1364,6 +1364,7 @@ dependencies = [
  "doom-raster-provider",
  "doom-wad-package",
  "doom-wad-provider",
+ "raster-image-corpus",
  "render-orientation-conformance",
  "resource-space",
  "resource-space-archive",
@@ -1371,6 +1372,7 @@ dependencies = [
  "tokimu",
  "tokimu-core",
  "tokimu-input",
+ "ui-tools",
  "winit",
 ]
 
@@ -1526,6 +1528,15 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "hello-render-resource-identity"
+version = "0.1.0"
+dependencies = [
+ "tokimu-core",
+ "tokimu-platform",
+ "tokimu-render",
 ]
 
 [[package]]

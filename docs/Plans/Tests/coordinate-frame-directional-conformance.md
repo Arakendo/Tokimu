@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete — all six slices satisfied; AR-0028 records No Change |
+| Status | Reopened — Doom spatial-layout falsification in progress |
 | Opened | 2026-08-10 |
 | Related review | AR-0028 |
 | Related evidence | AR-0019, AR-0021, AR-0022, AR-0024, AR-0026, E1M1 static observer, Box/PNG corpus |
@@ -284,6 +284,10 @@ and neither path turns first-person mapping into a universal input policy.
       side under the declared Doom-to-world lift.
 - [x] Culling, normals, and UV direction agree without renderer-side Doom
       branches or global UV flips.
+- [x] Exercise asymmetric texture content on horizontal Doom-derived geometry:
+      the purple diagnostic sky stand-in exposed right-to-left flat U under
+      both orientation-preserving candidates. A continuous source-origin U
+      reversal repaired both without changing the renderer or PNG upload.
 - [x] Canonical `EXITSIGN` reads correctly in native and browser/WASM E1M1
       observations.
 - [x] The fixture fails if the earlier left/back-only false hypothesis is
@@ -432,3 +436,71 @@ This plan is complete when all six slices are either satisfied or explicitly
 parked with retained reasons, AR-0028 records a decision supported by both Doom
 and non-Doom evidence, and no directional conversion in the tested path remains
 implicit.
+
+## Reopened Phase: Doom Ground-Frame And Landmark Orientation
+
+The E1M1 exterior comparison supplied new falsification pressure after the
+original six-slice closeout. A hut appears on the opposite screen side from a
+canonical Doom reference. This phase does not assume that the screenshot has
+already identified the faulty layer.
+
+### Competing Hypotheses
+
+- **H1 — world embedding reflection:** non-collinear Doom source landmarks
+  reverse signed orientation during the `(x, y) -> (x, height, z)` lift before
+  any camera exists.
+- **H2 — camera basis reflection:** landmark orientation is preserved, but the
+  lifted source-right direction and the observer's presented camera-right
+  direction disagree.
+- **H3 — uncontrolled observation:** yaw offset, walked pose, field of view,
+  or landmark identity—not the source conversion—caused the apparent swap.
+
+### Deliverables
+
+- [x] Add a headless ground-frame observation that separately records source
+      signed orientation, lifted orientation about world `+Y`, lifted
+      source-right, observer camera-right, and their alignment.
+- [x] Add regressions retaining the current result without silently choosing a
+      compensating sign.
+- [x] Retain the canonical package/player-start report and reproduction command
+      in
+      [`doom-source-world-spatial-orientation-evidence.md`](doom-source-world-spatial-orientation-evidence.md).
+- [x] Identify three non-collinear canonical E1M1 source landmarks, including
+      spawn and the exterior hut, by WAD record identity and source position.
+- [x] Compare their source `cross2` sign with the lifted world orientation.
+- [x] Compare the hut's signed side of the source heading with its signed side
+      of the current observer camera-right basis (`+1120` versus `-1120`).
+- [x] Retain a fixed source-spawn camera comparison with no yaw offset, free
+      movement, or inferred landmark identity.
+- [ ] Classify the finding as H1, H2, H3, or a combination before changing the
+      Doom point, direction, heading, wall, UV, renderer, or input paths.
+- [ ] Re-run the existing asymmetric sidedef, camera-control, projection,
+      picking, native, and browser controls for any proposed repair.
+  - [x] Run headless candidate sidedef winding, normal, and asymmetric U
+        controls through the source-derived fixture.
+  - [x] Run candidate source-heading, forward/strafe, and pointer-look command
+        replay across cardinal and diagonal headings.
+  - [x] Retain native candidate sidedef and canonical E1M1 observations; both
+        keep the identified hut source-right and `EXITSIGN` readable.
+  - [ ] Retain canonical E1M1, picking/collision, flat, and browser candidate
+        observations.
+    - [x] Headless picking and horizontal collision preserve source identity
+          and resolved source position for both candidates.
+    - [x] Retain interactive collision/floor evidence for both candidates.
+    - [x] Retain identical flat-facing and conservative topology-membership
+          observations for both candidates.
+    - [ ] Retain dynamic-door and browser evidence.
+
+The comparative candidate matrix and the discovery that existing right/front
+U behavior compensates for the reflected lift are retained in
+[`doom-orientation-embedding-comparison.md`](doom-orientation-embedding-comparison.md).
+
+### Acceptance Clamp
+
+- An exact source/world/source round trip is not sufficient evidence of
+  orientation preservation.
+- A visual sign change is not accepted without a source-record invariant.
+- Any repair remains Doom-provider/application-owned unless an independent
+  non-Doom caller falsifies the existing generic convention.
+- No renderer UV, platform input, or WGPU compensation may be used to repair
+  this finding.

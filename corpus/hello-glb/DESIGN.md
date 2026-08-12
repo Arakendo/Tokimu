@@ -75,6 +75,12 @@ freezes the normal orbit/mesh transforms at their initial frame. It is the same
 frozen camera is only a corpus capture convenience, not a GLB material or
 renderer API.
 
+For AR-0024/AR-0027 resource-identity evidence,
+`cargo run -p hello-glb -- --measure-two-frames` opens a native window for two
+frames, then exits. It retains first-frame creation and second-frame deliberate
+replacement telemetry for the stable model and floor mesh handles. This is a
+corpus measurement switch, not an application lifecycle or renderer API.
+
 ## Architectural Assertions
 
 This example demonstrates:

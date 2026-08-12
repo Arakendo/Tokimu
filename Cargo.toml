@@ -74,6 +74,7 @@ members = [
     "corpus/hello-doom-e1m1",
     "corpus/hello-streaming-texture",
     "corpus/hello-texture-color-space",
+    "corpus/hello-render-resource-identity",
 
     # Networking corpus.
     "corpus/hello-network-loopback",

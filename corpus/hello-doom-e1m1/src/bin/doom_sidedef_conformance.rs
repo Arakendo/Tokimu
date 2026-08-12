@@ -6,7 +6,7 @@
 //! readable asymmetric source art. No Doom-specific branch exists in the
 //! renderer.
 
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use doom_geometry_provider::{
     lower_doom_textured_wall_triangles, DoomTextureExtent, DoomWallSideKind,
@@ -15,7 +15,9 @@ use doom_map_provider::{
     DoomBlockmapObservation, DoomLinedef, DoomMapCore, DoomRejectMatrix, DoomSector, DoomSidedef,
     DoomSourceRecord, DoomVertex,
 };
-use hello_doom_e1m1::lower_static_wall_triangle;
+use hello_doom_e1m1::{
+    lower_static_wall_triangle, reembed_comparative_mesh, DoomComparativeEmbedding,
+};
 use render_orientation_conformance::{
     directional_atlas_rgba8, DIRECTIONAL_ATLAS_HEIGHT, DIRECTIONAL_ATLAS_WIDTH,
 };
@@ -37,21 +39,43 @@ const FRONT_MATERIAL: MaterialHandle = MaterialHandle(1);
 const BACK_MATERIAL: MaterialHandle = MaterialHandle(2);
 
 fn main() -> PlatformResult<()> {
+    let embedding = match env::args().nth(1).as_deref() {
+        None | Some("current") => DoomComparativeEmbedding::CurrentReflected,
+        Some("east") => DoomComparativeEmbedding::PreserveEast,
+        Some("north") => DoomComparativeEmbedding::PreserveNorth,
+        Some(_) => return Err("usage: doom_sidedef_conformance [current|east|north]".into()),
+    };
     run_window_with_app(
         WindowConfig {
-            title: "Tokimu Doom sidedef conformance | screen-left: left/back | screen-right: right/front".into(),
+            title: format!(
+                "Tokimu Doom sidedef conformance | embedding={embedding:?} | left: left/back | right: right/front"
+            ),
             width: WIDTH,
             height: HEIGHT,
         },
-        SidedefApp::default(),
+        SidedefApp {
+            embedding,
+            ..SidedefApp::default()
+        },
     )
 }
 
-#[derive(Default)]
 struct SidedefApp {
     renderer: Option<WgpuBackend>,
     pipeline: PipelineHandle,
     size: [u32; 2],
+    embedding: DoomComparativeEmbedding,
+}
+
+impl Default for SidedefApp {
+    fn default() -> Self {
+        Self {
+            renderer: None,
+            pipeline: PipelineHandle(0),
+            size: [0, 0],
+            embedding: DoomComparativeEmbedding::CurrentReflected,
+        }
+    }
 }
 
 impl PlatformEventHandler for SidedefApp {
@@ -67,8 +91,9 @@ impl PlatformEventHandler for SidedefApp {
                 width: 320,
                 height: 96,
             };
-            let lowered = lower_static_wall_triangle(triangle, extent)
+            let mut lowered = lower_static_wall_triangle(triangle, extent)
                 .expect("bounded sidedef triangle must lower");
+            reembed_comparative_mesh(&mut lowered.mesh, self.embedding, true);
             renderer.upload_mesh(MeshHandle(index as u64 + 1), &lowered.mesh);
         }
 
@@ -87,7 +112,7 @@ impl PlatformEventHandler for SidedefApp {
                 .with_texture(BACK_TEXTURE),
         )?;
 
-        renderer.upload_camera(CAMERA, fixture_camera(self.size));
+        renderer.upload_camera(CAMERA, fixture_camera(self.size, self.embedding));
         self.pipeline = renderer.register_pipeline(
             &Pipeline::new("doom-sidedef-conformance", PipelineKind::Textured3d)
                 .with_render_state(PipelineRenderState {
@@ -107,7 +132,7 @@ impl PlatformEventHandler for SidedefApp {
             self.size = [width.max(1), height.max(1)];
             if let Some(renderer) = self.renderer.as_mut() {
                 renderer.resize_surface(width, height);
-                renderer.upload_camera(CAMERA, fixture_camera(self.size));
+                renderer.upload_camera(CAMERA, fixture_camera(self.size, self.embedding));
             }
         }
         Ok(())
@@ -142,20 +167,20 @@ impl PlatformEventHandler for SidedefApp {
     }
 }
 
-fn fixture_camera(size: [u32; 2]) -> Camera {
-    let mut camera = Camera::default();
-    camera.view = Mat4::look_at_rh(
-        Vec3::new(0.0, 48.0, -700.0),
-        Vec3::new(0.0, 48.0, 0.0),
-        Vec3::Y,
-    );
-    camera.projection = Mat4::perspective_rh_gl(
-        45.0_f32.to_radians(),
-        size[0].max(1) as f32 / size[1].max(1) as f32,
-        0.1,
-        1_000.0,
-    );
-    camera
+fn fixture_camera(size: [u32; 2], embedding: DoomComparativeEmbedding) -> Camera {
+    let source_eye = [0.0, -700.0];
+    let source_forward = [0.0, 1.0];
+    let eye = embedding.lift_direction(source_eye, 48.0);
+    let forward = embedding.lift_direction(source_forward, 0.0);
+    Camera {
+        view: Mat4::look_at_rh(eye, eye + forward, Vec3::Y),
+        projection: Mat4::perspective_rh_gl(
+            45.0_f32.to_radians(),
+            size[0].max(1) as f32 / size[1].max(1) as f32,
+            0.1,
+            1_000.0,
+        ),
+    }
 }
 
 fn fixture_triangles() -> Vec<doom_geometry_provider::DoomTexturedWallTriangle> {
@@ -346,5 +371,84 @@ mod tests {
         assert_eq!(front.len(), 320 * 96 * 4);
         assert_eq!(back.len(), 320 * 96 * 4);
         assert_ne!(front, back);
+    }
+
+    #[test]
+    fn orientation_preserving_candidates_rebuild_camera_facing_winding() {
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            let eye = embedding.lift_direction([0.0, -700.0], 48.0);
+            for triangle in fixture_triangles() {
+                let extent = DoomTextureExtent {
+                    name: triangle.texture_name.clone(),
+                    width: 320,
+                    height: 96,
+                };
+                let mut lowered = lower_static_wall_triangle(&triangle, extent).unwrap();
+                reembed_comparative_mesh(&mut lowered.mesh, embedding, true);
+
+                let center = lowered
+                    .mesh
+                    .positions
+                    .iter()
+                    .map(|position| Vec3::from_array(*position))
+                    .sum::<Vec3>()
+                    / lowered.mesh.positions.len() as f32;
+                let normal = Vec3::from_array(lowered.mesh.normals[0]);
+                assert!(
+                    normal.dot(eye - center) > 0.0,
+                    "{embedding:?} {:?} wall no longer faces its source-side observer",
+                    triangle.side
+                );
+                assert!(lowered
+                    .mesh
+                    .normals
+                    .iter()
+                    .all(|candidate| Vec3::from_array(*candidate).dot(normal) > 0.999));
+            }
+        }
+    }
+
+    #[test]
+    fn orientation_preserving_candidates_keep_readable_u_toward_camera_right() {
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            let forward = embedding.lift_direction([0.0, 1.0], 0.0).normalize();
+            let camera_right = forward.cross(Vec3::Y).normalize();
+            for triangle in fixture_triangles() {
+                let extent = DoomTextureExtent {
+                    name: triangle.texture_name.clone(),
+                    width: 320,
+                    height: 96,
+                };
+                let mut lowered = lower_static_wall_triangle(&triangle, extent).unwrap();
+                reembed_comparative_mesh(&mut lowered.mesh, embedding, true);
+
+                let mut horizontal_pair_observed = false;
+                for left in 0..lowered.mesh.positions.len() {
+                    for right in left + 1..lowered.mesh.positions.len() {
+                        let screen_delta = camera_right.dot(
+                            Vec3::from_array(lowered.mesh.positions[right])
+                                - Vec3::from_array(lowered.mesh.positions[left]),
+                        );
+                        let u_delta = lowered.mesh.texture_coordinates[right][0]
+                            - lowered.mesh.texture_coordinates[left][0];
+                        if screen_delta.abs() > 0.001 && u_delta.abs() > 0.001 {
+                            horizontal_pair_observed = true;
+                            assert!(
+                                screen_delta * u_delta > 0.0,
+                                "{embedding:?} {:?} wall reverses readable U across the camera",
+                                triangle.side
+                            );
+                        }
+                    }
+                }
+                assert!(horizontal_pair_observed);
+            }
+        }
     }
 }

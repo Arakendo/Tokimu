@@ -1242,6 +1242,25 @@ into the spatial semantic contract.
 - Resulting ADR or documentation change: no ADR change; cross-review pressure
   is now explicit.
 
+### Cycle 52 -- 2026-08-11
+
+- Status entering review: Incubating.
+- New pressure: reopened AR-0028 proved that the current Doom coordinate lift
+  is exactly invertible and round-trippable while reversing a canonical
+  landmark orientation relative to world-up. It also opposes lifted
+  source-right and observer camera-right.
+- Findings: spatial transform evidence needs properties beyond finite and
+  invertible. Orientation-preserving versus orientation-reversing is semantic
+  information about a framed mapping; an unqualified `Mat4` or pair of `Vec3`
+  values does not name that intent. This supports semantic roles above ordinary
+  math mechanics, but does not require changing the five math types or their
+  implementation provider.
+- Disposition: retain Incubating status and the existing A/B/C/D math study
+  outcomes. Feed the demonstrated orientation property into future spatial
+  vocabulary studies; do not make raw math types infer source or chart intent.
+- Resulting ADR or documentation change: no ADR change; AR-0028 supplies a
+  concrete case study for future semantic transform admission.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`

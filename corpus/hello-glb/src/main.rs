@@ -29,13 +29,19 @@ const MODEL_TARGET_KEY: &str = "khronos-box/node/0/mesh/0/primitive/0";
 
 fn main() -> PlatformResult<()> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
-    if arguments.iter().any(|argument| argument != "--transparent") {
-        return Err("usage: hello-glb [--transparent]".into());
+    if arguments
+        .iter()
+        .any(|argument| argument != "--transparent" && argument != "--measure-two-frames")
+    {
+        return Err("usage: hello-glb [--transparent] [--measure-two-frames]".into());
     }
     let mut app = HelloGlbApp::new();
     if arguments.iter().any(|argument| argument == "--transparent") {
         app.activate_transparent_inspection()?;
     }
+    app.exit_after_two_frames = arguments
+        .iter()
+        .any(|argument| argument == "--measure-two-frames");
     run_window_with_app(
         WindowConfig {
             title: "Tokimu Hello GLB".into(),
@@ -66,6 +72,9 @@ struct HelloGlbApp {
     presentation_frames_since_change: u32,
     model_visible: bool,
     frame_index: u64,
+    /// Corpus-only bounded native measurement mode. It does not affect normal
+    /// interactive presentation or define a renderer lifecycle policy.
+    exit_after_two_frames: bool,
     diagnostics: Diagnostics,
     frame_time_monitor: PerformanceMonitor,
     present_time_monitor: PerformanceMonitor,
@@ -113,6 +122,7 @@ impl Default for HelloGlbApp {
             presentation_frames_since_change: 0,
             model_visible: true,
             frame_index: 0,
+            exit_after_two_frames: false,
             diagnostics: Diagnostics::default(),
             frame_time_monitor: PerformanceMonitor::new(
                 PerformanceBudget::new(
@@ -345,10 +355,14 @@ impl HelloGlbApp {
             let Some(renderer) = self.renderer.as_mut() else {
                 return Ok(FrameOutcome::Continue);
             };
+            // Frame counters intentionally cover resource work as well as
+            // submission/presentation. Starting the frame before replacement
+            // uploads makes this corpus's retained telemetry match the work it
+            // performs; it does not change renderer lifetime semantics.
+            renderer.begin_frame();
             renderer.upload_mesh(MODEL_MESH, &transform_model_mesh(&self.model_mesh, seconds));
             renderer.upload_mesh(FLOOR_MESH, &build_floor_mesh(seconds));
             renderer.upload_camera(CAMERA_HANDLE, camera);
-            renderer.begin_frame();
             renderer.submit(&commands);
             renderer.present()?
         };
@@ -391,7 +405,11 @@ impl HelloGlbApp {
             );
         }
         self.update_window_title();
-        Ok(FrameOutcome::Continue)
+        Ok(if self.exit_after_two_frames && self.frame_index >= 2 {
+            FrameOutcome::Exit
+        } else {
+            FrameOutcome::Continue
+        })
     }
 }
 

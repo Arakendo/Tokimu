@@ -119,3 +119,65 @@ Begin with Alternative A as a strictly corpus-local E1M1 diagnostic experiment.
 Do not admit a renderer fallback, standard texture, public diagnostic-material
 API, shader error screen, or source-format-specific visual policy.
 
+## 2026-08-11 Interactive-Door Follow-Up
+
+The Slice 8 dynamic-door experiment supplied an additional, distinct failure
+case. Upon ordinary player activation, presentation attempted to re-lower the
+affected source wall spans from immutable decoded-map data. The first attempt
+failed because `BRNBIGL` was present in the source texture catalog but outside
+the static scene's uploaded subset; the provider therefore could not resolve a
+source wall extent and returned an explicit diagnostic.
+
+This is not a missing renderer texture: no texture binding was requested and
+no shader or WGPU validation failure occurred. It is a source-derived geometry
+preparation failure. It nevertheless supports this review's central constraint:
+a black gap, a suddenly closed native window, and a diagnostic stand-in would
+all make materially different claims.
+
+The corpus repair retains the full source texture-extent catalog as geometry
+metadata while continuing to upload only selected eligible rasters. It does
+not substitute `BRNBIGL`, bind a fallback texture, or treat the source resource
+as successfully prepared. Separately, the native observer retains a bounded
+console/stderr diagnostic for recoverable dynamic-door refresh failure rather
+than immediately exiting. That containment gap is also direct evidence for
+AR-0024.
+
+This adds pressure for Alternative A's explicit corpus-local diagnostic mode,
+but does not establish that a standard error texture represents geometry
+preparation failure. Future experiments must preserve:
+
+```text
+source geometry preparation failed
+    != texture bytes unavailable
+    != material rejected
+    != shader/pipeline failure
+    != intentional source omission
+```
+
+### Dynamic Resource Identity Follow-Up
+
+The next repair exposed a related but more fundamental failure shape. Newly
+materialized `DOORTRAK` spans initially reused mesh-handle values derived from
+the mutable opaque draw count. That changed the base of already-uploaded cutout
+handles, causing an ordinary door activation to invalidate presentation
+resources and close the native observer without an in-window explanation.
+
+The immediate corpus repair reserves disjoint static-opaque, static-cutout,
+and dynamic-door mesh-handle ranges. This is deliberately local evidence, not
+a claim that numeric ranges are a Tokimu-wide lifetime model. It raises the
+following question for future kernel/renderer review:
+
+> Can Tokimu provide a small, explicit resource-identity/allocation discipline
+> that makes a live resource's handle stable across ordinary application-side
+> dynamic additions, and reports collisions or unresolved handles as bounded
+> diagnostics rather than allowing a presentation loop to terminate silently?
+
+Any future admission must preserve application ownership of draw lifetime,
+source identity, and recovery policy. A kernel capability may prevent invalid
+handle reuse or make it observable; it must not infer that a missing Doom span,
+texture, shader, or provider resource should be replaced automatically. The
+question also belongs with AR-0024's failure-observation boundary and should
+not be answered by adding more corpus-specific exceptions.
+
+Comparative work is tracked by the
+[Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Tests/renderer-resource-identity-and-failure-presentation.md).

@@ -630,7 +630,9 @@ fn exitsign_camera(draws: &[hello_doom_e1m1::StaticDrawPlanEntry]) -> Result<(Ve
         .filter(|draw| {
             matches!(
                 draw.source,
-                StaticDrawSource::Wall { source_linedef }
+                StaticDrawSource::Wall {
+                    source_linedef, ..
+                }
                     if source_linedef.record_index == 342
             ) && draw.source_label.contains("EXITSIGN")
         })

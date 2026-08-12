@@ -304,3 +304,43 @@ demonstrated a second rendering API.
   alpha-policy work continues independently in AR-0023.
 - Resulting ADR or documentation change: linked the retained native blend
   observation through the AR-0023 study record.
+
+### Cycle 6 -- 2026-08-11
+
+- Status entering review: Accepted.
+- New evidence: E1M1's dynamic-door corpus returned an explicit source geometry
+  refresh error through `PlatformEventHandler::on_frame`. `tokimu-platform`
+  structurally caught it, recorded it, and exited the native event loop, but
+  did not present the error in the window. Without an attached terminal this
+  appeared indistinguishable from a crash.
+- Findings: the trigger was a missing source texture extent during door-wall
+  re-lowering, not a WGPU diagnostic. The corpus now contains that recoverable
+  error locally and retains a bounded message in its debug console and stderr.
+- Disposition: retain the existing renderer/provider boundary. This is
+  corpus-local failure-presentation evidence, not admission of a renderer-wide
+  overlay, generic recovery policy, or standard error texture.
+
+### Cycle 7 -- 2026-08-11
+
+- Status entering review: Accepted.
+- New evidence: after the dynamic-door corpus correctly created previously
+  zero-area `DOORTRAK` spans, those new meshes initially reused numeric handles
+  allocated to static cutout meshes. The cutout command path also derived its
+  handle base from the mutable opaque-draw count. A normal door activation
+  therefore invalidated live presentation-resource identity and closed the
+  native observer without an in-window explanation.
+- Findings: this is neither a shader error nor a WGPU-visible rendering
+  failure. It is an application-side resource-identity/lifetime error whose
+  effect becomes visible only at presentation. Fixed disjoint static-opaque,
+  static-cutout, and dynamic-door ranges repair the corpus case, but are not a
+  general resource-lifetime model.
+- Disposition: retain the corpus-local repair and add an open research question:
+  whether Tokimu should expose a bounded, explicit resource-identity/allocation
+  discipline that keeps live handles stable and makes collision/unresolved
+  references observable before presentation. Any such capability must preserve
+  application ownership of draw lifetime and recovery policy; it must not
+  auto-substitute missing resources or become a general GPU debugger.
+- Resulting plan: execute the comparative
+  [Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Tests/renderer-resource-identity-and-failure-presentation.md)
+  before admitting allocation, lifecycle, containment, or terminal-presentation
+  vocabulary.

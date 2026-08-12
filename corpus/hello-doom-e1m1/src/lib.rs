@@ -3,6 +3,10 @@
 //! Doom records stay at this corpus edge. The renderer receives only the
 //! resulting ordinary mesh with supplied texture coordinates.
 
+pub mod collision;
+pub mod debug_console;
+pub mod specials;
+
 use doom_geometry_provider::{
     DoomMiddleTextureObservation, DoomSkySurfaceObservation, DoomSurfacePlane, DoomSurfaceTriangle,
     DoomTextureExtent, DoomTexturedWallTriangle, DoomWallTextureRole,
@@ -209,10 +213,16 @@ pub struct StaticTextureUpload {
 pub enum StaticDrawSource {
     Flat {
         source_subsector: DoomSourceRecord,
+        source_sector: DoomSourceRecord,
         plane: DoomSurfacePlane,
     },
     Wall {
         source_linedef: DoomSourceRecord,
+        source_sidedef: DoomSourceRecord,
+        source_sector: DoomSourceRecord,
+        /// Retained only for corpus-local dynamic-span lowering. It does not
+        /// become a renderer material or mesh property.
+        role: DoomWallTextureRole,
     },
 }
 
@@ -469,6 +479,155 @@ pub fn observer_right(forward: Vec3) -> Vec3 {
         .normalize_or_zero()
 }
 
+/// Headless evidence for how the current Doom ground-plane lift relates to
+/// this corpus observer's right-handed camera basis.
+///
+/// The observation deliberately separates an invertible coordinate mapping
+/// from orientation preservation. A source conversion can round-trip every
+/// number while still reversing the signed ground-plane orientation relative
+/// to Tokimu world `+Y`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DoomGroundFrameObservation {
+    pub embedding: DoomComparativeEmbedding,
+    pub source_right: [f32; 2],
+    pub source_forward: [f32; 2],
+    pub source_signed_orientation: f32,
+    pub lifted_right: Vec3,
+    pub lifted_forward: Vec3,
+    pub lifted_orientation_about_world_up: f32,
+    pub camera_right: Vec3,
+    pub source_right_camera_right_alignment: f32,
+}
+
+/// Corpus-only alternatives for AR-0028. These do not change the active Doom
+/// provider conversion or establish a Tokimu world-axis contract.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomComparativeEmbedding {
+    CurrentReflected,
+    PreserveEast,
+    PreserveNorth,
+}
+
+impl DoomComparativeEmbedding {
+    pub const ALL: [Self; 3] = [
+        Self::CurrentReflected,
+        Self::PreserveEast,
+        Self::PreserveNorth,
+    ];
+
+    /// Lifts unchanged decoded Doom direction facts into one experimental
+    /// world frame.
+    pub fn lift_direction(self, source_xy: [f32; 2], vertical: f32) -> Vec3 {
+        match self {
+            Self::CurrentReflected => Vec3::new(source_xy[0], vertical, source_xy[1]),
+            Self::PreserveEast => Vec3::new(source_xy[0], vertical, -source_xy[1]),
+            Self::PreserveNorth => Vec3::new(-source_xy[0], vertical, source_xy[1]),
+        }
+    }
+
+    /// Exact corpus inverse retained separately from orientation behavior.
+    pub fn lower_direction(self, world: Vec3) -> ([f32; 2], f32) {
+        match self {
+            Self::CurrentReflected => ([world.x, world.z], world.y),
+            Self::PreserveEast => ([world.x, -world.z], world.y),
+            Self::PreserveNorth => ([-world.x, world.z], world.y),
+        }
+    }
+
+    /// Converts an unchanged decoded Doom heading through this experimental
+    /// embedding. This remains corpus comparison machinery rather than an
+    /// admitted camera or spatial-frame API.
+    pub fn lift_heading_degrees(self, degrees: f32) -> Vec3 {
+        let radians = degrees.to_radians();
+        self.lift_direction([radians.cos(), radians.sin()], 0.0)
+            .normalize_or_zero()
+    }
+}
+
+/// Re-embeds one already-lowered corpus mesh for AR-0028 comparison.
+///
+/// Candidate embeddings reflect the current prepared positions, so the helper
+/// rebuilds triangle winding and normals. `reverse_u` is deliberately explicit:
+/// Doom walls currently compensate for the reflected lift, while flat UVs do
+/// not share that wall-specific policy.
+pub fn reembed_comparative_mesh(
+    mesh: &mut Mesh,
+    embedding: DoomComparativeEmbedding,
+    reverse_u: bool,
+) {
+    if embedding == DoomComparativeEmbedding::CurrentReflected {
+        return;
+    }
+    for triangle_index in 0..mesh.positions.len() / 3 {
+        let base = triangle_index * 3;
+        for index in base..base + 3 {
+            let current = mesh.positions[index];
+            mesh.positions[index] = embedding
+                .lift_direction([current[0], current[2]], current[1])
+                .to_array();
+        }
+        mesh.positions.swap(base + 1, base + 2);
+        mesh.texture_coordinates.swap(base + 1, base + 2);
+
+        if reverse_u {
+            let minimum_u = mesh.texture_coordinates[base..base + 3]
+                .iter()
+                .map(|uv| uv[0])
+                .fold(f32::INFINITY, f32::min);
+            let maximum_u = mesh.texture_coordinates[base..base + 3]
+                .iter()
+                .map(|uv| uv[0])
+                .fold(f32::NEG_INFINITY, f32::max);
+            for uv in &mut mesh.texture_coordinates[base..base + 3] {
+                uv[0] = minimum_u + maximum_u - uv[0];
+            }
+        }
+
+        let a = Vec3::from_array(mesh.positions[base]);
+        let b = Vec3::from_array(mesh.positions[base + 1]);
+        let c = Vec3::from_array(mesh.positions[base + 2]);
+        let normal = (b - a).cross(c - a).normalize_or_zero().to_array();
+        mesh.normals[base..base + 3].fill(normal);
+    }
+}
+
+/// Observes, but does not repair, the current Doom-to-world ground frame.
+/// This remains corpus evidence for AR-0028 rather than a public spatial API.
+pub fn observe_doom_ground_frame(
+    source_right: [f32; 2],
+    source_forward: [f32; 2],
+) -> DoomGroundFrameObservation {
+    observe_doom_ground_frame_with_embedding(
+        DoomComparativeEmbedding::CurrentReflected,
+        source_right,
+        source_forward,
+    )
+}
+
+/// Observes one corpus-only candidate without changing active provider code.
+pub fn observe_doom_ground_frame_with_embedding(
+    embedding: DoomComparativeEmbedding,
+    source_right: [f32; 2],
+    source_forward: [f32; 2],
+) -> DoomGroundFrameObservation {
+    let lifted_right = embedding.lift_direction(source_right, 0.0);
+    let lifted_forward = embedding.lift_direction(source_forward, 0.0);
+    let camera_right = observer_right(lifted_forward);
+
+    DoomGroundFrameObservation {
+        embedding,
+        source_right,
+        source_forward,
+        source_signed_orientation: source_right[0] * source_forward[1]
+            - source_right[1] * source_forward[0],
+        lifted_right,
+        lifted_forward,
+        lifted_orientation_about_world_up: lifted_right.cross(lifted_forward).dot(Vec3::Y),
+        camera_right,
+        source_right_camera_right_alignment: lifted_right.dot(camera_right),
+    }
+}
+
 /// Aggregate impact of the explicitly omitted zero-area candidates. This is
 /// evidence for the Slice 5B escalation rule, not renderer input.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -656,6 +815,7 @@ pub fn build_static_draw_plan(
             ),
             source: StaticDrawSource::Flat {
                 source_subsector: flat.source.subsector,
+                source_sector: flat.source.sector,
                 plane: flat.source.plane,
             },
         });
@@ -670,6 +830,9 @@ pub fn build_static_draw_plan(
             ),
             source: StaticDrawSource::Wall {
                 source_linedef: wall.source_linedef,
+                source_sidedef: wall.source_sidedef,
+                source_sector: wall.source_sector,
+                role: wall.role,
             },
         });
     }
@@ -705,6 +868,9 @@ pub fn build_experimental_cutout_draw_plan(
                 ),
                 source: StaticDrawSource::Wall {
                     source_linedef: candidate.wall.source_linedef,
+                    source_sidedef: candidate.wall.source_sidedef,
+                    source_sector: candidate.wall.source_sector,
+                    role: candidate.wall.role,
                 },
             })
         })
@@ -989,16 +1155,7 @@ fn decode_e1m1_wall_inputs(
 ) -> Result<E1m1WallInputs, E1m1PreparationError> {
     let selection = select_doom_episode_map(manifest, "E1M1")?;
     let map = doom_map_provider::decode_doom_map_core(wad_bytes, &selection, map_limits)?;
-    let catalog = decode_doom_texture_catalog(wad_bytes, manifest, texture_limits)?;
-    let extents = catalog
-        .textures
-        .iter()
-        .map(|texture| DoomTextureExtent {
-            name: texture.name.clone(),
-            width: texture.width,
-            height: texture.height,
-        })
-        .collect::<Vec<_>>();
+    let extents = prepare_e1m1_wall_texture_extents(wad_bytes, manifest, texture_limits)?;
     let walls = doom_geometry_provider::lower_doom_textured_wall_triangles(&map, &extents)?;
     let masked_middles = doom_geometry_provider::observe_doom_two_sided_middle_textures(&map)?;
     Ok(E1m1WallInputs {
@@ -1007,6 +1164,27 @@ fn decode_e1m1_wall_inputs(
         masked_middles,
         extents,
     })
+}
+
+/// Retains the full source texture-extent catalog used to resolve Doom wall
+/// spans. This is geometry metadata only: it neither decodes RGBA8 pixels nor
+/// admits every catalog entry as a renderer texture.
+pub fn prepare_e1m1_wall_texture_extents(
+    wad_bytes: &[u8],
+    manifest: &WadManifest,
+    texture_limits: DoomTextureDecodeLimits,
+) -> Result<Vec<DoomTextureExtent>, E1m1PreparationError> {
+    Ok(
+        decode_doom_texture_catalog(wad_bytes, manifest, texture_limits)?
+            .textures
+            .iter()
+            .map(|texture| DoomTextureExtent {
+                name: texture.name.clone(),
+                width: texture.width,
+                height: texture.height,
+            })
+            .collect(),
+    )
 }
 
 /// Decodes caller-selected wall texture names through the retained composition
@@ -1094,6 +1272,42 @@ pub fn prepare_e1m1_flats(
         map_name: selection.map_name,
         flat_assembly: assemble_static_opaque_flats(&surfaces, &sky, FlatExtent::E1M1)?,
     })
+}
+
+/// Re-lowers only the explicitly retained sky omissions for AR-0027's
+/// opt-in diagnostic presentation experiment.  The returned meshes retain
+/// their original flat identity; callers must still declare why they chose a
+/// stand-in and supply its material.  Normal E1M1 preparation never calls
+/// this function.
+pub fn prepare_e1m1_sky_diagnostic_flats(
+    wad_bytes: &[u8],
+    manifest: &WadManifest,
+    limits: doom_map_provider::DoomMapDecodeLimits,
+) -> Result<Vec<StaticFlatMesh>, E1m1PreparationError> {
+    let selection = select_doom_episode_map(manifest, "E1M1")?;
+    let map = doom_map_provider::decode_doom_map_core(wad_bytes, &selection, limits)?;
+    let paths = doom_geometry_provider::resolve_doom_subsector_bsp_paths(&map)?;
+    let surfaces = doom_geometry_provider::lower_doom_subsector_surfaces(&map, &paths)?;
+    let sky = doom_geometry_provider::observe_doom_sky_surfaces(&map, &paths)?;
+    let mut lowered = Vec::new();
+    for surface in &surfaces {
+        let is_retained_sky = sky.iter().any(|observation| {
+            observation.source_subsector == surface.source_subsector
+                && observation.source_sector == surface.source_sector
+                && observation.plane == surface.plane
+        });
+        if !is_retained_sky {
+            continue;
+        }
+        match lower_static_flat_triangle(surface, FlatExtent::E1M1) {
+            Ok(mesh) => lowered.push(mesh),
+            // This diagnostic path does not invent a stand-in for geometry
+            // with no stable face either.
+            Err(StaticFlatLoweringError::DegenerateTriangle) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(lowered)
 }
 
 /// Builds source-textured wall candidates and source-classified masked-middle
@@ -1426,6 +1640,186 @@ fn dot(left: [f32; 3], right: [f32; 3]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn current_doom_ground_lift_reverses_orientation_about_world_up() {
+        let observation = observe_doom_ground_frame([1.0, 0.0], [0.0, 1.0]);
+
+        assert_eq!(observation.source_signed_orientation, 1.0);
+        assert_eq!(observation.lifted_right, Vec3::X);
+        assert_eq!(observation.lifted_forward, Vec3::Z);
+        assert_eq!(observation.lifted_orientation_about_world_up, -1.0);
+    }
+
+    #[test]
+    fn current_lifted_source_right_opposes_observer_camera_right() {
+        let observation = observe_doom_ground_frame([1.0, 0.0], [0.0, 1.0]);
+
+        assert_eq!(observation.camera_right, Vec3::NEG_X);
+        assert_eq!(observation.source_right_camera_right_alignment, -1.0);
+    }
+
+    #[test]
+    fn both_orientation_preserving_candidates_align_source_and_camera_right() {
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            let observation =
+                observe_doom_ground_frame_with_embedding(embedding, [1.0, 0.0], [0.0, 1.0]);
+
+            assert_eq!(observation.source_signed_orientation, 1.0);
+            assert_eq!(observation.lifted_orientation_about_world_up, 1.0);
+            assert_eq!(observation.source_right_camera_right_alignment, 1.0);
+        }
+    }
+
+    #[test]
+    fn comparative_embeddings_retain_distinct_east_and_north_choices() {
+        let east = [1.0, 0.0];
+        let north = [0.0, 1.0];
+
+        assert_eq!(
+            DoomComparativeEmbedding::PreserveEast.lift_direction(east, 0.0),
+            Vec3::X
+        );
+        assert_eq!(
+            DoomComparativeEmbedding::PreserveEast.lift_direction(north, 0.0),
+            Vec3::NEG_Z
+        );
+        assert_eq!(
+            DoomComparativeEmbedding::PreserveNorth.lift_direction(east, 0.0),
+            Vec3::NEG_X
+        );
+        assert_eq!(
+            DoomComparativeEmbedding::PreserveNorth.lift_direction(north, 0.0),
+            Vec3::Z
+        );
+    }
+
+    #[test]
+    fn every_comparative_embedding_round_trips_without_proving_orientation() {
+        let source = [23.5, -91.25];
+        for embedding in DoomComparativeEmbedding::ALL {
+            let world = embedding.lift_direction(source, 7.0);
+            let (round_trip, vertical) = embedding.lower_direction(world);
+
+            assert_eq!(round_trip, source);
+            assert_eq!(vertical, 7.0);
+        }
+    }
+
+    #[test]
+    fn candidate_command_replay_preserves_source_forward_strafe_and_screen_right_yaw() {
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            for source_heading in [0.0_f32, 45.0, 90.0, 180.0, 270.0] {
+                let radians = source_heading.to_radians();
+                let source_forward = [radians.cos(), radians.sin()];
+                let source_right = [source_forward[1], -source_forward[0]];
+                let lifted_forward = embedding.lift_heading_degrees(source_heading);
+                let lifted_right = embedding
+                    .lift_direction(source_right, 0.0)
+                    .normalize_or_zero();
+                let yaw = observer_yaw_from_forward(lifted_forward);
+
+                // W and D remain source-forward and source-right after the
+                // embedding, rather than acquiring compensating input signs.
+                assert!(observer_direction(yaw, 0.0).dot(lifted_forward) > 0.999_9);
+                assert!(observer_right(lifted_forward).dot(lifted_right) > 0.999_9);
+
+                // The existing pointer-look policy subtracts yaw for a
+                // screen-right turn. It must land on the same transformed
+                // source-right direction for either candidate.
+                let screen_right_yaw = yaw - std::f32::consts::FRAC_PI_2;
+                assert!(
+                    observer_direction(screen_right_yaw, 0.0).dot(lifted_right) > 0.999_9,
+                    "{embedding:?} heading {source_heading} broke screen-right replay"
+                );
+
+                let (round_trip, vertical) = embedding.lower_direction(lifted_forward);
+                assert!((round_trip[0] - source_forward[0]).abs() < 0.000_1);
+                assert!((round_trip[1] - source_forward[1]).abs() < 0.000_1);
+                assert_eq!(vertical, 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn candidate_embeddings_require_wall_winding_to_be_rebuilt() {
+        let source_start = [10.0_f32, 20.0_f32];
+        let source_end = [30.0_f32, 40.0_f32];
+        let source_delta = [
+            source_end[0] - source_start[0],
+            source_end[1] - source_start[1],
+        ];
+        let source_right_normal = [source_delta[1], -source_delta[0]];
+
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            let start_bottom = embedding.lift_direction(source_start, 0.0);
+            let end_bottom = embedding.lift_direction(source_end, 0.0);
+            let end_top = embedding.lift_direction(source_end, 64.0);
+            let expected_right = embedding.lift_direction(source_right_normal, 0.0);
+
+            // The current right/front order is start-bottom, end-top,
+            // end-bottom. A reflected embedding makes that order face away
+            // from the transformed owning-side normal.
+            let current_order_normal = (end_top - start_bottom).cross(end_bottom - start_bottom);
+            assert!(current_order_normal.dot(expected_right) < 0.0);
+
+            // Rebuilding the candidate winding, rather than patching culling,
+            // restores the source-owned right/front relationship.
+            let rebuilt_right_normal = (end_bottom - start_bottom).cross(end_top - start_bottom);
+            assert!(rebuilt_right_normal.dot(expected_right) > 0.0);
+            assert!(rebuilt_right_normal.dot(-expected_right) < 0.0);
+        }
+    }
+
+    #[test]
+    fn canonical_e1m1_spawn_doorway_and_hut_landmarks_reverse_about_world_up() {
+        // Reviewed DOOM1.WAD E1M1 identities:
+        // - THINGS #0: player start (1056, -3616)
+        // - LINEDEFS #0 midpoint: start doorway (1056, -3680)
+        // - LINEDEFS #208 midpoint: interactively identified BROWN1 hut wall
+        //   (2176, -3824)
+        let spawn = [1056.0_f32, -3616.0_f32];
+        let doorway = [1056.0_f32, -3680.0_f32];
+        let hut = [2176.0_f32, -3824.0_f32];
+        let doorway_relative = [doorway[0] - spawn[0], doorway[1] - spawn[1]];
+        let hut_relative = [hut[0] - spawn[0], hut[1] - spawn[1]];
+        let source_orientation =
+            doorway_relative[0] * hut_relative[1] - doorway_relative[1] * hut_relative[0];
+        let lifted_doorway =
+            DoomComparativeEmbedding::CurrentReflected.lift_direction(doorway_relative, 0.0);
+        let lifted_hut =
+            DoomComparativeEmbedding::CurrentReflected.lift_direction(hut_relative, 0.0);
+        let world_orientation = lifted_doorway.cross(lifted_hut).dot(Vec3::Y);
+        let source_heading = [0.0_f32, 1.0_f32];
+        let source_right = [source_heading[1], -source_heading[0]];
+        let source_hut_side = hut_relative[0] * source_right[0] + hut_relative[1] * source_right[1];
+        let camera_right = observer_right(Vec3::Z);
+        let presented_hut_side = lifted_hut.dot(camera_right);
+
+        assert_eq!(source_orientation, 71_680.0);
+        assert_eq!(world_orientation, -71_680.0);
+        assert_eq!(source_hut_side, 1_120.0);
+        assert_eq!(presented_hut_side, -1_120.0);
+
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            let candidate_hut = embedding.lift_direction(hut_relative, 0.0);
+            let candidate_forward = embedding.lift_direction(source_heading, 0.0);
+            let candidate_camera_right = observer_right(candidate_forward);
+            assert_eq!(candidate_hut.dot(candidate_camera_right), 1_120.0);
+        }
+    }
 
     fn candidate() -> DoomSurfaceTriangle {
         DoomSurfaceTriangle {
@@ -1851,7 +2245,39 @@ mod tests {
         assert_eq!(draws.len(), 2);
         assert_eq!(draws[0].material, MaterialHandle(1));
         assert_eq!(draws[0].source_label, "flat:3:FLOOR0_1");
+        assert_eq!(
+            draws[0].source,
+            StaticDrawSource::Flat {
+                source_subsector: DoomSourceRecord {
+                    lump_index: 6,
+                    record_index: 12,
+                },
+                source_sector: DoomSourceRecord {
+                    lump_index: 8,
+                    record_index: 3,
+                },
+                plane: DoomSurfacePlane::Floor,
+            }
+        );
         assert_eq!(draws[1].material, MaterialHandle(2));
         assert_eq!(draws[1].source_label, "wall:7:STARTAN3");
+        assert_eq!(
+            draws[1].source,
+            StaticDrawSource::Wall {
+                source_linedef: DoomSourceRecord {
+                    lump_index: 2,
+                    record_index: 7,
+                },
+                source_sidedef: DoomSourceRecord {
+                    lump_index: 3,
+                    record_index: 9,
+                },
+                source_sector: DoomSourceRecord {
+                    lump_index: 8,
+                    record_index: 3,
+                },
+                role: DoomWallTextureRole::Middle,
+            }
+        );
     }
 }

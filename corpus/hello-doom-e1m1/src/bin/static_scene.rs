@@ -3,15 +3,20 @@
 //! The WAD is read only at this corpus edge. `tokimu-render` receives ordinary
 //! meshes, texture bytes, materials, and one explicit opaque 3D pipeline.
 
-use std::{collections::BTreeSet, env, fs, io, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashSet},
+    env, fs, io,
+    sync::Arc,
+    time::Instant,
+};
 
 use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
 use doom_geometry_provider::{
-    doom_point_to_tokimu, locate_doom_point_subsector, resolve_doom_linedef_subsector_membership,
-    resolve_doom_subsector_bsp_paths, resolve_doom_subsector_regions,
-    resolve_doom_subsector_sector_ownership,
+    doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_textured_wall_triangles,
+    resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
+    resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership, DoomTextureExtent,
 };
-use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start};
+use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore};
 use doom_raster_provider::{
     DoomFlatDecodeLimits, DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomTextureComposeLimits,
     DoomTextureDecodeLimits,
@@ -20,15 +25,28 @@ use doom_wad_package::{
     read_wad_package_member, select_doom_episode_map, InspectWadPackageRequest,
 };
 use doom_wad_provider::WadReadLimits;
+use hello_doom_e1m1::collision::{
+    DoomWalkCollisionWorld, DoomWalkFloorResolution, DoomWalkFloorWorld,
+};
+use hello_doom_e1m1::debug_console::DoomDebugConsole;
+use hello_doom_e1m1::specials::{
+    resolve_doom_line_activation, DoomLineActivation, DoomLineActivationIntent,
+    DoomLineActivationRequest, DoomLineActivationResolution, DoomLineActivationSource,
+    DoomManualDoorPhase, DoomManualDoorPolicy, DoomManualDoorRuntime,
+};
 use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
     build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
-    classify_static_draw_sphere_frustum_rejection, doom_heading_forward, observer_direction,
+    classify_static_draw_sphere_frustum_rejection, doom_heading_forward,
+    lower_static_wall_triangle, observe_doom_ground_frame_with_embedding, observer_direction,
     observer_right, observer_yaw_from_forward, prepare_e1m1_flat_textures, prepare_e1m1_flats,
-    prepare_e1m1_masked_middle_cutouts, prepare_e1m1_wall_textures, prepare_e1m1_walls,
-    prepared_e1m1_masked_middle_texture_names, StaticDrawAabb, StaticDrawFrustumRejection,
-    StaticDrawPlanEntry, StaticDrawSource, StaticDrawSphere, StaticTextureUpload,
+    prepare_e1m1_masked_middle_cutouts, prepare_e1m1_sky_diagnostic_flats,
+    prepare_e1m1_wall_texture_extents, prepare_e1m1_wall_textures, prepare_e1m1_walls,
+    prepared_e1m1_masked_middle_texture_names, reembed_comparative_mesh, DoomComparativeEmbedding,
+    StaticDrawAabb, StaticDrawFrustumRejection, StaticDrawPlanEntry, StaticDrawSource,
+    StaticDrawSphere, StaticFlatLoweringError, StaticTextureUpload,
 };
+use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, TextureUse};
 use resource_space::{
     AddressCasePolicy, FolderId, InMemoryResourceSpace, ResourceMetadata, ResourceName,
     ResourceRootDescriptor, ResourceRootId, StoreId,
@@ -37,12 +55,14 @@ use resource_space_archive::InspectArchiveResourceRequest;
 use tokimu::{
     run_window_with_app, BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color,
     ColorWriteMask, CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand,
-    FrameOutcome, Instance2d, MeshHandle, NativeWindow, Pipeline, PipelineHandle, PipelineKind,
-    PipelineRenderState, PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand,
-    Renderer, WgpuBackend, WindowConfig,
+    FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
+    PipelineHandle, PipelineKind, PipelineRenderState, PlatformEventHandler, PlatformInputEvent,
+    PlatformResult, RenderCommand, Renderer, Texture, TextureAddressMode, TextureFilter,
+    TextureHandle, TextureSampler, WgpuBackend, WindowConfig,
 };
 use tokimu_core::math::{Mat4, Vec3};
-use tokimu_input::{KeyCode, MouseButton};
+use tokimu_input::{InputState, KeyCode, MouseButton};
+use ui_tools::provider::{UiFontRasterizer, UiFontSource};
 use winit::window::CursorGrabMode;
 
 const WAD_LIMITS: WadReadLimits =
@@ -93,6 +113,17 @@ const COMPOSE_LIMITS: DoomTextureComposeLimits = DoomTextureComposeLimits {
     max_pixels: 16 * 1024 * 1024,
 };
 const CAMERA: CameraHandle = CameraHandle(1);
+const DEBUG_CAMERA: CameraHandle = CameraHandle(2);
+const DEBUG_QUAD: MeshHandle = MeshHandle(9_000_001);
+const DEBUG_TEXTURE: TextureHandle = TextureHandle(9_000_001);
+const DEBUG_MATERIAL: MaterialHandle = MaterialHandle(9_000_001);
+const DEBUG_CURSOR_MATERIAL: MaterialHandle = MaterialHandle(9_000_002);
+const DIAGNOSTIC_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_010);
+const DIAGNOSTIC_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_010);
+const DIAGNOSTIC_SKY_MESH_BASE: u64 = 9_000_100;
+const WALK_SPEED: f32 = 240.0;
+const WALK_RADIUS: f32 = 16.0;
+const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
 
 struct App {
     renderer: Option<WgpuBackend>,
@@ -100,19 +131,44 @@ struct App {
     uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
     cutout_uploads: Vec<StaticTextureUpload>,
+    diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
+    diagnostic_sky_enabled: bool,
+    diagnostic_sky_records: Vec<String>,
+    cutout_mesh_base: u64,
     include_cutouts: bool,
     pipeline: PipelineHandle,
     cutout_pipeline: Option<PipelineHandle>,
+    debug_pipeline: Option<PipelineHandle>,
+    debug_font: Option<UiFontRasterizer>,
+    debug_console: DoomDebugConsole,
     size: [f32; 2],
     center: Vec3,
     radius: f32,
     spawn_observer: Option<SpawnObserver>,
+    initial_spawn_observer: Option<SpawnObserver>,
     observer_look: Option<ObserverLook>,
+    initial_observer_look: Option<ObserverLook>,
+    walk_collision: Option<DoomWalkCollisionWorld>,
+    walk_floors: Option<DoomWalkFloorWorld>,
+    noclip: bool,
+    last_collision_contacts: Vec<u32>,
+    last_floor_transition: Option<String>,
     opaque_bounds: Vec<Option<StaticDrawAabb>>,
     cutout_bounds: Vec<Option<StaticDrawAabb>>,
     opaque_grid: Option<UniformGridAabbIndex>,
     cutout_grid: Option<UniformGridAabbIndex>,
     membership_selection: DoomMembershipSelectionInput,
+    activation_source: DoomLineActivationSource,
+    door_geometry_source: DoomDynamicDoorGeometrySource,
+    active_manual_doors: Vec<DoomManualDoorRuntime>,
+    door_tick_accumulator: f64,
+    dirty_opaque_meshes: HashSet<usize>,
+    door_visual_diagnostic: Option<String>,
+    door_geometry_diagnostic: Option<String>,
+    dynamic_door_draws: BTreeSet<usize>,
+    dynamic_door_mesh_handles: BTreeMap<usize, MeshHandle>,
+    next_dynamic_mesh_handle: u64,
+    opaque_draw_enabled: Vec<bool>,
     candidate_selection: CandidateSelection,
     frame_index: u64,
     exit_after_two_frames: bool,
@@ -121,7 +177,8 @@ struct App {
     commands: Vec<RenderCommand>,
     window: Option<Arc<NativeWindow>>,
     mouse_captured: bool,
-    pressed_keys: BTreeSet<KeyCode>,
+    input: InputState,
+    comparative_embedding: DoomComparativeEmbedding,
 }
 
 struct SceneInput {
@@ -129,10 +186,36 @@ struct SceneInput {
     opaque_uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
     cutout_uploads: Vec<StaticTextureUpload>,
+    diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
+    diagnostic_sky_records: Vec<String>,
     spawn_observer: SpawnObserver,
+    walk_collision: DoomWalkCollisionWorld,
+    walk_floors: DoomWalkFloorWorld,
     reject_report: DoomRejectReport,
     topology_report: DoomTopologyReport,
     membership_selection: DoomMembershipSelectionInput,
+    activation_source: DoomLineActivationSource,
+    door_geometry_source: DoomDynamicDoorGeometrySource,
+}
+
+/// Immutable source geometry retained only so Slice 8 can re-lower the
+/// affected Doom wall spans from runtime-owned sector heights. It does not
+/// become renderer or generic world state.
+#[derive(Clone, Debug)]
+struct DoomDynamicDoorGeometrySource {
+    map: DoomMapCore,
+    wall_extents: Vec<DoomTextureExtent>,
+    wall_materials: BTreeMap<String, MaterialHandle>,
+}
+
+#[derive(Clone, Debug)]
+struct DynamicDoorWallMesh {
+    mesh: Mesh,
+    source_linedef: doom_map_provider::DoomSourceRecord,
+    source_sidedef: doom_map_provider::DoomSourceRecord,
+    source_sector: doom_map_provider::DoomSourceRecord,
+    role: doom_geometry_provider::DoomWallTextureRole,
+    texture_name: String,
 }
 
 /// Source-only observation of Doom's `REJECT` monster-sight prefilter for the
@@ -259,11 +342,27 @@ impl CandidateSelectionSummary {
 
 fn main() -> PlatformResult<()> {
     let mut args = env::args().skip(1).collect::<Vec<_>>();
+    let preserve_east = args.iter().any(|argument| argument == "--embedding-east");
+    let preserve_north = args.iter().any(|argument| argument == "--embedding-north");
+    let comparative_embedding = match (preserve_east, preserve_north) {
+        (false, false) => DoomComparativeEmbedding::CurrentReflected,
+        (true, false) => DoomComparativeEmbedding::PreserveEast,
+        (false, true) => DoomComparativeEmbedding::PreserveNorth,
+        (true, true) => return Err("choose only one comparative embedding".into()),
+    };
     let include_cutouts = args.iter().any(|argument| argument == "--masked-cutouts");
+    let diagnostic_sky = args
+        .iter()
+        .any(|argument| argument == "--diagnostic-sky-omissions");
     let spawn_observer = args.iter().any(|argument| argument == "--spawn-observer");
     let spawn_yaw_plus_90 = args
         .iter()
         .any(|argument| argument == "--spawn-yaw-plus-90");
+    let walk_collision = args.iter().any(|argument| argument == "--walk-collision");
+    let walk_collision_report = args
+        .iter()
+        .any(|argument| argument == "--walk-collision-report");
+    let noclip = args.iter().any(|argument| argument == "--noclip");
     let frustum_aabb = args.iter().any(|argument| argument == "--frustum-aabb");
     let frustum_grid = args
         .iter()
@@ -299,12 +398,34 @@ fn main() -> PlatformResult<()> {
     let flat_normal_report = args
         .iter()
         .any(|argument| argument == "--flat-normal-report");
+    let special_activation_report = args
+        .iter()
+        .any(|argument| argument == "--special-activation-report");
+    let door_runtime_report = args
+        .iter()
+        .any(|argument| argument == "--door-runtime-report");
+    let door_resource_replay_report = args
+        .iter()
+        .any(|argument| argument == "--door-resource-replay-report");
     let measure_two_frames = args
         .iter()
         .any(|argument| argument == "--measure-two-frames");
+    let spatial_orientation_report = args
+        .iter()
+        .any(|argument| argument == "--spatial-orientation-report");
+    let spatial_landmark_candidates_report = args
+        .iter()
+        .any(|argument| argument == "--spatial-landmark-candidates-report");
+    let spatial_flat_uv_report = args
+        .iter()
+        .any(|argument| argument == "--spatial-flat-uv-report");
     args.retain(|argument| argument != "--masked-cutouts");
+    args.retain(|argument| argument != "--diagnostic-sky-omissions");
     args.retain(|argument| argument != "--spawn-observer");
     args.retain(|argument| argument != "--spawn-yaw-plus-90");
+    args.retain(|argument| argument != "--walk-collision");
+    args.retain(|argument| argument != "--walk-collision-report");
+    args.retain(|argument| argument != "--noclip");
     args.retain(|argument| argument != "--frustum-aabb");
     args.retain(|argument| argument != "--frustum-grid-8x4x8");
     args.retain(|argument| argument != "--candidate-report");
@@ -318,13 +439,44 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--doom-membership-report");
     args.retain(|argument| argument != "--doom-membership-union");
     args.retain(|argument| argument != "--flat-normal-report");
+    args.retain(|argument| argument != "--special-activation-report");
+    args.retain(|argument| argument != "--door-runtime-report");
+    args.retain(|argument| argument != "--door-resource-replay-report");
     args.retain(|argument| argument != "--measure-two-frames");
+    args.retain(|argument| argument != "--spatial-orientation-report");
+    args.retain(|argument| argument != "--spatial-landmark-candidates-report");
+    args.retain(|argument| argument != "--spatial-flat-uv-report");
+    args.retain(|argument| argument != "--embedding-east");
+    args.retain(|argument| argument != "--embedding-north");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--masked-cutouts] [--spawn-observer] [--spawn-yaw-plus-90] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--flat-normal-report] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--masked-cutouts] [--diagnostic-sky-omissions] [--spawn-observer] [--spawn-yaw-plus-90] [--embedding-east|--embedding-north] [--walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--measure-two-frames]".into(),
         );
     };
-    let scene = prepare_scene(package, member)?;
+    if (walk_collision || walk_collision_report) && !spawn_observer {
+        return Err("--walk-collision requires --spawn-observer".into());
+    }
+    if comparative_embedding != DoomComparativeEmbedding::CurrentReflected && walk_collision_report
+    {
+        return Err(
+            "comparative embeddings currently exclude the source-space collision report replay; use interactive --walk-collision for converted correspondence evidence"
+                .into(),
+        );
+    }
+    let mut scene = prepare_scene(package, member)?;
+    if spatial_orientation_report {
+        report_spatial_orientation(&scene);
+        return Ok(());
+    }
+    if spatial_landmark_candidates_report {
+        report_spatial_landmark_candidates(&scene);
+        return Ok(());
+    }
+    reembed_scene_for_comparison(&mut scene, comparative_embedding);
+    if spatial_flat_uv_report {
+        report_spatial_flat_uv(&scene, comparative_embedding);
+        return Ok(());
+    }
     let bounds_draws = scene
         .opaque_draws
         .iter()
@@ -372,6 +524,18 @@ fn main() -> PlatformResult<()> {
         report_flat_normals(&scene.opaque_draws);
         return Ok(());
     }
+    if special_activation_report {
+        report_doom_use_activation(&scene.activation_source);
+        return Ok(());
+    }
+    if door_runtime_report {
+        report_doom_manual_door_runtime(&scene.activation_source);
+        return Ok(());
+    }
+    if walk_collision_report {
+        report_walk_collision(&scene);
+        return Ok(());
+    }
     let opaque_bounds = draw_bounds(&scene.opaque_draws);
     let cutout_bounds = draw_bounds(&scene.cutout_draws);
     let opaque_grid = frustum_grid
@@ -385,62 +549,108 @@ fn main() -> PlatformResult<()> {
             scene.cutout_draws.len()
         } else {
             0
+        }
+        + if diagnostic_sky {
+            scene.diagnostic_sky_draws.len()
+        } else {
+            0
         };
     let opaque_selected = vec![true; scene.opaque_draws.len()];
     let cutout_selected = vec![true; scene.cutout_draws.len()];
+    let cutout_mesh_base = scene.opaque_draws.len() as u64 + 1;
     let commands = Vec::with_capacity(draw_count + 1);
+    let mut app = App {
+        renderer: None,
+        draws: scene.opaque_draws,
+        uploads: scene.opaque_uploads,
+        cutout_draws: scene.cutout_draws,
+        cutout_uploads: scene.cutout_uploads,
+        diagnostic_sky_draws: scene.diagnostic_sky_draws,
+        diagnostic_sky_enabled: diagnostic_sky,
+        diagnostic_sky_records: scene.diagnostic_sky_records,
+        cutout_mesh_base,
+        include_cutouts,
+        pipeline: PipelineHandle(0),
+        cutout_pipeline: None,
+        debug_pipeline: None,
+        debug_font: None,
+        debug_console: DoomDebugConsole::default(),
+        size: [1280.0, 800.0],
+        center,
+        radius,
+        spawn_observer: spawn_observer.then_some(scene.spawn_observer),
+        initial_spawn_observer: spawn_observer.then_some(scene.spawn_observer),
+        observer_look: spawn_observer.then_some(ObserverLook {
+            yaw: observer_yaw_from_forward(scene.spawn_observer.forward)
+                + if spawn_yaw_plus_90 {
+                    std::f32::consts::FRAC_PI_2
+                } else {
+                    0.0
+                },
+            pitch: 0.0,
+            last_cursor: None,
+        }),
+        initial_observer_look: spawn_observer.then_some(ObserverLook {
+            yaw: observer_yaw_from_forward(scene.spawn_observer.forward)
+                + if spawn_yaw_plus_90 {
+                    std::f32::consts::FRAC_PI_2
+                } else {
+                    0.0
+                },
+            pitch: 0.0,
+            last_cursor: None,
+        }),
+        walk_collision: walk_collision.then_some(scene.walk_collision),
+        walk_floors: walk_collision.then_some(scene.walk_floors),
+        noclip,
+        last_collision_contacts: Vec::new(),
+        last_floor_transition: None,
+        opaque_bounds,
+        cutout_bounds,
+        opaque_grid,
+        cutout_grid,
+        membership_selection: scene.membership_selection,
+        activation_source: scene.activation_source,
+        door_geometry_source: scene.door_geometry_source,
+        active_manual_doors: Vec::new(),
+        door_tick_accumulator: 0.0,
+        dirty_opaque_meshes: HashSet::new(),
+        door_visual_diagnostic: None,
+        door_geometry_diagnostic: None,
+        dynamic_door_draws: BTreeSet::new(),
+        dynamic_door_mesh_handles: BTreeMap::new(),
+        next_dynamic_mesh_handle: cutout_mesh_base + cutout_selected.len() as u64,
+        opaque_draw_enabled: opaque_selected.clone(),
+        candidate_selection: if frustum_grid {
+            CandidateSelection::UniformGrid8x4x8
+        } else if doom_membership_union {
+            CandidateSelection::DoomMembershipUnion
+        } else if frustum_aabb {
+            CandidateSelection::FrustumAabb
+        } else {
+            CandidateSelection::FullSubmission
+        },
+        frame_index: 0,
+        exit_after_two_frames: measure_two_frames,
+        opaque_selected,
+        cutout_selected,
+        commands,
+        window: None,
+        mouse_captured: false,
+        input: InputState::default(),
+        comparative_embedding,
+    };
+    if door_resource_replay_report {
+        report_door_resource_replay(&mut app)?;
+        return Ok(());
+    }
     run_window_with_app(
         WindowConfig {
-            title: format!("Tokimu DOOM E1M1 | {draw_count} draws"),
+            title: format!("Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}"),
             width: 1280,
             height: 800,
         },
-        App {
-            renderer: None,
-            draws: scene.opaque_draws,
-            uploads: scene.opaque_uploads,
-            cutout_draws: scene.cutout_draws,
-            cutout_uploads: scene.cutout_uploads,
-            include_cutouts,
-            pipeline: PipelineHandle(0),
-            cutout_pipeline: None,
-            size: [1280.0, 800.0],
-            center,
-            radius,
-            spawn_observer: spawn_observer.then_some(scene.spawn_observer),
-            observer_look: spawn_observer.then_some(ObserverLook {
-                yaw: observer_yaw_from_forward(scene.spawn_observer.forward)
-                    + if spawn_yaw_plus_90 {
-                        std::f32::consts::FRAC_PI_2
-                    } else {
-                        0.0
-                    },
-                pitch: 0.0,
-                last_cursor: None,
-            }),
-            opaque_bounds,
-            cutout_bounds,
-            opaque_grid,
-            cutout_grid,
-            membership_selection: scene.membership_selection,
-            candidate_selection: if frustum_grid {
-                CandidateSelection::UniformGrid8x4x8
-            } else if doom_membership_union {
-                CandidateSelection::DoomMembershipUnion
-            } else if frustum_aabb {
-                CandidateSelection::FrustumAabb
-            } else {
-                CandidateSelection::FullSubmission
-            },
-            frame_index: 0,
-            exit_after_two_frames: measure_two_frames,
-            opaque_selected,
-            cutout_selected,
-            commands,
-            window: None,
-            mouse_captured: false,
-            pressed_keys: BTreeSet::new(),
-        },
+        app,
     )
 }
 
@@ -471,7 +681,10 @@ impl App {
     }
 
     fn apply_inspection_movement(&mut self, delta_seconds: f64) {
-        let Some(observer) = self.spawn_observer.as_mut() else {
+        if self.debug_console.is_open() {
+            return;
+        }
+        let Some(observer) = self.spawn_observer else {
             return;
         };
         let Some(look) = self.observer_look else {
@@ -480,27 +693,746 @@ impl App {
         let mut direction = Vec3::ZERO;
         let forward = observer_direction(look.yaw, 0.0);
         let right = observer_right(forward);
-        if self.pressed_keys.contains(&KeyCode::KeyW) {
+        if self.input.keyboard.is_pressed(KeyCode::KeyW) {
             direction += forward;
         }
-        if self.pressed_keys.contains(&KeyCode::KeyS) {
+        if self.input.keyboard.is_pressed(KeyCode::KeyS) {
             direction -= forward;
         }
-        if self.pressed_keys.contains(&KeyCode::KeyD) {
+        if self.input.keyboard.is_pressed(KeyCode::KeyD) {
             direction += right;
         }
-        if self.pressed_keys.contains(&KeyCode::KeyA) {
+        if self.input.keyboard.is_pressed(KeyCode::KeyA) {
             direction -= right;
         }
-        if self.pressed_keys.contains(&KeyCode::KeyE) {
-            direction += Vec3::Y;
-        }
-        if self.pressed_keys.contains(&KeyCode::KeyQ) {
-            direction -= Vec3::Y;
-        }
         if direction.length_squared() > 0.0 {
-            observer.position += direction.normalize() * (480.0 * delta_seconds as f32);
+            let delta = direction.normalize() * (WALK_SPEED * delta_seconds as f32);
+            if let Some(collision) = self.walk_collision.as_ref().filter(|_| !self.noclip) {
+                let observation = collision.move_disc_in_embedding(
+                    self.comparative_embedding,
+                    [observer.position.x, observer.position.z],
+                    [delta.x, delta.z],
+                    WALK_RADIUS,
+                );
+                if observation.contacted_linedefs != self.last_collision_contacts {
+                    if !observation.contacted_linedefs.is_empty() {
+                        eprintln!(
+                            "E1M1 walk collision: contacts={:?}; broad_phase_candidates={}; fallback_to_all_blocking_walls={}",
+                            observation.contacted_linedefs,
+                            observation.broad_phase_candidates,
+                            observation.used_full_wall_fallback,
+                        );
+                    }
+                    self.last_collision_contacts = observation.contacted_linedefs;
+                }
+                self.apply_walk_floor_transition(observation.resolved_position);
+            } else if let Some(observer) = self.spawn_observer.as_mut() {
+                observer.position += delta;
+            }
         }
+    }
+
+    /// Applies a source-sector floor result after horizontal collision. This
+    /// keeps vertical state at the corpus application edge: `tokimu-render`
+    /// still receives only the resulting camera, and imported WAD records are
+    /// not mutated.
+    fn apply_walk_floor_transition(&mut self, candidate_position: [f32; 2]) {
+        let Some(floors) = self.walk_floors.as_ref() else {
+            return;
+        };
+        let active_ceiling_overrides = self
+            .active_manual_doors
+            .iter()
+            // Retain closed entries too: the final closing tick must restore
+            // the original source-height wall spans, not leave the last open
+            // geometry resident after the door has finished moving.
+            .map(|door| (door.target_sector, door.current_ceiling_height))
+            .collect::<Vec<_>>();
+        let Some(observer) = self.spawn_observer.as_mut() else {
+            return;
+        };
+        let resolution = floors.resolve_transition_in_embedding(
+            self.comparative_embedding,
+            candidate_position,
+            observer.floor,
+            &active_ceiling_overrides,
+        );
+        match resolution {
+            DoomWalkFloorResolution::Accepted {
+                source_sector,
+                floor_height,
+                ceiling_height,
+            } => {
+                let floor_delta = f32::from(floor_height - observer.floor);
+                observer.position.x = candidate_position[0];
+                observer.position.z = candidate_position[1];
+                observer.position.y += floor_delta;
+                observer.floor = floor_height;
+                observer.ceiling = ceiling_height;
+                let message = format!(
+                    "accepted:sector={}:floor={floor_height}:ceiling={ceiling_height}",
+                    source_sector.record_index
+                );
+                if self.last_floor_transition.as_deref() != Some(&message) {
+                    eprintln!("E1M1 walk floor transition: {message}");
+                    self.last_floor_transition = Some(message);
+                }
+            }
+            DoomWalkFloorResolution::StepTooHigh {
+                source_sector,
+                current_floor_height,
+                candidate_floor_height,
+                maximum_step_up,
+            } => {
+                let message = format!(
+                    "blocked-step:sector={}:from={current_floor_height}:to={candidate_floor_height}:max-up={maximum_step_up}",
+                    source_sector.record_index
+                );
+                if self.last_floor_transition.as_deref() != Some(&message) {
+                    eprintln!("E1M1 walk floor transition: {message}");
+                    self.last_floor_transition = Some(message);
+                }
+            }
+            DoomWalkFloorResolution::InsufficientClearance {
+                source_sector,
+                floor_height,
+                ceiling_height,
+                required_clearance,
+            } => {
+                let message = format!(
+                    "blocked-clearance:sector={}:floor={floor_height}:ceiling={ceiling_height}:required={required_clearance}",
+                    source_sector.record_index
+                );
+                if self.last_floor_transition.as_deref() != Some(&message) {
+                    eprintln!("E1M1 walk floor transition: {message}");
+                    self.last_floor_transition = Some(message);
+                }
+            }
+            DoomWalkFloorResolution::PointOutsideUniqueSubsector { point } => {
+                let message = format!("retained-ambiguous-point=({}, {})", point[0], point[1]);
+                if self.last_floor_transition.as_deref() != Some(&message) {
+                    eprintln!("E1M1 walk floor transition: {message}");
+                    self.last_floor_transition = Some(message);
+                }
+            }
+        }
+    }
+
+    fn release_walk_keys(&mut self) {
+        for key in [KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD] {
+            self.input.keyboard.release(key);
+        }
+    }
+
+    fn reset_spawn_observer(&mut self) {
+        self.spawn_observer = self.initial_spawn_observer;
+        self.observer_look = self.initial_observer_look;
+        self.last_collision_contacts.clear();
+        self.last_floor_transition = None;
+        eprintln!("E1M1 source-spawn observer reset");
+    }
+
+    fn toggle_debug_console(&mut self) {
+        let opening = !self.debug_console.is_open();
+        if opening {
+            self.set_mouse_captured(false);
+            self.release_walk_keys();
+        }
+        self.debug_console.set_open(opening);
+    }
+
+    fn submit_debug_console(&mut self) {
+        let Some(command) = self.debug_console.take_submission() else {
+            return;
+        };
+        let normalized = command.trim().to_ascii_lowercase();
+        let response = match normalized.as_str() {
+            "help" => "commands: HELP | CLEAR | STATUS | CAMERA | COLLISION | LOOK | USE <linedef> | NOCLIP [ON|OFF|TOGGLE]".to_owned(),
+            "clear" => {
+                self.debug_console.clear();
+                return;
+            }
+            "camera" => self.spawn_observer.map_or_else(
+                || "camera: source-spawn observer unavailable".to_owned(),
+                |observer| {
+                    let look = self.observer_look.unwrap_or(ObserverLook {
+                        yaw: 0.0,
+                        pitch: 0.0,
+                        last_cursor: None,
+                    });
+                    format!(
+                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={}",
+                        observer.position.x,
+                        observer.position.y,
+                        observer.position.z,
+                        look.yaw,
+                        look.pitch,
+                        observer.source_record,
+                    )
+                },
+            ),
+            "status" => format!(
+                "status: frame={} draws={} cutouts={} selection={:?} mouse_capture={} noclip={} active_manual_doors={} details={}",
+                self.frame_index,
+                self.draws.len(),
+                self.cutout_draws.len(),
+                self.candidate_selection,
+                self.mouse_captured,
+                self.noclip,
+                self.active_manual_doors
+                    .iter()
+                    .filter(|door| door.phase != DoomManualDoorPhase::Closed)
+                    .count(),
+                self.active_manual_doors
+                    .iter()
+                    .filter(|door| door.phase != DoomManualDoorPhase::Closed)
+                    .map(|door| format!(
+                        "sector{}:{}/{}/{}:{:?}",
+                        door.target_sector.record_index,
+                        door.current_ceiling_height,
+                        door.closed_ceiling_height,
+                        door.open_ceiling_height,
+                        door.phase,
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("|"),
+            ),
+            "collision" => self.walk_collision.as_ref().map_or_else(
+                || "collision: unavailable; run with --walk-collision".to_owned(),
+                |world| {
+                    format!(
+                        "collision: radius={WALK_RADIUS} blocking_linedefs={} noclip={} last_contacts={:?}",
+                        world.blocking_wall_count(),
+                        self.noclip,
+                        self.last_collision_contacts,
+                    )
+                },
+            ),
+            "look" | "inspect" => self.inspect_center_ray(),
+            command if command.starts_with("use") => self.resolve_use_command(command),
+            "noclip" | "noclip toggle" => {
+                self.noclip = !self.noclip;
+                format!("noclip: {}", self.noclip)
+            }
+            "noclip on" => {
+                self.noclip = true;
+                "noclip: true".to_owned()
+            }
+            "noclip off" => {
+                self.noclip = false;
+                "noclip: false".to_owned()
+            }
+            _ => format!("unsupported command: {command}"),
+        };
+        self.debug_console.append(response);
+    }
+
+    fn resolve_use_command(&mut self, command: &str) -> String {
+        let argument = command.strip_prefix("use").unwrap_or_default().trim();
+        let Ok(record_index) = argument.parse::<u32>() else {
+            return "use: expected USE <source-linedef-index>; LOOK retains a wall source index"
+                .to_owned();
+        };
+        self.resolve_use_linedef(record_index)
+    }
+
+    fn resolve_use_linedef(&mut self, record_index: u32) -> String {
+        let Some(linedef) = self
+            .activation_source
+            .linedefs
+            .iter()
+            .find(|linedef| linedef.source.record_index == record_index)
+        else {
+            return format!("use: source linedef {record_index} is not present in E1M1");
+        };
+        match resolve_doom_line_activation(
+            &self.activation_source,
+            DoomLineActivationRequest {
+                source_linedef: linedef.source,
+                activation: DoomLineActivation::Use,
+            },
+        ) {
+            DoomLineActivationResolution::Accepted {
+                source_linedef,
+                special,
+                intent:
+                    DoomLineActivationIntent::RaiseDoor {
+                        target_sector,
+                    },
+            } => self.start_manual_door(source_linedef.record_index, special, target_sector),
+            DoomLineActivationResolution::Accepted {
+                source_linedef,
+                special,
+                intent,
+            } => format!(
+                "use: accepted linedef={} lump={} special={} intent={} target={} execution=deferred-to-future-runtime-owner",
+                source_linedef.record_index,
+                source_linedef.lump_index,
+                special,
+                compact_activation_intent(intent),
+                compact_activation_target(intent),
+            ),
+            DoomLineActivationResolution::NoSpecial { source_linedef } => format!(
+                "use: linedef={} lump={} has no source special",
+                source_linedef.record_index, source_linedef.lump_index,
+            ),
+            DoomLineActivationResolution::WrongActivation {
+                source_linedef,
+                special,
+                required,
+                ..
+            } => format!(
+                "use: linedef={} special={} requires {:?}; requested Use",
+                source_linedef.record_index, special, required,
+            ),
+            DoomLineActivationResolution::UnsupportedSpecial {
+                source_linedef,
+                special,
+            } => format!(
+                "use: linedef={} special={} is retained but not admitted for a use request",
+                source_linedef.record_index, special,
+            ),
+            DoomLineActivationResolution::UnknownLinedef { source_linedef } => format!(
+                "use: source linedef={} lump={} is unavailable",
+                source_linedef.record_index, source_linedef.lump_index,
+            ),
+            DoomLineActivationResolution::MissingManualDoorTarget {
+                source_linedef,
+                missing_left_sidedef,
+            } => format!(
+                "use: manual-door linedef={} cannot resolve opposite sidedef={missing_left_sidedef:?}",
+                source_linedef.record_index,
+            ),
+            DoomLineActivationResolution::InvalidManualDoorTarget {
+                source_linedef,
+                sidedef_index,
+                sector_index,
+            } => format!(
+                "use: manual-door linedef={} has invalid target sidedef={} sector={}",
+                source_linedef.record_index, sidedef_index, sector_index,
+            ),
+        }
+    }
+
+    fn try_use_center_wall(&mut self) -> String {
+        if self.comparative_embedding != DoomComparativeEmbedding::CurrentReflected {
+            return format!(
+                "use: unavailable during AR-0028 {:?} visual comparison; dynamic-door source correspondence remains an explicit open control",
+                self.comparative_embedding
+            );
+        }
+        let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
+            return "use: source-spawn observer unavailable".to_owned();
+        };
+        let direction = observer_direction(look.yaw, look.pitch).normalize_or_zero();
+        let mut nearest: Option<(f32, u32)> = None;
+        for draw in self.draws.iter().chain(
+            self.include_cutouts
+                .then_some(&self.cutout_draws)
+                .into_iter()
+                .flatten(),
+        ) {
+            let StaticDrawSource::Wall { source_linedef, .. } = draw.source else {
+                continue;
+            };
+            let Some(distance) = nearest_mesh_ray_hit(observer.position, direction, &draw.mesh)
+            else {
+                continue;
+            };
+            if nearest.is_none_or(|(nearest_distance, _)| distance < nearest_distance) {
+                nearest = Some((distance, source_linedef.record_index));
+            }
+        }
+        match nearest {
+            Some((distance, source_linedef)) => {
+                let outcome = self.resolve_use_linedef(source_linedef);
+                format!("use: center-wall-distance={distance:.3}; {outcome}")
+            }
+            None => "use: no exact prepared wall intersects the center ray".to_owned(),
+        }
+    }
+
+    fn start_manual_door(
+        &mut self,
+        source_linedef: u32,
+        special: u16,
+        target_sector: doom_map_provider::DoomSourceRecord,
+    ) -> String {
+        let replacement = match DoomManualDoorRuntime::start(
+            &self.activation_source,
+            target_sector,
+            DoomManualDoorPolicy::CLASSIC_NORMAL,
+        ) {
+            Ok(door) => door,
+            Err(error) => {
+                return format!(
+                    "use: manual-door linedef={source_linedef} special={special} target-sector={} start-rejected={error:?}",
+                    target_sector.record_index,
+                );
+            }
+        };
+        if let Some(active) = self
+            .active_manual_doors
+            .iter_mut()
+            .find(|door| door.target_sector == target_sector)
+        {
+            if active.phase != DoomManualDoorPhase::Closed {
+                return format!(
+                    "use: manual-door linedef={source_linedef} target-sector={} already-active phase={:?}",
+                    target_sector.record_index, active.phase
+                );
+            }
+            *active = replacement;
+        } else {
+            self.active_manual_doors.push(replacement);
+        }
+        let boundary_linedefs =
+            manual_door_boundary_linedefs(&self.activation_source, target_sector);
+        let prepared_meshes_at_closed_height = self
+            .draws
+            .iter()
+            .filter(|draw| {
+                is_door_mesh_for_target(draw, target_sector, &boundary_linedefs)
+                    && draw.mesh.positions.iter().any(|position| {
+                        (position[1] - f32::from(replacement.closed_ceiling_height)).abs()
+                            <= f32::EPSILON
+                    })
+            })
+            .count();
+        format!(
+            "use: manual-door started linedef={source_linedef} special={special} target-sector={} closed-height={} open-height={} prepared-meshes-at-closed-height={prepared_meshes_at_closed_height} policy=2-units-per-tick/150-tick-wait",
+            target_sector.record_index,
+            replacement.closed_ceiling_height,
+            replacement.open_ceiling_height,
+        )
+    }
+
+    fn advance_active_manual_doors(&mut self, delta_seconds: f64) {
+        self.door_tick_accumulator += delta_seconds.clamp(0.0, 0.25);
+        let mut changed = false;
+        while self.door_tick_accumulator >= DOOM_TIC_SECONDS {
+            self.door_tick_accumulator -= DOOM_TIC_SECONDS;
+            let transitions = self
+                .active_manual_doors
+                .iter_mut()
+                .filter(|door| door.phase != DoomManualDoorPhase::Closed)
+                .map(DoomManualDoorRuntime::advance_tick)
+                .filter(|tick| tick.before_height != tick.after_height)
+                .collect::<Vec<_>>();
+            for tick in transitions {
+                self.dirty_opaque_meshes
+                    .extend(apply_door_ceiling_flat_height(
+                        &mut self.draws,
+                        tick.target_sector,
+                        tick.before_height,
+                        tick.after_height,
+                    ));
+                changed = true;
+            }
+        }
+        if changed {
+            match self.refresh_active_manual_door_wall_meshes() {
+                Ok(()) => self.door_visual_diagnostic = None,
+                Err(error) => {
+                    let diagnostic = format!("door visual refresh failed: {error}");
+                    if self.door_visual_diagnostic.as_deref() != Some(&diagnostic) {
+                        eprintln!("E1M1 {diagnostic}");
+                        self.debug_console.append(diagnostic.clone());
+                    }
+                    self.door_visual_diagnostic = Some(diagnostic);
+                }
+            }
+        }
+    }
+
+    /// Re-lowers only wall spans attributable to the active manual-door
+    /// sectors from a clone of the already decoded map. Runtime ceiling state
+    /// replaces the clone's source height; WAD bytes and source records remain
+    /// unchanged. This prevents vertex-only deformation from silently becoming
+    /// Doom wall-span or UV policy.
+    fn refresh_active_manual_door_wall_meshes(&mut self) -> PlatformResult<()> {
+        let mut map = self.door_geometry_source.map.clone();
+        let active = self
+            .active_manual_doors
+            .iter()
+            // A completed closing tick must also restore the source-height
+            // spans; keeping closed entries here makes that final refresh
+            // explicit.
+            .map(|door| {
+                (
+                    door.target_sector,
+                    door.current_ceiling_height,
+                    manual_door_boundary_linedefs(&self.activation_source, door.target_sector),
+                )
+            })
+            .collect::<Vec<_>>();
+        for (target_sector, height, _) in &active {
+            if let Some(sector) = map
+                .sectors
+                .iter_mut()
+                .find(|sector| sector.source == *target_sector)
+            {
+                sector.ceiling_height = *height;
+            }
+        }
+
+        let mut dynamic_meshes = BTreeMap::<String, Vec<DynamicDoorWallMesh>>::new();
+        for triangle in
+            lower_doom_textured_wall_triangles(&map, &self.door_geometry_source.wall_extents)?
+        {
+            let affected = active.iter().any(|(target_sector, _, boundaries)| {
+                triangle.source_sector == *target_sector
+                    || (triangle.role == doom_geometry_provider::DoomWallTextureRole::Upper
+                        && boundaries.contains(&triangle.source_linedef))
+            });
+            if !affected {
+                continue;
+            }
+            let Some(extent) = self
+                .door_geometry_source
+                .wall_extents
+                .iter()
+                .find(|extent| extent.name == triangle.texture_name)
+            else {
+                return Err(io::Error::other(format!(
+                    "active door wall {} has no retained texture extent",
+                    triangle.texture_name
+                ))
+                .into());
+            };
+            let mesh = match lower_static_wall_triangle(&triangle, extent.clone()) {
+                Ok(lowered) => lowered.mesh,
+                // These were already retained as zero-area source omissions by
+                // the static preparation. A runtime height substitution can
+                // encounter the same authored empty band; it is not a reason
+                // to terminate the presentation loop.
+                Err(StaticFlatLoweringError::DegenerateTriangle) => continue,
+                Err(error) => return Err(error.into()),
+            };
+            dynamic_meshes
+                .entry(dynamic_wall_triangle_key(
+                    triangle.source_linedef,
+                    triangle.source_sidedef,
+                    triangle.source_sector,
+                    triangle.role,
+                    &triangle.texture_name,
+                ))
+                .or_default()
+                .push(DynamicDoorWallMesh {
+                    mesh,
+                    source_linedef: triangle.source_linedef,
+                    source_sidedef: triangle.source_sidedef,
+                    source_sector: triangle.source_sector,
+                    role: triangle.role,
+                    texture_name: triangle.texture_name,
+                });
+        }
+
+        let mut existing = std::collections::BTreeMap::<String, Vec<usize>>::new();
+        for (index, draw) in self.draws.iter().enumerate() {
+            let affected = active.iter().any(|(target_sector, _, boundaries)| {
+                is_door_mesh_for_target(draw, *target_sector, boundaries)
+            });
+            if affected {
+                if let Some(key) = static_wall_triangle_key(draw) {
+                    existing.entry(key).or_default().push(index);
+                }
+            }
+        }
+
+        for (key, indices) in existing {
+            let Some(meshes) = dynamic_meshes.remove(&key) else {
+                // A zero-height source band is absent from the fresh lowering.
+                // Dynamic-only spans are explicitly suppressed while absent;
+                // ordinary static spans retain their source-height geometry.
+                for index in indices {
+                    if self.dynamic_door_draws.contains(&index) {
+                        self.opaque_draw_enabled[index] = false;
+                    }
+                }
+                continue;
+            };
+            if meshes.len() != indices.len() {
+                continue;
+            }
+            for (index, mesh) in indices.into_iter().zip(meshes) {
+                self.draws[index].mesh = mesh.mesh;
+                self.opaque_bounds[index] =
+                    StaticDrawAabb::from_positions(&self.draws[index].mesh.positions);
+                self.opaque_draw_enabled[index] = true;
+                self.dirty_opaque_meshes.insert(index);
+            }
+        }
+        let mut missing_materials = Vec::new();
+        for meshes in dynamic_meshes.into_values() {
+            for mesh in meshes {
+                let Some(material) = self
+                    .door_geometry_source
+                    .wall_materials
+                    .get(&mesh.texture_name)
+                    .copied()
+                else {
+                    missing_materials.push(mesh.texture_name);
+                    continue;
+                };
+                let index = self.draws.len();
+                self.draws.push(StaticDrawPlanEntry {
+                    mesh: mesh.mesh,
+                    material,
+                    source_label: format!(
+                        "wall:{}:{}",
+                        mesh.source_linedef.record_index, mesh.texture_name
+                    ),
+                    source: StaticDrawSource::Wall {
+                        source_linedef: mesh.source_linedef,
+                        source_sidedef: mesh.source_sidedef,
+                        source_sector: mesh.source_sector,
+                        role: mesh.role,
+                    },
+                });
+                self.opaque_bounds.push(StaticDrawAabb::from_positions(
+                    &self.draws[index].mesh.positions,
+                ));
+                self.opaque_selected.push(true);
+                self.opaque_draw_enabled.push(true);
+                self.dynamic_door_draws.insert(index);
+                let handle = MeshHandle(self.next_dynamic_mesh_handle);
+                self.next_dynamic_mesh_handle = self.next_dynamic_mesh_handle.saturating_add(1);
+                self.dynamic_door_mesh_handles.insert(index, handle);
+                self.dirty_opaque_meshes.insert(index);
+                // The fixed grid was built for the static scene. Fall back to
+                // its existing conservative non-grid selection until a later
+                // corpus result earns a dynamic-index policy.
+                self.opaque_grid = None;
+            }
+        }
+        missing_materials.sort();
+        missing_materials.dedup();
+        if missing_materials.is_empty() {
+            self.door_geometry_diagnostic = None;
+        } else {
+            let diagnostic = format!(
+                "door geometry has no prepared material for: {}",
+                missing_materials.join(", ")
+            );
+            if self.door_geometry_diagnostic.as_deref() != Some(&diagnostic) {
+                eprintln!("E1M1 {diagnostic}");
+                self.debug_console.append(diagnostic.clone());
+            }
+            self.door_geometry_diagnostic = Some(diagnostic);
+        }
+        Ok(())
+    }
+
+    fn inspect_center_ray(&self) -> String {
+        let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
+            return "look: source-spawn observer unavailable".to_owned();
+        };
+        let direction = observer_direction(look.yaw, look.pitch).normalize_or_zero();
+        let mut nearest: Option<(f32, &StaticDrawPlanEntry, &'static str)> = None;
+        for (draw, family) in self.draws.iter().map(|draw| (draw, "opaque")).chain(
+            self.include_cutouts
+                .then_some(())
+                .into_iter()
+                .flat_map(|_| self.cutout_draws.iter().map(|draw| (draw, "cutout"))),
+        ) {
+            for triangle in draw.mesh.positions.chunks_exact(3) {
+                let Some(distance) = ray_triangle_distance(
+                    observer.position,
+                    direction,
+                    Vec3::from_array(triangle[0]),
+                    Vec3::from_array(triangle[1]),
+                    Vec3::from_array(triangle[2]),
+                ) else {
+                    continue;
+                };
+                if nearest.is_none_or(|(current, _, _)| distance < current) {
+                    nearest = Some((distance, draw, family));
+                }
+            }
+        }
+        nearest.map_or_else(
+            || "look: no prepared triangle intersects the center ray".to_owned(),
+            |(distance, draw, family)| {
+                format!(
+                    "look: exact prepared-triangle hit distance={distance:.3} family={family} material={} label={} source={}",
+                    draw.material.0,
+                    draw.source_label,
+                    compact_draw_source(&draw.source),
+                )
+            },
+        )
+    }
+
+    fn rebuild_debug_console(&mut self, renderer: &mut WgpuBackend) -> PlatformResult<()> {
+        let font = self
+            .debug_font
+            .as_ref()
+            .ok_or_else(|| io::Error::other("debug console font missing"))?;
+        let raster = self
+            .debug_console
+            .rasterize(font, self.size[0].max(320.0) as u32);
+        renderer.try_upload_texture(
+            DEBUG_TEXTURE,
+            &Texture::rgba8(raster.width, raster.height, raster.rgba8),
+        )?;
+        renderer.upload_material(
+            DEBUG_MATERIAL,
+            &Material::new("doom-debug-console", Color::rgb(1.0, 1.0, 1.0))
+                .with_texture(DEBUG_TEXTURE),
+        )?;
+        Ok(())
+    }
+}
+
+fn compact_activation_intent(intent: DoomLineActivationIntent) -> &'static str {
+    match intent {
+        DoomLineActivationIntent::RaiseDoor { .. } => "raise-door-from-interacting-side",
+        DoomLineActivationIntent::ExitLevel { .. } => "exit-level",
+        DoomLineActivationIntent::LowerFloorTurbo { .. } => "lower-floor-turbo",
+        DoomLineActivationIntent::PlatformDownWaitUpStay { .. } => "platform-down-wait-up-stay",
+    }
+}
+
+fn compact_activation_target(intent: DoomLineActivationIntent) -> String {
+    match intent {
+        DoomLineActivationIntent::RaiseDoor { target_sector } => format!(
+            "sector={} lump={}",
+            target_sector.record_index, target_sector.lump_index
+        ),
+        DoomLineActivationIntent::ExitLevel { tag }
+        | DoomLineActivationIntent::LowerFloorTurbo { tag }
+        | DoomLineActivationIntent::PlatformDownWaitUpStay { tag } => format!("tag={tag}"),
+    }
+}
+
+fn compact_draw_source(source: &StaticDrawSource) -> String {
+    match source {
+        StaticDrawSource::Wall {
+            source_linedef,
+            source_sidedef,
+            source_sector,
+            ..
+        } => format!(
+            "wall linedef={} sidedef={} sector={} lumps={}/{}/{}",
+            source_linedef.record_index,
+            source_sidedef.record_index,
+            source_sector.record_index,
+            source_linedef.lump_index,
+            source_sidedef.lump_index,
+            source_sector.lump_index,
+        ),
+        StaticDrawSource::Flat {
+            source_subsector,
+            source_sector,
+            plane,
+        } => format!(
+            "flat subsector={} sector={} plane={plane:?} lumps={}/{}",
+            source_subsector.record_index,
+            source_sector.record_index,
+            source_subsector.lump_index,
+            source_sector.lump_index,
+        ),
     }
 }
 
@@ -509,6 +1441,7 @@ impl PlatformEventHandler for App {
         let size = window.inner_size();
         self.size = [size.width.max(1) as f32, size.height.max(1) as f32];
         let mut renderer = WgpuBackend::for_window(window.clone(), size.width, size.height)?;
+        window.set_ime_allowed(true);
         self.window = Some(window);
         for upload in &self.uploads {
             renderer.create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)?;
@@ -520,6 +1453,63 @@ impl PlatformEventHandler for App {
                 renderer.upload_material(upload.material, &upload.material_value)?;
             }
         }
+        if self.diagnostic_sky_enabled {
+            // AR-0027 Alternative A: this corpus chooses a checked-in Purple
+            // PNG for retained sky omissions. It is not a Doom asset lookup,
+            // a renderer fallback, or successful source resolution.
+            let decoded = decode_png(
+                include_bytes!("../../../assets/PNG/Purple/texture_01.png"),
+                DecodeLimits::default(),
+            )?;
+            let prepared = prepare_renderer_texture(&decoded, TextureUse::ColorSrgb)
+                .map_err(io::Error::other)?;
+            renderer.create_texture_rgba8(
+                DIAGNOSTIC_SKY_TEXTURE,
+                tokimu::Rgba8TextureDescriptor::new(
+                    prepared.texture.width,
+                    prepared.texture.height,
+                    tokimu::Rgba8TextureColorSpace::Srgb,
+                ),
+                &prepared.texture.rgba8,
+            )?;
+            renderer.upload_material(
+                DIAGNOSTIC_SKY_MATERIAL,
+                &Material::new("e1m1-diagnostic-sky-omission", Color::rgb(1.0, 1.0, 1.0))
+                    .with_texture(DIAGNOSTIC_SKY_TEXTURE)
+                    .with_texture_sampler(TextureSampler {
+                        filter: TextureFilter::Point,
+                        address_u: TextureAddressMode::Repeat,
+                        address_v: TextureAddressMode::Repeat,
+                    }),
+            )?;
+            for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
+                renderer.upload_mesh(
+                    MeshHandle(DIAGNOSTIC_SKY_MESH_BASE + index as u64),
+                    &draw.mesh,
+                );
+            }
+            eprintln!(
+                "E1M1 AR-0027 diagnostic sky stand-in enabled: draws={}; asset=corpus/assets/PNG/Purple/texture_01.png; records={}",
+                self.diagnostic_sky_draws.len(),
+                self.diagnostic_sky_records.len(),
+            );
+            for record in self.diagnostic_sky_records.iter().take(8) {
+                eprintln!("E1M1 AR-0027 diagnostic record: {record}");
+            }
+        }
+        self.debug_font = Some(
+            UiFontRasterizer::from_bytes(UiFontSource::from_native_default()?.bytes)
+                .map_err(io::Error::other)?,
+        );
+        renderer.upload_mesh(DEBUG_QUAD, &Mesh::quad());
+        renderer.upload_material(
+            DEBUG_CURSOR_MATERIAL,
+            &Material::new("doom-debug-center-cursor", Color::rgb(0.35, 0.95, 0.82)),
+        )?;
+        self.debug_pipeline = Some(renderer.register_pipeline(&Pipeline::new(
+            "doom-debug-console",
+            PipelineKind::Texture2d,
+        ))?);
         if let Some(observer) = self.spawn_observer {
             eprintln!(
                 "E1M1 source-spawn observer: THINGS #{} at=({}, {}) angle={} sector={} floor={} ceiling={} eye=({:.1}, {:.1}, {:.1}) forward=({:.3}, {:.3}, {:.3})",
@@ -536,6 +1526,13 @@ impl PlatformEventHandler for App {
                 observer.forward.x,
                 observer.forward.y,
                 observer.forward.z,
+            );
+        }
+        if let Some(collision) = &self.walk_collision {
+            eprintln!(
+                "E1M1 Slice 6 walk proof: radius={WALK_RADIUS}; speed={WALK_SPEED}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-click-capture-escape-release-R-reset",
+                collision.blocking_wall_count(),
+                self.noclip,
             );
         }
         self.pipeline = renderer.register_pipeline(
@@ -561,7 +1558,7 @@ impl PlatformEventHandler for App {
         }
         self.upload_static_meshes(&mut renderer);
         eprintln!(
-            "E1M1 native first-frame metadata: opaque_draws={}; cutout_draws={}; cutouts_enabled={}; camera={}; candidate_selection={}; backend={}; device={}; adapter={}",
+            "E1M1 native first-frame metadata: opaque_draws={}; cutout_draws={}; cutouts_enabled={}; camera={}; candidate_selection={}; walk_collision={}; noclip={}; backend={}; device={}; adapter={}",
             self.draws.len(),
             self.cutout_draws.len(),
             self.include_cutouts,
@@ -572,6 +1569,8 @@ impl PlatformEventHandler for App {
                 CandidateSelection::UniformGrid8x4x8 => "uniform-grid-8x4x8",
                 CandidateSelection::DoomMembershipUnion => "doom-membership-union",
             },
+            self.walk_collision.is_some(),
+            self.noclip,
             renderer.backend_api(),
             renderer.device_kind(),
             renderer.adapter_name(),
@@ -580,6 +1579,43 @@ impl PlatformEventHandler for App {
         Ok(())
     }
     fn on_platform_event(&mut self, event: PlatformInputEvent) -> PlatformResult<()> {
+        if let PlatformInputEvent::KeyboardInput {
+            key: KeyCode::Backquote,
+            pressed: true,
+        } = event
+        {
+            self.toggle_debug_console();
+            return Ok(());
+        }
+        if self.debug_console.is_open() {
+            match event {
+                PlatformInputEvent::TextInput(text) => self.debug_console.insert_text(&text),
+                PlatformInputEvent::KeyboardInput {
+                    key: KeyCode::Enter,
+                    pressed: true,
+                } => self.submit_debug_console(),
+                PlatformInputEvent::KeyboardInput {
+                    key: KeyCode::Backspace,
+                    pressed: true,
+                } => self.debug_console.backspace(),
+                PlatformInputEvent::KeyboardInput {
+                    key: KeyCode::Escape,
+                    pressed: true,
+                } => self.toggle_debug_console(),
+                PlatformInputEvent::Resized { width, height } => {
+                    self.size = [width.max(1) as f32, height.max(1) as f32];
+                    self.debug_console.invalidate();
+                    if let Some(renderer) = self.renderer.as_mut() {
+                        renderer.resize_surface(width, height);
+                    }
+                }
+                _ => {}
+            }
+            return Ok(());
+        }
+        if let Some(input_event) = event.as_input_event() {
+            self.input.apply_event(input_event);
+        }
         if let PlatformInputEvent::MouseMotion { delta_x, delta_y } = event {
             if self.mouse_captured {
                 if let Some(look) = self.observer_look.as_mut() {
@@ -599,11 +1635,13 @@ impl PlatformEventHandler for App {
         if let PlatformInputEvent::KeyboardInput { key, pressed } = event {
             if key == KeyCode::Escape && pressed {
                 self.set_mouse_captured(false);
-                self.pressed_keys.clear();
-            } else if pressed {
-                self.pressed_keys.insert(key);
-            } else {
-                self.pressed_keys.remove(&key);
+                self.release_walk_keys();
+            } else if key == KeyCode::KeyR && pressed {
+                self.reset_spawn_observer();
+            } else if key == KeyCode::KeyE && pressed {
+                let outcome = self.try_use_center_wall();
+                eprintln!("E1M1 {outcome}");
+                self.debug_console.append(outcome);
             }
             return Ok(());
         }
@@ -615,6 +1653,7 @@ impl PlatformEventHandler for App {
         }
         if let PlatformInputEvent::Resized { width, height } = event {
             self.size = [width.max(1) as f32, height.max(1) as f32];
+            self.debug_console.invalidate();
             if let Some(renderer) = self.renderer.as_mut() {
                 renderer.resize_surface(width, height);
             }
@@ -624,6 +1663,7 @@ impl PlatformEventHandler for App {
 
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         self.apply_inspection_movement(delta_seconds);
+        self.advance_active_manual_doors(delta_seconds);
         let frame_started = Instant::now();
         let camera = scene_camera(
             self.size,
@@ -693,10 +1733,14 @@ impl PlatformEventHandler for App {
             color: Color::rgb(0.015, 0.02, 0.025),
         }));
         for (index, draw) in self.draws.iter().enumerate() {
-            if !self.opaque_selected[index] {
+            if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
                 continue;
             }
-            let mesh = MeshHandle(index as u64 + 1);
+            let mesh = self
+                .dynamic_door_mesh_handles
+                .get(&index)
+                .copied()
+                .unwrap_or(MeshHandle(index as u64 + 1));
             self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                 mesh,
                 material: draw.material,
@@ -714,7 +1758,7 @@ impl PlatformEventHandler for App {
                 if !self.cutout_selected[offset] {
                     continue;
                 }
-                let mesh = MeshHandle(self.draws.len() as u64 + offset as u64 + 1);
+                let mesh = MeshHandle(self.cutout_mesh_base + offset as u64);
                 self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                     mesh,
                     material: draw.material,
@@ -725,12 +1769,82 @@ impl PlatformEventHandler for App {
                 }));
             }
         }
+        if self.diagnostic_sky_enabled {
+            for (index, _) in self.diagnostic_sky_draws.iter().enumerate() {
+                self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(DIAGNOSTIC_SKY_MESH_BASE + index as u64),
+                    material: DIAGNOSTIC_SKY_MATERIAL,
+                    pipeline: self.pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CAMERA),
+                    viewport: None,
+                }));
+            }
+        }
+        if self.debug_console.is_open() {
+            let debug_pipeline = self
+                .debug_pipeline
+                .ok_or_else(|| io::Error::other("debug console pipeline missing"))?;
+            self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: DEBUG_QUAD,
+                material: DEBUG_MATERIAL,
+                pipeline: debug_pipeline,
+                instance: Instance2d::new(
+                    [0.0, 0.72],
+                    [(self.size[0] / self.size[1]).max(1.0) * 2.0, 0.56],
+                    0.0,
+                ),
+                camera: Some(DEBUG_CAMERA),
+                viewport: None,
+            }));
+        } else if let Some(debug_pipeline) = self.debug_pipeline {
+            for size in [[0.032, 0.003], [0.003, 0.048]] {
+                self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: DEBUG_QUAD,
+                    material: DEBUG_CURSOR_MATERIAL,
+                    pipeline: debug_pipeline,
+                    instance: Instance2d::new([0.0, 0.0], size, 0.0),
+                    camera: Some(DEBUG_CAMERA),
+                    viewport: None,
+                }));
+            }
+        }
         let command_time = command_started.elapsed();
+        if self.debug_console.is_open() && self.debug_console.take_dirty() {
+            let mut renderer = self
+                .renderer
+                .take()
+                .ok_or_else(|| io::Error::other("renderer missing"))?;
+            let rebuilt = self.rebuild_debug_console(&mut renderer);
+            self.renderer = Some(renderer);
+            rebuilt?;
+        }
+        let dynamic_mesh_uploads = std::mem::take(&mut self.dirty_opaque_meshes)
+            .into_iter()
+            .map(|index| {
+                (
+                    self.dynamic_door_mesh_handles
+                        .get(&index)
+                        .copied()
+                        .unwrap_or(MeshHandle(index as u64 + 1)),
+                    self.draws[index].mesh.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
         let renderer = self
             .renderer
             .as_mut()
             .ok_or_else(|| io::Error::other("renderer missing"))?;
+        for (handle, mesh) in dynamic_mesh_uploads {
+            renderer.upload_mesh(handle, &mesh);
+        }
         renderer.upload_camera(CAMERA, camera);
+        if self.debug_pipeline.is_some() {
+            renderer.upload_camera(
+                DEBUG_CAMERA,
+                Camera::orthographic_2d(self.size[0], self.size[1]),
+            );
+        }
         renderer.begin_frame();
         renderer.submit(&self.commands);
         renderer.present()?;
@@ -793,7 +1907,7 @@ impl App {
         if self.include_cutouts {
             for (offset, draw) in self.cutout_draws.iter().enumerate() {
                 renderer.upload_mesh(
-                    MeshHandle(self.draws.len() as u64 + offset as u64 + 1),
+                    MeshHandle(self.cutout_mesh_base + offset as u64),
                     &draw.mesh,
                 );
             }
@@ -836,6 +1950,8 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
     )?;
     let selection = select_doom_episode_map(&read.observation.wad, "E1M1")?;
     let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)?;
+    let walk_collision = DoomWalkCollisionWorld::from_map(&map);
+    let walk_floors = DoomWalkFloorWorld::from_map(&map)?;
     let start = resolve_doom_player_one_start(&map.things)?;
     let paths = resolve_doom_subsector_bsp_paths(&map)?;
     let location = locate_doom_point_subsector(start.position, &paths)?;
@@ -912,6 +2028,7 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
             })
             .collect(),
     };
+    let activation_source = DoomLineActivationSource::from_map(&map);
     let source_eye_height =
         (f64::from(vertical.floor_height) + f64::from(vertical.ceiling_height)) * 0.5;
     let world_eye = doom_point_to_tokimu(start.position.map(f64::from), source_eye_height);
@@ -949,7 +2066,16 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         RASTER_LIMITS,
         FLAT_LIMITS,
     )?;
-    let names = hello_doom_e1m1::prepared_e1m1_wall_texture_names(&walls);
+    let wall_extents =
+        prepare_e1m1_wall_texture_extents(&read.bytes, &read.observation.wad, TEXTURE_LIMITS)?;
+    let mut names = hello_doom_e1m1::prepared_e1m1_wall_texture_names(&walls);
+    names.extend(manual_door_dynamic_wall_texture_names(
+        &map,
+        &activation_source,
+        &wall_extents,
+    )?);
+    names.sort();
+    names.dedup();
     let wall_textures = prepare_e1m1_wall_textures(
         &read.bytes,
         &read.observation.wad,
@@ -960,7 +2086,40 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         COMPOSE_LIMITS,
     )?;
     let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
+    let wall_materials = uploads
+        .iter()
+        .filter(|upload| upload.source_kind == hello_doom_e1m1::StaticTextureSourceKind::Wall)
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect();
     let draws = build_static_draw_plan(&flats, &walls, &uploads)?;
+    let diagnostic_sky_draws =
+        prepare_e1m1_sky_diagnostic_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)?
+            .into_iter()
+            .map(|flat| StaticDrawPlanEntry {
+                source_label: format!(
+                    "diagnostic-sky:{}:{}:{:?}",
+                    flat.source.subsector.record_index,
+                    flat.source.sector.record_index,
+                    flat.source.plane
+                ),
+                source: StaticDrawSource::Flat {
+                    source_subsector: flat.source.subsector,
+                    source_sector: flat.source.sector,
+                    plane: flat.source.plane,
+                },
+                mesh: flat.mesh,
+                material: DIAGNOSTIC_SKY_MATERIAL,
+            })
+            .collect::<Vec<_>>();
+    let diagnostic_sky_records = diagnostic_sky_draws
+        .iter()
+        .map(|draw| {
+            format!(
+            "reason=intentional-source-sky-omission; original={}; stand-in=Purple/texture_01.png",
+            compact_draw_source(&draw.source),
+        )
+        })
+        .collect::<Vec<_>>();
     let masked_names = prepared_e1m1_masked_middle_texture_names(&walls);
     let masked_textures = prepare_e1m1_wall_textures(
         &read.bytes,
@@ -979,11 +2138,279 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         opaque_uploads: uploads,
         cutout_draws,
         cutout_uploads,
+        diagnostic_sky_draws,
+        diagnostic_sky_records,
         spawn_observer,
+        walk_collision,
+        walk_floors,
         reject_report,
         topology_report,
         membership_selection,
+        activation_source,
+        door_geometry_source: DoomDynamicDoorGeometrySource {
+            map,
+            wall_extents,
+            wall_materials,
+        },
     })
+}
+
+/// Applies one AR-0028 candidate after ordinary Doom preparation so decoded
+/// source facts and the active provider remain unchanged. This is sufficient
+/// for fixed-camera and noclip visual comparison; collision, Doom membership,
+/// and dynamic doors are deliberately excluded until their source
+/// correspondence controls are migrated too.
+fn reembed_scene_for_comparison(scene: &mut SceneInput, embedding: DoomComparativeEmbedding) {
+    if embedding == DoomComparativeEmbedding::CurrentReflected {
+        return;
+    }
+    for draw in scene
+        .opaque_draws
+        .iter_mut()
+        .chain(scene.cutout_draws.iter_mut())
+        .chain(scene.diagnostic_sky_draws.iter_mut())
+    {
+        let reverse_wall_u = matches!(draw.source, StaticDrawSource::Wall { .. });
+        reembed_comparative_mesh(&mut draw.mesh, embedding, reverse_wall_u);
+        if matches!(draw.source, StaticDrawSource::Flat { .. }) {
+            // Flat coordinates are a continuous source-spatial field, so the
+            // orientation-preserving migration reverses U about the source
+            // origin. Per-triangle reflection would change the phase at every
+            // triangulation boundary and introduce seams.
+            for uv in &mut draw.mesh.texture_coordinates {
+                uv[0] = -uv[0];
+            }
+        }
+    }
+
+    scene.spawn_observer.position = embedding.lift_direction(
+        scene.spawn_observer.source_position.map(f32::from),
+        scene.spawn_observer.position.y,
+    );
+    scene.spawn_observer.forward =
+        embedding.lift_heading_degrees(f32::from(scene.spawn_observer.source_angle));
+
+    for bounds in &mut scene.membership_selection.subsector_bounds {
+        *bounds = bounds.and_then(|bounds| reembed_aabb(bounds, embedding));
+    }
+}
+
+fn reembed_aabb(
+    bounds: StaticDrawAabb,
+    embedding: DoomComparativeEmbedding,
+) -> Option<StaticDrawAabb> {
+    let minimum = bounds.minimum();
+    let maximum = bounds.maximum();
+    let mut transformed_minimum = Vec3::splat(f32::INFINITY);
+    let mut transformed_maximum = Vec3::splat(f32::NEG_INFINITY);
+    for x in [minimum.x, maximum.x] {
+        for y in [minimum.y, maximum.y] {
+            for z in [minimum.z, maximum.z] {
+                let point = embedding.lift_direction([x, z], y);
+                transformed_minimum = transformed_minimum.min(point);
+                transformed_maximum = transformed_maximum.max(point);
+            }
+        }
+    }
+    StaticDrawAabb::from_minimum_maximum(transformed_minimum, transformed_maximum)
+}
+
+fn report_spatial_flat_uv(scene: &SceneInput, embedding: DoomComparativeEmbedding) {
+    let camera_right = observer_right(scene.spawn_observer.forward);
+    let mut aligned = 0usize;
+    let mut opposed = 0usize;
+    let mut neutral = 0usize;
+    for draw in &scene.diagnostic_sky_draws {
+        for left in 0..draw.mesh.positions.len() {
+            for right in left + 1..draw.mesh.positions.len() {
+                let world_delta = Vec3::from_array(draw.mesh.positions[right])
+                    - Vec3::from_array(draw.mesh.positions[left]);
+                let screen_delta = camera_right.dot(world_delta);
+                let u_delta = draw.mesh.texture_coordinates[right][0]
+                    - draw.mesh.texture_coordinates[left][0];
+                let product = screen_delta * u_delta;
+                if product > 0.000_1 {
+                    aligned += 1;
+                } else if product < -0.000_1 {
+                    opposed += 1;
+                } else {
+                    neutral += 1;
+                }
+            }
+        }
+    }
+    println!(
+        "E1M1 AR-0028 flat-U observation: embedding={embedding:?}; diagnostic_sky_draws={}; camera_right=({:.1},{:.1},{:.1}); aligned_pairs={aligned}; opposed_pairs={opposed}; neutral_pairs={neutral}",
+        scene.diagnostic_sky_draws.len(),
+        camera_right.x,
+        camera_right.y,
+        camera_right.z,
+    );
+}
+
+/// Bounded, renderer-free Slice 6 evidence. The replay does not claim an
+/// original-Doom movement model; it only proves that this corpus-local disc
+/// calculation produces the same source-line contacts and end position when
+/// given the same fixed command sequence twice.
+fn report_walk_collision(scene: &SceneInput) {
+    let start = [
+        scene.spawn_observer.position.x,
+        scene.spawn_observer.position.z,
+    ];
+    let forward = scene.spawn_observer.forward.normalize_or_zero();
+    let right = observer_right(forward);
+    let commands = [
+        [forward.x * 12.0, forward.z * 12.0],
+        [forward.x * 12.0, forward.z * 12.0],
+        [right.x * 12.0, right.z * 12.0],
+        [right.x * 12.0, right.z * 12.0],
+        [-forward.x * 6.0, -forward.z * 6.0],
+    ];
+    let replay = |world: &DoomWalkCollisionWorld| {
+        let mut position = start;
+        let mut contacts = BTreeSet::new();
+        let mut fallback = false;
+        for command in commands {
+            let observation = world.move_disc(position, command, WALK_RADIUS);
+            position = observation.resolved_position;
+            contacts.extend(observation.contacted_linedefs);
+            fallback |= observation.used_full_wall_fallback;
+        }
+        (position, contacts, fallback)
+    };
+    let first = replay(&scene.walk_collision);
+    let second = replay(&scene.walk_collision);
+    assert_eq!(
+        first, second,
+        "fixed collision replay must be deterministic"
+    );
+    let probe = scene
+        .walk_collision
+        .probe_nearest_blocking_wall(start, WALK_RADIUS)
+        .expect("decoded E1M1 has blocking linedefs");
+    assert!(
+        probe
+            .observation
+            .contacted_linedefs
+            .contains(&probe.source_linedef),
+        "nearest-wall probe must retain its blocking linedef contact"
+    );
+    println!(
+        "E1M1 Slice 6 walk replay: start=({:.1},{:.1}); commands={}; radius={}; blocking_linedefs={}; end=({:.3},{:.3}); contacts={:?}; blockmap_full_wall_fallback={}; deterministic_replay=true; nearest_wall_probe=[linedef:{}; initial_distance:{:.3}; contacts:{:?}; fallback:{}]; scope=corpus-local-disc-no-clearance-or-step-policy",
+        start[0],
+        start[1],
+        commands.len(),
+        WALK_RADIUS,
+        scene.walk_collision.blocking_wall_count(),
+        first.0[0],
+        first.0[1],
+        first.1,
+        first.2,
+        probe.source_linedef,
+        probe.distance_before_move,
+        probe.observation.contacted_linedefs,
+        probe.observation.used_full_wall_fallback,
+    );
+}
+
+/// Renderer-free AR-0028 evidence at the canonical Doom player-one start.
+/// It reports the competing source and observer bases without selecting a
+/// repair or changing the source conversion.
+fn report_spatial_orientation(scene: &SceneInput) {
+    let radians = f32::from(scene.spawn_observer.source_angle).to_radians();
+    let source_forward = [radians.cos(), radians.sin()];
+    let source_right = [radians.sin(), -radians.cos()];
+    for embedding in DoomComparativeEmbedding::ALL {
+        let observation =
+            observe_doom_ground_frame_with_embedding(embedding, source_right, source_forward);
+        println!(
+            "E1M1 AR-0028 ground frame: embedding={:?}; thing={}; source-position=({}, {}); source-angle={}; source-right=({:.3},{:.3}); source-forward=({:.3},{:.3}); source-cross={:.3}; lifted-right=({:.3},{:.3},{:.3}); lifted-forward=({:.3},{:.3},{:.3}); world-up-cross={:.3}; camera-right=({:.3},{:.3},{:.3}); source-right/camera-right-alignment={:.3}",
+            observation.embedding,
+            scene.spawn_observer.source_record,
+            scene.spawn_observer.source_position[0],
+            scene.spawn_observer.source_position[1],
+            scene.spawn_observer.source_angle,
+            observation.source_right[0],
+            observation.source_right[1],
+            observation.source_forward[0],
+            observation.source_forward[1],
+            observation.source_signed_orientation,
+            observation.lifted_right.x,
+            observation.lifted_right.y,
+            observation.lifted_right.z,
+            observation.lifted_forward.x,
+            observation.lifted_forward.y,
+            observation.lifted_forward.z,
+            observation.lifted_orientation_about_world_up,
+            observation.camera_right.x,
+            observation.camera_right.y,
+            observation.camera_right.z,
+            observation.source_right_camera_right_alignment,
+        );
+    }
+}
+
+/// Bounded source-record candidates for identifying the exterior hut in a
+/// canonical comparison. Texture-name filtering only narrows the inspection;
+/// it does not assert that any listed record is the landmark.
+fn report_spatial_landmark_candidates(scene: &SceneInput) {
+    let map = &scene.door_geometry_source.map;
+    let spawn = scene.spawn_observer.source_position.map(f32::from);
+    let radians = f32::from(scene.spawn_observer.source_angle).to_radians();
+    let forward = [radians.cos(), radians.sin()];
+    let right = [radians.sin(), -radians.cos()];
+
+    println!(
+        "E1M1 AR-0028 landmark candidates: spawn=({}, {}); angle={}; filter=BROWN*|*DOOR*",
+        spawn[0], spawn[1], scene.spawn_observer.source_angle
+    );
+    for linedef in &map.linedefs {
+        let texture_names = [linedef.right_sidedef, linedef.left_sidedef]
+            .into_iter()
+            .flatten()
+            .filter_map(|index| map.sidedefs.get(usize::from(index)))
+            .flat_map(|side| {
+                [
+                    side.upper_texture.as_str(),
+                    side.lower_texture.as_str(),
+                    side.middle_texture.as_str(),
+                ]
+            })
+            .filter(|name| *name != "-")
+            .collect::<BTreeSet<_>>();
+        if !texture_names
+            .iter()
+            .any(|name| name.contains("BROWN") || name.contains("DOOR"))
+        {
+            continue;
+        }
+        let Some(start) = map.vertices.get(usize::from(linedef.start_vertex)) else {
+            continue;
+        };
+        let Some(end) = map.vertices.get(usize::from(linedef.end_vertex)) else {
+            continue;
+        };
+        let midpoint = [
+            (f32::from(start.x) + f32::from(end.x)) * 0.5,
+            (f32::from(start.y) + f32::from(end.y)) * 0.5,
+        ];
+        let relative = [midpoint[0] - spawn[0], midpoint[1] - spawn[1]];
+        let forward_offset = relative[0] * forward[0] + relative[1] * forward[1];
+        let source_right_offset = relative[0] * right[0] + relative[1] * right[1];
+        println!(
+            "linedef={}; vertices={}({},{}) -> {}({},{}) ; textures={}; source-forward-offset={:.1}; source-right-offset={:.1}",
+            linedef.source.record_index,
+            linedef.start_vertex,
+            start.x,
+            start.y,
+            linedef.end_vertex,
+            end.x,
+            end.y,
+            texture_names.into_iter().collect::<Vec<_>>().join("|"),
+            forward_offset,
+            source_right_offset,
+        );
+    }
 }
 
 fn report_doom_reject(report: &DoomRejectReport) {
@@ -1006,6 +2433,253 @@ fn report_doom_topology(report: &DoomTopologyReport) {
         report.multiple_subsector_membership,
         report.maximum_subsector_membership,
     );
+}
+
+/// Reports the deterministic `Use` resolution of every nonzero E1M1 line.
+/// This is source/request evidence only: accepted door intent is deliberately
+/// not treated as a moved sector, and crossing-only specials remain visible.
+fn report_doom_use_activation(source: &DoomLineActivationSource) {
+    let mut accepted = 0;
+    let mut no_special = 0;
+    let mut wrong_activation = 0;
+    let mut unsupported = 0;
+    let mut invalid_target = 0;
+    let mut details = Vec::new();
+    for linedef in source
+        .linedefs
+        .iter()
+        .filter(|linedef| linedef.special != 0)
+    {
+        let resolution = resolve_doom_line_activation(
+            source,
+            DoomLineActivationRequest {
+                source_linedef: linedef.source,
+                activation: DoomLineActivation::Use,
+            },
+        );
+        match resolution {
+            DoomLineActivationResolution::Accepted { intent, .. } => {
+                accepted += 1;
+                details.push(format!(
+                    "{}:special{}:tag{}:accepted:{}:target:{}",
+                    linedef.source.record_index,
+                    linedef.special,
+                    linedef.tag,
+                    compact_activation_intent(intent),
+                    compact_activation_target(intent),
+                ));
+            }
+            DoomLineActivationResolution::NoSpecial { .. } => no_special += 1,
+            DoomLineActivationResolution::WrongActivation { required, .. } => {
+                wrong_activation += 1;
+                details.push(format!(
+                    "{}:special{}:tag{}:requires:{required:?}",
+                    linedef.source.record_index, linedef.special, linedef.tag
+                ));
+            }
+            DoomLineActivationResolution::UnsupportedSpecial { .. } => {
+                unsupported += 1;
+                details.push(format!(
+                    "{}:special{}:tag{}:unsupported",
+                    linedef.source.record_index, linedef.special, linedef.tag
+                ));
+            }
+            DoomLineActivationResolution::UnknownLinedef { .. } => unreachable!(
+                "a request derived from the retained E1M1 lines must resolve to one of them"
+            ),
+            DoomLineActivationResolution::MissingManualDoorTarget {
+                missing_left_sidedef,
+                ..
+            } => {
+                invalid_target += 1;
+                details.push(format!(
+                    "{}:special{}:missing-opposite-sidedef:{missing_left_sidedef:?}",
+                    linedef.source.record_index, linedef.special
+                ));
+            }
+            DoomLineActivationResolution::InvalidManualDoorTarget {
+                sidedef_index,
+                sector_index,
+                ..
+            } => {
+                invalid_target += 1;
+                details.push(format!(
+                    "{}:special{}:invalid-target:sidedef{}:sector{}",
+                    linedef.source.record_index, linedef.special, sidedef_index, sector_index
+                ));
+            }
+        }
+    }
+    println!(
+        "E1M1 Slice 8 use-request observation: nonzero_linedefs={}; accepted={accepted}; no_special={no_special}; wrong_activation={wrong_activation}; unsupported={unsupported}; invalid_target={invalid_target}; accepted_effects_are_not_executed=true; details={}",
+        details.len(),
+        details.join(" | "),
+    );
+}
+
+/// Runs each E1M1 manual-door intent through the corpus-local, deterministic
+/// moving-sector state machine. It reports height transitions only: no mesh,
+/// collision, input reach, or renderer state is changed by this evidence path.
+fn report_doom_manual_door_runtime(source: &DoomLineActivationSource) {
+    let mut started = 0;
+    let mut rejected = 0;
+    let mut details = Vec::new();
+    for linedef in source.linedefs.iter().filter(|line| line.special == 1) {
+        let DoomLineActivationResolution::Accepted {
+            intent: DoomLineActivationIntent::RaiseDoor { target_sector },
+            ..
+        } = resolve_doom_line_activation(
+            source,
+            DoomLineActivationRequest {
+                source_linedef: linedef.source,
+                activation: DoomLineActivation::Use,
+            },
+        )
+        else {
+            unreachable!("classified E1M1 code-1 lines must resolve to manual-door intent");
+        };
+        let mut door = match DoomManualDoorRuntime::start(
+            source,
+            target_sector,
+            DoomManualDoorPolicy::CLASSIC_NORMAL,
+        ) {
+            Ok(door) => door,
+            Err(error) => {
+                rejected += 1;
+                details.push(format!(
+                    "line{}:target-sector{}:start-rejected:{error:?}",
+                    linedef.source.record_index, target_sector.record_index
+                ));
+                continue;
+            }
+        };
+        started += 1;
+        let mut ticks = 0_u32;
+        let mut reached_waiting = false;
+        while door.phase != DoomManualDoorPhase::Closed && ticks < 4_096 {
+            let transition = door.advance_tick();
+            reached_waiting |=
+                matches!(transition.after_phase, DoomManualDoorPhase::Waiting { .. });
+            ticks += 1;
+        }
+        details.push(format!(
+            "line{}:target-sector{}:closed-height{}:open-height{}:ticks{}:waited{}:final={:?}",
+            linedef.source.record_index,
+            target_sector.record_index,
+            door.closed_ceiling_height,
+            door.open_ceiling_height,
+            ticks,
+            reached_waiting,
+            door.phase,
+        ));
+    }
+    println!(
+        "E1M1 Slice 8 manual-door runtime observation: code1_lines={}; started={started}; start_rejected={rejected}; source_map_mutated=false; presentation_mutated=false; details={}",
+        details.len(),
+        details.join(" | "),
+    );
+}
+
+/// Replays the exact dynamic-resource lifetime that exposed the E1M1 handle
+/// collision: a closed `DOORTRAK` span is absent, opening materializes it,
+/// closing suppresses it, and reopening must reuse the original dynamic
+/// identities. This is a no-window, corpus-only observation rather than a
+/// renderer lifecycle contract.
+fn report_door_resource_replay(app: &mut App) -> PlatformResult<()> {
+    let Some(source_linedef) = app
+        .activation_source
+        .linedefs
+        .iter()
+        .find(|linedef| linedef.special == 1)
+        .map(|linedef| linedef.source)
+    else {
+        return Err("E1M1 contains no code-1 manual door for resource replay".into());
+    };
+    let DoomLineActivationResolution::Accepted {
+        intent: DoomLineActivationIntent::RaiseDoor { target_sector },
+        ..
+    } = resolve_doom_line_activation(
+        &app.activation_source,
+        DoomLineActivationRequest {
+            source_linedef,
+            activation: DoomLineActivation::Use,
+        },
+    )
+    else {
+        return Err("E1M1 code-1 manual door did not resolve for resource replay".into());
+    };
+
+    let mut door = DoomManualDoorRuntime::start(
+        &app.activation_source,
+        target_sector,
+        DoomManualDoorPolicy::CLASSIC_NORMAL,
+    )
+    .map_err(|error| io::Error::other(format!("manual-door replay start failed: {error:?}")))?;
+    let closed_height = door.closed_ceiling_height;
+    let open_height = door.open_ceiling_height;
+    app.active_manual_doors.push(door);
+
+    app.refresh_active_manual_door_wall_meshes()?;
+    let closed_initial_draws = app.dynamic_door_draws.len();
+    let closed_initial_handles = app.dynamic_door_mesh_handles.clone();
+
+    door = app.active_manual_doors[0];
+    door.current_ceiling_height = open_height;
+    door.phase = DoomManualDoorPhase::Waiting { remaining_ticks: 1 };
+    app.active_manual_doors[0] = door;
+    app.refresh_active_manual_door_wall_meshes()?;
+    let opened_handles = app.dynamic_door_mesh_handles.clone();
+    let opened_sources = app
+        .dynamic_door_draws
+        .iter()
+        .map(|index| format!("{index}:{}", app.draws[*index].source_label))
+        .collect::<Vec<_>>();
+    let opened_enabled = app
+        .dynamic_door_draws
+        .iter()
+        .filter(|index| app.opaque_draw_enabled[**index])
+        .count();
+
+    door = app.active_manual_doors[0];
+    door.current_ceiling_height = closed_height;
+    door.phase = DoomManualDoorPhase::Closed;
+    app.active_manual_doors[0] = door;
+    app.refresh_active_manual_door_wall_meshes()?;
+    let closed_suppressed = app
+        .dynamic_door_draws
+        .iter()
+        .filter(|index| !app.opaque_draw_enabled[**index])
+        .count();
+
+    door = app.active_manual_doors[0];
+    door.current_ceiling_height = open_height;
+    door.phase = DoomManualDoorPhase::Waiting { remaining_ticks: 1 };
+    app.active_manual_doors[0] = door;
+    app.refresh_active_manual_door_wall_meshes()?;
+    let reopened_handles = app.dynamic_door_mesh_handles.clone();
+    let reopened_enabled = app
+        .dynamic_door_draws
+        .iter()
+        .filter(|index| app.opaque_draw_enabled[**index])
+        .count();
+    let cutout_last_handle = app
+        .include_cutouts
+        .then_some(app.cutout_mesh_base + app.cutout_draws.len() as u64 - 1);
+    let dynamic_handles_are_after_cutouts = opened_handles
+        .values()
+        .all(|handle| cutout_last_handle.is_none_or(|cutout| handle.0 > cutout));
+
+    println!(
+        "E1M1 Slice 1 dynamic-resource replay: linedef={}; target-sector={}; closed-initial-draws={closed_initial_draws}; closed-initial-handles={}; opened-handles={:?}; opened-sources={}; opened-enabled={opened_enabled}; closed-suppressed={closed_suppressed}; reopened-handles={:?}; reopened-enabled={reopened_enabled}; stable-reopen={}; dynamic-after-cutouts={dynamic_handles_are_after_cutouts}; cutout-last-handle={cutout_last_handle:?}; source-map-mutated=false; renderer-initialized=false",
+        source_linedef.record_index,
+        target_sector.record_index,
+        closed_initial_handles.len(),
+        opened_handles,
+        opened_sources.join(" | "),
+        reopened_handles,
+        opened_handles == reopened_handles,
+    );
+    Ok(())
 }
 
 fn report_flat_normals(draws: &[StaticDrawPlanEntry]) {
@@ -1106,7 +2780,7 @@ fn doom_membership_draw_selected(
             .get(source_subsector.record_index as usize)
             .copied()
             .unwrap_or(true),
-        StaticDrawSource::Wall { source_linedef } => linedef_subsectors
+        StaticDrawSource::Wall { source_linedef, .. } => linedef_subsectors
             .get(source_linedef.record_index as usize)
             .map(|subsectors| {
                 subsectors.iter().any(|subsector| {
@@ -1171,6 +2845,191 @@ fn draw_bounds(draws: &[StaticDrawPlanEntry]) -> Vec<Option<StaticDrawAabb>> {
         .iter()
         .map(|draw| StaticDrawAabb::from_positions(&draw.mesh.positions))
         .collect()
+}
+
+/// Corpus-local presentation lowering for one active manual-door ceiling flat.
+/// Wall spans are re-lowered from retained source data rather than deformed in
+/// place, preserving the distinction between height changes and texture-span
+/// policy.
+fn apply_door_ceiling_flat_height(
+    draws: &mut [StaticDrawPlanEntry],
+    target_sector: doom_map_provider::DoomSourceRecord,
+    previous_height: i16,
+    next_height: i16,
+) -> Vec<usize> {
+    let previous = f32::from(previous_height);
+    let next = f32::from(next_height);
+    let mut changed = Vec::new();
+    for (index, draw) in draws.iter_mut().enumerate() {
+        let is_target_ceiling = matches!(
+            draw.source,
+            StaticDrawSource::Flat {
+                source_sector,
+                plane: doom_geometry_provider::DoomSurfacePlane::Ceiling,
+                ..
+            } if source_sector == target_sector
+        );
+        if !is_target_ceiling {
+            continue;
+        }
+        let mut modified = false;
+        for position in &mut draw.mesh.positions {
+            if (position[1] - previous).abs() <= f32::EPSILON {
+                position[1] = next;
+                modified = true;
+            }
+        }
+        if modified {
+            changed.push(index);
+        }
+    }
+    changed
+}
+
+fn dynamic_wall_triangle_key(
+    source_linedef: doom_map_provider::DoomSourceRecord,
+    source_sidedef: doom_map_provider::DoomSourceRecord,
+    source_sector: doom_map_provider::DoomSourceRecord,
+    role: doom_geometry_provider::DoomWallTextureRole,
+    texture_name: &str,
+) -> String {
+    format!(
+        "{}/{}/{}/{}/{}/{}/{:?}/{texture_name}",
+        source_linedef.lump_index,
+        source_linedef.record_index,
+        source_sidedef.lump_index,
+        source_sidedef.record_index,
+        source_sector.lump_index,
+        source_sector.record_index,
+        role,
+    )
+}
+
+fn static_wall_triangle_key(draw: &StaticDrawPlanEntry) -> Option<String> {
+    let StaticDrawSource::Wall {
+        source_linedef,
+        source_sidedef,
+        source_sector,
+        role,
+    } = draw.source
+    else {
+        return None;
+    };
+    let (_, texture_name) = draw.source_label.rsplit_once(':')?;
+    Some(dynamic_wall_triangle_key(
+        source_linedef,
+        source_sidedef,
+        source_sector,
+        role,
+        texture_name,
+    ))
+}
+
+fn is_door_mesh_for_target(
+    draw: &StaticDrawPlanEntry,
+    target_sector: doom_map_provider::DoomSourceRecord,
+    boundary_linedefs: &[doom_map_provider::DoomSourceRecord],
+) -> bool {
+    match draw.source {
+        StaticDrawSource::Flat {
+            source_sector,
+            plane: doom_geometry_provider::DoomSurfacePlane::Ceiling,
+            ..
+        } => source_sector == target_sector,
+        StaticDrawSource::Wall { source_sector, .. } if source_sector == target_sector => true,
+        StaticDrawSource::Wall {
+            source_linedef,
+            role: doom_geometry_provider::DoomWallTextureRole::Upper,
+            ..
+        } => boundary_linedefs.contains(&source_linedef),
+        StaticDrawSource::Wall { .. } => false,
+        StaticDrawSource::Flat { .. } => false,
+    }
+}
+
+/// Returns the source linedefs which bound an active manual-door sector. The
+/// result remains Doom-corpus evidence: the visual lowerer receives only these
+/// retained identities, not a generalized portal or moving-wall contract.
+fn manual_door_boundary_linedefs(
+    source: &DoomLineActivationSource,
+    target_sector: doom_map_provider::DoomSourceRecord,
+) -> Vec<doom_map_provider::DoomSourceRecord> {
+    source
+        .linedefs
+        .iter()
+        .filter(|line| {
+            [line.right_sidedef, line.left_sidedef]
+                .into_iter()
+                .flatten()
+                .filter_map(|sidedef| source.sidedefs.get(usize::from(sidedef)))
+                .filter_map(|sidedef| source.sectors.get(usize::from(sidedef.sector)))
+                .any(|sector| sector.source == target_sector)
+        })
+        .map(|line| line.source)
+        .collect()
+}
+
+/// Determines the source textures which become geometrically relevant at the
+/// fully-open height of presently classified manual doors. This admits no
+/// extra renderer behavior: it only makes their ordinary texture/material
+/// inputs available before a runtime door can create the corresponding spans.
+fn manual_door_dynamic_wall_texture_names(
+    map: &DoomMapCore,
+    source: &DoomLineActivationSource,
+    extents: &[DoomTextureExtent],
+) -> Result<Vec<String>, io::Error> {
+    let mut open_map = map.clone();
+    let mut targets = Vec::new();
+    for line in &source.linedefs {
+        let DoomLineActivationResolution::Accepted {
+            intent: DoomLineActivationIntent::RaiseDoor { target_sector },
+            ..
+        } = resolve_doom_line_activation(
+            source,
+            DoomLineActivationRequest {
+                source_linedef: line.source,
+                activation: DoomLineActivation::Use,
+            },
+        )
+        else {
+            continue;
+        };
+        if targets.contains(&target_sector) {
+            continue;
+        }
+        let door = DoomManualDoorRuntime::start(
+            source,
+            target_sector,
+            DoomManualDoorPolicy::CLASSIC_NORMAL,
+        )
+        .map_err(|error| io::Error::other(format!("manual-door preparation failed: {error:?}")))?;
+        let sector = open_map
+            .sectors
+            .iter_mut()
+            .find(|sector| sector.source == target_sector)
+            .ok_or_else(|| io::Error::other("manual-door target disappeared from decoded map"))?;
+        sector.ceiling_height = door.open_ceiling_height;
+        targets.push(target_sector);
+    }
+
+    let triangles = lower_doom_textured_wall_triangles(&open_map, extents).map_err(|error| {
+        io::Error::other(format!("manual-door span preparation failed: {error}"))
+    })?;
+    let mut names = triangles
+        .into_iter()
+        .filter(|triangle| {
+            targets.iter().any(|target_sector| {
+                triangle.source_sector == *target_sector
+                    || (triangle.role == doom_geometry_provider::DoomWallTextureRole::Upper
+                        && manual_door_boundary_linedefs(source, *target_sector)
+                            .contains(&triangle.source_linedef))
+            })
+        })
+        .map(|triangle| triangle.texture_name)
+        .collect::<Vec<_>>();
+    names.sort();
+    names.dedup();
+    Ok(names)
 }
 
 fn draw_spheres(draws: &[StaticDrawPlanEntry]) -> Vec<Option<StaticDrawSphere>> {
@@ -2185,6 +4044,51 @@ fn fixture_bounds(minimum: [f32; 3], maximum: [f32; 3]) -> StaticDrawAabb {
         .expect("pathological fixture bounds must be finite")
 }
 
+fn ray_triangle_distance(origin: Vec3, direction: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Option<f32> {
+    const EPSILON: f32 = 1.0e-6;
+    let edge_ab = b - a;
+    let edge_ac = c - a;
+    let perpendicular = direction.cross(edge_ac);
+    let determinant = edge_ab.dot(perpendicular);
+    if determinant.abs() <= EPSILON {
+        return None;
+    }
+
+    let inverse_determinant = determinant.recip();
+    let from_a = origin - a;
+    let u = from_a.dot(perpendicular) * inverse_determinant;
+    if !(0.0..=1.0).contains(&u) {
+        return None;
+    }
+
+    let cross = from_a.cross(edge_ab);
+    let v = direction.dot(cross) * inverse_determinant;
+    if v < 0.0 || u + v > 1.0 {
+        return None;
+    }
+
+    let distance = edge_ac.dot(cross) * inverse_determinant;
+    (distance > EPSILON && distance.is_finite()).then_some(distance)
+}
+
+/// Returns the closest exact triangle hit in one prepared mesh. This remains
+/// corpus-local inspection machinery; callers retain the source identity from
+/// the owning draw rather than treating the mesh as a generic picking object.
+fn nearest_mesh_ray_hit(origin: Vec3, direction: Vec3, mesh: &Mesh) -> Option<f32> {
+    mesh.positions
+        .chunks_exact(3)
+        .filter_map(|triangle| {
+            ray_triangle_distance(
+                origin,
+                direction,
+                Vec3::from_array(triangle[0]),
+                Vec3::from_array(triangle[1]),
+                Vec3::from_array(triangle[2]),
+            )
+        })
+        .min_by(f32::total_cmp)
+}
+
 fn scene_bounds(draws: &[StaticDrawPlanEntry]) -> (Vec3, f32) {
     let mut minimum = [f32::INFINITY; 3];
     let mut maximum = [f32::NEG_INFINITY; 3];
@@ -2211,17 +4115,68 @@ fn scene_bounds(draws: &[StaticDrawPlanEntry]) -> (Vec3, f32) {
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_observer_look_delta, candidate_is_selected, summarize_grouped_aabb_selection,
-        CandidateSelection, CandidateSelectionSummary, ObserverLook, UniformGridAabbIndex,
+        apply_observer_look_delta, candidate_is_selected, nearest_mesh_ray_hit,
+        ray_triangle_distance, summarize_grouped_aabb_selection, CandidateSelection,
+        CandidateSelectionSummary, ObserverLook, UniformGridAabbIndex,
     };
     use doom_geometry_provider::doom_point_to_tokimu;
     use hello_doom_e1m1::{
         classify_static_draw_frustum_rejection, classify_static_draw_sphere_frustum_rejection,
         doom_heading_degrees_to_observer_yaw, doom_heading_forward, observer_direction,
         observer_right, observer_yaw_from_forward, observer_yaw_to_doom_heading_degrees,
-        StaticDrawAabb, StaticDrawFrustumRejection, StaticDrawSphere,
+        reembed_comparative_mesh, DoomComparativeEmbedding, StaticDrawAabb,
+        StaticDrawFrustumRejection, StaticDrawSphere,
     };
+    use tokimu::Mesh;
     use tokimu_core::math::{Mat4, Vec3};
+
+    #[test]
+    fn center_ray_reports_an_exact_triangle_hit_distance() {
+        let distance = ray_triangle_distance(
+            Vec3::ZERO,
+            Vec3::Z,
+            Vec3::new(-1.0, -1.0, 5.0),
+            Vec3::new(1.0, -1.0, 5.0),
+            Vec3::new(0.0, 1.0, 5.0),
+        )
+        .expect("center ray should hit the fixture triangle");
+        assert!((distance - 5.0).abs() < 0.000_1);
+    }
+
+    #[test]
+    fn center_ray_rejects_a_triangle_outside_the_ray() {
+        assert!(ray_triangle_distance(
+            Vec3::ZERO,
+            Vec3::Z,
+            Vec3::new(2.0, -1.0, 5.0),
+            Vec3::new(4.0, -1.0, 5.0),
+            Vec3::new(3.0, 1.0, 5.0),
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn candidate_embeddings_preserve_exact_picking_distance() {
+        let source_mesh = Mesh::uniform_normal(
+            vec![[-1.0, -1.0, 5.0], [1.0, -1.0, 5.0], [0.0, 1.0, 5.0]],
+            [0.0, 0.0, -1.0],
+        )
+        .with_texture_coordinates(vec![[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]])
+        .unwrap();
+        let source_distance = nearest_mesh_ray_hit(Vec3::ZERO, Vec3::Z, &source_mesh).unwrap();
+
+        for embedding in [
+            DoomComparativeEmbedding::PreserveEast,
+            DoomComparativeEmbedding::PreserveNorth,
+        ] {
+            let mut candidate_mesh = source_mesh.clone();
+            reembed_comparative_mesh(&mut candidate_mesh, embedding, false);
+            let candidate_direction = embedding.lift_direction([0.0, 1.0], 0.0);
+            let candidate_distance =
+                nearest_mesh_ray_hit(Vec3::ZERO, candidate_direction, &candidate_mesh).unwrap();
+            assert!((candidate_distance - source_distance).abs() < 0.000_1);
+        }
+    }
 
     #[test]
     fn source_spawn_heading_maps_doom_cardinal_angles_to_world_xz() {

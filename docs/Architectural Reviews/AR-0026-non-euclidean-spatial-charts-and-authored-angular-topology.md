@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Incubating |
 | Opened | 2026-08-10 |
-| Last reviewed | 2026-08-10 |
+| Last reviewed | 2026-08-11 |
 | Scope | Long-horizon spatial semantics, presentation, traversal, and authoring evidence |
 | Trigger | Maintainer interest in authored maps or objects whose spatial closure is not globally Euclidean, including a junction where a complete circuit has 520 standard angular degrees rather than 360. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009 |
@@ -273,6 +273,10 @@ physics API from this record.
 - [ ] Establish a first-party semantic data model only inside the corpus:
       local region identity, local coordinates, cyclic adjacency, transition
       identity, and declared local angular measures.
+- [ ] Require each experimental chart transition to declare and test whether
+      it is orientation-preserving or orientation-reversing independently of
+      invertibility and round-trip success. Do not infer authored transition
+      meaning solely from raw matrix mechanics.
 - [ ] Implement 360-degree, 240-degree, and 520-degree junction controls with
       deterministic traversal traces and explicit expected closure evidence.
 - [ ] Add boundary-crossing query/picking evidence without changing generic
@@ -358,6 +362,20 @@ physics API from this record.
 - Disposition: use the Doom subset as a realistic control after the minimal
   synthetic junction fixture, then compare identity, transformed, overlapping,
   loop-closure, picking, and derived-view cases.
+
+### Cycle 5 -- 2026-08-11
+
+- New evidence: AR-0028 produced a direct, invertible Doom-to-world lift that
+  reverses both a canonical landmark determinant and the source-right versus
+  camera-right side relation.
+- Findings: future chart transitions must distinguish invertibility from
+  orientation behavior. An orientation reversal may be a provider defect in a
+  Euclidean import or intentional authored meaning in a charted space; the
+  transition declaration and its caller context must make that distinction
+  explicit.
+- Disposition: retain Incubating status. Add orientation-preserving versus
+  orientation-reversing evidence to the future corpus without proposing a
+  chart API or changing ordinary Euclidean math.
 
 ## References
 

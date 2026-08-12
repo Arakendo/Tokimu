@@ -29,6 +29,21 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
 cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD --spawn-observer
 
+# Slice 6 corpus-local first walk proof. WASD moves a 16-unit disc at the
+# reviewed spawn; click captures mouse look, Escape releases it, and R resets.
+# The source BLOCKMAP only narrows candidates. If it has no blocking candidate,
+# the proof fails safe to all known blocking linedefs. --noclip is a visible
+# diagnostic control, not a gameplay mode.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --masked-cutouts --spawn-observer --walk-collision
+
+# Renderer-free retained replay and nearest-wall contact evidence for the same
+# corpus-local disc proof.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --spawn-observer --walk-collision-report
+
 # AR-0028 bounded Doom sidedef-direction fixture. It needs no WAD package.
 # The left/back BACK panel appears screen-left and the right/front FRONT panel
 # appears screen-right under the fixture camera basis.
@@ -110,6 +125,18 @@ THINGS record `0`, source position `(1056, -3616)`, angle `90`, sector `38`,
 and raw floor/ceiling interval `0..72`; the camera uses the interval midpoint
 (`y = 36`) rather than claiming an original-Doom player-height policy.
 
+`--walk-collision` is a separate Slice 6 corpus proof layered on that observer:
+it moves on the X/Z plane using a 16-unit disc, treats one-sided and explicitly
+blocking source linedefs as walls, and uses validated source `BLOCKMAP` cells
+solely as a candidate accelerator. After horizontal resolution it consults
+retained BSP/subsector sector ownership: descents and up-to-24-unit steps move
+the camera by the accepted floor delta; taller upward steps, insufficient
+56-unit clearance, and ambiguous ownership remain explicit rejections. It
+does not yet claim complete player movement, two-sided opening traversal,
+doors, lifts, gamepad input, or a reusable Tokimu collision API.
+`--noclip` makes this omission visible by bypassing the corpus collision check;
+`R` restores the exact reviewed source-spawn pose.
+
 `--frustum-aabb` is an AR-0025 corpus experiment, not a renderer capability.
 It derives world-space bounds from already prepared meshes, rejects only a
 candidate wholly outside one homogeneous clip plane, preserves survivor order,
@@ -152,6 +179,24 @@ full submission if no finite grid can be built. It is not an admitted default.
 or input policy.
 
 For native inspection, click the scene to capture the mouse; press `Escape` to
-release it. `W`/`A`/`S`/`D` move horizontally and `Q`/`E` move down/up. These
-controls are presentation-only corpus navigation: they do not add Doom player
-movement, collision, physics, or a Tokimu input contract.
+release it. `W`/`A`/`S`/`D` move; accepted source-sector floor transitions
+adjust observer height. These controls are presentation-only corpus navigation:
+they do not add a complete Doom player, physics, or a Tokimu input contract.
+
+Press the physical backquote/tilde key (`~`) to open the bounded Doom debug
+console. Opening it releases mouse capture and suppresses movement input. The
+native proof currently accepts `HELP`, `CLEAR`, `STATUS`, `CAMERA`, `COLLISION`, `LOOK`,
+`USE <linedef>`, and `NOCLIP [ON|OFF|TOGGLE]`. `USE 151` starts the observed
+E1M1 manual-door visual proof; it is currently an explicit source request, not
+a physical reach/side interaction claim. The center crosshair identifies the ray used by
+`LOOK`; a hit is an exact prepared-triangle intersection and reports distance,
+opaque/cutout family, material handle, source label, and retained draw source.
+With the console closed, `E` performs that same exact center-wall lookup and
+submits the resulting corpus-local `Use` request automatically; aim at a
+manual door such as `BIGDOOR2` and press `E`. Its retained response includes
+the source linedef, target sector, and number of prepared meshes initially
+eligible for the narrow visual lowering.
+`STATUS` retains each active manual door as
+`sector:current-height/closed-height/open-height:phase` for native inspection.
+This is corpus-local Observation Shell evidence under AR-0013, not an admitted
+engine console, command language, or generic picking contract.

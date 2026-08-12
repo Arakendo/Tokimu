@@ -9,6 +9,7 @@ pub enum KeyCode {
     Delete,
     Home,
     End,
+    Backquote,
     KeyE,
     KeyA,
     KeyD,

@@ -700,9 +700,37 @@ Acceptance criteria:
         settle the later player-height policy.
 - [ ] Add first-person yaw and pitch policy appropriate to the selected proof.
 - [ ] Normalize keyboard, mouse, and gamepad input through `tokimu-input`.
+  - [x] Route native keyboard and positional mouse events through the existing
+        `PlatformInputEvent::as_input_event` adapter into `tokimu_input::InputState`.
+        Raw captured mouse motion remains a separate local look input because
+        the normalized state intentionally records position/buttons, not a
+        platform-relative delta.
+  - [ ] Add a platform gamepad event path before making an equivalent gamepad
+        claim; `tokimu-input` has controller state but `tokimu-platform` does
+        not yet surface controller events.
 - [ ] Implement bounded player radius and height.
 - [ ] Implement wall collision and sliding.
+  - [x] Add a corpus-local X/Z disc proof for reviewed E1M1: a 16-unit
+        observer disc uses one-sided and explicitly blocking source linedefs,
+        applies fixed small movement substeps plus bounded overlap resolution,
+        and retains contacted source linedef identities. It is not yet player
+        height, opening-clearance, door/lift, step, or generic engine collision
+        semantics.
+  - [x] Retain a renderer-free fixed-command replay plus nearest-wall probe.
+        On the reviewed package, the five-command replay is deterministic with
+        no fallback and the source-start nearest-wall probe contacts linedef 1
+        at initial distance 45.255. This proves the selected source wall is
+        consulted; it does not prove a complete walkable-map policy.
 - [ ] Apply floor/ceiling clearance and step-height policy.
+  - [x] Add a corpus-local source-sector transition lookup after horizontal
+        collision: retained BSP/subsector ownership selects a candidate sector,
+        allowing descents and upward steps through 24 map units while rejecting
+        insufficient 56-unit vertical clearance or ambiguous source points.
+        The observer adjusts its camera height by the accepted floor delta and
+        logs the retained sector/floor/ceiling result.
+  - [ ] Retain native walk observations across at least one actual E1M1 stair
+        ascent and descent; this current bounded policy is not yet a claim of
+        complete classic player movement, doors, lifts, or dynamic clearance.
 - [ ] Decide whether the first proof uses `BLOCKMAP`, BSP traversal, or a
       simpler deterministic broad phase; record the choice as implementation
       evidence rather than universal Doom behavior.
@@ -711,7 +739,14 @@ Acceptance criteria:
         player start, cell 338 (column 14, row 9) yields 6 candidates rather
         than scanning all 475 linedefs. This is not yet a collision choice,
         nor does it define blockmap traversal outside the decoded grid.
+  - [x] Select source `BLOCKMAP` only as the first corpus-local broad-phase
+        accelerator for the disc proof. Candidate lookup covers the swept disc;
+        a missing/out-of-range or non-blocking candidate set falls back to all
+        known blocking source lines rather than risking a false pass-through.
+        This does not define a general `BLOCKMAP` traversal or visibility API.
 - [ ] Add reset, noclip diagnostic mode, and current-sector observations.
+  - [x] Add `R` source-pose reset and an explicit `--noclip` diagnostic mode to
+        the corpus observer. Current-sector tracking remains open.
 
 Acceptance criteria:
 
@@ -737,6 +772,76 @@ Acceptance criteria:
 - A visible scene cannot silently omit unsupported source semantics.
 - Diagnostics remain bounded under repeated frames.
 
+## Debug Slice D.1: Embedded Console And Cursor Inspection
+
+This is application/tooling evidence for the Doom corpus. It composes the
+existing Tokimu console interaction and text-presentation work, but does not
+make Doom commands, picking, or an embedded shell part of Ring 0.
+
+- [ ] Toggle a bounded embedded console with the physical backquote/tilde key
+      (`~`), using the normalized Tokimu key identity on native and browser
+      hosts.
+  - [x] Add normalized physical `Backquote` identity in native and browser
+        platform adapters and use it to toggle the native Doom console.
+  - [ ] Exercise the embedded console through the browser/WASM Doom host.
+- [x] Transfer focus explicitly: opening the console releases captured mouse
+      look and suppresses movement; closing it does not synthesize gameplay
+      input.
+- [x] Reuse the reviewed native default font and ordinary Tokimu textured-2D
+      presentation path for a transcript, prompt, and visible input cursor.
+- [x] Add corpus-local commands for `HELP`, `CLEAR`, `CAMERA`, `COLLISION`,
+      `NOCLIP`, and retained diagnostic status.
+- [x] Add a center-screen inspection cursor/crosshair and report the nearest
+      prepared draw candidate intersected by its camera ray.
+  - [x] Retain ordinary draw/source identity, candidate distance, material,
+        and whether the result came from opaque or cutout preparation.
+  - [x] Label initial AABB or triangle-ray results precisely; do not call a
+        conservative candidate an exact selected surface.
+- [ ] Add source-aware Doom inspection after the generic draw candidate:
+      linedef/sidedef/sector/thing identities remain owned by the Doom corpus.
+  - [x] Retain compact linedef/sidedef/sector identity for wall hits and
+        subsector/sector/plane identity for flat hits; these remain
+        corpus-owned source descriptions attached to an exact
+        prepared-triangle result.
+  - [ ] Add Thing inspection when Things enter prepared caller data. Do not
+        invent a diagnostic radius, height, or billboard solely to make a
+        source point selectable.
+- [x] Make “no candidate,” unavailable source identity, unsupported command,
+      and truncated transcript states explicit.
+- [ ] Retain native and browser/WASM observations before claiming target
+      parity.
+  - [x] Retain the first native console observation in
+        [`D1 debug console evidence.md`](D1%20debug%20console%20evidence.md).
+  - [ ] Exercise the console through a persistent browser/WASM input/frame
+        host; the current intake intentionally presents one frame and exits
+        its renderer lifecycle.
+- [x] Review whether repeated non-Doom pressure justifies extracting any
+      embedded-console or picking contract; until then this remains corpus
+      composition under AR-0013.
+  - [x] Record the negative admission result in
+        [`D1 debug console evidence.md`](D1%20debug%20console%20evidence.md):
+        consumers repeat presentation and focus mechanics, but command/session
+        meaning and exact picking identity have not converged across two
+        independent persistent hosts.
+
+Acceptance criteria:
+
+- `~` opens and closes the console without leaving movement or mouse-look input
+  stuck.
+- The console can explain the current camera/collision state and one bounded
+  center-ray draw candidate without mutating map or renderer truth.
+- Console and cursor presentation use ordinary Tokimu UI/render seams; Doom
+  source meaning remains outside renderer and generic shell vocabulary.
+- Unsupported or approximate inspection claims are visible in the transcript.
+
+Current disposition: the native D.1 console/cursor evidence is sufficient for
+continued Doom investigation. Browser parity is parked until the browser
+workbench has a persistent renderer/input/frame lifecycle. Sidedef, sector, and
+Thing inspection are parked until those identities are carried into the
+prepared caller data; neither gap is silently promoted into a generic engine
+contract. The extraction review is complete and retains corpus-local
+composition under AR-0013.
+
 ## Slice 8: Interactive Map Semantics
 
 - [x] Classify Doom linedef and sector specials used by `E1M1`; retain the
@@ -744,8 +849,52 @@ Acceptance criteria:
       [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
   - [x] Inventory raw nonzero codes before assigning behavior: linedef
         `[1:8,11:1,36:1,48:8,88:1]`; sector `[1:1,7:4,8:2,9:3,12:1]`.
-- [ ] Add deterministic use/activation requests.
+- [x] Add deterministic use/activation requests.
+  - [x] Resolve a source-indexed `Use` request against immutable E1M1
+        linedefs, retaining line source, special code, tag, and future owner
+        intent without changing map, runtime, or renderer state.
+  - [x] Expose `USE <linedef>` in the native debug console and retain the
+        canonical-package report in
+        [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
+  - [x] Make no-special, unknown-linedef, wrong-activation, and unsupported
+        special outcomes explicit; code-11/36/88 `Cross` behavior and code-48
+        periodic scrolling remain unimplemented rather than being coerced into
+        a `Use` request.
+  - [x] Record that E1M1's code-1 manual-door lines have tag `0`; resolve their
+        candidate target through the opposite sidedef's retained sector rather
+        than treating the line tag as target identity. Player reach and side
+        eligibility remain future interaction work.
 - [ ] Implement doors as runtime-owned moving-sector state.
+  - [x] Keep a corpus-local manual-door state machine separate from immutable
+        source sectors and renderer resources: opening, bounded top wait,
+        closing, and closed phases retain target-sector identity and current
+        ceiling height.
+  - [x] Derive the normal manual-door destination from the source target
+        sector's lowest adjacent ceiling minus a retained four-unit clearance;
+        retain explicit no-adjacency/invalid-policy failures rather than
+        inventing a destination.
+  - [x] Exercise all eight canonical E1M1 code-1 targets through a full
+        deterministic open/wait/close cycle without WAD or presentation
+        mutation; retain the report in
+        [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
+  - [ ] Lower active runtime ceiling heights into updated flat/wall geometry
+        and collision queries without reparsing WAD bytes.
+    - [x] Lower the observed E1M1 manual-door ceiling flats from runtime height
+          changes, replacing only changed GPU meshes. This is a bounded visual
+          proof, not yet a complete dynamic wall-span/UV policy.
+    - [x] Overlay the active corpus-runtime ceiling height onto the
+          source-sector floor/clearance query without mutating WAD records;
+          retained native play evidence traversed sector 4 only after its
+          code-1 door raised to ceiling `68`.
+    - [ ] Re-lower target-sector and affected boundary upper-wall spans from a
+          clone of the retained decoded map at the active runtime ceiling
+          height, retaining existing Doom texture-span/UV semantics rather
+          than stretching vertices. Confirm native visual correspondence with
+          the collision opening and closed-state restoration before calling it
+          a door-animation claim.
+  - [ ] Connect eligible physical use/re-use requests to runtime creation and
+        reversal policy; the debug `USE <linedef>` command remains a source
+        diagnostic until reach and player-side state are owned.
 - [ ] Implement lifts and moving floors needed by the selected map.
 - [ ] Implement switches and texture-state changes.
 - [ ] Implement teleports if required by the admitted map slice.
