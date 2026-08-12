@@ -344,3 +344,26 @@ demonstrated a second rendering API.
   [Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Tests/renderer-resource-identity-and-failure-presentation.md)
   before admitting allocation, lifecycle, containment, or terminal-presentation
   vocabulary.
+
+### Cycle 8 -- 2026-08-11
+
+- Status entering review: Accepted, with the comparative terminal-owner study
+  still open.
+- New evidence: E1M1's opt-in Doom-sky startup rejected a composed `SKY1`
+  raster with 2,048 uncovered source pixels. The native adapter retained that
+  startup error and requested exit, but dispatched `on_frame` before shutdown.
+  The frame then reported the secondary `Doom sky pipeline missing` error and
+  replaced the useful root cause.
+- Findings: terminal delivery alone is insufficient if a composition can
+  overwrite its first failure during shutdown. The smallest demonstrated
+  invariant is composition-local and causal: retain the first terminal
+  callback error and stop dispatching frame work once terminal failure is
+  pending.
+- Disposition: enforce first-failure preservation privately in the native
+  adapter and return the original error to the invoking caller. Do not add a
+  global mailbox, renderer error overlay, automatic diagnostic material, or
+  shared cross-target terminal-record owner. Those ownership questions remain
+  open under the comparative test plan.
+- Validation: a focused native-platform regression proves a secondary failure
+  cannot replace the root error; the exact E1M1 command now reports the
+  unresolved `SKY1` coverage instead of the missing-pipeline consequence.

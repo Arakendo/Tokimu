@@ -1,5 +1,6 @@
 use hello_render_resource_identity::{
-    observe_caller_staged_recovery, observe_churn, observe_failure_boundary_fixture,
+    compare_failure_presentation, observe_caller_staged_recovery, observe_churn,
+    observe_diagnostic_presentation_fixture, observe_failure_boundary_fixture,
     observe_fixed_disjoint_ranges, representation_evidence, reproduce_mutable_offset_alias,
 };
 
@@ -40,4 +41,17 @@ fn main() {
         "AR-0024/0027 caller-staged recovery: {:?}",
         observe_caller_staged_recovery()
     );
+    for comparison in observe_diagnostic_presentation_fixture()
+        .retained()
+        .map(compare_failure_presentation)
+    {
+        println!(
+            "AR-0024/0027 presentation structured: {}; explicit-visual-standin={}",
+            comparison.structured_record, comparison.allows_explicit_visual_standin
+        );
+        println!(
+            "AR-0024/0027 presentation console: {}",
+            comparison.console_line
+        );
+    }
 }

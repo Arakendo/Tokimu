@@ -13,7 +13,8 @@ Run these commands from the repository root:
 cargo run -p hello-doom-e1m1 --bin hello-doom-e1m1 -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD
 
-# Native first-frame overview of the prepared opaque static scene.
+# Normal interactive E1M1 corpus run: PreserveNorth embedding, source-spawn
+# observer, collision, masked cutouts, and the bounded SKY1 panorama.
 cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD
 
@@ -21,6 +22,13 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
 # candidates after the unchanged opaque scene using the admitted generic path.
 cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD --masked-cutouts
+
+# Corpus-local SKY1 panorama experiment. This consumes retained F_SKY1 source
+# classification and the composed E1 sky raster without treating sky as an
+# ordinary ceiling flat or a generic renderer capability.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --masked-cutouts --doom-sky --spawn-observer --embedding-north --noclip
 
 # Fixed source-spawn observer for a normal native screen capture. It maps the
 # reviewed player-one THING position and heading into the corpus X/Z world and
@@ -30,7 +38,9 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD --spawn-observer
 
 # Slice 6 corpus-local first walk proof. WASD moves a 16-unit disc at the
-# reviewed spawn; click captures mouse look, Escape releases it, and R resets.
+# reviewed spawn; E uses the centered source wall, click captures mouse look,
+# Escape releases it, and R resets. In noclip only, Space moves vertically up
+# and physical Left Ctrl moves vertically down.
 # The source BLOCKMAP only narrows candidates. If it has no blocking candidate,
 # the proof fails safe to all known blocking linedefs. --noclip is a visible
 # diagnostic control, not a gameplay mode.
@@ -102,6 +112,13 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
   --masked-cutouts --spawn-observer --measure-two-frames
 
+# AR-0025 Stage 3B bounded visible-SEG comparison. This is a separate
+# diagnostic scene, not the normal E1M1 renderer. Add --measure-two-frames for
+# retained first/warm resource and command evidence.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --doom-seg-clip-presentation
+
 # AR-0025 fixed visual pose known to retain all 26 cutout candidates. Add
 # --frustum-aabb for the per-draw baseline, or --frustum-grid-8x4x8 for the
 # explicitly corpus-local medium-grid comparison.
@@ -113,12 +130,18 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
 If invoked from this `corpus/hello-doom-e1m1` directory instead, replace the
 package path with `../assets/DOOM/packages/doom-shareware-corpus-v1.zip`.
 
-The default native overview intentionally does not claim original Doom
-plane-span rendering, visibility, gameplay, sky rendering, masked-middle
-rendering, or general alpha blending. `--masked-cutouts` is a separate
-ADR-0013 path: Doom selects only retained masked-middle candidates, then
-declares categorical coverage as discard alpha `<= 0` through Tokimu's generic
-cutout capability. It does not change the default opaque scene or admit Blend.
+The default interactive run is the current corpus baseline, not a claim of
+complete original-Doom behavior: PreserveNorth source embedding, fixed source
+spawn, collision proof, admitted masked-middle cutouts, and the bounded SKY1
+panorama are enabled. Use `--overview-camera`, `--no-walk-collision`,
+`--no-masked-cutouts`, `--no-doom-sky`, or `--embedding-current-reflected` for
+explicit comparison controls. `--diagnostic-sky-omissions` replaces the normal
+sky panorama with the purple AR-0027 omission presentation.
+
+The SKY1 panorama remains corpus-local: it uses the real `SKY1` raster, but
+does not claim the original view-dependent sky projection or admit a generic
+sky contract. Masked cutouts use the admitted generic categorical-coverage
+path and do not admit Blend.
 
 `--spawn-observer` is a fixed evidence camera. For reviewed E1M1 it reports
 THINGS record `0`, source position `(1056, -3616)`, angle `90`, sector `38`,
@@ -171,6 +194,101 @@ source subsectors survives. It is intentionally conservative and headless.
 `--doom-membership-union` renders that same control for fixed-pose visual and
 two-frame command-build comparison; it remains a corpus-only source-topology
 experiment, not a renderer candidate-selection capability.
+`--doom-seg-report` is Stage 3B's headless representation control. It reports
+the separately lowered, source-labelled SEG wall triangles before they are
+uploaded or selected; it is not a renderer SEG feature or a visibility claim.
+`--doom-seg-clip-report` and `--doom-hut-clip-report` add the bounded
+near-first screen-span diagnostic controls for the source-spawn and
+source-derived hut poses respectively. They lower only currently uncovered
+source subintervals into separate labelled meshes and retain the result as a
+comparison representation. The fixed diagnostic columns are not renderer
+pixels or historic-Doom projection, and the resulting meshes are not uploaded
+by those report modes.
+`--doom-seg-clip-presentation` uploads that same bounded source-spawn
+comparison representation as a separate native scene. It deliberately omits
+flats and masked middles, retains ordinary wall materials and source labels,
+and must be compared manually with the full static shell. The current
+horizontal-only control is intentionally retained as a **falsified** variant:
+it visibly removes valid spawn-room walls. It is diagnostic presentation
+evidence only, not an original-Doom renderer or a Tokimu visibility feature.
+`--doom-seg-clip-2d-report` is the next headless Stage 3B control. It adds a
+bounded source-space vertical-span grid to the same near-first SEG order and
+Doom-owned occluder authority. Its rectangular projected spans are still only
+comparison evidence; it intentionally has no presentation mode yet.
+`--doom-seg-clip-per-column-report` refines that headless grid by intersecting
+each diagnostic source ray with its finite source SEG before deriving the
+vertical span. It is a more conservative comparison control, not a visual
+filter or renderer feature.
+`--doom-seg-per-column-turn-trace` repeats the per-column control over four
+declared source headings without initializing WGPU. It exists to show that the
+candidate set is viewer-dependent before any dynamic source-selection design
+is considered.
+`--doom-seg-per-column-position-trace` repeats the same headless control at
+six declared source offsets around player one. The offsets are test inputs,
+not collision-valid movement or a Doom player simulation.
+`--doom-seg-per-column-failure-trace` replays the retained close-wall and
+courtyard false-negative poses. It is evidence that the dynamic control is
+unsound, not an alternate presentation mode. The trace also reports its
+non-mutating local-depth audit: a positive `depth_order_inversions` count means
+a later SEG attempted to close a cell closer than the SEG that current
+near-first-subsector/source-record order had already allowed to close it. This
+falsifies that ordering as a direct per-cell occluder order; it does not change
+selection or establish a replacement visibility model.
+`--doom-seg-per-column-order-trace` compares those same poses with a
+diagnostic global nearest-SEG ordering. It exists to separate ordering defects
+from boolean-coverage defects; it neither establishes Doom traversal nor
+enables a presentation mode.
+`--doom-seg-classic-admission-trace` is the next, headless Stage 3B control.
+For the retained false-negative poses it applies the directed source-SEG
+right-side/front rule, a bounded horizontal FOV preflight, and the existing
+Doom-owned solid-versus-pass classification. Solid intervals are unioned in
+near-first BSP leaf order, while pass intervals deliberately remain out of that
+union. It deliberately stops before BSP bbox pruning, vertical wall-tier
+clipping, or any draw selection, so its counts are source-protocol evidence
+rather than a presentation claim.
+`--doom-seg-classic-bsp-trace` continues that same source-only control through
+viewer-side BSP recursion. It visits the near child first, admits only
+front-facing/in-FOV SEGs, unions solid intervals, and skips a far child only
+when its decoded Doom bbox is safely projected inside an already closed
+interval. A bbox that is definitely outside the source horizontal FOV is
+separately rejected; unprojectable/ambiguous bboxes fail open. The trace also
+retains whether the known exterior suspect at linedef `247` was reached or
+admitted, including the source node that rejected its subtree when applicable.
+It also inventories existing source-labelled static floor and ceiling meshes
+whose owning subsectors were reached. Those numbers are explicitly not Doom
+plane spans or selected draws; they make the unimplemented source plane stage
+visible rather than permitting the wall protocol to masquerade as a complete
+presentation result. The trace separately reports upper/lower/middle source
+wall-tier counts for the admitted SEG triangles; that inventory does not infer
+opaque/cutout policy from a horizontal solid range.
+It additionally reports the first source wall-stage floor/ceiling eligibility
+marks at the source eye height, including paired-`F_SKY1` ceiling adjustments.
+Those observations precede per-column clip arrays and visplane construction;
+they are neither plane spans nor selected flat draws.
+This is a diagnostic comparison with the original protocol, not a renderer
+candidate API, historic Doom parity claim, or presentation mode.
+`--doom-seg-classic-vertical-clip-trace` follows the same recursive source
+admission through a deliberately bounded wall-tier checkpoint. It records
+upper/lower/middle tier spans, source plane-mark facts, and diagnostic
+ceiling/floor clip-boundary changes for a small set of source poses. Middle
+tiers remain source presentation facts but do not automatically close a
+ceiling/floor boundary. This command constructs neither visplanes nor flat
+draws and must not be used as a visibility/presentation selector.
+`--doom-seg-classic-plane-identity-trace` records the decoded plane grouping
+facts that a later provider-local span experiment would need: admitted floor
+and ceiling contributors, distinct `(height, flat, light)` keys, and the
+normalization of `F_SKY1` ceilings to a common sky key. It does not allocate
+visplanes, construct spans, select flats, or create a presentation mode.
+`--doom-seg-per-column-presentation` is a fixed-source-spawn visual comparison
+which retains normal flats/cutouts but substitutes selected whole SEG walls. It
+does not update after a camera turn and is not an interactive culling mode.
+`--doom-seg-per-column-dynamic` is the separate interactive Stage 3B control:
+it uploads lowerable SEG walls once and recomputes only a corpus-local
+source-owned draw-enable mask as the observer moves or turns. It deliberately
+does not establish generic renderer culling, historic Doom visibility, or a
+stable public contract. Current missing source wall materials are reported at
+startup rather than synthesized. It is now a retained **falsified** control:
+the per-column approximation removes valid nearby walls at reproduced poses.
 `--frustum-grid-8x4x8` renders the retained medium grid experiment so it can be
 visually compared with full submission or `--frustum-aabb`. It preserves input
 order, rechecks grid survivors with the per-draw AABB test, and falls back to
@@ -200,3 +318,19 @@ eligible for the narrow visual lowering.
 `sector:current-height/closed-height/open-height:phase` for native inspection.
 This is corpus-local Observation Shell evidence under AR-0013, not an admitted
 engine console, command language, or generic picking contract.
+`CAMERA` also reports the active AR-0028-lowered Doom source pose, so a visual
+anomaly can be retained and replayed without treating free camera navigation as
+source truth.
+
+When `LOOK` identifies a potentially incorrect wall, retain its source-to-mesh
+evidence without launching a renderer:
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --wall-source-report=247
+```
+
+The report records both source sides, sector floor/ceiling intervals, source
+textures, and generated spans. It is diagnostic only and does not classify a
+source-valid span as invisible merely because a reference presentation differs.

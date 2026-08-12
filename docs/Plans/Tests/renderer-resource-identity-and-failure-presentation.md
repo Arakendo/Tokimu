@@ -241,7 +241,7 @@ is shared across failure layers.
 
 ### Deliverables
 
-- [ ] Inject and retain one failure at each applicable layer:
+- [x] Inject and retain one failure at each applicable layer:
   - [x] source preparation;
   - [x] renderer declaration/resource resolution;
   - [x] backend/provider validation;
@@ -254,7 +254,7 @@ is shared across failure layers.
       continuation status.
 - [x] Prove that WGPU-native details can remain provider diagnostics without
       leaking their types into the provisional envelope.
-- [ ] Retain exactly where each observation remains accessible after the active
+- [x] Retain exactly where each observation remains accessible after the active
       composition ends on native and browser/WASM.
   - [ ] Maintainer decision: retain the current caller-owned native terminal
         result plus fixture-owned browser status surfaces, or authorize a
@@ -263,6 +263,10 @@ is shared across failure layers.
         Retain caller/fixture-owned terminal delivery and continue comparing
         only bounded semantic failure facts until a lifetime or independent
         caller case proves caller ownership insufficient.
+  - [x] Preserve the first native terminal failure when a later callback could
+        otherwise report a secondary error. The E1M1 `--doom-sky` startup path
+        retained `SKY1`'s uncovered-source-pixel failure; it no longer gets
+        replaced by the subsequent missing-pipeline frame error.
 
 ### Validation
 
@@ -293,7 +297,7 @@ fixture, and remaining terminal/cross-target gaps are retained in
 
 ### Deliverables
 
-- [ ] Classify each injected failure as one of:
+- [x] Classify each injected failure as one of:
   - [x] reject operation and continue the composition;
   - [x] retain the last known-good resource/frame and continue;
   - [x] end only the active composition with a retained terminal record;
@@ -332,19 +336,21 @@ classification, and remaining provider/fatal gap are retained in
 
 ### Deliverables
 
-- [ ] Compare at least these presentation choices using the same retained
+- [x] Compare at least these presentation choices using the same retained
       failure records:
-  - [ ] structured record only;
-  - [ ] text/console overlay;
+  - [x] structured record only;
+  - [x] text/console overlay;
   - [ ] application-supplied conspicuous diagnostic texture/material:
     - [x] native E1M1 opt-in Purple PNG stand-in for retained sky omissions;
     - [x] native visual observation and bounded record transcript;
     - [ ] browser/WASM equivalent observation;
-  - [ ] terminal composition error surface where continued scene rendering is
-        unsafe.
-- [ ] Exercise at least four distinct meanings: intentional source omission,
+  - [x] terminal composition error surface where continued scene rendering is
+        unsafe. The invoking native caller receives the first retained startup
+        failure after the composition exits; no stand-in or continued frame is
+        claimed.
+- [x] Exercise at least four distinct meanings: intentional source omission,
       source geometry failure, missing renderer resource, and provider failure.
-- [ ] Prove that the application-supplied stand-in remains opt-in and retains
+- [x] Prove that the application-supplied stand-in remains opt-in and retains
       original identity plus reason beside the draw.
 - [ ] Exercise native and browser/WASM presentation without claiming pixel
       identity.
@@ -353,9 +359,9 @@ classification, and remaining provider/fatal gap are retained in
 
 ### Validation
 
-- [ ] A reviewer cannot mistake diagnostic presentation for successful source
+- [x] A reviewer cannot mistake diagnostic presentation for successful source
       or renderer resource resolution.
-- [ ] Cases for which a texture would lie use text/terminal presentation or no
+- [x] Cases for which a texture would lie use text/terminal presentation or no
       replacement instead.
 - [ ] Bundled or generated diagnostic assets retain provenance, color-space,
       sampler, packaging, and offline evidence required by AR-0027.
@@ -377,16 +383,24 @@ matrix are retained in
 ### Deliverables
 
 - [ ] Re-run the selected resource-identity and observation candidates through:
-  - [ ] E1M1 dynamic doors;
-  - [ ] one non-Doom dynamic mesh/resource caller;
-  - [ ] native WGPU;
+  - [x] E1M1 dynamic doors on the available native WGPU/Vulkan path;
+  - [x] one non-Doom dynamic mesh/resource caller:
+        `hello-render-resource-identity`;
+  - [x] native WGPU;
   - [ ] browser/WebGPU WASM.
-- [ ] Include one resource-rich scene and one small synthetic fixture so scale
+- [x] Include one resource-rich scene and one small synthetic fixture so scale
       and clarity do not depend on the same caller.
-- [ ] Retain unsupported GPU/vendor coverage explicitly; do not infer NVIDIA
+- [x] Retain unsupported GPU/vendor coverage explicitly; do not infer NVIDIA
       behavior from AMD/Vulkan or Apple/Metal observations.
-- [ ] Test shutdown/terminal-record delivery under both an attached diagnostic
+- [x] Test shutdown/terminal-record delivery under both an attached diagnostic
       console and a detached presentation surface.
+  - [x] Attached: E1M1 corpus-local console retains a recoverable dynamic-door
+        observation beside the active presentation.
+  - [x] Detached: `native_terminal_error` receives the intentional frame error
+        after its native composition closes.
+  - [ ] Browser after page/composition disposal remains intentionally open;
+        the current fixture-owned DOM status is only retained while its host is
+        alive.
 
 ### Validation
 

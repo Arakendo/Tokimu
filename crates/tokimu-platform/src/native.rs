@@ -93,7 +93,7 @@ where
     }
 
     fn record_handler_error(&mut self, event_loop: &ActiveEventLoop, error: Box<dyn Error>) {
-        self.pending_error = Some(error);
+        retain_first_error(&mut self.pending_error, error);
         event_loop.exit();
     }
 
@@ -101,6 +101,15 @@ where
         if let Err(error) = self.event_handler.on_platform_event(event) {
             self.record_handler_error(event_loop, error);
         }
+    }
+}
+
+/// Retains the first terminal failure for one native composition. Once a
+/// callback has requested shutdown, later teardown/event callbacks cannot
+/// replace the root cause with a secondary failure.
+fn retain_first_error(pending: &mut Option<Box<dyn Error>>, error: Box<dyn Error>) {
+    if pending.is_none() {
+        *pending = Some(error);
     }
 }
 
@@ -148,6 +157,13 @@ where
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // A startup or event-handler failure is terminal for this composition.
+        // Do not enter another callback and overwrite the retained root cause
+        // with a secondary "resource missing" failure during teardown.
+        if self.pending_error.is_some() {
+            event_loop.exit();
+            return;
+        }
         let now = Instant::now();
         let Some(deadline) = self.next_frame_deadline else {
             event_loop.set_control_flow(ControlFlow::WaitUntil(now + DEFAULT_FRAME_INTERVAL));
@@ -259,6 +275,7 @@ fn map_key_code(key: PhysicalKey) -> Option<KeyCode> {
     match key {
         PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => Some(KeyCode::Escape),
         PhysicalKey::Code(winit::keyboard::KeyCode::Space) => Some(KeyCode::Space),
+        PhysicalKey::Code(winit::keyboard::KeyCode::ControlLeft) => Some(KeyCode::ControlLeft),
         PhysicalKey::Code(winit::keyboard::KeyCode::Enter) => Some(KeyCode::Enter),
         PhysicalKey::Code(winit::keyboard::KeyCode::Backspace) => Some(KeyCode::Backspace),
         PhysicalKey::Code(winit::keyboard::KeyCode::Delete) => Some(KeyCode::Delete),
@@ -318,6 +335,10 @@ mod tests {
             map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::Backquote)),
             Some(KeyCode::Backquote)
         );
+        assert_eq!(
+            map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::ControlLeft)),
+            Some(KeyCode::ControlLeft)
+        );
     }
 
     #[test]
@@ -327,5 +348,23 @@ mod tests {
             Some(MouseButton::Left)
         );
         assert_eq!(map_mouse_button(winit::event::MouseButton::Back), None);
+    }
+
+    #[test]
+    fn first_terminal_handler_error_survives_secondary_failures() {
+        let mut pending: Option<Box<dyn Error>> = None;
+        retain_first_error(
+            &mut pending,
+            Box::new(NativeError("root startup failure".to_owned())),
+        );
+        retain_first_error(
+            &mut pending,
+            Box::new(NativeError("secondary frame failure".to_owned())),
+        );
+
+        assert_eq!(
+            pending.as_ref().unwrap().to_string(),
+            "root startup failure"
+        );
     }
 }

@@ -710,6 +710,7 @@ pub enum FailureObservationOperation {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FailureObservationCategory {
+    IntentionalSourceOmission,
     SourceUnavailable,
     ResourceUnresolved,
     DeclarationRejected,
@@ -789,8 +790,96 @@ impl<const CAPACITY: usize> BoundedFailureObservations<CAPACITY> {
     }
 
     pub fn retained(&self) -> impl Iterator<Item = FailureObservation> + '_ {
-        self.records.iter().flatten().copied()
+        let mut records = self.records.iter().flatten().copied().collect::<Vec<_>>();
+        records.sort_by_key(|record| record.sequence);
+        records.into_iter()
     }
+}
+
+/// Corpus-only presentation comparison for one retained observation. The same
+/// source record can be formatted for a structured sink or a console, but only
+/// an intentional source omission may truthfully request a visual stand-in.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FailurePresentationComparison {
+    pub observation: FailureObservation,
+    pub structured_record: String,
+    pub console_line: String,
+    pub allows_explicit_visual_standin: bool,
+}
+
+/// Renders the demonstrated provider-neutral facts without copying an error
+/// message, WGPU details, or application recovery policy into this fixture.
+pub fn compare_failure_presentation(
+    observation: FailureObservation,
+) -> FailurePresentationComparison {
+    let structured_record = format!(
+        "sequence={}; phase={:?}; operation={:?}; category={:?}; resource={:?}; caller={}; continuation={:?}",
+        observation.sequence,
+        observation.phase,
+        observation.operation,
+        observation.category,
+        observation.resource,
+        observation.caller,
+        observation.continuation,
+    );
+    let console_line = format!(
+        "failure #{}: {:?} / {:?} / {:?}; caller={}; resource={:?}; continuation={:?}",
+        observation.sequence,
+        observation.phase,
+        observation.operation,
+        observation.category,
+        observation.caller,
+        observation.resource,
+        observation.continuation,
+    );
+    FailurePresentationComparison {
+        allows_explicit_visual_standin: matches!(
+            observation.category,
+            FailureObservationCategory::IntentionalSourceOmission
+        ),
+        observation,
+        structured_record,
+        console_line,
+    }
+}
+
+/// Retains the four materially different cases used by Slice 5. They share a
+/// record shape, not a common recovery or presentation policy.
+pub fn observe_diagnostic_presentation_fixture() -> BoundedFailureObservations<4> {
+    let mut observations = BoundedFailureObservations::default();
+    observations.record(
+        FailureObservationPhase::SourcePreparation,
+        FailureObservationOperation::PrepareSourceGeometry,
+        FailureObservationCategory::IntentionalSourceOmission,
+        None,
+        "e1m1-sky-omission",
+        FailureObservationContinuation::RejectOperationAndContinue,
+    );
+    observations.record(
+        FailureObservationPhase::SourcePreparation,
+        FailureObservationOperation::PrepareSourceGeometry,
+        FailureObservationCategory::SourceUnavailable,
+        None,
+        "e1m1-door-refresh",
+        FailureObservationContinuation::RejectOperationAndContinue,
+    );
+    observations.record(
+        FailureObservationPhase::RendererResourceResolution,
+        FailureObservationOperation::ResolveMesh,
+        FailureObservationCategory::ResourceUnresolved,
+        Some(MeshHandle(44)),
+        "identity-fixture",
+        FailureObservationContinuation::RejectOperationAndContinue,
+    );
+    observations.record(
+        FailureObservationPhase::ProviderValidation,
+        FailureObservationOperation::ValidateDeclaration,
+        FailureObservationCategory::ProviderRejected,
+        None,
+        "hello-shader-backend-diagnostic",
+        FailureObservationContinuation::EndActiveComposition,
+    );
+    observations
 }
 
 /// Replays the six failure boundaries already observed across the E1M1,
@@ -1106,6 +1195,69 @@ mod tests {
         assert_eq!(observations.total_recorded(), 3);
         assert_eq!(observations.retained().count(), 2);
         assert!(observations.retained().any(|record| record.sequence == 2));
+    }
+
+    #[test]
+    fn bounded_observations_are_presented_in_chronological_order_after_wrap() {
+        let mut observations = BoundedFailureObservations::<2>::default();
+        for index in 0..3 {
+            observations.record(
+                FailureObservationPhase::ApplicationFrameHandler,
+                FailureObservationOperation::ReturnFrameError,
+                FailureObservationCategory::HandlerReturnedError,
+                Some(MeshHandle(index)),
+                "frame-handler-fixture",
+                FailureObservationContinuation::EndActiveComposition,
+            );
+        }
+
+        assert_eq!(
+            observations
+                .retained()
+                .map(|record| record.sequence)
+                .collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+    }
+
+    #[test]
+    fn diagnostic_presentation_keeps_one_record_but_separates_visual_claims() {
+        let comparisons = observe_diagnostic_presentation_fixture()
+            .retained()
+            .map(compare_failure_presentation)
+            .collect::<Vec<_>>();
+        assert_eq!(comparisons.len(), 4);
+        assert!(comparisons.iter().all(|comparison| comparison
+            .structured_record
+            .contains(comparison.observation.caller)));
+        assert!(comparisons.iter().all(|comparison| comparison
+            .console_line
+            .contains(comparison.observation.caller)));
+        assert!(comparisons.iter().all(|comparison| comparison
+            .console_line
+            .contains(&format!("{:?}", comparison.observation.phase))));
+        assert!(comparisons.iter().all(|comparison| comparison
+            .console_line
+            .contains(&format!("{:?}", comparison.observation.operation))));
+        assert!(comparisons.iter().all(|comparison| comparison
+            .console_line
+            .contains(&format!("{:?}", comparison.observation.category))));
+        assert_eq!(
+            comparisons
+                .iter()
+                .filter(|comparison| comparison.allows_explicit_visual_standin)
+                .count(),
+            1
+        );
+        assert_eq!(
+            comparisons
+                .iter()
+                .find(|comparison| comparison.allows_explicit_visual_standin)
+                .unwrap()
+                .observation
+                .category,
+            FailureObservationCategory::IntentionalSourceOmission
+        );
     }
 
     #[test]

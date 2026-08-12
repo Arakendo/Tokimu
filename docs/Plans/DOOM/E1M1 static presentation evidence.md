@@ -34,10 +34,10 @@ The canonical preflight reports:
 | Item | Result |
 | --- | ---: |
 | Opaque flat triangles | 853 |
-| Opaque wall triangles | 982 |
+| Opaque wall triangles | 970 |
 | Submitted floor / ceiling triangles | 463 / 390 |
-| Submitted middle / upper / lower wall triangles | 588 / 184 / 210 |
-| Submitted static draws | 1,835 |
+| Submitted middle / upper / lower wall triangles | 588 / 172 / 210 |
+| Submitted static draws | 1,823 |
 | Flat texture/material uploads | 21 |
 | Wall texture/material uploads | 29 |
 | Deferred-alpha selected rasters | 0 |
@@ -51,6 +51,12 @@ texture/material-handle inventory. It assigns handles only to the selected
 fully covered, palette-zero sRGB opaque profile and makes no renderer decision
 for deferred-alpha sources.
 
+The reduction from the earlier retained 1,835-draw observation is twelve upper
+wall triangles at six two-sided boundaries whose adjacent ceilings are both
+`F_SKY1`. Those source-valid height bands are now explicitly omitted under the
+classic sky-to-sky rule; see
+[`E1M1 hut sky-boundary evidence.md`](E1M1%20hut%20sky-boundary%20evidence.md).
+
 ## Native observation
 
 The native `static_scene` target presented the full 1,835-draw overview with
@@ -63,6 +69,8 @@ ordinary submitted mesh bounds. This remains a corpus-local camera policy.
 ## Known omissions
 
 - Sky source records are retained but not drawn.
+- Upper wall bands between two `F_SKY1` ceilings are source-classified sky
+  continuity omissions rather than ordinary submitted walls.
 - Masked middles remain source-classified omissions pending AR-0023.
 - The eight fully omitted wall linedefs are `DOORTRAK`/`DOORSTOP` middle spans
   with identical minimum and maximum heights; no facing normal is fabricated.

@@ -1261,6 +1261,34 @@ into the spatial semantic contract.
 - Resulting ADR or documentation change: no ADR change; AR-0028 supplies a
   concrete case study for future semantic transform admission.
 
+### Cycle 53 -- 2026-08-12
+
+- Status entering review: Incubating.
+- New evidence: strict Clippy validation during unrelated AR-0025 work again
+  encountered the pinned `glam` 0.29.3 `unused_attributes` warning flood. The
+  warning is repaired upstream by commit
+  `d5d92e48d628f2232295770c4a7b909e4b81c150`, first contained in the 0.30.2
+  release. Comparing audited revision
+  `d36e7eeff05338c56c4aa8d59fc2615e7963b1b7` with the 0.30.2 release commit
+  `73e8582703ea1790dd41d0faca3df8beda4730a3` changes approximately 170 files,
+  with `29,090` insertions and `10,156` deletions, including generated
+  swizzle/SIMD implementation and tests.
+- Findings: the smallest released maintenance route that clears the warning is
+  a substantive foreign Ring 0 source update under ADR-0010, not a warning-only
+  pin bump. Source pinning correctly prevented routine corpus validation from
+  silently importing that delta. This is measured recurring lifecycle and
+  audit pressure against Alternative A; it is not a numerical defect in 0.29.3
+  and does not independently establish that Alternative C is correct.
+- Disposition: retain the audited 0.29.3 pin and Incubating status. Count the
+  update surface in the eventual A/B/C comparison: A and B inherit recurring
+  review of a broad generated provider, while C accepts a one-time migration
+  and continuing Tokimu-owned numerical/performance burden. Do not let warning
+  irritation substitute for the outstanding correctness, performance,
+  native/WASM, and caller-pressure gates.
+- Resulting ADR or documentation change: no ADR change and no dependency
+  update. The submodule was restored cleanly to the audited revision after the
+  comparison.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`

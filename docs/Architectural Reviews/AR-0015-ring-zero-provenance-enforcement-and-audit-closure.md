@@ -287,6 +287,26 @@ change.
   evidence is retained in the dependency audits, migration plan, and this
   review record.
 
+### Cycle 2 -- 2026-08-12
+
+- Status entering review: Under Review.
+- New evidence: a proposed maintenance update for the pinned `glam` warning was
+  investigated rather than applied. The upstream fix first appears in release
+  0.30.2; relative to the audited 0.29.3 pin it changes approximately 170 files
+  (`29,090` insertions and `10,156` deletions), including generated SIMD and
+  swizzle code. The exact pin was restored to
+  `d36e7eeff05338c56c4aa8d59fc2615e7963b1b7` after inspection.
+- Findings: ADR-0010's update gate materially prevented a toolchain-warning
+  cleanup from becoming an unreviewed Ring 0 implementation update. Passing
+  compilation would not be sufficient evidence for that source delta.
+- Disposition: keep the warning/update item open. A future update must create
+  a revision-specific dependency audit, review the complete diff and closure,
+  and rerun native/WASM, performance, and verification evidence. AR-0019 may
+  separately use the recurring audit cost when comparing retained-provider and
+  Tokimu-owned math alternatives.
+- Resulting ADR or documentation change: no ADR or gitlink change; retained
+  provenance/update evidence only.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`

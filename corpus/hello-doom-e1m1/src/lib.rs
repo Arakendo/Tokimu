@@ -8,8 +8,9 @@ pub mod debug_console;
 pub mod specials;
 
 use doom_geometry_provider::{
-    DoomMiddleTextureObservation, DoomSkySurfaceObservation, DoomSurfacePlane, DoomSurfaceTriangle,
-    DoomTextureExtent, DoomTexturedWallTriangle, DoomWallTextureRole,
+    DoomMiddleTextureObservation, DoomSegTexturedWallTriangle, DoomSkySurfaceObservation,
+    DoomSurfacePlane, DoomSurfaceTriangle, DoomTextureExtent, DoomTexturedWallTriangle,
+    DoomWallTextureRole,
 };
 use doom_map_provider::DoomSourceRecord;
 use doom_raster_provider::{
@@ -70,6 +71,15 @@ pub struct StaticWallMesh {
     pub role: DoomWallTextureRole,
     pub texture_name: String,
     pub mesh: Mesh,
+}
+
+/// One source-SEG-labelled wall mesh for the AR-0025 Stage 3B presentation
+/// comparison. It is corpus-only: a SEG remains source topology rather than a
+/// renderer mesh category.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StaticSegWallMesh {
+    pub source_seg: DoomSourceRecord,
+    pub wall: StaticWallMesh,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1138,6 +1148,26 @@ pub enum E1m1PreparationError {
     Flat(#[from] StaticFlatLoweringError),
     #[error("E1M1 raster preparation failed: {0}")]
     Raster(#[from] doom_raster_provider::DoomRasterDecodeError),
+    #[error("E1M1 static sky preparation failed: {0}")]
+    SkyPanorama(#[from] DoomSkyPanoramaError),
+}
+
+/// Why a composed Doom sky cannot be used as the bounded static panorama
+/// experiment. This is deliberately stricter than ordinary texture handling:
+/// it may crop a wholly empty outer row band, but never fills or ignores an
+/// internal/partial coverage gap.
+#[derive(Clone, Debug, Error, Eq, PartialEq)]
+pub enum DoomSkyPanoramaError {
+    #[error("sky raster has no fully covered rows")]
+    NoCoveredRows,
+    #[error("sky raster row {row} has partial coverage ({covered}/{width})")]
+    PartialCoverage {
+        row: usize,
+        covered: usize,
+        width: usize,
+    },
+    #[error("sky raster has an uncovered row {row} inside its covered band")]
+    InternalUncoveredRow { row: usize },
 }
 
 struct E1m1WallInputs {
@@ -1221,6 +1251,93 @@ pub fn prepare_e1m1_wall_textures(
             })
         })
         .collect()
+}
+
+/// Prepares the Doom-only static panorama source used by the E1M1 sky corpus
+/// experiment. Unlike an ordinary wall texture, classic `SKY1` may contain a
+/// wholly uncovered outer band. We retain only its contiguous full-width
+/// covered band, never manufacture texels, and reject partial or internal
+/// holes as source evidence requiring a different policy.
+pub fn prepare_e1m1_static_sky_panorama_texture(
+    wad_bytes: &[u8],
+    manifest: &WadManifest,
+    raster_limits: DoomRasterDecodeLimits,
+    texture_limits: DoomTextureDecodeLimits,
+    patch_limits: DoomPatchDecodeLimits,
+    compose_limits: DoomTextureComposeLimits,
+) -> Result<PreparedStaticTexture, E1m1PreparationError> {
+    let globals = decode_doom_raster_globals(wad_bytes, manifest, raster_limits)?;
+    let catalog = decode_doom_texture_catalog(wad_bytes, manifest, texture_limits)?;
+    let indexed = compose_doom_texture(
+        wad_bytes,
+        manifest,
+        &catalog,
+        "SKY1",
+        patch_limits,
+        compose_limits,
+    )?;
+    let cropped = crop_static_sky_coverage_band(&indexed)?;
+    let lowered = lower_doom_indexed_image(&cropped, &globals.palettes[0])?;
+    Ok(PreparedStaticTexture {
+        eligibility: StaticTextureEligibility::Opaque(StaticOpaqueTexture {
+            texture_name: cropped.texture_name.clone(),
+            descriptor: Rgba8TextureDescriptor::new(
+                u32::from(cropped.width),
+                u32::from(cropped.height),
+                Rgba8TextureColorSpace::Srgb,
+            ),
+            sampler: TextureSampler {
+                filter: TextureFilter::Point,
+                address_u: TextureAddressMode::Repeat,
+                address_v: TextureAddressMode::Clamp,
+            },
+            selected_palette: 0,
+        }),
+        rgba8: lowered.pixels,
+    })
+}
+
+fn crop_static_sky_coverage_band(
+    image: &DoomIndexedImage,
+) -> Result<DoomIndexedImage, DoomSkyPanoramaError> {
+    let width = usize::from(image.width);
+    let rows = image.coverage.chunks_exact(width).collect::<Vec<_>>();
+    let mut full_rows = Vec::with_capacity(rows.len());
+    for (row, coverage) in rows.iter().enumerate() {
+        let covered = coverage.iter().filter(|covered| **covered).count();
+        if covered != 0 && covered != width {
+            return Err(DoomSkyPanoramaError::PartialCoverage {
+                row,
+                covered,
+                width,
+            });
+        }
+        full_rows.push(covered == width);
+    }
+    let Some(first) = full_rows.iter().position(|full| *full) else {
+        return Err(DoomSkyPanoramaError::NoCoveredRows);
+    };
+    let last = full_rows
+        .iter()
+        .rposition(|full| *full)
+        .expect("first full row exists");
+    for (row, full) in full_rows[first..=last].iter().enumerate() {
+        if !full {
+            return Err(DoomSkyPanoramaError::InternalUncoveredRow { row: first + row });
+        }
+    }
+    let height = last - first + 1;
+    let start = first * width;
+    let end = (last + 1) * width;
+    Ok(DoomIndexedImage {
+        source_texture_lump_index: image.source_texture_lump_index,
+        texture_name: image.texture_name.clone(),
+        width: image.width,
+        height: height as u16,
+        color_indices: image.color_indices[start..end].to_vec(),
+        coverage: vec![true; width * height],
+        opaque_pixels: width * height,
+    })
 }
 
 /// Decodes exactly the non-sky flat names selected by a prepared scene using
@@ -1460,6 +1577,33 @@ pub fn lower_static_wall_triangle(
         role: triangle.role,
         texture_name: triangle.texture_name.clone(),
         mesh,
+    })
+}
+
+/// Applies the established ordinary supplied-UV wall lowering to a bounded
+/// SEG-derived source triangle. The source screen-span experiment supplies the
+/// bounded triangle; this function deliberately contributes no visibility
+/// rule, material policy, or renderer vocabulary.
+pub fn lower_static_seg_wall_triangle(
+    triangle: &DoomSegTexturedWallTriangle,
+    extent: DoomTextureExtent,
+) -> Result<StaticSegWallMesh, StaticFlatLoweringError> {
+    let wall = lower_static_wall_triangle(
+        &DoomTexturedWallTriangle {
+            source_linedef: triangle.source_linedef,
+            source_sidedef: triangle.source_sidedef,
+            source_sector: triangle.source_sector,
+            side: triangle.side,
+            role: triangle.role,
+            texture_name: triangle.texture_name.clone(),
+            positions: triangle.positions,
+            texture_coordinates: triangle.texture_coordinates,
+        },
+        extent,
+    )?;
+    Ok(StaticSegWallMesh {
+        source_seg: triangle.source_seg,
+        wall,
     })
 }
 
@@ -1860,12 +2004,16 @@ mod tests {
     }
 
     fn raster(coverage: Vec<bool>) -> DoomIndexedImage {
+        raster_with_dimensions(2, 2, coverage)
+    }
+
+    fn raster_with_dimensions(width: u16, height: u16, coverage: Vec<bool>) -> DoomIndexedImage {
         DoomIndexedImage {
             source_texture_lump_index: 17,
             texture_name: "STARTAN3".into(),
-            width: 2,
-            height: 2,
-            color_indices: vec![0; 4],
+            width,
+            height,
+            color_indices: (0..coverage.len()).map(|index| index as u8).collect(),
             opaque_pixels: coverage.iter().filter(|covered| **covered).count(),
             coverage,
         }
@@ -2151,6 +2299,46 @@ mod tests {
                 },
                 selected_palette: 0,
             }
+        );
+    }
+
+    #[test]
+    fn static_sky_crop_retains_only_a_wholly_covered_outer_band() {
+        let cropped = crop_static_sky_coverage_band(&raster_with_dimensions(
+            3,
+            4,
+            vec![
+                true, true, true, true, true, true, true, true, true, false, false, false,
+            ],
+        ))
+        .unwrap();
+        assert_eq!(cropped.width, 3);
+        assert_eq!(cropped.height, 3);
+        assert_eq!(cropped.color_indices, (0..9).collect::<Vec<_>>());
+        assert!(cropped.coverage.iter().all(|covered| *covered));
+    }
+
+    #[test]
+    fn static_sky_crop_rejects_partial_or_internal_gaps() {
+        assert_eq!(
+            crop_static_sky_coverage_band(&raster_with_dimensions(
+                3,
+                2,
+                vec![true, false, true, true, true, true],
+            )),
+            Err(DoomSkyPanoramaError::PartialCoverage {
+                row: 0,
+                covered: 2,
+                width: 3,
+            })
+        );
+        assert_eq!(
+            crop_static_sky_coverage_band(&raster_with_dimensions(
+                2,
+                3,
+                vec![true, true, false, false, true, true],
+            )),
+            Err(DoomSkyPanoramaError::InternalUncoveredRow { row: 1 })
         );
     }
 

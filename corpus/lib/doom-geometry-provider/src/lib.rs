@@ -324,6 +324,61 @@ pub struct DoomTexturedWallTriangle {
     pub texture_coordinates: [[f64; 2]; 3],
 }
 
+/// A corpus-only textured wall triangle clipped to one source `SEG`.
+///
+/// This intentionally retains both the original wall identity and the BSP
+/// fragment that produced the candidate. It is not a renderer fragment type:
+/// callers may compare it with whole-linedef lowering before deciding whether
+/// viewer-relative Doom presentation is worth pursuing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DoomSegTexturedWallTriangle {
+    pub source_seg: DoomSourceRecord,
+    pub source_linedef: DoomSourceRecord,
+    pub source_sidedef: DoomSourceRecord,
+    pub source_sector: DoomSourceRecord,
+    pub side: DoomWallSideKind,
+    pub role: DoomWallTextureRole,
+    pub texture_name: String,
+    pub positions: [[f64; 3]; 3],
+    pub texture_coordinates: [[f64; 2]; 3],
+}
+
+/// Doom-source classification of whether a SEG's sector relationship can
+/// close a classic screen-span interval. This is deliberately distinct from
+/// screen projection and interval bookkeeping: the classification is owned by
+/// the Doom provider, not generic visibility code.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomSegOccluderKind {
+    OneSided,
+    BackSectorClosed,
+    OpeningClosed,
+    Open,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomSegOccluderObservation {
+    pub source_seg: DoomSourceRecord,
+    pub source_linedef: DoomSourceRecord,
+    pub side: DoomWallSideKind,
+    pub kind: DoomSegOccluderKind,
+}
+
+/// Source-local plane-mark facts for one directed SEG at a declared viewer
+/// height. This mirrors only the `R_StoreWallRange` decision to mark an
+/// adjacent floor or ceiling plane; it does not project columns, form a visplane,
+/// clip a span, or select a renderer draw.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomSegPlaneMarkObservation {
+    pub source_seg: DoomSourceRecord,
+    pub source_linedef: DoomSourceRecord,
+    pub side: DoomWallSideKind,
+    pub front_sector: DoomSourceRecord,
+    pub back_sector: Option<DoomSourceRecord>,
+    pub floor_marked: bool,
+    pub ceiling_marked: bool,
+    pub paired_sky_ceiling_adjustment: bool,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoomPeggingFlagAudit {
     pub upper_axes: usize,
@@ -406,6 +461,10 @@ pub enum DoomGeometryError {
     DegenerateSubsectorRegion { subsector_index: u32 },
     #[error("point ({x}, {y}) lies on or outside the retained BSP partition boundary")]
     PointNotInsideUniqueSubsector { x: i16, y: i16 },
+    #[error("seg record {seg_index} has unsupported sidedef direction {direction}")]
+    UnsupportedSegDirection { seg_index: u32, direction: u16 },
+    #[error("linedef clipping interval is not finite or is outside 0 through 1")]
+    InvalidLinedefInterval,
 }
 
 /// Resolves linedef endpoints and sidedef-sector ownership for later lowering.
@@ -744,6 +803,74 @@ pub fn resolve_doom_subsector_bsp_paths(
         .collect::<Result<Vec<_>, _>>()
 }
 
+/// Retains classic Doom's viewer-relative near-first BSP leaf order without
+/// claiming that traversal alone determines presentation visibility. Screen
+/// span clipping and occluder authority remain later, separate questions.
+pub fn resolve_doom_viewer_subsector_order(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+) -> Result<Vec<DoomSourceRecord>, DoomGeometryError> {
+    if map.subsectors.is_empty() {
+        return Ok(Vec::new());
+    }
+    let root = map
+        .nodes
+        .len()
+        .checked_sub(1)
+        .ok_or(DoomGeometryError::MissingBspRoot {
+            subsectors: map.subsectors.len(),
+        })? as u16;
+    let mut order = Vec::with_capacity(map.subsectors.len());
+    let mut ancestors = Vec::new();
+    visit_viewer_bsp_child(
+        map,
+        DoomBspChild::Node(root),
+        viewer,
+        &mut ancestors,
+        &mut order,
+    )?;
+    Ok(order)
+}
+
+fn visit_viewer_bsp_child(
+    map: &DoomMapCore,
+    child: DoomBspChild,
+    viewer: [i16; 2],
+    ancestors: &mut Vec<u16>,
+    order: &mut Vec<DoomSourceRecord>,
+) -> Result<(), DoomGeometryError> {
+    match child {
+        DoomBspChild::Subsector(index) => {
+            let subsector = map.subsectors.get(usize::from(index)).ok_or(
+                DoomGeometryError::BspSubsectorOutOfBounds {
+                    subsector_index: index,
+                    available: map.subsectors.len(),
+                },
+            )?;
+            order.push(subsector.source);
+            Ok(())
+        }
+        DoomBspChild::Node(index) => {
+            if ancestors.contains(&index) {
+                return Err(DoomGeometryError::BspCycle { node_index: index });
+            }
+            let node = &map.nodes[usize::from(index)];
+            ancestors.push(index);
+            let distance = f64::from(node.delta_x) * f64::from(viewer[1] - node.y)
+                - f64::from(node.delta_y) * f64::from(viewer[0] - node.x);
+            let (near, far) = if distance < 0.0 {
+                (node.right_child, node.left_child)
+            } else {
+                (node.left_child, node.right_child)
+            };
+            visit_viewer_bsp_child(map, near, viewer, ancestors, order)?;
+            visit_viewer_bsp_child(map, far, viewer, ancestors, order)?;
+            ancestors.pop();
+            Ok(())
+        }
+    }
+}
+
 /// Summarizes how much BSP partition evidence each leaf accumulates.
 pub fn audit_doom_subsector_bsp_paths(paths: &[DoomSubsectorBspPath]) -> DoomBspPathAudit {
     let minimum_depth = paths.iter().map(|path| path.steps.len()).min().unwrap_or(0);
@@ -1034,7 +1161,8 @@ pub fn lower_doom_one_sided_walls(
 /// Lowers upper and lower height discontinuities on two-sided walls.
 ///
 /// The source texture name is retained but not interpreted as a material or
-/// UV mapping. Middle textures, pegging, and portals are deliberately deferred.
+/// UV mapping. The Doom-owned `F_SKY1` adjacency rule omits upper bands between
+/// two sky ceilings; middle textures, pegging, and portals remain separate.
 pub fn lower_doom_two_sided_wall_bands(
     map: &DoomMapCore,
 ) -> Result<Vec<DoomTwoSidedWallTriangle>, DoomGeometryError> {
@@ -1046,7 +1174,14 @@ pub fn lower_doom_two_sided_wall_bands(
         };
         let right_sector = &map.sectors[usize::from(right.sector_index)];
         let left_sector = &map.sectors[usize::from(left.sector_index)];
-        if right_sector.ceiling_height > left_sector.ceiling_height {
+        // Classic Doom treats adjacent F_SKY1 ceilings as one continuous sky
+        // opening. The geometric height discontinuity still exists in the
+        // source sectors, but its upper wall texture is not presented. Keep
+        // this source-format rule here rather than asking generic geometry,
+        // material, or visibility consumers to recognize Doom sky names.
+        let suppress_upper_band =
+            right_sector.ceiling_texture == "F_SKY1" && left_sector.ceiling_texture == "F_SKY1";
+        if !suppress_upper_band && right_sector.ceiling_height > left_sector.ceiling_height {
             append_two_sided_band(
                 &mut triangles,
                 &candidate,
@@ -1060,7 +1195,7 @@ pub fn lower_doom_two_sided_wall_bands(
                 },
             );
         }
-        if left_sector.ceiling_height > right_sector.ceiling_height {
+        if !suppress_upper_band && left_sector.ceiling_height > right_sector.ceiling_height {
             append_two_sided_band(
                 &mut triangles,
                 &candidate,
@@ -1204,6 +1339,368 @@ pub fn lower_doom_textured_wall_triangles(
         );
     }
     Ok(triangles)
+}
+
+/// Re-expresses the existing textured-wall lowering at the source `SEG`
+/// granularity retained by Doom's BSP. This is deliberately a corpus-only
+/// representation experiment: it neither changes whole-linedef lowering nor
+/// grants generic geometry or render code knowledge of `SEG`s.
+///
+/// Each emitted triangle keeps the original linedef/sidedef/side identity and
+/// interpolates the already-resolved source-texel coordinates at the SEG
+/// endpoints. Consequently a texture continues across adjacent SEG splits
+/// instead of restarting at each BSP fragment.
+pub fn lower_doom_seg_textured_wall_triangles(
+    map: &DoomMapCore,
+    extents: &[DoomTextureExtent],
+) -> Result<Vec<DoomSegTexturedWallTriangle>, DoomGeometryError> {
+    let whole_walls = lower_doom_textured_wall_triangles(map, extents)?;
+    let candidates = resolve_doom_wall_candidates(map)?;
+    let mut triangles = Vec::new();
+
+    for seg in &map.segs {
+        let side = match seg.direction {
+            0 => DoomWallSideKind::Right,
+            1 => DoomWallSideKind::Left,
+            direction => {
+                return Err(DoomGeometryError::UnsupportedSegDirection {
+                    seg_index: seg.source.record_index,
+                    direction,
+                });
+            }
+        };
+        let linedef = &map.linedefs[usize::from(seg.linedef)];
+        let candidate = candidates
+            .iter()
+            .find(|candidate| candidate.source_linedef == linedef.source)
+            .expect("validated SEG linedef has a resolved wall candidate");
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let interval = seg_interval_on_linedef(candidate, [start.x, start.y], [end.x, end.y]);
+
+        for wall in whole_walls
+            .iter()
+            .filter(|wall| wall.source_linedef == linedef.source && wall.side == side)
+        {
+            for clipped in clip_textured_triangle_to_linedef_interval(
+                wall.positions,
+                wall.texture_coordinates,
+                interval,
+                candidate,
+            ) {
+                triangles.push(DoomSegTexturedWallTriangle {
+                    source_seg: seg.source,
+                    source_linedef: wall.source_linedef,
+                    source_sidedef: wall.source_sidedef,
+                    source_sector: wall.source_sector,
+                    side: wall.side,
+                    role: wall.role,
+                    texture_name: wall.texture_name.clone(),
+                    positions: clipped.0,
+                    texture_coordinates: clipped.1,
+                });
+            }
+        }
+    }
+    Ok(triangles)
+}
+
+/// Clips one already-lowered source `SEG` wall triangle to a subinterval of
+/// its owning linedef. This stays in the Doom provider because the interval is
+/// source-space evidence from the Stage 3B screen-span experiment, not a
+/// renderer clipping API.
+///
+/// Returned triangles retain their SEG, linedef, sidedef, role, and source
+/// texel coordinates, so a presentation comparison can preserve identity and
+/// texture phase while isolating only the observed source interval.
+pub fn clip_doom_seg_textured_wall_triangle_to_linedef_interval(
+    map: &DoomMapCore,
+    triangle: &DoomSegTexturedWallTriangle,
+    interval: [f64; 2],
+) -> Result<Vec<DoomSegTexturedWallTriangle>, DoomGeometryError> {
+    if !interval[0].is_finite()
+        || !interval[1].is_finite()
+        || interval[0] < 0.0
+        || interval[1] > 1.0
+        || interval[0] > interval[1]
+    {
+        return Err(DoomGeometryError::InvalidLinedefInterval);
+    }
+    let candidate = resolve_doom_wall_candidates(map)?
+        .into_iter()
+        .find(|candidate| candidate.source_linedef == triangle.source_linedef)
+        .expect("validated SEG triangle retains a resolved wall candidate");
+    Ok(clip_textured_triangle_to_linedef_interval(
+        triangle.positions,
+        triangle.texture_coordinates,
+        interval,
+        &candidate,
+    )
+    .into_iter()
+    .map(
+        |(positions, texture_coordinates)| DoomSegTexturedWallTriangle {
+            source_seg: triangle.source_seg,
+            source_linedef: triangle.source_linedef,
+            source_sidedef: triangle.source_sidedef,
+            source_sector: triangle.source_sector,
+            side: triangle.side,
+            role: triangle.role,
+            texture_name: triangle.texture_name.clone(),
+            positions,
+            texture_coordinates,
+        },
+    )
+    .collect())
+}
+
+/// Observes only the source sector-height conditions under which classic Doom
+/// may close a screen interval for a SEG. It neither projects the SEG nor
+/// writes any coverage state; masked middles and sky behavior remain separate
+/// presentation rules.
+pub fn observe_doom_seg_occluders(
+    map: &DoomMapCore,
+) -> Result<Vec<DoomSegOccluderObservation>, DoomGeometryError> {
+    let candidates = resolve_doom_wall_candidates(map)?;
+    map.segs
+        .iter()
+        .map(|seg| {
+            let side = match seg.direction {
+                0 => DoomWallSideKind::Right,
+                1 => DoomWallSideKind::Left,
+                direction => {
+                    return Err(DoomGeometryError::UnsupportedSegDirection {
+                        seg_index: seg.source.record_index,
+                        direction,
+                    });
+                }
+            };
+            let linedef = &map.linedefs[usize::from(seg.linedef)];
+            let candidate = candidates
+                .iter()
+                .find(|candidate| candidate.source_linedef == linedef.source)
+                .expect("validated SEG linedef has a resolved wall candidate");
+            let (front, back) = match side {
+                DoomWallSideKind::Right => (candidate.right.as_ref(), candidate.left.as_ref()),
+                DoomWallSideKind::Left => (candidate.left.as_ref(), candidate.right.as_ref()),
+            };
+            let front = front.expect("SEG direction names an existing owning side");
+            let kind = match back {
+                None => DoomSegOccluderKind::OneSided,
+                Some(back) => {
+                    let front_sector = &map.sectors[usize::from(front.sector_index)];
+                    let back_sector = &map.sectors[usize::from(back.sector_index)];
+                    if back_sector.floor_height >= back_sector.ceiling_height {
+                        DoomSegOccluderKind::BackSectorClosed
+                    } else if back_sector.floor_height >= front_sector.ceiling_height
+                        || back_sector.ceiling_height <= front_sector.floor_height
+                    {
+                        DoomSegOccluderKind::OpeningClosed
+                    } else {
+                        DoomSegOccluderKind::Open
+                    }
+                }
+            };
+            Ok(DoomSegOccluderObservation {
+                source_seg: seg.source,
+                source_linedef: linedef.source,
+                side,
+                kind,
+            })
+        })
+        .collect()
+}
+
+/// Observes the source sector relationships that let classic Doom mark floor
+/// and ceiling planes while storing an admitted wall range. The caller supplies
+/// the source-space viewer height. The result deliberately stops before any
+/// screen projection, per-column clip state, or plane-span construction.
+pub fn observe_doom_seg_plane_marks(
+    map: &DoomMapCore,
+    source_view_height: i16,
+) -> Result<Vec<DoomSegPlaneMarkObservation>, DoomGeometryError> {
+    let candidates = resolve_doom_wall_candidates(map)?;
+    map.segs
+        .iter()
+        .map(|seg| {
+            let side = match seg.direction {
+                0 => DoomWallSideKind::Right,
+                1 => DoomWallSideKind::Left,
+                direction => {
+                    return Err(DoomGeometryError::UnsupportedSegDirection {
+                        seg_index: seg.source.record_index,
+                        direction,
+                    });
+                }
+            };
+            let linedef = &map.linedefs[usize::from(seg.linedef)];
+            let candidate = candidates
+                .iter()
+                .find(|candidate| candidate.source_linedef == linedef.source)
+                .expect("validated SEG linedef has a resolved wall candidate");
+            let (front, back) = match side {
+                DoomWallSideKind::Right => (candidate.right.as_ref(), candidate.left.as_ref()),
+                DoomWallSideKind::Left => (candidate.left.as_ref(), candidate.right.as_ref()),
+            };
+            let front = front.expect("SEG direction names an existing owning side");
+            let front_sector = &map.sectors[usize::from(front.sector_index)];
+            let back_sector = back.map(|back| &map.sectors[usize::from(back.sector_index)]);
+            let paired_sky_ceiling_adjustment = back_sector.is_some_and(|back_sector| {
+                front_sector.ceiling_texture == "F_SKY1" && back_sector.ceiling_texture == "F_SKY1"
+            });
+
+            let (mut floor_marked, mut ceiling_marked) = match back_sector {
+                None => (true, true),
+                Some(back_sector) => {
+                    let effective_front_ceiling = if paired_sky_ceiling_adjustment {
+                        back_sector.ceiling_height
+                    } else {
+                        front_sector.ceiling_height
+                    };
+                    let closed_opening = back_sector.ceiling_height <= front_sector.floor_height
+                        || back_sector.floor_height >= front_sector.ceiling_height;
+                    (
+                        closed_opening
+                            || back_sector.floor_height != front_sector.floor_height
+                            || back_sector.floor_texture != front_sector.floor_texture
+                            || back_sector.light_level != front_sector.light_level,
+                        closed_opening
+                            || back_sector.ceiling_height != effective_front_ceiling
+                            || back_sector.ceiling_texture != front_sector.ceiling_texture
+                            || back_sector.light_level != front_sector.light_level,
+                    )
+                }
+            };
+            if front_sector.floor_height >= source_view_height {
+                floor_marked = false;
+            }
+            if front_sector.ceiling_height <= source_view_height
+                && front_sector.ceiling_texture != "F_SKY1"
+            {
+                ceiling_marked = false;
+            }
+            Ok(DoomSegPlaneMarkObservation {
+                source_seg: seg.source,
+                source_linedef: linedef.source,
+                side,
+                front_sector: front.source_sector,
+                back_sector: back.map(|back| back.source_sector),
+                floor_marked,
+                ceiling_marked,
+                paired_sky_ceiling_adjustment,
+            })
+        })
+        .collect()
+}
+
+fn seg_interval_on_linedef(
+    candidate: &DoomWallCandidate,
+    start: [i16; 2],
+    end: [i16; 2],
+) -> [f64; 2] {
+    let progression = |point: [i16; 2]| {
+        let delta_x = f64::from(candidate.end[0] - candidate.start[0]);
+        let delta_z = f64::from(candidate.end[1] - candidate.start[1]);
+        let length_squared = delta_x.mul_add(delta_x, delta_z * delta_z);
+        ((f64::from(point[0] - candidate.start[0]) * delta_x)
+            + (f64::from(point[1] - candidate.start[1]) * delta_z))
+            / length_squared
+    };
+    let start = progression(start);
+    let end = progression(end);
+    [start.min(end), start.max(end)]
+}
+
+fn clip_textured_triangle_to_linedef_interval(
+    positions: [[f64; 3]; 3],
+    coordinates: [[f64; 2]; 3],
+    interval: [f64; 2],
+    candidate: &DoomWallCandidate,
+) -> Vec<([[f64; 3]; 3], [[f64; 2]; 3])> {
+    let mut polygon = positions
+        .into_iter()
+        .zip(coordinates)
+        .map(|(position, coordinate)| {
+            (
+                position,
+                coordinate,
+                linedef_progression(candidate, position),
+            )
+        })
+        .collect::<Vec<_>>();
+    polygon = clip_textured_polygon(&polygon, interval[0], true);
+    polygon = clip_textured_polygon(&polygon, interval[1], false);
+    if polygon.len() < 3 {
+        return Vec::new();
+    }
+    (1..polygon.len() - 1)
+        .map(|index| {
+            let triangle = [polygon[0], polygon[index], polygon[index + 1]];
+            (
+                triangle.map(|vertex| vertex.0),
+                triangle.map(|vertex| vertex.1),
+            )
+        })
+        .collect()
+}
+
+fn clip_textured_polygon(
+    polygon: &[([f64; 3], [f64; 2], f64)],
+    boundary: f64,
+    keep_greater: bool,
+) -> Vec<([f64; 3], [f64; 2], f64)> {
+    let mut output = Vec::new();
+    for (previous, current) in polygon
+        .iter()
+        .zip(polygon.iter().cycle().skip(1))
+        .take(polygon.len())
+    {
+        let previous_inside = if keep_greater {
+            previous.2 >= boundary
+        } else {
+            previous.2 <= boundary
+        };
+        let current_inside = if keep_greater {
+            current.2 >= boundary
+        } else {
+            current.2 <= boundary
+        };
+        if previous_inside != current_inside {
+            let t = (boundary - previous.2) / (current.2 - previous.2);
+            output.push((
+                interpolate3(previous.0, current.0, t),
+                interpolate2(previous.1, current.1, t),
+                boundary,
+            ));
+        }
+        if current_inside {
+            output.push(*current);
+        }
+    }
+    output
+}
+
+fn linedef_progression(candidate: &DoomWallCandidate, position: [f64; 3]) -> f64 {
+    let delta_x = f64::from(candidate.end[0] - candidate.start[0]);
+    let delta_z = f64::from(candidate.end[1] - candidate.start[1]);
+    let length_squared = delta_x.mul_add(delta_x, delta_z * delta_z);
+    ((position[0] - f64::from(candidate.start[0])) * delta_x
+        + (position[2] - f64::from(candidate.start[1])) * delta_z)
+        / length_squared
+}
+
+fn interpolate3(start: [f64; 3], end: [f64; 3], t: f64) -> [f64; 3] {
+    [
+        start[0] + (end[0] - start[0]) * t,
+        start[1] + (end[1] - start[1]) * t,
+        start[2] + (end[2] - start[2]) * t,
+    ]
+}
+
+fn interpolate2(start: [f64; 2], end: [f64; 2], t: f64) -> [f64; 2] {
+    [
+        start[0] + (end[0] - start[0]) * t,
+        start[1] + (end[1] - start[1]) * t,
+    ]
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1670,14 +2167,16 @@ mod tests {
     use super::{
         audit_doom_pegging_flags, audit_doom_subsector_bsp_paths,
         audit_doom_subsector_loop_closure, audit_doom_vertical_topology, audit_doom_wall_topology,
-        doom_direction_to_tokimu, doom_point_to_tokimu, locate_doom_point_subsector,
-        lower_doom_one_sided_walls, lower_doom_subsector_surfaces,
+        clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_direction_to_tokimu,
+        doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_one_sided_walls,
+        lower_doom_seg_textured_wall_triangles, lower_doom_subsector_surfaces,
         lower_doom_textured_wall_triangles, lower_doom_two_sided_middle_walls,
-        lower_doom_two_sided_wall_bands, observe_doom_sky_surfaces,
-        observe_doom_two_sided_middle_textures, observe_doom_wall_texture_axes,
-        resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
-        resolve_doom_subsector_loops, resolve_doom_subsector_regions,
-        resolve_doom_subsector_sector_ownership, resolve_doom_wall_candidates,
+        lower_doom_two_sided_wall_bands, observe_doom_seg_occluders, observe_doom_seg_plane_marks,
+        observe_doom_sky_surfaces, observe_doom_two_sided_middle_textures,
+        observe_doom_wall_texture_axes, resolve_doom_linedef_subsector_membership,
+        resolve_doom_subsector_bsp_paths, resolve_doom_subsector_loops,
+        resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
+        resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates,
         resolve_doom_wall_texture_bindings, tokimu_direction_to_doom, tokimu_point_to_doom,
         DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership, DoomSurfacePlane,
         DoomTextureExtent, DoomWallBand, DoomWallSideKind,
@@ -1750,6 +2249,7 @@ mod tests {
     fn audits_closed_source_openings_without_inventing_a_repair() {
         let mut map = map_with_linedef(Some(0), Some(1));
         map.sectors[1].floor_height = 128;
+        map.sectors[1].ceiling_height = 160;
         map.sectors[1].ceiling_height = 128;
 
         assert_eq!(
@@ -1949,6 +2449,43 @@ mod tests {
             locate_doom_point_subsector([5, 0], &paths),
             Err(DoomGeometryError::PointNotInsideUniqueSubsector { x: 5, y: 0 })
         ));
+    }
+
+    #[test]
+    fn viewer_bsp_order_visits_the_near_leaf_before_the_far_leaf() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.subsectors = vec![
+            DoomSubsector {
+                source: source(3),
+                seg_count: 0,
+                first_seg: 0,
+            },
+            DoomSubsector {
+                source: source(7),
+                seg_count: 0,
+                first_seg: 0,
+            },
+        ];
+        map.nodes = vec![DoomNode {
+            source: source(9),
+            x: 0,
+            y: 0,
+            delta_x: 64,
+            delta_y: 0,
+            right_bbox: [0; 4],
+            left_bbox: [0; 4],
+            right_child: DoomBspChild::Subsector(0),
+            left_child: DoomBspChild::Subsector(1),
+        }];
+
+        assert_eq!(
+            resolve_doom_viewer_subsector_order(&map, [0, -1]).unwrap(),
+            vec![source(3), source(7)]
+        );
+        assert_eq!(
+            resolve_doom_viewer_subsector_order(&map, [0, 1]).unwrap(),
+            vec![source(7), source(3)]
+        );
     }
 
     #[test]
@@ -2216,6 +2753,184 @@ mod tests {
     }
 
     #[test]
+    fn seg_granular_wall_lowering_preserves_source_uv_continuity() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.sidedefs[0].x_offset = 7;
+        map.sidedefs[0].middle_texture = "WALL".to_owned();
+        map.vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: 0,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 100,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(2),
+                x: 50,
+                y: 0,
+            },
+        ];
+        map.linedefs[0].start_vertex = 0;
+        map.linedefs[0].end_vertex = 1;
+        map.segs = vec![seg(11, 0, 2), seg(12, 2, 1)];
+
+        let triangles = lower_doom_seg_textured_wall_triangles(
+            &map,
+            &[DoomTextureExtent {
+                name: "WALL".to_owned(),
+                width: 64,
+                height: 128,
+            }],
+        )
+        .unwrap();
+
+        assert!(triangles
+            .iter()
+            .any(|triangle| triangle.source_seg.record_index == 11));
+        assert!(triangles
+            .iter()
+            .any(|triangle| triangle.source_seg.record_index == 12));
+        let seam_u = triangles
+            .iter()
+            .flat_map(|triangle| triangle.positions.iter().zip(triangle.texture_coordinates))
+            .filter_map(|(position, coordinate)| {
+                (position[0] == 50.0 && position[2] == 0.0).then_some(coordinate[0])
+            })
+            .collect::<Vec<_>>();
+        assert!(!seam_u.is_empty());
+        assert!(seam_u.iter().all(|u| (*u - 57.0).abs() < f64::EPSILON));
+        assert!(triangles
+            .iter()
+            .all(|triangle| triangle.source_linedef == source(0)));
+        assert!(triangles
+            .iter()
+            .all(|triangle| triangle.source_sidedef == source(0)));
+    }
+
+    #[test]
+    fn seg_subinterval_clipping_preserves_identity_and_interpolates_source_texels() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.sidedefs[0].x_offset = 7;
+        map.sidedefs[0].middle_texture = "WALL".to_owned();
+        map.vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: 0,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 100,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(2),
+                x: 50,
+                y: 0,
+            },
+        ];
+        map.linedefs[0].start_vertex = 0;
+        map.linedefs[0].end_vertex = 1;
+        map.segs = vec![seg(11, 0, 2), seg(12, 2, 1)];
+        let triangles = lower_doom_seg_textured_wall_triangles(
+            &map,
+            &[DoomTextureExtent {
+                name: "WALL".to_owned(),
+                width: 64,
+                height: 128,
+            }],
+        )
+        .unwrap();
+        let first = triangles
+            .iter()
+            .find(|triangle| triangle.source_seg.record_index == 11)
+            .unwrap();
+        let clipped =
+            clip_doom_seg_textured_wall_triangle_to_linedef_interval(&map, first, [0.125, 0.375])
+                .unwrap();
+
+        assert!(!clipped.is_empty());
+        assert!(clipped
+            .iter()
+            .all(|triangle| triangle.source_seg == first.source_seg));
+        assert!(clipped
+            .iter()
+            .all(|triangle| triangle.source_linedef == first.source_linedef));
+        assert!(clipped
+            .iter()
+            .flat_map(|triangle| triangle.positions)
+            .all(|position| {
+                (12.5 - f64::EPSILON..=37.5 + f64::EPSILON).contains(&position[0])
+            }));
+        let original_u = first
+            .texture_coordinates
+            .iter()
+            .map(|coordinate| coordinate[0])
+            .collect::<Vec<_>>();
+        let minimum_u = original_u.iter().copied().fold(f64::INFINITY, f64::min);
+        let maximum_u = original_u.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        assert!(clipped
+            .iter()
+            .flat_map(|triangle| triangle.texture_coordinates)
+            .all(|coordinate| coordinate[0].is_finite()
+                && coordinate[0] >= minimum_u
+                && coordinate[0] <= maximum_u));
+    }
+
+    #[test]
+    fn classifies_seg_occluder_authority_from_source_opening_heights() {
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.segs = vec![seg(4, 0, 1)];
+        assert_eq!(
+            observe_doom_seg_occluders(&map).unwrap()[0].kind,
+            super::DoomSegOccluderKind::Open
+        );
+        map.sectors[1].floor_height = 128;
+        map.sectors[1].ceiling_height = 160;
+        assert_eq!(
+            observe_doom_seg_occluders(&map).unwrap()[0].kind,
+            super::DoomSegOccluderKind::OpeningClosed
+        );
+        map.sectors[1].ceiling_height = 128;
+        assert_eq!(
+            observe_doom_seg_occluders(&map).unwrap()[0].kind,
+            super::DoomSegOccluderKind::BackSectorClosed
+        );
+    }
+
+    #[test]
+    fn observes_plane_mark_eligibility_before_column_clipping() {
+        let mut one_sided = map_with_linedef(Some(0), None);
+        one_sided.segs = vec![seg(4, 0, 1)];
+        let mark = observe_doom_seg_plane_marks(&one_sided, 36).unwrap()[0];
+        assert!(mark.floor_marked);
+        assert!(mark.ceiling_marked);
+        assert_eq!(mark.back_sector, None);
+
+        let mut two_sided = map_with_linedef(Some(0), Some(1));
+        two_sided.segs = vec![seg(5, 0, 1)];
+        let mark = observe_doom_seg_plane_marks(&two_sided, 36).unwrap()[0];
+        assert!(!mark.floor_marked);
+        assert!(!mark.ceiling_marked);
+
+        two_sided.sectors[1].floor_height = 8;
+        let mark = observe_doom_seg_plane_marks(&two_sided, 36).unwrap()[0];
+        assert!(mark.floor_marked);
+        assert!(!mark.ceiling_marked);
+
+        two_sided.sectors[0].ceiling_texture = "F_SKY1".to_owned();
+        two_sided.sectors[1].ceiling_texture = "F_SKY1".to_owned();
+        two_sided.sectors[1].ceiling_height = 160;
+        let mark = observe_doom_seg_plane_marks(&two_sided, 36).unwrap()[0];
+        assert!(mark.paired_sky_ceiling_adjustment);
+        assert!(!mark.ceiling_marked);
+    }
+
+    #[test]
     fn lowers_left_sided_wall_with_the_forward_source_u_axis() {
         let mut map = map_with_linedef(None, Some(0));
         map.sidedefs[0].x_offset = 7;
@@ -2309,6 +3024,36 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn omits_upper_band_between_adjacent_classic_sky_ceilings() {
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.sectors[0].ceiling_texture = "F_SKY1".to_owned();
+        map.sectors[1].ceiling_texture = "F_SKY1".to_owned();
+        map.sectors[1].floor_height = 32;
+        map.sectors[1].ceiling_height = 96;
+
+        let triangles = lower_doom_two_sided_wall_bands(&map).unwrap();
+
+        assert_eq!(triangles.len(), 2);
+        assert!(triangles
+            .iter()
+            .all(|triangle| triangle.band == DoomWallBand::Lower));
+    }
+
+    #[test]
+    fn retains_upper_band_when_only_one_ceiling_is_classic_sky() {
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.sectors[0].ceiling_texture = "F_SKY1".to_owned();
+        map.sectors[1].ceiling_height = 96;
+
+        let triangles = lower_doom_two_sided_wall_bands(&map).unwrap();
+
+        assert_eq!(triangles.len(), 2);
+        assert!(triangles
+            .iter()
+            .all(|triangle| triangle.band == DoomWallBand::Upper));
     }
 
     #[test]

@@ -427,6 +427,29 @@ Implementation sequence:
         unpegged bits.
 - [x] Identify `F_SKY1` source surfaces without making sky behavior a generic
       mesh concern (E1M1: 74 headless sky-surface observations).
+  - [x] Diagnose the exterior-hut floating upper wall as linedef 252's
+        source-valid `STARTAN3` height band between two `F_SKY1` ceilings, then
+        apply the classic sky-to-sky upper-band omission in the Doom geometry
+        provider. Dual-sky and one-sky controls retain the bounded rule; see
+        [`E1M1 hut sky-boundary evidence.md`](E1M1%20hut%20sky-boundary%20evidence.md).
+  - [ ] Exercise an actual E1 sky presentation without weakening the retained
+        source classification or turning sky into an ordinary flat texture.
+    - [x] Compose `SKY1` through the bounded Doom raster provider and expose an
+          opt-in `--doom-sky` corpus path distinct from the purple AR-0027
+          omission diagnostic.
+    - [x] Present the panorama on a corpus-local static enclosure before world
+          geometry with horizontal repeat, vertical clamp, ordinary depth
+          testing, and no depth writes. This is explicitly non-equivalent to
+          the original view-dependent Doom sky and adds no renderer sky API.
+    - [x] Establish bounded `SKY1` coverage handling: the reviewed package has
+          a wholly empty bottom eight-row band, so the panorama retains only
+          rows 0--119 and rejects any partial or internal coverage gap without
+          inventing texels or weakening ordinary texture-alpha deferral.
+    - [ ] Retain native visual evidence that the exterior has no purple or
+          black sky gaps, the panorama seam is acceptable, and ordinary world
+          surfaces continue to occlude the enclosure.
+    - [ ] Exercise the same bounded presentation in the browser/WASM consumer
+          before treating the experiment as cross-target evidence.
 - [x] Preserve source linedef, sidedef, sector, and subsector identities on
       lowered presentation records. Focused lowering tests now assert the
       required identities across BSP surfaces, one-sided walls, and two-sided
@@ -641,7 +664,8 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         complete deterministic inventory; the retained document records the
         reviewed package invocation, counts, visual observation, and scope.
   - [x] Retain deterministic scene evidence: the reviewed package identity,
-        fixed observer policy, 1,835 submitted draws, source-to-handle
+        fixed observer policy, 1,823 submitted draws after the bounded
+        sky-to-sky upper-wall repair, source-to-handle
         inventory, and explicit sky/masked-middle/degenerate omission counts.
   - [ ] Commit fixed-camera native and browser image observations beside target,
         adapter, build, package, and camera provenance. Do not compare their
@@ -652,7 +676,7 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
           and a comparable native image remains pending.
   - [x] Emit companion structural evidence for submitted/omitted walls, flats,
         sky, and masked-middle records. The deterministic preflight now reports
-        463 submitted floors, 390 submitted ceilings, and 588/184/210 submitted
+        463 submitted floors, 390 submitted ceilings, and 588/172/210 submitted
         middle/upper/lower walls beside retained sky, masked-middle, and
         degenerate omission counts; the retained evidence document records the
         same bounded categories.
@@ -746,7 +770,10 @@ Acceptance criteria:
         This does not define a general `BLOCKMAP` traversal or visibility API.
 - [ ] Add reset, noclip diagnostic mode, and current-sector observations.
   - [x] Add `R` source-pose reset and an explicit `--noclip` diagnostic mode to
-        the corpus observer. Current-sector tracking remains open.
+        the corpus observer. Noclip retains `E` for physical use inspection and
+        adds diagnostic vertical flight on `Space` (up) and physical Left Ctrl
+        (down); these bindings do not affect collision-enabled movement.
+        Current-sector tracking remains open.
 
 Acceptance criteria:
 

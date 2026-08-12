@@ -137,6 +137,64 @@ The study treats candidate count and frame time as independent facts. A lower
 candidate count is useful evidence, but does not establish a performance gain;
 an observed visible omission invalidates a conservative trial immediately.
 
+### Future Hypothesis: Composable Candidate-Selection Stages
+
+The study may eventually establish that a view uses more than one selection
+mechanism. Do not call every mechanism an occlusion provider: frustum tests,
+spatial indices, source-topology traversal, and screen-span clipping make
+different claims. Until independent evidence earns a capability, they remain
+corpus/application mechanisms rather than caller vocabulary.
+
+The candidate model to test is:
+
+```text
+prepared ordered candidates
+    -> cheap conservative selector(s)
+    -> specialized selector(s)
+    -> submitted ordered candidates
+```
+
+For ordinary conservative selectors, each stage must be monotonic:
+
+```text
+output identities ⊆ input identities
+```
+
+and must preserve the relative order of survivors. A rejection is valid only
+when that stage can prove irrelevance within its declared view/domain. A stage
+that produces a source-authoritative visible set—such as the ongoing Doom BSP
+and screen-span experiment—has different semantics and must declare them
+explicitly; it cannot silently masquerade as generic conservative culling.
+
+Future evaluation must distinguish these roles:
+
+| Role | Authority | Initial use |
+| --- | --- | --- |
+| Candidate-domain producer | Declares a view-local candidate domain; may introduce a derived domain | Portal/chart/topology research, not a selector |
+| Conservative selector | Filters its supplied candidates only; failure falls back to its input | Frustum/AABB and spatial broad phase trials |
+| Source-authoritative selector | Applies source-specific presentation semantics with retained reasons | Doom BSP/screen-span comparison only |
+| Shadow selector | Produces observations only and cannot alter submission | Parallel corpus comparison and safe rollout evidence |
+
+Multiple mechanisms can help when cheap broad rejection reduces the work seen
+by expensive specialized stages. Their value is not assumed from draw counts:
+the study must compare composition cost, preserved ordering, identities
+retained/rejected by each stage, and visible omissions. A failed selector must
+either return its input unchanged or make continuation explicitly unsafe; it
+must never silently substitute an empty candidate list.
+
+Parallel/shadow operation is specifically encouraged for corpus evidence:
+
+```text
+same prepared candidates
+    -> full baseline
+    -> generic frustum shadow result
+    -> Doom source-presentation shadow result
+```
+
+Retain set disagreements (`A - B`, `B - A`, and intersection) with bounded
+source identities before any selector is allowed to affect presentation. This
+is more informative than comparing aggregate draw counts alone.
+
 | Stage | Method | Required facts | Ownership | Initial status |
 | --- | --- | --- | --- | --- |
 | 0 | Explicit full submission | Prepared ordered draw list | Existing caller contract | Baseline |
@@ -149,6 +207,30 @@ an observed visible omission invalidates a conservative trial immediately.
 `REJECT` and `BLOCKMAP` are not stages in this sequence. They may be retained
 as Doom-specific comparison inputs during Stage 3 only after their actual
 historical semantics, completeness, and failure behavior are documented.
+
+### Classic Doom Visibility Is a Distinct Oracle
+
+Classic Doom does not require a watertight exterior world that can safely be
+viewed from every free-flight position. Its software renderer traverses source
+BSP/subsector structure and maintains screen-space solid-wall clipping while
+processing visible wall segments. The original source's `R_ClipSolidWallSegment`
+is explicitly the solid-wall screen-range operation; see the
+[id Software Doom source release](https://github.com/id-software/doom).
+
+Therefore, a full submitted 3D mesh scene can expose source-valid wall spans
+that the classic presentation would never submit to the screen. This is not
+evidence that a source wall is malformed, nor justification to hide it in
+`tokimu-render`. It is concrete Stage-3 pressure for a Doom-owned comparative
+visibility experiment.
+
+The SKY1 panorama made this distinction observable in E1M1. Native `LOOK`
+identified a suspected exterior span as linedef 247 / sidedef 344: a source
+valid `BROWN96` upper span from -24 through 176 between sectors 56 and 68.
+It remains ordinary foreground geometry under the current full-mesh corpus
+presentation. Any later compatibility comparison must retain the source span,
+camera pose, BSP traversal/clipping decision, and whether the classic oracle
+would submit it; it must not introduce an image-driven "outside" suppression
+rule.
 
 ### Theory Candidates and General Workload Cases
 
@@ -163,6 +245,8 @@ Doom-shaped optimization.
 | BVH versus uniform grid | Large static scans, robotics environments, spatial editors | Tests whether broad-phase selection reduces CPU work before submission | Static/dynamic invalidation and memory costs must be measured; no hidden global scene graph |
 | Temporal coherence / hysteresis frustum | Smooth inspection cameras, map navigation, XR-like head motion | Tests whether prior classifications reduce work or boundary churn | Teleport and abrupt-turn traces must fall back safely; prior-frame results never become truth |
 | Doom BSP / portal / sector traversal | Comparison oracle for applications with explicit region topology, such as facilities or rooms | Tests the incremental value of application-owned topology | Remains application/source-owned unless a separate source-neutral region contract earns review |
+| Composed selector pipeline | CAD/editor scenes combining broad spatial rejection with local topology | Tests whether declared filtering stages compose safely and reduce total work | Stages must state conservative/source-authoritative/heuristic guarantees, preserve survivor order, and retain failure fallback semantics |
+| Shadow selector comparison | Corpus regression, editor diagnostics, provider rollout | Tests selector disagreements without granting presentation authority | Shadow result cannot alter candidate submission; retain bounded identity differences rather than only totals |
 | Offline potentially-visible sets | Static architectural walkthroughs, factory digital twins, fixed-installation visualizations | Tests memory-for-runtime selection tradeoff | Offline data must be versioned, conservative, and invalidated on scene changes; never infer it from a renderer |
 | Occluder eligibility classification | CAD opaque shells, industrial layouts, editor previews | Tests the semantic precondition for later occlusion, including opaque/cutout/blend distinction | No texture-alpha inspection in frustum selection; cutout and Blend cannot be assumed opaque blockers |
 | Software occlusion buffer | Deterministic/headless research and constrained devices | Tests coarse occlusion without GPU query lifecycle | Must prove conservative coverage and retain false-negative evidence; not a renderer feature by default |
@@ -177,6 +261,18 @@ turn, and a teleport. Each trace records per-frame bounds tests, hierarchy
 nodes or source regions visited where applicable, candidates, rejections,
 submissions, selection time, renderer submission time, total frame time, and
 false-negative findings.
+
+Every comparative selector must state its guarantee before it can participate
+in any composed experiment. A selector with observed false negatives is a
+counterexample fixture only: it must never silently narrow a production-like
+candidate set by intersection with conservative selectors.
+
+| Selector | Current guarantee | Composition status |
+| --- | --- | --- |
+| Full submission | no visibility rejection | valid baseline/fallback |
+| Frustum/AABB | conservative geometric rejection | comparative candidate control only |
+| Stage 3B per-column SEG grid | falsified; visible false negatives observed | failure reproducer only; never compose as a rejecting provider |
+| Source-faithful Doom visibility | not yet established | requires a separate source-owned experiment |
 
 Add one deliberately pathological source-neutral fixture before drawing general
 conclusions: many objects behind the camera, outside a single frustum plane,
@@ -381,6 +477,11 @@ this record's current evidence.
       and any separately justified portal/sector method as source-specific
       candidate selection/oracle. Do not place WAD terms in `tokimu-render` or
       propose this source-specific method as Tokimu's answer.
+  - [ ] Retain one fixed E1M1 sky-boundary pose and source-valid span control
+        (including linedef 247 / sidedef 344) through a Doom BSP/front-to-back
+        screen-clipping comparison. Establish whether each span is submitted by
+        the classic oracle before treating it as a lowering defect or a
+        visibility candidate.
   - [x] Preflight the currently retained source provenance before selection.
         Flat draws retain source subsector identity, while wall and cutout draws
         retain linedef/sidedef identity only; `REJECT` is now decoded only as
@@ -406,6 +507,226 @@ this record's current evidence.
         side, and continuous texture parameterization across every SEG split.
         Do not modify the established static lowerer, make SEG a renderer
         concept, or create a public fragment/visibility API.
+    - [x] Retain a separate provider-lowered `DoomSegTexturedWallTriangle`
+          representation and a synthetic split-wall regression proving that
+          both fragments retain the original linedef/sidedef identity and the
+          same source-texel U coordinate at their shared seam.
+    - [x] Retain the E1M1 headless representation report: `519` source SEGs
+          produced `1,256` SEG-wall triangles across `454` linedefs. The
+          current whole-wall control has `1,823` opaque wall draws; neither
+          number is yet a submitted-draw comparison because SEG geometry is
+          not uploaded or selected in this checkpoint.
+    - [x] Apply the existing viewer-pose subsector control independently to
+          SEG-owned candidates, retaining source SEG order. At the fixed
+          spawn-yaw-plus-90 control pose, `136/237` source subsectors retained
+          `780/1,256` SEG-wall triangles. This is still a frustum-filtered
+          source-subsector control, not a classic Doom screen-clip oracle.
+    - [x] Establish a source-faithful near-first BSP traversal observation.
+          At the canonical source spawn `(1056,-3616)`, E1M1 visits all `237`
+          subsectors beginning `103,104,97,96,...`; this ordering controls no
+          coverage yet.
+    - [x] Separate Doom occluder authority from screen-interval mechanics.
+          E1M1 observes `343` one-sided, `8` closed-back-sector, and `10`
+          closed-opening SEGs, alongside `371` open SEGs. This classification
+          records only source sector-height evidence and cannot itself hide a
+          projected span.
+    - [ ] Add bounded screen-span clipping, with a separate Doom-owned
+          occluder-authority classification, before interpreting the surviving
+          SEG set as Doom presentation visibility.
+      - [x] Fixed source-spawn control records `320` horizontal diagnostic
+            columns: among `732` source SEGs, `553` are outside, `135` are
+            fully covered, `35` partially visible, and `9` fully visible.
+            It retains SEG/linedef, traversal rank, interval, authority, and
+            coverage contribution without claiming historic projection parity.
+      - [x] Retain visible subintervals and lower only those bounded,
+            source-labelled portions into a separate corpus presentation
+            representation. The fixed source-spawn control produces `47`
+            visible source intervals / `154` lowered meshes; the source-derived
+            hut control produces `4` intervals / `11` meshes. Neither path has
+            uploaded the representation or claimed a visual comparison.
+      - [x] Upload the bounded, source-labelled representation in a separate
+            corpus mode. The fixed source-spawn control uploads `154` ordinary
+            wall meshes from `47` retained source intervals, with no masked
+            middles; it retains separate resource/command/warm-frame evidence.
+            The diagnostic screen projection is not historic-Doom parity.
+      - [ ] Retain a manual fixed-pose comparison of that representation with
+            the static shell, including the hut-wall observation. Do not turn
+            the diagnostic column projection into a presentation-correctness
+            claim.
+        - [x] Falsify the one-dimensional coverage control before treating it
+              as a viable presentation filter. The native source-spawn mode
+              retained only `154` walls and visibly removed substantial
+              spawn-room surfaces, so its horizontal-only coverage state is
+              unsound for E1M1 presentation.
+        - [ ] If Stage 3B continues, replace the one-dimensional control only
+              with a separately documented Doom-owned projected vertical-span
+              experiment. It must preserve non-occluding openings and retain
+              explicit false-negative inspection; do not repair this by
+              weakening generic renderer culling or hiding source geometry.
+          - [x] Retain a headless two-dimensional source-grid control before
+                any replacement presentation mode. It records vertical source
+                spans independently of horizontal interval coverage, but is
+                not uploaded or claimed correct.
+          - [x] Refine that grid to per-column source-ray/SEG intersections,
+                rather than using one enclosing rectangle for a sloped wall.
+                Retain the change in candidates before considering visual work.
+          - [ ] Do not upload the per-column result until a fixed-pose
+                false-negative protocol, including the spawn room and hut
+                control, is specified. The lower count is not visual evidence.
+          - [x] Establish that the per-column upload is fixed-pose comparison
+                geometry, not interactive visibility. Turning the native
+                camera after source-spawn preparation leaves the selected SEG
+                set unchanged and exposes missing geometry.
+          - [x] Before any dynamic experiment, retain a headless source-pose
+                trace of per-column selection change. Do not rebuild static
+                GPU meshes or make camera motion own Doom BSP state merely to
+                make the comparison mode look interactive.
+            - [x] Retain a four-heading source-spawn trace. Selection changes
+                  materially across the declared poses, confirming that a
+                  fixed prepared wall set cannot represent interactive views.
+            - [x] Retain a separate dynamic corpus control which uploads the
+                  lowerable SEG wall set once and varies only a source-owned
+                  draw-enable mask after lowering the current observer pose
+                  through the selected comparative embedding. Preserve zero
+                  warm-frame mesh upload/replacement evidence.
+            - [x] Manually inspect turns and movement for visible false
+                  negatives; retain exact source poses for any omissions.
+                  Current material coverage omissions remain explicit and are
+                  not misclassified as visibility rejection.
+              - [x] Falsified at close camera range: ordinary nearby walls
+                    vanish while the per-column source-grid control updates.
+                    This is a visible false negative, so the dynamic control
+                    is not usable presentation/culling behavior.
+          - [x] Retain three exact false-negative source-pose replays.
+                    They select only 4, 7, and 11 SEGs while visually dropping
+                    ordinary nearby/courtyard walls; close this per-column
+                    coverage branch as unsound rather than tuning thresholds.
+          - [x] Audit the retained leaf/source ordering against local source-ray
+                depth before attempting richer vertical clipping. All three
+                counterexample poses contain later, nearer closing SEGs after
+                an earlier SEG has already claimed the same diagnostic cell
+                (`134`, `147`, and `928` attempted depth inversions). Therefore
+                near-first *subsector* traversal is not sufficient as direct
+                per-SEG/per-cell occluder order in this control.
+          - [x] Reject upper/lower diagnostic-grid state as the immediate
+                successor. Primary classic-Doom source evidence shows that
+                `solidsegs` is a horizontal solid-range list; vertical
+                `ceilingclip`/`floorclip` handling occurs later during admitted
+                wall-tier/plane drawing. Do not generalize the failed 2D grid.
+            - [x] Compare the retained leaf/source order against a deliberately
+                  non-authoritative global nearest-SEG ordering control. It
+                  reduced the three replay depth inversions from `134/147/928`
+                  to `0/0/36`, but retained essentially the same tiny selected
+                  sets (`4/7/10` versus `4/7/11`). Ordering is therefore a
+                  real defect in the old control, but correcting it cannot
+                  rescue boolean screen-cell closure.
+          - [x] Establish a separate headless, Doom-owned source-protocol
+                control before another visual mode: viewer-side BSP recursion,
+                backface/FOV SEG admission, solid versus pass range authority,
+                horizontal solid-range union, and far-child bbox rejection.
+                Compare it with the three retained false-negative poses before
+                interpreting any resulting SEG set as presentation evidence.
+            - [x] Retain the first `R_AddLine`-style admission checkpoint over
+                  all three false-negative poses. Directed source SEG facing
+                  rejects `355/350/356` backfaces from `732` source SEGs;
+                  after bounded FOV rejection, the remaining admissions are
+                  `106/119/126` solid and `73/84/94` pass SEGs. This is not
+                  yet far-child pruning or visible-draw evidence.
+            - [x] Add the bounded horizontal solid-range union to the same
+                  near-first leaf control. The three retained poses close all
+                  `320/320` diagnostic columns after only `3/22/2` solid
+                  contributor intervals; the remaining `103/97/124` admitted
+                  solid SEGs are already covered. Pass/opening SEGs do not
+                  mutate this union. This exposes why far-child bbox pruning,
+                  rather than a flat all-leaves list, is the next necessary
+                  source-protocol question.
+            - [x] Add a headless near-first recursive BSP control with
+                  source-`checkcoord` child-bbox projection. It visits
+                  `94/118/83` leaves and `278/331/241` source SEGs in the
+                  three retained poses. The control prunes `4/19/7` far
+                  children only after solid-range closure, rejects a separate
+                  `6/3/5` child bboxes as definitely outside the source FOV,
+                  and deliberately fails open for the remaining `93/75/82`
+                  ambiguous/behind/containing-viewer bboxes. The resulting
+                  `3/24/3` solid and `2/37/2` pass admissions are
+                  source-protocol measurements only, not a submitted mesh set
+                  or visual correctness claim.
+            - [x] Trace the retained exterior suspect separately through the
+                  recursive control. At the three interior counterexample
+                  poses and at the source-derived hut control, linedef `247`
+                  belongs to source subsectors `190` and `192`, neither of
+                  which is reached (`0` visited / `0` admitted). The trace
+                  identifies a solid-range far-child rejection at node `235`
+                  for near-wall A, courtyard, and hut-control, and at node
+                  `197` for near-wall B. This directly contrasts with the
+                  earlier all-leaves grid, where its two SEGs had reached a
+                  fully-covered interval. It is evidence for continuing a
+                  Doom-owned traversal/clip study, not proof that the source
+                  wall is malformed or that the current approximation is
+                  visual parity. The retained projected intervals are
+                  `66..319`, `101..153`, `0..319`, and `36..319`, each
+                  covered by the then-complete `0..319` solid range; these
+                  are diagnostic columns, not pixels.
+            - [x] Map each admitted source SEG back to already provider-lowered
+                  opaque SEG-wall triangles without uploading or selecting
+                  them. Near-wall A, near-wall B, courtyard, and hut-control
+                  respectively retain `5/61/5/4` admitted source SEGs and
+                  `6/91/4/8` lowerable SEG-wall triangles. Linedef `247`
+                  contributes `0` lowerable triangles in every control. This
+                  maps the traversal observation to existing source geometry;
+                  it is not a visual draw set because planes, vertical tier
+                  clipping, and exact source projection remain unmodeled.
+            - [x] Inventory the retained static flat mesh portion separately.
+                  The recursively visited subsectors own `184/230/164/150`
+                  existing floor draws and `149/157/136/120` existing ceiling
+                  draws at near-wall A, near-wall B, courtyard, and hut-control.
+                  These are source-labelled mesh counts only, not Doom plane
+                  spans or selected draws. They make the remaining wall-tier
+                  and plane-span reconstruction boundary explicit before any
+                  future presentation comparison is considered.
+            - [x] Split the admitted wall-triangle inventory by source tier.
+                  The same four poses retain upper/lower/middle counts of
+                  `0/0/6`, `4/34/53`, `0/0/4`, and `0/0/8`. In particular,
+                  most of near-wall B's 91 lowerable wall triangles are source
+                  middle tiers; their eventual opaque/cutout/presentation
+                  treatment cannot be inferred from horizontal solid ranges.
+                  This is source-tier evidence, not a material-policy change.
+          - [x] Retain the first source plane-mark checkpoint at the
+                  source eye height (`36`). After horizontal SEG admission,
+                  source wall/sector facts mark floor/ceiling eligibility of
+                  `4/3`, `53/33`, `5/3`, and `4/4` respectively; the same
+                  controls observe `2/15/0/0` paired-`F_SKY1` ceiling
+                  adjustments. These are `R_StoreWallRange`-stage facts only:
+                  no per-column clip arrays, visplane spans, flat draw
+                  selection, or renderer state are produced.
+          - [x] Continue the recursive source protocol into a bounded,
+                headless wall-tier vertical-clip trace. At the source-spawn
+                control it records `37` admitted SEGs with `8/7/23`
+                upper/lower/middle tier spans, `36/37` floor/ceiling source
+                marks, and `823/875` ceiling/floor clip-boundary updates.
+                Near-wall B retains `2/17/25` tier spans and `355/706`
+                updates. Marked planes can advance a boundary without an
+                upper/lower tier; one-sided middles are terminal while
+                two-sided masked middles remain open. This proves that wall
+                tier, opening, and plane-span reconstruction must
+                remain separate from horizontal solid-range admission; the
+                trace creates no visplanes, flat selection, renderer state, or
+                new presentation/culling mode.
+          - [x] Inventory the decoded source plane grouping keys before any
+                span construction. The recursive controls retain floor/ceiling
+                contributor counts and distinct `(height, flat, light)` keys,
+                normalizing `F_SKY1` ceilings to a common sky identity. Source
+                spawn records `36/37` contributors and `6/7` keys; near-wall B
+                records `53/33` contributors and `10/7` keys. This establishes
+                that plane identity is independent of sector identity and clip
+                updates; it creates no visplane, span, flat selection, or
+                presentation/culling mode.
+      - [x] Retain a source-derived hut control: player-one looking at the
+            LINEDEFS #208 midpoint. Both SEG records for linedef `247` project
+            to columns `166..180` and are fully covered before they contribute
+            coverage (`SEG 567` is `OpeningClosed`; `SEG 559` is
+            `BackSectorClosed`). This supports a presentation-model mismatch,
+            not deletion of the source wall, within the bounded control.
   - [ ] Stage 3 comparison matrix: retain prepared geometry/resource count,
         candidates, submitted draws, selection CPU, command-build CPU, warm
         frame observation, startup preparation, and bounded source identity
@@ -876,6 +1197,461 @@ this record's current evidence.
   identity and independently selectable presentation fragments remains
   corpus-local evidence relevant to future CAD and AR-0026 pressure; it is not
   a new Tokimu vocabulary or renderer responsibility.
+
+### Cycle 24 -- 2026-08-11
+
+- Stage 3B has begun at the representation boundary. The new
+  `lower_doom_seg_textured_wall_triangles` path clips the already admitted
+  whole-linedef wall triangles to each source SEG while interpolating their
+  existing source-texel UVs. It is deliberately separate from the static
+  lowerer and generic renderer; no public fragment, `SEG`, or visibility
+  abstraction was added.
+- A synthetic two-SEG source line verifies the crucial seam property: both
+  fragments carry the original wall identity and evaluate U=`57` at the shared
+  source midpoint after a seven-texel sidedef offset. The E1M1 headless report
+  retained `1,256` triangles from `519` source SEGs and `454` source linedefs.
+  Shared world positions with multiple U values are reported only as a
+  diagnostic: overlapping sides, roles, and materials make that whole-map
+  count unsuitable as a continuity verdict.
+- Next: establish a source-faithful front-to-back BSP traversal and bounded
+  screen-span clipping control. No conclusion about Doom's historical screen
+  clipping, generic occlusion, or a renderer-owned visibility contract follows
+  from the current frustum-filtered SEG checkpoint.
+- The viewer-pose control now retains `780/1,256` SEG triangles at the fixed
+  spawn-yaw-plus-90 pose (`136/237` source subsectors), compared with the
+  established whole-linedef membership-union control's `1,115/1,861` draws.
+  The counts are useful representation evidence only: Stage 3B has not yet
+  uploaded SEG geometry, measured command-build/warm frames, or reproduced
+  classic Doom's front-to-back screen clipping.
+- The first near-first traversal observation is also retained independently:
+  source spawn `(1056,-3616)` walks all `237` leaves beginning
+  `103,104,97,96,99,98,102,100`. It is deliberately only ordering evidence;
+  no SEG closes a screen span and no visibility conclusion follows yet.
+- The first source authority control reports `343` one-sided, `8` closed-back,
+  `10` closed-opening, and `371` open E1M1 SEGs. It follows the retained
+  source-sector conditions rather than alpha/material inference; projection,
+  partial clipping, and coverage mutation remain unimplemented.
+- A fixed `320`-column source-space coverage control now combines near-first
+  BSP order with that authority input. It observes `553` outside, `135` fully
+  covered, `35` partial, and `9` fully visible source SEGs. It is a bounded
+  diagnostic control only: it emits no clipped meshes and does not claim exact
+  classic-Doom projection, masked/sky behavior, or presentation parity.
+- The source-derived hut control supplies the first suspect-specific result.
+  From player-one toward the retained linedef-208 midpoint, linedef `247`'s
+  two SEGs both project to `166..180` and both are fully covered before their
+  own source authority could mutate coverage. The result is evidence that the
+  static shell can expose source-valid geometry outside Doom-like presentation;
+  it is not yet proof of full historic-renderer equivalence.
+
+### Cycle 25 -- 2026-08-11
+
+- Stage 3B now retains visible source subintervals as a separate lowered
+  representation. A provider-local helper clips an already SEG-granular wall
+  triangle to a declared owning-linedef interval while preserving SEG,
+  linedef, sidedef, role, source texture coordinates, and texture phase. Its
+  regression verifies bounded positions, retained identity, and finite
+  in-range texture coordinates after subinterval clipping.
+- The fixed source-spawn diagnostic control lowers `47` visible intervals into
+  `154` ordinary supplied-UV meshes; the source-derived hut control lowers
+  `4` intervals into `11` meshes. Linedef `247` remains excluded at the hut
+  pose because both of its source SEGs were fully covered before their own
+  source authority could contribute coverage.
+- This validates a separate source-labelled comparison representation, not
+  presentation correctness. The `320` diagnostic columns use a bounded
+  source-space approximation; the meshes are deliberately not uploaded yet.
+  The next checkpoint is a separate corpus render mode with explicit resource,
+  command, warm-frame, and fixed-pose visual evidence.
+
+### Cycle 26 -- 2026-08-11
+
+- A separate native `--doom-seg-clip-presentation` mode now uploads only the
+  bounded, source-labelled Stage 3B representation before the ordinary
+  comparative embedding is applied. It retains the normal source-labelled wall
+  material path but intentionally omits flats and masked middles, so it cannot
+  be mistaken for a replacement E1M1 renderer or a generic visibility feature.
+- Its source-spawn two-frame control retains `47` visible intervals, `154`
+  source-wall meshes, `154` submitted opaque draws, `0` cutout draws, three
+  pipelines (ordinary wall, sky, and debug), zero warm-frame mesh uploads or
+  replacements, and an `8.036 ms` development-profile warm frame on the
+  retained AMD/Vulkan workstation. The uploaded mode is evidence that the
+  representation can reach the existing renderer without expanding its
+  vocabulary; it is not visual or historic-Doom parity evidence.
+- Next: retain the manual fixed-pose shell-versus-visible-SEG observation,
+  especially for the hut/linedef-247 control. A prettier screenshot alone
+  cannot decide whether the diagnostic coverage model is source-faithful.
+
+### Cycle 27 -- 2026-08-11
+
+- The required native comparison falsified the uploaded one-dimensional
+  screen-span control. The source-spawn `--doom-seg-clip-presentation` scene
+  showed large missing portions of the spawn room, not merely the target hut
+  wall. It therefore has visible false negatives and cannot serve as a Doom
+  presentation filter, despite its favorable `154`-draw count and clean
+  resource behavior.
+- Diagnosis: horizontal source-column coverage loses the vertical opening/span
+  information that Doom's viewer-relative wall presentation needs. A near SEG
+  may legitimately cover part of a column without authorizing rejection of
+  every farther wall fragment at that x-coordinate. The normal static E1M1
+  scene remains the only usable presentation path.
+- Next: either stop Stage 3B with this negative result or conduct a new,
+  explicitly bounded Doom-owned projected vertical-span control. No renderer
+  contract, generic occlusion claim, or source-wall deletion follows from this
+  failure.
+
+### Cycle 28 -- 2026-08-11
+
+- The first replacement remains headless: a fixed `320 x 200` source-space
+  grid projects each source SEG's horizontal interval and enclosing
+  front/back-sector vertical range before applying only the existing Doom
+  occluder-authority classification. At source spawn it observes `553`
+  outside, `117` fully covered, `53` partial, and `9` fully visible SEGs,
+  compared with the rejected one-dimensional control's `135` fully covered and
+  `35` partial SEGs.
+- This demonstrates that vertical span information materially changes the
+  candidate result, but it has not yet proven sufficient: each projected wall
+  is still conservatively represented by a rectangular grid extent rather than
+  exact per-column projected source geometry. The two-dimensional result is
+  therefore retained as a diagnostic comparison only and is deliberately not
+  uploaded for another visual claim.
+
+### Cycle 29 -- 2026-08-11
+
+- The source-grid control now has a still-bounded per-column refinement. Each
+  horizontal diagnostic ray intersects the finite source SEG before deriving
+  that column's vertical floor/ceiling span; only a finite forward intersection
+  is accepted, with a deterministic endpoint-depth fallback retained for a
+  grid edge. A focused regression covers forward versus behind-camera source
+  ray/SEG intersection.
+- At source spawn, per-column spans retain `111` fully covered and `59`
+  partial SEGs (`15,379` covered cells), compared with the enclosing-rectangle
+  control's `117` fully covered and `53` partial (`17,968` covered cells).
+  The directional result is expected: less invented coverage preserves more
+  source candidates. It still does not establish sufficient Doom clipping
+  behavior, so no upload or renderer behavior changed.
+
+### Cycle 30 -- 2026-08-11
+
+- A separate manual comparison upload retained normal flats and cutouts while
+  replacing the static shell's walls with `150` whole-SEG draws selected from
+  `68` per-column source candidates. Its source-spawn frame was visually
+  plausible enough to inspect, but turning the native camera immediately
+  revealed missing geometry because the selection was calculated once before
+  static resource upload.
+- That is a useful boundary result, not an implementation defect: the mode was
+  deliberately a fixed-pose corpus comparison. It must not be described as
+  camera culling or repaired by per-frame static mesh replacement. The next
+  evidence is a headless source-pose change trace, followed only if justified
+  by an explicit source-owned dynamic selection/resource-lifetime design.
+
+### Cycle 31 -- 2026-08-11
+
+- The per-column headless source-spawn trace establishes that this is a truly
+  viewer-dependent source selection experiment: headings `90`, `180`, `270`,
+  and `0` retain `68`, `44`, `6`, and `21` source SEGs respectively. The large
+  variation rules out treating the source-spawn prepared set as a general
+  camera culling result.
+- A dynamic continuation would require a separate Doom-owned policy for pose
+  observation, candidate recomputation, mesh/resource reuse or retirement,
+  stale-selection behavior, and failure reporting. The current corpus app
+  deliberately does none of that. No static mesh-reupload path, renderer
+  state, or generic camera-occlusion contract has been added.
+
+### Cycle 32 -- 2026-08-11
+
+- The bounded dynamic continuation now exists as a separate native corpus
+  control, `--doom-seg-per-column-dynamic`. It uploads every currently
+  lowerable SEG wall once (with normal flats and cutouts retained), then each
+  observer frame lowers the current world pose through the explicit AR-0028
+  comparative embedding and updates only a caller-owned draw-enable mask from
+  the source-owned per-column grid. No Doom data reaches `tokimu-render`; the
+  renderer receives the same ordinary, already-uploaded mesh handles and draw
+  commands.
+- Its source-spawn PreserveNorth two-frame control retained `2,095` candidate
+  draws, rejected `1,068`, and submitted `1,027` (`1,001` opaque + `26`
+  cutout). Selection took approximately `11.9 ms` in this development build;
+  the warm frame had zero mesh uploads and zero mesh replacements. This proves
+  resource stability, not acceptable interactive performance or source-faithful
+  presentation.
+- The dynamic control explicitly retained missing current wall-material
+  coverage rather than failing or synthesizing a material: `BRNBIGC`,
+  `BRNBIGL`, and `BRNBIGR` remain unsupported source textures. They are a
+  separate material-coverage limitation, not a reason to alter visibility
+  semantics. Visual false-negative testing under turning/movement remains open.
+
+### Cycle 33 -- 2026-08-11
+
+- Native interactive inspection immediately falsified the dynamic per-column
+  control as a presentation selector: approaching ordinary walls causes them
+  to disappear. The source-grid approximation therefore has visible
+  close-range false negatives even though its submitted set updates after a
+  turn and its mesh-resource lifetime is stable. It must remain diagnostic
+  evidence only and must not be enabled in a normal E1M1 invocation.
+- The same PreserveNorth run reports `E`/`USE` as unavailable by design. The
+  corpus's manual-door path has not yet migrated its source-correspondence,
+  dynamic-height lowering, collision, and picking controls through the
+  AR-0028 comparative embedding. This is an explicit capability boundary, not
+  an input-event loss or renderer failure. Do not bypass it with a local
+  coordinate compensation merely to make this visibility experiment more
+  convenient.
+- Stage 3B now has a useful negative result: static resource reuse can support
+  changing caller submission masks, but the current source-grid coverage model
+  is insufficient to decide those masks safely. Any continuation needs a more
+  faithful Doom presentation reconstruction and its own false-negative
+  protocol; it is not a candidate for generic Tokimu camera culling.
+
+### Cycle 34 -- 2026-08-11
+
+- A declared source-position trace makes the failed control reproducible
+  without relying on free navigation. At the unchanged source heading, offsets
+  `[0,0]`, `[64,0]`, `[-64,0]`, `[0,64]`, `[0,-64]`, and `[128,64]` from
+  player one selected `68`, `62`, `63`, `54`, `76`, and `54` source SEGs.
+  Coverage varied from `14,362` to `20,160` grid cells. This confirms that the
+  control's aggressive candidate changes occur under small declared pose
+  changes; it provides no counter-evidence to the observed close-wall false
+  negatives.
+- The native debug-console `CAMERA` command now reports the current world pose
+  plus its exact AR-0028-lowered Doom source `(x,y,heading)` pose. Any future
+  visual anomaly can therefore be replayed as a bounded source observation
+  instead of guessed from navigation.
+
+### Cycle 35 -- 2026-08-11
+
+- Free-navigation inspection supplied three retained source-pose replays for
+  the dynamic control: `(1202,-3502;-24.0°)`, `(1296,-3427;-0.4°)`, and
+  `(1514,-2481;-29.2°)`. The per-column grid selected only `4`, `7`, and `11`
+  source SEGs respectively, while marking `344`, `393`, and `425` fully
+  covered. Each pose visibly omitted ordinary nearby or courtyard geometry.
+- This is decisive Stage 3B negative evidence. The failure is systemic: a
+  bounded source-grid coverage approximation is not conservative enough to
+  act as a Doom presentation selector. Do not tune its column count, relax
+  thresholds, or add generic renderer fallback to make the screenshots look
+  better. The static full shell and the existing conservative generic frustum
+  experiments remain the usable evidence paths.
+- The `--doom-seg-per-column-dynamic` executable remains only an intentionally
+  labelled failure reproducer and resource-lifetime control. Any future Doom
+  presentation reconstruction must start with a new, source-faithful clipping
+  model and independently specified false-negative protocol.
+
+### Cycle 36 -- 2026-08-11
+
+- The negative result is narrowed precisely. Stage 3B has **not** falsified
+  SEG-granular representation, retained source identity/continuous UVs,
+  near-first BSP order, or source occluder classification. It falsified the
+  downstream interpretation that a near SEG may permanently close every
+  vertical portion of a touched diagnostic screen column.
+- The three replayed false-negative poses are permanent successor
+  counterexamples: close-wall A `(1202,-3502;-24.0°)`, close-wall B
+  `(1296,-3427;-0.4°)`, and courtyard `(1514,-2481;-29.2°)`. A future
+  source-faithful Doom visibility study must retain ordinary visible geometry
+  at all three, plus the fixed spawn, hut, turn, and movement controls.
+- The likely next hypothesis is richer per-column clip state, with upper and
+  lower screen bounds and explicit openings, rather than one boolean
+  `covered` state. That remains a Doom-owned source-presentation experiment;
+  no claim is made yet that it reconstructs historic Doom clipping or that the
+  state is reusable renderer vocabulary.
+
+### Cycle 37 -- 2026-08-11
+
+- Before pursuing that richer state, the existing boolean grid gained a
+  non-mutating local-depth audit. It records when a later source SEG attempts
+  to close a diagnostic cell at a closer finite ray depth than the first SEG
+  that the current near-first-subsector/source-record order had already allowed
+  to close it. The audit does not alter coverage or selection.
+- The three retained false-negative replays contain `134`, `147`, and `928`
+  such attempted inversions respectively. Representative close-wall A evidence
+  is source SEG `302` at depth `92.859` preceding source SEG `307` at depth
+  `13.706` for the same projected cells. This is direct evidence that the
+  current near-first **subsector** order is not itself a sufficient per-SEG or
+  per-cell depth order.
+- Consequently, Stage 3B has narrowed again: SEG granularity and source
+  occluder classification remain useful evidence, but a vertical clip-state
+  successor must not be built on the current leaf-rank/source-record order.
+  The next bounded question is source-owned SEG/span ordering—not renderer
+  sorting, generic occlusion, or another column-resolution adjustment.
+
+### Cycle 38 -- 2026-08-11
+
+- A second headless ordering control sorts source SEGs by their nearest finite
+  source-space point to the viewer before applying the unchanged per-column
+  grid. This is deliberately **not** a claim about Doom traversal or an
+  admissible visibility algorithm: one long SEG can have different local order
+  on different rays.
+- It is nevertheless a useful discriminator. For close-wall A, close-wall B,
+  and courtyard, the local-depth audit changes from `134/147/928` inversions
+  under the BSP-leaf/source-record order to `0/0/36` under the nearest-SEG
+  control. Thus coarse leaf ordering is genuinely one cause of the previous
+  false rejection evidence.
+- The selected SEG counts remain `4/7/10` (versus `4/7/11`), however, and the
+  fully-covered counts remain `344/393/426`. The catastrophic selection does
+  not materially improve. This independently falsifies the idea that ordering
+  correction alone can salvage the boolean-grid selector; it must remain a
+  failure reproducer.
+
+### Cycle 39 -- 2026-08-11
+
+- Primary source review corrected the successor hypothesis. Classic Doom’s
+  `R_ClipSolidWallSegment` maintains `solidsegs` as horizontal ranges, while
+  `R_ClipPassWallSegment` deliberately does not close those ranges for
+  windows/portals. `R_AddLine` performs backface/FOV admission before this
+  classification, and `R_RenderBSPNode` uses `R_CheckBBox` plus accumulated
+  solid ranges to decide whether to visit a far subtree. Per-column vertical
+  clip arrays appear later in wall-tier/plane drawing.
+- Therefore the failed 2D boolean grid is now a deliberately retired
+  approximation, not the foundation for an upper/lower-bound successor. The
+  next bounded Stage 3B task is a Doom-owned horizontal source-protocol
+  control—BSP recursion, SEG admission, solid/pass authority, solid-range
+  union, and far-child bbox test—tested headlessly against the three retained
+  counterexample poses before any presentation work. See
+  `docs/Plans/DOOM/Classic Doom visibility clipping evidence.md`.
+
+### Cycle 40 -- 2026-08-12
+
+- The first source-protocol control now applies directed SEG backface and
+  bounded-FOV admission in the existing near-first BSP leaf order, retaining
+  separate solid and pass authority. Across close-wall A, close-wall B, and
+  courtyard, it rejects `355/350/356` backfaces and then admits
+  `106/119/126` solid plus `73/84/94` pass SEGs.
+- Adding a diagnostic horizontal union of solid intervals reaches all 320
+  columns with only `3/22/2` contributing solid intervals. The other
+  `103/97/124` admitted solid intervals are already closed; pass intervals do
+  not close the union. These counts are neither screen pixels nor selection
+  results. They establish that the missing protocol component is viewer-side
+  far-child bbox rejection against the accumulated union—not another generic
+  grid or a renderer culling policy.
+
+### Cycle 41 -- 2026-08-12
+
+- The bounded source-protocol control now recurses viewer-side BSP children,
+  processes the near child first, and projects the decoded far-child bbox only
+  to ask whether its horizontal range is already solid. Ambiguous/behind/
+  containing-viewer bboxes fail open; no renderer or generic visibility state
+  was introduced.
+- On the three retained false-negative poses it visits `114/127/92` leaves and
+  `341/361/267` source SEGs, with only `4/19/7` far-child prunes and
+  `113/84/91` explicit fail-open far checks. The control has not yet been
+  lowered, uploaded, or visually compared. Its sole conclusion is that the
+  original source protocol can produce a far-subtree candidate reduction which
+  the previous all-leaves boolean grid could not represent.
+- The current control now selects its two bbox silhouette corners with the
+  source `checkcoord` table and maps angles through a perspective plane rather
+  than an all-corner linear-angle approximation. It remains short of Doom's
+  exact binary-angle/FOV lookup arithmetic and must not become a visual mode
+  until a separate regression validates the remaining approximation or it is
+  replaced with a better source-faithful equivalent.
+
+### Cycle 42 -- 2026-08-12
+
+- The source-bbox preflight now mirrors classic Doom's `checkcoord`
+  silhouette-corner selection, while interval mapping uses a perspective-plane
+  tangent relation—the structural role of `viewangletox`. Unit controls retain
+  solid-range union, bbox fail-open, and perspective interval behavior.
+- The correction leaves close-wall A and courtyard unchanged but changes
+  close-wall B slightly: `129 → 127` leaves, `364 → 361` source SEGs, and
+  `26 → 24` solid admissions. Bbox/screen mapping is therefore material
+  evidence, while the remaining fixed-point-table gap keeps the study
+  headless.
+
+### Cycle 43 -- 2026-08-12
+
+- The recursive source-bbox control now distinguishes a definitely
+  out-of-FOV far child from an ambiguous bbox. Only the latter fails open;
+  the former is a separately retained source-FOV rejection. On near-wall A,
+  near-wall B, and courtyard-loss respectively, the resulting waterfall is:
+  `94/118/83` leaves, `278/331/241` source SEGs, `4/19/7` solid-range
+  far-child prunes, `6/3/5` definite-FOV rejections, and `93/75/82`
+  fail-open checks. All three still close their bounded 320-column horizontal
+  solid union.
+- The trace now includes a source-derived hut control and records the known
+  exterior suspect, linedef `247`, separately. Its two SEGs belong to source
+  subsectors `190` and `192`; neither leaf is reached or admitted in any of
+  the three retained failure poses or the hut control. The responsible far
+  child is solid-range rejected at node `235` for near-wall A, courtyard, and
+  hut-control, and at node `197` for near-wall B. This is a meaningful
+  difference from the falsified all-leaves screen-grid, which had reached both
+  SEG records and covered them later. The result is limited to source-traversal
+  evidence: it does not establish exact classic-Doom visual parity or authorize
+  a presentation filter.
+- The retained rejection records now also show the exact bounded source-column
+  interval and covering solid range: `66..319` at node `235` for near-wall A,
+  `101..153` at node `197` for near-wall B, `0..319` at node `235` for
+  courtyard, and `36..319` at node `235` for hut-control. Each is covered by
+  the diagnostic `0..319` solid range before the watched subtree is skipped.
+  This is inspectable evidence for the control’s causal chain, not screen-pixel
+  or historic-Doom parity evidence.
+- The same headless trace now maps admitted SEG identity back to the existing
+  provider-lowered opaque wall triangles. Near-wall A, near-wall B, courtyard,
+  and hut-control retain `5/61/5/4` admitted SEGs and `6/91/4/8` lowerable
+  opaque triangles. The same visited subsectors still own `184/230/164/150`
+  pre-existing floor draws and `149/157/136/120` pre-existing ceiling draws.
+  Linedef `247` contributes none. These are deliberately not submitted draws:
+  the flat counts are source-labelled static mesh inventory, not Doom plane
+  spans, and source wall-tier/plane clipping has not yet been reconstructed.
+  The result therefore only establishes that the recursive protocol can select
+  existing source-labelled geometry without changing renderer state.
+- The inventory is now split by existing source wall tier. Near-wall A,
+  near-wall B, courtyard, and hut-control respectively retain upper/lower/middle
+  triangle counts of `0/0/6`, `4/34/53`, `0/0/4`, and `0/0/8`. The near-wall B
+  result demonstrates that a substantial selected portion is source `Middle`,
+  so horizontal solid-range admission alone cannot decide its later
+  opaque/cutout/tier presentation treatment. No material contract changes.
+- The first source plane checkpoint now follows the original wall-stage logic
+  only as far as floor/ceiling eligibility at source eye height `36`. Across
+  near-wall A, near-wall B, courtyard, and hut-control it records floor/ceiling
+  marks of `4/3`, `53/33`, `5/3`, and `4/4`, plus paired-sky ceiling adjustments
+  of `2/15/0/0`. This precedes classic per-column clipping and visplane span
+  construction, so it remains provider evidence rather than flat selection or
+  presentation evidence.
+
+### Cycle 44 -- 2026-08-12
+
+- The plane-mark checkpoint makes the next source boundary explicit. A single
+  admitted horizontal column can contain an upper wall, an opening into farther
+  geometry, a lower wall, and floor/ceiling participation simultaneously.
+  Therefore the falsified boolean occupancy grid was missing source semantics,
+  not merely column resolution.
+- Any continuation must remain headless and retain a small number of columns in
+  event detail: initial upper/lower clip bounds, each admitted SEG/tier update,
+  surviving opening, floor/ceiling marks, and final visible intervals. The
+  three retained false-negative poses, source-spawn doorway pressure, and hut
+  control remain mandatory falsifiers before anything is lowered into
+  presentation geometry.
+- Wall/plane source reconstruction and presentation lowering remain separate:
+  first prove visible source wall fragments and plane spans, then separately
+  decide whether a Doom presentation adapter can lower them into ordinary
+  Tokimu geometry. No renderer visibility, visplane, or Doom-specific contract
+  is admitted by this checkpoint.
+
+### Cycle 45 -- 2026-08-12
+
+- The recursive control now retains a bounded per-column wall-tier clip trace,
+  using the already-admitted source SEG order and source heights. At the source
+  spawn it observes 37 admitted SEGs, 8 upper/7 lower/23 middle tier spans,
+  36 floor and 37 ceiling marks, and 823 ceiling plus 875 floor boundary
+  updates. A bounded center-column trace retains prior and post clip limits.
+- The four counterexample controls demonstrate why this state cannot collapse
+  back into a boolean occlusion grid: near-wall B contains 2 upper, 17 lower,
+  and 25 middle spans, while the other close/courtyard/hut controls are often
+  middle-only. The trace distinguishes terminal one-sided middles from
+  two-sided/masked middles, which remain open presentation facts; marked planes
+  can advance boundaries even where no upper/lower tier exists.
+- This is a source-protocol checkpoint only. It does not construct visplanes,
+  select existing flat meshes, upload new geometry, or establish historic Doom
+  parity. The next open question is whether a bounded source plane-span
+  reconstruction can be proven against the mandatory fixed-pose false-negative
+  controls before any presentation-lowering experiment is proposed.
+
+### Cycle 46 -- 2026-08-12
+
+- A separate recursive source-key trace now records the plane grouping facts
+  that precede span construction: `(height, flat identity, light)` for marked
+  floor/ceiling contributors, with `F_SKY1` ceilings normalized to a common
+  sky identity. Source spawn has `36/37` floor/ceiling contributors and `6/7`
+  keys; near-wall B has `53/33` contributors and `10/7` keys, including `17`
+  sky contributors.
+- This confirms that a later plane-span reconstruction cannot treat a sector,
+  a wall tier, or a clip-boundary update as plane identity. The trace is still
+  source-only and constructs no visplane/span, flat selection, renderer state,
+  or presentation result.
 
 ## References
 

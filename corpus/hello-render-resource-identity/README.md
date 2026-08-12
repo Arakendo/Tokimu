@@ -11,7 +11,7 @@ an unrelated logical resource accidentally reusing the same value.
 Run the deterministic baseline and native timing observation:
 
 ```powershell
-cargo run -p hello-render-resource-identity
+cargo run -p hello-render-resource-identity --bin hello-render-resource-identity
 ```
 
 This is corpus evidence only. It does not admit an allocator, registry,

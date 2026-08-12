@@ -12,11 +12,17 @@ use std::{
 
 use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
 use doom_geometry_provider::{
-    doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_textured_wall_triangles,
+    clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
+    locate_doom_point_subsector, lower_doom_seg_textured_wall_triangles,
+    lower_doom_textured_wall_triangles, observe_doom_seg_occluders, observe_doom_seg_plane_marks,
     resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
-    resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership, DoomTextureExtent,
+    resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
+    resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomSegPlaneMarkObservation,
+    DoomSegTexturedWallTriangle, DoomTextureExtent, DoomWallTextureRole,
 };
-use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore};
+use doom_map_provider::{
+    decode_doom_map_core, resolve_doom_player_one_start, DoomBspChild, DoomMapCore,
+};
 use doom_raster_provider::{
     DoomFlatDecodeLimits, DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomTextureComposeLimits,
     DoomTextureDecodeLimits,
@@ -38,13 +44,15 @@ use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
     build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
     classify_static_draw_sphere_frustum_rejection, doom_heading_forward,
-    lower_static_wall_triangle, observe_doom_ground_frame_with_embedding, observer_direction,
-    observer_right, observer_yaw_from_forward, prepare_e1m1_flat_textures, prepare_e1m1_flats,
+    lower_static_seg_wall_triangle, lower_static_wall_triangle,
+    observe_doom_ground_frame_with_embedding, observer_direction, observer_right,
+    observer_yaw_from_forward, prepare_e1m1_flat_textures, prepare_e1m1_flats,
     prepare_e1m1_masked_middle_cutouts, prepare_e1m1_sky_diagnostic_flats,
-    prepare_e1m1_wall_texture_extents, prepare_e1m1_wall_textures, prepare_e1m1_walls,
-    prepared_e1m1_masked_middle_texture_names, reembed_comparative_mesh, DoomComparativeEmbedding,
-    StaticDrawAabb, StaticDrawFrustumRejection, StaticDrawPlanEntry, StaticDrawSource,
-    StaticDrawSphere, StaticFlatLoweringError, StaticTextureUpload,
+    prepare_e1m1_static_sky_panorama_texture, prepare_e1m1_wall_texture_extents,
+    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
+    reembed_comparative_mesh, DoomComparativeEmbedding, PreparedStaticTexture, StaticDrawAabb,
+    StaticDrawFrustumRejection, StaticDrawPlanEntry, StaticDrawSource, StaticDrawSphere,
+    StaticFlatLoweringError, StaticTextureEligibility, StaticTextureUpload,
 };
 use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, TextureUse};
 use resource_space::{
@@ -121,6 +129,9 @@ const DEBUG_CURSOR_MATERIAL: MaterialHandle = MaterialHandle(9_000_002);
 const DIAGNOSTIC_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_010);
 const DIAGNOSTIC_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_010);
 const DIAGNOSTIC_SKY_MESH_BASE: u64 = 9_000_100;
+const DOOM_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_020);
+const DOOM_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_020);
+const DOOM_SKY_MESH: MeshHandle = MeshHandle(9_000_020);
 const WALK_SPEED: f32 = 240.0;
 const WALK_RADIUS: f32 = 16.0;
 const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
@@ -134,10 +145,14 @@ struct App {
     diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
     diagnostic_sky_enabled: bool,
     diagnostic_sky_records: Vec<String>,
+    doom_sky_texture: PreparedStaticTexture,
+    doom_sky_mesh: Mesh,
+    doom_sky_enabled: bool,
     cutout_mesh_base: u64,
     include_cutouts: bool,
     pipeline: PipelineHandle,
     cutout_pipeline: Option<PipelineHandle>,
+    doom_sky_pipeline: Option<PipelineHandle>,
     debug_pipeline: Option<PipelineHandle>,
     debug_font: Option<UiFontRasterizer>,
     debug_console: DoomDebugConsole,
@@ -170,6 +185,9 @@ struct App {
     next_dynamic_mesh_handle: u64,
     opaque_draw_enabled: Vec<bool>,
     candidate_selection: CandidateSelection,
+    /// Corpus-local Stage 3B source selector. It maps retained Doom SEG
+    /// identities to already-uploaded draw indices; it is not renderer state.
+    doom_seg_dynamic_selection: Option<DoomSegDynamicSelectionInput>,
     frame_index: u64,
     exit_after_two_frames: bool,
     opaque_selected: Vec<bool>,
@@ -188,6 +206,7 @@ struct SceneInput {
     cutout_uploads: Vec<StaticTextureUpload>,
     diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
     diagnostic_sky_records: Vec<String>,
+    doom_sky_texture: PreparedStaticTexture,
     spawn_observer: SpawnObserver,
     walk_collision: DoomWalkCollisionWorld,
     walk_floors: DoomWalkFloorWorld,
@@ -246,6 +265,140 @@ struct DoomMembershipSelectionInput {
     linedef_subsectors: Vec<Vec<u32>>,
 }
 
+/// Corpus-only output of the Stage 3B diagnostic span experiment. These draws
+/// have source-labelled provenance, but their fixed source-space columns are
+/// neither renderer pixels nor a stable visibility contract.
+struct DoomSegClipPresentation {
+    draws: Vec<StaticDrawPlanEntry>,
+    visible_intervals: usize,
+    source_triangles: usize,
+}
+
+/// Retained source-only result of one bounded Stage 3B projected-grid control.
+/// The selected records remain Doom SEG identity and do not become renderer
+/// candidate vocabulary.
+struct DoomSegScreenGridObservation {
+    selected_seg_records: BTreeSet<u32>,
+    outside: usize,
+    fully_covered: usize,
+    partial: usize,
+    fully_visible: usize,
+    contributors: usize,
+    covered_cells: usize,
+    /// A later source SEG attempted to close a projected cell at a strictly
+    /// nearer depth than the earlier SEG which the current leaf-order control
+    /// had already allowed to close it. This is diagnostic evidence only: it
+    /// tests whether the current traversal order is sufficient for the
+    /// boolean occupancy experiment, not a generic depth or occlusion model.
+    depth_order_inversions: usize,
+    depth_order_samples: Vec<String>,
+    samples: Vec<String>,
+}
+
+/// Ordering control for the Stage 3B source-grid experiment. Neither variant
+/// is renderer scheduling or an admitted visibility policy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DoomSegScreenGridOrder {
+    BspLeafThenSource,
+    NearestSegmentToViewer,
+}
+
+/// First source-protocol checkpoint after the falsified diagnostic grids. This
+/// records Doom-owned SEG admission before any solid-range union, BSP bbox
+/// pruning, or presentation selection exists.
+#[derive(Default)]
+struct DoomSegClassicAdmissionObservation {
+    source_segs: usize,
+    backface_rejected: usize,
+    outside_fov_rejected: usize,
+    edge_on: usize,
+    solid_admitted: usize,
+    pass_admitted: usize,
+    solid_range_contributors: usize,
+    solid_range_fully_covered: usize,
+    solid_range_covered_columns: usize,
+    samples: Vec<String>,
+}
+
+/// Headless Doom-only continuation of the Stage 3B source protocol. It tracks
+/// which BSP leaves were reached after an accumulated horizontal solid-range
+/// check. It is neither generic candidate selection nor a draw plan.
+#[derive(Default)]
+struct DoomSegClassicBspObservation {
+    leaves_visited: usize,
+    visited_subsectors: BTreeSet<u16>,
+    source_segs_visited: usize,
+    far_children_pruned: usize,
+    far_children_outside_fov: usize,
+    far_children_fail_open: usize,
+    backface_rejected: usize,
+    edge_on: usize,
+    outside_fov_rejected: usize,
+    solid_admitted: usize,
+    pass_admitted: usize,
+    solid_range_contributors: usize,
+    solid_range_fully_covered: usize,
+    solid_range_covered_columns: usize,
+    admitted_seg_records: BTreeSet<u32>,
+    /// Preserves the source-protocol admission order for the next, still
+    /// headless, wall-tier/plane-clip observation. A set alone cannot show
+    /// which earlier wall tier constrained a later source range.
+    admitted_seg_order: Vec<u32>,
+    hut_linedef_segs_visited: usize,
+    hut_linedef_segs_admitted: usize,
+    watched_subsector_elisions: Vec<String>,
+    samples: Vec<String>,
+}
+
+/// Headless continuation of the recursive Doom-only traversal evidence. This
+/// observes how already-admitted source wall tiers would constrain separate
+/// ceiling/floor clip boundaries at a deliberately coarse diagnostic column
+/// resolution. It does not create visplanes, select flat meshes, or author a
+/// presentation/culling result.
+#[derive(Default)]
+struct DoomSegClassicVerticalClipObservation {
+    admitted_segs: usize,
+    upper_tier_spans: usize,
+    lower_tier_spans: usize,
+    middle_tier_spans: usize,
+    floor_plane_marks: usize,
+    ceiling_plane_marks: usize,
+    paired_sky_adjustments: usize,
+    ceiling_clip_updates: usize,
+    floor_clip_updates: usize,
+    samples: Vec<String>,
+}
+
+/// Source identity inventory that precedes any attempt to construct classic
+/// Doom plane spans. These keys deliberately retain only the `R_FindPlane`
+///-style grouping inputs visible in decoded sector data; they are not a
+/// visplane allocation, flat mesh selection, or renderer material contract.
+#[derive(Default)]
+struct DoomSegClassicPlaneIdentityObservation {
+    floor_mark_contributors: usize,
+    ceiling_mark_contributors: usize,
+    unique_floor_keys: usize,
+    unique_ceiling_keys: usize,
+    sky_ceiling_contributors: usize,
+    samples: Vec<String>,
+}
+
+/// Separate visual control for the per-column Stage 3B observation. Ordinary
+/// flats and cutouts remain in the scene; only wall preparation is replaced by
+/// retained whole-SEG pieces so the comparison cannot be mistaken for a new
+/// renderer culling mode.
+struct DoomSegPerColumnPresentation {
+    wall_draws: Vec<StaticDrawPlanEntry>,
+    selected_segs: usize,
+}
+
+/// Retained lookup for the interactive Stage 3B control. Geometry remains
+/// static; only the caller-owned submitted subset changes with the observer.
+struct DoomSegDynamicSelectionInput {
+    draw_indices_by_seg: BTreeMap<u32, Vec<usize>>,
+    unsupported_textures: BTreeSet<String>,
+}
+
 /// Corpus-local source-spawn observer. This is a fixed visual evidence camera,
 /// not runtime player state, movement, collision, or an original-Doom claim.
 #[derive(Clone, Copy, Debug)]
@@ -278,6 +431,8 @@ enum CandidateSelection {
     /// selection contract. AR-0025 compares this grid with the AABB baseline.
     UniformGrid8x4x8,
     DoomMembershipUnion,
+    /// Source-specific, fail-open per-column SEG control for AR-0025 only.
+    DoomSegPerColumn,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -344,21 +499,30 @@ fn main() -> PlatformResult<()> {
     let mut args = env::args().skip(1).collect::<Vec<_>>();
     let preserve_east = args.iter().any(|argument| argument == "--embedding-east");
     let preserve_north = args.iter().any(|argument| argument == "--embedding-north");
-    let comparative_embedding = match (preserve_east, preserve_north) {
-        (false, false) => DoomComparativeEmbedding::CurrentReflected,
-        (true, false) => DoomComparativeEmbedding::PreserveEast,
-        (false, true) => DoomComparativeEmbedding::PreserveNorth,
-        (true, true) => return Err("choose only one comparative embedding".into()),
+    let current_reflected = args
+        .iter()
+        .any(|argument| argument == "--embedding-current-reflected");
+    let comparative_embedding = match (preserve_east, preserve_north, current_reflected) {
+        (false, false, false) => DoomComparativeEmbedding::PreserveNorth,
+        (false, false, true) => DoomComparativeEmbedding::CurrentReflected,
+        (true, false, false) => DoomComparativeEmbedding::PreserveEast,
+        (false, true, false) => DoomComparativeEmbedding::PreserveNorth,
+        _ => return Err("choose only one comparative embedding".into()),
     };
-    let include_cutouts = args.iter().any(|argument| argument == "--masked-cutouts");
+    let include_cutouts = !args
+        .iter()
+        .any(|argument| argument == "--no-masked-cutouts");
     let diagnostic_sky = args
         .iter()
         .any(|argument| argument == "--diagnostic-sky-omissions");
-    let spawn_observer = args.iter().any(|argument| argument == "--spawn-observer");
+    let doom_sky = !diagnostic_sky && !args.iter().any(|argument| argument == "--no-doom-sky");
+    let spawn_observer = !args.iter().any(|argument| argument == "--overview-camera");
     let spawn_yaw_plus_90 = args
         .iter()
         .any(|argument| argument == "--spawn-yaw-plus-90");
-    let walk_collision = args.iter().any(|argument| argument == "--walk-collision");
+    let walk_collision = !args
+        .iter()
+        .any(|argument| argument == "--no-walk-collision");
     let walk_collision_report = args
         .iter()
         .any(|argument| argument == "--walk-collision-report");
@@ -419,11 +583,82 @@ fn main() -> PlatformResult<()> {
     let spatial_flat_uv_report = args
         .iter()
         .any(|argument| argument == "--spatial-flat-uv-report");
+    let hut_wall_candidates_report = args
+        .iter()
+        .any(|argument| argument == "--hut-wall-candidates-report");
+    let doom_seg_report = args.iter().any(|argument| argument == "--doom-seg-report");
+    let doom_seg_clip_report = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-clip-report");
+    let doom_hut_clip_report = args
+        .iter()
+        .any(|argument| argument == "--doom-hut-clip-report");
+    let doom_seg_clip_grid_report = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-clip-2d-report");
+    let doom_seg_clip_per_column_report = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-clip-per-column-report");
+    let doom_seg_per_column_turn_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-per-column-turn-trace");
+    let doom_seg_per_column_position_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-per-column-position-trace");
+    let doom_seg_per_column_failure_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-per-column-failure-trace");
+    let doom_seg_per_column_order_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-per-column-order-trace");
+    let doom_seg_classic_admission_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-admission-trace");
+    let doom_seg_classic_bsp_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-bsp-trace");
+    let doom_seg_classic_vertical_clip_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-vertical-clip-trace");
+    let doom_seg_classic_plane_identity_trace = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-plane-identity-trace");
+    let doom_seg_clip_presentation = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-clip-presentation");
+    let doom_seg_per_column_presentation = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-per-column-presentation");
+    let doom_seg_per_column_dynamic = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-per-column-dynamic");
+    if [
+        doom_seg_clip_presentation,
+        doom_seg_per_column_presentation,
+        doom_seg_per_column_dynamic,
+    ]
+    .iter()
+    .filter(|enabled| **enabled)
+    .count()
+        > 1
+    {
+        return Err("choose only one Stage 3B SEG presentation control".into());
+    }
+    let wall_source_report = args.iter().find_map(|argument| {
+        argument
+            .strip_prefix("--wall-source-report=")
+            .and_then(|record| record.parse::<u32>().ok())
+    });
     args.retain(|argument| argument != "--masked-cutouts");
+    args.retain(|argument| argument != "--no-masked-cutouts");
     args.retain(|argument| argument != "--diagnostic-sky-omissions");
+    args.retain(|argument| argument != "--doom-sky");
+    args.retain(|argument| argument != "--no-doom-sky");
     args.retain(|argument| argument != "--spawn-observer");
+    args.retain(|argument| argument != "--overview-camera");
     args.retain(|argument| argument != "--spawn-yaw-plus-90");
     args.retain(|argument| argument != "--walk-collision");
+    args.retain(|argument| argument != "--no-walk-collision");
     args.retain(|argument| argument != "--walk-collision-report");
     args.retain(|argument| argument != "--noclip");
     args.retain(|argument| argument != "--frustum-aabb");
@@ -446,15 +681,42 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--spatial-orientation-report");
     args.retain(|argument| argument != "--spatial-landmark-candidates-report");
     args.retain(|argument| argument != "--spatial-flat-uv-report");
+    args.retain(|argument| argument != "--hut-wall-candidates-report");
+    args.retain(|argument| argument != "--doom-seg-report");
+    args.retain(|argument| argument != "--doom-seg-clip-report");
+    args.retain(|argument| argument != "--doom-hut-clip-report");
+    args.retain(|argument| argument != "--doom-seg-clip-2d-report");
+    args.retain(|argument| argument != "--doom-seg-clip-per-column-report");
+    args.retain(|argument| argument != "--doom-seg-per-column-turn-trace");
+    args.retain(|argument| argument != "--doom-seg-per-column-position-trace");
+    args.retain(|argument| argument != "--doom-seg-per-column-failure-trace");
+    args.retain(|argument| argument != "--doom-seg-per-column-order-trace");
+    args.retain(|argument| argument != "--doom-seg-classic-admission-trace");
+    args.retain(|argument| argument != "--doom-seg-classic-bsp-trace");
+    args.retain(|argument| argument != "--doom-seg-classic-vertical-clip-trace");
+    args.retain(|argument| argument != "--doom-seg-classic-plane-identity-trace");
+    args.retain(|argument| argument != "--doom-seg-clip-presentation");
+    args.retain(|argument| argument != "--doom-seg-per-column-presentation");
+    args.retain(|argument| argument != "--doom-seg-per-column-dynamic");
+    args.retain(|argument| !argument.starts_with("--wall-source-report="));
     args.retain(|argument| argument != "--embedding-east");
     args.retain(|argument| argument != "--embedding-north");
+    args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--masked-cutouts] [--diagnostic-sky-omissions] [--spawn-observer] [--spawn-yaw-plus-90] [--embedding-east|--embedding-north] [--walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
-        return Err("--walk-collision requires --spawn-observer".into());
+        return Err(
+            "--walk-collision requires the source-spawn camera; omit --overview-camera".into(),
+        );
+    }
+    if doom_seg_per_column_dynamic && !spawn_observer {
+        return Err(
+            "--doom-seg-per-column-dynamic requires the source-spawn observer; omit --overview-camera"
+                .into(),
+        );
     }
     if comparative_embedding != DoomComparativeEmbedding::CurrentReflected && walk_collision_report
     {
@@ -472,6 +734,100 @@ fn main() -> PlatformResult<()> {
         report_spatial_landmark_candidates(&scene);
         return Ok(());
     }
+    if hut_wall_candidates_report {
+        report_hut_wall_candidates(&scene);
+        return Ok(());
+    }
+    if doom_seg_report {
+        report_doom_seg_lowering(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_clip_report {
+        report_doom_seg_screen_clip(&scene, false)?;
+        return Ok(());
+    }
+    if doom_hut_clip_report {
+        report_doom_seg_screen_clip(&scene, true)?;
+        return Ok(());
+    }
+    if doom_seg_clip_grid_report {
+        report_doom_seg_screen_grid(&scene, false)?;
+        return Ok(());
+    }
+    if doom_seg_clip_per_column_report {
+        report_doom_seg_screen_grid(&scene, true)?;
+        return Ok(());
+    }
+    if doom_seg_per_column_turn_trace {
+        report_doom_seg_per_column_turn_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_per_column_position_trace {
+        report_doom_seg_per_column_position_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_per_column_failure_trace {
+        report_doom_seg_per_column_failure_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_per_column_order_trace {
+        report_doom_seg_per_column_order_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_classic_admission_trace {
+        report_doom_seg_classic_admission_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_classic_bsp_trace {
+        report_doom_seg_classic_bsp_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_classic_vertical_clip_trace {
+        report_doom_seg_classic_vertical_clip_trace(&scene)?;
+        return Ok(());
+    }
+    if doom_seg_classic_plane_identity_trace {
+        report_doom_seg_classic_plane_identity_trace(&scene)?;
+        return Ok(());
+    }
+    if let Some(linedef) = wall_source_report {
+        report_wall_source(&scene, linedef);
+        return Ok(());
+    }
+    if doom_seg_clip_presentation {
+        let presentation = prepare_doom_seg_clip_presentation(&scene, false)?;
+        eprintln!(
+            "E1M1 AR-0025 Stage 3B visible-SEG presentation: visible_intervals={}; source_triangles={}; submitted_draws={}; meaning=diagnostic-source-space-screen-span-comparison-not-historic-doom-parity",
+            presentation.visible_intervals,
+            presentation.source_triangles,
+            presentation.draws.len(),
+        );
+        scene.opaque_draws = presentation.draws;
+        scene.cutout_draws.clear();
+    }
+    if doom_seg_per_column_presentation {
+        let presentation = prepare_doom_seg_per_column_presentation(&scene)?;
+        eprintln!(
+            "E1M1 AR-0025 Stage 3B per-column SEG comparison: selected_segs={}; submitted_wall_draws={}; meaning=diagnostic-source-space-grid-comparison-not-historic-doom-parity",
+            presentation.selected_segs,
+            presentation.wall_draws.len(),
+        );
+        scene
+            .opaque_draws
+            .retain(|draw| !matches!(draw.source, StaticDrawSource::Wall { .. }));
+        scene.opaque_draws.extend(presentation.wall_draws);
+    }
+    let doom_seg_dynamic_selection = if doom_seg_per_column_dynamic {
+        let selection = prepare_doom_seg_per_column_dynamic_scene(&mut scene)?;
+        eprintln!(
+            "E1M1 AR-0025 Stage 3B dynamic SEG control: retained_seg_records={}; unsupported_textures={:?}; meaning=source-local-draw-enable-experiment-not-renderer-visibility",
+            selection.draw_indices_by_seg.len(),
+            selection.unsupported_textures,
+        );
+        Some(selection)
+    } else {
+        None
+    };
     reembed_scene_for_comparison(&mut scene, comparative_embedding);
     if spatial_flat_uv_report {
         report_spatial_flat_uv(&scene, comparative_embedding);
@@ -536,6 +892,7 @@ fn main() -> PlatformResult<()> {
         report_walk_collision(&scene);
         return Ok(());
     }
+    let include_cutouts = include_cutouts && !doom_seg_clip_presentation;
     let opaque_bounds = draw_bounds(&scene.opaque_draws);
     let cutout_bounds = draw_bounds(&scene.cutout_draws);
     let opaque_grid = frustum_grid
@@ -554,7 +911,8 @@ fn main() -> PlatformResult<()> {
             scene.diagnostic_sky_draws.len()
         } else {
             0
-        };
+        }
+        + usize::from(doom_sky);
     let opaque_selected = vec![true; scene.opaque_draws.len()];
     let cutout_selected = vec![true; scene.cutout_draws.len()];
     let cutout_mesh_base = scene.opaque_draws.len() as u64 + 1;
@@ -568,10 +926,14 @@ fn main() -> PlatformResult<()> {
         diagnostic_sky_draws: scene.diagnostic_sky_draws,
         diagnostic_sky_enabled: diagnostic_sky,
         diagnostic_sky_records: scene.diagnostic_sky_records,
+        doom_sky_texture: scene.doom_sky_texture,
+        doom_sky_mesh: build_doom_sky_cylinder(center, radius).map_err(io::Error::other)?,
+        doom_sky_enabled: doom_sky,
         cutout_mesh_base,
         include_cutouts,
         pipeline: PipelineHandle(0),
         cutout_pipeline: None,
+        doom_sky_pipeline: None,
         debug_pipeline: None,
         debug_font: None,
         debug_console: DoomDebugConsole::default(),
@@ -625,11 +987,14 @@ fn main() -> PlatformResult<()> {
             CandidateSelection::UniformGrid8x4x8
         } else if doom_membership_union {
             CandidateSelection::DoomMembershipUnion
+        } else if doom_seg_per_column_dynamic {
+            CandidateSelection::DoomSegPerColumn
         } else if frustum_aabb {
             CandidateSelection::FrustumAabb
         } else {
             CandidateSelection::FullSubmission
         },
+        doom_seg_dynamic_selection,
         frame_index: 0,
         exit_after_two_frames: measure_two_frames,
         opaque_selected,
@@ -704,6 +1069,12 @@ impl App {
         }
         if self.input.keyboard.is_pressed(KeyCode::KeyA) {
             direction -= right;
+        }
+        if self.noclip && self.input.keyboard.is_pressed(KeyCode::Space) {
+            direction += Vec3::Y;
+        }
+        if self.noclip && self.input.keyboard.is_pressed(KeyCode::ControlLeft) {
+            direction -= Vec3::Y;
         }
         if direction.length_squared() > 0.0 {
             let delta = direction.normalize() * (WALK_SPEED * delta_seconds as f32);
@@ -819,7 +1190,14 @@ impl App {
     }
 
     fn release_walk_keys(&mut self) {
-        for key in [KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD] {
+        for key in [
+            KeyCode::KeyW,
+            KeyCode::KeyA,
+            KeyCode::KeyS,
+            KeyCode::KeyD,
+            KeyCode::Space,
+            KeyCode::ControlLeft,
+        ] {
             self.input.keyboard.release(key);
         }
     }
@@ -860,14 +1238,19 @@ impl App {
                         pitch: 0.0,
                         last_cursor: None,
                     });
+                    let (source_position, source_angle) =
+                        observer_doom_source_pose(observer, look, self.comparative_embedding);
                     format!(
-                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={}",
+                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={} source_pose=({},{};{:.1}deg)",
                         observer.position.x,
                         observer.position.y,
                         observer.position.z,
                         look.yaw,
                         look.pitch,
                         observer.source_record,
+                        source_position[0],
+                        source_position[1],
+                        source_angle.to_degrees(),
                     )
                 },
             ),
@@ -1497,6 +1880,40 @@ impl PlatformEventHandler for App {
                 eprintln!("E1M1 AR-0027 diagnostic record: {record}");
             }
         }
+        if self.doom_sky_enabled {
+            let sky = match &self.doom_sky_texture.eligibility {
+                StaticTextureEligibility::Opaque(sky) => sky,
+                StaticTextureEligibility::DeferredAlpha {
+                    uncovered_pixels, ..
+                } => {
+                    return Err(io::Error::other(format!(
+                        "E1M1 SKY1 retained {uncovered_pixels} uncovered pixels; sky coverage policy remains unresolved"
+                    ))
+                    .into());
+                }
+            };
+            renderer.create_texture_rgba8(
+                DOOM_SKY_TEXTURE,
+                sky.descriptor,
+                &self.doom_sky_texture.rgba8,
+            )?;
+            renderer.upload_material(
+                DOOM_SKY_MATERIAL,
+                &Material::new("doom-e1m1-sky1-panorama", Color::rgb(1.0, 1.0, 1.0))
+                    .with_texture(DOOM_SKY_TEXTURE)
+                    .with_texture_sampler(TextureSampler {
+                        filter: TextureFilter::Point,
+                        address_u: TextureAddressMode::Repeat,
+                        address_v: TextureAddressMode::Clamp,
+                    }),
+            )?;
+            renderer.upload_mesh(DOOM_SKY_MESH, &self.doom_sky_mesh);
+            eprintln!(
+                "E1M1 corpus sky enabled: source=SKY1; raster={}x{}; presentation=static-panorama-cylinder; scope=corpus-local-non-equivalent-to-original-view-dependent-sky",
+                sky.descriptor.width,
+                sky.descriptor.height,
+            );
+        }
         self.debug_font = Some(
             UiFontRasterizer::from_bytes(UiFontSource::from_native_default()?.bytes)
                 .map_err(io::Error::other)?,
@@ -1530,7 +1947,7 @@ impl PlatformEventHandler for App {
         }
         if let Some(collision) = &self.walk_collision {
             eprintln!(
-                "E1M1 Slice 6 walk proof: radius={WALK_RADIUS}; speed={WALK_SPEED}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-click-capture-escape-release-R-reset",
+                "E1M1 Slice 6 walk proof: radius={WALK_RADIUS}; speed={WALK_SPEED}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-E-use-click-capture-escape-release-R-reset-noclip-space-up-left-control-down",
                 collision.blocking_wall_count(),
                 self.noclip,
             );
@@ -1546,6 +1963,20 @@ impl PlatformEventHandler for App {
                 },
             )?,
         )?;
+        if self.doom_sky_enabled {
+            self.doom_sky_pipeline = Some(
+                renderer.register_pipeline(
+                    &Pipeline::new("doom-e1m1-sky-panorama", PipelineKind::Textured3d)
+                        .with_render_state(PipelineRenderState {
+                            blend: BlendMode::Opaque,
+                            depth_test: DepthTest::LessEqual,
+                            depth_write: false,
+                            cull_mode: CullMode::None,
+                            color_write: ColorWriteMask::ALL,
+                        })?,
+                )?,
+            );
+        }
         if self.include_cutouts {
             self.cutout_pipeline =
                 Some(renderer.register_pipeline(&Pipeline::textured_3d_cutout(
@@ -1568,6 +1999,7 @@ impl PlatformEventHandler for App {
                 CandidateSelection::FrustumAabb => "frustum-aabb",
                 CandidateSelection::UniformGrid8x4x8 => "uniform-grid-8x4x8",
                 CandidateSelection::DoomMembershipUnion => "doom-membership-union",
+                CandidateSelection::DoomSegPerColumn => "doom-seg-per-column-dynamic",
             },
             self.walk_collision.is_some(),
             self.noclip,
@@ -1686,6 +2118,23 @@ impl PlatformEventHandler for App {
                 &mut rejection_samples,
                 self.frame_index == 0,
             );
+        } else if self.candidate_selection == CandidateSelection::DoomSegPerColumn {
+            select_doom_seg_per_column_candidates(
+                &self.draws,
+                self.doom_seg_dynamic_selection
+                    .as_ref()
+                    .expect("dynamic SEG selection has retained source input"),
+                &self.door_geometry_source.map,
+                self.spawn_observer
+                    .expect("dynamic SEG selection requires an observer"),
+                self.observer_look
+                    .expect("dynamic SEG selection requires observer look"),
+                self.comparative_embedding,
+                &mut self.opaque_selected,
+                &mut selection,
+                &mut rejection_samples,
+                self.frame_index == 0,
+            )?;
         } else {
             select_current_candidates(
                 self.candidate_selection,
@@ -1711,6 +2160,10 @@ impl PlatformEventHandler for App {
                     &mut rejection_samples,
                     self.frame_index == 0,
                 );
+            } else if self.candidate_selection == CandidateSelection::DoomSegPerColumn {
+                self.cutout_selected.fill(true);
+                selection.candidates += self.cutout_selected.len();
+                selection.submitted += self.cutout_selected.len();
             } else {
                 select_current_candidates(
                     self.candidate_selection,
@@ -1732,6 +2185,19 @@ impl PlatformEventHandler for App {
         self.commands.push(RenderCommand::Clear(ClearCommand {
             color: Color::rgb(0.015, 0.02, 0.025),
         }));
+        if self.doom_sky_enabled {
+            let pipeline = self
+                .doom_sky_pipeline
+                .ok_or_else(|| io::Error::other("Doom sky pipeline missing"))?;
+            self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: DOOM_SKY_MESH,
+                material: DOOM_SKY_MATERIAL,
+                pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
         for (index, draw) in self.draws.iter().enumerate() {
             if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
                 continue;
@@ -2085,6 +2551,14 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         PATCH_LIMITS,
         COMPOSE_LIMITS,
     )?;
+    let doom_sky_texture = prepare_e1m1_static_sky_panorama_texture(
+        &read.bytes,
+        &read.observation.wad,
+        RASTER_LIMITS,
+        TEXTURE_LIMITS,
+        PATCH_LIMITS,
+        COMPOSE_LIMITS,
+    )?;
     let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
     let wall_materials = uploads
         .iter()
@@ -2140,6 +2614,7 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         cutout_uploads,
         diagnostic_sky_draws,
         diagnostic_sky_records,
+        doom_sky_texture,
         spawn_observer,
         walk_collision,
         walk_floors,
@@ -2411,6 +2886,2592 @@ fn report_spatial_landmark_candidates(scene: &SceneInput) {
             source_right_offset,
         );
     }
+}
+
+/// Source-first inspection of the exterior hut neighborhood. The retained
+/// landmark is LINEDEFS #208's midpoint `(2176, -3824)`; the radius is only a
+/// bounded corpus filter and does not classify any span as erroneous.
+fn report_hut_wall_candidates(scene: &SceneInput) {
+    const HUT: [f32; 2] = [2176.0, -3824.0];
+    const RADIUS: f32 = 640.0;
+
+    let map = &scene.door_geometry_source.map;
+    let mut selected = BTreeSet::new();
+    println!(
+        "E1M1 hut wall source neighborhood: anchor=linedef-208-midpoint({},{}) radius={RADIUS}",
+        HUT[0], HUT[1]
+    );
+
+    for linedef in &map.linedefs {
+        let (Some(start), Some(end)) = (
+            map.vertices.get(usize::from(linedef.start_vertex)),
+            map.vertices.get(usize::from(linedef.end_vertex)),
+        ) else {
+            continue;
+        };
+        let midpoint = [
+            (f32::from(start.x) + f32::from(end.x)) * 0.5,
+            (f32::from(start.y) + f32::from(end.y)) * 0.5,
+        ];
+        let offset = [midpoint[0] - HUT[0], midpoint[1] - HUT[1]];
+        if offset[0] * offset[0] + offset[1] * offset[1] > RADIUS * RADIUS {
+            continue;
+        }
+        selected.insert(linedef.source.record_index);
+
+        let sector_for_side = |index: Option<u16>| {
+            index
+                .and_then(|index| map.sidedefs.get(usize::from(index)))
+                .and_then(|sidedef| map.sectors.get(usize::from(sidedef.sector)))
+        };
+        let classic_sky_upper_omission = match (
+            sector_for_side(linedef.right_sidedef),
+            sector_for_side(linedef.left_sidedef),
+        ) {
+            (Some(right), Some(left)) => {
+                right.ceiling_texture == "F_SKY1"
+                    && left.ceiling_texture == "F_SKY1"
+                    && right.ceiling_height != left.ceiling_height
+            }
+            _ => false,
+        };
+
+        let side = |index: Option<u16>| -> String {
+            let Some(index) = index else {
+                return "none".to_owned();
+            };
+            let Some(sidedef) = map.sidedefs.get(usize::from(index)) else {
+                return format!("sidedef={index}:missing");
+            };
+            let Some(sector) = map.sectors.get(usize::from(sidedef.sector)) else {
+                return format!(
+                    "sidedef={index}:sector={}:missing textures={}/{}/{}",
+                    sidedef.sector,
+                    sidedef.upper_texture,
+                    sidedef.lower_texture,
+                    sidedef.middle_texture,
+                );
+            };
+            format!(
+                "sidedef={} sector={} heights={}/{} flats={}/{} textures={}/{}/{} offsets={}/{}",
+                sidedef.source.record_index,
+                sidedef.sector,
+                sector.floor_height,
+                sector.ceiling_height,
+                sector.floor_texture,
+                sector.ceiling_texture,
+                sidedef.upper_texture,
+                sidedef.lower_texture,
+                sidedef.middle_texture,
+                sidedef.x_offset,
+                sidedef.y_offset,
+            )
+        };
+
+        println!(
+            "source linedef={} flags=0x{:04x} vertices={}({},{}) -> {}({},{}) midpoint=({:.1},{:.1}) classic_sky_upper_omission={} right/front=[{}] left/back=[{}]",
+            linedef.source.record_index,
+            linedef.flags,
+            linedef.start_vertex,
+            start.x,
+            start.y,
+            linedef.end_vertex,
+            end.x,
+            end.y,
+            midpoint[0],
+            midpoint[1],
+            classic_sky_upper_omission,
+            side(linedef.right_sidedef),
+            side(linedef.left_sidedef),
+        );
+    }
+
+    let mut generated = 0usize;
+    for draw in scene.opaque_draws.iter().chain(scene.cutout_draws.iter()) {
+        let StaticDrawSource::Wall {
+            source_linedef,
+            source_sidedef,
+            source_sector,
+            role,
+        } = draw.source
+        else {
+            continue;
+        };
+        if !selected.contains(&source_linedef.record_index) {
+            continue;
+        }
+        let bottom = draw
+            .mesh
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f32::INFINITY, f32::min);
+        let top = draw
+            .mesh
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f32::NEG_INFINITY, f32::max);
+        println!(
+            "generated linedef={} sidedef={} sector={} role={role:?} bottom={bottom:.1} top={top:.1} label={}",
+            source_linedef.record_index,
+            source_sidedef.record_index,
+            source_sector.record_index,
+            draw.source_label,
+        );
+        generated += 1;
+    }
+    println!(
+        "E1M1 hut wall source neighborhood summary: linedefs={} generated_wall_draws={generated}",
+        selected.len()
+    );
+}
+
+/// Stage 3B's first retained control. It does not submit SEG-derived geometry:
+/// it establishes whether the source representation can preserve identity and
+/// source-texel UV continuity before viewer-relative selection is attempted.
+fn report_doom_seg_lowering(scene: &SceneInput) -> PlatformResult<()> {
+    let triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let source_segs = triangles
+        .iter()
+        .map(|triangle| triangle.source_seg.record_index)
+        .collect::<BTreeSet<_>>();
+    let source_linedefs = triangles
+        .iter()
+        .map(|triangle| triangle.source_linedef.record_index)
+        .collect::<BTreeSet<_>>();
+    let mut seam_uvs = BTreeMap::<(u32, i32, i32), BTreeSet<String>>::new();
+    for triangle in &triangles {
+        for (position, texture_coordinate) in
+            triangle.positions.iter().zip(triangle.texture_coordinates)
+        {
+            seam_uvs
+                .entry((
+                    triangle.source_linedef.record_index,
+                    position[0].round() as i32,
+                    position[2].round() as i32,
+                ))
+                .or_default()
+                .insert(format!("{:.6}", texture_coordinate[0]));
+        }
+    }
+    // Whole-map coincident positions can legitimately belong to different
+    // sidedefs, roles, or textures. This is a diagnostic count only; the
+    // provider regression proves continuity for a shared source side/role.
+    let multi_u_coordinate_samples = seam_uvs.values().filter(|uvs| uvs.len() > 1).count();
+    println!(
+        "E1M1 AR-0025 Stage 3B SEG representation: triangles={}; source_segs={}; source_linedefs={}; multi_u_coordinate_samples={}; whole_linedef_opaque_draws={}",
+        triangles.len(),
+        source_segs.len(),
+        source_linedefs.len(),
+        multi_u_coordinate_samples,
+        scene.opaque_draws.len(),
+    );
+    println!(
+        "E1M1 AR-0025 Stage 3B sample SEG identities: {}",
+        triangles
+            .iter()
+            .take(12)
+            .map(|triangle| format!(
+                "seg:{} line:{} side:{:?} role:{:?} texture:{}",
+                triangle.source_seg.record_index,
+                triangle.source_linedef.record_index,
+                triangle.side,
+                triangle.role,
+                triangle.texture_name
+            ))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    );
+    let viewer_order = resolve_doom_viewer_subsector_order(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.source_position,
+    )?;
+    println!(
+        "E1M1 AR-0025 Stage 3B near-first BSP traversal: viewer=({},{}); subsectors={}; first={:?}; last={:?}; meaning=source-order-only-no-screen-coverage",
+        scene.spawn_observer.source_position[0],
+        scene.spawn_observer.source_position[1],
+        viewer_order.len(),
+        viewer_order.iter().take(8).map(|source| source.record_index).collect::<Vec<_>>(),
+        viewer_order.iter().rev().take(8).map(|source| source.record_index).collect::<Vec<_>>(),
+    );
+    let occluders = observe_doom_seg_occluders(&scene.door_geometry_source.map)?;
+    let mut occluder_kinds = BTreeMap::<String, usize>::new();
+    for observation in &occluders {
+        *occluder_kinds
+            .entry(format!("{:?}", observation.kind))
+            .or_default() += 1;
+    }
+    println!(
+        "E1M1 AR-0025 Stage 3B Doom occluder authority: {occluder_kinds:?}; meaning=source-height-classification-only-no-projection-or-screen-coverage"
+    );
+    let bounds_draws = scene
+        .opaque_draws
+        .iter()
+        .chain(scene.cutout_draws.iter())
+        .cloned()
+        .collect::<Vec<_>>();
+    let (center, radius) = scene_bounds(&bounds_draws);
+    let poses = [
+        (
+            "overview",
+            scene_camera([1280.0, 800.0], center, radius, None, None),
+        ),
+        (
+            "spawn-yaw-plus-90",
+            scene_camera(
+                [1280.0, 800.0],
+                center,
+                radius,
+                Some(scene.spawn_observer),
+                Some(ObserverLook {
+                    yaw: observer_yaw_from_forward(scene.spawn_observer.forward)
+                        + std::f32::consts::FRAC_PI_2,
+                    pitch: 0.0,
+                    last_cursor: None,
+                }),
+            ),
+        ),
+    ];
+    let mut seg_subsectors = BTreeMap::new();
+    for (subsector_index, subsector) in scene.door_geometry_source.map.subsectors.iter().enumerate()
+    {
+        for seg_index in subsector.first_seg..subsector.first_seg + subsector.seg_count {
+            let seg = &scene.door_geometry_source.map.segs[usize::from(seg_index)];
+            seg_subsectors.insert(seg.source.record_index, subsector_index);
+        }
+    }
+    for (name, camera) in poses {
+        let view_projection = camera.projection * camera.view;
+        let selected_subsectors = scene
+            .membership_selection
+            .subsector_bounds
+            .iter()
+            .map(|bounds| {
+                bounds.is_none_or(|bounds| {
+                    classify_static_draw_frustum_rejection(bounds, view_projection).is_none()
+                })
+            })
+            .collect::<Vec<_>>();
+        let submitted = triangles
+            .iter()
+            .filter(|triangle| {
+                seg_subsectors
+                    .get(&triangle.source_seg.record_index)
+                    .is_some_and(|subsector| selected_subsectors[*subsector])
+            })
+            .count();
+        println!(
+            "E1M1 AR-0025 Stage 3B SEG membership control: pose={name}; source_subsectors={}/{}; submitted_seg_triangles={submitted}; candidates={}; meaning=viewer-frustum-filtered-source-subsector-not-classic-doom-screen-clipping",
+            selected_subsectors.iter().filter(|selected| **selected).count(),
+            selected_subsectors.len(),
+            triangles.len(),
+        );
+    }
+    Ok(())
+}
+
+/// First bounded screen-coverage control for Stage 3B. It uses a fixed
+/// source-space 90-degree horizontal view and 320 diagnostic columns; it is
+/// neither the native renderer's projection nor a generic occlusion service.
+fn report_doom_seg_screen_clip(scene: &SceneInput, hut_pose: bool) -> PlatformResult<()> {
+    const COLUMNS: usize = 320;
+    const HALF_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    let map = &scene.door_geometry_source.map;
+    let viewer = scene.spawn_observer.source_position;
+    let angle = if hut_pose {
+        (-208.0_f64).atan2(1120.0)
+    } else {
+        f64::from(scene.spawn_observer.source_angle).to_radians()
+    };
+    let forward = [angle.cos(), angle.sin()];
+    let right = [-forward[1], forward[0]];
+    let order = resolve_doom_viewer_subsector_order(map, viewer)?;
+    let order_by_source = order
+        .iter()
+        .enumerate()
+        .map(|(rank, source)| (source.record_index, rank))
+        .collect::<BTreeMap<_, _>>();
+    let occluders = observe_doom_seg_occluders(map)?
+        .into_iter()
+        .map(|observation| (observation.source_seg.record_index, observation))
+        .collect::<BTreeMap<_, _>>();
+    let seg_triangles =
+        lower_doom_seg_textured_wall_triangles(map, &scene.door_geometry_source.wall_extents)?;
+    let mut triangles_by_seg = BTreeMap::<u32, Vec<_>>::new();
+    for triangle in &seg_triangles {
+        triangles_by_seg
+            .entry(triangle.source_seg.record_index)
+            .or_default()
+            .push(triangle);
+    }
+    let mut ordered_segs = map
+        .segs
+        .iter()
+        .filter_map(|seg| {
+            let subsector = map.subsectors.iter().position(|subsector| {
+                let start = usize::from(subsector.first_seg);
+                let end = start + usize::from(subsector.seg_count);
+                (start..end).any(|index| map.segs[index].source == seg.source)
+            })?;
+            Some((
+                order_by_source.get(&map.subsectors[subsector].source.record_index)?,
+                seg,
+            ))
+        })
+        .collect::<Vec<_>>();
+    ordered_segs.sort_by_key(|(rank, seg)| (**rank, seg.source.record_index));
+
+    let mut covered = vec![false; COLUMNS];
+    let mut outside = 0usize;
+    let mut fully_covered = 0usize;
+    let mut partial = 0usize;
+    let mut fully_visible = 0usize;
+    let mut contributors = 0usize;
+    let mut samples = Vec::new();
+    let mut lowered_visible_triangles = 0usize;
+    let mut lowered_visible_meshes = 0usize;
+    let mut retained_visible_intervals = 0usize;
+    let mut lowered_identity_samples = Vec::new();
+    for (rank, seg) in ordered_segs {
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let project = |point: [i16; 2]| {
+            let relative = [
+                f64::from(point[0] - viewer[0]),
+                f64::from(point[1] - viewer[1]),
+            ];
+            let depth = relative[0] * forward[0] + relative[1] * forward[1];
+            let lateral = relative[0] * right[0] + relative[1] * right[1];
+            (depth, lateral.atan2(depth))
+        };
+        let (start_depth, start_angle) = project([start.x, start.y]);
+        let (end_depth, end_angle) = project([end.x, end.y]);
+        if start_depth <= 0.0
+            || end_depth <= 0.0
+            || (start_angle.abs() > HALF_FOV && end_angle.abs() > HALF_FOV)
+        {
+            outside += 1;
+            if seg.linedef == 247 {
+                samples.push(format!(
+                    "seg={} line={} rank={} result=outside depth=({start_depth:.2},{end_depth:.2}) angles=({start_angle:.3},{end_angle:.3})",
+                    seg.source.record_index, seg.linedef, rank
+                ));
+            }
+            continue;
+        }
+        let column = |angle: f64| {
+            ((angle.clamp(-HALF_FOV, HALF_FOV) + HALF_FOV) / (2.0 * HALF_FOV) * COLUMNS as f64)
+                as usize
+        };
+        let start_column = column(start_angle).min(COLUMNS - 1);
+        let end_column = column(end_angle).min(COLUMNS - 1);
+        let (left, right_column) = (start_column.min(end_column), start_column.max(end_column));
+        let covered_before = covered.iter().filter(|covered| **covered).count();
+        let visible = (left..=right_column)
+            .filter(|column| !covered[*column])
+            .count();
+        let span = right_column - left + 1;
+        let result = if visible == 0 {
+            fully_covered += 1;
+            "covered"
+        } else if visible == span {
+            fully_visible += 1;
+            "visible"
+        } else {
+            partial += 1;
+            "partial"
+        };
+        let authority = occluders
+            .get(&seg.source.record_index)
+            .expect("every source SEG is classified");
+        let closes = authority.kind != doom_geometry_provider::DoomSegOccluderKind::Open;
+        // This interval extraction intentionally uses the fixed diagnostic
+        // columns, not renderer pixels or historic Doom projection. It is
+        // sufficient only to lower source-labelled comparison geometry; the
+        // next checkpoint must still upload and visually compare that separate
+        // representation.
+        let visible_runs = visible_column_runs(&covered[left..=right_column]);
+        let line_interval = source_seg_linedef_interval(map, seg);
+        for [run_start, run_end] in visible_runs {
+            let start_fraction = run_start as f64 / span as f64;
+            let end_fraction = run_end as f64 / span as f64;
+            let interval = [
+                line_interval[0] + (line_interval[1] - line_interval[0]) * start_fraction,
+                line_interval[0] + (line_interval[1] - line_interval[0]) * end_fraction,
+            ];
+            retained_visible_intervals += 1;
+            for triangle in triangles_by_seg
+                .get(&seg.source.record_index)
+                .into_iter()
+                .flatten()
+            {
+                let extent = scene
+                    .door_geometry_source
+                    .wall_extents
+                    .iter()
+                    .find(|extent| extent.name == triangle.texture_name)
+                    .cloned()
+                    .ok_or_else(|| {
+                        io::Error::other(format!(
+                            "Stage 3B visible SEG `{}` has no texture extent",
+                            triangle.texture_name
+                        ))
+                    })?;
+                for clipped in clip_doom_seg_textured_wall_triangle_to_linedef_interval(
+                    map, triangle, interval,
+                )? {
+                    lowered_visible_triangles += 1;
+                    let lowered = lower_static_seg_wall_triangle(&clipped, extent.clone())?;
+                    lowered_visible_meshes += 1;
+                    if lowered_identity_samples.len() < 8 {
+                        lowered_identity_samples.push(format!(
+                            "seg={} line={} side={:?} role={:?} texture={} interval=[{:.3},{:.3}] vertices={}",
+                            lowered.source_seg.record_index,
+                            lowered.wall.source_linedef.record_index,
+                            lowered.wall.side,
+                            lowered.wall.role,
+                            lowered.wall.texture_name,
+                            interval[0],
+                            interval[1],
+                            lowered.wall.mesh.positions.len(),
+                        ));
+                    }
+                }
+            }
+        }
+        if closes {
+            covered[left..=right_column].fill(true);
+            contributors += 1;
+        }
+        let covered_after = covered.iter().filter(|covered| **covered).count();
+        if seg.linedef == 247 || samples.len() < 8 {
+            samples.push(format!(
+                "seg={} line={} rank={} interval=[{left},{right_column}] visible={visible}/{span} authority={:?} result={result} coverage={covered_before}->{covered_after} contributor={closes}",
+                seg.source.record_index, seg.linedef, rank, authority.kind
+            ));
+        }
+    }
+    println!("E1M1 AR-0025 Stage 3B screen-span control: columns={COLUMNS}; outside={outside}; fully_covered={fully_covered}; partial={partial}; fully_visible={fully_visible}; coverage_contributors={contributors}; covered_columns={}; meaning=fixed-source-space-experiment-not-renderer-visibility", covered.iter().filter(|covered| **covered).count());
+    println!(
+        "E1M1 AR-0025 Stage 3B screen-span samples: {}",
+        samples.join(" | ")
+    );
+    println!(
+        "E1M1 AR-0025 Stage 3B visible-SEG lowering: visible_intervals={retained_visible_intervals}; source_triangles={lowered_visible_triangles}; lowered_meshes={lowered_visible_meshes}; meaning=separate-source-labelled-comparison-representation-not-uploaded-or-renderer-visibility"
+    );
+    println!(
+        "E1M1 AR-0025 Stage 3B visible-SEG lowering samples: {}",
+        lowered_identity_samples.join(" | ")
+    );
+    Ok(())
+}
+
+/// Builds the deliberately bounded Stage 3B presentation control from the
+/// same fixed source-space screen-span experiment reported above. This is not
+/// a Doom renderer reconstruction: it only gives the corpus a visually
+/// inspectable representation of the retained SEG subintervals.
+fn prepare_doom_seg_clip_presentation(
+    scene: &SceneInput,
+    hut_pose: bool,
+) -> PlatformResult<DoomSegClipPresentation> {
+    const COLUMNS: usize = 320;
+    const HALF_FOV: f64 = std::f64::consts::FRAC_PI_4;
+
+    let map = &scene.door_geometry_source.map;
+    let viewer = scene.spawn_observer.source_position;
+    let angle = if hut_pose {
+        (-208.0_f64).atan2(1120.0)
+    } else {
+        f64::from(scene.spawn_observer.source_angle).to_radians()
+    };
+    let forward = [angle.cos(), angle.sin()];
+    let right = [-forward[1], forward[0]];
+    let order = resolve_doom_viewer_subsector_order(map, viewer)?;
+    let order_by_source = order
+        .iter()
+        .enumerate()
+        .map(|(rank, source)| (source.record_index, rank))
+        .collect::<BTreeMap<_, _>>();
+    let occluders = observe_doom_seg_occluders(map)?
+        .into_iter()
+        .map(|observation| (observation.source_seg.record_index, observation))
+        .collect::<BTreeMap<_, _>>();
+    let seg_triangles =
+        lower_doom_seg_textured_wall_triangles(map, &scene.door_geometry_source.wall_extents)?;
+    let mut triangles_by_seg = BTreeMap::<u32, Vec<_>>::new();
+    for triangle in &seg_triangles {
+        triangles_by_seg
+            .entry(triangle.source_seg.record_index)
+            .or_default()
+            .push(triangle);
+    }
+    let mut ordered_segs = map
+        .segs
+        .iter()
+        .filter_map(|seg| {
+            let subsector = map.subsectors.iter().position(|subsector| {
+                let start = usize::from(subsector.first_seg);
+                let end = start + usize::from(subsector.seg_count);
+                (start..end).any(|index| map.segs[index].source == seg.source)
+            })?;
+            Some((
+                order_by_source.get(&map.subsectors[subsector].source.record_index)?,
+                seg,
+            ))
+        })
+        .collect::<Vec<_>>();
+    ordered_segs.sort_by_key(|(rank, seg)| (**rank, seg.source.record_index));
+
+    let project = |point: [i16; 2]| {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        let lateral = relative[0] * right[0] + relative[1] * right[1];
+        (depth, lateral.atan2(depth))
+    };
+    let column = |angle: f64| {
+        ((angle.clamp(-HALF_FOV, HALF_FOV) + HALF_FOV) / (2.0 * HALF_FOV) * COLUMNS as f64) as usize
+    };
+
+    let mut covered = vec![false; COLUMNS];
+    let mut draws = Vec::new();
+    let mut visible_intervals = 0usize;
+    let mut source_triangles = 0usize;
+    for (_, seg) in ordered_segs {
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let (start_depth, start_angle) = project([start.x, start.y]);
+        let (end_depth, end_angle) = project([end.x, end.y]);
+        if start_depth <= 0.0
+            || end_depth <= 0.0
+            || (start_angle.abs() > HALF_FOV && end_angle.abs() > HALF_FOV)
+        {
+            continue;
+        }
+        let start_column = column(start_angle).min(COLUMNS - 1);
+        let end_column = column(end_angle).min(COLUMNS - 1);
+        let (left, right_column) = (start_column.min(end_column), start_column.max(end_column));
+        let span = right_column - left + 1;
+        let line_interval = source_seg_linedef_interval(map, seg);
+        for [run_start, run_end] in visible_column_runs(&covered[left..=right_column]) {
+            let start_fraction = run_start as f64 / span as f64;
+            let end_fraction = run_end as f64 / span as f64;
+            let interval = [
+                line_interval[0] + (line_interval[1] - line_interval[0]) * start_fraction,
+                line_interval[0] + (line_interval[1] - line_interval[0]) * end_fraction,
+            ];
+            visible_intervals += 1;
+            for triangle in triangles_by_seg
+                .get(&seg.source.record_index)
+                .into_iter()
+                .flatten()
+            {
+                let extent = scene
+                    .door_geometry_source
+                    .wall_extents
+                    .iter()
+                    .find(|extent| extent.name == triangle.texture_name)
+                    .cloned()
+                    .ok_or_else(|| {
+                        io::Error::other(format!(
+                            "Stage 3B visible SEG `{}` has no texture extent",
+                            triangle.texture_name
+                        ))
+                    })?;
+                for clipped in clip_doom_seg_textured_wall_triangle_to_linedef_interval(
+                    map, triangle, interval,
+                )? {
+                    let lowered = lower_static_seg_wall_triangle(&clipped, extent.clone())?;
+                    let material = scene
+                        .door_geometry_source
+                        .wall_materials
+                        .get(&lowered.wall.texture_name)
+                        .copied()
+                        .ok_or_else(|| {
+                            io::Error::other(format!(
+                                "Stage 3B visible SEG `{}` has no wall material",
+                                lowered.wall.texture_name
+                            ))
+                        })?;
+                    source_triangles += 1;
+                    draws.push(StaticDrawPlanEntry {
+                        source_label: format!(
+                            "seg-clip:{}:{}:{:?}:{:?}:{}:{:.3}-{:.3}",
+                            lowered.source_seg.record_index,
+                            lowered.wall.source_linedef.record_index,
+                            lowered.wall.side,
+                            lowered.wall.role,
+                            lowered.wall.texture_name,
+                            interval[0],
+                            interval[1],
+                        ),
+                        source: StaticDrawSource::Wall {
+                            source_linedef: lowered.wall.source_linedef,
+                            source_sidedef: lowered.wall.source_sidedef,
+                            source_sector: lowered.wall.source_sector,
+                            role: lowered.wall.role,
+                        },
+                        mesh: lowered.wall.mesh,
+                        material,
+                    });
+                }
+            }
+        }
+        let authority = occluders
+            .get(&seg.source.record_index)
+            .expect("every source SEG is classified");
+        if authority.kind != doom_geometry_provider::DoomSegOccluderKind::Open {
+            covered[left..=right_column].fill(true);
+        }
+    }
+
+    Ok(DoomSegClipPresentation {
+        draws,
+        visible_intervals,
+        source_triangles,
+    })
+}
+
+/// Adapts the retained per-column source-grid observation into ordinary
+/// source-labelled wall draws for a manual comparison. A SEG survives as a
+/// whole piece when at least one of its bounded grid cells remains uncovered;
+/// this deliberately fails open rather than claiming pixel-exact clipping.
+fn prepare_doom_seg_per_column_presentation(
+    scene: &SceneInput,
+) -> PlatformResult<DoomSegPerColumnPresentation> {
+    let observation = observe_doom_seg_screen_grid(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.position.y,
+        true,
+        scene.spawn_observer.source_position,
+        f64::from(scene.spawn_observer.source_angle).to_radians(),
+    )?;
+    let map = &scene.door_geometry_source.map;
+    let triangles =
+        lower_doom_seg_textured_wall_triangles(map, &scene.door_geometry_source.wall_extents)?;
+    let mut wall_draws = Vec::new();
+    for triangle in triangles.iter().filter(|triangle| {
+        observation
+            .selected_seg_records
+            .contains(&triangle.source_seg.record_index)
+    }) {
+        let extent = scene
+            .door_geometry_source
+            .wall_extents
+            .iter()
+            .find(|extent| extent.name == triangle.texture_name)
+            .cloned()
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "Stage 3B selected SEG `{}` has no texture extent",
+                    triangle.texture_name
+                ))
+            })?;
+        let lowered = match lower_static_seg_wall_triangle(triangle, extent) {
+            Ok(lowered) => lowered,
+            Err(StaticFlatLoweringError::DegenerateTriangle) => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let material = scene
+            .door_geometry_source
+            .wall_materials
+            .get(&lowered.wall.texture_name)
+            .copied()
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "Stage 3B selected SEG `{}` has no wall material",
+                    lowered.wall.texture_name
+                ))
+            })?;
+        wall_draws.push(StaticDrawPlanEntry {
+            source_label: format!(
+                "seg-grid:{}:{}:{:?}:{:?}:{}",
+                lowered.source_seg.record_index,
+                lowered.wall.source_linedef.record_index,
+                lowered.wall.side,
+                lowered.wall.role,
+                lowered.wall.texture_name,
+            ),
+            source: StaticDrawSource::Wall {
+                source_linedef: lowered.wall.source_linedef,
+                source_sidedef: lowered.wall.source_sidedef,
+                source_sector: lowered.wall.source_sector,
+                role: lowered.wall.role,
+            },
+            mesh: lowered.wall.mesh,
+            material,
+        });
+    }
+    Ok(DoomSegPerColumnPresentation {
+        wall_draws,
+        selected_segs: observation.selected_seg_records.len(),
+    })
+}
+
+/// Prepares every SEG-derived wall once, retaining the original flat/cutout
+/// draws. The runtime control later filters this stable set by source SEG
+/// identity, so observer movement cannot cause mesh uploads or replacements.
+fn prepare_doom_seg_per_column_dynamic_scene(
+    scene: &mut SceneInput,
+) -> PlatformResult<DoomSegDynamicSelectionInput> {
+    let map = &scene.door_geometry_source.map;
+    let triangles =
+        lower_doom_seg_textured_wall_triangles(map, &scene.door_geometry_source.wall_extents)?;
+    scene
+        .opaque_draws
+        .retain(|draw| !matches!(draw.source, StaticDrawSource::Wall { .. }));
+    let mut unsupported_textures = BTreeSet::new();
+    for triangle in triangles {
+        let extent = scene
+            .door_geometry_source
+            .wall_extents
+            .iter()
+            .find(|extent| extent.name == triangle.texture_name)
+            .cloned()
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "Stage 3B dynamic SEG `{}` has no texture extent",
+                    triangle.texture_name
+                ))
+            })?;
+        let lowered = match lower_static_seg_wall_triangle(&triangle, extent) {
+            Ok(lowered) => lowered,
+            // Preserve the established E1M1 rule: confirmed zero-area source
+            // candidates are retained omissions, never fabricated normals.
+            Err(StaticFlatLoweringError::DegenerateTriangle) => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let Some(material) = scene
+            .door_geometry_source
+            .wall_materials
+            .get(&lowered.wall.texture_name)
+            .copied()
+        else {
+            unsupported_textures.insert(lowered.wall.texture_name);
+            continue;
+        };
+        scene.opaque_draws.push(StaticDrawPlanEntry {
+            source_label: format!(
+                "seg-dynamic:{}:{}:{:?}:{:?}:{}",
+                lowered.source_seg.record_index,
+                lowered.wall.source_linedef.record_index,
+                lowered.wall.side,
+                lowered.wall.role,
+                lowered.wall.texture_name,
+            ),
+            source: StaticDrawSource::Wall {
+                source_linedef: lowered.wall.source_linedef,
+                source_sidedef: lowered.wall.source_sidedef,
+                source_sector: lowered.wall.source_sector,
+                role: lowered.wall.role,
+            },
+            mesh: lowered.wall.mesh,
+            material,
+        });
+    }
+    let mut draw_indices_by_seg = BTreeMap::<u32, Vec<usize>>::new();
+    for (index, draw) in scene.opaque_draws.iter().enumerate() {
+        if let Some(seg) = draw
+            .source_label
+            .strip_prefix("seg-dynamic:")
+            .and_then(|label| label.split(':').next())
+            .and_then(|record| record.parse::<u32>().ok())
+        {
+            draw_indices_by_seg.entry(seg).or_default().push(index);
+        }
+    }
+    Ok(DoomSegDynamicSelectionInput {
+        draw_indices_by_seg,
+        unsupported_textures,
+    })
+}
+
+/// Second Stage 3B control: preserves the same source-owned traversal and
+/// occluder classification, but records coverage in a bounded two-dimensional
+/// source-space grid. It is deliberately headless before any new presentation
+/// mode is considered, because the horizontal-only control was falsified by
+/// visible spawn-room omissions.
+fn report_doom_seg_screen_grid(scene: &SceneInput, per_column: bool) -> PlatformResult<()> {
+    let observation = observe_doom_seg_screen_grid(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.position.y,
+        per_column,
+        scene.spawn_observer.source_position,
+        f64::from(scene.spawn_observer.source_angle).to_radians(),
+    )?;
+    println!(
+        "E1M1 AR-0025 Stage 3B two-dimensional screen-grid control: mode={}; columns=320; rows=200; outside={}; fully_covered={}; partial={}; fully_visible={}; coverage_contributors={}; covered_cells={}; selected_segs={}; meaning=bounded-source-space-control-not-renderer-or-historic-doom-visibility",
+        if per_column { "per-column" } else { "rectangle" },
+        observation.outside,
+        observation.fully_covered,
+        observation.partial,
+        observation.fully_visible,
+        observation.contributors,
+        observation.covered_cells,
+        observation.selected_seg_records.len(),
+    );
+    println!(
+        "E1M1 AR-0025 Stage 3B two-dimensional screen-grid samples: {}",
+        observation.samples.join(" | ")
+    );
+    Ok(())
+}
+
+/// Bounded source-pose trace for the per-column Stage 3B control. It proves
+/// only that the source-owned candidate set changes with declared camera input;
+/// it neither uploads resources nor schedules dynamic renderer work.
+fn report_doom_seg_per_column_turn_trace(scene: &SceneInput) -> PlatformResult<()> {
+    let base = f64::from(scene.spawn_observer.source_angle);
+    for offset in [0.0, 90.0, 180.0, 270.0] {
+        let angle = (base + offset).rem_euclid(360.0).to_radians();
+        let observation = observe_doom_seg_screen_grid(
+            &scene.door_geometry_source.map,
+            scene.spawn_observer.position.y,
+            true,
+            scene.spawn_observer.source_position,
+            angle,
+        )?;
+        println!(
+            "E1M1 AR-0025 Stage 3B per-column turn trace: source_heading_degrees={:.0}; selected_segs={}; outside={}; fully_covered={}; partial={}; fully_visible={}; covered_cells={}; depth_order_inversions={}; meaning=headless-source-pose-observation-not-dynamic-renderer-selection",
+            (base + offset).rem_euclid(360.0),
+            observation.selected_seg_records.len(),
+            observation.outside,
+            observation.fully_covered,
+            observation.partial,
+            observation.fully_visible,
+            observation.covered_cells,
+            observation.depth_order_inversions,
+        );
+    }
+    Ok(())
+}
+
+/// Bounded position counterpart to the heading trace. The offsets are source
+/// test inputs around player one, not collision-valid movement or Doom play.
+fn report_doom_seg_per_column_position_trace(scene: &SceneInput) -> PlatformResult<()> {
+    let origin = scene.spawn_observer.source_position;
+    let angle = f64::from(scene.spawn_observer.source_angle).to_radians();
+    for [offset_x, offset_y] in [[0, 0], [64, 0], [-64, 0], [0, 64], [0, -64], [128, 64]] {
+        let viewer = [origin[0] + offset_x, origin[1] + offset_y];
+        let observation = observe_doom_seg_screen_grid(
+            &scene.door_geometry_source.map,
+            scene.spawn_observer.position.y,
+            true,
+            viewer,
+            angle,
+        )?;
+        println!(
+            "E1M1 AR-0025 Stage 3B per-column position trace: source_viewer=({},{}); offset=({},{}); selected_segs={}; outside={}; fully_covered={}; partial={}; fully_visible={}; covered_cells={}; depth_order_inversions={}; meaning=headless-source-pose-observation-not-dynamic-renderer-selection",
+            viewer[0],
+            viewer[1],
+            offset_x,
+            offset_y,
+            observation.selected_seg_records.len(),
+            observation.outside,
+            observation.fully_covered,
+            observation.partial,
+            observation.fully_visible,
+            observation.covered_cells,
+            observation.depth_order_inversions,
+        );
+    }
+    Ok(())
+}
+
+/// Replays the retained interactive false-negative poses from AR-0025 Cycle
+/// 35. These are observation inputs, not navigation waypoints or a fix.
+fn report_doom_seg_per_column_failure_trace(scene: &SceneInput) -> PlatformResult<()> {
+    for (label, viewer, heading_degrees) in [
+        ("near-wall-a", [1202, -3502], -24.0_f64),
+        ("near-wall-b", [1296, -3427], -0.4_f64),
+        ("courtyard-loss", [1514, -2481], -29.2_f64),
+    ] {
+        let observation = observe_doom_seg_screen_grid(
+            &scene.door_geometry_source.map,
+            scene.spawn_observer.position.y,
+            true,
+            viewer,
+            heading_degrees.to_radians(),
+        )?;
+        println!(
+            "E1M1 AR-0025 Stage 3B retained false-negative trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; selected_segs={}; outside={}; fully_covered={}; partial={}; fully_visible={}; covered_cells={}; depth_order_inversions={}; depth_order_samples={}; meaning=known-visually-unsound-source-grid-pose-not-presentation-selection",
+            viewer[0],
+            viewer[1],
+            observation.selected_seg_records.len(),
+            observation.outside,
+            observation.fully_covered,
+            observation.partial,
+            observation.fully_visible,
+            observation.covered_cells,
+            observation.depth_order_inversions,
+            observation.depth_order_samples.join(" | "),
+        );
+    }
+    Ok(())
+}
+
+/// Tests whether a global nearest-SEG approximation removes the local-depth
+/// inversions exposed by the retained false-negative poses. This intentionally
+/// does not upload or select a presentation: a single closest-point order may
+/// still disagree with different rays across one long SEG.
+fn report_doom_seg_per_column_order_trace(scene: &SceneInput) -> PlatformResult<()> {
+    for (label, viewer, heading_degrees) in [
+        ("near-wall-a", [1202, -3502], -24.0_f64),
+        ("near-wall-b", [1296, -3427], -0.4_f64),
+        ("courtyard-loss", [1514, -2481], -29.2_f64),
+    ] {
+        let leaf_order = observe_doom_seg_screen_grid_with_order(
+            &scene.door_geometry_source.map,
+            scene.spawn_observer.position.y,
+            true,
+            viewer,
+            heading_degrees.to_radians(),
+            DoomSegScreenGridOrder::BspLeafThenSource,
+        )?;
+        let nearest_order = observe_doom_seg_screen_grid_with_order(
+            &scene.door_geometry_source.map,
+            scene.spawn_observer.position.y,
+            true,
+            viewer,
+            heading_degrees.to_radians(),
+            DoomSegScreenGridOrder::NearestSegmentToViewer,
+        )?;
+        println!(
+            "E1M1 AR-0025 Stage 3B ordering trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; leaf-order=[selected:{} fully-covered:{} depth-inversions:{}]; nearest-segment-order=[selected:{} fully-covered:{} depth-inversions:{}]; meaning=diagnostic-order-comparison-not-presentation-selection-or-doom-parity",
+            viewer[0],
+            viewer[1],
+            leaf_order.selected_seg_records.len(),
+            leaf_order.fully_covered,
+            leaf_order.depth_order_inversions,
+            nearest_order.selected_seg_records.len(),
+            nearest_order.fully_covered,
+            nearest_order.depth_order_inversions,
+        );
+    }
+    Ok(())
+}
+
+/// Tests the first separable portion of classic Doom's `R_AddLine` protocol:
+/// source SEG facing and horizontal FOV admission, followed by Doom-owned
+/// solid-versus-pass authority. It intentionally does not yet union solid
+/// ranges, clip spans, prune BSP bboxes, or select presentation draws.
+fn report_doom_seg_classic_admission_trace(scene: &SceneInput) -> PlatformResult<()> {
+    for (label, viewer, heading_degrees) in [
+        ("near-wall-a", [1202, -3502], -24.0_f64),
+        ("near-wall-b", [1296, -3427], -0.4_f64),
+        ("courtyard-loss", [1514, -2481], -29.2_f64),
+    ] {
+        let observation = observe_doom_seg_classic_admission(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading_degrees.to_radians(),
+        )?;
+        println!(
+            "E1M1 AR-0025 Stage 3B classic-admission trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; source_segs={}; backface_rejected={}; edge_on={}; outside_fov_rejected={}; solid_admitted={}; pass_admitted={}; solid-range-contributors={}; solid-range-fully-covered={}; solid-range-covered-columns={}; samples={}; meaning=doom-source-protocol-preflight-with-horizontal-range-union-not-bsp-bbox-pruning-or-presentation-selection",
+            viewer[0],
+            viewer[1],
+            observation.source_segs,
+            observation.backface_rejected,
+            observation.edge_on,
+            observation.outside_fov_rejected,
+            observation.solid_admitted,
+            observation.pass_admitted,
+            observation.solid_range_contributors,
+            observation.solid_range_fully_covered,
+            observation.solid_range_covered_columns,
+            observation.samples.join(" | "),
+        );
+    }
+    Ok(())
+}
+
+/// Replays the existing counterexample poses through a bounded Doom-style BSP
+/// traversal. A far child is skipped only when its source bbox projects to an
+/// interval wholly closed by earlier admitted solid ranges; all uncertain bbox
+/// cases remain fail-open.
+fn report_doom_seg_classic_bsp_trace(scene: &SceneInput) -> PlatformResult<()> {
+    let lowerable_triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let hut_subsectors = scene
+        .door_geometry_source
+        .map
+        .subsectors
+        .iter()
+        .enumerate()
+        .filter_map(|(subsector_index, subsector)| {
+            let first = usize::from(subsector.first_seg);
+            let end = first + usize::from(subsector.seg_count);
+            scene.door_geometry_source.map.segs[first..end]
+                .iter()
+                .any(|seg| seg.linedef == 247)
+                .then_some(subsector_index as u16)
+        })
+        .collect::<BTreeSet<_>>();
+    let plane_marks = observe_doom_seg_plane_marks(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.position.y as i16,
+    )?;
+    for (label, viewer, heading_degrees) in [
+        ("near-wall-a", [1202, -3502], -24.0_f64),
+        ("near-wall-b", [1296, -3427], -0.4_f64),
+        ("courtyard-loss", [1514, -2481], -29.2_f64),
+        // The retained source-derived hut direction is a control for the
+        // exterior-wall suspect at linedef 247. It is not a navigation pose.
+        (
+            "hut-control",
+            scene.spawn_observer.source_position,
+            (-208.0_f64).atan2(1120.0).to_degrees(),
+        ),
+    ] {
+        let observation = observe_doom_seg_classic_bsp(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading_degrees.to_radians(),
+            &hut_subsectors,
+        )?;
+        let admitted_triangles = lowerable_triangles
+            .iter()
+            .filter(|triangle| {
+                observation
+                    .admitted_seg_records
+                    .contains(&triangle.source_seg.record_index)
+            })
+            .count();
+        let admitted_triangle_roles = summarize_classic_bsp_wall_triangle_roles(
+            &lowerable_triangles,
+            &observation.admitted_seg_records,
+        );
+        let admitted_plane_marks =
+            summarize_classic_bsp_plane_marks(&plane_marks, &observation.admitted_seg_records);
+        let admitted_hut_triangles = lowerable_triangles
+            .iter()
+            .filter(|triangle| {
+                triangle.source_linedef.record_index == 247
+                    && observation
+                        .admitted_seg_records
+                        .contains(&triangle.source_seg.record_index)
+            })
+            .count();
+        let (retained_floor_draws, retained_ceiling_draws) =
+            count_classic_bsp_static_flat_draws(scene, &observation);
+        println!(
+            "E1M1 AR-0025 Stage 3B classic-BSP trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; leaves-visited={}; source-segs-visited={}; far-children-solid-pruned={}; far-children-outside-fov={}; far-children-fail-open={}; backface-rejected={}; edge-on={}; outside-fov-rejected={}; solid-admitted={}; pass-admitted={}; admitted-source-segs={}; lowerable-seg-wall-triangles={}; lowerable-wall-role-triangles=[upper:{} lower:{} middle:{}]; source-plane-marks=[floor:{} ceiling:{} paired-sky:{}]; retained-static-flats=[floor:{} ceiling:{}]; solid-range-contributors={}; solid-range-fully-covered={}; solid-range-covered-columns={}; hut-line-247=[subsectors:{:?} reached:{:?} visited:{} admitted:{} lowerable-seg-wall-triangles:{} elisions:{}]; samples={}; meaning=doom-source-protocol-comparison-not-historic-doom-parity-or-presentation-selection",
+            viewer[0],
+            viewer[1],
+            observation.leaves_visited,
+            observation.source_segs_visited,
+            observation.far_children_pruned,
+            observation.far_children_outside_fov,
+            observation.far_children_fail_open,
+            observation.backface_rejected,
+            observation.edge_on,
+            observation.outside_fov_rejected,
+            observation.solid_admitted,
+            observation.pass_admitted,
+            observation.admitted_seg_records.len(),
+            admitted_triangles,
+            admitted_triangle_roles.0,
+            admitted_triangle_roles.1,
+            admitted_triangle_roles.2,
+            admitted_plane_marks.0,
+            admitted_plane_marks.1,
+            admitted_plane_marks.2,
+            retained_floor_draws,
+            retained_ceiling_draws,
+            observation.solid_range_contributors,
+            observation.solid_range_fully_covered,
+            observation.solid_range_covered_columns,
+            hut_subsectors.iter().collect::<Vec<_>>(),
+            hut_subsectors
+                .iter()
+                .filter(|subsector| observation.visited_subsectors.contains(subsector))
+                .collect::<Vec<_>>(),
+            observation.hut_linedef_segs_visited,
+            observation.hut_linedef_segs_admitted,
+            admitted_hut_triangles,
+            observation.watched_subsector_elisions.join(","),
+            observation.samples.join(" | "),
+        );
+    }
+    Ok(())
+}
+
+/// Retains the next separable source-protocol checkpoint after recursive BSP
+/// admission: wall tiers update independent ceiling/floor clip boundaries,
+/// while source plane marks remain separate facts. It deliberately stops
+/// before visplane construction, flat selection, or any presentation mode.
+fn report_doom_seg_classic_vertical_clip_trace(scene: &SceneInput) -> PlatformResult<()> {
+    let lowerable_triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let plane_marks = observe_doom_seg_plane_marks(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.position.y as i16,
+    )?;
+    for (label, viewer, heading_degrees) in [
+        (
+            "source-spawn",
+            scene.spawn_observer.source_position,
+            90.0_f64,
+        ),
+        ("near-wall-a", [1202, -3502], -24.0_f64),
+        ("near-wall-b", [1296, -3427], -0.4_f64),
+        ("courtyard-loss", [1514, -2481], -29.2_f64),
+        (
+            "hut-control",
+            scene.spawn_observer.source_position,
+            (-208.0_f64).atan2(1120.0).to_degrees(),
+        ),
+    ] {
+        let traversal = observe_doom_seg_classic_bsp(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading_degrees.to_radians(),
+            &BTreeSet::new(),
+        )?;
+        let vertical = observe_doom_seg_classic_vertical_clip_state(
+            &scene.door_geometry_source.map,
+            &lowerable_triangles,
+            &plane_marks,
+            &traversal,
+            viewer,
+            heading_degrees.to_radians(),
+            scene.spawn_observer.position.y as f64,
+        );
+        println!(
+            "E1M1 AR-0025 Stage 3B classic-vertical-clip trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; admitted-segs={}; tier-spans=[upper:{} lower:{} middle:{}]; source-plane-marks=[floor:{} ceiling:{} paired-sky:{}]; clip-updates=[ceiling:{} floor:{}]; center-column-trace={}; meaning=doom-owned-wall-tier-and-plane-clip-state-not-visplanes-flat-selection-or-presentation-visibility",
+            viewer[0], viewer[1], vertical.admitted_segs, vertical.upper_tier_spans,
+            vertical.lower_tier_spans, vertical.middle_tier_spans, vertical.floor_plane_marks,
+            vertical.ceiling_plane_marks, vertical.paired_sky_adjustments,
+            vertical.ceiling_clip_updates, vertical.floor_clip_updates, vertical.samples.join(" | "),
+        );
+    }
+    Ok(())
+}
+
+/// Establishes the decoded source grouping facts that must exist before a
+/// later provider-local visplane/span experiment can be meaningful. Classic
+/// Doom groups planes by height, flat identity, and light; sky ceilings use a
+/// common height/light identity. This records no allocated plane or draw.
+fn report_doom_seg_classic_plane_identity_trace(scene: &SceneInput) -> PlatformResult<()> {
+    let plane_marks = observe_doom_seg_plane_marks(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.position.y as i16,
+    )?;
+    for (label, viewer, heading_degrees) in [
+        ("source-spawn", [1056, -3616], 90.0_f64),
+        ("near-wall-b", [1296, -3427], -0.4_f64),
+        ("courtyard-loss", [1514, -2481], -29.2_f64),
+    ] {
+        let traversal = observe_doom_seg_classic_bsp(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading_degrees.to_radians(),
+            &BTreeSet::new(),
+        )?;
+        let identities = observe_doom_seg_classic_plane_identities(
+            &scene.door_geometry_source.map,
+            &plane_marks,
+            &traversal,
+        );
+        println!(
+            "E1M1 AR-0025 Stage 3B classic-plane-identity trace: pose={label}; admitted-segs={}; contributors=[floor:{} ceiling:{} sky-ceiling:{}]; unique-source-keys=[floor:{} ceiling:{}]; samples={}; meaning=source-plane-grouping-prerequisite-not-visplanes-spans-flat-selection-or-presentation-visibility",
+            traversal.admitted_seg_order.len(),
+            identities.floor_mark_contributors,
+            identities.ceiling_mark_contributors,
+            identities.sky_ceiling_contributors,
+            identities.unique_floor_keys,
+            identities.unique_ceiling_keys,
+            identities.samples.join(" | "),
+        );
+    }
+    Ok(())
+}
+
+fn observe_doom_seg_classic_plane_identities(
+    map: &DoomMapCore,
+    plane_marks: &[DoomSegPlaneMarkObservation],
+    traversal: &DoomSegClassicBspObservation,
+) -> DoomSegClassicPlaneIdentityObservation {
+    let sectors_by_record = map
+        .sectors
+        .iter()
+        .map(|sector| (sector.source.record_index, sector))
+        .collect::<BTreeMap<_, _>>();
+    let marks_by_seg = plane_marks
+        .iter()
+        .map(|mark| (mark.source_seg.record_index, mark))
+        .collect::<BTreeMap<_, _>>();
+    let mut result = DoomSegClassicPlaneIdentityObservation::default();
+    let mut floor_keys = BTreeSet::new();
+    let mut ceiling_keys = BTreeSet::new();
+
+    for source_seg in &traversal.admitted_seg_order {
+        let Some(mark) = marks_by_seg.get(source_seg) else {
+            continue;
+        };
+        let sector = sectors_by_record
+            .get(&mark.front_sector.record_index)
+            .expect("validated plane mark names an existing front sector");
+        if mark.floor_marked {
+            result.floor_mark_contributors += 1;
+            let key = (
+                sector.floor_height,
+                sector.floor_texture.clone(),
+                sector.light_level,
+            );
+            if floor_keys.insert(key.clone()) && result.samples.len() < 12 {
+                result.samples.push(format!(
+                    "floor-sector={} height={} flat={} light={}",
+                    mark.front_sector.record_index, key.0, key.1, key.2,
+                ));
+            }
+        }
+        if mark.ceiling_marked {
+            result.ceiling_mark_contributors += 1;
+            let sky = sector.ceiling_texture == "F_SKY1";
+            result.sky_ceiling_contributors += usize::from(sky);
+            let key = if sky {
+                (0, String::from("F_SKY1"), 0)
+            } else {
+                (
+                    sector.ceiling_height,
+                    sector.ceiling_texture.clone(),
+                    sector.light_level,
+                )
+            };
+            if ceiling_keys.insert(key.clone()) && result.samples.len() < 12 {
+                result.samples.push(format!(
+                    "ceiling-sector={} height={} flat={} light={} sky={sky}",
+                    mark.front_sector.record_index, key.0, key.1, key.2,
+                ));
+            }
+        }
+    }
+    result.unique_floor_keys = floor_keys.len();
+    result.unique_ceiling_keys = ceiling_keys.len();
+    result
+}
+
+/// Bounded source-local observation of the clip boundaries that wall tiers
+/// evolve after recursive BSP admission. The arrays are diagnostic only: no
+/// renderer scissor, candidate selector, flat draw, or visplane consumes them.
+#[allow(clippy::too_many_arguments)]
+fn observe_doom_seg_classic_vertical_clip_state(
+    map: &DoomMapCore,
+    triangles: &[DoomSegTexturedWallTriangle],
+    plane_marks: &[DoomSegPlaneMarkObservation],
+    traversal: &DoomSegClassicBspObservation,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: f64,
+) -> DoomSegClassicVerticalClipObservation {
+    const COLUMNS: usize = 320;
+    const ROWS: usize = 200;
+    const HALF_HORIZONTAL_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    let half_vertical_fov = ((ROWS as f64 / COLUMNS as f64) * HALF_HORIZONTAL_FOV.tan()).atan();
+    let mut result = DoomSegClassicVerticalClipObservation {
+        admitted_segs: traversal.admitted_seg_order.len(),
+        ..Default::default()
+    };
+    let mut ceiling_clip = vec![0usize; COLUMNS];
+    let mut floor_clip = vec![ROWS; COLUMNS];
+    let marks_by_seg = plane_marks
+        .iter()
+        .map(|mark| (mark.source_seg.record_index, mark))
+        .collect::<BTreeMap<_, _>>();
+    let segs_by_record = map
+        .segs
+        .iter()
+        .map(|seg| (seg.source.record_index, seg))
+        .collect::<BTreeMap<_, _>>();
+    let sectors_by_record = map
+        .sectors
+        .iter()
+        .map(|sector| (sector.source.record_index, sector))
+        .collect::<BTreeMap<_, _>>();
+    let mut tier_heights = BTreeMap::<(u32, u8), (DoomWallTextureRole, f64, f64)>::new();
+    for triangle in triangles {
+        if !traversal
+            .admitted_seg_records
+            .contains(&triangle.source_seg.record_index)
+        {
+            continue;
+        }
+        let role_key = match triangle.role {
+            DoomWallTextureRole::Upper => 0,
+            DoomWallTextureRole::Lower => 1,
+            DoomWallTextureRole::Middle => 2,
+        };
+        let minimum = triangle
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f64::INFINITY, f64::min);
+        let maximum = triangle
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        tier_heights
+            .entry((triangle.source_seg.record_index, role_key))
+            .and_modify(|(_, stored_minimum, stored_maximum)| {
+                *stored_minimum = stored_minimum.min(minimum);
+                *stored_maximum = stored_maximum.max(maximum);
+            })
+            .or_insert((triangle.role, minimum, maximum));
+    }
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let project = |point: [i16; 2]| {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        let lateral = relative[0] * right[0] + relative[1] * right[1];
+        (depth, lateral.atan2(depth))
+    };
+    let row = |angle: f64| {
+        (((half_vertical_fov - angle.clamp(-half_vertical_fov, half_vertical_fov))
+            / (2.0 * half_vertical_fov))
+            * ROWS as f64) as usize
+    };
+    for source_seg in &traversal.admitted_seg_order {
+        let (Some(mark), Some(seg)) =
+            (marks_by_seg.get(source_seg), segs_by_record.get(source_seg))
+        else {
+            continue;
+        };
+        let front_sector = sectors_by_record
+            .get(&mark.front_sector.record_index)
+            .expect("validated plane mark names an existing front sector");
+        result.floor_plane_marks += usize::from(mark.floor_marked);
+        result.ceiling_plane_marks += usize::from(mark.ceiling_marked);
+        result.paired_sky_adjustments += usize::from(mark.paired_sky_ceiling_adjustment);
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let (start_depth, start_angle) = project([start.x, start.y]);
+        let (end_depth, end_angle) = project([end.x, end.y]);
+        if start_depth <= 0.0
+            || end_depth <= 0.0
+            || (start_angle.abs() > HALF_HORIZONTAL_FOV && end_angle.abs() > HALF_HORIZONTAL_FOV)
+        {
+            continue;
+        }
+        let [left, right_column] =
+            source_fov_column_interval(start_angle, end_angle, HALF_HORIZONTAL_FOV, COLUMNS);
+        let has_upper = tier_heights.contains_key(&(*source_seg, 0));
+        let has_lower = tier_heights.contains_key(&(*source_seg, 1));
+        let has_middle = tier_heights.contains_key(&(*source_seg, 2));
+        for role_key in 0..=2 {
+            let Some((role, minimum, maximum)) = tier_heights.get(&(*source_seg, role_key)) else {
+                continue;
+            };
+            match role {
+                DoomWallTextureRole::Upper => result.upper_tier_spans += 1,
+                DoomWallTextureRole::Lower => result.lower_tier_spans += 1,
+                DoomWallTextureRole::Middle => result.middle_tier_spans += 1,
+            }
+            let mut center_trace = None;
+            for x in left..=right_column {
+                let local_angle = -HALF_HORIZONTAL_FOV
+                    + ((x as f64 + 0.5) / COLUMNS as f64) * (2.0 * HALF_HORIZONTAL_FOV);
+                let ray = [
+                    forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                    forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+                ];
+                let depth =
+                    source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+                        .unwrap_or((start_depth + end_depth) * 0.5);
+                let top = row((maximum - eye_height).atan2(depth)).min(ROWS - 1);
+                let bottom = row((minimum - eye_height).atan2(depth)).min(ROWS - 1);
+                let (top, bottom) = (top.min(bottom), top.max(bottom));
+                let prior = [ceiling_clip[x], floor_clip[x]];
+                match role {
+                    DoomWallTextureRole::Upper => {
+                        let next = ceiling_clip[x].max(bottom.saturating_add(1));
+                        result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
+                        ceiling_clip[x] = next;
+                    }
+                    DoomWallTextureRole::Lower => {
+                        let next = floor_clip[x].min(top);
+                        result.floor_clip_updates += usize::from(next != floor_clip[x]);
+                        floor_clip[x] = next;
+                    }
+                    DoomWallTextureRole::Middle => {}
+                }
+                if x == COLUMNS / 2 {
+                    center_trace = Some(format!(
+                        "seg={source_seg} line={} tier={role:?} rows={top}..{bottom} clip-before={}..{} clip-after={}..{}",
+                        seg.linedef, prior[0], prior[1], ceiling_clip[x], floor_clip[x],
+                    ));
+                }
+            }
+            if let Some(sample) = center_trace {
+                if result.samples.len() < 12 {
+                    result.samples.push(sample);
+                }
+            }
+        }
+        // The original wall loop also moves a clip boundary for a marked plane
+        // when there is no corresponding upper/lower texture tier. A one-sided
+        // middle is terminal, while a two-sided masked middle remains open.
+        for x in left..=right_column {
+            let local_angle = -HALF_HORIZONTAL_FOV
+                + ((x as f64 + 0.5) / COLUMNS as f64) * (2.0 * HALF_HORIZONTAL_FOV);
+            let ray = [
+                forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+            ];
+            let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+                .unwrap_or((start_depth + end_depth) * 0.5);
+            let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
+                .min(ROWS - 1);
+            let floor =
+                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+            let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
+            if has_middle && mark.back_sector.is_none() {
+                result.ceiling_clip_updates += usize::from(ceiling_clip[x] != ROWS);
+                result.floor_clip_updates += usize::from(floor_clip[x] != 0);
+                ceiling_clip[x] = ROWS;
+                floor_clip[x] = 0;
+            } else {
+                if !has_upper && mark.ceiling_marked {
+                    let next = ceiling_clip[x].max(ceiling.saturating_sub(1));
+                    result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
+                    ceiling_clip[x] = next;
+                }
+                if !has_lower && mark.floor_marked {
+                    let next = floor_clip[x].min(floor.saturating_add(1));
+                    result.floor_clip_updates += usize::from(next != floor_clip[x]);
+                    floor_clip[x] = next;
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Inventories the already lowerable wall tiers selected by the headless
+/// source protocol. The roles remain Doom provider evidence; they are not a
+/// renderer material taxonomy or a claim that all source wall tiers have been
+/// classically clipped.
+fn summarize_classic_bsp_wall_triangle_roles(
+    triangles: &[DoomSegTexturedWallTriangle],
+    admitted_seg_records: &BTreeSet<u32>,
+) -> (usize, usize, usize) {
+    triangles
+        .iter()
+        .fold((0, 0, 0), |(upper, lower, middle), triangle| {
+            if !admitted_seg_records.contains(&triangle.source_seg.record_index) {
+                return (upper, lower, middle);
+            }
+            match triangle.role {
+                DoomWallTextureRole::Upper => (upper + 1, lower, middle),
+                DoomWallTextureRole::Lower => (upper, lower + 1, middle),
+                DoomWallTextureRole::Middle => (upper, lower, middle + 1),
+            }
+        })
+}
+
+/// Counts the source `R_StoreWallRange` plane-mark facts for admitted SEG
+/// records. A mark is not a projected visplane span or a selected flat draw.
+fn summarize_classic_bsp_plane_marks(
+    plane_marks: &[DoomSegPlaneMarkObservation],
+    admitted_seg_records: &BTreeSet<u32>,
+) -> (usize, usize, usize) {
+    plane_marks
+        .iter()
+        .fold((0, 0, 0), |(floors, ceilings, paired_sky), observation| {
+            if !admitted_seg_records.contains(&observation.source_seg.record_index) {
+                return (floors, ceilings, paired_sky);
+            }
+            (
+                floors + usize::from(observation.floor_marked),
+                ceilings + usize::from(observation.ceiling_marked),
+                paired_sky + usize::from(observation.paired_sky_ceiling_adjustment),
+            )
+        })
+}
+
+/// Counts existing source-labelled static flat draws whose owning subsector was
+/// reached by the headless Doom BSP protocol. These are not classic-Doom plane
+/// spans and must not be submitted as a visibility result; the count merely
+/// makes the currently unmodeled plane portion explicit.
+fn count_classic_bsp_static_flat_draws(
+    scene: &SceneInput,
+    observation: &DoomSegClassicBspObservation,
+) -> (usize, usize) {
+    scene
+        .opaque_draws
+        .iter()
+        .fold((0, 0), |(floors, ceilings), draw| match draw.source {
+            StaticDrawSource::Flat {
+                source_subsector,
+                plane: doom_geometry_provider::DoomSurfacePlane::Floor,
+                ..
+            } if observation
+                .visited_subsectors
+                .contains(&(source_subsector.record_index as u16)) =>
+            {
+                (floors + 1, ceilings)
+            }
+            StaticDrawSource::Flat {
+                source_subsector,
+                plane: doom_geometry_provider::DoomSurfacePlane::Ceiling,
+                ..
+            } if observation
+                .visited_subsectors
+                .contains(&(source_subsector.record_index as u16)) =>
+            {
+                (floors, ceilings + 1)
+            }
+            _ => (floors, ceilings),
+        })
+}
+
+fn observe_doom_seg_classic_bsp(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    watched_subsectors: &BTreeSet<u16>,
+) -> PlatformResult<DoomSegClassicBspObservation> {
+    let root = map
+        .nodes
+        .len()
+        .checked_sub(1)
+        .ok_or_else(|| io::Error::other("Stage 3B classic BSP requires a node root"))?;
+    let occluders = observe_doom_seg_occluders(map)?
+        .into_iter()
+        .map(|observation| (observation.source_seg.record_index, observation))
+        .collect::<BTreeMap<_, _>>();
+    let mut observation = DoomSegClassicBspObservation::default();
+    let mut solid_ranges = Vec::new();
+    let mut ancestors = Vec::new();
+    visit_doom_seg_classic_bsp_child(
+        map,
+        DoomBspChild::Node(root as u16),
+        viewer,
+        heading,
+        &occluders,
+        &mut solid_ranges,
+        &mut ancestors,
+        watched_subsectors,
+        &mut observation,
+    )?;
+    observation.solid_range_covered_columns = solid_ranges
+        .iter()
+        .map(|[first, last]| last - first + 1)
+        .sum();
+    Ok(observation)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn visit_doom_seg_classic_bsp_child(
+    map: &DoomMapCore,
+    child: DoomBspChild,
+    viewer: [i16; 2],
+    heading: f64,
+    occluders: &BTreeMap<u32, doom_geometry_provider::DoomSegOccluderObservation>,
+    solid_ranges: &mut Vec<[usize; 2]>,
+    ancestors: &mut Vec<u16>,
+    watched_subsectors: &BTreeSet<u16>,
+    observation: &mut DoomSegClassicBspObservation,
+) -> PlatformResult<()> {
+    match child {
+        DoomBspChild::Subsector(index) => {
+            let subsector = map.subsectors.get(usize::from(index)).ok_or_else(|| {
+                io::Error::other(format!(
+                    "Stage 3B classic BSP subsector {index} is unavailable"
+                ))
+            })?;
+            observation.leaves_visited += 1;
+            observation.visited_subsectors.insert(index);
+            let first = usize::from(subsector.first_seg);
+            let end = first + usize::from(subsector.seg_count);
+            for seg in &map.segs[first..end] {
+                admit_doom_seg_classic(
+                    map,
+                    seg,
+                    viewer,
+                    heading,
+                    occluders,
+                    solid_ranges,
+                    observation,
+                );
+            }
+            Ok(())
+        }
+        DoomBspChild::Node(index) => {
+            if ancestors.contains(&index) {
+                return Err(io::Error::other(format!(
+                    "Stage 3B classic BSP cycle at node {index}"
+                ))
+                .into());
+            }
+            let node = map.nodes.get(usize::from(index)).ok_or_else(|| {
+                io::Error::other(format!("Stage 3B classic BSP node {index} is unavailable"))
+            })?;
+            ancestors.push(index);
+            let side = i64::from(node.delta_x) * i64::from(viewer[1] - node.y)
+                - i64::from(node.delta_y) * i64::from(viewer[0] - node.x);
+            let (near, far, far_bbox) = if side < 0 {
+                (node.right_child, node.left_child, node.left_bbox)
+            } else {
+                (node.left_child, node.right_child, node.right_bbox)
+            };
+            visit_doom_seg_classic_bsp_child(
+                map,
+                near,
+                viewer,
+                heading,
+                occluders,
+                solid_ranges,
+                ancestors,
+                watched_subsectors,
+                observation,
+            )?;
+            let watched_far = watched_subsectors
+                .iter()
+                .filter_map(|target| {
+                    doom_bsp_child_contains_subsector(map, far, *target).then_some(*target)
+                })
+                .collect::<Vec<_>>();
+            let far_projection = source_bbox_fov_column_interval(
+                viewer,
+                heading,
+                far_bbox,
+                std::f64::consts::FRAC_PI_4,
+                320,
+            );
+            match far_projection {
+                SourceBBoxProjection::OutsideFov => {
+                    observation.far_children_outside_fov += 1;
+                    record_watched_subsector_elision(
+                        observation,
+                        index,
+                        "outside-fov",
+                        &watched_far,
+                        None,
+                        None,
+                    );
+                }
+                SourceBBoxProjection::Interval(interval) => {
+                    if let Some(covering_range) = solid_ranges
+                        .iter()
+                        .find(|[first, last]| *first <= interval[0] && interval[1] <= *last)
+                    {
+                        observation.far_children_pruned += 1;
+                        record_watched_subsector_elision(
+                            observation,
+                            index,
+                            "solid-range",
+                            &watched_far,
+                            Some(interval),
+                            Some(*covering_range),
+                        );
+                    } else {
+                        visit_doom_seg_classic_bsp_child(
+                            map,
+                            far,
+                            viewer,
+                            heading,
+                            occluders,
+                            solid_ranges,
+                            ancestors,
+                            watched_subsectors,
+                            observation,
+                        )?;
+                    }
+                }
+                SourceBBoxProjection::Uncertain => {
+                    if matches!(far_projection, SourceBBoxProjection::Uncertain) {
+                        observation.far_children_fail_open += 1;
+                    }
+                    visit_doom_seg_classic_bsp_child(
+                        map,
+                        far,
+                        viewer,
+                        heading,
+                        occluders,
+                        solid_ranges,
+                        ancestors,
+                        watched_subsectors,
+                        observation,
+                    )?;
+                }
+            }
+            ancestors.pop();
+            Ok(())
+        }
+    }
+}
+
+fn record_watched_subsector_elision(
+    observation: &mut DoomSegClassicBspObservation,
+    node: u16,
+    reason: &str,
+    subsectors: &[u16],
+    interval: Option<[usize; 2]>,
+    covering_range: Option<[usize; 2]>,
+) {
+    if !subsectors.is_empty() {
+        observation.watched_subsector_elisions.push(format!(
+            "node={node}:reason={reason}:subsectors={subsectors:?}:interval={interval:?}:covering-range={covering_range:?}"
+        ));
+    }
+}
+
+fn doom_bsp_child_contains_subsector(map: &DoomMapCore, child: DoomBspChild, target: u16) -> bool {
+    let mut visited_nodes = HashSet::new();
+    doom_bsp_child_contains_subsector_inner(map, child, target, &mut visited_nodes)
+}
+
+fn doom_bsp_child_contains_subsector_inner(
+    map: &DoomMapCore,
+    child: DoomBspChild,
+    target: u16,
+    visited_nodes: &mut HashSet<u16>,
+) -> bool {
+    match child {
+        DoomBspChild::Subsector(index) => index == target,
+        DoomBspChild::Node(index) => {
+            if !visited_nodes.insert(index) {
+                return false;
+            }
+            let contains = map.nodes.get(usize::from(index)).is_some_and(|node| {
+                doom_bsp_child_contains_subsector_inner(
+                    map,
+                    node.right_child,
+                    target,
+                    visited_nodes,
+                ) || doom_bsp_child_contains_subsector_inner(
+                    map,
+                    node.left_child,
+                    target,
+                    visited_nodes,
+                )
+            });
+            visited_nodes.remove(&index);
+            contains
+        }
+    }
+}
+
+fn admit_doom_seg_classic(
+    map: &DoomMapCore,
+    seg: &doom_map_provider::DoomSeg,
+    viewer: [i16; 2],
+    heading: f64,
+    occluders: &BTreeMap<u32, doom_geometry_provider::DoomSegOccluderObservation>,
+    solid_ranges: &mut Vec<[usize; 2]>,
+    observation: &mut DoomSegClassicBspObservation,
+) {
+    const HALF_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    observation.source_segs_visited += 1;
+    if seg.linedef == 247 {
+        observation.hut_linedef_segs_visited += 1;
+    }
+    let start = &map.vertices[usize::from(seg.start_vertex)];
+    let end = &map.vertices[usize::from(seg.end_vertex)];
+    match source_seg_facing(viewer, [start.x, start.y], [end.x, end.y]) {
+        SourceSegFacing::Back => {
+            observation.backface_rejected += 1;
+            return;
+        }
+        SourceSegFacing::EdgeOn => {
+            observation.edge_on += 1;
+            return;
+        }
+        SourceSegFacing::Front => {}
+    }
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let project = |point: [i16; 2]| {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        let lateral = relative[0] * right[0] + relative[1] * right[1];
+        (depth, lateral.atan2(depth))
+    };
+    let (start_depth, start_angle) = project([start.x, start.y]);
+    let (end_depth, end_angle) = project([end.x, end.y]);
+    if start_depth <= 0.0
+        || end_depth <= 0.0
+        || (start_angle.abs() > HALF_FOV && end_angle.abs() > HALF_FOV)
+    {
+        observation.outside_fov_rejected += 1;
+        return;
+    }
+    let authority = occluders
+        .get(&seg.source.record_index)
+        .expect("every source SEG is classified");
+    let solid = authority.kind != doom_geometry_provider::DoomSegOccluderKind::Open;
+    observation
+        .admitted_seg_records
+        .insert(seg.source.record_index);
+    observation.admitted_seg_order.push(seg.source.record_index);
+    if seg.linedef == 247 {
+        observation.hut_linedef_segs_admitted += 1;
+    }
+    if solid {
+        observation.solid_admitted += 1;
+        let interval = source_fov_column_interval(start_angle, end_angle, HALF_FOV, 320);
+        if merge_solid_range(solid_ranges, interval) {
+            observation.solid_range_fully_covered += 1;
+        } else {
+            observation.solid_range_contributors += 1;
+        }
+    } else {
+        observation.pass_admitted += 1;
+    }
+    if observation.samples.len() < 8 {
+        observation.samples.push(format!(
+            "seg={} line={} kind={:?} admission={}",
+            seg.source.record_index,
+            seg.linedef,
+            authority.kind,
+            if solid { "solid" } else { "pass" },
+        ));
+    }
+}
+
+fn observe_doom_seg_classic_admission(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+) -> PlatformResult<DoomSegClassicAdmissionObservation> {
+    const HALF_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let occluders = observe_doom_seg_occluders(map)?
+        .into_iter()
+        .map(|observation| (observation.source_seg.record_index, observation))
+        .collect::<BTreeMap<_, _>>();
+    let mut result = DoomSegClassicAdmissionObservation {
+        source_segs: map.segs.len(),
+        ..Default::default()
+    };
+    let order = resolve_doom_viewer_subsector_order(map, viewer)?;
+    let order_by_source = order
+        .iter()
+        .enumerate()
+        .map(|(rank, source)| (source.record_index, rank))
+        .collect::<BTreeMap<_, _>>();
+    let mut ordered_segs = map
+        .segs
+        .iter()
+        .filter_map(|seg| {
+            let subsector = map.subsectors.iter().find(|subsector| {
+                let first = usize::from(subsector.first_seg);
+                let end = first + usize::from(subsector.seg_count);
+                (first..end).any(|index| map.segs[index].source == seg.source)
+            })?;
+            Some((*order_by_source.get(&subsector.source.record_index)?, seg))
+        })
+        .collect::<Vec<_>>();
+    ordered_segs.sort_by_key(|(rank, seg)| (*rank, seg.source.record_index));
+    let mut solid_ranges = Vec::<[usize; 2]>::new();
+    for (rank, seg) in ordered_segs {
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let facing = source_seg_facing(viewer, [start.x, start.y], [end.x, end.y]);
+        match facing {
+            SourceSegFacing::Back => {
+                result.backface_rejected += 1;
+                continue;
+            }
+            SourceSegFacing::EdgeOn => {
+                result.edge_on += 1;
+                continue;
+            }
+            SourceSegFacing::Front => {}
+        }
+        let project_angle = |point: [i16; 2]| {
+            let relative = [
+                f64::from(point[0] - viewer[0]),
+                f64::from(point[1] - viewer[1]),
+            ];
+            let depth = relative[0] * forward[0] + relative[1] * forward[1];
+            let lateral = relative[0] * right[0] + relative[1] * right[1];
+            (depth, lateral.atan2(depth))
+        };
+        let (start_depth, start_angle) = project_angle([start.x, start.y]);
+        let (end_depth, end_angle) = project_angle([end.x, end.y]);
+        if start_depth <= 0.0
+            || end_depth <= 0.0
+            || (start_angle.abs() > HALF_FOV && end_angle.abs() > HALF_FOV)
+        {
+            result.outside_fov_rejected += 1;
+            continue;
+        }
+        let authority = occluders
+            .get(&seg.source.record_index)
+            .expect("every source SEG is classified");
+        let solid = authority.kind != doom_geometry_provider::DoomSegOccluderKind::Open;
+        if solid {
+            result.solid_admitted += 1;
+            let interval = source_fov_column_interval(start_angle, end_angle, HALF_FOV, 320);
+            if merge_solid_range(&mut solid_ranges, interval) {
+                result.solid_range_fully_covered += 1;
+            } else {
+                result.solid_range_contributors += 1;
+            }
+        } else {
+            result.pass_admitted += 1;
+        }
+        if result.samples.len() < 8 {
+            result.samples.push(format!(
+                "seg={} line={} rank={rank} facing=front start-depth={start_depth:.1} end-depth={end_depth:.1} kind={:?} admission={}",
+                seg.source.record_index,
+                seg.linedef,
+                authority.kind,
+                if solid { "solid" } else { "pass" },
+            ));
+        }
+    }
+    result.solid_range_covered_columns = solid_ranges
+        .iter()
+        .map(|[first, last]| last - first + 1)
+        .sum();
+    Ok(result)
+}
+
+/// Converts a bounded source horizontal-FOV interval to inclusive diagnostic
+/// columns through a perspective plane. Classic Doom's `viewangletox` lookup
+/// performs this same arc-to-plane kind of mapping; this bounded control does
+/// not reproduce its exact fixed-point table.
+fn source_fov_column_interval(
+    first_angle: f64,
+    second_angle: f64,
+    half_fov: f64,
+    columns: usize,
+) -> [usize; 2] {
+    let column = |angle: f64| {
+        let normalized = angle.clamp(-half_fov, half_fov).tan() / half_fov.tan();
+        (((normalized + 1.0) * 0.5) * columns as f64) as usize
+    };
+    let first = column(first_angle).min(columns - 1);
+    let second = column(second_angle).min(columns - 1);
+    [first.min(second), first.max(second)]
+}
+
+/// Source-only far-child bbox outcome for the Stage 3B `R_CheckBBox` control.
+/// It distinguishes a definitely outside FOV from geometry whose projection is
+/// ambiguous and must remain fail-open.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceBBoxProjection {
+    OutsideFov,
+    Interval([usize; 2]),
+    Uncertain,
+}
+
+/// Projects the two source bbox silhouette corners selected by the classic
+/// `R_CheckBBox` position table. This is Doom-only protocol work, not a
+/// generic bounding-box culler.
+fn source_bbox_fov_column_interval(
+    viewer: [i16; 2],
+    heading: f64,
+    bbox: [i16; 4],
+    half_fov: f64,
+    columns: usize,
+) -> SourceBBoxProjection {
+    let [top, bottom, left, right] = bbox;
+    let box_x = if viewer[0] <= left {
+        0
+    } else if viewer[0] < right {
+        1
+    } else {
+        2
+    };
+    let box_y = if viewer[1] >= top {
+        0
+    } else if viewer[1] > bottom {
+        1
+    } else {
+        2
+    };
+    let box_position = box_y * 4 + box_x;
+    if box_position == 5 {
+        return SourceBBoxProjection::Uncertain;
+    }
+    // Matches `r_bsp.c`'s `checkcoord`: each value indexes Doom's decoded
+    // bbox layout [top, bottom, left, right].
+    const CHECK_COORD: [[usize; 4]; 12] = [
+        [3, 0, 2, 1],
+        [3, 0, 2, 0],
+        [3, 1, 2, 0],
+        [0, 0, 0, 0],
+        [2, 0, 2, 1],
+        [0, 0, 0, 0],
+        [3, 1, 3, 0],
+        [0, 0, 0, 0],
+        [2, 0, 3, 1],
+        [2, 1, 3, 1],
+        [2, 1, 3, 0],
+        [0, 0, 0, 0],
+    ];
+    let coordinates = CHECK_COORD[box_position];
+    let source = [top, bottom, left, right];
+    let points = [
+        [source[coordinates[0]], source[coordinates[1]]],
+        [source[coordinates[2]], source[coordinates[3]]],
+    ];
+    let forward = [heading.cos(), heading.sin()];
+    let view_right = [-forward[1], forward[0]];
+    let mut angles = Vec::with_capacity(2);
+    for point in points {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        if depth <= 0.0 {
+            return SourceBBoxProjection::Uncertain;
+        }
+        let lateral = relative[0] * view_right[0] + relative[1] * view_right[1];
+        angles.push(lateral.atan2(depth));
+    }
+    let first_angle = angles[0];
+    let second_angle = angles[1];
+    let span = (first_angle - second_angle).abs();
+    if span >= std::f64::consts::PI {
+        return SourceBBoxProjection::Uncertain;
+    }
+    let minimum = first_angle.min(second_angle);
+    let maximum = first_angle.max(second_angle);
+    if maximum < -half_fov || minimum > half_fov {
+        SourceBBoxProjection::OutsideFov
+    } else {
+        SourceBBoxProjection::Interval(source_fov_column_interval(
+            minimum, maximum, half_fov, columns,
+        ))
+    }
+}
+
+/// Inserts one inclusive source screen interval into the current horizontal
+/// solid-range union. Returns true when the interval was already fully closed.
+/// This mirrors only the union property of Doom `solidsegs`, not its sentinel
+/// representation, clipping details, or BSP bbox policy.
+fn merge_solid_range(ranges: &mut Vec<[usize; 2]>, interval: [usize; 2]) -> bool {
+    let fully_covered = ranges
+        .iter()
+        .any(|[first, last]| *first <= interval[0] && interval[1] <= *last);
+    let mut merged = interval;
+    let mut index = 0;
+    while index < ranges.len() {
+        let [first, last] = ranges[index];
+        if last.saturating_add(1) < merged[0] || merged[1].saturating_add(1) < first {
+            index += 1;
+            continue;
+        }
+        merged[0] = merged[0].min(first);
+        merged[1] = merged[1].max(last);
+        ranges.remove(index);
+    }
+    ranges.insert(index, merged);
+    fully_covered
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceSegFacing {
+    Front,
+    Back,
+    EdgeOn,
+}
+
+/// Classic Doom treats the directed SEG's right side as its visible front.
+/// This is source-data interpretation, intentionally separate from Tokimu
+/// mesh normals, camera controls, or renderer culling.
+fn source_seg_facing(viewer: [i16; 2], start: [i16; 2], end: [i16; 2]) -> SourceSegFacing {
+    let segment = [i64::from(end[0] - start[0]), i64::from(end[1] - start[1])];
+    let to_viewer = [
+        i64::from(viewer[0] - start[0]),
+        i64::from(viewer[1] - start[1]),
+    ];
+    let side = segment[0] * to_viewer[1] - segment[1] * to_viewer[0];
+    if side < 0 {
+        SourceSegFacing::Front
+    } else if side > 0 {
+        SourceSegFacing::Back
+    } else {
+        SourceSegFacing::EdgeOn
+    }
+}
+
+fn observe_doom_seg_screen_grid(
+    map: &DoomMapCore,
+    eye_height: f32,
+    per_column: bool,
+    viewer: [i16; 2],
+    angle: f64,
+) -> PlatformResult<DoomSegScreenGridObservation> {
+    observe_doom_seg_screen_grid_with_order(
+        map,
+        eye_height,
+        per_column,
+        viewer,
+        angle,
+        DoomSegScreenGridOrder::BspLeafThenSource,
+    )
+}
+
+/// Runs the same bounded source grid with one declared diagnostic ordering.
+/// The alternate nearest-segment order exists only to test whether coarse BSP
+/// leaf order explains the retained depth inversions; it is not Doom parity.
+fn observe_doom_seg_screen_grid_with_order(
+    map: &DoomMapCore,
+    eye_height: f32,
+    per_column: bool,
+    viewer: [i16; 2],
+    angle: f64,
+    ordering: DoomSegScreenGridOrder,
+) -> PlatformResult<DoomSegScreenGridObservation> {
+    const COLUMNS: usize = 320;
+    const ROWS: usize = 200;
+    const HALF_HORIZONTAL_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    let half_vertical_fov = ((ROWS as f64 / COLUMNS as f64) * HALF_HORIZONTAL_FOV.tan()).atan();
+    let eye_height = f64::from(eye_height);
+    let forward = [angle.cos(), angle.sin()];
+    let right = [-forward[1], forward[0]];
+    let order = resolve_doom_viewer_subsector_order(map, viewer)?;
+    let order_by_source = order
+        .iter()
+        .enumerate()
+        .map(|(rank, source)| (source.record_index, rank))
+        .collect::<BTreeMap<_, _>>();
+    let mut ordered_segs = map
+        .segs
+        .iter()
+        .filter_map(|seg| {
+            let subsector = map.subsectors.iter().position(|subsector| {
+                let start = usize::from(subsector.first_seg);
+                let end = start + usize::from(subsector.seg_count);
+                (start..end).any(|index| map.segs[index].source == seg.source)
+            })?;
+            Some((
+                order_by_source.get(&map.subsectors[subsector].source.record_index)?,
+                seg,
+            ))
+        })
+        .collect::<Vec<_>>();
+    let candidates = resolve_doom_wall_candidates(map)?
+        .into_iter()
+        .map(|candidate| (candidate.source_linedef.record_index, candidate))
+        .collect::<BTreeMap<_, _>>();
+    let occluders = observe_doom_seg_occluders(map)?
+        .into_iter()
+        .map(|observation| (observation.source_seg.record_index, observation))
+        .collect::<BTreeMap<_, _>>();
+    let project = |point: [i16; 2]| {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        let lateral = relative[0] * right[0] + relative[1] * right[1];
+        (depth, lateral.atan2(depth))
+    };
+    match ordering {
+        DoomSegScreenGridOrder::BspLeafThenSource => {
+            ordered_segs.sort_by_key(|(rank, seg)| (**rank, seg.source.record_index));
+        }
+        DoomSegScreenGridOrder::NearestSegmentToViewer => {
+            ordered_segs.sort_by(|(_, left), (_, right)| {
+                let left_start = &map.vertices[usize::from(left.start_vertex)];
+                let left_end = &map.vertices[usize::from(left.end_vertex)];
+                let right_start = &map.vertices[usize::from(right.start_vertex)];
+                let right_end = &map.vertices[usize::from(right.end_vertex)];
+                source_point_segment_distance_squared(
+                    viewer,
+                    [left_start.x, left_start.y],
+                    [left_end.x, left_end.y],
+                )
+                .total_cmp(&source_point_segment_distance_squared(
+                    viewer,
+                    [right_start.x, right_start.y],
+                    [right_end.x, right_end.y],
+                ))
+                .then_with(|| left.source.record_index.cmp(&right.source.record_index))
+            });
+        }
+    }
+    let column = |angle: f64| {
+        ((angle.clamp(-HALF_HORIZONTAL_FOV, HALF_HORIZONTAL_FOV) + HALF_HORIZONTAL_FOV)
+            / (2.0 * HALF_HORIZONTAL_FOV)
+            * COLUMNS as f64) as usize
+    };
+    let row = |angle: f64| {
+        ((half_vertical_fov - angle.clamp(-half_vertical_fov, half_vertical_fov))
+            / (2.0 * half_vertical_fov)
+            * ROWS as f64) as usize
+    };
+
+    let mut covered = vec![false; COLUMNS * ROWS];
+    // This stays beside, rather than inside, the boolean coverage state so the
+    // established falsified control retains its exact selection behavior.
+    // It merely exposes cases where leaf/source order disagrees with local
+    // ray depth for an attempted occluding write.
+    let mut covering_depths = vec![None::<(f64, u32)>; COLUMNS * ROWS];
+    let mut depth_order_inversions = 0usize;
+    let mut depth_order_samples = Vec::new();
+    let mut outside = 0usize;
+    let mut fully_covered = 0usize;
+    let mut partial = 0usize;
+    let mut fully_visible = 0usize;
+    let mut contributors = 0usize;
+    let mut samples = Vec::new();
+    let mut selected_seg_records = BTreeSet::new();
+    for (rank, seg) in ordered_segs {
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let (start_depth, start_angle) = project([start.x, start.y]);
+        let (end_depth, end_angle) = project([end.x, end.y]);
+        if start_depth <= 0.0
+            || end_depth <= 0.0
+            || (start_angle.abs() > HALF_HORIZONTAL_FOV && end_angle.abs() > HALF_HORIZONTAL_FOV)
+        {
+            outside += 1;
+            continue;
+        }
+        let candidate = candidates
+            .get(&map.linedefs[usize::from(seg.linedef)].source.record_index)
+            .expect("every SEG linedef has a resolved source wall");
+        let (front, back) = match seg.direction {
+            0 => (candidate.right.as_ref(), candidate.left.as_ref()),
+            1 => (candidate.left.as_ref(), candidate.right.as_ref()),
+            direction => {
+                return Err(io::Error::other(format!(
+                    "Stage 3B source SEG {} has unsupported direction {direction}",
+                    seg.source.record_index
+                ))
+                .into())
+            }
+        };
+        let front = front.expect("SEG direction names an existing owning side");
+        let mut floor = map.sectors[usize::from(front.sector_index)].floor_height;
+        let mut ceiling = map.sectors[usize::from(front.sector_index)].ceiling_height;
+        if let Some(back) = back {
+            let back_sector = &map.sectors[usize::from(back.sector_index)];
+            floor = floor.min(back_sector.floor_height);
+            ceiling = ceiling.max(back_sector.ceiling_height);
+        }
+        let left = column(start_angle).min(COLUMNS - 1);
+        let right_column = column(end_angle).min(COLUMNS - 1);
+        let (left, right_column) = (left.min(right_column), left.max(right_column));
+        let rectangle_span = || {
+            let vertical_angles = [
+                (f64::from(floor) - eye_height).atan2(start_depth),
+                (f64::from(ceiling) - eye_height).atan2(start_depth),
+                (f64::from(floor) - eye_height).atan2(end_depth),
+                (f64::from(ceiling) - eye_height).atan2(end_depth),
+            ];
+            let top = row(vertical_angles
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max))
+            .min(ROWS - 1);
+            let bottom = row(vertical_angles
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min))
+            .min(ROWS - 1);
+            [top.min(bottom), top.max(bottom)]
+        };
+        let vertical_spans = if per_column {
+            (left..=right_column)
+                .map(|x| {
+                    let local_angle = -HALF_HORIZONTAL_FOV
+                        + ((x as f64 + 0.5) / COLUMNS as f64) * (2.0 * HALF_HORIZONTAL_FOV);
+                    let ray = [
+                        forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                        forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+                    ];
+                    let depth =
+                        source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+                            .unwrap_or_else(|| {
+                                let fraction = if right_column == left {
+                                    0.5
+                                } else {
+                                    (x - left) as f64 / (right_column - left) as f64
+                                };
+                                start_depth + (end_depth - start_depth) * fraction
+                            });
+                    let top = row((f64::from(ceiling) - eye_height).atan2(depth)).min(ROWS - 1);
+                    let bottom = row((f64::from(floor) - eye_height).atan2(depth)).min(ROWS - 1);
+                    ([top.min(bottom), top.max(bottom)], depth)
+                })
+                .collect::<Vec<_>>()
+        } else {
+            let depth = (start_depth + end_depth) * 0.5;
+            vec![(rectangle_span(), depth); right_column - left + 1]
+        };
+        let mut cells = 0usize;
+        let mut visible_cells = 0usize;
+        for (offset, ([top, bottom], _depth)) in vertical_spans.iter().copied().enumerate() {
+            let x = left + offset;
+            for y in top..=bottom {
+                cells += 1;
+                visible_cells += usize::from(!covered[y * COLUMNS + x]);
+            }
+        }
+        let result = if visible_cells == 0 {
+            fully_covered += 1;
+            "covered"
+        } else if visible_cells == cells {
+            fully_visible += 1;
+            "visible"
+        } else {
+            partial += 1;
+            "partial"
+        };
+        if visible_cells > 0 {
+            selected_seg_records.insert(seg.source.record_index);
+        }
+        let authority = occluders
+            .get(&seg.source.record_index)
+            .expect("every source SEG is classified");
+        let closes = authority.kind != doom_geometry_provider::DoomSegOccluderKind::Open;
+        if closes {
+            for (offset, ([top, bottom], depth)) in vertical_spans.iter().copied().enumerate() {
+                let x = left + offset;
+                for y in top..=bottom {
+                    let cell = y * COLUMNS + x;
+                    if let Some((prior_depth, prior_seg)) = covering_depths[cell] {
+                        if depth + 0.01 < prior_depth {
+                            depth_order_inversions += 1;
+                            if depth_order_samples.len() < 8 {
+                                depth_order_samples.push(format!(
+                                    "cell=({x},{y}) prior-seg={prior_seg} prior-depth={prior_depth:.3} later-nearer-seg={} later-depth={depth:.3}",
+                                    seg.source.record_index,
+                                ));
+                            }
+                        }
+                    }
+                    // Retain the first closing SEG exactly as the existing
+                    // boolean control does; do not let this audit repair the
+                    // experiment while it is being measured.
+                    covering_depths[cell].get_or_insert((depth, seg.source.record_index));
+                    covered[cell] = true;
+                }
+            }
+            contributors += 1;
+        }
+        if seg.linedef == 247 || samples.len() < 8 {
+            let [top, bottom] = rectangle_span();
+            samples.push(format!(
+                "seg={} line={} rank={} horizontal=[{left}..{right_column}] enclosing-vertical=[{top}..{bottom}] mode={} visible={visible_cells}/{cells} authority={:?} result={result} contributor={closes}",
+                seg.source.record_index,
+                seg.linedef,
+                rank,
+                if per_column { "per-column" } else { "rectangle" },
+                authority.kind
+            ));
+        }
+    }
+    Ok(DoomSegScreenGridObservation {
+        selected_seg_records,
+        outside,
+        fully_covered,
+        partial,
+        fully_visible,
+        contributors,
+        covered_cells: covered.iter().filter(|covered| **covered).count(),
+        depth_order_inversions,
+        depth_order_samples,
+        samples,
+    })
+}
+
+/// Returns the positive depth at which a source-space camera ray meets one
+/// source SEG, when that intersection lies on the finite SEG. This is retained
+/// only for the Stage 3B per-column diagnostic grid; it does not define a
+/// generic ray query or visibility capability.
+fn source_ray_segment_depth(
+    viewer: [i16; 2],
+    ray: [f64; 2],
+    start: [i16; 2],
+    end: [i16; 2],
+) -> Option<f64> {
+    let offset = [
+        f64::from(start[0] - viewer[0]),
+        f64::from(start[1] - viewer[1]),
+    ];
+    let segment = [f64::from(end[0] - start[0]), f64::from(end[1] - start[1])];
+    let cross = |left: [f64; 2], right: [f64; 2]| left[0] * right[1] - left[1] * right[0];
+    let denominator = cross(ray, segment);
+    if denominator.abs() <= f64::EPSILON {
+        return None;
+    }
+    let depth = cross(offset, segment) / denominator;
+    let progression = cross(offset, ray) / denominator;
+    (depth > 0.0 && (0.0..=1.0).contains(&progression)).then_some(depth)
+}
+
+/// Squared source-space distance from a point to one finite SEG. This is only
+/// a coarse ordering probe for Stage 3B; it does not claim camera-ray order,
+/// source visibility, or generic spatial-query meaning.
+fn source_point_segment_distance_squared(point: [i16; 2], start: [i16; 2], end: [i16; 2]) -> f64 {
+    let offset = [
+        f64::from(point[0] - start[0]),
+        f64::from(point[1] - start[1]),
+    ];
+    let segment = [f64::from(end[0] - start[0]), f64::from(end[1] - start[1])];
+    let length_squared = segment[0] * segment[0] + segment[1] * segment[1];
+    let progression = if length_squared <= f64::EPSILON {
+        0.0
+    } else {
+        ((offset[0] * segment[0] + offset[1] * segment[1]) / length_squared).clamp(0.0, 1.0)
+    };
+    let nearest = [
+        f64::from(start[0]) + progression * segment[0],
+        f64::from(start[1]) + progression * segment[1],
+    ];
+    let delta = [
+        f64::from(point[0]) - nearest[0],
+        f64::from(point[1]) - nearest[1],
+    ];
+    delta[0] * delta[0] + delta[1] * delta[1]
+}
+
+/// Returns contiguous not-yet-covered runs as offsets within one projected SEG
+/// interval. The caller owns all screen-column meaning and source conversion.
+fn visible_column_runs(covered: &[bool]) -> Vec<[usize; 2]> {
+    let mut runs = Vec::new();
+    let mut start = None;
+    for (index, is_covered) in covered.iter().copied().enumerate() {
+        match (start, is_covered) {
+            (None, false) => start = Some(index),
+            (Some(first), true) => {
+                runs.push([first, index]);
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(first) = start {
+        runs.push([first, covered.len()]);
+    }
+    runs
+}
+
+/// Maps a source SEG's endpoints onto the owning linedef progression. This is
+/// Doom-only retained source math for the Stage 3B diagnostic lowering path.
+fn source_seg_linedef_interval(map: &DoomMapCore, seg: &doom_map_provider::DoomSeg) -> [f64; 2] {
+    let line = &map.linedefs[usize::from(seg.linedef)];
+    let line_start = &map.vertices[usize::from(line.start_vertex)];
+    let line_end = &map.vertices[usize::from(line.end_vertex)];
+    let delta = [
+        f64::from(line_end.x - line_start.x),
+        f64::from(line_end.y - line_start.y),
+    ];
+    let length_squared = delta[0].mul_add(delta[0], delta[1] * delta[1]);
+    let progression = |vertex: u16| {
+        let point = &map.vertices[usize::from(vertex)];
+        ((f64::from(point.x - line_start.x) * delta[0])
+            + (f64::from(point.y - line_start.y) * delta[1]))
+            / length_squared
+    };
+    let start = progression(seg.start_vertex);
+    let end = progression(seg.end_vertex);
+    [start.min(end), start.max(end)]
+}
+
+/// Narrow source-to-lowered inspection for a single wall selected from a
+/// native `LOOK` observation. It keeps Doom source meaning at the corpus edge
+/// and is diagnostic only: no geometry classification changes here.
+fn report_wall_source(scene: &SceneInput, record_index: u32) {
+    let map = &scene.door_geometry_source.map;
+    let Some(linedef) = map
+        .linedefs
+        .iter()
+        .find(|linedef| linedef.source.record_index == record_index)
+    else {
+        println!("E1M1 wall source report: linedef={record_index} missing");
+        return;
+    };
+    let side = |index: Option<u16>| -> String {
+        let Some(index) = index else {
+            return "none".to_owned();
+        };
+        let Some(sidedef) = map.sidedefs.get(usize::from(index)) else {
+            return format!("sidedef={index}:missing");
+        };
+        let Some(sector) = map.sectors.get(usize::from(sidedef.sector)) else {
+            return format!("sidedef={index}:sector={}:missing", sidedef.sector);
+        };
+        format!(
+            "sidedef={} sector={} heights={}/{} flats={}/{} textures={}/{}/{} offsets={}/{}",
+            sidedef.source.record_index,
+            sidedef.sector,
+            sector.floor_height,
+            sector.ceiling_height,
+            sector.floor_texture,
+            sector.ceiling_texture,
+            sidedef.upper_texture,
+            sidedef.lower_texture,
+            sidedef.middle_texture,
+            sidedef.x_offset,
+            sidedef.y_offset,
+        )
+    };
+    println!(
+        "E1M1 wall source report: linedef={} flags=0x{:04x} special={} tag={} right/front=[{}] left/back=[{}]",
+        linedef.source.record_index,
+        linedef.flags,
+        linedef.special,
+        linedef.tag,
+        side(linedef.right_sidedef),
+        side(linedef.left_sidedef),
+    );
+    let mut generated = 0usize;
+    for draw in scene.opaque_draws.iter().chain(scene.cutout_draws.iter()) {
+        let StaticDrawSource::Wall {
+            source_linedef,
+            source_sidedef,
+            source_sector,
+            role,
+        } = draw.source
+        else {
+            continue;
+        };
+        if source_linedef.record_index != record_index {
+            continue;
+        }
+        let bottom = draw
+            .mesh
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f32::INFINITY, f32::min);
+        let top = draw
+            .mesh
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f32::NEG_INFINITY, f32::max);
+        println!(
+            "generated linedef={} sidedef={} sector={} role={role:?} bottom={bottom:.1} top={top:.1} label={}",
+            source_linedef.record_index,
+            source_sidedef.record_index,
+            source_sector.record_index,
+            draw.source_label,
+        );
+        generated += 1;
+    }
+    println!("E1M1 wall source report summary: generated_wall_draws={generated}");
 }
 
 fn report_doom_reject(report: &DoomRejectReport) {
@@ -2840,6 +5901,52 @@ fn scene_camera(
     camera
 }
 
+/// Builds the first Doom-owned sky presentation fixture. `SKY1` is a
+/// horizontal panorama in the source package, so this consumer places it on
+/// an enclosure rather than pretending the source marker is an ordinary flat
+/// texture. The enclosure is intentionally static and corpus-local; it is not
+/// a generic renderer sky contract or a claim of original Doom sky projection.
+fn build_doom_sky_cylinder(
+    center: Vec3,
+    scene_radius: f32,
+) -> Result<Mesh, tokimu::MeshValidationError> {
+    const SEGMENTS: usize = 64;
+    let radius = scene_radius * 1.5;
+    let bottom = center.y - scene_radius * 3.0;
+    let top = center.y + scene_radius * 3.0;
+    let mut positions = Vec::with_capacity(SEGMENTS * 6);
+    let mut normals = Vec::with_capacity(SEGMENTS * 6);
+    let mut texture_coordinates = Vec::with_capacity(SEGMENTS * 6);
+
+    for segment in 0..SEGMENTS {
+        let u0 = segment as f32 / SEGMENTS as f32;
+        let u1 = (segment + 1) as f32 / SEGMENTS as f32;
+        let angle0 = u0 * std::f32::consts::TAU;
+        let angle1 = u1 * std::f32::consts::TAU;
+        let radial0 = Vec3::new(angle0.cos(), 0.0, angle0.sin());
+        let radial1 = Vec3::new(angle1.cos(), 0.0, angle1.sin());
+        let p0_bottom = center + radial0 * radius + Vec3::Y * (bottom - center.y);
+        let p0_top = center + radial0 * radius + Vec3::Y * (top - center.y);
+        let p1_bottom = center + radial1 * radius + Vec3::Y * (bottom - center.y);
+        let p1_top = center + radial1 * radius + Vec3::Y * (top - center.y);
+
+        for (position, normal, uv) in [
+            (p0_bottom, -radial0, [u0, 1.0]),
+            (p1_top, -radial1, [u1, 0.0]),
+            (p1_bottom, -radial1, [u1, 1.0]),
+            (p0_bottom, -radial0, [u0, 1.0]),
+            (p0_top, -radial0, [u0, 0.0]),
+            (p1_top, -radial1, [u1, 0.0]),
+        ] {
+            positions.push(position.to_array());
+            normals.push(normal.to_array());
+            texture_coordinates.push(uv);
+        }
+    }
+
+    Mesh::new(positions, normals).with_texture_coordinates(texture_coordinates)
+}
+
 fn draw_bounds(draws: &[StaticDrawPlanEntry]) -> Vec<Option<StaticDrawAabb>> {
     draws
         .iter()
@@ -3057,6 +6164,9 @@ fn candidate_is_selected(
         (CandidateSelection::DoomMembershipUnion, _) => {
             unreachable!("membership selection must use source-topology evidence")
         }
+        (CandidateSelection::DoomSegPerColumn, _) => {
+            unreachable!("SEG selection must use retained source-grid evidence")
+        }
         (CandidateSelection::FrustumAabb, Some(bounds)) => {
             classify_static_draw_frustum_rejection(bounds, view_projection)
         }
@@ -3104,6 +6214,76 @@ fn select_candidates(
             capture_samples,
         );
     }
+}
+
+/// Updates only the caller-owned submission mask for the retained Stage 3B
+/// SEG meshes. Flats stay fail-open. This is deliberately not a renderer
+/// culling path or a claim that the source grid is historic Doom visibility.
+#[allow(clippy::too_many_arguments)]
+fn select_doom_seg_per_column_candidates(
+    draws: &[StaticDrawPlanEntry],
+    input: &DoomSegDynamicSelectionInput,
+    map: &DoomMapCore,
+    observer: SpawnObserver,
+    look: ObserverLook,
+    embedding: DoomComparativeEmbedding,
+    selected: &mut [bool],
+    summary: &mut CandidateSelectionSummary,
+    rejection_samples: &mut Vec<String>,
+    capture_samples: bool,
+) -> PlatformResult<()> {
+    let (source_position, source_angle) = observer_doom_source_pose(observer, look, embedding);
+    let observation = observe_doom_seg_screen_grid(
+        map,
+        observer.position.y,
+        true,
+        source_position,
+        source_angle,
+    )?;
+    selected.fill(true);
+    for indices in input.draw_indices_by_seg.values() {
+        for &index in indices {
+            selected[index] = false;
+        }
+    }
+    for source_seg in &observation.selected_seg_records {
+        if let Some(indices) = input.draw_indices_by_seg.get(source_seg) {
+            for &index in indices {
+                selected[index] = true;
+            }
+        }
+    }
+    for (index, (draw, is_selected)) in draws.iter().zip(selected.iter()).enumerate() {
+        summary.candidates += 1;
+        if *is_selected {
+            summary.submitted += 1;
+        } else {
+            summary.rejected += 1;
+            if capture_samples && rejection_samples.len() < 12 {
+                rejection_samples.push(format!(
+                    "{}:doom-seg-per-column-source-filtered",
+                    draw.source_label
+                ));
+            }
+        }
+        debug_assert!(index < selected.len());
+    }
+    Ok(())
+}
+
+/// Lowers a corpus observer pose through the explicit AR-0028 comparison
+/// embedding. This is diagnostic/source-adapter machinery, not camera API.
+fn observer_doom_source_pose(
+    observer: SpawnObserver,
+    look: ObserverLook,
+    embedding: DoomComparativeEmbedding,
+) -> ([i16; 2], f64) {
+    let (source_xy, _) = embedding.lower_direction(observer.position);
+    let source_position = [source_xy[0].round() as i16, source_xy[1].round() as i16];
+    let direction = observer_direction(look.yaw, look.pitch);
+    let (source_forward, _) = embedding.lower_direction(direction);
+    let source_angle = f64::from(source_forward[1].atan2(source_forward[0]));
+    (source_position, source_angle)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3164,6 +6344,9 @@ fn select_current_candidates(
         }
         CandidateSelection::DoomMembershipUnion => {
             unreachable!("membership selection must use source-topology evidence")
+        }
+        CandidateSelection::DoomSegPerColumn => {
+            unreachable!("SEG per-column selection must use retained Doom source evidence")
         }
     }
 }
@@ -4115,9 +7298,13 @@ fn scene_bounds(draws: &[StaticDrawPlanEntry]) -> (Vec3, f32) {
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_observer_look_delta, candidate_is_selected, nearest_mesh_ray_hit,
-        ray_triangle_distance, summarize_grouped_aabb_selection, CandidateSelection,
-        CandidateSelectionSummary, ObserverLook, UniformGridAabbIndex,
+        apply_observer_look_delta, build_doom_sky_cylinder, candidate_is_selected,
+        merge_solid_range, nearest_mesh_ray_hit, ray_triangle_distance,
+        source_bbox_fov_column_interval, source_fov_column_interval,
+        source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
+        summarize_grouped_aabb_selection, visible_column_runs, CandidateSelection,
+        CandidateSelectionSummary, ObserverLook, SourceBBoxProjection, SourceSegFacing,
+        UniformGridAabbIndex,
     };
     use doom_geometry_provider::doom_point_to_tokimu;
     use hello_doom_e1m1::{
@@ -4128,6 +7315,99 @@ mod tests {
         StaticDrawFrustumRejection, StaticDrawSphere,
     };
     use tokimu::Mesh;
+
+    #[test]
+    fn doom_sky_cylinder_is_a_closed_horizontal_panorama_seam() {
+        let mesh = build_doom_sky_cylinder(Vec3::ZERO, 10.0).expect("sky mesh");
+
+        assert_eq!(mesh.positions.len(), 64 * 6);
+        assert_eq!(mesh.normals.len(), mesh.positions.len());
+        assert_eq!(mesh.texture_coordinates.len(), mesh.positions.len());
+        assert_eq!(mesh.texture_coordinates[0], [0.0, 1.0]);
+        assert_eq!(mesh.texture_coordinates[64 * 6 - 2], [63.0 / 64.0, 0.0]);
+        assert_eq!(mesh.texture_coordinates[64 * 6 - 1], [1.0, 0.0]);
+        assert!(mesh
+            .positions
+            .iter()
+            .all(|position| position.iter().all(|component| component.is_finite())));
+    }
+
+    #[test]
+    fn source_ray_segment_depth_retains_finite_forward_intersection() {
+        assert_eq!(
+            source_ray_segment_depth([0, 0], [1.0, 0.0], [10, -5], [10, 5]),
+            Some(10.0)
+        );
+        assert_eq!(
+            source_ray_segment_depth([0, 0], [1.0, 0.0], [-10, -5], [-10, 5]),
+            None
+        );
+    }
+
+    #[test]
+    fn source_point_segment_distance_retains_finite_nearest_point() {
+        assert!(
+            (source_point_segment_distance_squared([2, 3], [0, 0], [4, 0]) - 9.0).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (source_point_segment_distance_squared([8, 0], [0, 0], [4, 0]) - 16.0).abs()
+                < f64::EPSILON
+        );
+    }
+
+    #[test]
+    fn source_seg_facing_retains_directed_right_side_rule() {
+        assert_eq!(
+            source_seg_facing([0, 0], [10, -5], [10, 5]),
+            SourceSegFacing::Back
+        );
+        assert_eq!(
+            source_seg_facing([0, 0], [10, 5], [10, -5]),
+            SourceSegFacing::Front
+        );
+        assert_eq!(
+            source_seg_facing([0, 0], [10, 0], [20, 0]),
+            SourceSegFacing::EdgeOn
+        );
+    }
+
+    #[test]
+    fn horizontal_solid_ranges_union_without_treating_gaps_as_closed() {
+        let mut ranges = vec![[4, 7]];
+        assert!(!merge_solid_range(&mut ranges, [9, 11]));
+        assert_eq!(ranges, vec![[4, 7], [9, 11]]);
+        assert!(!merge_solid_range(&mut ranges, [8, 8]));
+        assert_eq!(ranges, vec![[4, 11]]);
+        assert!(merge_solid_range(&mut ranges, [6, 9]));
+        assert_eq!(ranges, vec![[4, 11]]);
+    }
+
+    #[test]
+    fn source_fov_interval_clamps_to_declared_diagnostic_columns() {
+        assert_eq!(source_fov_column_interval(-2.0, 2.0, 1.0, 10), [0, 9]);
+        assert_eq!(source_fov_column_interval(-0.5, 0.5, 1.0, 10), [3, 6]);
+    }
+
+    #[test]
+    fn source_bbox_interval_distinguishes_outside_from_fail_open_cases() {
+        assert_eq!(
+            source_bbox_fov_column_interval([0, 0], 0.0, [5, -5, 10, 20], 1.0, 10),
+            SourceBBoxProjection::Interval([3, 6])
+        );
+        assert_eq!(
+            source_bbox_fov_column_interval([0, 0], 0.0, [5, -5, -20, -10], 1.0, 10),
+            SourceBBoxProjection::Uncertain
+        );
+        assert_eq!(
+            source_bbox_fov_column_interval([0, 0], 0.0, [5, -5, -10, 10], 1.0, 10),
+            SourceBBoxProjection::Uncertain
+        );
+        assert_eq!(
+            source_bbox_fov_column_interval([0, 0], 0.0, [20, 10, 10, 20], 0.2, 10),
+            SourceBBoxProjection::OutsideFov
+        );
+    }
     use tokimu_core::math::{Mat4, Vec3};
 
     #[test]
@@ -4385,6 +7665,15 @@ mod tests {
         assert_eq!(summary.submitted, 3);
         assert_eq!(summary.rejected, 1);
         assert_eq!(summary.uncertain_bounds, 1);
+    }
+
+    #[test]
+    fn diagnostic_screen_runs_keep_only_currently_uncovered_columns() {
+        assert_eq!(
+            visible_column_runs(&[true, false, false, true, false]),
+            vec![[1, 3], [4, 5]]
+        );
+        assert!(visible_column_runs(&[true, true]).is_empty());
     }
 
     fn bounds(minimum: [f32; 3], maximum: [f32; 3]) -> StaticDrawAabb {

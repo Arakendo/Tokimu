@@ -571,8 +571,8 @@ fn inspect_zip_member(
                 }
                 println!(
                     "map auxiliaries: reject={} bytes (minimum {}), blockmap={}x{} cells={}, unique_lists={}, linedef_refs={}",
-                    core.reject.byte_len,
-                    core.reject.required_min_bytes,
+                    core.reject.observation.byte_len,
+                    core.reject.observation.required_min_bytes,
                     core.blockmap.columns,
                     core.blockmap.rows,
                     core.blockmap.cells,
@@ -1023,11 +1023,12 @@ fn inspect_zip_member(
                         }
                     }
                     println!(
-                        "texture {}: {}x{}, opaque_pixels={}, palette=0, rgba8_fingerprint={}",
+                        "texture {}: {}x{}, opaque_pixels={}, coverage_rows={}, palette=0, rgba8_fingerprint={}",
                         image.texture_name,
                         image.width,
                         image.height,
                         image.opaque_pixels,
+                        summarize_coverage_rows(&image.coverage, usize::from(image.width)),
                         lowered.pixel_fingerprint(),
                     );
                 }
@@ -1085,6 +1086,41 @@ fn inspect_zip_member(
         }
     }
     ExitCode::SUCCESS
+}
+
+fn summarize_coverage_rows(coverage: &[bool], width: usize) -> String {
+    if width == 0 || !coverage.len().is_multiple_of(width) {
+        return "invalid".to_owned();
+    }
+    let mut full = Vec::new();
+    let mut empty = Vec::new();
+    let mut partial = Vec::new();
+    for (row, pixels) in coverage.chunks_exact(width).enumerate() {
+        let covered = pixels.iter().filter(|covered| **covered).count();
+        match covered {
+            0 => empty.push(row),
+            count if count == width => full.push(row),
+            count => partial.push(format!("{row}:{count}")),
+        }
+    }
+    format!(
+        "full={} empty={} partial={}",
+        summarize_row_indices(&full),
+        summarize_row_indices(&empty),
+        if partial.is_empty() {
+            "none".to_owned()
+        } else {
+            partial.join(",")
+        },
+    )
+}
+
+fn summarize_row_indices(rows: &[usize]) -> String {
+    match rows {
+        [] => "none".to_owned(),
+        [one] => one.to_string(),
+        _ => format!("{}..={}", rows[0], rows[rows.len() - 1]),
+    }
 }
 
 fn write_ppm(path: &OsString, width: u32, height: u32, rgba: &[u8]) -> Result<(), String> {

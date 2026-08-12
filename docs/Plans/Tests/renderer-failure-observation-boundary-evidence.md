@@ -102,6 +102,40 @@ terminal caller retained error after active composition ended:
 The process exits successfully only because the corpus caller verified receipt
 of the expected error. It does not convert the failed frame into success.
 
+## First-Failure Preservation Regression
+
+The opt-in E1M1 `--doom-sky` path supplied a second native terminal-lifetime
+case. Startup correctly rejected `SKY1` because the composed source retained
+2,048 uncovered pixels. The native platform recorded that error and requested
+event-loop exit, but still entered the frame callback before shutdown. The
+frame then failed because the rejected startup had never created the sky
+pipeline, replacing the useful root cause with:
+
+```text
+Doom sky pipeline missing
+```
+
+This was not a missing renderer diagnostic. It was a terminal-record lifetime
+defect: a later callback overwrote the already-retained failure. The native
+adapter now obeys two private composition rules:
+
+```text
+first terminal callback failure wins
+pending terminal failure => do not dispatch another frame callback
+```
+
+The same command now returns the original bounded source identity and count:
+
+```text
+E1M1 SKY1 retained 2048 uncovered pixels; sky coverage policy remains unresolved
+```
+
+This strengthens caller-owned terminal delivery without introducing a global
+mailbox, shared terminal-record owner, renderer fallback, or new public error
+type. A focused unit regression proves a secondary failure cannot replace the
+first. The unresolved `SKY1` policy remains a Doom sky-presentation question,
+not a platform recovery decision.
+
 ## Validation
 
 ```powershell
@@ -109,7 +143,7 @@ cargo test -p hello-render-resource-identity
 cargo check -p hello-render-resource-identity --target wasm32-unknown-unknown
 ```
 
-Result: 14 tests passed; the corpus fixture compiles for WASM. The fixture
+Result: 18 tests passed; the corpus fixture compiles for WASM. The fixture
 proves fixed-capacity retention and all six modeled phases. It does not execute
 browser/WGPU failure delivery.
 
@@ -122,6 +156,9 @@ browser/WGPU failure delivery.
   no common retained record after page/composition disposal.
 - There is no shared agreement yet about which categories, correlation IDs, or
   continuation results belong outside corpus code.
+- Native terminal delivery still carries arbitrary application error text; the
+  first-error invariant preserves causality but does not by itself make every
+  record structurally bounded or source-correlatable.
 - No fatal panic/abort continuation is claimed.
 
 These gaps prevent admission of the envelope. They are the input to the

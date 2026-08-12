@@ -69,7 +69,7 @@ cargo clippy -p hello-render-resource-identity --all-targets -- -D warnings
 cargo check -p hello-render-resource-identity --target wasm32-unknown-unknown
 ```
 
-Result: 16 tests passed; strict linting and WASM compilation passed. Existing
+Result: 18 tests passed; strict linting and WASM compilation passed. Existing
 upstream `glam` warnings remain outside this fixture's source.
 
 ## Fatal-Path Marker

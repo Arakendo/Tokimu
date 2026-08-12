@@ -181,3 +181,40 @@ not be answered by adding more corpus-specific exceptions.
 
 Comparative work is tracked by the
 [Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Tests/renderer-resource-identity-and-failure-presentation.md).
+
+## 2026-08-11 Doom-Sky Startup Follow-Up
+
+The opt-in Doom-sky experiment rejected `SKY1` before the first frame because
+its retained composition has 2,048 uncovered source pixels and no authorized
+sky-specific coverage policy. This case must not receive a Purple texture or
+another visual stand-in: the sky pipeline and valid scene draw never existed.
+
+The native platform initially obscured that distinction by allowing a frame
+callback after startup failure; the resulting `Doom sky pipeline missing`
+message replaced the root source-raster diagnostic. First-failure preservation
+now returns the original startup error to the invoking caller. This adds a
+useful terminal-presentation comparison while reinforcing the current
+disposition: source omission may opt into a conspicuous corpus stand-in, but a
+terminal startup rejection uses caller-owned terminal delivery and no fallback
+rendering.
+
+## 2026-08-11 Shared-Record Presentation Follow-Up
+
+The resource-identity corpus now compares structured and console presentation
+over the same bounded records for four materially distinct meanings:
+intentional source omission, source geometry preparation failure, unresolved
+renderer resource, and provider validation rejection. Both presentation forms
+retain the existing phase, operation, category, caller, continuation, and typed
+resource identity when present. Neither form treats the source, renderer
+resource, or provider operation as successful.
+
+Only intentional source omission permits an explicit application-supplied
+visual stand-in in the current evidence. Geometry preparation, unresolved
+resource, and provider failure remain text/terminal/no-replacement cases. The
+fixture also retains records in sequence order after bounded-store wraparound,
+so presentation cannot reverse the observed failure timeline.
+
+This is still evidence for corpus-local presentation choices. It does not admit
+a global diagnostic store, a standard error texture, renderer fallback, or
+public diagnostic-presentation API. Browser/WASM observation and a second
+independent caller remain required before a shared vocabulary can be proposed.
