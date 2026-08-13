@@ -134,6 +134,9 @@ const DOOM_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_020);
 const DOOM_SKY_MESH: MeshHandle = MeshHandle(9_000_020);
 const WALK_SPEED: f32 = 240.0;
 const WALK_RADIUS: f32 = 16.0;
+// id Software's released `p_local.h` declares USERANGE as 64 map units.
+// This remains a Doom-corpus interaction policy, not a generic Tokimu reach.
+const CLASSIC_USE_RANGE: f32 = 64.0;
 const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
 const CLASSIC_PRESENTATION_COLUMNS: usize = 320;
 const CLASSIC_PRESENTATION_ROWS: usize = 200;
@@ -519,6 +522,14 @@ struct SpawnObserver {
     sector: u32,
     floor: i16,
     ceiling: i16,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DoomUseTraceResult {
+    Special { distance: f64, linedef: u32 },
+    BackSide { distance: f64, linedef: u32 },
+    Blocked { distance: f64, linedef: u32 },
+    NoIntercept,
 }
 
 /// Presentation-only look state for the opt-in source-spawn observer. It is
@@ -1309,6 +1320,7 @@ impl App {
                 observer.position.x = candidate_position[0];
                 observer.position.z = candidate_position[1];
                 observer.position.y += floor_delta;
+                observer.sector = source_sector.record_index;
                 observer.floor = floor_height;
                 observer.ceiling = ceiling_height;
                 let message = format!(
@@ -1412,7 +1424,7 @@ impl App {
                     let (source_position, source_angle) =
                         observer_doom_source_pose(observer, look, self.comparative_embedding);
                     format!(
-                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={} source_pose=({},{};{:.1}deg)",
+                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={} source_pose=({},{};{:.1}deg) sector={} floor={} ceiling={}",
                         observer.position.x,
                         observer.position.y,
                         observer.position.z,
@@ -1422,6 +1434,9 @@ impl App {
                         source_position[0],
                         source_position[1],
                         source_angle.to_degrees(),
+                        observer.sector,
+                        observer.floor,
+                        observer.ceiling,
                     )
                 },
             ),
@@ -1455,9 +1470,12 @@ impl App {
                 || "collision: unavailable; run with --walk-collision".to_owned(),
                 |world| {
                     format!(
-                        "collision: radius={WALK_RADIUS} blocking_linedefs={} noclip={} last_contacts={:?}",
+                        "collision: radius={WALK_RADIUS} blocking_linedefs={} noclip={} current_sector={} floor={} ceiling={} last_contacts={:?}",
                         world.blocking_wall_count(),
                         self.noclip,
+                        self.spawn_observer.map_or(0, |observer| observer.sector),
+                        self.spawn_observer.map_or(0, |observer| observer.floor),
+                        self.spawn_observer.map_or(0, |observer| observer.ceiling),
                         self.last_collision_contacts,
                     )
                 },
@@ -1572,31 +1590,33 @@ impl App {
         let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
             return "use: source-spawn observer unavailable".to_owned();
         };
-        let direction = observer_direction(look.yaw, look.pitch).normalize_or_zero();
-        let mut nearest: Option<(f32, u32)> = None;
-        for draw in self.draws.iter().chain(
-            self.include_cutouts
-                .then_some(&self.cutout_draws)
-                .into_iter()
-                .flatten(),
+        let (source_position, source_angle) =
+            observer_doom_source_pose(observer, look, self.comparative_embedding);
+        let ray = [source_angle.cos(), source_angle.sin()];
+        let active_ceiling_overrides = self
+            .active_manual_doors
+            .iter()
+            .map(|door| (door.target_sector.record_index, door.current_ceiling_height))
+            .collect::<BTreeMap<_, _>>();
+        match trace_doom_use_lines(
+            &self.door_geometry_source.map,
+            source_position,
+            ray,
+            &active_ceiling_overrides,
         ) {
-            let StaticDrawSource::Wall { source_linedef, .. } = draw.source else {
-                continue;
-            };
-            let Some(distance) = nearest_mesh_ray_hit(observer.position, direction, &draw.mesh)
-            else {
-                continue;
-            };
-            if nearest.is_none_or(|(nearest_distance, _)| distance < nearest_distance) {
-                nearest = Some((distance, source_linedef.record_index));
+            DoomUseTraceResult::Special { distance, linedef } => {
+                let outcome = self.resolve_use_linedef(linedef);
+                format!("use: source-trace-distance={distance:.3}; {outcome}")
             }
-        }
-        match nearest {
-            Some((distance, source_linedef)) => {
-                let outcome = self.resolve_use_linedef(source_linedef);
-                format!("use: center-wall-distance={distance:.3}; {outcome}")
-            }
-            None => "use: no exact prepared wall intersects the center ray".to_owned(),
+            DoomUseTraceResult::BackSide { distance, linedef } => format!(
+                "use: source-trace-distance={distance:.3}; linedef={linedef}; rejected=back-side"
+            ),
+            DoomUseTraceResult::Blocked { distance, linedef } => format!(
+                "use: source-trace-distance={distance:.3}; linedef={linedef}; blocked=closed-nonspecial-line"
+            ),
+            DoomUseTraceResult::NoIntercept => format!(
+                "use: no source linedef intersects the classic {CLASSIC_USE_RANGE:.0}-unit trace"
+            ),
         }
     }
 
@@ -1625,9 +1645,12 @@ impl App {
             .find(|door| door.target_sector == target_sector)
         {
             if active.phase != DoomManualDoorPhase::Closed {
+                let (before, after) = active
+                    .reuse_by_player()
+                    .expect("non-closed door must accept player reuse");
                 return format!(
-                    "use: manual-door linedef={source_linedef} target-sector={} already-active phase={:?}",
-                    target_sector.record_index, active.phase
+                    "use: manual-door linedef={source_linedef} target-sector={} reused phase={before:?}->{after:?}",
+                    target_sector.record_index,
                 );
             }
             *active = replacement;
@@ -1935,6 +1958,87 @@ impl App {
         )?;
         Ok(())
     }
+}
+
+fn trace_doom_use_lines(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    ray: [f64; 2],
+    active_ceiling_overrides: &BTreeMap<u32, i16>,
+) -> DoomUseTraceResult {
+    let mut intercepts = map
+        .linedefs
+        .iter()
+        .filter_map(|linedef| {
+            let start = map.vertices.get(usize::from(linedef.start_vertex))?;
+            let end = map.vertices.get(usize::from(linedef.end_vertex))?;
+            let distance =
+                source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])?;
+            within_classic_use_range(distance).then_some((distance, linedef, start, end))
+        })
+        .collect::<Vec<_>>();
+    intercepts.sort_by(|left, right| left.0.total_cmp(&right.0));
+
+    for (distance, linedef, start, end) in intercepts {
+        if linedef.special != 0 {
+            return if source_seg_facing(viewer, [start.x, start.y], [end.x, end.y])
+                == SourceSegFacing::Front
+            {
+                DoomUseTraceResult::Special {
+                    distance,
+                    linedef: linedef.source.record_index,
+                }
+            } else {
+                DoomUseTraceResult::BackSide {
+                    distance,
+                    linedef: linedef.source.record_index,
+                }
+            };
+        }
+        if doom_line_open_range(map, linedef, active_ceiling_overrides) <= 0 {
+            return DoomUseTraceResult::Blocked {
+                distance,
+                linedef: linedef.source.record_index,
+            };
+        }
+    }
+    DoomUseTraceResult::NoIntercept
+}
+
+fn within_classic_use_range(distance: f64) -> bool {
+    distance.is_finite() && (0.0..=f64::from(CLASSIC_USE_RANGE)).contains(&distance)
+}
+
+fn doom_line_open_range(
+    map: &DoomMapCore,
+    linedef: &doom_map_provider::DoomLinedef,
+    active_ceiling_overrides: &BTreeMap<u32, i16>,
+) -> i16 {
+    let (Some(right_index), Some(left_index)) = (linedef.right_sidedef, linedef.left_sidedef)
+    else {
+        return 0;
+    };
+    let Some(right_side) = map.sidedefs.get(usize::from(right_index)) else {
+        return 0;
+    };
+    let Some(left_side) = map.sidedefs.get(usize::from(left_index)) else {
+        return 0;
+    };
+    let Some(right_sector) = map.sectors.get(usize::from(right_side.sector)) else {
+        return 0;
+    };
+    let Some(left_sector) = map.sectors.get(usize::from(left_side.sector)) else {
+        return 0;
+    };
+    let right_ceiling = active_ceiling_overrides
+        .get(&right_sector.source.record_index)
+        .copied()
+        .unwrap_or(right_sector.ceiling_height);
+    let left_ceiling = active_ceiling_overrides
+        .get(&left_sector.source.record_index)
+        .copied()
+        .unwrap_or(left_sector.ceiling_height);
+    right_ceiling.min(left_ceiling) - right_sector.floor_height.max(left_sector.floor_height)
 }
 
 fn compact_activation_intent(intent: DoomLineActivationIntent) -> &'static str {
@@ -8147,6 +8251,7 @@ fn ray_triangle_distance(origin: Vec3, direction: Vec3, a: Vec3, b: Vec3, c: Vec
 /// Returns the closest exact triangle hit in one prepared mesh. This remains
 /// corpus-local inspection machinery; callers retain the source identity from
 /// the owning draw rather than treating the mesh as a generic picking object.
+#[cfg(test)]
 fn nearest_mesh_ray_hit(origin: Vec3, direction: Vec3, mesh: &Mesh) -> Option<f32> {
     mesh.positions
         .chunks_exact(3)
@@ -8196,10 +8301,10 @@ mod tests {
         retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
         source_fov_column_interval, source_point_segment_distance_squared,
         source_ray_segment_depth, source_seg_facing, summarize_grouped_aabb_selection,
-        visible_column_runs, CandidateSelection, CandidateSelectionSummary,
-        DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
-        DoomSegClassicPlaneSpanObservation, ObserverLook, SourceBBoxProjection, SourceSegFacing,
-        UniformGridAabbIndex,
+        visible_column_runs, within_classic_use_range, CandidateSelection,
+        CandidateSelectionSummary, DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey,
+        DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation, ObserverLook,
+        SourceBBoxProjection, SourceSegFacing, UniformGridAabbIndex,
     };
     use doom_geometry_provider::doom_point_to_tokimu;
     use hello_doom_e1m1::{
@@ -8328,6 +8433,17 @@ mod tests {
             Vec3::new(3.0, 1.0, 5.0),
         )
         .is_none());
+    }
+
+    #[test]
+    fn physical_use_range_is_bounded_and_inclusive() {
+        assert!(within_classic_use_range(0.0));
+        assert!(within_classic_use_range(63.999));
+        assert!(within_classic_use_range(64.0));
+        assert!(!within_classic_use_range(64.001));
+        assert!(!within_classic_use_range(f64::NAN));
+        assert!(!within_classic_use_range(f64::INFINITY));
+        assert!(!within_classic_use_range(-0.001));
     }
 
     #[test]

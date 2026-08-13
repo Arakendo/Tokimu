@@ -155,9 +155,35 @@ sectors 3 and 0. The WAD source sector is not mutated. This demonstrates
 physical passage through the opened sector, not a complete player-side reach
 model.
 
-The visible proof remains pending native observation of the source-relowered
-wall spans: texture scale, boundary closure, correspondence with collision,
-and restoration after close. It must not be described as finished door
-animation until that observation is retained. Physical reach/side eligibility,
-reusable-door reversal, sound, and a reusable dynamic-geometry contract remain
-open.
+The maintainer subsequently observed the native source-relowered door through
+its complete open/wait/close cycle. The ceiling and door face move, the door
+texture retains its scale instead of stretching, newly exposed `DOORTRAK`
+boundary spans appear, collision admits passage only after sufficient
+clearance, and closing restores the source-height presentation. Earlier
+resource-refresh failures are retained against AR-0024/AR-0027 rather than
+being reclassified as door semantics. This is sufficient for the bounded
+native door-animation claim; it does not admit reusable dynamic geometry.
+
+### Physical use reach
+
+The native `E` path now applies the released classic `USERANGE` bound of 64
+map units before resolving the nearest exact prepared wall hit. The bound is
+defined in id Software's
+[`p_local.h`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_local.h),
+while `P_UseLines` and `PTR_UseTraverse` in
+[`p_map.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_map.c)
+show that classic interaction traces source lines in order, stops at a closed
+nonspecial line, and activates the first eligible special.
+
+The corpus now lowers the observer pose back to retained Doom coordinates and
+intersects source linedefs in distance order for the 64-unit trace. Open
+two-sided nonspecial lines permit traversal; a one-sided or vertically closed
+nonspecial line stops it; the first special line is accepted only from its
+directed front/right side. Active door ceiling heights participate in the open
+range without mutating source sectors. This preserves the reviewed source
+rules but does not claim bit-exact fixed-point `P_PathTraverse` parity.
+
+Repeated player use of an active code-1 door now follows the released reversal
+rule: closing reopens, while opening or waiting begins closing immediately.
+The state transition has a deterministic regression and remains inside the
+corpus runtime. Sound and a reusable dynamic-geometry contract remain open.

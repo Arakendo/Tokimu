@@ -725,7 +725,11 @@ Acceptance criteria:
         source sector midpoint only for a capture camera, and reports complete
         source/vertical provenance. It does not create runtime player state or
         settle the later player-height policy.
-- [ ] Add first-person yaw and pitch policy appropriate to the selected proof.
+- [x] Add first-person yaw and pitch policy appropriate to the selected proof.
+  - [x] Retain source-heading-derived yaw, bounded pitch, captured relative
+        mouse look, and corrected camera-relative strafe direction in the
+        native observer. These remain corpus/application controls rather than
+        a universal Tokimu camera controller.
 - [ ] Normalize keyboard, mouse, and gamepad input through `tokimu-input`.
   - [x] Route native keyboard and positional mouse events through the existing
         `PlatformInputEvent::as_input_event` adapter into `tokimu_input::InputState`.
@@ -735,8 +739,11 @@ Acceptance criteria:
   - [ ] Add a platform gamepad event path before making an equivalent gamepad
         claim; `tokimu-input` has controller state but `tokimu-platform` does
         not yet surface controller events.
-- [ ] Implement bounded player radius and height.
-- [ ] Implement wall collision and sliding.
+- [x] Implement bounded player radius and height.
+  - [x] Retain a 16-unit source-map radius and 56-unit clearance policy in the
+        corpus collision/floor proof. These match the reviewed classic source
+        constants but do not define a general character shape.
+- [x] Implement wall collision and sliding.
   - [x] Add a corpus-local X/Z disc proof for reviewed E1M1: a 16-unit
         observer disc uses one-sided and explicitly blocking source linedefs,
         applies fixed small movement substeps plus bounded overlap resolution,
@@ -748,17 +755,21 @@ Acceptance criteria:
         no fallback and the source-start nearest-wall probe contacts linedef 1
         at initial distance 45.255. This proves the selected source wall is
         consulted; it does not prove a complete walkable-map policy.
-- [ ] Apply floor/ceiling clearance and step-height policy.
+  - [x] Retain a deterministic tangential-wall regression showing that a
+        blocked component is removed while the free component continues; no
+        generic physics or collision-response contract is inferred.
+- [x] Apply floor/ceiling clearance and step-height policy.
   - [x] Add a corpus-local source-sector transition lookup after horizontal
         collision: retained BSP/subsector ownership selects a candidate sector,
         allowing descents and upward steps through 24 map units while rejecting
         insufficient 56-unit vertical clearance or ambiguous source points.
         The observer adjusts its camera height by the accepted floor delta and
         logs the retained sector/floor/ceiling result.
-  - [ ] Retain native walk observations across at least one actual E1M1 stair
-        ascent and descent; this current bounded policy is not yet a claim of
-        complete classic player movement, doors, lifts, or dynamic clearance.
-- [ ] Decide whether the first proof uses `BLOCKMAP`, BSP traversal, or a
+  - [x] Retain native walk observations across an actual E1M1 stair ascent and
+        descent. The maintainer confirmed both directions in the interactive
+        native observer; this bounded policy is not yet a claim of complete
+        classic player movement, lifts, or dynamic clearance.
+- [x] Decide whether the first proof uses `BLOCKMAP`, BSP traversal, or a
       simpler deterministic broad phase; record the choice as implementation
       evidence rather than universal Doom behavior.
   - [x] Retain bounded, row-major source `BLOCKMAP` cells and their validated
@@ -771,12 +782,14 @@ Acceptance criteria:
         a missing/out-of-range or non-blocking candidate set falls back to all
         known blocking source lines rather than risking a false pass-through.
         This does not define a general `BLOCKMAP` traversal or visibility API.
-- [ ] Add reset, noclip diagnostic mode, and current-sector observations.
+- [x] Add reset, noclip diagnostic mode, and current-sector observations.
   - [x] Add `R` source-pose reset and an explicit `--noclip` diagnostic mode to
         the corpus observer. Noclip retains `E` for physical use inspection and
         adds diagnostic vertical flight on `Space` (up) and physical Left Ctrl
         (down); these bindings do not affect collision-enabled movement.
-        Current-sector tracking remains open.
+  - [x] Update retained sector/floor/ceiling state after each accepted source
+        transition and expose it through `CAMERA` and `COLLISION`; reset
+        restores the reviewed source-start interval.
 
 Acceptance criteria:
 
@@ -894,7 +907,7 @@ composition under AR-0013.
         candidate target through the opposite sidedef's retained sector rather
         than treating the line tag as target identity. Player reach and side
         eligibility remain future interaction work.
-- [ ] Implement doors as runtime-owned moving-sector state.
+- [x] Implement doors as runtime-owned moving-sector state.
   - [x] Keep a corpus-local manual-door state machine separate from immutable
         source sectors and renderer resources: opening, bounded top wait,
         closing, and closed phases retain target-sector identity and current
@@ -907,7 +920,7 @@ composition under AR-0013.
         deterministic open/wait/close cycle without WAD or presentation
         mutation; retain the report in
         [`E1M1 special semantics evidence.md`](Evidence/E1M1%20special%20semantics%20evidence.md).
-  - [ ] Lower active runtime ceiling heights into updated flat/wall geometry
+  - [x] Lower active runtime ceiling heights into updated flat/wall geometry
         and collision queries without reparsing WAD bytes.
     - [x] Lower the observed E1M1 manual-door ceiling flats from runtime height
           changes, replacing only changed GPU meshes. This is a bounded visual
@@ -916,15 +929,25 @@ composition under AR-0013.
           source-sector floor/clearance query without mutating WAD records;
           retained native play evidence traversed sector 4 only after its
           code-1 door raised to ceiling `68`.
-    - [ ] Re-lower target-sector and affected boundary upper-wall spans from a
+    - [x] Re-lower target-sector and affected boundary upper-wall spans from a
           clone of the retained decoded map at the active runtime ceiling
           height, retaining existing Doom texture-span/UV semantics rather
           than stretching vertices. Confirm native visual correspondence with
           the collision opening and closed-state restoration before calling it
           a door-animation claim.
-  - [ ] Connect eligible physical use/re-use requests to runtime creation and
+  - [x] Connect eligible physical use/re-use requests to runtime creation and
         reversal policy; the debug `USE <linedef>` command remains a source
         diagnostic until reach and player-side state are owned.
+    - [x] Bind physical `E` to a source-space forward trace bounded by the
+          reviewed classic 64-map-unit `USERANGE`. No-intercept, blocked-line,
+          and back-side failures remain explicit, and the distance bound is
+          covered at, below, and above its edge.
+    - [x] Reconstruct ordered source-line traversal and player-side
+          eligibility; the current prepared-triangle ray is not equivalent to
+          classic fixed-point `P_PathTraverse`, but it now preserves the
+          reviewed ordered-intercept, closed-line, and front-side rules.
+    - [x] Define and prove reusable-door reversal behavior while a door is
+          opening, waiting, or closing.
 - [ ] Implement lifts and moving floors needed by the selected map.
 - [ ] Implement switches and texture-state changes.
 - [ ] Implement teleports if required by the admitted map slice.

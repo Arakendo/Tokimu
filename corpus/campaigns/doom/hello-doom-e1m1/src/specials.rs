@@ -238,6 +238,22 @@ impl DoomManualDoorRuntime {
             after_phase: self.phase,
         }
     }
+
+    /// Applies the released classic code-1 player reuse rule to an active
+    /// manual raise door: a closing door reopens, while an opening or waiting
+    /// door starts closing. A closed runtime is restarted by the caller from
+    /// immutable source so this method cannot invent a new lifetime.
+    pub fn reuse_by_player(&mut self) -> Option<(DoomManualDoorPhase, DoomManualDoorPhase)> {
+        let before = self.phase;
+        self.phase = match self.phase {
+            DoomManualDoorPhase::Closing => DoomManualDoorPhase::Opening,
+            DoomManualDoorPhase::Opening | DoomManualDoorPhase::Waiting { .. } => {
+                DoomManualDoorPhase::Closing
+            }
+            DoomManualDoorPhase::Closed => return None,
+        };
+        Some((before, self.phase))
+    }
 }
 
 /// Returns the sector on the other side of a two-sided source line which
@@ -600,5 +616,37 @@ mod tests {
             ),
             Err(DoomManualDoorStartError::InvalidPolicy { .. })
         ));
+    }
+
+    #[test]
+    fn active_manual_raise_door_reuse_reverses_direction() {
+        let mut door = DoomManualDoorRuntime::start(
+            &door_source(),
+            source(13),
+            DoomManualDoorPolicy::CLASSIC_NORMAL,
+        )
+        .unwrap();
+        assert_eq!(
+            door.reuse_by_player(),
+            Some((DoomManualDoorPhase::Opening, DoomManualDoorPhase::Closing))
+        );
+        assert_eq!(
+            door.reuse_by_player(),
+            Some((DoomManualDoorPhase::Closing, DoomManualDoorPhase::Opening))
+        );
+        door.phase = DoomManualDoorPhase::Waiting {
+            remaining_ticks: 42,
+        };
+        assert_eq!(
+            door.reuse_by_player(),
+            Some((
+                DoomManualDoorPhase::Waiting {
+                    remaining_ticks: 42
+                },
+                DoomManualDoorPhase::Closing,
+            ))
+        );
+        door.phase = DoomManualDoorPhase::Closed;
+        assert_eq!(door.reuse_by_player(), None);
     }
 }
