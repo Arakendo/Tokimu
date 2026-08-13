@@ -5,10 +5,10 @@
 //! traversal, animation scheduling, mesh lowering, and renderer integration.
 
 use crate::{
-    alternative_b::{Mat4 as BMat4, Vec3 as BVec3, Vec4 as BVec4},
-    alternative_c::{Mat4 as CMat4, Vec3 as CVec3, Vec4 as CVec4},
+    alternative_b::{Mat4 as BMat4, Vec4 as BVec4},
+    alternative_c::{Mat4 as CMat4, Vec4 as CVec4},
 };
-use tokimu_core::math::{Mat4 as AMat4, Vec3 as AVec3, Vec4 as AVec4};
+use tokimu_core::math::{Mat4 as AMat4, Vec4 as AVec4};
 
 #[must_use]
 pub fn resolve_two_node_world_with_a(
@@ -55,6 +55,7 @@ pub fn resolve_two_node_world_with_c(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokimu_core::math::Vec3 as AVec3;
 
     fn assert_matrix_near(actual: [f32; 16], expected: [f32; 16]) {
         for (actual, expected) in actual.into_iter().zip(expected) {

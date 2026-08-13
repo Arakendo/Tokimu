@@ -18,7 +18,7 @@ use wasm_bindgen::prelude::*;
 const DEFAULT_WIDTH: u32 = 960;
 const DEFAULT_HEIGHT: u32 = 540;
 const SELECTED_MILKDROP_FIXTURE: &str =
-    include_str!("../../../../hello-milkdrop/assets/tokimu-selected-fixture.milk");
+    include_str!("../../../../focused/audio/hello-milkdrop/assets/tokimu-selected-fixture.milk");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum VisualizerMode {

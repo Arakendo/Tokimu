@@ -403,7 +403,7 @@ Implementation sequence:
   - [x] Apply texture-size-aware V placement and pegging from the admitted
         source texture extents and retained linedef flags. The original anchor
         rules are retained in
-        [`Classic Doom wall V placement evidence.md`](Classic%20Doom%20wall%20V%20placement%20evidence.md);
+        [`Classic Doom wall V placement evidence.md`](Evidence/Classic%20Doom%20wall%20V%20placement%20evidence.md);
         613 E1M1 texture records now resolve a source-traceable `texturemid`
         anchor through the explicit right/left-to-front/back mapping. The
         admitted one-sided and all two-sided wall triangle records now
@@ -415,7 +415,7 @@ Implementation sequence:
   - [x] Establish that original Doom floor/ceiling mapping is a view-dependent
         span operation, not a source-map per-vertex UV contract. The retained
         source evidence is in
-        [`Classic Doom plane mapping evidence.md`](Classic%20Doom%20plane%20mapping%20evidence.md);
+        [`Classic Doom plane mapping evidence.md`](Evidence/Classic%20Doom%20plane%20mapping%20evidence.md);
         a later presentation decision must choose original span behavior or an
         explicitly non-equivalent static mapping.
 - [x] Handle upper/lower unpegged flags explicitly for the admitted textured
@@ -431,7 +431,7 @@ Implementation sequence:
         source-valid `STARTAN3` height band between two `F_SKY1` ceilings, then
         apply the classic sky-to-sky upper-band omission in the Doom geometry
         provider. Dual-sky and one-sky controls retain the bounded rule; see
-        [`E1M1 hut sky-boundary evidence.md`](E1M1%20hut%20sky-boundary%20evidence.md).
+        [`E1M1 hut sky-boundary evidence.md`](Evidence/E1M1%20hut%20sky-boundary%20evidence.md).
   - [ ] Exercise an actual E1 sky presentation without weakening the retained
         source classification or turning sky into an ordinary flat texture.
     - [x] Compose `SKY1` through the bounded Doom raster provider and expose an
@@ -461,7 +461,7 @@ Implementation sequence:
         (`right_sidedef`) is the original front side and slot 1
         (`left_sidedef`) is the back side. The shared wall-quad helper, all
         static wall families, and the cyan/magenta normal SVG now agree; see
-        [`Classic Doom wall side and winding evidence.md`](Classic%20Doom%20wall%20side%20and%20winding%20evidence.md).
+        [`Classic Doom wall side and winding evidence.md`](Evidence/Classic%20Doom%20wall%20side%20and%20winding%20evidence.md).
   - [x] Audit every E1M1 subsector under the strict `SEGS`-only closure rule,
         retaining all 182 source-indexed rejections instead of reporting only
         the first failure. This is diagnostic evidence, not a repair or a
@@ -533,12 +533,12 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         Doom-owned binary-coverage declaration; their explicit categorical
         cutout crosses through ADR-0013's generic renderer capability and they
         remain outside the static opaque draw plan. See
-        [E1M1 masked-middle cutout intake evidence](E1M1%20masked-middle%20cutout%20intake%20evidence.md).
+        [E1M1 masked-middle cutout intake evidence](Evidence/E1M1%20masked-middle%20cutout%20intake%20evidence.md).
 - [x] Select either original view-dependent plane spans or a documented,
       intentionally non-equivalent plane mapping; do not imply that Slice 5's
       wall texel coordinates decide this.
   - [x] Select the bounded map-axis static mapping documented in
-        [Classic Doom plane mapping evidence](Classic%20Doom%20plane%20mapping%20evidence.md):
+        [Classic Doom plane mapping evidence](Evidence/Classic%20Doom%20plane%20mapping%20evidence.md):
         `u = x / 64`, `v = -z / 64` for the E1M1 64-by-64 flat sources, with
         point/repeat sampling. This is a declared Tokimu presentation policy,
         not original Doom span equivalence. Sky and masked middles remain
@@ -659,7 +659,7 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
       deterministic evidence is the fixed scene/package, draw and handle
       inventory, source omissions, and structural manifests.
   - [x] Persist the pre-upload report and a source-name/handle inventory in
-        [`E1M1 static presentation evidence.md`](E1M1%20static%20presentation%20evidence.md).
+        [`E1M1 static presentation evidence.md`](Evidence/E1M1%20static%20presentation%20evidence.md).
         The executable remains the authoritative reproducible source for the
         complete deterministic inventory; the retained document records the
         reviewed package invocation, counts, visual observation, and scope.
@@ -686,7 +686,7 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         Doom visibility data and any future generic culling capability.
     - [x] Retain the Stage 0 full-submission and initial Stage 1
           frustum/AABB measurements in
-          [`E1M1 camera candidate-selection evidence.md`](E1M1%20camera%20candidate-selection%20evidence.md).
+          [`E1M1 camera candidate-selection evidence.md`](Evidence/E1M1%20camera%20candidate-selection%20evidence.md).
           The opt-in corpus filter preserves draw order, fails open on uncertain
           bounds, changes no renderer API, and leaves full submission as the
           default contract.
@@ -838,7 +838,7 @@ make Doom commands, picking, or an embedded shell part of Ring 0.
 - [ ] Retain native and browser/WASM observations before claiming target
       parity.
   - [x] Retain the first native console observation in
-        [`D1 debug console evidence.md`](D1%20debug%20console%20evidence.md).
+        [`D1 debug console evidence.md`](Evidence/D1%20debug%20console%20evidence.md).
   - [ ] Exercise the console through a persistent browser/WASM input/frame
         host; the current intake intentionally presents one frame and exits
         its renderer lifecycle.
@@ -846,7 +846,7 @@ make Doom commands, picking, or an embedded shell part of Ring 0.
       embedded-console or picking contract; until then this remains corpus
       composition under AR-0013.
   - [x] Record the negative admission result in
-        [`D1 debug console evidence.md`](D1%20debug%20console%20evidence.md):
+        [`D1 debug console evidence.md`](Evidence/D1%20debug%20console%20evidence.md):
         consumers repeat presentation and focus mechanics, but command/session
         meaning and exact picking identity have not converged across two
         independent persistent hosts.
@@ -873,7 +873,7 @@ composition under AR-0013.
 
 - [x] Classify Doom linedef and sector specials used by `E1M1`; retain the
       source evidence and minimum future owner in
-      [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
+      [`E1M1 special semantics evidence.md`](Evidence/E1M1%20special%20semantics%20evidence.md).
   - [x] Inventory raw nonzero codes before assigning behavior: linedef
         `[1:8,11:1,36:1,48:8,88:1]`; sector `[1:1,7:4,8:2,9:3,12:1]`.
 - [x] Add deterministic use/activation requests.
@@ -882,7 +882,7 @@ composition under AR-0013.
         intent without changing map, runtime, or renderer state.
   - [x] Expose `USE <linedef>` in the native debug console and retain the
         canonical-package report in
-        [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
+        [`E1M1 special semantics evidence.md`](Evidence/E1M1%20special%20semantics%20evidence.md).
   - [x] Make no-special, unknown-linedef, wrong-activation, and unsupported
         special outcomes explicit; code-11/36/88 `Cross` behavior and code-48
         periodic scrolling remain unimplemented rather than being coerced into
@@ -903,7 +903,7 @@ composition under AR-0013.
   - [x] Exercise all eight canonical E1M1 code-1 targets through a full
         deterministic open/wait/close cycle without WAD or presentation
         mutation; retain the report in
-        [`E1M1 special semantics evidence.md`](E1M1%20special%20semantics%20evidence.md).
+        [`E1M1 special semantics evidence.md`](Evidence/E1M1%20special%20semantics%20evidence.md).
   - [ ] Lower active runtime ceiling heights into updated flat/wall geometry
         and collision queries without reparsing WAD bytes.
     - [x] Lower the observed E1M1 manual-door ceiling flats from runtime height

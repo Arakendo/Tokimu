@@ -21,7 +21,7 @@ pub fn baseline_transform_workload(iterations: u32) -> [f32; 3] {
 
     for _ in 0..iterations {
         value = transform.transform_point3(value);
-        checksum = checksum + value;
+        checksum += value;
     }
 
     checksum.to_array()
@@ -37,7 +37,7 @@ pub fn provider_backed_transform_workload(iterations: u32) -> [f32; 3] {
 
     for _ in 0..iterations {
         value = transform.transform_point3(value);
-        checksum = checksum + value;
+        checksum += value;
     }
 
     checksum.to_array()
@@ -53,7 +53,7 @@ pub fn owned_transform_workload(iterations: u32) -> [f32; 3] {
 
     for _ in 0..iterations {
         value = transform.transform_point3(value);
-        checksum = checksum + value;
+        checksum += value;
     }
 
     checksum.to_array()

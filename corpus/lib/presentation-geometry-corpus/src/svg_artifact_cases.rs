@@ -94,14 +94,16 @@ pub fn write_w3c_artifacts(case: W3cSvgCase) -> Result<PathBuf, String> {
                 W3cSvgExpectation::StructuralPass => unreachable!(),
             };
             return crate::svg_artifact_cleanup::write_svg_expected_failure_artifacts(
-                case.id,
-                case.producer(),
-                w3c_source_label(case),
-                source,
-                &xml.evidence,
-                error.to_string(),
-                expectation,
-                artifact_name,
+                crate::svg_artifact_cleanup::ExpectedFailureArtifact {
+                    case_id: case.id,
+                    producer: case.producer(),
+                    source_label: w3c_source_label(case),
+                    source,
+                    xml: &xml.evidence,
+                    diagnostic: error.to_string(),
+                    expectation,
+                    artifact_name,
+                },
             );
         }
         Err(error) => return Err(format!("W3C vector conversion failed: {error}")),

@@ -11,11 +11,11 @@
 | Role | Existing pressure source | Migration evidence required |
 | --- | --- | --- |
 | Renderer camera | `crates/tokimu-render` camera use of `Mat4`/`Vec3` | View/projection, position/direction transform, provider upload boundary, explicit conversion count |
-| Basic 3D corpus | `corpus/hello-3d-mono` | Camera/object transform and visible deterministic transform result |
-| Repeated-motion corpus | `corpus/hello-fps-web` | Direction construction, zero-safe normalization, in-place movement, component mutation, and distance observation |
-| CAD interaction corpus | `corpus/hello-cad` | Cursor-to-world ray, homogeneous `Mat4 * Vec4`, perspective divide, and degenerate-ray rejection |
-| Imported-scene corpus | `corpus/hello-glb` | Transform composition and `Vec4`/matrix result handling; record any API absent from a candidate |
-| Animated imported-scene corpus | `corpus/hello-hole-punch` | glTF column-array node input, translation override, writable final matrix column, and parent-child composition |
+| Basic 3D corpus | `corpus/focused/foundations/hello-3d-mono` | Camera/object transform and visible deterministic transform result |
+| Repeated-motion corpus | `corpus/focused/simulation/hello-fps-web` | Direction construction, zero-safe normalization, in-place movement, component mutation, and distance observation |
+| CAD interaction corpus | `corpus/focused/simulation/hello-cad` | Cursor-to-world ray, homogeneous `Mat4 * Vec4`, perspective divide, and degenerate-ray rejection |
+| Imported-scene corpus | `corpus/focused/data-interchange/hello-glb` | Transform composition and `Vec4`/matrix result handling; record any API absent from a candidate |
+| Animated imported-scene corpus | `corpus/campaigns/textured-presentation/hello-hole-punch` | glTF column-array node input, translation override, writable final matrix column, and parent-child composition |
 
 The selected set is intentionally small. It represents renderer, basic object,
 and imported-scene pressure without claiming that it covers all present or
@@ -69,7 +69,7 @@ does not include `Mat4`; that retained gap is evidence, not a skipped result.
 Independent integration cases run the same bounded path separately for A, B,
 and C under `tests/hello_3d_mono_*.rs`. Full B and C window/render-shell copies
 now live under `corpus-cases/hello-3d-mono/`; the original
-`corpus/hello-3d-mono` is the unchanged A control. Offline native compilation
+`corpus/focused/foundations/hello-3d-mono` is the unchanged A control. Offline native compilation
 of both candidate copies passed. Visual runtime observation, deterministic
 frame capture, allocation measurement at the camera upload boundary, and any
 WASM result remain required before claiming a complete application-level port.

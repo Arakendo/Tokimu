@@ -1712,9 +1712,9 @@ members = [
     "crates/tokimu-assets",
     "crates/tokimu-input",
     "crates/tokimu-wasm",
-    "corpus/hello-window",
-    "corpus/hello-triangle",
-    "corpus/hello-ui"
+    "corpus/focused/foundations/hello-window",
+    "corpus/focused/foundations/hello-triangle",
+    "corpus/ui/hello-ui"
 ]
 
 [workspace.package]

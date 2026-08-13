@@ -27,7 +27,7 @@ The investigation exposed a second, now-prerequisite question:
 
 ## Trigger And Retained Evidence
 
-`corpus/hello-alpha-policy/src/bin/native_blend_scene.rs` is a corpus-local
+`corpus/campaigns/textured-presentation/hello-alpha-policy/src/bin/native_blend_scene.rs` is a corpus-local
 Slice 3 fixture. On the native AMD Radeon RX 7900 XTX/Vulkan target it reports:
 
 ```text
@@ -341,7 +341,7 @@ demonstrated a second rendering API.
   application ownership of draw lifetime and recovery policy; it must not
   auto-substitute missing resources or become a general GPU debugger.
 - Resulting plan: execute the comparative
-  [Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Tests/renderer-resource-identity-and-failure-presentation.md)
+  [Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Renderer-Reliability/renderer-resource-identity-and-failure-presentation.md)
   before admitting allocation, lifecycle, containment, or terminal-presentation
   vocabulary.
 
@@ -367,3 +367,38 @@ demonstrated a second rendering API.
 - Validation: a focused native-platform regression proves a secondary failure
   cannot replace the root error; the exact E1M1 command now reports the
   unresolved `SKY1` coverage instead of the missing-pipeline consequence.
+
+### Cycle 9 -- 2026-08-13
+
+- Status entering review: Accepted, with resource-identity and cross-target
+  terminal-owner comparisons still open.
+- New evidence: the independent `hello-render-resource-identity-web` fixture
+  executed the same B/D/E lifecycle alternatives in browser/WASM, retained
+  `ResourceUnresolved` for `MeshHandle(44)`, and presented a real WGPU
+  same-handle replacement. The provider reported two uploads, one replacement,
+  and one draw; the DOM retained the record after provider return.
+- Findings: semantic category and resource identity can agree across native and
+  browser targets without assigning their final presentation or lifetime to a
+  shared owner. Same-handle replacement is demonstrated provider behavior on
+  both paths and therefore cannot be prohibited as an aliasing repair.
+- Disposition: retain application-owned lifecycle experiments and
+  renderer-owned replacement/validation mechanics as corpus evidence. Do not
+  admit B, D, or E, a global diagnostic store, or a cross-target terminal-record
+  owner. Browser retention after page disposal remains deliberately unclaimed.
+
+### Cycle 10 -- 2026-08-13
+
+- Status entering review: Accepted; final comparative disposition requested.
+- New evidence: maintainer accepted the test plan's recommendation after native
+  and browser fixtures agreed on bounded resource identity/failure facts and
+  intentional same-handle replacement.
+- Findings: application allocation plus current renderer mechanics is the
+  smallest demonstrated arrangement. Explicit lifecycle validation and
+  generational identity remain useful experiments, not shared meaning. Native
+  terminal return and live DOM retention do not require one lifetime owner.
+- Disposition: retain Accepted. Preserve application-owned identity allocation,
+  recovery and presentation policy; preserve renderer same-handle replacement;
+  admit no renderer allocator, kernel resource identity, global diagnostic
+  store, or shared terminal-record owner. Reopen only for independent lifecycle
+  pressure or a supervisor/page-disposal case that caller ownership cannot
+  satisfy. No ADR or SDD change results.

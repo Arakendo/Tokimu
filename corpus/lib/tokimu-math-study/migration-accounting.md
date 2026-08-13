@@ -50,3 +50,23 @@ measured paths, while the native and WASM performance records remain separate.
 The main provider leak is not inside candidate signatures: it is the present
 public renderer `Camera` vocabulary. A selection would need a separate facade
 migration decision; this study leaves stable source unchanged.
+
+## 2026-08-12 Option-B Slice-5 Refinement
+
+The earlier table predates the independently measured Narrow-B candidate and
+the Doom observer/chart additions. Current detailed accounting is retained in
+`results/2026-08-12-option-b-representative-migration.md`.
+
+- Narrow B represents five caller scenarios in one isolated external module,
+  changes no value signature, needs no accessor or value conversion, and makes
+  eight checked semantic-construction calls through its private adapter.
+- Full B now has nine A/B/C-comparable caller modules plus `migration_b`.
+  The representative set contains four private wrapper-bearing helper
+  signatures, eight scalar accessor substitutions, one column setter, and the
+  same nine explicit renderer matrix crossings counted above.
+- Doom collision remains source-scalar/integer code and is intentionally not
+  forced through either candidate. The Doom observer and FPS movement fixtures
+  carry the applicable ordinary vector/matrix pressure.
+- Current allocation controls remain zero for A/B/C transforms and stereo and
+  for B/C renderer uploads. This does not claim that application-owned output
+  collections such as transformed GLB vertices allocate nothing.

@@ -1,5 +1,9 @@
 # Initial Math Operation Inventory
 
+> Historical manifest 0.1. The active second-stage caller scan is
+> `operation-inventory-post-doom.md`; this file remains frozen so the study can
+> distinguish pre-DOOM and post-DOOM pressure.
+
 | Field | Value |
 | --- | --- |
 | Status | Slice 1 initial source-scan evidence; frozen as operation manifest 0.1 |

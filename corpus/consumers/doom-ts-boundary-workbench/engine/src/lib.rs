@@ -27,16 +27,21 @@ use doom_wad_package::select_doom_episode_map;
 use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
     build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
-    doom_heading_forward, observer_direction, observer_yaw_from_forward,
-    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
+    observer_direction, observer_yaw_from_forward, prepare_e1m1_flat_textures, prepare_e1m1_flats,
+    prepare_e1m1_masked_middle_cutouts, prepare_e1m1_sky_diagnostic_flats,
     prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
-    StaticDrawAabb, StaticDrawSource,
+    reembed_comparative_mesh, DoomComparativeEmbedding, StaticDrawAabb, StaticDrawPlanEntry,
+    StaticDrawSource,
 };
+#[cfg(target_arch = "wasm32")]
+use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, TextureUse};
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
     BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color, ColorWriteMask,
-    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d,
-    MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand, Renderer, WgpuBackend,
+    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d, Material,
+    MaterialHandle, MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureAddressMode, TextureFilter,
+    TextureHandle, TextureSampler, WgpuBackend,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu_core::math::{Mat4, Vec3};
@@ -46,8 +51,10 @@ use web_sys::HtmlCanvasElement;
 pub const SCHEMA_VERSION: u32 = 1;
 pub const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
 
+#[cfg(target_arch = "wasm32")]
 const WAD_LIMITS: WadReadLimits =
     WadReadLimits::new(64 * 1024 * 1024, 8_192, 16 * 1024 * 1024, 64 * 1024 * 1024);
+#[cfg(target_arch = "wasm32")]
 const MAP_LIMITS: doom_map_provider::DoomMapDecodeLimits = doom_map_provider::DoomMapDecodeLimits {
     max_things: 100_000,
     max_vertices: 100_000,
@@ -63,6 +70,7 @@ const MAP_LIMITS: doom_map_provider::DoomMapDecodeLimits = doom_map_provider::Do
     max_blockmap_linedef_refs: 10_000_000,
     max_total_record_bytes: 64 * 1024 * 1024,
 };
+#[cfg(target_arch = "wasm32")]
 const RASTER_LIMITS: doom_raster_provider::DoomRasterDecodeLimits =
     doom_raster_provider::DoomRasterDecodeLimits {
         max_playpal_bytes: 64 * 1024 * 1024,
@@ -71,10 +79,16 @@ const RASTER_LIMITS: doom_raster_provider::DoomRasterDecodeLimits =
         max_colormaps: 4096,
         max_total_decoded_bytes: 128 * 1024 * 1024,
     };
+#[cfg(target_arch = "wasm32")]
+const DIAGNOSTIC_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_010);
+#[cfg(target_arch = "wasm32")]
+const DIAGNOSTIC_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_010);
+#[cfg(target_arch = "wasm32")]
 const FLAT_LIMITS: doom_raster_provider::DoomFlatDecodeLimits =
     doom_raster_provider::DoomFlatDecodeLimits {
         max_flat_bytes: 4096,
     };
+#[cfg(target_arch = "wasm32")]
 const TEXTURE_LIMITS: doom_raster_provider::DoomTextureDecodeLimits =
     doom_raster_provider::DoomTextureDecodeLimits {
         max_pnames_bytes: 64 * 1024 * 1024,
@@ -84,6 +98,7 @@ const TEXTURE_LIMITS: doom_raster_provider::DoomTextureDecodeLimits =
         max_patches_per_texture: 16_384,
         max_total_patch_references: 10_000_000,
     };
+#[cfg(target_arch = "wasm32")]
 const PATCH_LIMITS: doom_raster_provider::DoomPatchDecodeLimits =
     doom_raster_provider::DoomPatchDecodeLimits {
         max_patch_bytes: 64 * 1024 * 1024,
@@ -92,6 +107,7 @@ const PATCH_LIMITS: doom_raster_provider::DoomPatchDecodeLimits =
         max_pixels: 16 * 1024 * 1024,
         max_posts: 16 * 1024 * 1024,
     };
+#[cfg(target_arch = "wasm32")]
 const COMPOSE_LIMITS: doom_raster_provider::DoomTextureComposeLimits =
     doom_raster_provider::DoomTextureComposeLimits {
         max_width: 4096,
@@ -156,7 +172,7 @@ impl BrowserIntakeSession {
     /// package. This is a consumer-local WASM proof, not a browser renderer API.
     #[cfg(target_arch = "wasm32")]
     pub async fn render_static_e1m1(&self, canvas: HtmlCanvasElement) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas, false, false, false)
+        self.render_static_e1m1_inner(canvas, false, false, false, false)
             .await
             .map_err(js_error)
     }
@@ -169,7 +185,7 @@ impl BrowserIntakeSession {
         &self,
         canvas: HtmlCanvasElement,
     ) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas, true, false, false)
+        self.render_static_e1m1_inner(canvas, true, false, false, false)
             .await
             .map_err(js_error)
     }
@@ -182,7 +198,7 @@ impl BrowserIntakeSession {
         &self,
         canvas: HtmlCanvasElement,
     ) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas, true, true, false)
+        self.render_static_e1m1_inner(canvas, true, true, false, false)
             .await
             .map_err(js_error)
     }
@@ -192,7 +208,20 @@ impl BrowserIntakeSession {
     /// evidence; neither the renderer nor TypeScript interprets Doom sides.
     #[cfg(target_arch = "wasm32")]
     pub async fn render_e1m1_exitsign(&self, canvas: HtmlCanvasElement) -> Result<String, JsValue> {
-        self.render_static_e1m1_inner(canvas, false, false, true)
+        self.render_static_e1m1_inner(canvas, false, false, true, false)
+            .await
+            .map_err(js_error)
+    }
+
+    /// Presents the same overview plus an application-selected Purple PNG on
+    /// retained sky omissions. This is AR-0027 browser evidence: the stand-in
+    /// is opt-in, carries a bounded omission count, and is not renderer fallback.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn render_e1m1_diagnostic_sky_omissions(
+        &self,
+        canvas: HtmlCanvasElement,
+    ) -> Result<String, JsValue> {
+        self.render_static_e1m1_inner(canvas, false, false, false, true)
             .await
             .map_err(js_error)
     }
@@ -320,7 +349,12 @@ impl BrowserIntakeSession {
         include_masked_cutouts: bool,
         select_by_frustum: bool,
         focus_exitsign: bool,
+        include_diagnostic_sky: bool,
     ) -> Result<String, String> {
+        // Browser evidence uses the same explicit, orientation-preserving Doom
+        // adapter as the native corpus default. This remains a Doom-consumer
+        // convention; it does not establish Tokimu's global cardinal axes.
+        let embedding = DoomComparativeEmbedding::PreserveNorth;
         let name = ResourceName::parse("selected-doom-package", AddressCasePolicy::Sensitive)
             .map_err(|error| error.to_string())?;
         let _selected_package = self
@@ -369,12 +403,11 @@ impl BrowserIntakeSession {
                 .ok_or_else(|| "player-one start subsector has no sector ownership".to_owned())?;
             let vertical = &map.sectors[usize::from(sector.sector_index)];
             Some((
-                Vec3::new(
-                    f32::from(start.position[0]),
+                embedding.lift_direction(
+                    start.position.map(f32::from),
                     (f32::from(vertical.floor_height) + f32::from(vertical.ceiling_height)) * 0.5,
-                    f32::from(start.position[1]),
                 ),
-                doom_heading_forward(start.angle),
+                embedding.lift_heading_degrees(f32::from(start.angle)),
             ))
         } else {
             None
@@ -408,12 +441,25 @@ impl BrowserIntakeSession {
         )
         .map_err(|error| error.to_string())?;
         let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
-        let draws =
+        let mut draws =
             build_static_draw_plan(&flats, &walls, &uploads).map_err(|error| error.to_string())?;
+        reembed_browser_draws(&mut draws, embedding);
+        let mut diagnostic_sky_draws = if include_diagnostic_sky {
+            prepare_e1m1_sky_diagnostic_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)
+                .map_err(|error| error.to_string())?
+        } else {
+            Vec::new()
+        };
+        for flat in &mut diagnostic_sky_draws {
+            reembed_comparative_mesh(&mut flat.mesh, embedding, false);
+            for uv in &mut flat.mesh.texture_coordinates {
+                uv[0] = -uv[0];
+            }
+        }
         let exitsign_view = focus_exitsign
             .then(|| exitsign_camera(&draws))
             .transpose()?;
-        let (cutout_uploads, cutout_draws) = if include_masked_cutouts {
+        let (cutout_uploads, mut cutout_draws) = if include_masked_cutouts {
             let masked = prepare_e1m1_masked_middle_cutouts(
                 &read.bytes,
                 &read.observation.wad,
@@ -442,6 +488,7 @@ impl BrowserIntakeSession {
         } else {
             (Vec::new(), Vec::new())
         };
+        reembed_browser_draws(&mut cutout_draws, embedding);
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
         let mut renderer = WgpuBackend::for_window(canvas, width, height)
@@ -467,6 +514,41 @@ impl BrowserIntakeSession {
                     .upload_material(upload.material, &upload.material_value)
                     .map_err(|error| error.to_string())?;
             }
+        }
+        if include_diagnostic_sky {
+            let decoded = decode_png(
+                include_bytes!("../../../../assets/PNG/Purple/texture_01.png"),
+                DecodeLimits::default(),
+            )
+            .map_err(|error| error.to_string())?;
+            let prepared = prepare_renderer_texture(&decoded, TextureUse::ColorSrgb)
+                .map_err(|error| error.to_string())?;
+            renderer
+                .create_texture_rgba8(
+                    DIAGNOSTIC_SKY_TEXTURE,
+                    Rgba8TextureDescriptor::new(
+                        prepared.texture.width,
+                        prepared.texture.height,
+                        Rgba8TextureColorSpace::Srgb,
+                    ),
+                    &prepared.texture.rgba8,
+                )
+                .map_err(|error| error.to_string())?;
+            renderer
+                .upload_material(
+                    DIAGNOSTIC_SKY_MATERIAL,
+                    &Material::new(
+                        "e1m1-browser-diagnostic-sky-omission",
+                        Color::rgb(1.0, 1.0, 1.0),
+                    )
+                    .with_texture(DIAGNOSTIC_SKY_TEXTURE)
+                    .with_texture_sampler(TextureSampler {
+                        filter: TextureFilter::Point,
+                        address_u: TextureAddressMode::Repeat,
+                        address_v: TextureAddressMode::Repeat,
+                    }),
+                )
+                .map_err(|error| error.to_string())?;
         }
         let pipeline = renderer
             .register_pipeline(
@@ -499,6 +581,14 @@ impl BrowserIntakeSession {
         let mut minimum = [f32::INFINITY; 3];
         let mut maximum = [f32::NEG_INFINITY; 3];
         for draw in draws.iter().chain(cutout_draws.iter()) {
+            for position in &draw.mesh.positions {
+                for axis in 0..3 {
+                    minimum[axis] = minimum[axis].min(position[axis]);
+                    maximum[axis] = maximum[axis].max(position[axis]);
+                }
+            }
+        }
+        for draw in &diagnostic_sky_draws {
             for position in &draw.mesh.positions {
                 for axis in 0..3 {
                     minimum[axis] = minimum[axis].min(position[axis]);
@@ -602,6 +692,21 @@ impl BrowserIntakeSession {
                 }));
             }
         }
+        if include_diagnostic_sky {
+            for (offset, draw) in diagnostic_sky_draws.iter().enumerate() {
+                let mesh =
+                    MeshHandle(draws.len() as u64 + cutout_draws.len() as u64 + offset as u64 + 1);
+                renderer.upload_mesh(mesh, &draw.mesh);
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh,
+                    material: DIAGNOSTIC_SKY_MATERIAL,
+                    pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CameraHandle(1)),
+                    viewport: None,
+                }));
+            }
+        }
         renderer.submit(&commands);
         renderer.present().map_err(|error| error.to_string())?;
         let opaque_submitted = draws.len() - opaque_rejected;
@@ -610,16 +715,35 @@ impl BrowserIntakeSession {
         } else {
             0
         };
-        let draw_count = opaque_submitted + cutout_submitted;
+        let diagnostic_submitted = diagnostic_sky_draws.len();
+        let draw_count = opaque_submitted + cutout_submitted + diagnostic_submitted;
         Ok(format!(
-            "browser first frame presented: {draw_count} draws; candidates={}; rejected={}; opaque={opaque_submitted}/{}; cutouts={cutout_submitted}/{}; frustum_aabb={select_by_frustum}; camera={}; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
-            draws.len() + if include_masked_cutouts { cutout_draws.len() } else { 0 },
+            "browser first frame presented: {draw_count} draws; candidates={}; rejected={}; opaque={opaque_submitted}/{}; cutouts={cutout_submitted}/{}; diagnostic_sky={diagnostic_submitted}/{}; diagnostic_asset={}; diagnostic_reason={}; frustum_aabb={select_by_frustum}; camera={}; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
+            draws.len() + if include_masked_cutouts { cutout_draws.len() } else { 0 } + diagnostic_sky_draws.len(),
             opaque_rejected + cutout_rejected,
             draws.len(),
             if include_masked_cutouts { cutout_draws.len() } else { 0 },
+            diagnostic_sky_draws.len(),
+            if include_diagnostic_sky { "corpus/assets/PNG/Purple/texture_01.png" } else { "none" },
+            if include_diagnostic_sky { "intentional-source-sky-omission" } else { "none" },
             if focus_exitsign { "canonical-exitsign" } else if select_by_frustum { "source-spawn-plus-90" } else { "overview" },
             width, height
         ))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn reembed_browser_draws(draws: &mut [StaticDrawPlanEntry], embedding: DoomComparativeEmbedding) {
+    for draw in draws {
+        let is_wall = matches!(draw.source, StaticDrawSource::Wall { .. });
+        reembed_comparative_mesh(&mut draw.mesh, embedding, is_wall);
+        if matches!(draw.source, StaticDrawSource::Flat { .. }) {
+            // Flat U is a continuous source-spatial field. Reverse it about
+            // the source origin, matching the native corpus adapter.
+            for uv in &mut draw.mesh.texture_coordinates {
+                uv[0] = -uv[0];
+            }
+        }
     }
 }
 

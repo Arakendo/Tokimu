@@ -9,7 +9,7 @@ changes semantic material properties in a side panel, and receives a
 Rust/WASM-resolved presentation result.
 
 It is the first real caller intended to pressure Slice 7 of
-[`typescript-shader-material-presentation-control.md`](../../../docs/Plans/typescript-shader-material-presentation-control.md).
+[`typescript-shader-material-presentation-control.md`](../../../docs/Plans/Standalone/typescript-shader-material-presentation-control.md).
 
 ## Primary Composition Claim
 

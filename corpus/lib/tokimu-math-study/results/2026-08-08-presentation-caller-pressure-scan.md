@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Retained negative evidence; no new candidate migration |
 | Date | 2026-08-08 |
-| Scope | `corpus/hello-shader/src/main.rs`; `corpus/hello-audio-visualizer/src/main.rs` |
+| Scope | `corpus/focused/foundations/hello-shader/src/main.rs`; `corpus/focused/audio/hello-audio-visualizer/src/main.rs` |
 | Method | Direct source scan for imported math types and constructor/method use |
 
 ## Observed Uses

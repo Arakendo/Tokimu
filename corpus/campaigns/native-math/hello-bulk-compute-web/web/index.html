@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tokimu Slice 9 browser compute</title>
+    <style>
+      body { background: #061012; color: #c4ffff; font: 16px ui-monospace, monospace; margin: 2rem; }
+      button { background: #102629; border: 1px solid #59d8ca; color: #c4ffff; cursor: pointer; margin-right: .5rem; padding: .65rem 1rem; }
+      pre { background: #091719; border: 1px solid #2d5a59; min-height: 7rem; padding: 1rem; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body data-state="loading">
+    <h1>Slice 9 browser WGPU bulk control</h1>
+    <p>Corpus-local ordered-point parity; CPU remains the semantic reference.</p>
+    <button id="run">Run 100K browser WGPU (3 reused samples)</button>
+    <button id="fallback">Run 100K CPU fallback</button>
+    <button id="invalid-input">Run invalid-input control</button>
+    <button id="dispose">Run idle-disposal control</button>
+    <button id="invalid">Run scoped invalid-shader control</button>
+    <button id="chart">Run AR-0026 chart A/B/C control</button>
+    <pre id="status">loading WASM</pre>
+    <script type="module">
+      const status = document.querySelector("#status");
+      const run = document.querySelector("#run");
+      const fallback = document.querySelector("#fallback");
+      const invalidInput = document.querySelector("#invalid-input");
+      const dispose = document.querySelector("#dispose");
+      const invalid = document.querySelector("#invalid");
+      const chart = document.querySelector("#chart");
+      const set = (value, state = "ready") => {
+        status.textContent = value;
+        document.body.dataset.state = state;
+      };
+      try {
+        const { default: init, run_point_control: runPoint, run_cpu_fallback: runCpu, run_invalid_input_control: runInvalidInput, run_disposal_control: runDisposal, run_invalid_shader_control: runInvalid, run_chart_control: runChart } = await import("./pkg/hello_bulk_compute_web.js");
+        await init();
+        set("ready | select a bounded Slice 9 control");
+        run.addEventListener("click", async () => {
+          run.disabled = true;
+          set("running browser WGPU control", "running");
+          try { set(await runPoint(100000)); } catch (error) { set(`failed | ${error}`, "failed"); }
+          finally { run.disabled = false; }
+        });
+        fallback.addEventListener("click", () => {
+          try { set(runCpu(100000)); } catch (error) { set(`failed | ${error}`, "failed"); }
+        });
+        invalidInput.addEventListener("click", () => {
+          try { set(runInvalidInput()); } catch (error) { set(`failed | ${error}`, "failed"); }
+        });
+        dispose.addEventListener("click", async () => {
+          dispose.disabled = true;
+          set("running idle-disposal control", "running");
+          try { set(await runDisposal()); } catch (error) { set(`failed | ${error}`, "failed"); }
+          finally { dispose.disabled = false; }
+        });
+        invalid.addEventListener("click", async () => {
+          invalid.disabled = true;
+          set("running scoped invalid-shader control", "running");
+          try { set(await runInvalid()); } catch (error) { set(`failed | ${error}`, "failed"); }
+          finally { invalid.disabled = false; }
+        });
+        chart.addEventListener("click", () => {
+          try { set(runChart()); } catch (error) { set(`failed | ${error}`, "failed"); }
+        });
+      } catch (error) {
+        set(`failed | ${error}`, "failed");
+      }
+    </script>
+  </body>
+</html>

@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Incubating |
+| Status | Retain A; C0/C1 remains incubating corpus evidence |
 | Opened | 2026-08-07 |
-| Last reviewed | 2026-08-07 |
+| Last reviewed | 2026-08-12 |
 | Scope | Native Ring / third-party public vocabulary / cross-cutting |
 | Trigger | ADR-0010 audit retained `glam` as the current Ring 0 math implementation while exposing its types through Tokimu's public API |
 | Related ADRs | ADR-0003, ADR-0005, ADR-0008, ADR-0009, ADR-0010, ADR-0011 |
 | Related evidence | `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`; AR-0015; AR-0026; `crates/tokimu-core/src/math.rs`; 3D corpus consumers |
-| Related plan | `docs/Plans/native-math-vocabulary-foreign-type-case-study.md` |
+| Related plans | `docs/Plans/Native-Math/native-math-vocabulary-foreign-type-case-study.md`; `docs/Plans/Native-Math/Studies/ar-0019-option-c-owned-math-and-bulk-compute.md`; `docs/Plans/Native-Math/Studies/ar-0019-option-a-glam-current-release-update.md` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -234,11 +234,10 @@ library handle part of a Tokimu guarantee without explicit evidence.
 
 ## Disposition
 
-**Incubating.** Retain the audited `glam` re-export unchanged while a focused,
-reversible corpus study determines whether a Tokimu-owned math vocabulary
-reduces long-term coupling without unacceptable cost. No ADR revision, source
-fork, public type change, or provider replacement is authorized by this record
-alone.
+**Retain A; C incubation continues.** Retain the audited `glam` re-export as
+Tokimu's one stable production vocabulary. C0/C1 remains a focused, reversible
+corpus alternative, not a migration track. No ADR revision, source fork,
+public type change, or provider replacement is authorized by this record.
 
 ## Consequences
 
@@ -255,18 +254,18 @@ alone.
 
 ## Required Follow-Up
 
-- [ ] Create a focused corpus study with only the currently public concepts:
+- [x] Create a focused corpus study with only the currently public concepts:
       `Vec2`, `Vec3`, `Vec4`, `Quat`, and `Mat4`.
-- [ ] Inventory the operations, traits, conversions, layouts, and error or
+- [x] Inventory the operations, traits, conversions, layouts, and error or
       validation behavior that real renderer and corpus callers require.
-- [ ] Implement a provider-backed Tokimu-vocabulary candidate without changing
+- [x] Implement provider-backed and owned bounded candidates without changing
       `tokimu_core::math` or adding a second stable public API.
-- [ ] Compare the candidate with direct `glam` use for correctness, caller
+- [x] Compare the candidate with direct `glam` use for correctness, caller
       migration, native/WASM behavior, allocation, binary size, compile time,
       and measured hot paths.
-- [ ] Record unsafe, SIMD, ABI/layout, serialization, reflection, and
+- [x] Record unsafe, SIMD, ABI/layout, serialization, reflection, and
       authoring-frontend consequences separately from API-name ownership.
-- [ ] Decide retain, wrap, replace, or reject from retained evidence; create or
+- [x] Decide retain, wrap, replace, or reject from retained evidence; create or
       revise an ADR only if the public ownership boundary changes.
 - [ ] After `docs/Plans/DOOM/DOOM WAD Checklist.md` is complete, rescan its
       resulting object, transform, animation, scene-import, and rendering
@@ -1289,6 +1288,693 @@ into the spatial semantic contract.
   update. The submodule was restored cleanly to the audited revision after the
   comparison.
 
+### Cycle 54 -- 2026-08-12
+
+- New cross-review hypothesis: AR-0026's future chart/junction corpus can test
+  whether sophisticated Tokimu-owned spatial meaning remains compatible with
+  a small, ordinary owned numerical core.
+- Findings: this is deliberately two-sided evidence. If A and C0 produce the
+  same traversal, transition-composition, orientation-classification, and
+  native/WASM observations without materially expanding C0, that supports
+  Alternative C. If chart work demands broad operations, unusual numerical
+  robustness, or specialized SIMD machinery, it weakens C. Chart identity,
+  qualified locations, transitions, and orientation intent remain semantic
+  wrappers above raw math and are not counted as C0 operations.
+- Disposition: retain Incubating status. Add an A/C0 run beneath the same future
+  AR-0026 semantic layer; do not use non-Euclidean ambition as a one-way reason
+  to replace `glam` or add speculative operations now.
+
+### Cycle 55 -- 2026-08-12
+
+- Status entering review: Incubating.
+- New evidence: post-DOOM A/B/C caller controls found C0's generic
+  Gauss--Jordan inverse about 10.4 times A for one repeated well-conditioned
+  affine control. That behavior explained material C0 regressions in the
+  retained CAD cursor-ray and pinned Khronos Box model/floor paths. A safe
+  scalar C1 affine fast path was then tested against the retained C0 reference
+  for 128 deterministic affine cases and a non-affine fallback case. It
+  recovered the GLB control while leaving the non-affine CAD inverse path open.
+  A bounded E1M1 PreserveNorth observer-camera port also remained about 14.5%
+  above A on the recorded host.
+- Findings: owning a narrow numerical core exposes real implementation and
+  maintenance work; it does not merely remove foreign-provider review. C1 adds
+  no `unsafe`, SIMD, target-specific code, provider call, or production API,
+  but it is only a partial corpus response because projection/picking inversion
+  remains on the C0 reference path.
+- Disposition: retain Incubating status. Treat the C1 affine path as bounded
+  corpus evidence, retain C0 checked/non-affine behavior as a scalar control,
+  and require separate numerical/performance evidence before expanding C1 to
+  general projection inversion. A four-class A/C remediation model is retained
+  separately; it does not recommend changing ADR-0010 or selecting C.
+
+### Cycle 56 -- 2026-08-12
+
+- Status entering review: Incubating.
+- New evidence: Slice 11 ran one corpus-local AR-0026 three-chart control under
+  both direct A and owned C0. Identical local chart identity, transition order,
+  point/direction transport, inverse round-trip, and orientation classification
+  produced fingerprint `2520c9de` on native. The control asked only for the
+  existing `Vec3`/`Mat4` operation manifest. The actual DOM/WASM control then
+  produced the same `2520c9de` fingerprint with no provider acquisition.
+- Findings: richer spatial meaning can remain above a bounded ordinary
+  numerical core in this control. Invertibility and orientation behavior remain
+  separate semantic facts; neither requires raw matrices to infer chart intent.
+  This is modest two-sided evidence for C, not a chart API or a general owned
+  math conclusion. Any future broad robustness, operation, SIMD, or target
+  pressure remains evidence against C.
+- Disposition: retain Incubating status and ADR-0010 unchanged. The completed
+  two-target control supports the provider-free Ring 0 hypothesis only within
+  its bounded corpus scope.
+
+### Cycle 57 -- 2026-08-12
+
+- Status entering review: Incubating.
+- Maintainer decision: **retain Alternative A** — the audited pinned `glam`
+  re-export remains Tokimu's one stable production math vocabulary. Continue
+  C0/C1 only as executable corpus evidence; do not begin public migration.
+- Decision basis: C demonstrated a bounded owned surface, explicit numerical
+  behavior, 63 local tests, native and actual DOM/WASM chart agreement, and a
+  safe affine C1 recovery for measured GLB pressure. It also demonstrated an
+  unresolved non-affine inverse deficit, unperformed production-boundary
+  migration, and Tokimu's long-term numerical/optimization maintenance burden.
+  Those are specific remaining risks, not a tie settled by provenance hygiene
+  or upstream warning irritation.
+- Compute finding: retain CPU and WGPU as separate corpus mechanisms. E1M1
+  scale remains CPU-favored; only large warm batches show WGPU advantage. No
+  shared compute contract, provider-selection policy, or specialized provider
+  is earned.
+- Disposition: ADR-0010 remains unchanged. Reopen a selection decision only if
+  independently pressured callers keep the ordinary C surface bounded while
+  resolving the named performance, migration, and maintenance gaps, or if
+  future evidence makes A's audited-provider cost disproportionate.
+
+### Cycle 58 -- 2026-08-12
+
+- Status entering review: Retain A; C0/C1 remains incubating corpus evidence.
+- Maintainer direction: plan a real Alternative A update from audited `glam`
+  0.29.3 to the current stable release and measure the level of effort required
+  by ADR-0010 rather than estimating its inconvenience.
+- Intake evidence: crates.io reported 0.33.3 as current. Upstream tag `0.33.3`
+  peels to commit `9928729066db87d97fa779e129469721a289beae`.
+  The target must be rechecked and reconciled with its registry artifact before
+  the gitlink moves.
+- Plan: `docs/Plans/Native-Math/Studies/ar-0019-option-a-glam-current-release-update.md`
+  separates active mechanical, source-review, integration, validation,
+  documentation, maintainer-decision, automation, blocked, and rework effort.
+  It permits admit, reject, or bounded pause outcomes and does not weaken
+  ADR-0010 or authorize a public-vocabulary change.
+- Disposition: retain A at 0.29.3 until the plan's revision-specific audit and
+  maintainer gate accept a new exact pin. Count the completed exercise as
+  recurring Option A lifecycle evidence whether 0.33.3 is admitted or rejected.
+
+### Cycle 59 -- 2026-08-12
+
+- Status entering review: executing the Option A 0.33.3 update plan in an
+  isolated worktree; production remains pinned to audited 0.29.3.
+- Passing evidence: exact registry/Git source reconciliation passed for all 202
+  `src/` blobs; the candidate retained a dependency-free `std`-only closure;
+  strict core Clippy, 29 core tests, wasm32 core build, existing math-study
+  controls, and representative caller compilation passed. The 4,896 old
+  generated-swizzle diagnostics disappeared without suppression.
+- Architectural finding: 0.33.3 deprecates the `Mat4` camera/projection
+  constructors Tokimu currently uses and redirects callers to new
+  `glam::camera::*` modules. Strict `tokimu-render` Clippy fails on
+  `look_at_rh`, `perspective_rh_gl`, and `orthographic_rh_gl`. Repository search
+  found 86 textual calls across those families.
+- Ownership consequence: following upstream advice would expand the foreign
+  vocabulary beyond the admitted five types; suppressing the warnings violates
+  the update plan; a Tokimu compatibility seam would itself require explicit
+  semantic ownership review.
+- Disposition: pause before production pin movement or repair. Retain 0.29.3
+  until maintainers choose among rejecting/pausing the update, authorizing a
+  narrow Tokimu-owned camera/projection seam, or separately reviewing the new
+  foreign camera vocabulary. Passing compilation does not settle that choice.
+
+### Cycle 60 -- 2026-08-12
+
+- Status entering review: Alternative A retained; the 0.33.3 update paused at
+  the camera/projection vocabulary finding.
+- Maintainer review: authorize investigation of a narrow Tokimu-owned
+  camera/view/projection construction seam while retaining `glam` as the
+  ordinary numerical implementation. Do not expose `glam::camera`, suppress
+  the warnings, reopen the A/C selection, or move the production pin yet.
+- Finding: the update cost is vocabulary-boundary work rather than evidence
+  that `glam`'s numerical implementation failed. The SDD, AR-0024, AR-0026,
+  and AR-0028 already constrain Tokimu's meaning more narrowly than upstream's
+  complete camera module.
+- Follow-up: AR-0029 records the four alternatives and authorizes an isolated
+  three-family prototype with numerical, invalid-input, caller, native/WASM,
+  and placement gates.
+- Disposition: continue the Option A update study under AR-0029; retain 0.29.3
+  as the production pin until the seam and revision audit are accepted.
+
+### Cycle 61 -- 2026-08-12
+
+- Status entering review: the Option A update remains active under AR-0029;
+  production remains pinned to 0.29.3.
+- New finding: the 0.33.3 camera deprecations are direct pressure for
+  Alternative B, not merely revision-update inconvenience. The numerical
+  provider remains credible while its changed camera vocabulary would reach
+  86 Tokimu call sites. A Tokimu-owned semantic seam can absorb that churn
+  while continuing to delegate arithmetic to `glam`.
+- Scope distinction: **Narrow B** retains the admitted foreign `Vec2`, `Vec3`,
+  `Vec4`, `Quat`, and `Mat4` vocabulary while Tokimu owns only pressured
+  semantics such as checked view and projection construction. **Full B** owns
+  wrappers for all five public types while using `glam` privately. Current
+  evidence strongly pressures Narrow B; it does not establish Full B's
+  conversion, representation, ergonomics, performance, or maintenance case.
+- Sequencing decision: finish the active Option A analysis and record its
+  evidence-bearing disposition first. Then create and execute a dedicated
+  Option B test plan, using the same explicit slices, controls, effort ledger,
+  cross-target evidence, and maintainer gate used for Options C and A. The
+  AR-0029 prototype is input evidence for that study, not a substitute for it.
+- Required comparison: evaluate A, Narrow B, Full B, and retained C evidence
+  without assuming that one wrapper scope represents all of B. Measure upgrade
+  shock absorption, caller migration, conversion pressure, API duplication,
+  layout/ABI implications, optimization barriers, native/WASM behavior, and
+  lifetime maintenance ownership.
+- Disposition: queue Option B behind completion of the current A update study.
+  Do not reopen the production A/C decision or move the pin merely because
+  Narrow B currently appears attractive.
+
+### Cycle 62 -- 2026-08-12
+
+- Status entering review: Option A 0.33.3 remains isolated and production
+  remains pinned to audited 0.29.3.
+- New reproducibility evidence: a fresh parent worktree initialized the
+  canonical `glam` submodule, replayed the candidate into 15 byte-identical
+  Tokimu files, rolled back cleanly to 0.29.3, and reproduced the candidate a
+  second time. With the exact candidate gitlink staged, the Ring 0 audit passed
+  and locked/offline core tests and metadata resolution succeeded.
+- Security evidence: workspace-local `cargo-audit` scans against one dated
+  RustSec snapshot produced identical parent/candidate results and no `glam`
+  advisory. Two `quick-xml` vulnerabilities and four `paste`, `ttf-parser`, or
+  `lru` warnings remain a real non-Ring-0 workspace baseline; they are not an
+  Option A regression and are not described as resolved by this study.
+- Caller evidence: the repaired candidate passes the retained differential and
+  plain-WASM controls, strict representative compilation, 41 Doom controls,
+  and 13 orientation/camera/picking controls. No floating-point tolerance was
+  widened. Clean/incremental core build times and rlib size show no material
+  bounded difference; the initial camera-cost finding remains documented as
+  duplicated work that was repaired and rerun.
+- Remaining admission gates: actual browser presentation is blocked by the
+  local harness/runtime mismatch; NEON, wasm64, and SIMD-browser execution are
+  retained target gaps; the complete workspace suite remains blocked by
+  pre-existing `AssetLoader::Error` omissions; and AR-0029's stable seam
+  placement still requires maintainer judgment.
+- Disposition: continue to retain production 0.29.3. The candidate is now
+  reproducible and substantially audited, but it is neither admitted nor
+  rejected. Complete or explicitly waive the named target/whole-workspace
+  gaps and decide AR-0029 before producing a revision-specific accepted audit.
+
+### Cycle 63 -- 2026-08-12
+
+- Status entering review: Option A 0.33.3 remains isolated; production remains
+  pinned to audited 0.29.3.
+- Compatibility evidence: dependency-isolated probes against the exact local
+  old and candidate sources emitted the same 14-line fingerprint for the five
+  public types, including layouts, fields/columns, constants, conversions,
+  operations, transforms, inverse observations, quaternion rotation, and
+  bounded non-finite behavior. All 44 candidate math-study tests and 38 core
+  tests pass under locked/offline resolution. The same Alternative A control
+  was also built with WebAssembly `simd128` enabled and both pins produced the
+  same five bounded observations under Node 22.22.2; actual-browser SIMD,
+  wasm64, and NEON execution remain separate target gaps. The complete
+  candidate WASM conformance set passes 12/12 under both default features and
+  `simd128`. Both pins compile-check for the NEON-enabled Windows AArch64
+  target; stable Rust exposes no prebuilt wasm64 standard-library artifact.
+- Browser gate: an official workspace-local Node 22.22.2 control and the
+  configured bundled Node 24.14 runtime satisfy the browser harness minimum.
+  The active browser bridge inherited stale system Node 22.21 and cannot be
+  retargeted in-process, so actual-browser evidence requires a fresh session;
+  this is retained as host/tooling burden rather than candidate failure.
+- Ownership pressure: 58 of 86 deprecated camera/projection constructor calls
+  remain intentionally unmigrated. The evidence no longer points to numerical
+  repair; it points to the AR-0029 decision between a narrow Tokimu-owned
+  checked construction seam, explicit admission of foreign camera vocabulary,
+  or pausing/rejecting the candidate.
+- Disposition: retain production 0.29.3 and keep 0.33.3 unadmitted. Resume the
+  browser gate in a fresh bridge session, then obtain the AR-0029 maintainer
+  decision before complete migration or a revision-specific accepted audit.
+
+### Cycle 64 -- 2026-08-12
+
+- Status entering review: Option A testing continues in isolation; production
+  remains pinned to audited 0.29.3.
+- Cross-target execution: all 12 WASM-applicable candidate conformance tests
+  pass under Node 22.22.2 with default target features and in a separately
+  built `simd128` configuration. The exact old/new SIMD control also retains
+  five matching observations.
+- ARM/wasm64 availability: exact old and candidate controls compile-check for
+  Windows AArch64, whose compiler configuration explicitly enables NEON.
+  Execution is unavailable on the x86-64 host. Stable Rust recognizes wasm64
+  but provides no prebuilt standard-library artifact, and the study did not
+  introduce a source-built or alternate-toolchain substitute.
+- Harness boundary: a direct core-WASM test attempt compiled but exported zero
+  ordinary Rust tests to `wasm-bindgen-test-runner`. The 38 core tests remain a
+  native claim; only the 12 conformance tests are claimed as WASM execution.
+- Browser status: the candidate fixture remains built, but the active browser
+  bridge still resolves stale Node 22.21 despite newer verified runtimes. The
+  local server used for the retry was stopped. Actual DOM/WebGPU presentation
+  remains open and cannot be inferred from Node execution.
+- Disposition: target evidence is stronger but unchanged architecturally.
+  Retain production 0.29.3 and require the fresh browser gate plus AR-0029
+  maintainer decision before admitting or migrating the candidate.
+
+### Cycle 65 -- 2026-08-12
+
+- Status entering review: the Option A browser gate remained blocked by the
+  machine-wide Node 22.21.0 runtime resolved by the active bridge.
+- Toolchain maintenance: the official latest 22.x release was 22.23.2. Its x64
+  MSI matched the published SHA-256 exactly, and the installed executable has
+  a valid OpenJS Foundation signature. The system now reports Node 22.23.2 and
+  npm 10.9.8; the workspace-local 22.22.2 control remains retained separately.
+- Effort finding: the first silent update rolled back with MSI 1730 because
+  replacement of the machine installation required administration. The
+  elevated retry succeeded. This adds one failed/recovered installation and
+  roughly 85 seconds of successful installer wall time to Option A's measured
+  environmental maintenance burden.
+- Remaining host boundary: Windows Installer restarted the stale bridge, but
+  its service now reports a missing runtime path despite valid system 22.23.2
+  and configured bundled 24.14 executables. The Codex host must be restarted
+  before actual browser evidence can resume; Node/WASM execution does not
+  substitute for that gate.
+- Disposition: the requested Node update is complete and recorded. Retain the
+  unadmitted 0.33.3 candidate and production 0.29.3 until the post-restart
+  browser fixture and AR-0029 maintainer decision complete.
+
+### Cycle 66 -- 2026-08-12
+
+- Status entering review: the Codex host has restarted after the verified
+  machine Node update; the production pin remains audited 0.29.3.
+- Browser-gate refinement: the candidate fixture builds and serves successfully
+  under system Node 22.23.2, closing the earlier runtime-version mismatch. The
+  restarted browser controller reports zero available browser instances, so no
+  actual DOM/WebGPU observation can be made in this environment. The local
+  server was stopped, and Node WASM evidence is not substituted for browser
+  evidence.
+- Audit status: a revision-specific candidate audit now names exact 0.33.3
+  commit `9928729066db87d97fa779e129469721a289beae`, selected closure, reviewed
+  source/unsafe surface, validation, reproducibility, measured effort, and open
+  gates. It is explicitly a reviewed candidate audit, not an admission record.
+- Effort result: the ledger records approximately 124 active agent minutes,
+  placing completed work in the study's Routine band. The trust burden remains
+  material: 290 changed upstream files, generated-source reproduction and a
+  175-package development-tool closure, cross-target work, a machine Node
+  update, and an ownership review for 86 deprecated constructor sites.
+- Architectural result: no evidence requires rejecting `glam` as numerical
+  provider, but the update directly strengthens the case for studying Narrow
+  B after Option A closes: Tokimu-owned camera/projection meaning could absorb
+  upstream vocabulary churn while retaining the five current foreign value
+  types and private numerical implementation. This does not establish Full B
+  or reopen the A/C decision.
+- Disposition: pause the 0.33.3 admission with explicit resumption conditions:
+  an attachable actual browser, the stable AR-0029 ownership decision and
+  resulting migration, repair of unrelated full-workspace test/Clippy
+  baselines, and an explicit maintainer admission vote. Production remains on
+  0.29.3; Option B planning remains sequenced after this evidence-bearing
+  Option A pause.
+
+### Cycle 67 -- 2026-08-12
+
+- Status entering review: production retains Alternative A at audited 0.29.3;
+  the 0.33.3 update has an evidence-bearing pause; C0/C1 remains executable
+  incubation.
+- Maintainer direction: create the queued Option B study from the concrete
+  Option A findings before changing the production vocabulary.
+- Plan structure: the new study treats **Narrow B** and **Full B** as separate
+  candidates. Narrow B owns only the AR-0029 camera/view/projection semantics
+  while retaining the five current public foreign value types. Full B owns
+  wrappers for all five names while keeping the exact pinned provider private.
+- Required evidence: both candidates must face the same 0.29.3-to-0.33.3 update
+  shock, caller inventory, representative migrations, conversion accounting,
+  native/WASM/browser controls, ADR-0008/0009/0011 gates, AR-0026/0028 pressure,
+  and maintenance economics. Full B cannot inherit Narrow B's evidence or claim
+  supply-chain independence while foreign code still executes in Ring 0.
+- Guardrail: retaining A remains a valid outcome. Narrow B is not presumed to
+  grow into Full B, and a passing prototype does not authorize a stable public
+  API, provider-pin movement, or production migration.
+- Resulting artifact:
+  `docs/Plans/Native-Math/Studies/ar-0019-option-b-provider-backed-vocabulary-and-semantic-seams.md`.
+- Disposition: Option B is planned and ready for isolated execution; production
+  remains unchanged until a later evidence-bearing maintainer decision.
+
+### Cycle 68 -- 2026-08-12
+
+- Status entering review: the Option B plan exists; production remains on
+  audited Alternative A at 0.29.3; the 0.33.3 candidate remains paused rather
+  than admitted or rejected.
+- Reviewer interpretation: Monday judged the approximately 124 active minutes
+  favorable evidence that ADR-0010 can be strict without making an ordinary
+  Ring 0 provider update pathologically expensive. This is not summarized as
+  “a `glam` update takes two hours”: automated wall time, tooling, environment
+  repair, trust-surface breadth, and unavailable-target gaps remain separately
+  retained.
+- A/B/C consequence: C remains feasible but owns numerical and performance
+  maintenance; A's provider maturity and measured update economics remain
+  attractive; B now has concrete pressure because semantic camera/projection
+  construction can potentially be insulated while the provider remains useful.
+- Narrow-B hypothesis: retain the `glam` implementation and possibly the five
+  existing value types, keep `glam::camera` private, and make only the already
+  demonstrated view/projection construction Tokimu-owned. GPU bulk compute
+  remains a separate Outer Ring question. This is a study hypothesis, not an
+  accepted architecture.
+- Gate discipline: Node WASM does not satisfy actual browser/WebGPU evidence;
+  the reproduced `AssetLoader::Error` failure remains an unrelated workspace
+  baseline; and the AR-0029 prototype is not stable admission before its
+  ownership decision.
+- Disposition: add these interpretive guardrails to the Option B plan. Do not
+  let enthusiasm for Narrow B rewrite Option A's evidence, preselect Full B,
+  or move the production provider pin.
+
+### Cycle 69 -- 2026-08-12
+
+- Status entering review: the maintainer authorized beginning the isolated
+  Option B study. Production remains on audited Alternative A at 0.29.3;
+  AR-0029 remains Under Review.
+- Frozen candidates: Narrow B remains the three checked camera/projection
+  construction families over the existing five foreign value types. Full B
+  remains the five-name wrapper prototype with a private pinned provider. They
+  have separate identities and ledgers and cannot inherit each other's result.
+- Full-B control: the current shared wrapper is 553 lines (459 nonblank), has
+  39 literal private provider references, and exposes ten isolated tests. All
+  ten pass against exact 0.29.3, while private provider compilation
+  reproduces the known generated-warning flood.
+- Early finding: B can potentially contain public vocabulary churn, but it
+  cannot contain provider compilation, provenance, audit, unsafe/SIMD, target,
+  or remediation work. This prevents a wrapper from being misreported as
+  supply-chain independence.
+- Refreshed pressure: the current tree contains 94 direct calls across the
+  three constructor families. The dated Option A finding of 86 calls remains
+  intact because its isolated tree and scan scope differ. `Vec3`, `Vec4`, and
+  `Mat4` retain real caller pressure; `Vec2` and `Quat` still lack stable Native
+  pressure and remain minimal compatibility probes only.
+- Public-boundary result: the five direct `tokimu_core::math` re-exports and
+  public renderer `Camera` matrices remain the concrete foreign-vocabulary
+  seam. No stable math serialization, FFI, POD, reflection, or TypeScript
+  layout contract was found.
+- Resulting evidence: `2026-08-12-option-b-control.md`,
+  `2026-08-12-option-b-result-ledger.md`, `2026-08-12-option-b-loe.md`, and
+  `2026-08-12-option-b-pressure-scan.md` complete Slices 0 and 1 without a
+  production dependency, pin, export, or stable-contract change.
+- Disposition: proceed to provider-neutral contract definition. Keep removal
+  or outward movement visible for unpressured names, and do not assume Narrow
+  B must grow into Full B.
+
+### Cycle 70 -- 2026-08-12
+
+- Maintainer direction: finish Option A rather than leave its completed Pause
+  disposition looking like an active study while Option B proceeds.
+- Closure validation: repository-resolvable baseline repairs are complete.
+  Locked/offline whole-workspace tests pass against production 0.29.3 and the
+  isolated 0.33.3 candidate; both trees pass formatting checks; strict
+  whole-workspace Clippy passes for 0.33.3.
+- Warning evidence: production 0.29.3 still reproduces 4,896 actionable
+  provider-owned generated-source diagnostics. Independently discovered
+  Tokimu-owned math-study lint findings were repaired and are not attributed
+  to the provider update.
+- Unavailable-target result: the actual-browser gate was attempted after the
+  host/runtime repair, but the browser controller exposes no attachable
+  instance. Node WASM remains separate evidence and is not substituted.
+- Final Option A study disposition: **Complete — Pause**. Production retains
+  audited 0.29.3; reviewed 0.33.3 remains unadmitted. Resume admission only
+  after AR-0029 ownership and migration are resolved, an actual-browser run is
+  retained, and the maintainer makes a fresh admission vote.
+- Sequencing: this closure does not rewrite Option A as a rejection, select B,
+  or authorize a provider-pin movement. It merely satisfies the plan's
+  evidence-bearing Pause completion criterion so Option B can use a stable A
+  control.
+
+### Cycle 71 -- 2026-08-12
+
+- Status entering review: Option B Slices 0 and 1 were complete; production
+  remained on Alternative A at 0.29.3 and AR-0029 remained Under Review.
+- Contract result: Narrow B now owns only three checked construction families
+  and four bounded failure categories. Full B has a separately retained
+  five-name contract that deliberately leaves `Vec2`/`Quat` as compatibility
+  probes and rejects provider layout, broad traits, serialization, and API
+  mirroring.
+- Narrow-B hardening: one independent caller and four scalar/reference contract
+  cases pass unchanged against exact 0.29.3 and 0.33.3. The provider switch is
+  isolated to three private construction-call pairs; no provider camera module
+  or provider error crosses the candidate boundary.
+- Failure evidence: invalid and non-finite construction inputs are classified
+  by Tokimu operation/failure identity. The study no longer relies on provider
+  panics or accidental NaN propagation as its public failure contract.
+- Placement result: `tokimu-core::math` is the smallest existing candidate
+  location if AR-0029 later admits the seam; renderer camera lifecycle and WGPU
+  adaptation do not move inward.
+- Disposition: complete Option B Slices 2 and 3. Continue to Full-B hardening
+  without treating Narrow B as an incomplete form of Full B or changing the
+  production pin/public surface.
+
+### Cycle 72 -- 2026-08-12
+
+- Full-B hardening result: one unchanged five-name wrapper source and external
+  contract harness pass against exact private providers 0.29.3 and 0.33.3.
+  Provider selection and the three camera/projection API adaptations remain
+  private; no foreign type, trait, module, feature, or error crosses the
+  candidate boundary.
+- Failure contract: checked normalization, inversion, projective point
+  transformation, and the three camera/projection constructors now retain
+  bounded Tokimu operation/failure identity. Unchecked spellings remain
+  explicitly labeled compatibility-pressure controls rather than the admitted
+  failure contract.
+- Evidence: both pins pass 10 shared unit and five external contract tests.
+  The suite includes independent scalar landmarks, fixed-seed metamorphic
+  cases, and non-finite, zero-length, singular, zero-homogeneous-W, degenerate
+  view, and invalid-frustum controls. The shared parent math study remains
+  green at 63 unit and six integration tests.
+- Reference inventory: the wrapper retains 39 literal provider-namespace
+  references (23 storage/construction mechanics, three semantic adapters, five
+  private conversions, eight control-test references) plus 44 delegated
+  `.inner` uses. These are visible maintenance surface, not implementation
+  independence.
+- Ergonomics result: Full B requires accessors and explicit mutation/crossing
+  seams and deliberately omits indexing, serialization, POD/FFI, broad generic
+  traits, swizzles, and unpressured quaternion/vector breadth. Equal observed
+  layout is not a promise and supports no unsafe conversion.
+- Provider quality result: focused strict Clippy is clean against 0.33.3. The
+  0.29.3 build still reproduces its retained provider-owned warning flood;
+  readable test output used warning suppression without reclassifying that
+  evidence as fixed.
+- Disposition: complete Option B Slice 4 and proceed to representative
+  migration/conversion accounting. Full B is feasible, but it has not yet
+  shown benefit beyond Narrow B proportional to its larger wrapper surface.
+
+### Cycle 73 -- 2026-08-12
+
+- Representative migration result: Narrow B passes four contract and four
+  application-shaped tests unchanged against exact 0.29.3 and 0.33.3. Five
+  caller scenarios make eight checked semantic-construction calls with no
+  changed value signature, accessor substitution, value conversion, or
+  temporary allocation.
+- Full-B pressure: nine A/B/C-comparable caller modules now cover camera,
+  renderer, GLB, CAD/picking, E1M1 observer, FPS motion, hierarchy mutation,
+  stereo/orthographic presentation, and AR-0026 chart orientation. Doom
+  collision remains source-scalar/integer code and was not forced through the
+  math vocabulary merely to satisfy the study.
+- Friction accounting: the bounded Full-B port contains four private
+  wrapper-bearing helper signatures, eight scalar accessor substitutions, one
+  matrix-column setter, and nine explicit renderer matrix crossings. No
+  retained caller lost a required trait, and no unsafe layout equivalence was
+  introduced.
+- Runtime evidence: transform, upload, and stereo allocation controls remain
+  at zero allocations for the measured A/B/C paths. Long-lived camera state
+  and renderer transport use owned wrapper values and scalar columns rather
+  than provider ABI assumptions.
+- Chart result: A, Full B, and C0 produce the same `2520c9de` fingerprint for
+  the AR-0026 control. Full B needed no new operation; explicit unit vectors
+  avoided manufacturing X/Z constant pressure.
+- Interpretation: Narrow B directly contains the semantic-constructor shock
+  observed during Option A with much less surface. Full B remains feasible but
+  has not yet demonstrated a proportional benefit for owning all five public
+  value types. Complete Slice 5 and proceed to native/WASM/browser and
+  representation gates without changing production.
+
+### Cycle 74 -- 2026-08-12
+
+- Cross-target result: the shared A/B/C suite, Narrow-B contract and caller
+  suites, and Full-B external contract suite all execute successfully in the
+  Node WebAssembly engine under both default WASM and explicit `simd128`.
+  Narrow and Full B pass unchanged against exact private providers 0.29.3 and
+  0.33.3; bounded values and failure classes agree with native evidence.
+- ARM result: both candidates and their retained targets compile for
+  `aarch64-pc-windows-msvc` under both pins, whose target cfg advertises NEON.
+  No ARM64 execution occurred, so this is portability evidence, not a NEON
+  runtime or performance claim.
+- Browser result: the updated A/B/C chart fixture was available locally, but
+  the browser-control runtime exposed no attachable browser. No new B
+  actual-browser or browser-WebGPU result is claimed; Node-hosted WASM remains
+  explicitly separate from earlier inherited A/C browser evidence.
+- Representation result: Full B observes the same five sizes, alignments,
+  `Copy` behavior, scalar access, and ordered matrix columns under both pins.
+  This does not admit provider layout, SIMD identity, ABI/POD, serialization,
+  public fields, unsafe conversion, or GPU buffer equivalence. Narrow B retains
+  provider representation by type identity and owns only constructors.
+- Availability limits: NVIDIA, wasm64, ARM64/NEON execution, and a fresh actual
+  browser remain unobserved. Complete Slice 6 for available targets and proceed
+  to the ADR-0008 performance/code-quality gate without changing production.
+
+### Cycle 75 -- 2026-08-12
+
+- Narrow-B cost: bounded validation is real work, not a zero-cost abstraction.
+  In a three-constructor stress loop it is 3.56-3.60x the private provider call,
+  while the absolute delta is 38.2-39.3 ns per view/perspective/orthographic
+  bundle on this host. Mass-camera pressure remains untested.
+- Full-B caller result: transform, stereo, CAD, and E1M1 observer medians remain
+  competitive with A, and all measured transform/upload/stereo hot paths
+  allocate zero. The Khronos Box GLB path regresses 7.8% and affine inverse
+  isolation regresses 18.5%; Full B therefore loses those workload gates rather
+  than receiving a general zero-cost claim.
+- Update comparison: the same Full-B wrapper under exact private pins 0.29.3
+  and 0.33.3 shows no material regression in bounded transform, inverse, or
+  stereo/column-handoff controls. This does not erase Full B's A-relative
+  workload failures.
+- Maintenance evidence: Full B has a roughly 4.3x larger candidate rlib and a
+  slower incremental isolated build than Narrow B in this observation. Both
+  remain small, but the broader owned vocabulary has visible compile and
+  artifact cost in addition to source maintenance.
+- Quality result: formatting and focused strict all-target Clippy pass against
+  0.33.3. The 0.29.3 warning flood remains private-provider evidence; it was
+  suppressed only in benchmark output and is not reclassified as clean.
+- Disposition: complete Slice 7 without representation shortcuts, unsafe
+  conversion, or speculative inlining. Narrow B remains the proportional
+  candidate for semantic shock absorption; Full B is feasible but has not
+  earned its broader performance burden. Continue to ADR-0009/0011 verification
+  and failure-containment pressure without changing production.
+
+### Cycle 76 -- 2026-08-12
+
+- Failure result: Narrow and Full B now exercise malformed typed scalar
+  combinations, non-finite input, zero-length/degenerate values, underflow,
+  finite-component overflow, invalid frusta, and their applicable singular or
+  zero-homogeneous cases under exact private providers 0.29.3 and 0.33.3.
+  Public errors retain only bounded operation and failure identities; provider
+  diagnostics and raw inputs do not cross either checked boundary.
+- Ordinary finding: Full B's checked normalization accepted finite components
+  whose squared magnitude overflowed and could return a finite zero. The
+  candidate now rejects that case as `NonFiniteResult`, keeps underflowed
+  magnitude distinct as `ZeroLength`, and passes unchanged under both pins on
+  native and Node-WASM.
+- Containment result: checked invalid inputs return without native unwind and
+  execute without WASM trap. Native `catch_unwind` is retained only as an
+  observation, not a recovery design. Unchecked compatibility methods remain
+  outside the bounded-failure claim and would require disposition before Full
+  B admission.
+- Security result: candidate implementation adds no ambient global, heap
+  owner, provider lifetime, thread, I/O, callback, unsafe, or secret-bearing
+  authority. Corpus-only scalar WASM probes are not proposed math contracts.
+- Provenance result: each candidate's normal/build closure is exactly the
+  candidate plus one exact local `glam` provider. B does not remove A's source,
+  unsafe/SIMD, advisory, legal, target, rollback, or update-review obligations;
+  private vocabulary is not supply-chain independence.
+- Disposition: complete Slice 8 for the checked candidate surfaces and
+  available native/Node-WASM targets. Actual-browser evidence remains
+  unavailable from Slice 6. Continue to provider-update shock and maintenance
+  economics without changing production or weakening ADR-0010.
+
+### Cycle 77 -- 2026-08-12
+
+- Update-shock result: the frozen 0.29.3-to-0.33.3 camera API change exposed 86
+  direct A construction sites. Once adopted, Narrow B and Full B each replay
+  the update with zero public caller changes and the same three private
+  constructor-adapter changes. Full B provides no additional insulation over
+  Narrow B for the shock that actually occurred.
+- Adoption accounting: this is conditional insulation, not free migration.
+  The Option A prototype actually migrated 28/86 representative sites and left
+  58; adopting Narrow B still incurs that one-time construction migration.
+  Full B additionally incurs the much broader five-type/crossing migration and
+  its already measured performance, compile, and documentation burden.
+- Semantic-shock control: unchanged Full-B wrapper source produces different
+  NaN `Vec3::min/max` bit results under the exact two provider pins. A and
+  Narrow B expose that foreign value behavior directly; Full B also exposes it
+  because its method delegates. Tokimu naming does not stabilize semantics
+  unless a specific policy is admitted, implemented, and tested.
+- New-operation control: existing `Vec3::dot` pressure costs A and Narrow B no
+  Tokimu surface when the provider already supplies it. Full B must grow a
+  wrapper contract/delegation/test; C must grow owned mechanics/contract/test.
+  Broad ownership therefore has recurring per-operation economics.
+- Unchanged burden: provenance, source diff, generated code, unsafe/SIMD,
+  targets, advisories, licenses, rollback/replay, offline enforcement, and
+  maintainer admission remain identical to Option A for either B candidate.
+- Disposition: complete Slice 9. The comparative evidence favors Narrow B as
+  proportional shock absorption but does not admit it; Full B has not shown
+  benefit proportional to its broader surface. Continue to ergonomics and
+  ecosystem pressure with production unchanged.
+
+### Cycle 78 -- 2026-08-12
+
+- Ergonomics result: representative Narrow-B callers state right-handed and GL
+  depth construction intent directly, return bounded errors, and otherwise
+  retain ordinary provider values. Full-B finite caller source remains
+  familiar, but familiar names do not reveal whether Tokimu owns edge semantics
+  or delegates them.
+- Documentation accounting: normal Rustdoc generation succeeds. A strict
+  missing-docs control finds 16 Narrow-B items concentrated in its three
+  functions and bounded failures, while Full B has a much broader missing set
+  across eight top-level declarations, 60 inherent members, and 10 arithmetic
+  trait implementations. Stable documentation work was not performed before
+  admission.
+- Compatibility finding: real non-study Doom callers require `Sum<Vec3>`, and
+  several callers read or mutate provider public components/columns. Full B's
+  bounded ports do not provide all of those behaviors. The study retains the
+  gaps instead of expanding fields, traits, indexing, conversions, or layout
+  merely for source compatibility.
+- Ecosystem result: Narrow B leaves renderer camera storage and scalar GPU
+  transport unchanged. Full B would change the stable public `Camera` value
+  vocabulary and require explicit crossings. No current asset, ECS,
+  serialization, reflection, FFI/POD, TypeScript layout, or external-tool
+  caller earns a broader wrapper contract.
+- Disposition: complete Slice 10. Narrow B improves semantic clarity with a
+  small learnable surface; Full B remains understandable only by staying
+  bounded and honestly incomplete rather than becoming a disguised `glam`
+  clone. Continue to the AR-0026/0028/renderer cross-review without changing
+  production.
+
+### Cycle 79 -- 2026-08-12
+
+- Spatial cross-review result: the existing three-chart semantic control
+  produces fingerprint `2520c9de` under A, provider-backed Full B, and owned
+  C0. Narrow B retains A's exact ordinary value mechanics; its stereo and Doom
+  observer callers pass unchanged under both exact provider pins.
+- Ownership result: chart identity, qualified location, transition and
+  orientation intent, Doom source embedding, camera basis, input policy,
+  active-camera selection, viewport, and provider clip conversion remain above
+  or outside ordinary math. None became a Full-B method.
+- Renderer result: the focused WGPU test confirms Tokimu's GL-style `[-1, 1]`
+  camera depth is mapped privately to `[0, 1]` without mutating the camera.
+  Neither B candidate moves provider clip meaning into caller code.
+- View-pressure result: existing stereo and CAD multi-camera callers require
+  independent camera identity, viewport, and submission, but no broader raw
+  math surface. Portal-derived and recursive views remain unimplemented
+  AR-0026/AR-0029 pressure and cannot be counted as B evidence.
+- Operation-growth result: zero new ordinary operations were requested from B
+  or C0. Exotic spatial semantics remain above bounded numerical mechanics.
+- Disposition: complete Option B Slice 11 without production or public change.
+  Proceed only to the comparative Slice 12 maintainer gate.
+
+### Cycle 80 -- 2026-08-12
+
+- Comparative result: A remains a healthy audited production control; Narrow B
+  alone proportionally absorbs the observed camera-constructor update shock;
+  Full B adds broad migration, documentation, semantic-drift, compatibility,
+  and performance costs without additional benefit for that shock; C0/C1
+  remains a credible but unselected ownership alternative.
+- Recommendation: keep A in production, continue Narrow B incubation, park
+  Full B, and retain C0/C1 as executable evidence. This is a recommendation,
+  not maintainer acceptance or stable admission.
+- Missing Narrow-B gates: actual-browser B execution, the AR-0029 GLB
+  runtime/browser observation, real-workload judgment of the bounded checked
+  constructor cost, stable documentation/placement, and an explicitly
+  authorized rollout/rollback plan.
+- AR-0029 recommendation: remain Under Review as bounded review guidance. It
+  should become binding ADR material only if maintainers select Narrow B after
+  the remaining gates; rejection should close it with no stable change.
+- Production result: audited A 0.29.3 remains the only stable vocabulary and no
+  production migration or provider-pin movement occurred.
+- Disposition: pause at the explicit Slice 12 maintainer gate.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
@@ -1297,9 +1983,11 @@ into the spatial semantic contract.
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/ADR/ADR-0010-ring-zero-third-party-source-admission.md`
 - `docs/ADR/ADR-0011-ring-based-security-authority-and-trust-boundaries.md`
+- `docs/ADR/Proposed/ADR-XXXX-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
 - `docs/Architectural Reviews/AR-0015-ring-zero-provenance-enforcement-and-audit-closure.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`
+- `docs/Dependency Audits/Ring 0/glam-9928729066db87d97fa779e129469721a289beae.md`
 - `crates/tokimu-core/src/math.rs`
 - Microsoft Threat Intelligence and Microsoft Defender Security Research Team,
   [Mitigating the Axios npm supply chain compromise](https://www.microsoft.com/en-us/security/blog/2026/04/01/mitigating-the-axios-npm-supply-chain-compromise/),

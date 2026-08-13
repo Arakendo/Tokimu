@@ -204,7 +204,7 @@ the native execution and multithreading plan.
   runtime/platform mechanism; API shape remains unproven.
 - Disposition: Accepted.
 - Resulting ADR or documentation change: ADR-0006 and
-  `docs/Plans/native-execution-and-multithreading.md`.
+  `docs/Plans/Standalone/native-execution-and-multithreading.md`.
 
 ## References
 

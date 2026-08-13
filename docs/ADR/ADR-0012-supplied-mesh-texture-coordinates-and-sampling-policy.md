@@ -109,6 +109,6 @@ crosses those targets.
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/Architectural Reviews/AR-0022-textured-mesh-coordinate-and-sampling-boundary.md`
 - `docs/Architectural Reviews/AR-0023-textured-surface-alpha-and-depth-policy.md`
-- `docs/Plans/textured-box-glb-png-corpus.md`
+- `docs/Plans/Textured-Presentation/textured-box-glb-png-corpus.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
 - `docs/Tokimu Software Design Document.md`

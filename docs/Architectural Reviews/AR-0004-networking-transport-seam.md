@@ -207,13 +207,13 @@ than an engine-core dependency.
 
 ## References
 
-- `docs/Plans/networking-and-transport.md`
+- `docs/Plans/Standalone/networking-and-transport.md`
 - `docs/Notes/networking-transport-baseline.md`
 - `docs/Notes/networking-transport-constraints.md`
 - `corpus/lib/network-tools/`
-- `corpus/hello-network-loopback/`
-- `corpus/hello-network-client-server/`
-- `corpus/hello-fps-web/OBSERVATION-PROTOCOL.md`
+- `corpus/focused/networking/hello-network-loopback/`
+- `corpus/focused/networking/hello-network-client-server/`
+- `corpus/focused/simulation/hello-fps-web/OBSERVATION-PROTOCOL.md`
 - `docs/ADR/ADR-0001-engine-boundaries.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`

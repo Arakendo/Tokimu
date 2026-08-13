@@ -3,7 +3,7 @@
 ## Status
 
 Active migration evidence for
-[`compression-and-archive-providers.md`](../Plans/compression-and-archive-providers.md).
+[`compression-and-archive-providers.md`](../Plans/Standalone/compression-and-archive-providers.md).
 This ledger is descriptive, not an accepted public API or provider choice.
 
 ## Pinned Source
@@ -148,7 +148,7 @@ No historical binary output is copied implicitly from `bin/` or `obj/`.
   coarser malformed classification recorded explicitly;
 - native tests and `wasm32-unknown-unknown` compilation.
 
-`corpus/hello-compression` independently consumes the public contract across
+`corpus/focused/data-interchange/hello-compression` independently consumes the public contract across
 all three codecs and semantic goals, rejects a bounded high-expansion decode,
 and writes `target/hello-compression/report.json` as structural evidence.
 
@@ -184,7 +184,7 @@ evidence through a Tosumu-backed host remains open.
   input/output;
 - native conformance tests and `wasm32-unknown-unknown` compilation.
 
-`corpus/hello-archive` consumes one first-party immutable ZIP fixture through
+`corpus/focused/data-interchange/hello-archive` consumes one first-party immutable ZIP fixture through
 the public contract, reads one selected entry byte-for-byte, rejects an input
 budget violation, writes the same ordered entries twice with byte-identical
 results, reads that generated archive back through the public contract, and

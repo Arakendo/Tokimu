@@ -164,10 +164,11 @@ surface over Tokimu-owned semantics.
 Examples remain architecture-driving proofs, not dumping grounds for ad hoc
 integrations.
 
-- `corpus/hello-window`
-- `corpus/hello-triangle`
-- `corpus/hello-asteroids`
-- future capability proofs such as `corpus/hello-geometry-profile` only after
+- `corpus/focused/foundations/hello-window`
+- `corpus/focused/foundations/hello-triangle`
+- `corpus/focused/simulation/hello-asteroids`
+- future capability proofs such as
+  `corpus/focused/foundations/hello-geometry-profile` only after
   the matching capability crate exists
 
 When a capability crate lands, the first backend proof should be paired with one

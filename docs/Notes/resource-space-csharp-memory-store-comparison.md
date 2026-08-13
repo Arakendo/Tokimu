@@ -13,7 +13,7 @@ compatibility suite.
 - C# test project: `F:\LocalSource\ClassLibrary\MemoryStore.Tests`
 - Source test count: 83 `[Fact]` or `[Theory]` cases at review time.
 - Rust implementation: `corpus/lib/resource-space`
-- Rust consumers: `corpus/hello-resource-space` and the ASP.NET/WASM Asset
+- Rust consumers: `corpus/focused/data-interchange/hello-resource-space` and the ASP.NET/WASM Asset
   Workbench engine session.
 
 The C# suite was executed on 2026-08-03 with

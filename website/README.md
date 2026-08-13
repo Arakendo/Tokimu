@@ -111,5 +111,5 @@ unrecorded production-only change.
 The public site is curated. Repository plans, conversations, working notes,
 and archives are not published automatically.
 
-See `docs/Plans/tokimu-website.md` in the repository root for the implementation
+See `docs/Plans/Standalone/tokimu-website.md` in the repository root for the implementation
 plan and ownership boundaries.

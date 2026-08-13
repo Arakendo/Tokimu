@@ -79,6 +79,13 @@ The renderer receives only ordinary meshes, material handles, texture uploads,
 and camera data. The canvas is a browser presentation surface, not a TypeScript
 rendering abstraction.
 
+The separate `render_e1m1_diagnostic_sky_omissions(canvas)` request is an
+AR-0027 comparison control. It explicitly re-lowers only retained Doom sky
+omissions and applies the first-party Purple corpus PNG selected by this
+application. Its result reports the retained/submitted omission count, asset
+path, and reason. Normal E1M1 rendering does not select this material, and the
+renderer does not infer fallback policy from missing source data.
+
 This is readiness evidence only until a selected local reviewed package has
 visibly presented the frame. It neither makes the browser workbench the WAD
 plan's canonical importer nor substitutes for native/WASM conformance capture.

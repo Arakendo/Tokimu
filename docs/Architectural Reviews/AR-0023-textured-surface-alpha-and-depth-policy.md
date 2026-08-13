@@ -8,7 +8,7 @@
 | Scope | Cross-cutting renderer/material and backend boundary |
 | Trigger | AR-0022 established a narrow opaque textured-mesh path, while its alpha audit found that `Textured3d` combines source-alpha blending with depth writes and has no cutout threshold or ordering policy. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009, ADR-0012, ADR-0013 |
-| Related evidence | AR-0006, AR-0022 Cycle 10, `tokimu-render` pipeline/shader/backend code, DOOM Slice 5B source coverage facts, `docs/Plans/textured-surface-alpha-policy-comparative-corpus.md` |
+| Related evidence | AR-0006, AR-0022 Cycle 10, `tokimu-render` pipeline/shader/backend code, DOOM Slice 5B source coverage facts, `docs/Plans/Textured-Presentation/textured-surface-alpha-policy-comparative-corpus.md` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -292,7 +292,7 @@ part of this alpha study; the camera decision is preserved separately in
 - Disposition: continue Slice 2 with the same shared source on browser/WASM;
   retain opaque-only admission and do not promote the custom-WGSL candidates.
 - Resulting ADR or documentation change: retained the native visual record in
-  `corpus/hello-alpha-policy/results/`.
+  `corpus/campaigns/textured-presentation/hello-alpha-policy/results/`.
 
 ### Cycle 7 -- 2026-08-09
 
@@ -329,7 +329,7 @@ part of this alpha study; the camera decision is preserved separately in
   Continue the zero/one threshold and negative backend-validation cases before
   revisiting a renderer contract; retain opaque-only admission.
 - Resulting ADR or documentation change: retained the browser visual record in
-  `corpus/hello-alpha-policy-web/results/`.
+  `corpus/campaigns/textured-presentation/hello-alpha-policy-web/results/`.
 
 ### Cycle 9 -- 2026-08-09
 
@@ -389,7 +389,7 @@ part of this alpha study; the camera decision is preserved separately in
   comparison work. Retain opaque-only admission until the comparative study
   reaches its acceptance criteria.
 - Resulting ADR or documentation change: retained
-  `corpus/hello-alpha-policy/results/native-blend-observation-2026-08-09.md`.
+  `corpus/campaigns/textured-presentation/hello-alpha-policy/results/native-blend-observation-2026-08-09.md`.
 
 ### Cycle 12 -- 2026-08-09
 
@@ -434,7 +434,7 @@ part of this alpha study; the camera decision is preserved separately in
   whether corpus-only ordering evidence is sufficient for any future public
   contract discussion.
 - Resulting ADR or documentation change: retained
-  `corpus/hello-alpha-policy-web/results/browser-blend-observation-2026-08-09.md`.
+  `corpus/campaigns/textured-presentation/hello-alpha-policy-web/results/browser-blend-observation-2026-08-09.md`.
 
 ### Cycle 14 -- 2026-08-09
 
@@ -481,7 +481,7 @@ part of this alpha study; the camera decision is preserved separately in
   required. Do not open a render-order, scheduler, shader-resource, or PBR
   review from this one corpus result.
 - Resulting ADR or documentation change: updated
-  `corpus/hello-alpha-policy-web/results/browser-blend-observation-2026-08-09.md`
+  `corpus/campaigns/textured-presentation/hello-alpha-policy-web/results/browser-blend-observation-2026-08-09.md`
   and the comparative corpus plan.
 
 ### Cycle 16 -- 2026-08-09
@@ -599,7 +599,7 @@ part of this alpha study; the camera decision is preserved separately in
   native/browser presentation and a separate continuous-alpha caller remain
   required before a cutout or Blend contract can be proposed.
 - Resulting ADR or documentation change: retained
-  `docs/Plans/DOOM/E1M1 masked-middle cutout intake evidence.md`; no ADR or
+  `docs/Plans/DOOM/Evidence/E1M1 masked-middle cutout intake evidence.md`; no ADR or
   renderer contract changed.
 
 ### Cycle 21 -- 2026-08-09
@@ -625,7 +625,7 @@ part of this alpha study; the camera decision is preserved separately in
   interpret existing local state selection as a stable Blend API.
 - Resulting ADR or documentation change: recorded `hello-glb` as the selected
   independent continuous-alpha caller in the comparative corpus plan and
-  retained `docs/Plans/alpha-policy-real-caller-comparison.md`.
+  retained `docs/Plans/Textured-Presentation/Evidence/alpha-policy-real-caller-comparison.md`.
 
 ### Cycle 22 -- 2026-08-09
 
@@ -810,9 +810,9 @@ part of this alpha study; the camera decision is preserved separately in
 
 - `docs/Architectural Reviews/AR-0006-raster-image-requirement-pipeline.md`
 - `docs/Architectural Reviews/AR-0022-textured-mesh-coordinate-and-sampling-boundary.md`
-- `docs/Plans/textured-box-glb-png-corpus.md`
-- `docs/Plans/textured-surface-alpha-policy-comparative-corpus.md`
-- `docs/Plans/categorical-cutout-capability-admission.md`
+- `docs/Plans/Textured-Presentation/textured-box-glb-png-corpus.md`
+- `docs/Plans/Textured-Presentation/textured-surface-alpha-policy-comparative-corpus.md`
+- `docs/Plans/Textured-Presentation/Studies/categorical-cutout-capability-admission.md`
 - `docs/ADR/ADR-0013-caller-declared-categorical-cutout-surfaces.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
 - `crates/tokimu-render/src/pipeline.rs`

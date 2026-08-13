@@ -195,11 +195,11 @@ remain separately scoped extension tracks.
 
 ## References
 
-- `docs/Plans/xml-tools.md`
+- `docs/Plans/Standalone/xml-tools.md`
 - `corpus/lib/xml-tools/DESIGN.md`
 - `corpus/lib/xml-tools/src/lib.rs`
 - `corpus/lib/xml-tools/tests/w3c_selection.rs`
 - `corpus/lib/ui-tools/src/svg.rs`
-- `corpus/hello-xml-inspect/`
+- `corpus/focused/data-interchange/hello-xml-inspect/`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`

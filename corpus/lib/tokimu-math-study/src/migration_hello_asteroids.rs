@@ -5,7 +5,6 @@
 //! or the renderer API.
 
 use crate::{alternative_b::Mat4 as BMat4, alternative_c::Mat4 as CMat4, migration_b, migration_c};
-use tokimu_core::math::Mat4 as AMat4;
 
 #[must_use]
 pub fn camera_with_a(width: f32, height: f32, world_height: f32) -> tokimu::Camera {
@@ -46,6 +45,7 @@ fn orthographic_bounds(width: f32, height: f32, world_height: f32) -> (f32, f32,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokimu_core::math::Mat4 as AMat4;
 
     fn assert_camera_near(left: tokimu::Camera, right: tokimu::Camera) {
         for (left, right) in left

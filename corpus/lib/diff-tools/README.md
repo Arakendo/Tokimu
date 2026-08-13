@@ -13,7 +13,7 @@ newline. Diff generation, parsing, writing, and patch application will build on
 that model in later plan slices.
 
 See [`PROVENANCE.md`](PROVENANCE.md) for the C# reference inventory and
-[`docs/Plans/diff-tools.md`](../../../docs/Plans/diff-tools.md) for the
+[`docs/Plans/Standalone/diff-tools.md`](../../../docs/Plans/Standalone/diff-tools.md) for the
 incubation plan.
 
 ## Current Contracts

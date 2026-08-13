@@ -8,7 +8,7 @@
 | Scope | Native Ring / cross-cutting review practice |
 | Trigger | ADR-0008 is accepted and needs a durable evidence record for its proportional performance and code-quality gate |
 | Related ADRs | ADR-0003, ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0010, ADR-0011 |
-| Related evidence | `docs/Plans/ring-zero-third-party-source-audit-and-migration.md`; `docs/Dependency Audits/Ring 0/`; focused Native tests and target builds |
+| Related evidence | `docs/Plans/Standalone/ring-zero-third-party-source-audit-and-migration.md`; `docs/Dependency Audits/Ring 0/`; focused Native tests and target builds |
 | Admission exception | None |
 
 ## Architectural Question
@@ -170,5 +170,5 @@ applicable, before any checklist revision is considered.
 
 - `docs/ADR/ADR-0008-native-kernel-ring-performance-and-code-quality.md`
 - `docs/ADR/ADR-0010-ring-zero-third-party-source-admission.md`
-- `docs/Plans/ring-zero-third-party-source-audit-and-migration.md`
+- `docs/Plans/Standalone/ring-zero-third-party-source-audit-and-migration.md`
 - `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`

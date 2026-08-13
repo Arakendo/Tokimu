@@ -1,11 +1,11 @@
 # Hello 3D Mono Candidate Copies
 
 This directory reserves separate corpus-local copies of the existing
-`corpus/hello-3d-mono` evidence for the math vocabulary study.
+`corpus/focused/foundations/hello-3d-mono` evidence for the math vocabulary study.
 
 ```text
 hello-3d-mono/
-    baseline-a/             unchanged `corpus/hello-3d-mono` control
+    baseline-a/             unchanged `corpus/focused/foundations/hello-3d-mono` control
     alternative-b/          provider-backed Tokimu vocabulary port (runnable)
     alternative-c/          owned Tokimu implementation port (runnable)
     alternative-d-blocked/  retained blocked record until D earns `Mat4`
@@ -14,7 +14,7 @@ hello-3d-mono/
 ## Copy Rules
 
 - Each runnable copy starts from the same checked source revision of
-  `corpus/hello-3d-mono`; its candidate-specific edits stay within that copy.
+  `corpus/focused/foundations/hello-3d-mono`; its candidate-specific edits stay within that copy.
 - Do not replace the original corpus entry, edit stable crates, or hide a
   missing candidate operation behind `glam` in the copied case.
 - Record per-copy source edit count, explicit conversion count, helper count,
@@ -24,7 +24,7 @@ hello-3d-mono/
 
 The current `src/migration_hello_3d_mono.rs` is a small A/B/C transform
 preflight. The B and C app copies now add native compile evidence; the original
-`corpus/hello-3d-mono` remains the A control so the study does not introduce a
+`corpus/focused/foundations/hello-3d-mono` remains the A control so the study does not introduce a
 second unmodified app solely to duplicate source. They do not yet constitute a
 visual-runtime or WASM result.
 
@@ -32,7 +32,7 @@ visual-runtime or WASM result.
 
 | Candidate | App package | Math-facing provider type in app | Renderer crossing | Native compile |
 | --- | --- | --- | --- | --- |
-| A | `corpus/hello-3d-mono` | direct current `tokimu_core::math` | direct camera assignment | existing control |
+| A | `corpus/focused/foundations/hello-3d-mono` | direct current `tokimu_core::math` | direct camera assignment | existing control |
 | B | `alternative-b` | none | one study-owned `alternative_b_camera` call | passed offline |
 | C | `alternative-c` | none | one study-owned `alternative_c_camera` call | passed offline |
 | D | `alternative-d-blocked` | not implemented | blocked: no candidate `Mat4` | not applicable |

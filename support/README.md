@@ -23,4 +23,4 @@ support library is stabilized. External upstream source remains under
 No host implementation is admitted to this directory until a concrete consumer
 corpus demonstrates a repeatable host-side need.
 
-See `docs/Plans/support-library-host-adapters.md` for the admission plan.
+See `docs/Plans/Standalone/support-library-host-adapters.md` for the admission plan.

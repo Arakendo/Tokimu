@@ -297,8 +297,8 @@ admitted by this work.
   generic UV/sampler seam, but does not itself admit a public API or select an
   alpha policy.
 - Resulting documentation: added
-  `docs/Plans/textured-box-glb-png-corpus.md` and
-  `corpus/hello-textured-box/{DESIGN.md,fixture-manifest.md}`.
+  `docs/Plans/Textured-Presentation/textured-box-glb-png-corpus.md` and
+  `corpus/campaigns/textured-presentation/hello-textured-box/{DESIGN.md,fixture-manifest.md}`.
 
 ### Cycle 3 -- 2026-08-09
 
@@ -322,7 +322,7 @@ admitted by this work.
 ### Cycle 4 -- 2026-08-09
 
 - Status entering review: Proposed.
-- New evidence: `corpus/hello-textured-box` native corpus entry. It decodes
+- New evidence: `corpus/campaigns/textured-presentation/hello-textured-box` native corpus entry. It decodes
   the pinned Box, expands its 36 indexed triangle vertices, supplies
   corpus-owned planar UVs, decodes the independent first-party grid PNG into
   normalized RGBA8, and selects `Textured3d` with the explicit default
@@ -348,7 +348,7 @@ admitted by this work.
   Supplied UVs visibly sample the independent PNG, and deliberately
   out-of-range coordinates distinguish clamp edge behavior from repeat tiling.
   The observation and controls are retained in
-  `corpus/hello-textured-box/results/native-manual-observation.md`.
+  `corpus/campaigns/textured-presentation/hello-textured-box/results/native-manual-observation.md`.
 - Alpha disposition: `Textured3d` uses the existing explicit pipeline blend
   policy. Its first corpus profile is opaque; source alpha/cutout remains
   unsupported because the selected PNG fixtures contain no transparency.
@@ -365,7 +365,7 @@ admitted by this work.
 - Validation: `cargo test -p hello-textured-box-web`; `cargo check -p
   hello-textured-box-web --target wasm32-unknown-unknown`; and `wasm-bindgen
   target/wasm32-unknown-unknown/debug/hello-textured-box-web.wasm --out-dir
-  corpus/hello-textured-box-web/web/pkg --target web` completed successfully.
+  corpus/campaigns/textured-presentation/hello-textured-box-web/web/pkg --target web` completed successfully.
 - Limitation: no browser was connected to this implementation session. These
   are build/package facts only, not adapter, surface, first-present, sampling,
   or native/browser equivalence evidence.
@@ -376,7 +376,7 @@ admitted by this work.
 
 - New evidence: the project maintainer observed a first browser/WASM presented
   frame from `hello-textured-box-web`. The result is retained in
-  `corpus/hello-textured-box-web/results/browser-manual-observation.md`.
+  `corpus/campaigns/textured-presentation/hello-textured-box-web/results/browser-manual-observation.md`.
 - Findings: the browser consumer composes the scoped GLB geometry decode,
   corpus-owned UVs, PNG normalization, texture upload, material binding, and
   browser surface presentation. It also now prepares native-equivalent `M`,
@@ -505,6 +505,6 @@ the required ordering/depth or threshold semantics.
 - `crates/tokimu-render/src/mesh.rs`
 - `crates/tokimu-render/src/texture.rs`
 - `crates/tokimu-render/src/pipeline.rs`
-- `docs/Plans/textured-box-glb-png-corpus.md`
-- `corpus/hello-textured-box/DESIGN.md`
-- `corpus/hello-textured-box/fixture-manifest.md`
+- `docs/Plans/Textured-Presentation/textured-box-glb-png-corpus.md`
+- `corpus/campaigns/textured-presentation/hello-textured-box/DESIGN.md`
+- `corpus/campaigns/textured-presentation/hello-textured-box/fixture-manifest.md`

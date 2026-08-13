@@ -31,7 +31,7 @@ Rust/WASM start function
 Tokimu's current implementation is in
 [`backend_init.rs`](../../crates/tokimu-render/src/wgpu_backend/backend_init.rs),
 with the executable browser proof in
-[`hello-render-orientation-web`](../../corpus/hello-render-orientation-web/).
+[`hello-render-orientation-web`](../../corpus/campaigns/coordinate-conformance/hello-render-orientation-web/).
 
 ## WGPU 23 Instance Construction
 
@@ -151,6 +151,6 @@ otherwise easily degrades into a misleading timeout.
 ## Evidence
 
 - [`AR-0021`](../Architectural%20Reviews/AR-0021-geometry-orientation-and-facing-conformance.md)
-- [Browser fixture design](../../corpus/hello-render-orientation-web/DESIGN.md)
+- [Browser fixture design](../../corpus/campaigns/coordinate-conformance/hello-render-orientation-web/DESIGN.md)
 - [Browser/WASM capture manifest](../../corpus/lib/render-orientation-conformance/results/browser-wasm.md)
 

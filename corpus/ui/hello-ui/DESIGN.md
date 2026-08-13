@@ -54,7 +54,7 @@ labels while the geometry, color, and motion prove the interface layout.
 ## Architecture Boundaries
 
 This example must stay inside the engine boundaries defined in
-[ADR-0001: Engine Boundaries](../../docs/ADR/ADR-0001-engine-boundaries.md):
+[ADR-0001: Engine Boundaries](../../../docs/ADR/ADR-0001-engine-boundaries.md):
 
 - `tokimu-core` owns simulation truth
 - rendering must not mutate simulation state
@@ -90,6 +90,6 @@ Once the base control-board works, useful follow-ons include:
 
 ## References
 
-- [Tokimu Software Design Document](../../docs/Tokimu%20Software%20Design%20Document.md)
-- [Tokimu Future Workspace Layout](../../docs/future-workspace-layout.md)
-- [Tokimu Contribution Admission Guide](../../docs/contribution-admission-guide.md)
+- [Tokimu Software Design Document](../../../docs/Tokimu%20Software%20Design%20Document.md)
+- [Tokimu Future Workspace Layout](../../../docs/future-workspace-layout.md)
+- [Tokimu Contribution Admission Guide](../../../docs/contribution-admission-guide.md)

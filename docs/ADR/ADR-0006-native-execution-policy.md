@@ -120,7 +120,7 @@ sequential mechanism, then add one measured native parallel path.
 ## References
 
 - `docs/Architectural Reviews/AR-0002-native-execution-and-multithreading.md`
-- `docs/Plans/native-execution-and-multithreading.md`
+- `docs/Plans/Standalone/native-execution-and-multithreading.md`
 - `docs/Conversations/On Multithreading.md`
 - `docs/kernel-principles.md`
 - `docs/Tokimu Software Design Document.md`

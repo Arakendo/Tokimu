@@ -84,12 +84,13 @@ impl HelloUiBoxApp {
         cached_meshes: &mut HashMap<MeshHandle, Mesh>,
         window_size: [f32; 2],
     ) {
-        let mut batches: Vec<(
+        type SurfaceBatch = (
             UiSurfaceVectorLayerKind,
             UiSurfaceRole,
             Option<ui_tools::UiPixelRect>,
             Vec<[f32; 3]>,
-        )> = Vec::new();
+        );
+        let mut batches: Vec<SurfaceBatch> = Vec::new();
         for command in commands {
             for layer in lower_surface_to_vector(command) {
                 let viewport = match layer.clip {

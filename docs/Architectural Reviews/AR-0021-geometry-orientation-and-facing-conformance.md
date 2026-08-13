@@ -8,7 +8,7 @@
 | Scope | Cross-cutting rendering and corpus conformance |
 | Trigger | Two independent corpus paths exposed apparently inside-out facing: the E1M1 headless wall-normal artifact and the decoded Khronos `Box.glb` workbench preview. |
 | Related ADRs | ADR-0001, ADR-0004, ADR-0008, ADR-0009 |
-| Related evidence | `corpus/lib/doom-geometry-provider`, `corpus/hello-wad-inspect`, `corpus/hello-glb`, `corpus/consumers/aspnet-wasm-asset-workbench`, `tokimu-render` mesh/pipeline/WGPU boundary, E1M1 normal SVG, Box.glb workbench observation |
+| Related evidence | `corpus/lib/doom-geometry-provider`, `corpus/campaigns/doom/hello-wad-inspect`, `corpus/focused/data-interchange/hello-glb`, `corpus/consumers/aspnet-wasm-asset-workbench`, `tokimu-render` mesh/pipeline/WGPU boundary, E1M1 normal SVG, Box.glb workbench observation |
 | Admission exception | None |
 
 ## Architectural Question
@@ -527,11 +527,11 @@ for another.
 
 ## References
 
-- `docs/Plans/DOOM/Classic Doom wall side and winding evidence.md`
+- `docs/Plans/DOOM/Evidence/Classic Doom wall side and winding evidence.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
-- `corpus/hello-glb/DESIGN.md`
-- `corpus/hello-glb/results/native-wgpu-back-cull.png`
-- `corpus/hello-glb/results/native-wgpu-back-cull.md`
+- `corpus/focused/data-interchange/hello-glb/DESIGN.md`
+- `corpus/focused/data-interchange/hello-glb/results/native-wgpu-back-cull.png`
+- `corpus/focused/data-interchange/hello-glb/results/native-wgpu-back-cull.md`
 - `corpus/consumers/aspnet-wasm-asset-workbench/DESIGN.md`
 - `corpus/consumers/aspnet-wasm-asset-workbench/Client/mesh-preview.ts`
 - `corpus/consumers/aspnet-wasm-asset-workbench/tests/mesh-preview.test.mjs`
@@ -540,8 +540,8 @@ for another.
 - `corpus/lib/render-orientation-conformance/results/native-wgpu.png`
 - `corpus/lib/render-orientation-conformance/results/browser-wasm.png`
 - `corpus/lib/render-orientation-conformance/results/browser-wasm.md`
-- `corpus/hello-render-orientation/DESIGN.md`
-- `corpus/hello-render-orientation-web/DESIGN.md`
+- `corpus/campaigns/coordinate-conformance/hello-render-orientation/DESIGN.md`
+- `corpus/campaigns/coordinate-conformance/hello-render-orientation-web/DESIGN.md`
 - `crates/tokimu-render/src/mesh.rs`
 - `crates/tokimu-render/src/pipeline.rs`
 - `crates/tokimu-render/src/wgpu_backend/pipeline_support.rs`

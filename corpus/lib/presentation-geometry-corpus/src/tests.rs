@@ -623,7 +623,8 @@ fn cgm_source_artifacts_preserve_state_oriented_fixture_evidence() {
         );
     }
 
-    for case_id in ["cgm/webcgm/cell-array-boundary"] {
+    {
+        let case_id = "cgm/webcgm/cell-array-boundary";
         let case = cgm_cases()
             .iter()
             .copied()

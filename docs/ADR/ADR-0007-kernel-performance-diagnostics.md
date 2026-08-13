@@ -147,11 +147,11 @@ preserve the provider-neutral contract.
 ## References
 
 - `docs/Architectural Reviews/AR-0005-runtime-observation-and-performance-telemetry.md`
-- `docs/Plans/performance-diagnostics-and-runtime-observation.md`
+- `docs/Plans/Standalone/performance-diagnostics-and-runtime-observation.md`
 - `docs/Notes/ui-presentation-performance-evidence.md`
 - `docs/Conversations/On Performance Metrics.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0006-native-execution-policy.md`
 - `crates/tokimu-core/src/diagnostics.rs`
 - `crates/tokimu-runtime/src/app.rs`
-- `corpus/hello-cgm/`
+- `corpus/focused/data-interchange/hello-cgm/`

@@ -219,7 +219,7 @@ Applied to today's code:
 
 ## 11. Current Prototype
 
-The first code slice has started in `corpus/hello-window`:
+The first code slice has started in `corpus/focused/foundations/hello-window`:
 
 * A local `Channel`/`Cadence` vocabulary exists for the example.
 * `move intent` output now routes through an `input` channel helper instead of
@@ -247,7 +247,7 @@ The first code slice has started in `corpus/hello-window`:
 * The example now has a compact exit line, which can later be folded into a
   runtime-owned summary sink.
 
-`corpus/hello-triangle` has started the same pattern for startup visibility:
+`corpus/focused/foundations/hello-triangle` has started the same pattern for startup visibility:
 
 * `hello-triangle` now emits a lifecycle line when the native window is created.
 * The backend/adapter/device summary now routes through an `env` one-shot line

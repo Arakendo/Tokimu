@@ -12,7 +12,7 @@ No candidate in this folder is a stable Tokimu API or an admitted Native Ring
 implementation.
 
 The experiment is governed by
-`docs/Plans/native-math-vocabulary-foreign-type-case-study.md` and AR-0019.
+`docs/Plans/Native-Math/native-math-vocabulary-foreign-type-case-study.md` and AR-0019.
 Candidate source and Cargo targets will be added only in the slices that define
 their shared operation manifest and measurement boundary.
 

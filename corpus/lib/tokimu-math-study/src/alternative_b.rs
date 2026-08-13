@@ -6,7 +6,44 @@
 //! incomplete: it establishes a measurable boundary before any stable API or
 //! migration decision.
 
+use crate::alternative_b_provider as provider;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+
+/// Operation identity retained by Full B without exposing provider errors.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MathOperation {
+    Normalize,
+    Inverse,
+    ProjectPoint,
+    ViewLookAtRh,
+    PerspectiveRhGl,
+    OrthographicRhGl,
+}
+
+/// Bounded failure classification owned by the Full-B candidate.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MathFailure {
+    NonFiniteInput,
+    ZeroLength,
+    Singular,
+    ZeroHomogeneousW,
+    DegenerateView,
+    InvalidFrustum,
+    NonFiniteResult,
+}
+
+/// Provider-neutral failure from one checked ordinary-math operation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MathError {
+    pub operation: MathOperation,
+    pub failure: MathFailure,
+}
+
+impl MathError {
+    const fn new(operation: MathOperation, failure: MathFailure) -> Self {
+        Self { operation, failure }
+    }
+}
 
 /// Corpus-local candidate for Tokimu's two-dimensional vector vocabulary.
 ///
@@ -15,18 +52,18 @@ use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 /// unrelated provider operations into the experiment.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec2 {
-    inner: glam::Vec2,
+    inner: provider::Vec2,
 }
 
 impl Vec2 {
     pub const ZERO: Self = Self {
-        inner: glam::Vec2::ZERO,
+        inner: provider::Vec2::ZERO,
     };
 
     #[must_use]
     pub const fn new(x: f32, y: f32) -> Self {
         Self {
-            inner: glam::Vec2::new(x, y),
+            inner: provider::Vec2::new(x, y),
         }
     }
 
@@ -43,18 +80,18 @@ impl Vec2 {
 /// caller or explicitly reviewed compatibility requirement earns more API.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Quat {
-    inner: glam::Quat,
+    inner: provider::Quat,
 }
 
 impl Quat {
     pub const IDENTITY: Self = Self {
-        inner: glam::Quat::IDENTITY,
+        inner: provider::Quat::IDENTITY,
     };
 
     #[must_use]
     pub const fn from_xyzw(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
-            inner: glam::Quat::from_xyzw(x, y, z, w),
+            inner: provider::Quat::from_xyzw(x, y, z, w),
         }
     }
 
@@ -70,38 +107,38 @@ impl Quat {
 /// Tokimu crates or treated as a public engine contract.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 {
-    inner: glam::Vec3,
+    inner: provider::Vec3,
 }
 
 impl Vec3 {
     pub const ZERO: Self = Self {
-        inner: glam::Vec3::ZERO,
+        inner: provider::Vec3::ZERO,
     };
     pub const ONE: Self = Self {
-        inner: glam::Vec3::ONE,
+        inner: provider::Vec3::ONE,
     };
     pub const Y: Self = Self {
-        inner: glam::Vec3::Y,
+        inner: provider::Vec3::Y,
     };
 
     #[must_use]
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
-            inner: glam::Vec3::new(x, y, z),
+            inner: provider::Vec3::new(x, y, z),
         }
     }
 
     #[must_use]
     pub const fn splat(value: f32) -> Self {
         Self {
-            inner: glam::Vec3::splat(value),
+            inner: provider::Vec3::splat(value),
         }
     }
 
     #[must_use]
     pub const fn from_array(values: [f32; 3]) -> Self {
         Self {
-            inner: glam::Vec3::from_array(values),
+            inner: provider::Vec3::from_array(values),
         }
     }
 
@@ -126,11 +163,31 @@ impl Vec3 {
     }
 
     #[must_use]
+    /// Unchecked compatibility path retained only to measure existing caller
+    /// pressure. New semantic callers should use [`Self::try_normalize`].
     pub fn normalize(self) -> Self {
         Self::from_provider(self.inner.normalize())
     }
 
+    /// Normalizes a finite, non-zero vector without exposing provider failure
+    /// behavior.
+    pub fn try_normalize(self) -> Result<Self, MathError> {
+        const OPERATION: MathOperation = MathOperation::Normalize;
+        if !self.is_finite() {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteInput));
+        }
+        let length_squared = self.length_squared();
+        if length_squared == 0.0 {
+            return Err(MathError::new(OPERATION, MathFailure::ZeroLength));
+        }
+        if !length_squared.is_finite() {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteResult));
+        }
+        finite_vec3_result(OPERATION, Self::from_provider(self.inner.normalize()))
+    }
+
     #[must_use]
+    /// Unchecked compatibility path whose non-finite behavior is not admitted.
     pub fn normalize_or_zero(self) -> Self {
         Self::from_provider(self.inner.normalize_or_zero())
     }
@@ -148,6 +205,16 @@ impl Vec3 {
     #[must_use]
     pub fn length_squared(self) -> f32 {
         self.inner.length_squared()
+    }
+
+    #[must_use]
+    pub fn length(self) -> f32 {
+        self.inner.length()
+    }
+
+    #[must_use]
+    pub fn is_finite(self) -> bool {
+        self.to_array().into_iter().all(f32::is_finite)
     }
 
     #[must_use]
@@ -176,12 +243,12 @@ impl Vec3 {
     }
 
     #[must_use]
-    pub(crate) const fn from_provider(value: glam::Vec3) -> Self {
+    pub(crate) const fn from_provider(value: provider::Vec3) -> Self {
         Self { inner: value }
     }
 
     #[must_use]
-    pub(crate) const fn into_provider(self) -> glam::Vec3 {
+    pub(crate) const fn into_provider(self) -> provider::Vec3 {
         self.inner
     }
 }
@@ -255,14 +322,14 @@ impl Div for Vec3 {
 /// [`Vec3`], the provider remains private.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec4 {
-    inner: glam::Vec4,
+    inner: provider::Vec4,
 }
 
 impl Vec4 {
     #[must_use]
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
-            inner: glam::Vec4::new(x, y, z, w),
+            inner: provider::Vec4::new(x, y, z, w),
         }
     }
 
@@ -297,7 +364,12 @@ impl Vec4 {
     }
 
     #[must_use]
-    pub(crate) const fn from_provider(value: glam::Vec4) -> Self {
+    pub fn is_finite(self) -> bool {
+        self.to_array().into_iter().all(f32::is_finite)
+    }
+
+    #[must_use]
+    pub(crate) const fn from_provider(value: provider::Vec4) -> Self {
         Self { inner: value }
     }
 }
@@ -310,31 +382,49 @@ impl Vec4 {
 /// measure, not a stable replacement decision.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Mat4 {
-    inner: glam::Mat4,
+    inner: provider::Mat4,
 }
 
 impl Mat4 {
     pub const IDENTITY: Self = Self {
-        inner: glam::Mat4::IDENTITY,
+        inner: provider::Mat4::IDENTITY,
     };
 
     #[must_use]
+    /// Unchecked compatibility constructor. Prefer [`Self::try_look_at_rh`].
     pub fn look_at_rh(eye: Vec3, center: Vec3, up: Vec3) -> Self {
-        Self::from_provider(glam::Mat4::look_at_rh(
+        Self::from_provider(provider::look_at_rh(
             eye.into_provider(),
             center.into_provider(),
             up.into_provider(),
         ))
     }
 
+    pub fn try_look_at_rh(eye: Vec3, center: Vec3, up: Vec3) -> Result<Self, MathError> {
+        const OPERATION: MathOperation = MathOperation::ViewLookAtRh;
+        if !eye.is_finite() || !center.is_finite() || !up.is_finite() {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteInput));
+        }
+        let forward = center - eye;
+        if forward.length_squared() == 0.0
+            || up.length_squared() == 0.0
+            || forward.cross(up).length_squared() == 0.0
+        {
+            return Err(MathError::new(OPERATION, MathFailure::DegenerateView));
+        }
+        finite_mat4_result(OPERATION, Self::look_at_rh(eye, center, up))
+    }
+
     #[must_use]
+    /// Unchecked compatibility constructor. Prefer
+    /// [`Self::try_perspective_rh_gl`].
     pub fn perspective_rh_gl(
         vertical_fov_radians: f32,
         aspect_ratio: f32,
         near: f32,
         far: f32,
     ) -> Self {
-        Self::from_provider(glam::Mat4::perspective_rh_gl(
+        Self::from_provider(provider::perspective_rh_gl(
             vertical_fov_radians,
             aspect_ratio,
             near,
@@ -342,7 +432,36 @@ impl Mat4 {
         ))
     }
 
+    pub fn try_perspective_rh_gl(
+        vertical_fov_radians: f32,
+        aspect_ratio: f32,
+        near: f32,
+        far: f32,
+    ) -> Result<Self, MathError> {
+        const OPERATION: MathOperation = MathOperation::PerspectiveRhGl;
+        if ![vertical_fov_radians, aspect_ratio, near, far]
+            .into_iter()
+            .all(f32::is_finite)
+        {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteInput));
+        }
+        if !(0.0 < vertical_fov_radians
+            && vertical_fov_radians < core::f32::consts::PI
+            && aspect_ratio > 0.0
+            && 0.0 < near
+            && near < far)
+        {
+            return Err(MathError::new(OPERATION, MathFailure::InvalidFrustum));
+        }
+        finite_mat4_result(
+            OPERATION,
+            Self::perspective_rh_gl(vertical_fov_radians, aspect_ratio, near, far),
+        )
+    }
+
     #[must_use]
+    /// Unchecked compatibility constructor. Prefer
+    /// [`Self::try_orthographic_rh_gl`].
     pub fn orthographic_rh_gl(
         left: f32,
         right: f32,
@@ -351,39 +470,65 @@ impl Mat4 {
         near: f32,
         far: f32,
     ) -> Self {
-        Self::from_provider(glam::Mat4::orthographic_rh_gl(
+        Self::from_provider(provider::orthographic_rh_gl(
             left, right, bottom, top, near, far,
         ))
     }
 
+    pub fn try_orthographic_rh_gl(
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> Result<Self, MathError> {
+        const OPERATION: MathOperation = MathOperation::OrthographicRhGl;
+        if ![left, right, bottom, top, near, far]
+            .into_iter()
+            .all(f32::is_finite)
+        {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteInput));
+        }
+        if !(left < right && bottom < top && near < far) {
+            return Err(MathError::new(OPERATION, MathFailure::InvalidFrustum));
+        }
+        finite_mat4_result(
+            OPERATION,
+            Self::orthographic_rh_gl(left, right, bottom, top, near, far),
+        )
+    }
+
     #[must_use]
     pub fn from_translation(translation: Vec3) -> Self {
-        Self::from_provider(glam::Mat4::from_translation(translation.into_provider()))
+        Self::from_provider(provider::Mat4::from_translation(
+            translation.into_provider(),
+        ))
     }
 
     #[must_use]
     pub fn from_scale(scale: Vec3) -> Self {
-        Self::from_provider(glam::Mat4::from_scale(scale.into_provider()))
+        Self::from_provider(provider::Mat4::from_scale(scale.into_provider()))
     }
 
     #[must_use]
     pub fn from_rotation_x(angle_radians: f32) -> Self {
-        Self::from_provider(glam::Mat4::from_rotation_x(angle_radians))
+        Self::from_provider(provider::Mat4::from_rotation_x(angle_radians))
     }
 
     #[must_use]
     pub fn from_rotation_y(angle_radians: f32) -> Self {
-        Self::from_provider(glam::Mat4::from_rotation_y(angle_radians))
+        Self::from_provider(provider::Mat4::from_rotation_y(angle_radians))
     }
 
     #[must_use]
     pub fn from_rotation_z(angle_radians: f32) -> Self {
-        Self::from_provider(glam::Mat4::from_rotation_z(angle_radians))
+        Self::from_provider(provider::Mat4::from_rotation_z(angle_radians))
     }
 
     #[must_use]
     pub fn from_cols_array(columns: &[f32; 16]) -> Self {
-        Self::from_provider(glam::Mat4::from_cols_array(columns))
+        Self::from_provider(provider::Mat4::from_cols_array(columns))
     }
 
     #[must_use]
@@ -392,8 +537,21 @@ impl Mat4 {
     }
 
     #[must_use]
+    /// Unchecked compatibility path retained for migration measurement.
+    /// Semantic callers should use [`Self::try_inverse`].
     pub fn inverse(self) -> Self {
         Self::from_provider(self.inner.inverse())
+    }
+
+    pub fn try_inverse(self) -> Result<Self, MathError> {
+        const OPERATION: MathOperation = MathOperation::Inverse;
+        if !self.is_finite() {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteInput));
+        }
+        if self.inner.determinant() == 0.0 {
+            return Err(MathError::new(OPERATION, MathFailure::Singular));
+        }
+        finite_mat4_result(OPERATION, self.inverse())
     }
 
     #[must_use]
@@ -411,6 +569,26 @@ impl Mat4 {
         Vec3::from_provider(self.inner.transform_vector3(vector.into_provider()))
     }
 
+    pub fn try_project_point3(self, point: Vec3) -> Result<Vec3, MathError> {
+        const OPERATION: MathOperation = MathOperation::ProjectPoint;
+        if !self.is_finite() || !point.is_finite() {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteInput));
+        }
+        let homogeneous = self * point.extend(1.0);
+        if !homogeneous.is_finite() {
+            return Err(MathError::new(OPERATION, MathFailure::NonFiniteResult));
+        }
+        if homogeneous.w() == 0.0 {
+            return Err(MathError::new(OPERATION, MathFailure::ZeroHomogeneousW));
+        }
+        finite_vec3_result(OPERATION, homogeneous.truncate() / homogeneous.w())
+    }
+
+    #[must_use]
+    pub fn is_finite(self) -> bool {
+        self.to_cols_array().into_iter().all(f32::is_finite)
+    }
+
     #[must_use]
     pub fn w_axis(self) -> Vec4 {
         Vec4::from_provider(self.inner.w_axis)
@@ -421,14 +599,30 @@ impl Mat4 {
     }
 
     #[must_use]
-    pub(crate) const fn from_provider(value: glam::Mat4) -> Self {
+    pub(crate) const fn from_provider(value: provider::Mat4) -> Self {
         Self { inner: value }
     }
 
+    /// Explicit private crossing used only by migration/corpus adapters.
+    #[allow(dead_code)]
     #[must_use]
-    pub(crate) const fn into_provider(self) -> glam::Mat4 {
+    pub(crate) const fn into_provider(self) -> provider::Mat4 {
         self.inner
     }
+}
+
+fn finite_vec3_result(operation: MathOperation, value: Vec3) -> Result<Vec3, MathError> {
+    value
+        .is_finite()
+        .then_some(value)
+        .ok_or_else(|| MathError::new(operation, MathFailure::NonFiniteResult))
+}
+
+fn finite_mat4_result(operation: MathOperation, value: Mat4) -> Result<Mat4, MathError> {
+    value
+        .is_finite()
+        .then_some(value)
+        .ok_or_else(|| MathError::new(operation, MathFailure::NonFiniteResult))
 }
 
 impl Mul for Mat4 {
@@ -463,7 +657,7 @@ mod tests {
 
     #[test]
     fn provider_crossing_is_explicit_and_crate_private() {
-        let provider_value = glam::Vec3::new(1.0, 0.0, 0.0);
+        let provider_value = provider::Vec3::new(1.0, 0.0, 0.0);
         let candidate_value = Vec3::from_provider(provider_value);
 
         assert_eq!(candidate_value.into_provider(), provider_value);
@@ -473,11 +667,11 @@ mod tests {
     fn candidate_preserves_the_baseline_layout_for_this_probe() {
         assert_eq!(
             core::mem::size_of::<Vec3>(),
-            core::mem::size_of::<glam::Vec3>()
+            core::mem::size_of::<provider::Vec3>()
         );
         assert_eq!(
             core::mem::align_of::<Vec3>(),
-            core::mem::align_of::<glam::Vec3>()
+            core::mem::align_of::<provider::Vec3>()
         );
     }
 
@@ -544,10 +738,10 @@ mod tests {
             };
         }
 
-        assert_same_layout!(Vec2, glam::Vec2);
-        assert_same_layout!(Vec3, glam::Vec3);
-        assert_same_layout!(Vec4, glam::Vec4);
-        assert_same_layout!(Quat, glam::Quat);
-        assert_same_layout!(Mat4, glam::Mat4);
+        assert_same_layout!(Vec2, provider::Vec2);
+        assert_same_layout!(Vec3, provider::Vec3);
+        assert_same_layout!(Vec4, provider::Vec4);
+        assert_same_layout!(Quat, provider::Quat);
+        assert_same_layout!(Mat4, provider::Mat4);
     }
 }

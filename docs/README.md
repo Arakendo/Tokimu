@@ -19,8 +19,11 @@ These documents define current architecture and project policy:
 - [Testing Strategy](testing-strategy.md)
 - [Contribution And Admission Guide](contribution-admission-guide.md)
 
-ADRs record accepted architectural decisions. Architectural Review records
-capture proposals, evidence, and findings before or after a decision.
+ADRs record accepted architectural decisions. Proposed, unnumbered ADR drafts
+live under `ADR/Proposed/`; they are review material and do not become
+architectural authority until maintainers accept, number, and move them into
+`ADR/`. Architectural Review records capture proposals, evidence, and findings
+before or after a decision.
 
 - [ADRs](ADR/)
 - [Architectural Reviews](Architectural%20Reviews/)
@@ -52,6 +55,7 @@ Recent cross-cutting decisions:
 
 ```text
 Accepted architectural decision?  -> docs/ADR/
+Proposed ADR awaiting acceptance? -> docs/ADR/Proposed/
 Architecture under review?        -> docs/Architectural Reviews/
 Executable implementation work?  -> docs/Plans/
 Observation or investigation?     -> docs/Notes/
@@ -73,7 +77,8 @@ Conversation or observation
         -> Note
         -> Plan
         -> Architectural Review
-        -> ADR, if accepted
+        -> Proposed ADR, when a candidate decision is ready
+        -> ADR, if accepted and numbered
         -> Archive, when superseded
 ```
 

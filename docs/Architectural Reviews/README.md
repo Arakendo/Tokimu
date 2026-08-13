@@ -226,8 +226,9 @@ across unrelated decisions.
   continuous Blend remains incubating pending an explicit ordering/depth contract
 - [AR-0024: Renderer Failure Observation And Diagnostic Boundary](AR-0024-renderer-failure-observation-and-diagnostic-boundary.md)
   — Accepted; establishes that the AR-0023 empty frame was valid GPU clipping,
-  not an uncaught backend error, and keeps GL-style Tokimu camera meaning while
-  adapting explicitly to WebGPU depth at the WGPU upload boundary
+  not an uncaught backend error, keeps GL-style Tokimu camera meaning while
+  adapting explicitly to WebGPU depth, and retains application-owned resource
+  identity/terminal policy without a shared allocator or record owner
 - [AR-0025: Comparative Camera Candidate-Selection And Visibility Study](AR-0025-camera-candidate-selection-and-visibility-culling.md)
   — Under Review; compares explicit submission, generic CPU selection,
   Doom-specific spatial methods, and deferred GPU research before considering
@@ -237,9 +238,13 @@ across unrelated decisions.
   through locally Euclidean charts, explicit transitions, and authored angular
   deficit/excess without yet assigning Ring placement or public contracts
 - [AR-0027: Diagnostic Error Presentation And Standard Error Texture](AR-0027-diagnostic-error-presentation-and-standard-error-texture.md)
-  — Under Review; begins with an explicit corpus-only diagnostic stand-in while
-  testing whether provider-neutral diagnostic presentation or a standard asset
-  earns admission
+  — Accepted as corpus/application-local policy; the Purple stand-in remains
+  explicit evidence machinery, while automatic fallback, shared diagnostic
+  visual vocabulary, and a standard Tokimu error texture are not admitted
 - [AR-0028: Coordinate-Frame Handedness And Directional Conformance](AR-0028-coordinate-frame-handedness-and-directional-conformance.md)
-  — Incubating; investigates the linked E1M1 texture-axis, camera-yaw, and
-  strafe-direction findings before admitting any Tokimu-wide spatial convention
+  — No Change; retains the Doom-local orientation-preserving Preserve North
+  adapter and comparison controls without admitting a Tokimu-wide cardinal-axis
+  convention
+- [AR-0029: Camera, View, And Projection Construction Ownership](AR-0029-camera-view-and-projection-construction-ownership.md)
+  — No Change; retains Alternative A in production and parks the demonstrated
+  three-family Narrow B seam as executable incubation evidence

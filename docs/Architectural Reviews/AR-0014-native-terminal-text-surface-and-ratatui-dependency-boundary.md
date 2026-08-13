@@ -9,7 +9,7 @@
 | Trigger | Ratatui now has native, WASM, and embedded Tokimu consumers, while its dependency and ownership cost remains unmeasured |
 | Related ADRs | ADR-0003, ADR-0004, ADR-0005 |
 | Related evidence | AR-0013, Tokimu Ratatui website lab, console command window corpus, observation shell corpus |
-| Related plan | `docs/Plans/tokimu-tui-tools-corpus-study.md` |
+| Related plan | `docs/Plans/Standalone/tokimu-tui-tools-corpus-study.md` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -345,7 +345,7 @@ durable ownership boundary.
       clusters, combining marks, and wide cells. Explicit continuation is
       covered where an independent producer supplies it, but Ratatui's public
       buffer API does not expose equivalent continuation metadata.
-- [x] Open `corpus/hello-terminal-surface` as a headless local baseline for
+- [x] Open `corpus/focused/observation/hello-terminal-surface` as a headless local baseline for
       full-frame, delta, epoch, extent, cursor, and continuation-cell
       lifecycle evidence. Its types remain explicitly corpus-local.
 - [x] Compare the Ratatui provider with one deliberately minimal independent
@@ -410,7 +410,7 @@ durable ownership boundary.
 - Disposition: Continue incubation through Ratatui and independent-producer
   adapters.
 - Resulting ADR or documentation change: no ADR; added
-  `docs/Plans/terminal-surface-provider-study.md` and the corpus baseline.
+  `docs/Plans/Standalone/terminal-surface-provider-study.md` and the corpus baseline.
 
 ### Cycle 3 -- 2026-08-06
 
@@ -488,7 +488,7 @@ durable ownership boundary.
   dependency-boundary change.
 - Resulting ADR or documentation change: no ADR; Slice 5 CPU presentation
   evidence is recorded in `terminal-surface-provider-study.md` and
-  `corpus/hello-terminal-surface/RESEARCH.md`.
+  `corpus/focused/observation/hello-terminal-surface/RESEARCH.md`.
 
 ### Cycle 7 -- 2026-08-06
 
@@ -525,7 +525,7 @@ durable ownership boundary.
   before reconsidering a capability or dependency-boundary decision.
 - Resulting ADR or documentation change: no ADR; Slice 5 browser-display
   evidence is recorded in `terminal-surface-provider-study.md` and
-  `corpus/hello-terminal-surface/RESEARCH.md`.
+  `corpus/focused/observation/hello-terminal-surface/RESEARCH.md`.
 
 ### Cycle 9 -- 2026-08-06
 
@@ -548,7 +548,7 @@ durable ownership boundary.
   native terminal capability decision.
 - Resulting ADR or documentation change: no ADR; the CPU-to-native-renderer
   handoff is recorded in `terminal-surface-provider-study.md` and
-  `corpus/hello-terminal-surface/RESEARCH.md`.
+  `corpus/focused/observation/hello-terminal-surface/RESEARCH.md`.
 
 ### Cycle 10 -- 2026-08-06
 
@@ -570,7 +570,7 @@ durable ownership boundary.
   an ADR or capability admission.
 - Resulting ADR or documentation change: no ADR; the boundary measurement is
   recorded in `terminal-surface-provider-study.md` and
-  `corpus/hello-terminal-surface/RESEARCH.md`.
+  `corpus/focused/observation/hello-terminal-surface/RESEARCH.md`.
 
 ### Cycle 11 -- 2026-08-06
 
@@ -592,7 +592,7 @@ durable ownership boundary.
   considering a binding ADR or capability admission.
 - Resulting ADR or documentation change: no ADR; the executable comparison is
   recorded in `terminal-surface-provider-study.md` and
-  `corpus/hello-terminal-surface/RESEARCH.md`.
+  `corpus/focused/observation/hello-terminal-surface/RESEARCH.md`.
 
 ### Cycle 12 -- 2026-08-06
 
@@ -616,7 +616,7 @@ durable ownership boundary.
   the study collects the remaining execution and consumer evidence.
 - Resulting ADR or documentation change: no ADR; the measurement method and
   local observation are recorded in `terminal-surface-provider-study.md` and
-  `corpus/hello-terminal-surface/RESEARCH.md`.
+  `corpus/focused/observation/hello-terminal-surface/RESEARCH.md`.
 
 ### Cycle 13 -- 2026-08-06
 
@@ -885,10 +885,10 @@ durable ownership boundary.
 - `docs/ADR/ADR-0004-foundational-presentation-text-and-icons.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
 - `docs/Architectural Reviews/AR-0013-observation-shell-and-ratatui-presentation-provider.md`
-- `docs/Plans/tokimu-console-command-window-corpus.md`
-- `docs/Plans/tokimu-observation-shell-consumer-corpus.md`
-- `docs/Plans/terminal-surface-provider-study.md`
+- `docs/Plans/Standalone/tokimu-console-command-window-corpus.md`
+- `docs/Plans/Standalone/tokimu-observation-shell-consumer-corpus.md`
+- `docs/Plans/Standalone/terminal-surface-provider-study.md`
 - `corpus/consumers/tokimu-website-ratatui-lab/DESIGN.md`
 - `corpus/consumers/tokimu-website-ratatui-lab/engine/src/backend.rs`
-- `corpus/hello-observation-shell/src/ratatui.rs`
+- `corpus/focused/observation/hello-observation-shell/src/ratatui.rs`
 - `third-party/presentation-providers/ratatui/Cargo.toml`

@@ -113,7 +113,7 @@ mod tests {
             .chain(&left.normals)
             .zip(right.positions.iter().chain(&right.normals))
         {
-            for (left, right) in left.into_iter().zip(right) {
+            for (left, right) in left.iter().zip(right) {
                 assert!((left - right).abs() <= 1.0e-6, "{left} != {right}");
             }
         }

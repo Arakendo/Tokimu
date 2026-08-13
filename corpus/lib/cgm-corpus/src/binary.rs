@@ -938,7 +938,7 @@ fn decode_polybezier_records(
             value: metafile.integer_precision,
         });
     }
-    if parameters.len() < 6 || (parameters.len() - 2) % 4 != 0 {
+    if parameters.len() < 6 || !(parameters.len() - 2).is_multiple_of(4) {
         return Err(CgmError::InvalidPrimitive {
             offset: element.source_offset,
             reason: format!(

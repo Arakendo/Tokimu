@@ -459,15 +459,15 @@ This review is already active. After a disposition, reopen it when:
 
 - `docs/Conversations/AR - Raster Image Requirement Pipeline.md`
 - `docs/Libraries/raster-image-corpus-testing.md`
-- `docs/Plans/typescript-shader-material-presentation-control.md`
+- `docs/Plans/Standalone/typescript-shader-material-presentation-control.md`
 - `corpus/lib/raster-image-corpus/DESIGN.md`
 - `corpus/lib/raster-image-corpus/src/model.rs`
 - `corpus/lib/raster-image-corpus/src/asset.rs`
 - `corpus/lib/raster-image-corpus/tests/asset_resolution.rs`
-- `corpus/hello-raster-image/DESIGN.md`
-- `corpus/hello-raster-image/src/main.rs`
-- `corpus/hello-streaming-texture/DESIGN.md`
-- `corpus/hello-streaming-texture/src/main.rs`
+- `corpus/focused/data-interchange/hello-raster-image/DESIGN.md`
+- `corpus/focused/data-interchange/hello-raster-image/src/main.rs`
+- `corpus/campaigns/textured-presentation/hello-streaming-texture/DESIGN.md`
+- `corpus/campaigns/textured-presentation/hello-streaming-texture/src/main.rs`
 - `crates/tokimu-assets`
 - `crates/tokimu-render`
 - `docs/Tokimu Software Design Document.md`

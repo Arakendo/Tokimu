@@ -26,14 +26,14 @@ the A/provider `tokimu_core::math::Mat4` values.
 The following eight corpus source files directly assign the public `view`
 field with a `Mat4`:
 
-- `corpus/hello-3d-mono/src/main.rs`
-- `corpus/hello-3d-stereo/src/main.rs` (one write per eye)
-- `corpus/hello-audio-visualizer/src/main.rs`
-- `corpus/hello-cad/src/main.rs`
-- `corpus/hello-fps-web/src/main.rs`
-- `corpus/hello-glb/src/main.rs`
-- `corpus/hello-hole-punch/src/main.rs`
-- `corpus/hello-shader/src/main.rs`
+- `corpus/focused/foundations/hello-3d-mono/src/main.rs`
+- `corpus/focused/foundations/hello-3d-stereo/src/main.rs` (one write per eye)
+- `corpus/focused/audio/hello-audio-visualizer/src/main.rs`
+- `corpus/focused/simulation/hello-cad/src/main.rs`
+- `corpus/focused/simulation/hello-fps-web/src/main.rs`
+- `corpus/focused/data-interchange/hello-glb/src/main.rs`
+- `corpus/campaigns/textured-presentation/hello-hole-punch/src/main.rs`
+- `corpus/focused/foundations/hello-shader/src/main.rs`
 
 The first six contain distinct already-retained 3D/camera pressure except the
 shader and audio-visualizer identity-view cases, which remain deliberately

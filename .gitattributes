@@ -3,3 +3,8 @@ third-party/fixtures/webcgm-test-suite/upstream/** -text
 
 # FBX corpus files, reference meshes, and notices are verified byte-for-byte.
 third-party/fixtures/fbx-corpus/upstream/** -text
+
+# Portfolio-organized corpus source and documentation use repository-stable LF.
+# `text=auto` preserves binary captures and fixture assets byte-for-byte.
+corpus/campaigns/** text=auto eol=lf
+corpus/focused/** text=auto eol=lf

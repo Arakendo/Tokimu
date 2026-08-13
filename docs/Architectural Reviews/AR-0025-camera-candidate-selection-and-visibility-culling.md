@@ -1502,7 +1502,7 @@ this record's current evidence.
   control—BSP recursion, SEG admission, solid/pass authority, solid-range
   union, and far-child bbox test—tested headlessly against the three retained
   counterexample poses before any presentation work. See
-  `docs/Plans/DOOM/Classic Doom visibility clipping evidence.md`.
+  `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`.
 
 ### Cycle 40 -- 2026-08-12
 
@@ -1653,6 +1653,21 @@ this record's current evidence.
   source-only and constructs no visplane/span, flat selection, renderer state,
   or presentation result.
 
+### Cycle 47 -- 2026-08-12
+
+- Cross-review evidence: the Option C bulk study keeps E1M1-scale AABB
+  selection as a small CPU-favouring control, while synthetic ordered AABB and
+  point classification establish only bounded numerical filters. WGPU has a
+  measured warm advantage at large synthetic scale but no named deficit that
+  earns a specialized provider. A corpus-local AR-0026 chart trace likewise
+  shows that derived local transforms can remain caller-owned semantic input.
+- Findings: none of this turns Doom BSP, SEG, portal, screen-clip, or
+  chart-derived view semantics into generic renderer vocabulary. Generic
+  candidate identity/order, query domain, and rejection evidence remain useful
+  cross-domain facts; source-specific selection protocols remain providers.
+- Disposition: retain the existing source-protocol study and the separation
+  between numerical filtering mechanisms and any future admitted capability.
+
 ## References
 
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`
@@ -1662,7 +1677,7 @@ this record's current evidence.
 - `docs/Architectural Reviews/AR-0024-renderer-failure-observation-and-diagnostic-boundary.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
-- `docs/Plans/DOOM/E1M1 static presentation evidence.md`
-- `docs/Plans/DOOM/E1M1 camera candidate-selection evidence.md`
-- `corpus/hello-doom-e1m1/src/bin/static_scene.rs`
+- `docs/Plans/DOOM/Evidence/E1M1 static presentation evidence.md`
+- `docs/Plans/DOOM/Evidence/E1M1 camera candidate-selection evidence.md`
+- `corpus/campaigns/doom/hello-doom-e1m1/src/bin/static_scene.rs`
 - [Doom specifications, REJECT](https://www.gamers.org/docs/FAQ/DOOM.FAQ.Specs.Chapters.4.html)

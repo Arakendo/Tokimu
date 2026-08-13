@@ -346,7 +346,7 @@ Goal: prove Tokimu can grow into new presentation and transport surfaces.
   authoritative client/server corpus; first-party capability admission deferred
   by AR-0004
   - Implementation plan:
-    `docs/Plans/networking-and-transport.md`
+    `docs/Plans/Standalone/networking-and-transport.md`
   - Deliverables:
     - [x] Name the first replication unit concretely (commands vs snapshots vs
       deltas) and record the choice

@@ -48,4 +48,4 @@ conversion returns a visibly empty frame.
 
 - [AR-0024](../Architectural%20Reviews/AR-0024-renderer-failure-observation-and-diagnostic-boundary.md)
 - [`wgpu_backend.rs`](../../crates/tokimu-render/src/wgpu_backend.rs)
-- [Alpha-policy corpus](../../corpus/hello-alpha-policy/README.md)
+- [Alpha-policy corpus](../../corpus/campaigns/textured-presentation/hello-alpha-policy/README.md)

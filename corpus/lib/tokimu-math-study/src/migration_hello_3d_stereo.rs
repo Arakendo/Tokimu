@@ -5,11 +5,7 @@
 //! camera. It intentionally adds no math operation beyond the reviewed
 //! `Vec3`/`Mat4` inventory.
 
-use crate::{
-    alternative_b::{Mat4 as BMat4, Vec3 as BVec3},
-    alternative_c::{Mat4 as CMat4, Vec3 as CVec3},
-    migration_b, migration_c,
-};
+use crate::{alternative_b::Vec3 as BVec3, alternative_c::Vec3 as CVec3, migration_b, migration_c};
 use tokimu_core::math::{Mat4 as AMat4, Vec3 as AVec3};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -151,7 +147,7 @@ mod tests {
             .left
             .into_iter()
             .chain(left.right)
-            .zip(right.left.into_iter().chain(right.right).into_iter())
+            .zip(right.left.into_iter().chain(right.right))
         {
             assert!((left - right).abs() <= 1.0e-6, "{left} != {right}");
         }

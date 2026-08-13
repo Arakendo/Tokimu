@@ -802,7 +802,7 @@ impl PlatformEventHandler for HelloUiApp {
         }
 
         if let PlatformInputEvent::CursorMoved { x, y } = event {
-            self.cursor_position = [x as f32, y as f32];
+            self.cursor_position = [x, y];
             self.hovered_zone = self.zone_at_cursor();
             self.update_window_title();
         }
@@ -851,6 +851,7 @@ impl PlatformEventHandler for HelloUiApp {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Corpus-local presentation shorthand; not a public contract.
 fn draw_panel(
     commands: &mut Vec<RenderCommand>,
     pipeline: PipelineHandle,

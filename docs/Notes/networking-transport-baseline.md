@@ -3,7 +3,7 @@
 ## Status
 
 Recorded 2026-07-27 for Slice 0 of
-`docs/Plans/networking-and-transport.md`.
+`docs/Plans/Standalone/networking-and-transport.md`.
 
 ## Existing Caller
 

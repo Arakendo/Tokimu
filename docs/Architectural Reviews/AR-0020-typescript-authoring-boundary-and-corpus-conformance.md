@@ -349,7 +349,7 @@ rule, release execution-manifest gate, and runtime-host exception process.
 - `frontends/packages/examples/`
 - `crates/tokimu-ts-frontend/`
 - `crates/tokimu-rule/`
-- `corpus/hello-fps-web/`
+- `corpus/focused/simulation/hello-fps-web/`
 - `corpus/consumers/aspnet-wasm-presentation-workbench/`
 - `corpus/consumers/runtime-observation-workbench/`
 - `corpus/consumers/tokimu-website-asteroids/`

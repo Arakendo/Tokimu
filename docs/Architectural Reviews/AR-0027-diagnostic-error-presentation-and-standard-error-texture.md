@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Under Review |
+| Status | Accepted — corpus/application-local presentation; no standard texture admitted |
 | Opened | 2026-08-10 |
-| Last reviewed | 2026-08-10 |
+| Last reviewed | 2026-08-13 |
 | Scope | Explicit diagnostic presentation for missing, rejected, or failed visual resources and shader/material paths |
 | Trigger | The E1M1 corpus currently omits sky-classified ceiling surfaces honestly, but a black clear/background can resemble missing geometry, failed texture resolution, or shader failure during visual inspection. |
 | Related ADRs | ADR-0004, ADR-0007, ADR-0008, ADR-0009, ADR-0012, ADR-0013 |
@@ -115,9 +115,10 @@ following:
 
 ## Current Disposition
 
-Begin with Alternative A as a strictly corpus-local E1M1 diagnostic experiment.
-Do not admit a renderer fallback, standard texture, public diagnostic-material
-API, shader error screen, or source-format-specific visual policy.
+Alternative A remains strictly corpus/application-local. Do not admit a
+renderer fallback, standard texture, public diagnostic-material API, shader
+error screen, or source-format-specific renderer policy. The final 2026-08-13
+disposition below closes the admission question until a reopening trigger occurs.
 
 ## 2026-08-11 Interactive-Door Follow-Up
 
@@ -180,7 +181,7 @@ question also belongs with AR-0024's failure-observation boundary and should
 not be answered by adding more corpus-specific exceptions.
 
 Comparative work is tracked by the
-[Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Tests/renderer-resource-identity-and-failure-presentation.md).
+[Renderer Resource Identity And Failure Presentation Test Plan](../Plans/Renderer-Reliability/renderer-resource-identity-and-failure-presentation.md).
 
 ## 2026-08-11 Doom-Sky Startup Follow-Up
 
@@ -218,3 +219,55 @@ This is still evidence for corpus-local presentation choices. It does not admit
 a global diagnostic store, a standard error texture, renderer fallback, or
 public diagnostic-presentation API. Browser/WASM observation and a second
 independent caller remain required before a shared vocabulary can be proposed.
+
+## 2026-08-13 Browser Candidate Follow-Up
+
+The Doom browser-intake workbench now packages an explicit diagnostic-sky
+request using the same retained omission classifier and checked-in Purple PNG
+as the native fixture. The returned observation includes the submitted and
+retained omission counts, asset path, and `intentional-source-sky-omission`
+reason. Normal browser E1M1 rendering remains unchanged.
+
+An actual browser/WebGPU run subsequently presented 1,823/1,823 ordinary
+opaque draws and 73/73 explicitly requested diagnostic-sky draws on a 960x600
+canvas. The observation retained the asset path and
+`intentional-source-sky-omission` reason. The browser exposed its backend as
+`browser-webgpu` but did not report an adapter name; that provider gap remains
+explicit rather than being replaced with an inferred value.
+
+This closes the browser execution half of the current E1M1 comparison and
+reinforces the ownership result. Rust/WASM owns the source classification, the
+application explicitly selects the stand-in, and the renderer receives an
+ordinary supplied texture/material without any automatic fallback rule. It
+does not admit shared diagnostic-presentation vocabulary; a second independent
+non-Doom caller remains open before such a proposal.
+
+The subsequent independent resource-identity browser fixture retained a
+structured unresolved-resource record in its DOM while presenting an ordinary
+replacement mesh. That is useful second-caller evidence for structured/text
+failure presentation, but it does not use a visual stand-in. It therefore does
+not close this review's independent visual-presentation caller gate and gives
+no reason to turn the Purple PNG into renderer policy.
+
+## Final Disposition — 2026-08-13
+
+The maintainer accepted Alternative A as the steady-state result of this review:
+
+- diagnostic visuals remain an explicit application/corpus choice;
+- original identity and bounded reason remain beside any diagnostic draw;
+- normal rendering never selects a stand-in automatically;
+- unresolved geometry, renderer resources, and provider failures do not receive
+  a texture that would falsely imply successful preparation;
+- the checked Purple PNG remains evidence machinery, not a Tokimu standard
+  asset; and
+- no provider-neutral diagnostic-visual API or standard error texture is
+  admitted.
+
+The independent non-Doom browser caller needed structured failure presentation
+rather than a visual stand-in. That negative second-caller result is decisive:
+the common visual semantic has not been demonstrated. No ADR or SDD change is
+required.
+
+Reopen only when a second independent non-Doom visual caller needs the same
+explicit intent, or when an admitted capability cannot preserve truthful
+failure identity without a shared presentation semantic.

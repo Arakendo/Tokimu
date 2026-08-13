@@ -250,7 +250,8 @@ should not rely on a human closing a window during the default test suite.
 Location:
 
 ```text
-corpus/hello-*/
+corpus/campaigns/*/hello-*/
+corpus/focused/*/hello-*/
 corpus/ui/hello-ui-*/
 ```
 

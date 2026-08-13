@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Incubating |
 | Opened | 2026-08-10 |
-| Last reviewed | 2026-08-11 |
+| Last reviewed | 2026-08-12 |
 | Scope | Long-horizon spatial semantics, presentation, traversal, and authoring evidence |
 | Trigger | Maintainer interest in authored maps or objects whose spatial closure is not globally Euclidean, including a junction where a complete circuit has 520 standard angular degrees rather than 360. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009 |
@@ -248,6 +248,10 @@ views.
    location, traversal, collision/query, picking, visibility, navigation,
    audio propagation, serialization, editing, and replication would need to
    agree on the same chart/transition truth or explicitly declare their limits.
+6. AR-0026 is a fair complexity-pressure test for AR-0019 Alternative C, not a
+   one-way ownership argument. Rich chart semantics above a bounded ordinary
+   operation set support a small owned numerical core; broad or numerically
+   exotic operation growth is evidence against that hypothesis.
 
 ## Disposition
 
@@ -300,6 +304,13 @@ physics API from this record.
       AR-0019. Determine whether they pressure ordinary math mechanics, require
       spatial semantic wrappers above math, or both; do not add speculative
       manifold operations to the five-type study.
+- [ ] Run the first junction semantic layer over both pinned A and C0 and
+      compare traversal traces, transition composition, orientation
+      classification, native/WASM results, and requested operation growth.
+      Keep chart identity and transition meaning identical between candidates.
+- [ ] Count a still-bounded ordinary operation set as evidence for C, and broad
+      numerical/robustness/SIMD expansion as evidence against C. Do not count
+      the richness of semantic wrappers above math as low-level API growth.
 - [ ] Apply ADR-0008, ADR-0009, ADR-0010, and ADR-0011 before any Native Ring,
       security-sensitive, hot-path, or stable cross-provider contract proposal.
 
@@ -377,6 +388,56 @@ physics API from this record.
   orientation-reversing evidence to the future corpus without proposing a
   chart API or changing ordinary Euclidean math.
 
+### Cycle 6 -- 2026-08-12
+
+- New cross-review hypothesis: AR-0026 may strengthen AR-0019 Alternative C if
+  unusual charted-space meaning remains above a deliberately boring, bounded
+  owned numerical core.
+- Findings: the valid argument is not that non-Euclidean semantics require
+  owning all math. Chart identity, qualified location, transition meaning,
+  query transport, and orientation-preserving/reversing declarations remain
+  spatial semantics above raw vectors and matrices. The first junction corpus
+  should execute the same semantic layer using A and C0 and measure semantic
+  agreement plus operation growth.
+- Falsification rule: bounded ordinary mechanics under richer spatial meaning
+  are evidence for C; a sprawling operation surface, unusual robustness burden,
+  or specialized SIMD requirement is evidence against the small-owned-subset
+  hypothesis.
+- Disposition: retain Incubating status and add the A/C0 comparison to the
+  required follow-up. No new math, chart, or stable spatial API is admitted.
+
+### Cycle 7 -- 2026-08-12
+
+- New evidence: a corpus-local three-chart control now keeps chart identities,
+  transition order, and orientation declarations fixed while comparing pinned
+  Alternative A with owned C0. Both native traces agree on point/direction
+  transport, inverse round-trip, preserving rigid composition, and reversing
+  reflection classification (`2520c9de`). The matching DOM/WASM control also
+  executed with that fingerprint and no provider acquisition.
+- Findings: this first control requires no operation outside the existing
+  ordinary `Vec3`/`Mat4` manifest. Chart identity and orientation intent remain
+  semantic wrappers; a raw transform did not acquire chart authority.
+- Disposition: retain Incubating status. This is bounded evidence for a small
+  owned numerical core, not admission of chart semantics, a portal feature, or
+  a stable public API.
+
+### Cycle 8 -- 2026-08-12
+
+- New evidence: the Option B cross-review ran the same fixed chart semantics
+  over provider-backed Full B as well as A and C0; all produced fingerprint
+  `2520c9de`. Narrow B retains A's exact ordinary values and changes only the
+  three checked camera-construction families.
+- Multi-view finding: existing stereo and CAD callers need independent camera
+  handles, viewports, and submissions, but request no new ordinary math
+  operation. The planned portal-derived local view and recursive-view questions
+  remain future semantic work and are not evidence for a larger wrapper.
+- Operation-growth result: zero additions to the B or C0 numerical manifests.
+  Chart identity, qualified location, transition intent, and orientation
+  behavior remain above mechanics.
+- Disposition: retain Incubating. Do not manufacture a portal/recursive-view
+  API to choose a math candidate; return any future qualified-view pressure to
+  AR-0026 and AR-0029.
+
 ## References
 
 - `docs/ADR/ADR-0001-engine-boundaries.md`
@@ -384,5 +445,5 @@ physics API from this record.
 - `docs/Architectural Reviews/AR-0019-native-math-vocabulary-and-foreign-type-boundary.md`
 - `docs/Architectural Reviews/AR-0025-camera-candidate-selection-and-visibility-culling.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
-- `corpus/hello-doom-e1m1/src/lib.rs`
+- `corpus/campaigns/doom/hello-doom-e1m1/src/lib.rs`
 - `docs/Tokimu Software Design Document.md`

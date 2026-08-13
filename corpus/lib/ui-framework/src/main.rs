@@ -151,7 +151,7 @@ impl UiFrameworkApp {
             drawer.button_strip(button, state, control_role);
         }
 
-        self.cached_button_surfaces.extend(surfaces.into_iter());
+        self.cached_button_surfaces.extend(surfaces);
         self.cached_button_text
             .extend(text_commands.into_iter().flat_map(|command| {
                 Self::build_text_commands(

@@ -3,10 +3,85 @@
 //! The provider remains a direct private dependency by design. This target
 //! makes that closure observable without pulling in the A control or C.
 
+#[cfg(all(feature = "provider-029", feature = "provider-033"))]
+compile_error!("select exactly one Full-B provider revision");
+#[cfg(not(any(feature = "provider-029", feature = "provider-033")))]
+compile_error!("select one Full-B provider revision");
+
+#[cfg(feature = "provider-029")]
+use glam_029 as selected_provider;
+#[cfg(feature = "provider-033")]
+use glam_033 as selected_provider;
+
+pub(crate) mod alternative_b_provider {
+    pub(crate) use super::selected_provider::{Mat4, Quat, Vec2, Vec3, Vec4};
+
+    #[cfg(feature = "provider-029")]
+    pub(crate) fn look_at_rh(eye: Vec3, target: Vec3, up: Vec3) -> Mat4 {
+        Mat4::look_at_rh(eye, target, up)
+    }
+
+    #[cfg(feature = "provider-033")]
+    pub(crate) fn look_at_rh(eye: Vec3, target: Vec3, up: Vec3) -> Mat4 {
+        super::selected_provider::camera::rh::view::look_at_mat4(eye, target, up)
+    }
+
+    #[cfg(feature = "provider-029")]
+    pub(crate) fn perspective_rh_gl(
+        vertical_fov_radians: f32,
+        aspect_ratio: f32,
+        near: f32,
+        far: f32,
+    ) -> Mat4 {
+        Mat4::perspective_rh_gl(vertical_fov_radians, aspect_ratio, near, far)
+    }
+
+    #[cfg(feature = "provider-033")]
+    pub(crate) fn perspective_rh_gl(
+        vertical_fov_radians: f32,
+        aspect_ratio: f32,
+        near: f32,
+        far: f32,
+    ) -> Mat4 {
+        super::selected_provider::camera::rh::proj::opengl::perspective(
+            vertical_fov_radians,
+            aspect_ratio,
+            near,
+            far,
+        )
+    }
+
+    #[cfg(feature = "provider-029")]
+    pub(crate) fn orthographic_rh_gl(
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> Mat4 {
+        Mat4::orthographic_rh_gl(left, right, bottom, top, near, far)
+    }
+
+    #[cfg(feature = "provider-033")]
+    pub(crate) fn orthographic_rh_gl(
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> Mat4 {
+        super::selected_provider::camera::rh::proj::opengl::orthographic(
+            left, right, bottom, top, near, far,
+        )
+    }
+}
+
 #[path = "../../src/alternative_b.rs"]
 mod implementation;
 
-pub use implementation::{Mat4, Quat, Vec2, Vec3, Vec4};
+pub use implementation::{Mat4, MathError, MathFailure, MathOperation, Quat, Vec2, Vec3, Vec4};
 
 /// Bounded plain-WASM execution probe for the provider-backed candidate.
 ///

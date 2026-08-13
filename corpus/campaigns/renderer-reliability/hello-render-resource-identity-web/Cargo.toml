@@ -1,0 +1,16 @@
+[package]
+name = "hello-render-resource-identity-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hello-render-resource-identity = { path = "../hello-render-resource-identity" }
+tokimu = { path = "../../../../crates/tokimu", features = ["render"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures = "0.4"
+web-sys = { workspace = true, features = ["HtmlCanvasElement"] }

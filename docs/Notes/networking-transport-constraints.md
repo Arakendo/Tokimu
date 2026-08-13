@@ -3,7 +3,7 @@
 ## Status
 
 Recorded 2026-07-27 for Slice 6 of
-`docs/Plans/networking-and-transport.md`. This is a contract comparison, not a
+`docs/Plans/Standalone/networking-and-transport.md`. This is a contract comparison, not a
 provider selection and not a dependency decision.
 
 ## Result

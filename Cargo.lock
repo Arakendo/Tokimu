@@ -871,6 +871,7 @@ dependencies = [
  "doom-wad-package",
  "doom-wad-provider",
  "hello-doom-e1m1",
+ "raster-image-corpus",
  "resource-space",
  "resource-space-archive",
  "serde",
@@ -1324,6 +1325,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-bulk-compute-web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "js-sys",
+ "tokimu-math-study",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "hello-cad"
 version = "0.1.0"
 dependencies = [
@@ -1537,6 +1551,18 @@ dependencies = [
  "tokimu-core",
  "tokimu-platform",
  "tokimu-render",
+]
+
+[[package]]
+name = "hello-render-resource-identity-web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "hello-render-resource-identity",
+ "tokimu",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -3674,9 +3700,11 @@ version = "0.1.0"
 dependencies = [
  "glam",
  "gltf-corpus",
+ "pollster",
  "tokimu",
  "tokimu-core",
  "wasm-bindgen-test",
+ "wgpu",
 ]
 
 [[package]]

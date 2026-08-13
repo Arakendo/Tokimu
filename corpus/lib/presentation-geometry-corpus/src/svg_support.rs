@@ -227,7 +227,7 @@ fn dash_contour(
     if pattern_remaining <= 0.0 {
         pattern_remaining = normalized_pattern[pattern_index];
     }
-    let mut on = pattern_index % 2 == 0;
+    let mut on = pattern_index.is_multiple_of(2);
     let mut active = Vec::<[f32; 2]>::new();
     let mut result = Vec::new();
     let segment_count = if contour.closed {
@@ -272,7 +272,7 @@ fn dash_contour(
                     ));
                 }
                 pattern_index = (pattern_index + 1) % normalized_pattern.len();
-                on = pattern_index % 2 == 0;
+                on = pattern_index.is_multiple_of(2);
                 pattern_remaining = normalized_pattern[pattern_index];
             }
         }

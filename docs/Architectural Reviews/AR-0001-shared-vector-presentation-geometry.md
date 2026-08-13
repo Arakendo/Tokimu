@@ -512,8 +512,8 @@ The current ownership findings can therefore be summarized as:
 
 ## References
 
-- `docs/Plans/ui-box-vector-presentation.md`
-- `docs/Plans/font-outline-vector-presentation.md`
+- `docs/Plans/Standalone/ui-box-vector-presentation.md`
+- `docs/Plans/Standalone/font-outline-vector-presentation.md`
 - `docs/Conversations/Can Fonts Be Vectors.md`
 - `.workbench/Notes/UI Boxes moving to SVG Renderer.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`

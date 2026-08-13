@@ -71,7 +71,7 @@ Once recorded, those coverage denominators must remain tied to that revision.
 
 ## Existing Evidence
 
-`corpus/hello-glb` is the current executable GLB boundary proof. It:
+`corpus/focused/data-interchange/hello-glb` is the current executable GLB boundary proof. It:
 
 - records the pinned Khronos `Box.glb` source as Tokimu-owned asset identity;
 - decodes its triangle primitive through the format-specific `gltf-corpus`
@@ -555,5 +555,5 @@ Promotion beyond `corpus/lib/gltf-corpus` requires:
 - `docs/Conversations/GLB Model Data.md`
 - `docs/Conversations/3D Vector Reusability.md`
 - `docs/Conversations/3D Formats.md`
-- `corpus/hello-glb/DESIGN.md`
-- `corpus/hello-glb/src/main.rs`
+- `corpus/focused/data-interchange/hello-glb/DESIGN.md`
+- `corpus/focused/data-interchange/hello-glb/src/main.rs`

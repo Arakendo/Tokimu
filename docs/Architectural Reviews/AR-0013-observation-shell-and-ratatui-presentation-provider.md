@@ -628,8 +628,8 @@ projection-parity evidence before this review can recommend an ADR.
 
 - [`On Ratatui.md`](../Conversations/On%20Ratatui.md)
 - [`Observation Shell.md`](../Conversations/Observation%20Shell.md)
-- [`tokimu-console-command-window-corpus.md`](../Plans/tokimu-console-command-window-corpus.md)
-- [`tokimu-observation-shell-consumer-corpus.md`](../Plans/tokimu-observation-shell-consumer-corpus.md)
+- [`tokimu-console-command-window-corpus.md`](../Plans/Standalone/tokimu-console-command-window-corpus.md)
+- [`tokimu-observation-shell-consumer-corpus.md`](../Plans/Standalone/tokimu-observation-shell-consumer-corpus.md)
 - [`ADR-0003-capability-ownership-boundary.md`](../ADR/ADR-0003-capability-ownership-boundary.md)
 - [`ADR-0004-foundational-presentation-text-and-icons.md`](../ADR/ADR-0004-foundational-presentation-text-and-icons.md)
 - [`ADR-0007-kernel-performance-diagnostics.md`](../ADR/ADR-0007-kernel-performance-diagnostics.md)

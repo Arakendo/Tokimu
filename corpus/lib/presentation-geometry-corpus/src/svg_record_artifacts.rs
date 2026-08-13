@@ -45,9 +45,11 @@ pub(crate) fn write_svg_record_artifacts(
                 || !is_convex_polygon_clip(clip)
         })
     });
-    let fill_meshes = (!has_unresolved_clips)
-        .then(|| tessellate_svg_fills(&records, "SVG artifact"))
-        .unwrap_or_default();
+    let fill_meshes = if has_unresolved_clips {
+        Default::default()
+    } else {
+        tessellate_svg_fills(&records, "SVG artifact")
+    };
     if !fill_meshes.diagnostics.is_empty() {
         return Err(fill_meshes.diagnostics.join("; "));
     }

@@ -1,0 +1,12 @@
+[package]
+name = "hello-raster-image"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+raster-image-corpus = { path = "../../../lib/raster-image-corpus" }
+serde.workspace = true
+serde_json = "1"
+tokimu = { path = "../../../../crates/tokimu", features = ["platform", "render"] }

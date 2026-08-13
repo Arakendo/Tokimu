@@ -10,7 +10,9 @@ publish = false
 glam.workspace = true
 tokimu = { path = "../../../crates/tokimu", features = ["render"] }
 tokimu-core = { path = "../../../crates/tokimu-core" }
+gltf-corpus = { path = "../gltf-corpus" }
+pollster.workspace = true
+wgpu.workspace = true
 
 [dev-dependencies]
-gltf-corpus = { path = "../gltf-corpus" }
 wasm-bindgen-test = "=0.3.76"

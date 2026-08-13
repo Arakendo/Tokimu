@@ -1,61 +1,68 @@
 # Implementation Plans
 
-Plans describe concrete implementation work. They should identify scope,
-ownership, incremental slices, validation, risks, and completion criteria.
+Plans describe concrete implementation work. They identify scope, ownership,
+incremental slices, validation, risks, and completion criteria. Plans are not
+architectural authority: evidence that changes an established boundary belongs
+in an Architectural Review and an accepted decision belongs in an ADR.
 
-Plans are not architectural decisions. If implementation evidence changes an
-established boundary, update or create an Architectural Review and ADR rather
-than silently treating the plan as authority.
+## Campaign Portfolio
 
-## Current Plans
+Campaign folders collect a controlling plan, supporting studies, and retained
+evidence for one sustained body of work. The campaign README is the dashboard;
+document location does not imply that work is active.
 
-- [UI Boxes Through Vector Presentation](ui-box-vector-presentation.md)
-- [Font Outlines Through Vector Presentation](font-outline-vector-presentation.md)
-- [Presentation Geometry Corpus Harness](presentation-geometry-corpus-harness.md)
-- [Native Execution and Multithreading](native-execution-and-multithreading.md)
-- [XML Tools Incubation Library](xml-tools.md)
-- [Performance Diagnostics and Runtime Observation](performance-diagnostics-and-runtime-observation.md)
-- [Ring 0 Third-Party Source Audit And Migration](ring-zero-third-party-source-audit-and-migration.md)
-- [Native Math Vocabulary And Foreign-Type Case Study](native-math-vocabulary-foreign-type-case-study.md)
-- [DOOM TypeScript Boundary Stress Plan](DOOM/DOOM%20TypeScript%20Boundary%20Stress%20Plan.md)
-- [Consumer Corpora](consumer-corpora.md)
-- [TypeScript Shader, Material, And Presentation Control](typescript-shader-material-presentation-control.md)
-- [Particle Simulation And Presentation](particle-simulation-and-presentation.md)
-- [Tokimu Website](tokimu-website.md)
-- [Tokimu And Tosumu Reciprocal Website Evidence](tokimu-tosumu-reciprocal-website-evidence.md)
-- [Tokimu Paint Consumer Corpus](tokimu-paint-consumer-corpus.md)
-- [Runtime Observation And Command Corpus](runtime-observation-and-command-corpus.md)
-- [Tokimu Observation Shell Consumer Corpus](tokimu-observation-shell-consumer-corpus.md)
-- [UI Tools Consumer Safety And Hardening](ui-tools-consumer-safety-and-hardening.md)
-- [Streaming RGBA8 Texture Updates](streaming-rgba8-texture-updates.md)
-- [Textured Box GLB And PNG Corpus](textured-box-glb-png-corpus.md)
-- [Textured Surface Alpha-Policy Comparative Corpus](textured-surface-alpha-policy-comparative-corpus.md)
-- [Audio-Reactive Visualizers And MilkDrop Compatibility](audio-reactive-visualizers-and-milkdrop-compatibility.md)
-- [MIDI Sequencing And Synthesis Provider](midi-sequencing-and-synthesis-provider.md)
-- [Tosumu .NET Resource Space Consumer Migration](tosumu-dotnet-resource-space-consumer-migration.md)
-- [Compression And Archive Providers](compression-and-archive-providers.md)
-- [Tokimu Console Command Window Corpus](tokimu-console-command-window-corpus.md)
+| Campaign | Status | Controlling document | Current disposition or next action |
+| --- | --- | --- | --- |
+| [DOOM](DOOM/README.md) | Active | [DOOM WAD Checklist](DOOM/DOOM%20WAD%20Checklist.md) | Continue the current WAD checklist slice and retain source-specific evidence |
+| [Native Math](Native-Math/README.md) | Parked | [Foreign-Type Case Study](Native-Math/native-math-vocabulary-foreign-type-case-study.md) | Alternative A retained; B and C remain executable incubation evidence |
+| [Coordinate Conformance](Coordinate-Conformance/README.md) | Complete | [Directional Conformance](Coordinate-Conformance/coordinate-frame-directional-conformance.md) | Reopen for a new adapter or contradictory directional evidence |
+| [Renderer Reliability](Renderer-Reliability/README.md) | Complete | [Resource Identity And Failure Presentation](Renderer-Reliability/renderer-resource-identity-and-failure-presentation.md) | No shared contract admitted; reopen on independent caller pressure |
+| [Textured Presentation](Textured-Presentation/README.md) | Active / incubating | [Alpha-Policy Comparative Corpus](Textured-Presentation/textured-surface-alpha-policy-comparative-corpus.md) | Cutout admitted narrowly; continuous blend remains incubating |
+| [Standalone Plans](Standalone/README.md) | Mixed | Individual documents | Promote a plan into a campaign only when sustained related work appears |
 
-## Completed Spikes
+## Campaign Layout
 
-- [Networking and Transport Spike](networking-and-transport.md)
+Use this shape for new sustained work:
+
+```text
+Campaign/
+  README.md              campaign dashboard and current state
+  controlling-plan.md    primary checklist or implementation plan
+  Studies/               bounded alternatives and investigations
+  Evidence/              ledgers, results, and dated observations
+```
+
+Keep completed and parked material beside its campaign. Do not create a global
+archive whose location hides why evidence was collected.
+
+## Status Vocabulary
+
+Use one of these states in plan metadata and campaign dashboards:
+
+- **Proposed** — scoped but not started;
+- **Active** — implementation or evidence collection is in progress;
+- **Awaiting Review** — evidence is ready for maintainer judgment;
+- **Blocked** — progress requires unavailable evidence or authority;
+- **Parked** — intentionally dormant with a named reopening trigger;
+- **Complete** — acceptance or parking criteria are satisfied; or
+- **Superseded** — another named document owns the work.
 
 ## External Corpus Plans
 
 External corpus acquisition, coverage, and validation plans live under
-[`docs/Libraries`](../Libraries/README.md). That index records their measured
-status and common quality requirements. Implementation plans should link to the
-relevant library document instead of duplicating mutable fixture counts.
+[`docs/Libraries`](../Libraries/README.md). Campaign plans should link to those
+records instead of duplicating mutable fixture counts.
 
 ## Plan Requirements
 
 A useful plan should include:
 
+- the campaign, role, status, parent review, and next action where applicable;
 - the problem and evidence motivating the work;
 - goals and non-goals;
 - current ownership and dependency boundaries;
 - small compileable implementation slices;
 - tests or corpus evidence for each slice;
 - risks, unsupported cases, and explicit diagnostics;
-- acceptance and graduation criteria;
+- acceptance, parking, and reopening criteria; and
 - links to related ADRs, reviews, notes, examples, and tests.

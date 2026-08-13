@@ -392,13 +392,13 @@ Reopen or advance this review when:
 
 ## References
 
-- `docs/Plans/audio-reactive-visualizers-and-milkdrop-compatibility.md`
+- `docs/Plans/Standalone/audio-reactive-visualizers-and-milkdrop-compatibility.md`
 - `docs/Architectural Reviews/AR-0006-raster-image-requirement-pipeline.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`
 - `corpus/lib/visualizer-tools/src/audio_analysis.rs`
 - `corpus/lib/visualizer-tools/src/lib.rs`
-- `corpus/hello-audio-analysis/src/main.rs`
-- `corpus/hello-audio-visualizer/src/main.rs`
+- `corpus/focused/audio/hello-audio-analysis/src/main.rs`
+- `corpus/focused/audio/hello-audio-visualizer/src/main.rs`
 - https://github.com/projectM-visualizer/projectm
 - https://milkdrop.org/resources/preset-authoring

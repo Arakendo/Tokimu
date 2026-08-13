@@ -97,7 +97,7 @@ This ADR does not decide or admit:
 ## Verification
 
 Implementation must reopen and complete the ADR-0008 and ADR-0009 full gates
-in `docs/Plans/categorical-cutout-capability-admission.md`. In particular it
+in `docs/Plans/Textured-Presentation/Studies/categorical-cutout-capability-admission.md`. In particular it
 must retain typed invalid-threshold behavior, native and browser/WASM evidence,
 cutout-versus-opaque depth/order regressions, the E1M1 real-caller migration,
 and first/warm-frame performance observations. Blend remains excluded from
@@ -111,5 +111,5 @@ this admission gate unless a later decision proposes it independently.
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/ADR/ADR-0012-supplied-mesh-texture-coordinates-and-sampling-policy.md`
 - `docs/Architectural Reviews/AR-0023-textured-surface-alpha-and-depth-policy.md`
-- `docs/Plans/textured-surface-alpha-policy-comparative-corpus.md`
-- `docs/Plans/categorical-cutout-capability-admission.md`
+- `docs/Plans/Textured-Presentation/textured-surface-alpha-policy-comparative-corpus.md`
+- `docs/Plans/Textured-Presentation/Studies/categorical-cutout-capability-admission.md`

@@ -167,7 +167,7 @@ Acceptance criteria:
 - [x] Extension technologies remain replaceable and consumer-driven.
 - [x] Architectural Review records the current incubation disposition.
 
-Progress: `corpus/hello-xml-inspect` consumes only the parser-neutral
+Progress: `corpus/focused/data-interchange/hello-xml-inspect` consumes only the parser-neutral
 document and diagnostic contracts. `AR-0003-xml-document-boundary.md` records
 that two example-side consumers preserve the boundary but do not yet justify a
 first-party crate.
@@ -205,7 +205,7 @@ that promotion threshold.
 ## References
 
 - `docs/Libraries/README.md`
-- `docs/Plans/xml-tools.md`
+- `docs/Plans/Standalone/xml-tools.md`
 - `docs/Architectural Reviews/AR-0003-xml-document-boundary.md`
 - `docs/testing-strategy.md`
 - `third-party/fixtures/w3c-xml-20130923/README.md`

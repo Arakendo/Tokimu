@@ -71,7 +71,7 @@ browser-native CGM renderer and not proof of resolved source paint.
 - [versioned WebCGM fixture selection](https://github.com/Arakendo/Tokimu/blob/main/third-party/fixtures/webcgm-test-suite/selected/selection-v1.toml);
 - [CGM corpus cases](https://github.com/Arakendo/Tokimu/blob/main/corpus/lib/presentation-geometry-corpus/src/cgm_cases.rs);
 - [CGM artifact writer](https://github.com/Arakendo/Tokimu/blob/main/corpus/lib/presentation-geometry-corpus/src/cgm_artifacts.rs); and
-- [visible native CGM consumer](https://github.com/Arakendo/Tokimu/tree/main/corpus/hello-cgm).
+- [visible native CGM consumer](https://github.com/Arakendo/Tokimu/tree/main/corpus/focused/data-interchange/hello-cgm).
 
 ## Known exclusions
 

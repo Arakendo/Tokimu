@@ -288,8 +288,9 @@ mod tests {
 
     impl AssetLoader for ByteCountLoader {
         type Output = usize;
+        type Error = std::convert::Infallible;
 
-        fn load(&self, source: &[u8]) -> anyhow::Result<Self::Output> {
+        fn load(&self, source: &[u8]) -> Result<Self::Output, Self::Error> {
             Ok(source.len())
         }
     }
@@ -298,9 +299,13 @@ mod tests {
 
     impl AssetLoader for RejectingLoader {
         type Output = ();
+        type Error = std::io::Error;
 
-        fn load(&self, _source: &[u8]) -> anyhow::Result<Self::Output> {
-            Err(anyhow::anyhow!("fixture decode failure"))
+        fn load(&self, _source: &[u8]) -> Result<Self::Output, Self::Error> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "fixture decode failure",
+            ))
         }
     }
 

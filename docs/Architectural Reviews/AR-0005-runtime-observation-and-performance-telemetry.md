@@ -272,7 +272,7 @@ causality as not inferred rather than inventing an asset or entity blame model.
 
 Incubating. Keep ADR-0007 as the binding narrow diagnostics boundary. Continue
 collecting resource, execution, renderer, and example evidence through
-`docs/Plans/performance-diagnostics-and-runtime-observation.md`. Do not admit a
+`docs/Plans/Standalone/performance-diagnostics-and-runtime-observation.md`. Do not admit a
 general profiler, telemetry crate, asset-budget model, or editor presentation
 contract until the corpus identifies stable shared meaning.
 
@@ -376,7 +376,7 @@ This review should advance or be re-scoped when:
 
 - `docs/Conversations/On Performance Metrics.md`
 - `docs/Notes/ui-presentation-performance-evidence.md`
-- `docs/Plans/performance-diagnostics-and-runtime-observation.md`
+- `docs/Plans/Standalone/performance-diagnostics-and-runtime-observation.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
 - `docs/ADR/ADR-0006-native-execution-policy.md`
@@ -384,4 +384,4 @@ This review should advance or be re-scoped when:
 - `crates/tokimu-core/src/diagnostics.rs`
 - `crates/tokimu-runtime/src/app.rs`
 - `crates/tokimu-render/src/renderer.rs`
-- `corpus/hello-cgm/`
+- `corpus/focused/data-interchange/hello-cgm/`

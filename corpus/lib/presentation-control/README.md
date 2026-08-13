@@ -32,4 +32,4 @@ These integrations currently lower resolved presentation into existing
 renderer materials. They do not yet prove per-draw overrides over one shared
 material, transparent 3D depth ordering, steady-state binding reuse, or a WASM
 command boundary. Those remain explicit later slices in
-[`typescript-shader-material-presentation-control.md`](../../../docs/Plans/typescript-shader-material-presentation-control.md).
+[`typescript-shader-material-presentation-control.md`](../../../docs/Plans/Standalone/typescript-shader-material-presentation-control.md).

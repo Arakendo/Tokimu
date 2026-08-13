@@ -8,7 +8,7 @@
 | Scope | Native Ring / build and release validation / cross-cutting |
 | Trigger | ADR-0010 acceptance exposed a registry-resolved Native Ring closure and required machine-checkable provenance enforcement |
 | Related ADRs | ADR-0003, ADR-0005, ADR-0008, ADR-0009, ADR-0010, ADR-0011 |
-| Related evidence | `docs/Plans/ring-zero-third-party-source-audit-and-migration.md`; `docs/Dependency Audits/Ring 0/`; `scripts/audit-ring-zero-dependencies.ps1`; `scripts/ring-zero-dependencies.json`; `Cargo.toml`; `Cargo.lock` |
+| Related evidence | `docs/Plans/Standalone/ring-zero-third-party-source-audit-and-migration.md`; `docs/Dependency Audits/Ring 0/`; `scripts/audit-ring-zero-dependencies.ps1`; `scripts/ring-zero-dependencies.json`; `Cargo.toml`; `Cargo.lock` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -315,7 +315,7 @@ change.
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/ADR/ADR-0010-ring-zero-third-party-source-admission.md`
 - `docs/ADR/ADR-0011-ring-based-security-authority-and-trust-boundaries.md`
-- `docs/Plans/ring-zero-third-party-source-audit-and-migration.md`
+- `docs/Plans/Standalone/ring-zero-third-party-source-audit-and-migration.md`
 - `docs/Dependency Audits/Ring 0/migration-baseline-2026-08-07.md`
 - `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`
 - `scripts/audit-ring-zero-dependencies.ps1`

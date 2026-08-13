@@ -7,9 +7,39 @@
 //! alternative-B result.
 
 pub mod alternative_b;
+
+pub(crate) mod alternative_b_provider {
+    pub(crate) use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
+
+    pub(crate) fn look_at_rh(eye: Vec3, target: Vec3, up: Vec3) -> Mat4 {
+        Mat4::look_at_rh(eye, target, up)
+    }
+
+    pub(crate) fn perspective_rh_gl(
+        vertical_fov_radians: f32,
+        aspect_ratio: f32,
+        near: f32,
+        far: f32,
+    ) -> Mat4 {
+        Mat4::perspective_rh_gl(vertical_fov_radians, aspect_ratio, near, far)
+    }
+
+    pub(crate) fn orthographic_rh_gl(
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> Mat4 {
+        Mat4::orthographic_rh_gl(left, right, bottom, top, near, far)
+    }
+}
 pub mod alternative_c;
 pub mod alternative_d;
 pub mod baseline_a;
+pub mod bulk_reference;
+pub mod chart_junction;
 pub mod conformance;
 pub mod hello_3d_mono_adapters;
 pub mod migration_b;
@@ -18,6 +48,7 @@ pub mod migration_hello_3d_mono;
 pub mod migration_hello_3d_stereo;
 pub mod migration_hello_asteroids;
 pub mod migration_hello_cad;
+pub mod migration_hello_doom_observer;
 pub mod migration_hello_fps;
 pub mod migration_hello_glb;
 pub mod migration_hello_hole_punch;

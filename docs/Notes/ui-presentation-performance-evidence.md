@@ -10,7 +10,7 @@ or closed every source of repeated presentation work.
 
 ## Observation
 
-`corpus/hello-cgm` presents a mostly static inspection screen containing:
+`corpus/focused/data-interchange/hello-cgm` presents a mostly static inspection screen containing:
 
 - one panel;
 - several short labels;
@@ -169,8 +169,8 @@ Before this observation is closed:
 
 ## Related Evidence
 
-- `corpus/hello-cgm`
+- `corpus/focused/data-interchange/hello-cgm`
 - `corpus/lib/ui-tools`
-- `docs/Plans/ui-box-vector-presentation.md`
-- `docs/Plans/font-outline-vector-presentation.md`
+- `docs/Plans/Standalone/ui-box-vector-presentation.md`
+- `docs/Plans/Standalone/font-outline-vector-presentation.md`
 - `docs/testing-strategy.md`

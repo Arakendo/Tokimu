@@ -37,7 +37,10 @@ related failure mode.
 
 ```text
 corpus/
-  hello-*/                 focused engine and application corpus examples
+  campaigns/
+    */                     sustained, plan-aligned executable evidence
+  focused/
+    */                     focused proofs grouped by technical domain
   consumers/
     */                     downstream application-shaped composition evidence
   ui/
@@ -50,24 +53,28 @@ corpus/
     */                     browser presentation fixture
 ```
 
-### Root `hello-*` corpus entries
+### Campaign corpus
 
-Root entries pressure general engine seams: platform startup, rendering,
-simulation, rule execution, assets, geometry, persistence, and application
-composition.
+`corpus/campaigns/` contains executable evidence belonging to a sustained work
+campaign. Its top-level names align with the campaign portfolios under
+`docs/Plans/`, so a maintainer can move from intent and checklist to the
+relevant fixtures without reconstructing the relationship from filenames.
 
-They remain at one filesystem depth so their crate and asset paths stay
-predictable. The workspace manifest groups them by responsibility:
+Campaign folders own navigation, not shared implementation. Reusable but still
+incubating code remains under `corpus/lib/`, and downstream application-shaped
+compositions remain under `corpus/consumers/`.
 
-```text
-Platform and presentation
-Simulation and applications
-Data, interchange, and output
-Networking
-```
+See the [campaign corpus index](campaigns/README.md).
 
-This cataloging is intentional. Add a physical subdirectory only when a domain
-needs its own local conventions or shared resources, as UI already does.
+### Focused corpus
+
+`corpus/focused/` contains bounded `hello-*` proofs that do not belong to a
+sustained campaign. They are grouped by stable technical domains such as
+foundations, simulation, observation, data interchange, audio, and networking.
+The grouping is navigational; every entry still needs one primary architectural
+claim and its own completion record.
+
+See the [focused corpus index](focused/README.md).
 
 ### UI corpus
 
@@ -152,7 +159,9 @@ permanent corpus entries.
 ## Naming
 
 Use `hello-<capability>` for a focused proof and `hello-ui-<concept>` for a
-focused UI proof.
+focused UI proof. Place sustained campaign evidence under the matching
+`corpus/campaigns/<campaign>/` portfolio; place other focused proofs under the
+closest `corpus/focused/<domain>/` portfolio.
 
 Names should describe the seam under pressure rather than the implementation
 library used to satisfy it. Provider-specific examples are appropriate when the

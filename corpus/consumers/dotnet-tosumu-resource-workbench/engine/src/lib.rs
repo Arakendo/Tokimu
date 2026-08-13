@@ -77,11 +77,20 @@ struct Session {
     next_folder: u128,
 }
 
+struct SessionRequest {
+    store: StoreId,
+    root: ResourceRootId,
+    root_folder: FolderId,
+    display_name: String,
+    root_name: String,
+    policy: AddressCasePolicy,
+}
+
 #[derive(Default)]
 enum ProviderState {
     #[default]
     InMemory,
-    Tosumu(TosumuProvider),
+    Tosumu(Box<TosumuProvider>),
 }
 
 impl ResourceBridge {
@@ -156,16 +165,16 @@ impl ResourceBridge {
         let policy = case_policy(optional_string(arguments, "case_policy").as_deref())?;
         let provider_name =
             optional_string(arguments, "provider").unwrap_or_else(|| "in_memory".to_owned());
+        let request = SessionRequest {
+            store,
+            root,
+            root_folder,
+            display_name,
+            root_name,
+            policy,
+        };
         if provider_name == "tosumu" {
-            return self.create_or_open_tosumu(
-                arguments,
-                store,
-                root,
-                root_folder,
-                display_name,
-                root_name,
-                policy,
-            );
+            return self.create_or_open_tosumu(arguments, request);
         }
         if provider_name != "in_memory" {
             return Err(error(
@@ -173,6 +182,14 @@ impl ResourceBridge {
                 "provider must be in_memory or tosumu",
             ));
         }
+        let SessionRequest {
+            store,
+            root,
+            root_folder,
+            display_name,
+            root_name,
+            policy,
+        } = request;
         self.provider = ProviderState::InMemory;
         let outcome = self
             .registry
@@ -206,13 +223,16 @@ impl ResourceBridge {
     fn create_or_open_tosumu(
         &mut self,
         arguments: &Value,
-        store: StoreId,
-        root: ResourceRootId,
-        root_folder: FolderId,
-        display_name: String,
-        root_name: String,
-        policy: AddressCasePolicy,
+        request: SessionRequest,
     ) -> Result<Value, BridgeError> {
+        let SessionRequest {
+            store,
+            root,
+            root_folder,
+            display_name,
+            root_name,
+            policy,
+        } = request;
         let path = required_string(arguments, "store_path")?;
         let (provider, snapshot) = TosumuProvider::open(Path::new(&path))
             .map_err(|message| error("provider.tosumu.open", message))?;
@@ -270,7 +290,7 @@ impl ResourceBridge {
             }
         };
         self.session = Some(session);
-        self.provider = ProviderState::Tosumu(provider);
+        self.provider = ProviderState::Tosumu(Box::new(provider));
         self.persist_active_state()?;
         Ok(json!({
             "mode": "tosumu", "outcome": outcome,

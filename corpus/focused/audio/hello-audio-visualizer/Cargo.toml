@@ -1,0 +1,13 @@
+[package]
+name = "hello-audio-visualizer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+milkdrop-tools = { path = "../../../lib/milkdrop-tools" }
+serde_json = "1"
+tokimu = { path = "../../../../crates/tokimu", features = ["platform", "render"] }
+tokimu-core = { path = "../../../../crates/tokimu-core" }
+visualizer-tools = { path = "../../../lib/visualizer-tools" }

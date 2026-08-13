@@ -1,0 +1,15 @@
+[package]
+name = "hello-archive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+archive-provider = { path = "../../../lib/archive-provider" }
+compression-provider = { path = "../../../lib/compression-provider" }
+resource-space = { path = "../../../lib/resource-space" }
+resource-space-archive = { path = "../../../lib/resource-space-archive" }
+serde.workspace = true
+serde_json = "1"

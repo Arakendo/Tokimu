@@ -316,8 +316,8 @@ The W3C corpus validates the boundary but cannot admit a capability by itself.
 ## References
 
 - `docs/Libraries/README.md`
-- `docs/Plans/presentation-geometry-corpus-harness.md`
-- `docs/Plans/xml-tools.md`
+- `docs/Plans/Standalone/presentation-geometry-corpus-harness.md`
+- `docs/Plans/Standalone/xml-tools.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
 - `third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/selection-v1.toml`
 - `third-party/fixtures/w3c-svg-1.1-2nd-edition/selected/feature-matrix.md`

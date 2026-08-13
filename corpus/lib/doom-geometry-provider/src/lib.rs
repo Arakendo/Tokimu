@@ -1610,12 +1610,14 @@ fn seg_interval_on_linedef(
     [start.min(end), start.max(end)]
 }
 
+type TexturedTriangle = ([[f64; 3]; 3], [[f64; 2]; 3]);
+
 fn clip_textured_triangle_to_linedef_interval(
     positions: [[f64; 3]; 3],
     coordinates: [[f64; 2]; 3],
     interval: [f64; 2],
     candidate: &DoomWallCandidate,
-) -> Vec<([[f64; 3]; 3], [[f64; 2]; 3])> {
+) -> Vec<TexturedTriangle> {
     let mut polygon = positions
         .into_iter()
         .zip(coordinates)

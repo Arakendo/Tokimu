@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Reopened |
+| Status | No Change — Doom-local orientation repair retained |
 | Opened | 2026-08-10 |
-| Last reviewed | 2026-08-11 |
+| Last reviewed | 2026-08-13 |
 | Scope | Cross-cutting coordinate, camera, geometry, input, and source-provider conformance |
 | Trigger | The E1M1 corpus exposed reversed right/front wall art, A/D strafe, and mouse yaw while moving Doom coordinates into Tokimu's first-person presentation. |
 | Related ADRs | ADR-0003, ADR-0008, ADR-0009, ADR-0012, ADR-0013 |
@@ -228,14 +228,18 @@ No shared coordinate/camera admission is justified unless evidence shows:
 
 ## Current Disposition
 
-**Reopened; Alternative A remains the investigation rule, not a completed
-disposition.** Cycle 4 falsified the earlier inference that exact point and
-direction round trips were sufficient orientation evidence. The review has
-not yet selected a repair or found evidence for a universal Tokimu basis. Its
-earlier work still found several differently owned
-directional rules that had been implicit: Doom source conversion, application
-camera-control policy, caller-supplied renderer inputs, and WGPU clip-depth
-adaptation. Those rules are now explicit and tested at their owning boundaries.
+**No Change; Alternative A completed the investigation without earning a
+Tokimu-wide coordinate contract.** The old direct Doom lift was classified as
+H1 + H2: it reversed the canonical source landmark determinant before camera
+construction, and its lifted source-right opposed camera-right. H3 explained
+why the first free-camera screenshots were insufficient, but the fixed source
+spawn fixture reproduced the signed mismatch.
+
+The Doom corpus consumer now selects the orientation-preserving Preserve North
+adapter explicitly. Preserve East remains an equally coherent comparison
+control related by a 180-degree world-Y rotation. Doom-relative evidence cannot
+select between those absolute alignments, so Preserve North is a Doom consumer
+convention rather than a universal Tokimu cardinal-axis decision.
 
 Do not globally flip renderer UVs or platform input, and do not introduce a
 public camera-basis API from this evidence. Provider conversions may remain
@@ -243,11 +247,11 @@ local only when named, testable, and lowered into existing explicit Tokimu
 inputs; Alternative C's implicit provider autonomy remains rejected.
 
 The comparative result and complete ownership table are retained in
-[`coordinate-frame-comparative-results.md`](../Plans/Tests/coordinate-frame-comparative-results.md).
+[`coordinate-frame-comparative-results.md`](../Plans/Coordinate-Conformance/Evidence/coordinate-frame-comparative-results.md).
 No ADR is produced because no Native or stable public meaning changed.
 
-The current headless result and reproduction command are retained in
-[`doom-source-world-spatial-orientation-evidence.md`](../Plans/Tests/doom-source-world-spatial-orientation-evidence.md).
+The final headless result and reproduction command are retained in
+[`doom-source-world-spatial-orientation-evidence.md`](../Plans/Coordinate-Conformance/Studies/doom-source-world-spatial-orientation-evidence.md).
 
 ### Conformance Progress — 2026-08-10
 
@@ -384,7 +388,8 @@ lift, the corresponding cross product dotted with world `+Y` is `-71,680`.
 This upgrades H1 from a unit-basis suspicion to canonical-package structural
 evidence. The same fixture places the hut `+1,120` along Doom source-right but
 `-1,120` along the current observer camera-right, giving H2 canonical landmark
-support as well. Fixed-pose visual-reference equivalence remains open.
+support as well. The later fixed-pose native and browser observations close the
+visual control without changing that source-record classification.
 
 ### Comparative Embedding Checkpoint
 
@@ -412,7 +417,7 @@ wall winding and normals without changing ADR-0012's supplied-UV renderer
 contract.
 
 The running matrix is retained in
-[`doom-orientation-embedding-comparison.md`](../Plans/Tests/doom-orientation-embedding-comparison.md).
+[`doom-orientation-embedding-comparison.md`](../Plans/Coordinate-Conformance/Studies/doom-orientation-embedding-comparison.md).
 
 The first migration probe now runs the real source-derived sidedef fixture
 under both candidates. Because either candidate reflects the current prepared
@@ -434,8 +439,8 @@ art. This closes the fixed-spawn native visual control and confirms that the
 wall-U/winding migration is coherent. It also supplies direct negative
 selection evidence: Doom-relative presentation cannot decide which world
 cardinal relationship Tokimu should preserve. Collision, Doom-membership
-selection, dynamic doors, and browser parity remain explicitly outside this
-observation.
+selection, dynamic doors, and browser parity were initially outside this
+observation and were closed by the later source-correspondence controls.
 
 The provisional architectural result is therefore narrower and stronger than
 an axis choice: **source embeddings must not reverse orientation accidentally;
@@ -460,7 +465,7 @@ source-spawn-yaw-plus-90 pose retains `61/237` and `474`. Flat facing is likewis
 identical at `463` floor-up and `390` ceiling-down with zero inverted cases.
 These results remove collision, floors, flat winding, and conservative source
 membership as possible selectors between the two cardinal alignments. Dynamic
-door re-lowering and browser parity remain open.
+door re-lowering and browser parity were the final open controls.
 
 An asymmetric diagnostic texture then exposed one more coupled migration
 surface that ordinary Doom flats could not reveal. The retained purple
@@ -506,7 +511,7 @@ make triangulation boundaries change texture phase.
 - Disposition: remain Incubating under Alternative A; add the proposed
   falsification work without selecting a public convention or API.
 - Resulting ADR or documentation change: expanded AR-0028 conformance plan and
-  `docs/Plans/Tests/coordinate-frame-directional-conformance.md`.
+  `docs/Plans/Coordinate-Conformance/coordinate-frame-directional-conformance.md`.
 
 ### Cycle 3 -- 2026-08-10
 
@@ -541,6 +546,39 @@ make triangulation boundaries change texture phase.
   while identifying canonical source landmarks and the precise conversion
   boundary. Do not compensate in renderer, UV, platform input, or WGPU code.
 
+### Cycle 5 -- 2026-08-12
+
+- New cross-review evidence: the AR-0019 corpus-local chart control classifies
+  a composed rigid transition as orientation-preserving and an independently
+  invertible negative-X reflection as orientation-reversing under both pinned
+  A and owned C0.
+- Findings: the classification is derived by the framed semantic layer from
+  transported basis directions. It confirms that raw matrix invertibility does
+  not decide intended orientation behavior, without making `Mat4` a source- or
+  chart-aware type.
+- Disposition: retain the existing Doom source-adapter investigation and no
+  global convention. The chart result is supporting evidence only.
+
+### Cycle 6 -- 2026-08-13
+
+- Status entering review: Reopened under Alternative A.
+- New evidence: Preserve East and Preserve North retain exact picking,
+  collision, floor transitions, flat facing, source-membership selection, and
+  dynamic-door open/close/reopen correspondence. The final Browser WebGPU
+  Preserve North fixture presented `1823/1823` opaque draws with
+  `camera=canonical-exitsign`; the observation named
+  `embedding=preserve-north`, and the maintainer confirmed readable `EXIT` art.
+- Participants or reviewers: maintainer, Codex.
+- Findings: H1 + H2 classify the old reflection; H3 was an observation-control
+  concern rather than the cause. Preserve North is a coherent Doom consumer
+  convention, while Preserve East demonstrates that Doom cannot choose a
+  universal world-axis alignment. Dynamic geometry must pass through the same
+  explicit adapter as static geometry.
+- Disposition: No Change. Retain the Doom-local Preserve North repair and the
+  explicit comparison controls. Admit no renderer UV flip, platform input
+  normalization, public camera basis, or Tokimu-wide cardinal convention; no
+  ADR is produced.
+
 ## References
 
 - `docs/Architectural Reviews/AR-0021-geometry-orientation-and-facing-conformance.md`
@@ -549,4 +587,4 @@ make triangulation boundaries change texture phase.
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/ADR/ADR-0012-supplied-mesh-texture-coordinates-and-sampling-policy.md`
 - `corpus/lib/doom-geometry-provider/src/lib.rs`
-- `corpus/hello-doom-e1m1/src/bin/static_scene.rs`
+- `corpus/campaigns/doom/hello-doom-e1m1/src/bin/static_scene.rs`

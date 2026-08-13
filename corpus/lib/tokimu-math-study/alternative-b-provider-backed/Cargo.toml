@@ -7,7 +7,16 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["provider-029"]
+provider-029 = ["dep:glam_029"]
+provider-033 = ["dep:glam_033"]
+
 [dependencies]
-glam = { path = "../../../../third-party/ring-0/glam", default-features = false, features = ["std"] }
+glam_029 = { package = "glam", path = "../../../../third-party/ring-0/glam", default-features = false, features = ["std"], optional = true }
+glam_033 = { package = "glam", path = "../../../../target/ar0019-glam-update-worktree/third-party/ring-0/glam", default-features = false, features = ["std"], optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "=0.3.76"
 
 [workspace]

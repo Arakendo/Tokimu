@@ -869,7 +869,7 @@ A render mismatch should not automatically be assigned to the decoder. Compare
 decode, upload, sampling, shader, and capture artifacts in order.
 
 The next consumer proof is tracked in
-[`typescript-shader-material-presentation-control.md`](../Plans/typescript-shader-material-presentation-control.md):
+[`typescript-shader-material-presentation-control.md`](../Plans/Standalone/typescript-shader-material-presentation-control.md):
 the shader receives a prepared texture identity and declared interpretation, not
 encoded PNG/JPEG/BMP bytes. The first proof must retain the diagnostic sequence
 above so a sampled-texture mismatch is localized before it is blamed on a

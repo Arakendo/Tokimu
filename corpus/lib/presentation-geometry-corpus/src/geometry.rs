@@ -57,7 +57,7 @@ pub(crate) fn rasterize_mesh(
             height as f32 - offset_y - (point[1] - min[1]) * scale,
         ]
     };
-    let mut pixels = vec![12_u8, 15, 21, 255].repeat((width * height) as usize);
+    let mut pixels = [12_u8, 15, 21, 255].repeat((width * height) as usize);
     for triangle in triangles.chunks_exact(3) {
         let points = [map(triangle[0]), map(triangle[1]), map(triangle[2])];
         let min_x = points

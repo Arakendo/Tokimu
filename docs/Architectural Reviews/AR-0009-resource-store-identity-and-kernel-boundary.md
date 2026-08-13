@@ -8,7 +8,7 @@
 | Scope | Kernel / foundational service / capability / cross-cutting |
 | Trigger | Repeated MemoryStore identity, root, visibility, and missing-folder failures plus proposed native/WASM consumers |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0005 |
-| Related evidence | `docs/Plans/memory-resource-store.md`; C# MemoryStore behavior and tests; Asset Workbench, XML/SVG, glTF, and corpus artifact consumer candidates |
+| Related evidence | `docs/Plans/Standalone/memory-resource-store.md`; C# MemoryStore behavior and tests; Asset Workbench, XML/SVG, glTF, and corpus artifact consumer candidates |
 | Admission exception | ADR-0005 provisional admission for a reversible foundational contract; no permanent crate extraction or kernel admission |
 
 ## Architectural Question
@@ -388,7 +388,7 @@ evidence is insufficient to bind that split through an ADR.
 
 ## Required Follow-Up
 
-- [x] Expand `docs/Plans/memory-resource-store.md` with known failure evidence.
+- [x] Expand `docs/Plans/Standalone/memory-resource-store.md` with known failure evidence.
 - [x] Create regression fixtures for hidden resources, unstable roots, and
       duplicate logical-store construction.
 - [x] Create regression fixtures for empty folders, hidden folders,
@@ -399,7 +399,7 @@ evidence is insufficient to bind that split through an ADR.
 - [x] Exercise one native and one WASM build-and-contract consumer.
 - [x] Exercise a corpus importer and `tokimu-assets` loader bridge.
 - [x] Complete the admission matrix in
-      `docs/Plans/memory-resource-store.md`.
+      `docs/Plans/Standalone/memory-resource-store.md`.
 - [ ] Attempt a foundational-capability decomposition with no kernel addition
       and record where it succeeds or fails.
 - [ ] Reassess kernel-native versus foundational capability ownership.
@@ -460,7 +460,7 @@ This review remains active. After a disposition, reopen or supersede it when:
   policy mismatch is rejected rather than silently reinterpreting addresses.
   A synchronized caller can race two create requests without producing two
   stores for one ID.
-- Consumer evidence: `corpus/hello-resource-space` uses only the public
+- Consumer evidence: `corpus/focused/data-interchange/hello-resource-space` uses only the public
   contract to create two same-named stores with distinct provenance, navigate
   folders, retain hidden content, run a bounded query, and prove that equal
   retained bytes do not merge qualified resource identity.
@@ -949,7 +949,7 @@ This review remains active. After a disposition, reopen or supersede it when:
 
 ## References
 
-- `docs/Plans/memory-resource-store.md`
+- `docs/Plans/Standalone/memory-resource-store.md`
 - External candidate: `F:\LocalSource\TS XSLT` (Weaver TypeScript/XSLT3
   project; reviewed in AR-0010, unintegrated prospective XML consumer)
 - `docs/ADR/ADR-0001-engine-boundaries.md`

@@ -18,6 +18,8 @@ const GRID_CELL_STEP: f32 = 0.19;
 const GRID_CELL_HALF_EXTENT: f32 = GRID_CELL_STEP * 0.5;
 const GRID_ICON_SCALE: [f32; 2] = [0.14, 0.14];
 
+type IconMesh = (MeshHandle, [f32; 2], [f32; 2], f32);
+
 fn main() -> PlatformResult<()> {
     run_window_with_app(
         WindowConfig {
@@ -35,7 +37,7 @@ struct App {
     window: Option<Arc<NativeWindow>>,
     size: [f32; 2],
     pipeline: PipelineHandle,
-    meshes: Vec<Option<(MeshHandle, [f32; 2], [f32; 2], f32)>>,
+    meshes: Vec<Option<IconMesh>>,
     icon_names: Vec<String>,
     cursor_position: [f32; 2],
     selected: Option<usize>,

@@ -3,7 +3,7 @@
 ## Status
 
 Active Slice 0 evidence for
-[`ui-tools-consumer-safety-and-hardening.md`](../Plans/ui-tools-consumer-safety-and-hardening.md).
+[`ui-tools-consumer-safety-and-hardening.md`](../Plans/Standalone/ui-tools-consumer-safety-and-hardening.md).
 
 This is a structural inventory, not a claim that every matching source line is
 duplicated or unsafe. It establishes a repeatable starting point for the UI

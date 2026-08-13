@@ -8,7 +8,7 @@
 | Scope | Foundational service / capability / frontend / cross-cutting |
 | Trigger | Weaver's documented injected URI resolver may become an independent TypeScript/XML consumer of Tokimu Resource Space |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0005 |
-| Related evidence | AR-0009; `docs/Plans/memory-resource-store.md`; pinned `third-party/weaver-xslt` source; Weaver `ARCHITECTURE.md`, `SEMANTIC_BOUNDARIES.md`, and `URI_RESOLUTION.md` |
+| Related evidence | AR-0009; `docs/Plans/Standalone/memory-resource-store.md`; pinned `third-party/weaver-xslt` source; Weaver `ARCHITECTURE.md`, `SEMANTIC_BOUNDARIES.md`, and `URI_RESOLUTION.md` |
 | Admission exception | None |
 
 ## Architectural Question
@@ -39,7 +39,7 @@ make them compose honestly.
 
 ## Trigger And Evidence
 
-- Corpus examples: `corpus/hello-resource-space` and the Asset Workbench use
+- Corpus examples: `corpus/focused/data-interchange/hello-resource-space` and the Asset Workbench use
   Resource Space for explicit selected-resource sessions. No Weaver consumer
   has yet used the public contract.
 - Automated tests: `resource-space` and `resource-space-xml` test qualified
@@ -250,12 +250,12 @@ missing resources structurally.
   the Resource Space adapter, resolver failures, and admission evidence until
   the public resolver surface exists.
 - Resulting ADR or documentation change: added
-  `docs/Plans/weaver-xslt-resource-space-consumer-corpus.md`; no ADR change.
+  `docs/Plans/Standalone/weaver-xslt-resource-space-consumer-corpus.md`; no ADR change.
 
 ## References
 
 - `docs/Architectural Reviews/AR-0009-resource-store-identity-and-kernel-boundary.md`
-- `docs/Plans/memory-resource-store.md`
+- `docs/Plans/Standalone/memory-resource-store.md`
 - `docs/ADR/ADR-0001-engine-boundaries.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`

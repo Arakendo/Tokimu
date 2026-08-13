@@ -17,16 +17,30 @@ use std::{
 /// Writes durable source/XML evidence for an expected SVG boundary failure.
 /// The expectation label keeps malformed input distinct from unsupported
 /// profile content without inventing vector or mesh artifacts.
+pub(crate) struct ExpectedFailureArtifact<'a> {
+    pub case_id: &'a str,
+    pub producer: &'a str,
+    pub source_label: String,
+    pub source: String,
+    pub xml: &'a XmlStageEvidence,
+    pub diagnostic: String,
+    pub expectation: &'a str,
+    pub artifact_name: &'a str,
+}
+
 pub(crate) fn write_svg_expected_failure_artifacts(
-    case_id: &str,
-    producer: &str,
-    source_label: String,
-    source: String,
-    xml: &XmlStageEvidence,
-    diagnostic: String,
-    expectation: &str,
-    artifact_name: &str,
+    artifact: ExpectedFailureArtifact<'_>,
 ) -> Result<PathBuf, String> {
+    let ExpectedFailureArtifact {
+        case_id,
+        producer,
+        source_label,
+        source,
+        xml,
+        diagnostic,
+        expectation,
+        artifact_name,
+    } = artifact;
     let root = PathBuf::from("target/presentation-geometry-corpus").join(case_id);
     fs::create_dir_all(&root).map_err(|error| format!("create artifact directory: {error}"))?;
     for artifact in [

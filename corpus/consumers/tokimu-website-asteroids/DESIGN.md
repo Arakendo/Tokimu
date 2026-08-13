@@ -5,7 +5,7 @@
 `tokimu-website-asteroids` is a browser consumer corpus for a polished,
 playable Tokimu game embedded as an optional island on the public website.
 
-It evolves the mechanics proven by `corpus/hello-asteroids` into a bounded
+It evolves the mechanics proven by `corpus/focused/simulation/hello-asteroids` into a bounded
 Rust/WASM consumer with richer presentation evidence:
 
 - score, lives, waves, combo scoring, and game-over flow;
@@ -304,10 +304,10 @@ described by Tokimu governance.
 
 ## References
 
-- [`hello-asteroids`](../../hello-asteroids/DESIGN.md)
+- [`hello-asteroids`](../../focused/simulation/hello-asteroids/DESIGN.md)
 - [Website consumer corpus](../tokimu-website/DESIGN.md)
 - [Interactive island contract](../../../website/docs/lab/island-contract.md)
-- [Tokimu website plan](../../../docs/Plans/tokimu-website.md)
-- [Particle simulation and presentation plan](../../../docs/Plans/particle-simulation-and-presentation.md)
+- [Tokimu website plan](../../../docs/Plans/Standalone/tokimu-website.md)
+- [Particle simulation and presentation plan](../../../docs/Plans/Standalone/particle-simulation-and-presentation.md)
 - [ADR-0001: Engine Boundaries](../../../docs/ADR/ADR-0001-engine-boundaries.md)
 - [ADR-0007: Kernel Performance Diagnostics](../../../docs/ADR/ADR-0007-kernel-performance-diagnostics.md)

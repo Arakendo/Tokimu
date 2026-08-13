@@ -41,7 +41,7 @@ candidate. This is deliberately one step short of provider-neutral paint: it
 does not select an edge style, infer defaults, apply clipping, tessellate a
 mesh, or render pixels.
 
-`corpus/hello-cgm` is the first visible consumer. It loads `POLYLN01.cgm`
+`corpus/focused/data-interchange/hello-cgm` is the first visible consumer. It loads `POLYLN01.cgm`
 through `cgm-corpus` and presents source identity, lifecycle, VDC descriptor
 state, explicit attribute and primitive counts, element-class counts, and
 source order. The adapter currently lowers the selected polyline, polygon,
@@ -1076,7 +1076,7 @@ Until then, CGM remains an evidence-producing external format adapter.
 - `docs/Conversations/CGM Corpus Tests.md`
 - `docs/Libraries/w3c-svg-corpus-testing.md`
 - `docs/Libraries/khronos-gltf-corpus-testing.md`
-- `docs/Plans/presentation-geometry-corpus-harness.md`
+- `docs/Plans/Standalone/presentation-geometry-corpus-harness.md`
 - `docs/testing-strategy.md`
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/Architectural Reviews/AR-0001-shared-vector-presentation-geometry.md`
