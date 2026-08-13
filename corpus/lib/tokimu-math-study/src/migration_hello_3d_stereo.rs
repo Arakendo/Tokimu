@@ -6,7 +6,7 @@
 //! `Vec3`/`Mat4` inventory.
 
 use crate::{alternative_b::Vec3 as BVec3, alternative_c::Vec3 as CVec3, migration_b, migration_c};
-use tokimu_core::math::{Mat4 as AMat4, Vec3 as AVec3};
+use tokimu_core::math::{try_view_look_at_rh, Vec3 as AVec3};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StereoViewProjections {
@@ -18,9 +18,11 @@ pub struct StereoViewProjections {
 pub fn stereo_with_a(seconds: f32, width: f32, height: f32) -> StereoViewProjections {
     let (left_eye, right_eye) = eyes_with_a(seconds);
     let mut left_camera = tokimu::Camera::perspective_3d(width * 0.5, height);
-    left_camera.view = AMat4::look_at_rh(left_eye, AVec3::ZERO, AVec3::Y);
+    left_camera.view = try_view_look_at_rh(left_eye, AVec3::ZERO, AVec3::Y)
+        .expect("stereo left-eye camera must be valid");
     let mut right_camera = tokimu::Camera::perspective_3d(width * 0.5, height);
-    right_camera.view = AMat4::look_at_rh(right_eye, AVec3::ZERO, AVec3::Y);
+    right_camera.view = try_view_look_at_rh(right_eye, AVec3::ZERO, AVec3::Y)
+        .expect("stereo right-eye camera must be valid");
 
     StereoViewProjections {
         left: (left_camera.projection * left_camera.view).to_cols_array(),

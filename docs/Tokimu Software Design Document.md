@@ -501,6 +501,14 @@ upload boundary when their native clip space differs. In particular, the WGPU
 adapter explicitly remaps Tokimu depth into WebGPU's `[0, 1]` interval in its
 private camera uniform; callers do not pre-convert camera matrices for WGPU.
 
+ADR-0014 makes construction of the right-handed Y-up, `-Z`-forward view and
+the GL-depth perspective/orthographic projections a narrow Tokimu semantic
+boundary. `tokimu-core::math` exposes checked provider-neutral constructors
+over the already admitted matrix/vector carriers; provider camera modules stay
+private. This does not make ordinary vector/matrix mechanics, camera lifecycle,
+viewport selection, source-space embedding, or rendering-provider adaptation
+Tokimu math semantics.
+
 That renderer API should also avoid baking in assumptions that only sprites or
 only meshes matter. Cameras, transforms, render commands, visibility, and
 resource handles should leave room for both 2D and 3D content, even if the

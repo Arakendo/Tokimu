@@ -115,6 +115,28 @@ must preserve plane identity independently of both sector identity and wall
 clip updates. The inventory remains source evidence only; it allocates no
 visplanes, produces no spans, and selects no flat mesh.
 
+The next bounded trace reconstructs source-keyed floor/ceiling cells from the
+clip state immediately before each admitted wall range mutates it. It preserves
+multiple plane instances when a new horizontal range collides with an existing
+instance of the same `(kind, height, flat, light)` key; taking one bounding
+union would manufacture coverage. The five fixed controls report:
+
+| Pose | Source keys (floor/ceiling) | Plane instances | Collision splits | Horizontal spans | Empty after clip |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| source spawn | 5 / 1 | 8 | 2 | 24 | 1,525 |
+| near-wall A | 1 / 1 | 2 | 0 | 4 | 27 |
+| near-wall B | 4 / 1 | 8 | 3 | 13 | 577 |
+| courtyard-loss | 3 / 1 | 4 | 0 | 4 | 257 |
+| hut control | 1 / 1 | 2 | 0 | 2 | 188 |
+
+No retained instance contains overlapping column writes after splitting. The
+source-spawn and near-wall-B controls prove that semantic plane key and plane
+instance identity are different facts; the other three controls show that the
+split is conditional rather than ceremonial. `empty after clip` counts source
+mark attempts whose bounded interval had already collapsed under current clip
+limits. These counts are diagnostic source cells, not historic pixel parity,
+flat selection, triangulation, or presentation visibility.
+
 This remains a Doom presentation-provider experiment. Generic Tokimu callers
 may use different source-owned selection methods; no `SEG`, `solidsegs`, Doom
 portal rule, or classic renderer policy belongs in `tokimu-render`.

@@ -279,6 +279,13 @@ facts that a later provider-local span experiment would need: admitted floor
 and ceiling contributors, distinct `(height, flat, light)` keys, and the
 normalization of `F_SKY1` ceilings to a common sky key. It does not allocate
 visplanes, construct spans, select flats, or create a presentation mode.
+`--doom-seg-classic-plane-span-trace` continues that headless control by
+recording bounded per-column floor/ceiling cells before each admitted wall
+range changes the clip state. Conflicting writes to the same source plane key
+are split into separate diagnostic instances instead of being merged into
+fabricated coverage. The result remains a source-protocol observation: it does
+not claim classic visplane parity, select flat meshes, upload geometry, or
+change presentation visibility.
 `--doom-seg-per-column-presentation` is a fixed-source-spawn visual comparison
 which retains normal flats/cutouts but substitutes selected whole SEG walls. It
 does not update after a camera turn and is not an interactive culling mode.

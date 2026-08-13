@@ -31,14 +31,15 @@ impl Camera {
         let half_width = half_height * aspect_ratio;
 
         self.view = Mat4::IDENTITY;
-        self.projection = Mat4::orthographic_rh_gl(
+        self.projection = tokimu_core::math::try_projection_orthographic_rh_gl(
             -half_width,
             half_width,
             -half_height,
             half_height,
             -1.0,
             1.0,
-        );
+        )
+        .expect("orthographic parameters must be finite and ordered");
     }
 
     pub fn perspective_3d(width: f32, height: f32) -> Self {
@@ -53,8 +54,15 @@ impl Camera {
         let target = Vec3::ZERO;
         let up = Vec3::Y;
 
-        self.view = Mat4::look_at_rh(eye, target, up);
-        self.projection = Mat4::perspective_rh_gl(60.0_f32.to_radians(), aspect_ratio, 0.1, 100.0);
+        self.view = tokimu_core::math::try_view_look_at_rh(eye, target, up)
+            .expect("camera basis must be finite and non-degenerate");
+        self.projection = tokimu_core::math::try_projection_perspective_rh_gl(
+            60.0_f32.to_radians(),
+            aspect_ratio,
+            0.1,
+            100.0,
+        )
+        .expect("perspective parameters must be finite and ordered");
     }
 }
 

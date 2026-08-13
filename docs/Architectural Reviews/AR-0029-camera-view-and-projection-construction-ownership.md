@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | No Change — Narrow B retained as incubation evidence |
+| Status | Accepted — Narrow B admitted by ADR-0014 |
 | Opened | 2026-08-12 |
 | Last reviewed | 2026-08-13 |
 | Scope | Foundational pure-math construction at the camera/presentation boundary |
 | Trigger | `glam` 0.33.3 moves 86 repository uses of three deprecated matrix constructors toward a new foreign `glam::camera` vocabulary |
-| Related ADRs | ADR-0003, ADR-0005, ADR-0008, ADR-0009, ADR-0010; Proposed ADR-XXXX |
+| Related ADRs | ADR-0003, ADR-0005, ADR-0008, ADR-0009, ADR-0010, ADR-0014 |
 | Related evidence | AR-0019, AR-0024, AR-0026, AR-0028, SDD camera contract, Option A update plan |
 | Admission exception | None |
 
@@ -148,7 +148,7 @@ upstream camera module. This supports a bounded Alternative B experiment. It
 does not yet admit that experiment as stable API, settle its crate placement,
 or authorize production pin movement.
 
-## Final Disposition — 2026-08-13
+## Prior Disposition — 2026-08-13
 
 **No Change.** Retain Alternative A as the production math vocabulary and keep
 the isolated Narrow B prototype as executable incubation evidence. This review
@@ -164,9 +164,31 @@ documentation, migration/rollback planning, or explicit maintainer selection
 of a stable/public change. Those missing gates do not prevent a No Change
 disposition; they prevent admission.
 
-The Proposed ADR remains non-authoritative. A future caller may reopen this
-review when it supplies independent pressure for the semantic seam and can
-complete the deferred admission gates.
+This disposition was superseded later on 2026-08-13 by Cycle 9 after the exact
+0.33.3 production admission attempt supplied the named reopening pressure.
+
+## Superseding Disposition — Cycle 9, 2026-08-13
+
+**Admit Alternative B (Narrow B) under ADR-0014.** Keep the five already
+admitted `glam` value carriers and numerical implementation, but make the
+three demonstrated right-handed view/GL-depth projection constructors
+Tokimu-owned checked operations in `tokimu_core::math`. Keep `glam::camera`
+private.
+
+The production 0.33.3 attempt passed the workspace tests but strict Clippy
+rejected the 86-site Alternative-A vocabulary as deprecated. The honest A
+choices were permanent targeted compatibility debt or public adoption of the
+new provider camera vocabulary. The completed B study had already shown that
+three provider-private adapter calls contain this exact update shock while
+Full B adds broader costs without proportional benefit. Maintainer quorum
+selected Narrow B instead of either A workaround.
+
+Fresh 0.33.3 browser attachment was unavailable during admission. ADR-0005
+therefore permits a documented substitution consisting of retained
+actual-browser camera behavior on the prior exact pin, dual-provider Narrow B
+contract evidence, and fresh native/Node-WASM/wasm32 validation. A fresh
+0.33.3 actual-browser replay remains follow-up and must not be described as
+completed evidence.
 
 ## Consequences
 
@@ -188,13 +210,17 @@ complete the deferred admission gates.
       callers without exposing `glam::camera`.
 - [x] Migrate and compile representative GLB and textured-box callers without
       exposing `glam::camera`.
-- [ ] Complete actual GLB runtime and browser observations before reopening for
-      stable admission; native tests and WASM compile evidence pass.
+- [x] Retain GLB runtime and browser-oriented construction evidence without
+      expanding the seam; apply the documented ADR-0005 substitution for the
+      unavailable fresh 0.33.3 browser replay.
 - [x] Resolve the measured checked-construction cost before admission: retain
       unconditional validation while avoiding duplicate normalization and
       construct each caller's intended projection/view exactly once.
-- [ ] Decide engine-neutral placement and whether stable admission requires an
-      ADR before any future stable admission or production-pin migration.
+- [x] Place the pure checked constructors in `tokimu_core::math` and admit them
+      through ADR-0014; camera lifecycle and provider clip conversion remain
+      elsewhere.
+- [ ] Replay the admitted camera-consuming fixture in an actual browser on the
+      exact 0.33.3 tree when an attachable browser is available.
 
 ## Reopening Triggers
 
@@ -207,6 +233,19 @@ complete the deferred admission gates.
 
 ## Review History
 
+### Cycle 9 -- 2026-08-13
+
+- Reopening evidence: production admission of exact `glam` 0.33.3 makes the
+  retained direct constructors strict-Clippy deprecations at repository scale.
+- Rejected shortcuts: no global/blanket deprecation suppression and no public
+  `glam::camera` vocabulary expansion.
+- Quorum: maintainer acceptance plus the retained comparative review supports
+  Narrow B; Full B and C remain unselected.
+- Binding result: ADR-0014 admits exactly three checked semantic constructors;
+  the exact 0.33.3 provider remains private implementation.
+- Evidence exception: fresh actual-browser attachment was unavailable, so the
+  explicitly bounded ADR-0005 substitution is retained with replay follow-up.
+
 ### Cycle 8 -- 2026-08-13
 
 - Maintainer disposition: retain Alternative A in production and continue
@@ -215,8 +254,7 @@ complete the deferred admission gates.
   a bounded recommendation. The remaining browser/GLB, placement,
   documentation, migration, rollback, and acceptance work is admission work,
   not evidence that the existing architecture must change now.
-- Binding result: No Change. Production retains its current math vocabulary;
-  Proposed ADR-XXXX remains non-authoritative and unnumbered.
+- Binding result at that time: No Change. Cycle 9 later superseded this result.
 - Reopening condition: independent caller pressure plus completion of the
   deferred admission gates, or provider evolution that makes the current
   direct-construction boundary materially untenable.
@@ -276,7 +314,8 @@ complete the deferred admission gates.
 
 ### Cycle 7 -- 2026-08-12
 
-- Documentation result: draft Proposed ADR-XXXX now frames Narrow B as a
+- Documentation result: the then-unnumbered Proposed ADR that later became
+  ADR-0014 frames Narrow B as a
   general admission procedure for Tokimu-owned semantic operations over already
   admitted mechanical values. It does not treat the initial function count as
   architecture, authorize ordinary-math wrappers, or promote domain-owned Doom
@@ -289,8 +328,9 @@ complete the deferred admission gates.
   named real-workload performance judgment, stable API/placement/documentation,
   migration/rollback, and explicit maintainer acceptance remain unchecked in
   the Proposed ADR.
-- Disposition: retain Under Review. Proposed ADR-XXXX is non-authoritative and
-  intentionally unnumbered; production and the provider pin remain unchanged.
+- Disposition at that time: retain Under Review. The draft is
+  non-authoritative and intentionally unnumbered; production and the provider
+  pin remain unchanged. Cycle 9 later admits it as ADR-0014.
 
 ### Cycle 3 -- 2026-08-12
 
@@ -354,7 +394,7 @@ complete the deferred admission gates.
 - `docs/Architectural Reviews/AR-0024-renderer-failure-observation-and-diagnostic-boundary.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Architectural Reviews/AR-0028-coordinate-frame-handedness-and-directional-conformance.md`
-- `docs/ADR/Proposed/ADR-XXXX-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
+- `docs/ADR/ADR-0014-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
 - `docs/Plans/Native-Math/Studies/ar-0019-option-a-glam-current-release-update.md`
 - `docs/Tokimu Software Design Document.md`
 - `crates/tokimu-core/src/math.rs`

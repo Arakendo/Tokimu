@@ -721,6 +721,16 @@ this record's current evidence.
                 that plane identity is independent of sector identity and clip
                 updates; it creates no visplane, span, flat selection, or
                 presentation/culling mode.
+          - [x] Reconstruct bounded source-plane instances from the clip state
+                before each admitted wall range mutates it. Source spawn
+                retains `5/1` floor/ceiling keys as `8` instances after `2`
+                collision splits; near-wall B retains `4/1` keys as `8`
+                instances after `3` splits. Near-wall A, courtyard-loss, and
+                hut-control require no split. All five finish with zero
+                overlapping writes. This proves that semantic plane key and
+                screen-plane instance identity differ; it does not claim
+                visplane parity, select flats, lower geometry, or establish a
+                presentation/culling mode.
       - [x] Retain a source-derived hut control: player-one looking at the
             LINEDEFS #208 midpoint. Both SEG records for linedef `247` project
             to columns `166..180` and are fully covered before they contribute
@@ -1667,6 +1677,28 @@ this record's current evidence.
   cross-domain facts; source-specific selection protocols remain providers.
 - Disposition: retain the existing source-protocol study and the separation
   between numerical filtering mechanisms and any future admitted capability.
+
+### Cycle 48 -- 2026-08-13
+
+- The recursive Doom-only control now reconstructs bounded source-plane cells
+  from the ceiling/floor clip limits that exist immediately before each
+  admitted wall range changes them. Plane keys retain kind, height, flat, and
+  light; `F_SKY1` ceilings retain the established normalized sky key.
+- A first one-instance-per-key prototype exposed `235` repeated column writes
+  at source spawn and `151` at near-wall B. Merging those writes by bounding
+  union would have fabricated plane coverage. The retained implementation now
+  splits a colliding horizontal range into a separate diagnostic plane
+  instance. Source spawn resolves `5/1` floor/ceiling keys into `8` instances
+  after `2` splits; near-wall B resolves `4/1` keys into `8` instances after
+  `3` splits. Near-wall A, courtyard-loss, and hut-control require no splits,
+  and all five controls finish with zero overlapping writes.
+- This is positive representation evidence and a useful negative abstraction
+  result: semantic plane key is not sufficient screen-plane instance identity.
+  The trace still stops before classic projection parity, flat lookup,
+  triangulation, upload, or presentation selection. The next bounded question
+  is whether these retained instances can select and lower source flat spans
+  without reintroducing any of the mandatory false negatives; no renderer or
+  public visibility contract follows from this cycle.
 
 ## References
 

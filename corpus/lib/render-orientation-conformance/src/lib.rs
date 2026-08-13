@@ -67,8 +67,19 @@ pub fn camera_conformance_view_projection(pose: CameraConformancePose, aspect_ra
 
 pub fn camera_conformance_matrices(pose: CameraConformancePose, aspect_ratio: f32) -> (Mat4, Mat4) {
     let basis = pose.basis();
-    let view = Mat4::look_at_rh(pose.position, pose.position + basis.forward, basis.up);
-    let projection = Mat4::perspective_rh_gl(60.0_f32.to_radians(), aspect_ratio, 0.1, 100.0);
+    let view = tokimu_core::math::try_view_look_at_rh(
+        pose.position,
+        pose.position + basis.forward,
+        basis.up,
+    )
+    .expect("camera basis must be finite and non-degenerate");
+    let projection = tokimu_core::math::try_projection_perspective_rh_gl(
+        60.0_f32.to_radians(),
+        aspect_ratio,
+        0.1,
+        100.0,
+    )
+    .expect("perspective parameters must be finite and ordered");
     (view, projection)
 }
 

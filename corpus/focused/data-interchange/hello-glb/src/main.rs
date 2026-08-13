@@ -306,7 +306,9 @@ impl HelloGlbApp {
             1.8 + orbit.sin() * 0.15,
             orbit.sin() * 4.75,
         );
-        camera.view = Mat4::look_at_rh(eye, Vec3::new(0.0, 0.35, 0.0), Vec3::Y);
+        camera.view =
+            tokimu_core::math::try_view_look_at_rh(eye, Vec3::new(0.0, 0.35, 0.0), Vec3::Y)
+                .expect("camera basis must be finite and non-degenerate");
         let mut commands = vec![
             RenderCommand::Clear(ClearCommand {
                 color: Color::rgb(0.05, 0.07, 0.11),

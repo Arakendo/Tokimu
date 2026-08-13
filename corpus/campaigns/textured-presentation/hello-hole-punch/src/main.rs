@@ -84,7 +84,9 @@ impl HelloHolePunchApp {
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
         let orbit = seconds * 0.22;
         let eye = Vec3::new(orbit.cos() * 4.8, 2.7, orbit.sin() * 4.8);
-        camera.view = Mat4::look_at_rh(eye, Vec3::new(0.0, 0.25, 0.0), Vec3::Y);
+        camera.view =
+            tokimu_core::math::try_view_look_at_rh(eye, Vec3::new(0.0, 0.25, 0.0), Vec3::Y)
+                .expect("camera basis must be finite and non-degenerate");
         renderer.upload_camera(CAMERA_HANDLE, camera);
 
         let mut commands = vec![

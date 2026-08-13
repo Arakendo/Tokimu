@@ -91,8 +91,12 @@ impl HelloCadApp {
 
     fn camera_for_scene(&self) -> Camera {
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
-        camera.view =
-            Mat4::look_at_rh(Vec3::new(4.0, 3.0, 4.0), Vec3::new(0.0, 0.25, 0.0), Vec3::Y);
+        camera.view = tokimu_core::math::try_view_look_at_rh(
+            Vec3::new(4.0, 3.0, 4.0),
+            Vec3::new(0.0, 0.25, 0.0),
+            Vec3::Y,
+        )
+        .expect("camera basis must be finite and non-degenerate");
         camera
     }
 

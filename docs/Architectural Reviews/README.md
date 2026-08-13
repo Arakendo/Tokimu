@@ -209,8 +209,8 @@ across unrelated decisions.
   — Under Review; records ADR-0011's build-provenance application while runtime
   authority, hostile-input, and isolation evidence remains open
 - [AR-0019: Native Math Vocabulary And Foreign-Type Boundary](AR-0019-native-math-vocabulary-and-foreign-type-boundary.md)
-  — Incubating; retains `glam` as the current audited provider while studying a
-  Tokimu-owned public math vocabulary and a reusable foreign-type admission method
+  — Incubating; retains audited `glam` 0.33.3 with ADR-0014 Narrow B while
+  continuing the owned-vocabulary study and reusable foreign-type admission method
 - [AR-0020: TypeScript Authoring Boundary And Corpus Conformance](AR-0020-typescript-authoring-boundary-and-corpus-conformance.md)
   — Under Review; classifies TypeScript corpus roles and studies enforceable
   TTSDD conformance before promoting the boundary into a binding ADR
@@ -246,5 +246,5 @@ across unrelated decisions.
   adapter and comparison controls without admitting a Tokimu-wide cardinal-axis
   convention
 - [AR-0029: Camera, View, And Projection Construction Ownership](AR-0029-camera-view-and-projection-construction-ownership.md)
-  — No Change; retains Alternative A in production and parks the demonstrated
-  three-family Narrow B seam as executable incubation evidence
+  — Accepted; ADR-0014 admits the demonstrated three-family Narrow B seam while
+  keeping `glam::camera` private

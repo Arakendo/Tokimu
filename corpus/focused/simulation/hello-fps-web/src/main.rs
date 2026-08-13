@@ -444,11 +444,12 @@ impl HelloFpsWebApp {
         };
 
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
-        camera.view = Mat4::look_at_rh(
+        camera.view = tokimu_core::math::try_view_look_at_rh(
             self.camera_position,
             self.camera_position + camera_forward,
             Vec3::Y,
-        );
+        )
+        .expect("camera basis must be finite and non-degenerate");
         renderer.upload_camera(CAMERA_HANDLE, camera);
 
         let mut commands = vec![RenderCommand::Clear(ClearCommand {

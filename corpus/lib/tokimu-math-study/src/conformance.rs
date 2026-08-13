@@ -361,7 +361,7 @@ mod tests {
         let owned_view =
             OwnedMat4::try_look_at_rh(OwnedVec3::new(2.0, 3.0, 5.0), OwnedVec3::ZERO, OwnedVec3::Y)
                 .expect("valid owned view");
-        let baseline_view = BaselineMat4::look_at_rh(
+        let baseline_view = glam::camera::rh::view::look_at_mat4(
             BaselineVec3::new(2.0, 3.0, 5.0),
             BaselineVec3::ZERO,
             BaselineVec3::Y,
@@ -375,7 +375,8 @@ mod tests {
 
         let owned_projection = OwnedMat4::try_perspective_rh_gl(1.0, 16.0 / 9.0, 0.1, 100.0)
             .expect("valid owned projection");
-        let baseline_projection = BaselineMat4::perspective_rh_gl(1.0, 16.0 / 9.0, 0.1, 100.0);
+        let baseline_projection =
+            glam::camera::rh::proj::opengl::perspective(1.0, 16.0 / 9.0, 0.1, 100.0);
         assert_mat4_near_selected(
             owned_projection.to_cols_array(),
             baseline_projection.to_cols_array(),
@@ -499,7 +500,7 @@ mod tests {
             [1.0, 2.0, 3.0],
         );
         assert_eq!(
-            BaselineMat4::look_at_rh(
+            glam::camera::rh::view::look_at_mat4(
                 BaselineVec3::new(0.0, 0.0, 5.0),
                 BaselineVec3::ZERO,
                 BaselineVec3::Y
@@ -508,16 +509,20 @@ mod tests {
             .to_array(),
             [0.0, 0.0, -5.0]
         );
-        assert!(BaselineMat4::perspective_rh_gl(1.0, 16.0 / 9.0, 0.1, 100.0)
-            .to_cols_array()
-            .into_iter()
-            .all(f32::is_finite));
         assert!(
-            BaselineMat4::look_at_rh(BaselineVec3::ZERO, BaselineVec3::ZERO, BaselineVec3::Y)
+            glam::camera::rh::proj::opengl::perspective(1.0, 16.0 / 9.0, 0.1, 100.0)
                 .to_cols_array()
                 .into_iter()
-                .any(f32::is_nan)
+                .all(f32::is_finite)
         );
+        assert!(glam::camera::rh::view::look_at_mat4(
+            BaselineVec3::ZERO,
+            BaselineVec3::ZERO,
+            BaselineVec3::Y
+        )
+        .to_cols_array()
+        .into_iter()
+        .any(f32::is_nan));
     }
 
     #[test]
@@ -609,9 +614,12 @@ mod tests {
     #[test]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     fn candidates_retain_observed_degenerate_matrix_behavior_without_promoting_it() {
-        let baseline_degenerate_view =
-            BaselineMat4::look_at_rh(BaselineVec3::ZERO, BaselineVec3::ZERO, BaselineVec3::Y)
-                .to_cols_array();
+        let baseline_degenerate_view = glam::camera::rh::view::look_at_mat4(
+            BaselineVec3::ZERO,
+            BaselineVec3::ZERO,
+            BaselineVec3::Y,
+        )
+        .to_cols_array();
         let baseline_singular_inverse = BaselineMat4::from_scale(BaselineVec3::new(1.0, 0.0, 1.0))
             .inverse()
             .to_cols_array();
@@ -834,12 +842,13 @@ mod tests {
             let near = next_range(&mut seed, 0.01, 2.0);
             let far = near + next_range(&mut seed, 1.0, 500.0);
 
-            let baseline = BaselineMat4::perspective_rh_gl(field_of_view, aspect_ratio, near, far)
-                * BaselineMat4::look_at_rh(
-                    BaselineVec3::from_array(eye),
-                    BaselineVec3::from_array(center),
-                    BaselineVec3::Y,
-                );
+            let baseline =
+                glam::camera::rh::proj::opengl::perspective(field_of_view, aspect_ratio, near, far)
+                    * glam::camera::rh::view::look_at_mat4(
+                        BaselineVec3::from_array(eye),
+                        BaselineVec3::from_array(center),
+                        BaselineVec3::Y,
+                    );
             let provider_backed =
                 CandidateMat4::perspective_rh_gl(field_of_view, aspect_ratio, near, far)
                     * CandidateMat4::look_at_rh(

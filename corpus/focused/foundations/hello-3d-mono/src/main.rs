@@ -101,7 +101,8 @@ impl PlatformEventHandler for Hello3dMonoApp {
         );
 
         let mut camera = Camera::perspective_3d(self.window_size[0], self.window_size[1]);
-        camera.view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
+        camera.view = tokimu_core::math::try_view_look_at_rh(eye, Vec3::ZERO, Vec3::Y)
+            .expect("camera basis must be finite and non-degenerate");
         renderer.upload_camera(CAMERA, camera);
 
         renderer.begin_frame();

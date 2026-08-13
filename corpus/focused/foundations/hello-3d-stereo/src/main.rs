@@ -108,10 +108,12 @@ impl PlatformEventHandler for Hello3dApp {
 
         let mut left_camera =
             Camera::perspective_3d(self.window_size[0] * 0.5, self.window_size[1]);
-        left_camera.view = Mat4::look_at_rh(left_eye, Vec3::ZERO, Vec3::Y);
+        left_camera.view = tokimu_core::math::try_view_look_at_rh(left_eye, Vec3::ZERO, Vec3::Y)
+            .expect("camera basis must be finite and non-degenerate");
         let mut right_camera =
             Camera::perspective_3d(self.window_size[0] * 0.5, self.window_size[1]);
-        right_camera.view = Mat4::look_at_rh(right_eye, Vec3::ZERO, Vec3::Y);
+        right_camera.view = tokimu_core::math::try_view_look_at_rh(right_eye, Vec3::ZERO, Vec3::Y)
+            .expect("camera basis must be finite and non-degenerate");
         renderer.upload_camera(LEFT_EYE_CAMERA, left_camera);
         renderer.upload_camera(RIGHT_EYE_CAMERA, right_camera);
 

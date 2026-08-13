@@ -10,8 +10,8 @@
 
 ## Studies
 
-- [Alternative A Current `glam` Update](Studies/ar-0019-option-a-glam-current-release-update.md) — complete; candidate reviewed but not admitted.
-- [Alternative B Provider-Backed Semantic Seams](Studies/ar-0019-option-b-provider-backed-vocabulary-and-semantic-seams.md) — complete; Narrow B incubates and Full B is parked.
+- [Alternative A Current `glam` Update](Studies/ar-0019-option-a-glam-current-release-update.md) — complete; exact 0.33.3 admitted after ADR-0014 Narrow B resolution.
+- [Alternative B Provider-Backed Semantic Seams](Studies/ar-0019-option-b-provider-backed-vocabulary-and-semantic-seams.md) — complete; Narrow B admitted by ADR-0014 and Full B parked.
 - [Alternative C Owned Math And Bulk Compute](Studies/ar-0019-option-c-owned-math-and-bulk-compute.md) — complete; C0/C1 remain executable alternatives.
 
 Implementation measurements and numerical artifacts remain with the math

@@ -12,7 +12,7 @@ pub(crate) mod alternative_b_provider {
     pub(crate) use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
 
     pub(crate) fn look_at_rh(eye: Vec3, target: Vec3, up: Vec3) -> Mat4 {
-        Mat4::look_at_rh(eye, target, up)
+        glam::camera::rh::view::look_at_mat4(eye, target, up)
     }
 
     pub(crate) fn perspective_rh_gl(
@@ -21,7 +21,7 @@ pub(crate) mod alternative_b_provider {
         near: f32,
         far: f32,
     ) -> Mat4 {
-        Mat4::perspective_rh_gl(vertical_fov_radians, aspect_ratio, near, far)
+        glam::camera::rh::proj::opengl::perspective(vertical_fov_radians, aspect_ratio, near, far)
     }
 
     pub(crate) fn orthographic_rh_gl(
@@ -32,7 +32,7 @@ pub(crate) mod alternative_b_provider {
         near: f32,
         far: f32,
     ) -> Mat4 {
-        Mat4::orthographic_rh_gl(left, right, bottom, top, near, far)
+        glam::camera::rh::proj::opengl::orthographic(left, right, bottom, top, near, far)
     }
 }
 pub mod alternative_c;

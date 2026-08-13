@@ -606,27 +606,31 @@ impl BrowserIntakeSession {
             .max(maximum[2] - minimum[2])
             .max(1.0);
         let mut camera = Camera::perspective_3d(width as f32, height as f32);
-        camera.projection = Mat4::perspective_rh_gl(
+        camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
             60_f32.to_radians(),
             width as f32 / height as f32,
             (radius * 0.0001).max(0.1),
             radius * 4.0,
-        );
+        )
+        .expect("perspective parameters must be finite and ordered");
         camera.view = if let Some((position, target)) = exitsign_view {
-            Mat4::look_at_rh(position, target, Vec3::Y)
+            tokimu_core::math::try_view_look_at_rh(position, target, Vec3::Y)
+                .expect("camera basis must be finite and non-degenerate")
         } else if let Some((position, source_forward)) = source_spawn {
             let yaw = observer_yaw_from_forward(source_forward) + std::f32::consts::FRAC_PI_2;
-            Mat4::look_at_rh(
+            tokimu_core::math::try_view_look_at_rh(
                 position,
                 position + observer_direction(yaw, 0.0) * 128.0,
                 Vec3::Y,
             )
+            .expect("camera basis must be finite and non-degenerate")
         } else {
-            Mat4::look_at_rh(
+            tokimu_core::math::try_view_look_at_rh(
                 center + Vec3::new(radius, radius * 0.72, radius),
                 center,
                 Vec3::Y,
             )
+            .expect("camera basis must be finite and non-degenerate")
         };
         renderer.upload_camera(CameraHandle(1), camera);
         renderer.begin_frame();

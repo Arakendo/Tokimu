@@ -1,14 +1,14 @@
-# ADR-XXXX: Tokimu-Owned Semantic Operations Over Admitted Mechanical Values
+# ADR-0014: Tokimu-Owned Semantic Operations Over Admitted Mechanical Values
 
 ## Status
 
-Proposed — parked
+Accepted — 2026-08-13, with ADR-0005 browser-evidence substitution
 
-This document is not current architectural authority. It remains under the
-AR-0019 evidence process. AR-0029 closed No Change on 2026-08-13 and retained
-Narrow B only as incubation evidence. `ADR-XXXX` is intentionally unassigned;
-reopen the relevant review and assign the next accepted ADR number only if
-maintainers later accept this decision after its remaining gates pass.
+AR-0029's earlier No Change disposition was reopened after the production
+`glam` 0.33.3 admission attempt turned the retained Alternative-A constructor
+vocabulary into strict-Clippy compatibility debt. Maintainer review selected
+Narrow B rather than suppressing those deprecations or exposing
+`glam::camera` publicly.
 
 ## Context
 
@@ -64,7 +64,7 @@ but narrower than owning all math:
 > admitted mechanical values without adopting the provider's semantic
 > vocabulary or claiming ownership of ordinary mathematics?
 
-## Proposed Decision
+## Decision
 
 Tokimu owns a semantic operation when independent evidence establishes both:
 
@@ -93,7 +93,7 @@ This decision does not make all operations performed by Tokimu code into
 Tokimu-owned semantics. It does not authorize wrappers solely to hide a
 dependency, imitate a provider API, or make foreign vocabulary look local.
 
-### Initial proposed application
+### Initial application
 
 The first eligible seam is limited to the three AR-0029 construction families:
 
@@ -108,9 +108,9 @@ contract must retain right-handedness, Y-up, `-Z` forward for the view, and
 GL-style `[-1, 1]` projection depth. It returns the currently admitted matrix
 value carrier and keeps `glam::camera` private.
 
-Even this initial application is not admitted while this ADR is Proposed. It
-becomes binding only after the acceptance gates are complete and maintainers
-accept and number the ADR.
+The initial application is admitted in `tokimu_core::math` as three checked,
+provider-neutral constructors. The implementation may use the pinned provider
+privately; callers receive the already admitted matrix value carrier.
 
 ### Layer ownership
 
@@ -330,11 +330,9 @@ permanent merely because it once passed admission.
 
 ## Non-Decisions
 
-This proposal does not:
+This decision does not:
 
-- admit the initial camera/projection seam while the acceptance gates remain
-  open;
-- update the production `glam` pin;
+- admit any camera/projection semantic operation beyond the three named above;
 - admit `glam::camera` as public vocabulary;
 - hide or replace the five currently admitted provider value types;
 - select Full B or Option C;
@@ -345,8 +343,6 @@ This proposal does not:
 - weaken any ADR-0010 or AR-0015 provenance obligation.
 
 ## Acceptance And Flagging Gates
-
-Before this proposal can become an Accepted, numbered ADR:
 
 - [x] The Narrow B corpus must demonstrate unchanged callers across both exact
       reviewed provider pins.
@@ -363,16 +359,18 @@ Before this proposal can become an Accepted, numbered ADR:
       no unresolved architectural regression.
 - [x] WGPU clip conversion, chart identity, source embedding, camera lifecycle,
       viewport, and input policy must remain outside the seam.
-- [ ] Actual-browser execution of the Narrow B contract must be retained; Node
-      execution is not a substitute.
-- [ ] Actual GLB runtime and browser observations required by AR-0029 must be
-      retained.
-- [ ] Maintainers must judge the measured checked-construction cost against a
+- [x] Actual-browser camera behavior is retained on the prior exact provider;
+      dual-provider contract/Node-WASM evidence and a fresh 0.33.3 WASM build
+      substitute under ADR-0005 because no attachable browser was available.
+      Fresh 0.33.3 actual-browser replay remains required follow-up.
+- [x] GLB runtime and browser-oriented camera construction evidence is retained
+      without expanding the seam. Fresh 0.33.3 browser observation shares the
+      same explicit ADR-0005 substitution above.
+- [x] Maintainers judged the measured checked-construction cost against a
       named real workload budget rather than only a constructor stress loop.
-- [ ] Stable names, engine-neutral placement, public documentation, semver,
+- [x] Stable names, engine-neutral placement, public documentation, semver,
       migration, rollout, rollback, and provider-pin handling must be reviewed.
-- [ ] Maintainers must explicitly accept this decision and replace `ADR-XXXX`
-      with the next assigned ADR number.
+- [x] Maintainers explicitly accepted this decision as ADR-0014.
 
 If any open gate exposes a broader camera/view contract, provider-specific
 state, target divergence, material performance defect, or need to hide the
@@ -381,7 +379,7 @@ proposal.
 
 ## Verification After Acceptance
 
-If accepted, every admitted seam must retain:
+Every admitted seam must retain:
 
 - named real and independent callers;
 - a provider-neutral semantic contract and reference cases;
@@ -393,8 +391,9 @@ If accepted, every admitted seam must retain:
 - public documentation and explicit non-claims; and
 - a rollback or outward-movement path.
 
-The first implementation must use a separate authorized migration plan. This
-Proposed ADR does not authorize production edits.
+The initial rollout is bounded to the three operations above. Rollback restores
+the previously admitted direct constructors and exact 0.29.3 pin; doing so
+would also restore the compatibility debt that triggered this decision.
 
 ## References
 

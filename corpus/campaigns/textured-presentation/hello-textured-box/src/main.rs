@@ -9,7 +9,7 @@ use tokimu::{
     PlatformResult, RenderCommand, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
     TextureAddressMode, TextureFilter, TextureHandle, TextureSampler, WgpuBackend, WindowConfig,
 };
-use tokimu_core::math::{Mat4, Vec3};
+use tokimu_core::math::Vec3;
 
 const MESH: MeshHandle = MeshHandle(1);
 const MATERIAL: MaterialHandle = MaterialHandle(1);
@@ -251,7 +251,9 @@ impl PlatformEventHandler for App {
 
     fn on_frame(&mut self, _delta_seconds: f64) -> PlatformResult<FrameOutcome> {
         let mut camera = Camera::perspective_3d(self.size[0], self.size[1]);
-        camera.view = Mat4::look_at_rh(Vec3::new(2.8, 1.8, 2.8), Vec3::ZERO, Vec3::Y);
+        camera.view =
+            tokimu_core::math::try_view_look_at_rh(Vec3::new(2.8, 1.8, 2.8), Vec3::ZERO, Vec3::Y)
+                .expect("camera basis must be finite and non-degenerate");
         let renderer = self
             .renderer
             .as_mut()

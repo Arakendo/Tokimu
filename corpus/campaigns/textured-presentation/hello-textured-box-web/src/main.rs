@@ -336,7 +336,9 @@ impl BrowserApp {
             )
             .map_err(|e| e.to_string())?;
         let mut camera = Camera::perspective_3d(self.viewport[0], self.viewport[1]);
-        camera.view = Mat4::look_at_rh(Vec3::new(2.8, 1.8, 2.8), Vec3::ZERO, Vec3::Y);
+        camera.view =
+            tokimu_core::math::try_view_look_at_rh(Vec3::new(2.8, 1.8, 2.8), Vec3::ZERO, Vec3::Y)
+                .expect("camera basis must be finite and non-degenerate");
         self.renderer.upload_camera(CAMERA, camera);
         self.renderer.begin_frame();
         self.renderer.submit(&[

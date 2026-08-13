@@ -115,7 +115,7 @@ if ($rejectedResult.ExitCode -eq 0) {
 
 foreach ($expectedDiagnostic in @(
     "approved source 'deliberately missing fixture source' is missing",
-    'glam 0.29.3 resolves from unapproved local path'
+    'glam 0.33.3 resolves from unapproved local path'
 )) {
     if (-not $rejectedResult.Output.Contains($expectedDiagnostic, [System.StringComparison]::Ordinal)) {
         throw "The rejected configuration did not report the expected diagnostic '$expectedDiagnostic':`n$($rejectedResult.Output)"

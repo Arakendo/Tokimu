@@ -1975,6 +1975,27 @@ into the spatial semantic contract.
   production migration or provider-pin movement occurred.
 - Disposition: pause at the explicit Slice 12 maintainer gate.
 
+### Cycle 81 -- 2026-08-13
+
+- Reopening pressure: attempting production admission of exact `glam` 0.33.3
+  made Alternative A's direct camera/projection constructors deprecations under
+  the repository's strict Clippy gate.
+- Rejected responses: no blanket deprecation allowance and no public adoption
+  of `glam::camera`; both would preserve or expand the foreign semantic
+  vocabulary that the completed B study showed could be contained narrowly.
+- Maintainer decision: admit Narrow B through ADR-0014. Production retains the
+  five audited provider value carriers and provider numerical implementation,
+  while Tokimu owns exactly three checked camera/projection constructors.
+- Provider decision: admit exact `glam` 0.33.3 revision
+  `9928729066db87d97fa779e129469721a289beae`; retain 0.29.3 as rollback and
+  historical audit evidence.
+- Verification: strict workspace Clippy, whole-workspace tests, native
+  contracts, and fresh wasm32 camera-consumer compilation pass. Fresh 0.33.3
+  actual-browser replay remains explicit ADR-0005 follow-up because no
+  attachable browser was available during admission.
+- Scope: Full B and Option C remain unselected. This result does not settle the
+  broader Ring 0 self-implementation hypothesis.
+
 ## References
 
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
@@ -1983,7 +2004,7 @@ into the spatial semantic contract.
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/ADR/ADR-0010-ring-zero-third-party-source-admission.md`
 - `docs/ADR/ADR-0011-ring-based-security-authority-and-trust-boundaries.md`
-- `docs/ADR/Proposed/ADR-XXXX-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
+- `docs/ADR/ADR-0014-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
 - `docs/Architectural Reviews/AR-0015-ring-zero-provenance-enforcement-and-audit-closure.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md`

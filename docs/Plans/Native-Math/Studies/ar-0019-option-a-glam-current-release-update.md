@@ -2,15 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete — Pause outcome recorded; candidate fully reviewed but not admitted; production pin unchanged |
+| Status | Complete — exact 0.33.3 admitted after Narrow B resolution |
 | Owner | Tokimu maintainers |
 | Date | 2026-08-12 |
 | Related review | `AR-0019-native-math-vocabulary-and-foreign-type-boundary.md` |
-| Related ADRs | ADR-0005, ADR-0008, ADR-0009, ADR-0010, ADR-0011 |
-| Current pin | `glam` 0.29.3 at `d36e7eeff05338c56c4aa8d59fc2615e7963b1b7` |
+| Related ADRs | ADR-0005, ADR-0008, ADR-0009, ADR-0010, ADR-0011, ADR-0014 |
+| Former pin | `glam` 0.29.3 at `d36e7eeff05338c56c4aa8d59fc2615e7963b1b7` |
 | Intake target | `glam` 0.33.3 at release commit `9928729066db87d97fa779e129469721a289beae` |
 | Submodule | `third-party/ring-0/glam` |
-| Existing audit | `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md` |
+| Former audit | `docs/Dependency Audits/Ring 0/glam-d36e7eeff05338c56c4aa8d59fc2615e7963b1b7.md` |
+| Admitted audit | `docs/Dependency Audits/Ring 0/glam-9928729066db87d97fa779e129469721a289beae.md` |
 
 ## Purpose
 
@@ -521,6 +522,20 @@ The plan is complete when one of these evidence-bearing outcomes is recorded:
    are recorded without describing either revision as newly admitted.
 
 None of these outcomes selects Option C or changes ADR-0010 automatically.
+
+### Post-Pause Admission — 2026-08-13
+
+The original Pause outcome remained valid until production admission exposed
+the retained Alternative-A constructors as strict-Clippy deprecations. AR-0029
+was reopened, ADR-0014 admitted Narrow B, and the production tree moved to the
+fully audited exact 0.33.3 revision without exposing `glam::camera` publicly or
+suppressing deprecations. Whole-workspace tests and strict Clippy pass; fresh
+wasm32 camera-consumer compilation passes. Fresh actual-browser replay remains
+an explicit ADR-0005 follow-up because no attachable browser was available.
+
+The measured Option A lifecycle effort remains evidence: Narrow B changed the
+semantic migration choice, not the provenance, audit, source-review, security,
+license, target, rollback, or maintenance work recorded by this plan.
 
 After one of these outcomes is recorded, create a separate AR-0019 Alternative
 B plan and run it as an independent study. That follow-up must distinguish:

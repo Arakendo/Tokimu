@@ -7,7 +7,9 @@ use crate::{
     alternative_b::{Mat4 as BMat4, Vec3 as BVec3, Vec4 as BVec4},
     alternative_c::{Mat4 as CMat4, Vec3 as CVec3, Vec4 as CVec4},
 };
-use tokimu_core::math::{Mat4 as AMat4, Vec3 as AVec3, Vec4 as AVec4};
+use tokimu_core::math::{
+    try_projection_perspective_rh_gl, try_view_look_at_rh, Vec3 as AVec3, Vec4 as AVec4,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraRay {
@@ -18,13 +20,17 @@ pub struct CameraRay {
 #[must_use]
 pub fn camera_ray_with_a(window_size: [f32; 2], cursor: [f32; 2]) -> Option<CameraRay> {
     let (ndc_x, ndc_y) = cursor_ndc(window_size, cursor);
-    let view = AMat4::look_at_rh(
+    let view = try_view_look_at_rh(
         AVec3::new(4.0, 3.0, 4.0),
         AVec3::new(0.0, 0.25, 0.0),
         AVec3::Y,
-    );
-    let projection =
-        AMat4::perspective_rh_gl(60.0_f32.to_radians(), aspect_ratio(window_size), 0.1, 100.0);
+    )?;
+    let projection = try_projection_perspective_rh_gl(
+        60.0_f32.to_radians(),
+        aspect_ratio(window_size),
+        0.1,
+        100.0,
+    )?;
     let inverse = (projection * view).inverse();
     camera_ray_a(
         inverse * AVec4::new(ndc_x, ndc_y, -1.0, 1.0),

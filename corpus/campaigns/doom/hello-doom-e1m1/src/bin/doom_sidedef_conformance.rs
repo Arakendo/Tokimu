@@ -28,7 +28,7 @@ use tokimu::{
     PlatformEventHandler, PlatformInputEvent, PlatformResult, RenderCommand, Renderer,
     Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend, WindowConfig,
 };
-use tokimu_core::math::{Mat4, Vec3};
+use tokimu_core::math::Vec3;
 
 const WIDTH: u32 = 1200;
 const HEIGHT: u32 = 600;
@@ -173,13 +173,15 @@ fn fixture_camera(size: [u32; 2], embedding: DoomComparativeEmbedding) -> Camera
     let eye = embedding.lift_direction(source_eye, 48.0);
     let forward = embedding.lift_direction(source_forward, 0.0);
     Camera {
-        view: Mat4::look_at_rh(eye, eye + forward, Vec3::Y),
-        projection: Mat4::perspective_rh_gl(
+        view: tokimu_core::math::try_view_look_at_rh(eye, eye + forward, Vec3::Y)
+            .expect("camera basis must be finite and non-degenerate"),
+        projection: tokimu_core::math::try_projection_perspective_rh_gl(
             45.0_f32.to_radians(),
             size[0].max(1) as f32 / size[1].max(1) as f32,
             0.1,
             1_000.0,
-        ),
+        )
+        .expect("perspective parameters must be finite and ordered"),
     }
 }
 

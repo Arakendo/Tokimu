@@ -8,7 +8,7 @@ use crate::{
     alternative_b::{Mat4 as BMat4, Vec3 as BVec3},
     alternative_c::{Mat4 as CMat4, Vec3 as CVec3},
 };
-use tokimu_core::math::{Mat4 as AMat4, Vec3 as AVec3};
+use tokimu_core::math::{try_projection_perspective_rh_gl, try_view_look_at_rh, Vec3 as AVec3};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DoomObserverCamera {
@@ -26,8 +26,11 @@ pub fn observer_camera_with_a(source_xy: [f32; 2], yaw: f32, pitch: f32) -> Doom
         yaw.sin() * pitch.cos(),
     )
     .normalize();
-    let view = AMat4::look_at_rh(position, position + forward * 128.0, AVec3::Y);
-    let projection = AMat4::perspective_rh_gl(75.0_f32.to_radians(), 16.0 / 9.0, 0.1, 4096.0);
+    let view = try_view_look_at_rh(position, position + forward * 128.0, AVec3::Y)
+        .expect("the retained Doom observer camera must be valid");
+    let projection =
+        try_projection_perspective_rh_gl(75.0_f32.to_radians(), 16.0 / 9.0, 0.1, 4096.0)
+            .expect("the retained Doom observer projection must be valid");
     DoomObserverCamera {
         position: position.to_array(),
         forward: forward.to_array(),
@@ -75,7 +78,11 @@ pub fn observer_camera_with_c(source_xy: [f32; 2], yaw: f32, pitch: f32) -> Doom
 mod tests {
     use super::*;
 
-    fn assert_camera_near(actual: DoomObserverCamera, expected: DoomObserverCamera) {
+    fn assert_camera_near(
+        alternative: &str,
+        actual: DoomObserverCamera,
+        expected: DoomObserverCamera,
+    ) {
         for (actual, expected) in actual
             .position
             .into_iter()
@@ -89,9 +96,10 @@ mod tests {
                     .chain(expected.view_projection_columns),
             )
         {
+            let tolerance = 1.0e-4_f32.max(expected.abs() * 1.0e-7);
             assert!(
-                (actual - expected).abs() <= 1.0e-4,
-                "{actual} != {expected}"
+                (actual - expected).abs() <= tolerance,
+                "alternative {alternative}: {actual} != {expected} (tolerance={tolerance})"
             );
         }
     }
@@ -100,7 +108,15 @@ mod tests {
     fn candidates_match_the_e1m1_preserve_north_observer_port() {
         let input = ([1056.0, -3616.0], 0.0, 0.0);
         let baseline = observer_camera_with_a(input.0, input.1, input.2);
-        assert_camera_near(observer_camera_with_b(input.0, input.1, input.2), baseline);
-        assert_camera_near(observer_camera_with_c(input.0, input.1, input.2), baseline);
+        assert_camera_near(
+            "B",
+            observer_camera_with_b(input.0, input.1, input.2),
+            baseline,
+        );
+        assert_camera_near(
+            "C",
+            observer_camera_with_c(input.0, input.1, input.2),
+            baseline,
+        );
     }
 }

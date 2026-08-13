@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete — Narrow B incubation retained; Full B parked; no production migration authorized |
+| Status | Complete — Narrow B admitted by ADR-0014; Full B parked |
 | Owner | Tokimu maintainers |
 | Date | 2026-08-12 |
 | Related reviews | AR-0019 and AR-0029 |
-| Production control | Alternative A: audited `glam` 0.29.3 re-exports |
-| Update control | Reviewed but unadmitted `glam` 0.33.3 candidate |
+| Production result | Narrow B over audited exact `glam` 0.33.3 |
+| Historical control | Alternative A at audited exact `glam` 0.29.3 |
 | Existing prototype | `corpus/lib/tokimu-math-study/alternative-b-provider-backed` |
 | Comparison | Narrow B, Full B, retained A, and incubating C0/C1 |
 
@@ -655,6 +655,14 @@ Return to maintainers before continuing if:
 
 ## Completion And Parking Criteria
 
+### Later Maintainer Disposition — 2026-08-13
+
+The study's initial recommendation to incubate Narrow B was superseded after
+the production 0.33.3 attempt made Alternative A's direct constructor
+vocabulary strict-Clippy compatibility debt. AR-0029 Cycle 9 and ADR-0014 admit
+Narrow B exactly at the demonstrated three-operation seam. Full B remains
+parked and Option C remains executable evidence rather than production policy.
+
 The study is complete when it records one evidence-bearing disposition from
 Slice 12, preserves all unavailable target and baseline gaps, and either:
 
@@ -671,7 +679,7 @@ condition. It must not leave a partially migrated production vocabulary.
 
 - `docs/Architectural Reviews/AR-0019-native-math-vocabulary-and-foreign-type-boundary.md`
 - `docs/Architectural Reviews/AR-0029-camera-view-and-projection-construction-ownership.md`
-- `docs/ADR/Proposed/ADR-XXXX-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
+- `docs/ADR/ADR-0014-tokimu-owned-semantic-operations-over-admitted-mechanical-values.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Architectural Reviews/AR-0028-coordinate-frame-handedness-and-directional-conformance.md`
 - `docs/Plans/Native-Math/Studies/ar-0019-option-a-glam-current-release-update.md`
