@@ -692,9 +692,12 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
           default contract.
     - [x] Add a deterministic yaw-plus-90 source-spawn pose that retains 1,025
           opaque and all 26 cutout draws under conservative selection.
-    - [ ] Complete AR-0025 Stage 1 visual/target evidence: compare native
-          full-submission and selected images at the retained pose and exercise
-          equivalent browser/WASM selection.
+    - [x] Disposition AR-0025 Stage 1 visual/target evidence honestly. Browser
+          selection presented the exact retained `1,051`-draw native count,
+          but no native side-by-side artifact was retained, so the review makes
+          no no-visible-omission claim and preserves that comparison as a
+          reopening gate. AR-0025 closes with full submission as the renderer
+          fallback and no shared culling capability admitted.
 
 Acceptance criteria:
 

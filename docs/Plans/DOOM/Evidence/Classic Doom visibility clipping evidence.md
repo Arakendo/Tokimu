@@ -137,6 +137,136 @@ mark attempts whose bounded interval had already collapsed under current clip
 limits. These counts are diagnostic source cells, not historic pixel parity,
 flat selection, triangulation, or presentation visibility.
 
+Each retained instance now also preserves its contributing source-sector and
+source-SEG identities. Resolving those identities against the prepared
+source-labelled flat geometry produces:
+
+| Pose | Resolved instances | Unresolved | Sky instances | Whole-subsector triangle candidates |
+| --- | ---: | ---: | ---: | ---: |
+| source spawn | 8 | 0 | 0 | 121 |
+| near-wall A | 2 | 0 | 0 | 48 |
+| near-wall B | 7 | 0 | 1 (`F_SKY1`) | 109 |
+| courtyard-loss | 4 | 0 | 0 | 34 |
+| hut control | 2 | 0 | 0 | 48 |
+
+This proves that every non-sky plane instance has source and material
+provenance in the existing prepared scene. It also demonstrates that those
+prepared meshes are too coarse to realize the retained horizontal spans:
+multiple split instances can select the same whole subsector triangle. Direct
+submission would therefore recreate the over-inclusive static shell. The next
+experiment must clip or reconstruct plane geometry from the retained
+viewer-relative spans rather than treating flat lookup as presentation
+selection.
+
+The next headless control reconstructs each populated non-sky column as one
+source-plane quad. Its four diagnostic screen boundaries are intersected with
+the declared plane height; the source-space coordinates remain available for
+continuous flat UV derivation. Results are:
+
+| Pose | Retained non-sky cells | Reconstructed quads | Triangles | Horizon / behind / degenerate rejected | Maximum source distance |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| source spawn | 49,712 | 1,110 | 2,220 | 0 / 0 / 0 | 1,073.713 |
+| near-wall A | 27,288 | 628 | 1,256 | 0 / 0 / 0 | 150.619 |
+| near-wall B | 24,028 | 652 | 1,304 | 0 / 0 / 0 | 1,370.424 |
+| courtyard-loss | 29,952 | 652 | 1,304 | 0 / 0 / 0 | 356.831 |
+| hut control | 25,173 | 480 | 960 | 0 / 0 / 0 | 337.920 |
+
+One quad per retained column avoids both failure modes already observed: it
+does not resubmit whole source-subsector triangles, and it does not manufacture
+one quad for every diagnostic pixel. A focused negative fixture also proves
+that a horizon-crossing strip is rejected explicitly rather than producing an
+infinite plane intersection.
+
+The fixed source-spawn continuation retains each column's source sector and
+SEG owner, groups the reconstructed quads by plane key and source owner, and
+applies the already prepared flat material plus the continuous Doom
+source-spatial UV field. The separate plane-only presentation reports:
+
+```text
+source cells:       49,712
+grouped meshes:         22
+triangles:           2,220
+warm mesh uploads:       0
+warm replacements:       0
+warm frame:          5.594 ms (development profile, AMD/Vulkan workstation)
+```
+
+This proves that the reconstructed plane geometry can use the existing generic
+mesh/material path without allocating one draw per diagnostic column or adding
+renderer vocabulary. It deliberately omits every wall and cutout. A manual
+fixed-pose observation is still required before making even a bounded
+no-visible-plane-omission claim; clean counts and successful presentation are
+not visual correctness evidence.
+
+Manual AMD/Vulkan inspection confirms that multiple reconstructed floor and
+ceiling portions are visibly realized with their flat materials. Because the
+control intentionally omits walls, that observation cannot classify every
+visible opening as a correct wall boundary or a missing plane span. It is
+therefore retained as positive presentation evidence, not false-negative
+closure.
+
+The fixed-pose contextual companion adds the recursively admitted opaque wall
+tiers without changing the plane reconstruction:
+
+```text
+plane meshes / triangles: 22 / 2,220
+whole-SEG wall meshes:         80
+omitted wall triangles:         0
+total corpus draws:           102
+warm mesh uploads:              0
+warm replacements:              0
+warm frame:                 7.553 ms (development profile, AMD/Vulkan workstation)
+```
+
+This makes the manual plane-gap falsifier better framed while retaining an
+important limitation: the wall meshes are admitted whole-SEG tier geometry,
+not exact projected wall-tier spans. They may provide context but cannot serve
+as wall-presentation parity evidence.
+
+The first contextual manual inspection showed missing floor and ceiling
+regions after the camera had been allowed to move away from the one
+source-spawn pose used to reconstruct the meshes. That is a valid rejection of
+the scene as dynamic presentation, but it conflated two claims. Both classic
+plane presentation modes now lock the source-spawn observer and identify the
+lock in the window title. A second observation at that structurally fixed pose
+is required to decide whether the reconstruction itself has visible omissions.
+No whole-subsector flat fallback was added to conceal the result.
+
+The locked source-spawn rerun retained visible floor and ceiling gaps, making
+the pre-correction reconstruction a genuine fixed-pose false negative. A
+fixture audit then found that wall admission, cell reconstruction, and native
+presentation did not share one perspective mapping: admission used tangent
+screen columns, reconstruction interpolated angles linearly, and presentation
+used an independent 60-degree vertical field of view. Those paths now share
+the tangent-space mapping implied by a 90-degree horizontal field of view at
+320x200. This is a controlled correction, not positive evidence; the aligned
+mode still requires visual rerun and is rejected if the gaps remain.
+
+The aligned locked rerun removed the broad omissions but retained thin
+openings at some wall/plane edges. This proves the projection correction was
+necessary while still falsifying the plane-cell variant under the required
+no-visible-false-negative rule. The remaining evidence points to a boundary
+representation mismatch: integer diagnostic cells reconstructed as world
+triangles do not inherently share the exact continuous edge used by contextual
+whole-SEG walls. The study does not hide this with overlap, an epsilon, or
+whole-subsector fallback geometry.
+
 This remains a Doom presentation-provider experiment. Generic Tokimu callers
 may use different source-owned selection methods; no `SEG`, `solidsegs`, Doom
 portal rule, or classic renderer policy belongs in `tokimu-render`.
+
+## Final AR-0025 Disposition
+
+The source protocol study is complete enough to answer its architectural
+question without claiming classic-Doom renderer parity. SEG splitting can
+preserve linedef/sidedef identity and continuous texture coordinates, and the
+recursive BSP controls explain why classic Doom can omit source-valid shell
+geometry. However, the uploaded horizontal, per-column, and bounded
+plane/context representations all produced visible false negatives.
+
+Accordingly, these modes remain falsification fixtures and Doom-owned research.
+They do not define Tokimu visibility, renderer culling, source-independent
+occluder policy, or a production Doom presentation provider. AR-0025 closes
+with full caller-owned submission as the renderer fallback; a future Doom
+presentation reconstruction must share exact wall/plane boundaries or present
+source screen spans directly before it can make a no-visible-omission claim.

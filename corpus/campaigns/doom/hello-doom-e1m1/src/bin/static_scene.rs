@@ -18,7 +18,7 @@ use doom_geometry_provider::{
     resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
     resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
     resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomSegPlaneMarkObservation,
-    DoomSegTexturedWallTriangle, DoomTextureExtent, DoomWallTextureRole,
+    DoomSegTexturedWallTriangle, DoomSurfacePlane, DoomTextureExtent, DoomWallTextureRole,
 };
 use doom_map_provider::{
     decode_doom_map_core, resolve_doom_player_one_start, DoomBspChild, DoomMapCore,
@@ -135,6 +135,15 @@ const DOOM_SKY_MESH: MeshHandle = MeshHandle(9_000_020);
 const WALK_SPEED: f32 = 240.0;
 const WALK_RADIUS: f32 = 16.0;
 const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
+const CLASSIC_PRESENTATION_COLUMNS: usize = 320;
+const CLASSIC_PRESENTATION_ROWS: usize = 200;
+const CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV: f64 = std::f64::consts::FRAC_PI_4;
+
+fn classic_presentation_half_vertical_fov() -> f64 {
+    ((CLASSIC_PRESENTATION_ROWS as f64 / CLASSIC_PRESENTATION_COLUMNS as f64)
+        * CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV.tan())
+    .atan()
+}
 
 struct App {
     renderer: Option<WgpuBackend>,
@@ -197,6 +206,10 @@ struct App {
     mouse_captured: bool,
     input: InputState,
     comparative_embedding: DoomComparativeEmbedding,
+    /// The classic-plane presentation is reconstructed for exactly the
+    /// source-spawn observer. Allowing ordinary free-look/movement would make
+    /// geometry outside that retained view look like reconstruction evidence.
+    fixed_reconstruction_camera: bool,
 }
 
 struct SceneInput {
@@ -389,8 +402,65 @@ struct DoomSegClassicPlaneSpanObservation {
 #[derive(Default)]
 struct DoomSegClassicPlaneInstance {
     columns: Vec<Option<[usize; 2]>>,
+    column_sources: Vec<Option<[u32; 2]>>,
     minimum_column: usize,
     maximum_column: usize,
+    source_sectors: BTreeSet<u32>,
+    source_segs: BTreeSet<u32>,
+}
+
+/// Resolution of reconstructed source-plane instances against the existing
+/// source-labelled static flat meshes. A match proves that source/material
+/// identity survived preparation; it does not clip the full subsector mesh to
+/// the reconstructed screen span or make it a visibility result.
+#[derive(Default)]
+struct DoomSegClassicPlaneFlatResolution {
+    resolved_instances: usize,
+    unresolved_instances: usize,
+    sky_instances: usize,
+    candidate_draws: usize,
+    candidate_triangles: usize,
+    samples: Vec<String>,
+}
+
+/// Headless reconstruction of retained diagnostic screen cells on their
+/// source-height planes. The resulting quads prove that viewer-relative plane
+/// geometry can be recovered without selecting whole subsector meshes. They
+/// are not uploaded meshes, historic Doom pixels, or renderer visibility.
+#[derive(Default)]
+struct DoomSegClassicPlaneCellReconstruction {
+    source_cells: usize,
+    reconstructed_quads: usize,
+    reconstructed_triangles: usize,
+    horizon_rejections: usize,
+    behind_viewer_rejections: usize,
+    degenerate_rejections: usize,
+    maximum_source_distance: f64,
+    cells: Vec<DoomSegClassicPlaneCell>,
+    samples: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+struct DoomSegClassicPlaneCell {
+    key: DoomSegClassicPlaneKey,
+    source_sector: u32,
+    source_seg: u32,
+    source_corners: [[f64; 2]; 4],
+}
+
+struct DoomSegClassicPlanePresentation {
+    draws: Vec<StaticDrawPlanEntry>,
+    source_cells: usize,
+    grouped_meshes: usize,
+    triangles: usize,
+}
+
+struct DoomSegClassicContextPresentation {
+    draws: Vec<StaticDrawPlanEntry>,
+    plane_meshes: usize,
+    plane_triangles: usize,
+    wall_meshes: usize,
+    omitted_wall_triangles: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -664,6 +734,12 @@ fn main() -> PlatformResult<()> {
     let doom_seg_classic_plane_span_trace = args
         .iter()
         .any(|argument| argument == "--doom-seg-classic-plane-span-trace");
+    let doom_seg_classic_plane_presentation = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-plane-presentation");
+    let doom_seg_classic_context_presentation = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-context-presentation");
     let doom_seg_clip_presentation = args
         .iter()
         .any(|argument| argument == "--doom-seg-clip-presentation");
@@ -677,6 +753,8 @@ fn main() -> PlatformResult<()> {
         doom_seg_clip_presentation,
         doom_seg_per_column_presentation,
         doom_seg_per_column_dynamic,
+        doom_seg_classic_plane_presentation,
+        doom_seg_classic_context_presentation,
     ]
     .iter()
     .filter(|enabled| **enabled)
@@ -737,6 +815,8 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--doom-seg-classic-vertical-clip-trace");
     args.retain(|argument| argument != "--doom-seg-classic-plane-identity-trace");
     args.retain(|argument| argument != "--doom-seg-classic-plane-span-trace");
+    args.retain(|argument| argument != "--doom-seg-classic-plane-presentation");
+    args.retain(|argument| argument != "--doom-seg-classic-context-presentation");
     args.retain(|argument| argument != "--doom-seg-clip-presentation");
     args.retain(|argument| argument != "--doom-seg-per-column-presentation");
     args.retain(|argument| argument != "--doom-seg-per-column-dynamic");
@@ -746,7 +826,7 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -757,6 +837,18 @@ fn main() -> PlatformResult<()> {
     if doom_seg_per_column_dynamic && !spawn_observer {
         return Err(
             "--doom-seg-per-column-dynamic requires the source-spawn observer; omit --overview-camera"
+                .into(),
+        );
+    }
+    if doom_seg_classic_plane_presentation && !spawn_observer {
+        return Err(
+            "--doom-seg-classic-plane-presentation requires the source-spawn observer; omit --overview-camera"
+                .into(),
+        );
+    }
+    if doom_seg_classic_context_presentation && !spawn_observer {
+        return Err(
+            "--doom-seg-classic-context-presentation requires the source-spawn observer; omit --overview-camera"
                 .into(),
         );
     }
@@ -862,6 +954,30 @@ fn main() -> PlatformResult<()> {
             .opaque_draws
             .retain(|draw| !matches!(draw.source, StaticDrawSource::Wall { .. }));
         scene.opaque_draws.extend(presentation.wall_draws);
+    }
+    if doom_seg_classic_plane_presentation {
+        let presentation = prepare_doom_seg_classic_plane_presentation(&scene)?;
+        eprintln!(
+            "E1M1 AR-0025 Stage 3B classic-plane presentation: source-cells={}; grouped-meshes={}; triangles={}; meaning=fixed-source-spawn-doom-plane-comparison-not-visplane-parity-or-renderer-visibility",
+            presentation.source_cells,
+            presentation.grouped_meshes,
+            presentation.triangles,
+        );
+        scene.opaque_draws = presentation.draws;
+        scene.cutout_draws.clear();
+    }
+    if doom_seg_classic_context_presentation {
+        let presentation = prepare_doom_seg_classic_context_presentation(&scene)?;
+        eprintln!(
+            "E1M1 AR-0025 Stage 3B classic-context presentation: plane-meshes={}; plane-triangles={}; wall-meshes={}; omitted-wall-triangles={}; total-draws={}; meaning=fixed-source-spawn-context-control-with-whole-seg-wall-tiers-not-visplane-or-historic-pixel-parity",
+            presentation.plane_meshes,
+            presentation.plane_triangles,
+            presentation.wall_meshes,
+            presentation.omitted_wall_triangles,
+            presentation.draws.len(),
+        );
+        scene.opaque_draws = presentation.draws;
+        scene.cutout_draws.clear();
     }
     let doom_seg_dynamic_selection = if doom_seg_per_column_dynamic {
         let selection = prepare_doom_seg_per_column_dynamic_scene(&mut scene)?;
@@ -1050,6 +1166,8 @@ fn main() -> PlatformResult<()> {
         mouse_captured: false,
         input: InputState::default(),
         comparative_embedding,
+        fixed_reconstruction_camera: doom_seg_classic_plane_presentation
+            || doom_seg_classic_context_presentation,
     };
     if door_resource_replay_report {
         report_door_resource_replay(&mut app)?;
@@ -1057,7 +1175,14 @@ fn main() -> PlatformResult<()> {
     }
     run_window_with_app(
         WindowConfig {
-            title: format!("Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}"),
+            title: format!(
+                "Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}{}",
+                if app.fixed_reconstruction_camera {
+                    " | fixed-source-spawn"
+                } else {
+                    ""
+                }
+            ),
             width: 1280,
             height: 800,
         },
@@ -2090,10 +2215,12 @@ impl PlatformEventHandler for App {
             return Ok(());
         }
         if let Some(input_event) = event.as_input_event() {
-            self.input.apply_event(input_event);
+            if !self.fixed_reconstruction_camera {
+                self.input.apply_event(input_event);
+            }
         }
         if let PlatformInputEvent::MouseMotion { delta_x, delta_y } = event {
-            if self.mouse_captured {
+            if self.mouse_captured && !self.fixed_reconstruction_camera {
                 if let Some(look) = self.observer_look.as_mut() {
                     apply_observer_look_delta(look, delta_x, delta_y);
                 }
@@ -2105,7 +2232,9 @@ impl PlatformEventHandler for App {
             pressed: true,
         } = event
         {
-            self.set_mouse_captured(true);
+            if !self.fixed_reconstruction_camera {
+                self.set_mouse_captured(true);
+            }
             return Ok(());
         }
         if let PlatformInputEvent::KeyboardInput { key, pressed } = event {
@@ -2138,16 +2267,28 @@ impl PlatformEventHandler for App {
     }
 
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
-        self.apply_inspection_movement(delta_seconds);
+        if !self.fixed_reconstruction_camera {
+            self.apply_inspection_movement(delta_seconds);
+        }
         self.advance_active_manual_doors(delta_seconds);
         let frame_started = Instant::now();
-        let camera = scene_camera(
+        let mut camera = scene_camera(
             self.size,
             self.center,
             self.radius,
             self.spawn_observer,
             self.observer_look,
         );
+        if self.fixed_reconstruction_camera {
+            let aspect = self.size[0] / self.size[1].max(1.0);
+            camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
+                (2.0 * classic_presentation_half_vertical_fov()) as f32,
+                aspect,
+                (self.radius * 0.000_1).max(0.1),
+                self.radius * 4.0,
+            )
+            .expect("classic presentation projection must remain finite and ordered");
+        }
         let selection_started = Instant::now();
         let view_projection = camera.projection * camera.view;
         let mut selection = CandidateSelectionSummary::default();
@@ -4181,6 +4322,13 @@ fn report_doom_seg_classic_plane_span_trace(scene: &SceneInput) -> PlatformResul
             scene.spawn_observer.position.y as f64,
         );
         let spans = vertical.plane_spans;
+        let flat_resolution = resolve_doom_seg_classic_plane_flats(scene, &spans);
+        let cell_reconstruction = reconstruct_doom_seg_classic_plane_cells(
+            &spans,
+            viewer,
+            heading_degrees.to_radians(),
+            scene.spawn_observer.position.y as f64,
+        );
         let floor_keys = spans
             .keys
             .keys()
@@ -4188,7 +4336,7 @@ fn report_doom_seg_classic_plane_span_trace(scene: &SceneInput) -> PlatformResul
             .count();
         let ceiling_keys = spans.keys.len() - floor_keys;
         println!(
-            "E1M1 AR-0025 Stage 3B classic-plane-span trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; admitted-segs={}; source-plane-keys=[floor:{} ceiling:{}]; plane-instances={}; collision-splits={}; horizontal-spans={}; populated-columns={}; populated-cells={}; overlapping-writes={}; empty-after-clip={}; samples={}; meaning=bounded-doom-source-plane-instances-not-visplane-parity-flat-selection-or-presentation-visibility",
+            "E1M1 AR-0025 Stage 3B classic-plane-span trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; admitted-segs={}; source-plane-keys=[floor:{} ceiling:{}]; plane-instances={}; collision-splits={}; horizontal-spans={}; populated-columns={}; populated-cells={}; overlapping-writes={}; empty-after-clip={}; flat-resolution=[resolved-instances:{} unresolved-instances:{} sky-instances:{} candidate-draws:{} candidate-triangles:{}]; cell-reconstruction=[source-cells:{} quads:{} triangles:{} horizon-rejected:{} behind-rejected:{} degenerate-rejected:{} maximum-source-distance:{:.3}]; samples={}; flat-samples={}; cell-samples={}; meaning=bounded-doom-source-plane-instances-with-headless-viewer-relative-cell-reconstruction-not-visplane-parity-upload-or-presentation-visibility",
             viewer[0],
             viewer[1],
             vertical.admitted_segs,
@@ -4201,7 +4349,21 @@ fn report_doom_seg_classic_plane_span_trace(scene: &SceneInput) -> PlatformResul
             spans.populated_cells,
             spans.overlapping_writes,
             spans.empty_after_clip,
+            flat_resolution.resolved_instances,
+            flat_resolution.unresolved_instances,
+            flat_resolution.sky_instances,
+            flat_resolution.candidate_draws,
+            flat_resolution.candidate_triangles,
+            cell_reconstruction.source_cells,
+            cell_reconstruction.reconstructed_quads,
+            cell_reconstruction.reconstructed_triangles,
+            cell_reconstruction.horizon_rejections,
+            cell_reconstruction.behind_viewer_rejections,
+            cell_reconstruction.degenerate_rejections,
+            cell_reconstruction.maximum_source_distance,
             spans.samples.join(" | "),
+            flat_resolution.samples.join(" | "),
+            cell_reconstruction.samples.join(" | "),
         );
     }
     Ok(())
@@ -4302,6 +4464,8 @@ fn doom_seg_classic_plane_key(
 fn retain_doom_seg_classic_plane_range(
     observation: &mut DoomSegClassicPlaneSpanObservation,
     key: DoomSegClassicPlaneKey,
+    source_sector: u32,
+    source_seg: u32,
     writes: &[(usize, usize, usize)],
     columns: usize,
 ) {
@@ -4339,12 +4503,17 @@ fn retain_doom_seg_classic_plane_range(
         }
         instances.push(DoomSegClassicPlaneInstance {
             columns: vec![None; columns],
+            column_sources: vec![None; columns],
             minimum_column,
             maximum_column,
+            source_sectors: BTreeSet::new(),
+            source_segs: BTreeSet::new(),
         });
         instances.len() - 1
     });
     let instance = &mut instances[instance_index];
+    instance.source_sectors.insert(source_sector);
+    instance.source_segs.insert(source_seg);
     instance.minimum_column = instance.minimum_column.min(minimum_column);
     instance.maximum_column = instance.maximum_column.max(maximum_column);
     for (column, top, bottom) in valid {
@@ -4353,8 +4522,421 @@ fn retain_doom_seg_classic_plane_range(
             observation.overlapping_writes += 1;
         } else {
             *slot = Some([top, bottom]);
+            instance.column_sources[column] = Some([source_sector, source_seg]);
         }
     }
+}
+
+fn resolve_doom_seg_classic_plane_flats(
+    scene: &SceneInput,
+    spans: &DoomSegClassicPlaneSpanObservation,
+) -> DoomSegClassicPlaneFlatResolution {
+    let mut result = DoomSegClassicPlaneFlatResolution::default();
+    for (key, instances) in &spans.keys {
+        for (instance_index, instance) in instances.iter().enumerate() {
+            if key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1" {
+                result.sky_instances += 1;
+                if result.samples.len() < 12 {
+                    result.samples.push(format!(
+                        "kind={:?} flat={} instance={} sectors={:?} result=sky-presentation",
+                        key.kind, key.texture, instance_index, instance.source_sectors,
+                    ));
+                }
+                continue;
+            }
+
+            let expected_plane = match key.kind {
+                DoomSegClassicPlaneKind::Floor => DoomSurfacePlane::Floor,
+                DoomSegClassicPlaneKind::Ceiling => DoomSurfacePlane::Ceiling,
+            };
+            let candidates = scene
+                .opaque_draws
+                .iter()
+                .filter(|draw| {
+                    matches!(
+                        draw.source,
+                        StaticDrawSource::Flat {
+                            source_sector,
+                            plane,
+                            ..
+                        } if plane == expected_plane
+                            && instance.source_sectors.contains(&source_sector.record_index)
+                    )
+                })
+                .collect::<Vec<_>>();
+            let triangles = candidates
+                .iter()
+                .map(|draw| draw.mesh.positions.len() / 3)
+                .sum::<usize>();
+            result.candidate_draws += candidates.len();
+            result.candidate_triangles += triangles;
+            if candidates.is_empty() {
+                result.unresolved_instances += 1;
+            } else {
+                result.resolved_instances += 1;
+            }
+            if result.samples.len() < 12 {
+                result.samples.push(format!(
+                    "kind={:?} flat={} instance={} sectors={:?} segs={} candidate-draws={} candidate-triangles={}",
+                    key.kind,
+                    key.texture,
+                    instance_index,
+                    instance.source_sectors,
+                    instance.source_segs.len(),
+                    candidates.len(),
+                    triangles,
+                ));
+            }
+        }
+    }
+    result
+}
+
+fn reconstruct_doom_seg_classic_plane_cells(
+    spans: &DoomSegClassicPlaneSpanObservation,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: f64,
+) -> DoomSegClassicPlaneCellReconstruction {
+    const MINIMUM_TANGENT: f64 = 1.0e-9;
+    const MINIMUM_QUAD_AREA: f64 = 1.0e-9;
+
+    let half_vertical_fov = classic_presentation_half_vertical_fov();
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let viewer = [f64::from(viewer[0]), f64::from(viewer[1])];
+    let horizontal_angle = |column_boundary: f64| {
+        let normalized = -1.0 + (column_boundary / CLASSIC_PRESENTATION_COLUMNS as f64) * 2.0;
+        (normalized * CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV.tan()).atan()
+    };
+    let vertical_angle = |row_boundary: f64| {
+        let normalized = 1.0 - (row_boundary / CLASSIC_PRESENTATION_ROWS as f64) * 2.0;
+        (normalized * half_vertical_fov.tan()).atan()
+    };
+    let mut result = DoomSegClassicPlaneCellReconstruction::default();
+
+    for (key, instances) in &spans.keys {
+        if key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1" {
+            continue;
+        }
+        let plane_delta = f64::from(key.height) - eye_height;
+        for (instance_index, instance) in instances.iter().enumerate() {
+            for (column, rows) in instance.columns.iter().enumerate() {
+                let Some([top, bottom]) = rows else {
+                    continue;
+                };
+                result.source_cells += bottom - top + 1;
+                let corners = [
+                    (column as f64, *top as f64),
+                    ((column + 1) as f64, *top as f64),
+                    ((column + 1) as f64, (*bottom + 1) as f64),
+                    (column as f64, (*bottom + 1) as f64),
+                ];
+                let mut points = [[0.0; 2]; 4];
+                let mut rejected = None;
+                for (point, (column_boundary, row_boundary)) in points.iter_mut().zip(corners) {
+                    let elevation = vertical_angle(row_boundary);
+                    let tangent = elevation.tan();
+                    if tangent.abs() <= MINIMUM_TANGENT {
+                        rejected = Some("horizon");
+                        break;
+                    }
+                    let distance = plane_delta / tangent;
+                    if !distance.is_finite() || distance <= 0.0 {
+                        rejected = Some("behind");
+                        break;
+                    }
+                    let angle = horizontal_angle(column_boundary);
+                    let ray = [
+                        forward[0] * angle.cos() + right[0] * angle.sin(),
+                        forward[1] * angle.cos() + right[1] * angle.sin(),
+                    ];
+                    *point = [viewer[0] + ray[0] * distance, viewer[1] + ray[1] * distance];
+                    result.maximum_source_distance = result.maximum_source_distance.max(distance);
+                }
+                match rejected {
+                    Some("horizon") => {
+                        result.horizon_rejections += 1;
+                        continue;
+                    }
+                    Some("behind") => {
+                        result.behind_viewer_rejections += 1;
+                        continue;
+                    }
+                    Some(_) => unreachable!("bounded plane-cell rejection reason"),
+                    None => {}
+                }
+                let twice_area = |a: [f64; 2], b: [f64; 2], c: [f64; 2]| {
+                    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+                };
+                let area = twice_area(points[0], points[1], points[2]).abs()
+                    + twice_area(points[0], points[2], points[3]).abs();
+                if !area.is_finite() || area <= MINIMUM_QUAD_AREA {
+                    result.degenerate_rejections += 1;
+                    continue;
+                }
+                result.reconstructed_quads += 1;
+                result.reconstructed_triangles += 2;
+                let [source_sector, source_seg] = instance.column_sources[column]
+                    .expect("each retained plane column preserves its source owner");
+                result.cells.push(DoomSegClassicPlaneCell {
+                    key: key.clone(),
+                    source_sector,
+                    source_seg,
+                    source_corners: points,
+                });
+                if result.samples.len() < 12 {
+                    result.samples.push(format!(
+                        "kind={:?} flat={} instance={} column={} rows={}..{} source-corners=[{:.2},{:.2}..{:.2},{:.2}]",
+                        key.kind,
+                        key.texture,
+                        instance_index,
+                        column,
+                        top,
+                        bottom,
+                        points.iter().map(|point| point[0]).fold(f64::INFINITY, f64::min),
+                        points.iter().map(|point| point[1]).fold(f64::INFINITY, f64::min),
+                        points.iter().map(|point| point[0]).fold(f64::NEG_INFINITY, f64::max),
+                        points.iter().map(|point| point[1]).fold(f64::NEG_INFINITY, f64::max),
+                    ));
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Lowers the fixed source-spawn plane-cell trace into ordinary supplied-UV
+/// meshes. Grouping is by semantic plane key and retained source owner so the
+/// comparison does not allocate one renderer draw per diagnostic column. This
+/// remains a Doom corpus presentation control, not a renderer plane contract.
+fn prepare_doom_seg_classic_plane_presentation(
+    scene: &SceneInput,
+) -> PlatformResult<DoomSegClassicPlanePresentation> {
+    let viewer = scene.spawn_observer.source_position;
+    let heading = f64::from(scene.spawn_observer.source_angle).to_radians();
+    let traversal = observe_doom_seg_classic_bsp(
+        &scene.door_geometry_source.map,
+        viewer,
+        heading,
+        &BTreeSet::new(),
+    )?;
+    let lowerable_triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let plane_marks = observe_doom_seg_plane_marks(
+        &scene.door_geometry_source.map,
+        scene.spawn_observer.position.y as i16,
+    )?;
+    let vertical = observe_doom_seg_classic_vertical_clip_state(
+        &scene.door_geometry_source.map,
+        &lowerable_triangles,
+        &plane_marks,
+        &traversal,
+        viewer,
+        heading,
+        scene.spawn_observer.position.y as f64,
+    );
+    let reconstruction = reconstruct_doom_seg_classic_plane_cells(
+        &vertical.plane_spans,
+        viewer,
+        heading,
+        scene.spawn_observer.position.y as f64,
+    );
+
+    let map = &scene.door_geometry_source.map;
+    let mut subsector_by_seg = BTreeMap::new();
+    for subsector in &map.subsectors {
+        let start = usize::from(subsector.first_seg);
+        let end = start + usize::from(subsector.seg_count);
+        for seg in &map.segs[start..end] {
+            subsector_by_seg.insert(seg.source.record_index, subsector.source);
+        }
+    }
+    let flat_materials = scene
+        .opaque_uploads
+        .iter()
+        .filter(|upload| upload.source_kind == hello_doom_e1m1::StaticTextureSourceKind::Flat)
+        .map(|upload| (upload.source_name.as_str(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let mut grouped = BTreeMap::<
+        (DoomSegClassicPlaneKey, u32, u32),
+        (doom_map_provider::DoomSourceRecord, Vec<[f32; 3]>),
+    >::new();
+
+    for cell in &reconstruction.cells {
+        let source_subsector = *subsector_by_seg.get(&cell.source_seg).ok_or_else(|| {
+            io::Error::other(format!(
+                "classic plane cell SEG {} has no owning subsector",
+                cell.source_seg
+            ))
+        })?;
+        let positions = cell.source_corners.map(|[x, y]| {
+            DoomComparativeEmbedding::CurrentReflected
+                .lift_direction([x as f32, y as f32], f32::from(cell.key.height))
+        });
+        let desired_normal = match cell.key.kind {
+            DoomSegClassicPlaneKind::Floor => Vec3::Y,
+            DoomSegClassicPlaneKind::Ceiling => -Vec3::Y,
+        };
+        let mut indices = [0usize, 1, 2, 0, 2, 3];
+        let normal = (positions[indices[1]] - positions[indices[0]])
+            .cross(positions[indices[2]] - positions[indices[0]]);
+        if normal.dot(desired_normal) < 0.0 {
+            indices = [0, 2, 1, 0, 3, 2];
+        }
+        let group = grouped
+            .entry((
+                cell.key.clone(),
+                cell.source_sector,
+                source_subsector.record_index,
+            ))
+            .or_insert_with(|| (source_subsector, Vec::new()));
+        group
+            .1
+            .extend(indices.into_iter().map(|index| positions[index].to_array()));
+    }
+
+    let mut draws = Vec::with_capacity(grouped.len());
+    let mut triangles = 0usize;
+    for ((key, source_sector_index, _), (source_subsector, positions)) in grouped {
+        let material = *flat_materials.get(key.texture.as_str()).ok_or_else(|| {
+            io::Error::other(format!(
+                "classic plane presentation flat `{}` has no material",
+                key.texture
+            ))
+        })?;
+        let source_sector = map
+            .sectors
+            .get(source_sector_index as usize)
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "classic plane presentation sector {source_sector_index} is absent"
+                ))
+            })?
+            .source;
+        let normal = match key.kind {
+            DoomSegClassicPlaneKind::Floor => Vec3::Y,
+            DoomSegClassicPlaneKind::Ceiling => -Vec3::Y,
+        };
+        let texture_coordinates = positions
+            .iter()
+            .map(|[x, _, z]| [*x / 64.0, -*z / 64.0])
+            .collect::<Vec<_>>();
+        triangles += positions.len() / 3;
+        let mesh = Mesh::uniform_normal(positions, normal.to_array())
+            .with_texture_coordinates(texture_coordinates)?;
+        let plane = match key.kind {
+            DoomSegClassicPlaneKind::Floor => DoomSurfacePlane::Floor,
+            DoomSegClassicPlaneKind::Ceiling => DoomSurfacePlane::Ceiling,
+        };
+        draws.push(StaticDrawPlanEntry {
+            source_label: format!(
+                "classic-plane:{:?}:{}:{}:{}",
+                key.kind, source_sector_index, source_subsector.record_index, key.texture
+            ),
+            source: StaticDrawSource::Flat {
+                source_subsector,
+                source_sector,
+                plane,
+            },
+            mesh,
+            material,
+        });
+    }
+
+    Ok(DoomSegClassicPlanePresentation {
+        source_cells: reconstruction.source_cells,
+        grouped_meshes: draws.len(),
+        triangles,
+        draws,
+    })
+}
+
+/// Adds the source-spawn BSP-admitted, already lowerable opaque wall tiers to
+/// the reconstructed planes so a maintainer can judge plane gaps in context.
+/// Wall tiers remain whole SEG fragments here; exact projected tier clipping
+/// is deliberately not claimed by this intermediate visual control.
+fn prepare_doom_seg_classic_context_presentation(
+    scene: &SceneInput,
+) -> PlatformResult<DoomSegClassicContextPresentation> {
+    let planes = prepare_doom_seg_classic_plane_presentation(scene)?;
+    let viewer = scene.spawn_observer.source_position;
+    let heading = f64::from(scene.spawn_observer.source_angle).to_radians();
+    let traversal = observe_doom_seg_classic_bsp(
+        &scene.door_geometry_source.map,
+        viewer,
+        heading,
+        &BTreeSet::new(),
+    )?;
+    let triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let mut draws = planes.draws;
+    let mut wall_meshes = 0usize;
+    let mut omitted_wall_triangles = 0usize;
+    for triangle in triangles.iter().filter(|triangle| {
+        traversal
+            .admitted_seg_records
+            .contains(&triangle.source_seg.record_index)
+    }) {
+        let Some(material) = scene
+            .door_geometry_source
+            .wall_materials
+            .get(&triangle.texture_name)
+            .copied()
+        else {
+            omitted_wall_triangles += 1;
+            continue;
+        };
+        let extent = scene
+            .door_geometry_source
+            .wall_extents
+            .iter()
+            .find(|extent| extent.name == triangle.texture_name)
+            .cloned()
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "classic context wall `{}` has no texture extent",
+                    triangle.texture_name
+                ))
+            })?;
+        let lowered = match lower_static_seg_wall_triangle(triangle, extent) {
+            Ok(lowered) => lowered,
+            Err(StaticFlatLoweringError::DegenerateTriangle) => {
+                omitted_wall_triangles += 1;
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
+        wall_meshes += 1;
+        draws.push(StaticDrawPlanEntry {
+            source_label: format!(
+                "classic-context-wall:{}:{}:{}",
+                lowered.source_seg.record_index,
+                lowered.wall.source_linedef.record_index,
+                lowered.wall.texture_name,
+            ),
+            source: StaticDrawSource::Wall {
+                source_linedef: lowered.wall.source_linedef,
+                source_sidedef: lowered.wall.source_sidedef,
+                source_sector: lowered.wall.source_sector,
+                role: lowered.wall.role,
+            },
+            mesh: lowered.wall.mesh,
+            material,
+        });
+    }
+
+    Ok(DoomSegClassicContextPresentation {
+        plane_meshes: planes.grouped_meshes,
+        plane_triangles: planes.triangles,
+        wall_meshes,
+        omitted_wall_triangles,
+        draws,
+    })
 }
 
 fn finalize_doom_seg_classic_plane_spans(observation: &mut DoomSegClassicPlaneSpanObservation) {
@@ -4416,16 +4998,13 @@ fn observe_doom_seg_classic_vertical_clip_state(
     heading: f64,
     eye_height: f64,
 ) -> DoomSegClassicVerticalClipObservation {
-    const COLUMNS: usize = 320;
-    const ROWS: usize = 200;
-    const HALF_HORIZONTAL_FOV: f64 = std::f64::consts::FRAC_PI_4;
-    let half_vertical_fov = ((ROWS as f64 / COLUMNS as f64) * HALF_HORIZONTAL_FOV.tan()).atan();
+    let half_vertical_fov = classic_presentation_half_vertical_fov();
     let mut result = DoomSegClassicVerticalClipObservation {
         admitted_segs: traversal.admitted_seg_order.len(),
         ..Default::default()
     };
-    let mut ceiling_clip = vec![0usize; COLUMNS];
-    let mut floor_clip = vec![ROWS; COLUMNS];
+    let mut ceiling_clip = vec![0usize; CLASSIC_PRESENTATION_COLUMNS];
+    let mut floor_clip = vec![CLASSIC_PRESENTATION_ROWS; CLASSIC_PRESENTATION_COLUMNS];
     let marks_by_seg = plane_marks
         .iter()
         .map(|mark| (mark.source_seg.record_index, mark))
@@ -4483,9 +5062,8 @@ fn observe_doom_seg_classic_vertical_clip_state(
         (depth, lateral.atan2(depth))
     };
     let row = |angle: f64| {
-        (((half_vertical_fov - angle.clamp(-half_vertical_fov, half_vertical_fov))
-            / (2.0 * half_vertical_fov))
-            * ROWS as f64) as usize
+        let normalized = (angle.tan() / half_vertical_fov.tan()).clamp(-1.0, 1.0);
+        (((1.0 - normalized) * 0.5) * CLASSIC_PRESENTATION_ROWS as f64) as usize
     };
     for source_seg in &traversal.admitted_seg_order {
         let (Some(mark), Some(seg)) =
@@ -4505,12 +5083,17 @@ fn observe_doom_seg_classic_vertical_clip_state(
         let (end_depth, end_angle) = project([end.x, end.y]);
         if start_depth <= 0.0
             || end_depth <= 0.0
-            || (start_angle.abs() > HALF_HORIZONTAL_FOV && end_angle.abs() > HALF_HORIZONTAL_FOV)
+            || (start_angle.abs() > CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV
+                && end_angle.abs() > CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV)
         {
             continue;
         }
-        let [left, right_column] =
-            source_fov_column_interval(start_angle, end_angle, HALF_HORIZONTAL_FOV, COLUMNS);
+        let [left, right_column] = source_fov_column_interval(
+            start_angle,
+            end_angle,
+            CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV,
+            CLASSIC_PRESENTATION_COLUMNS,
+        );
         let has_upper = tier_heights.contains_key(&(*source_seg, 0));
         let has_lower = tier_heights.contains_key(&(*source_seg, 1));
         let has_middle = tier_heights.contains_key(&(*source_seg, 2));
@@ -4521,8 +5104,8 @@ fn observe_doom_seg_classic_vertical_clip_state(
         let mut ceiling_plane_writes = Vec::new();
         let mut floor_plane_writes = Vec::new();
         for x in left..=right_column {
-            let local_angle = -HALF_HORIZONTAL_FOV
-                + ((x as f64 + 0.5) / COLUMNS as f64) * (2.0 * HALF_HORIZONTAL_FOV);
+            let normalized = -1.0 + ((x as f64 + 0.5) / CLASSIC_PRESENTATION_COLUMNS as f64) * 2.0;
+            let local_angle = (normalized * CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV.tan()).atan();
             let ray = [
                 forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                 forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
@@ -4530,9 +5113,9 @@ fn observe_doom_seg_classic_vertical_clip_state(
             let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
                 .unwrap_or((start_depth + end_depth) * 0.5);
             let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
-                .min(ROWS - 1);
-            let floor =
-                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+                .min(CLASSIC_PRESENTATION_ROWS - 1);
+            let floor = row((f64::from(front_sector.floor_height) - eye_height).atan2(depth))
+                .min(CLASSIC_PRESENTATION_ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if mark.ceiling_marked {
                 let top = ceiling_clip[x].saturating_add(1);
@@ -4549,16 +5132,20 @@ fn observe_doom_seg_classic_vertical_clip_state(
             retain_doom_seg_classic_plane_range(
                 &mut result.plane_spans,
                 doom_seg_classic_plane_key(DoomSegClassicPlaneKind::Ceiling, front_sector),
+                mark.front_sector.record_index,
+                *source_seg,
                 &ceiling_plane_writes,
-                COLUMNS,
+                CLASSIC_PRESENTATION_COLUMNS,
             );
         }
         if !floor_plane_writes.is_empty() {
             retain_doom_seg_classic_plane_range(
                 &mut result.plane_spans,
                 doom_seg_classic_plane_key(DoomSegClassicPlaneKind::Floor, front_sector),
+                mark.front_sector.record_index,
+                *source_seg,
                 &floor_plane_writes,
-                COLUMNS,
+                CLASSIC_PRESENTATION_COLUMNS,
             );
         }
         for role_key in 0..=2 {
@@ -4572,8 +5159,10 @@ fn observe_doom_seg_classic_vertical_clip_state(
             }
             let mut center_trace = None;
             for x in left..=right_column {
-                let local_angle = -HALF_HORIZONTAL_FOV
-                    + ((x as f64 + 0.5) / COLUMNS as f64) * (2.0 * HALF_HORIZONTAL_FOV);
+                let normalized =
+                    -1.0 + ((x as f64 + 0.5) / CLASSIC_PRESENTATION_COLUMNS as f64) * 2.0;
+                let local_angle =
+                    (normalized * CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV.tan()).atan();
                 let ray = [
                     forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                     forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
@@ -4581,8 +5170,10 @@ fn observe_doom_seg_classic_vertical_clip_state(
                 let depth =
                     source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
                         .unwrap_or((start_depth + end_depth) * 0.5);
-                let top = row((maximum - eye_height).atan2(depth)).min(ROWS - 1);
-                let bottom = row((minimum - eye_height).atan2(depth)).min(ROWS - 1);
+                let top =
+                    row((maximum - eye_height).atan2(depth)).min(CLASSIC_PRESENTATION_ROWS - 1);
+                let bottom =
+                    row((minimum - eye_height).atan2(depth)).min(CLASSIC_PRESENTATION_ROWS - 1);
                 let (top, bottom) = (top.min(bottom), top.max(bottom));
                 let prior = [ceiling_clip[x], floor_clip[x]];
                 match role {
@@ -4598,7 +5189,7 @@ fn observe_doom_seg_classic_vertical_clip_state(
                     }
                     DoomWallTextureRole::Middle => {}
                 }
-                if x == COLUMNS / 2 {
+                if x == CLASSIC_PRESENTATION_COLUMNS / 2 {
                     center_trace = Some(format!(
                         "seg={source_seg} line={} tier={role:?} rows={top}..{bottom} clip-before={}..{} clip-after={}..{}",
                         seg.linedef, prior[0], prior[1], ceiling_clip[x], floor_clip[x],
@@ -4615,8 +5206,8 @@ fn observe_doom_seg_classic_vertical_clip_state(
         // when there is no corresponding upper/lower texture tier. A one-sided
         // middle is terminal, while a two-sided masked middle remains open.
         for x in left..=right_column {
-            let local_angle = -HALF_HORIZONTAL_FOV
-                + ((x as f64 + 0.5) / COLUMNS as f64) * (2.0 * HALF_HORIZONTAL_FOV);
+            let normalized = -1.0 + ((x as f64 + 0.5) / CLASSIC_PRESENTATION_COLUMNS as f64) * 2.0;
+            let local_angle = (normalized * CLASSIC_PRESENTATION_HALF_HORIZONTAL_FOV.tan()).atan();
             let ray = [
                 forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                 forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
@@ -4624,14 +5215,15 @@ fn observe_doom_seg_classic_vertical_clip_state(
             let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
                 .unwrap_or((start_depth + end_depth) * 0.5);
             let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
-                .min(ROWS - 1);
-            let floor =
-                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+                .min(CLASSIC_PRESENTATION_ROWS - 1);
+            let floor = row((f64::from(front_sector.floor_height) - eye_height).atan2(depth))
+                .min(CLASSIC_PRESENTATION_ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if has_middle && mark.back_sector.is_none() {
-                result.ceiling_clip_updates += usize::from(ceiling_clip[x] != ROWS);
+                result.ceiling_clip_updates +=
+                    usize::from(ceiling_clip[x] != CLASSIC_PRESENTATION_ROWS);
                 result.floor_clip_updates += usize::from(floor_clip[x] != 0);
-                ceiling_clip[x] = ROWS;
+                ceiling_clip[x] = CLASSIC_PRESENTATION_ROWS;
                 floor_clip[x] = 0;
             } else {
                 if !has_upper && mark.ceiling_marked {
@@ -7595,14 +8187,17 @@ fn scene_bounds(draws: &[StaticDrawPlanEntry]) -> (Vec3, f32) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
+
     use super::{
         apply_observer_look_delta, build_doom_sky_cylinder, candidate_is_selected,
         finalize_doom_seg_classic_plane_spans, merge_solid_range, nearest_mesh_ray_hit,
-        ray_triangle_distance, retain_doom_seg_classic_plane_range,
-        source_bbox_fov_column_interval, source_fov_column_interval,
-        source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
-        summarize_grouped_aabb_selection, visible_column_runs, CandidateSelection,
-        CandidateSelectionSummary, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
+        ray_triangle_distance, reconstruct_doom_seg_classic_plane_cells,
+        retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
+        source_fov_column_interval, source_point_segment_distance_squared,
+        source_ray_segment_depth, source_seg_facing, summarize_grouped_aabb_selection,
+        visible_column_runs, CandidateSelection, CandidateSelectionSummary,
+        DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
         DoomSegClassicPlaneSpanObservation, ObserverLook, SourceBBoxProjection, SourceSegFacing,
         UniformGridAabbIndex,
     };
@@ -7994,12 +8589,21 @@ mod tests {
         retain_doom_seg_classic_plane_range(
             &mut observation,
             floor.clone(),
+            10,
+            20,
             &[(0, 4, 7), (1, 5, 8)],
             4,
         );
-        retain_doom_seg_classic_plane_range(&mut observation, floor.clone(), &[(1, 3, 6)], 4);
-        retain_doom_seg_classic_plane_range(&mut observation, floor, &[(3, 2, 2)], 4);
-        retain_doom_seg_classic_plane_range(&mut observation, ceiling, &[(2, 0, 1)], 4);
+        retain_doom_seg_classic_plane_range(
+            &mut observation,
+            floor.clone(),
+            11,
+            21,
+            &[(1, 3, 6)],
+            4,
+        );
+        retain_doom_seg_classic_plane_range(&mut observation, floor, 10, 22, &[(3, 2, 2)], 4);
+        retain_doom_seg_classic_plane_range(&mut observation, ceiling, 10, 23, &[(2, 0, 1)], 4);
         finalize_doom_seg_classic_plane_spans(&mut observation);
 
         assert_eq!(observation.keys.len(), 2);
@@ -8010,6 +8614,117 @@ mod tests {
         assert_eq!(observation.populated_cells, 15);
         assert_eq!(observation.overlapping_writes, 0);
         assert_eq!(observation.empty_after_clip, 0);
+        let floor_instances = observation
+            .keys
+            .values()
+            .find(|instances| instances.len() == 2)
+            .expect("floor key split into two instances");
+        assert_eq!(floor_instances[0].source_sectors, BTreeSet::from([10]));
+        assert_eq!(floor_instances[0].source_segs, BTreeSet::from([20, 22]));
+        assert_eq!(floor_instances[1].source_sectors, BTreeSet::from([11]));
+        assert_eq!(floor_instances[1].source_segs, BTreeSet::from([21]));
+    }
+
+    #[test]
+    fn classic_plane_cell_reconstruction_produces_one_quad_per_populated_column() {
+        let mut floor_columns = vec![None; 320];
+        floor_columns[160] = Some([120, 130]);
+        let mut floor_sources = vec![None; 320];
+        floor_sources[160] = Some([1, 2]);
+        let mut ceiling_columns = vec![None; 320];
+        ceiling_columns[161] = Some([70, 80]);
+        let mut ceiling_sources = vec![None; 320];
+        ceiling_sources[161] = Some([1, 3]);
+        let spans = DoomSegClassicPlaneSpanObservation {
+            keys: BTreeMap::from([
+                (
+                    DoomSegClassicPlaneKey {
+                        kind: DoomSegClassicPlaneKind::Floor,
+                        height: 0,
+                        texture: String::from("FLOOR4_8"),
+                        light: 160,
+                    },
+                    vec![DoomSegClassicPlaneInstance {
+                        columns: floor_columns,
+                        column_sources: floor_sources,
+                        minimum_column: 160,
+                        maximum_column: 160,
+                        source_sectors: BTreeSet::from([1]),
+                        source_segs: BTreeSet::from([2]),
+                    }],
+                ),
+                (
+                    DoomSegClassicPlaneKey {
+                        kind: DoomSegClassicPlaneKind::Ceiling,
+                        height: 72,
+                        texture: String::from("CEIL3_5"),
+                        light: 160,
+                    },
+                    vec![DoomSegClassicPlaneInstance {
+                        columns: ceiling_columns,
+                        column_sources: ceiling_sources,
+                        minimum_column: 161,
+                        maximum_column: 161,
+                        source_sectors: BTreeSet::from([1]),
+                        source_segs: BTreeSet::from([3]),
+                    }],
+                ),
+            ]),
+            ..Default::default()
+        };
+
+        let reconstructed = reconstruct_doom_seg_classic_plane_cells(&spans, [0, 0], 0.0, 36.0);
+
+        assert_eq!(reconstructed.source_cells, 22);
+        assert_eq!(reconstructed.reconstructed_quads, 2);
+        assert_eq!(reconstructed.reconstructed_triangles, 4);
+        assert_eq!(reconstructed.horizon_rejections, 0);
+        assert_eq!(reconstructed.behind_viewer_rejections, 0);
+        assert_eq!(reconstructed.degenerate_rejections, 0);
+        assert_eq!(reconstructed.cells.len(), 2);
+        assert_eq!(reconstructed.cells[0].source_sector, 1);
+        assert!(matches!(reconstructed.cells[0].source_seg, 2 | 3));
+        assert!(reconstructed.cells.iter().all(|cell| cell
+            .source_corners
+            .iter()
+            .flatten()
+            .all(|value| value.is_finite())));
+        assert!(reconstructed.maximum_source_distance.is_finite());
+        assert!(reconstructed.maximum_source_distance > 0.0);
+    }
+
+    #[test]
+    fn classic_plane_cell_reconstruction_rejects_a_horizon_crossing_explicitly() {
+        let mut columns = vec![None; 320];
+        columns[160] = Some([100, 100]);
+        let mut column_sources = vec![None; 320];
+        column_sources[160] = Some([1, 2]);
+        let spans = DoomSegClassicPlaneSpanObservation {
+            keys: BTreeMap::from([(
+                DoomSegClassicPlaneKey {
+                    kind: DoomSegClassicPlaneKind::Floor,
+                    height: 0,
+                    texture: String::from("FLOOR4_8"),
+                    light: 160,
+                },
+                vec![DoomSegClassicPlaneInstance {
+                    columns,
+                    column_sources,
+                    minimum_column: 160,
+                    maximum_column: 160,
+                    source_sectors: BTreeSet::from([1]),
+                    source_segs: BTreeSet::from([2]),
+                }],
+            )]),
+            ..Default::default()
+        };
+
+        let reconstructed = reconstruct_doom_seg_classic_plane_cells(&spans, [0, 0], 0.0, 36.0);
+
+        assert_eq!(reconstructed.source_cells, 1);
+        assert_eq!(reconstructed.reconstructed_quads, 0);
+        assert_eq!(reconstructed.horizon_rejections, 1);
+        assert!(reconstructed.cells.is_empty());
     }
 
     fn bounds(minimum: [f32; 3], maximum: [f32; 3]) -> StaticDrawAabb {

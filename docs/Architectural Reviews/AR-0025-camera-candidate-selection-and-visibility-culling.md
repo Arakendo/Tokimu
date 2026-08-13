@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Under Review |
+| Status | Closed -- No shared capability admitted |
 | Opened | 2026-08-10 |
-| Last reviewed | 2026-08-10 |
+| Last reviewed | 2026-08-13 |
 | Scope | Corpus presentation, source-specific spatial selection, renderer-facing scene preparation, and performance diagnostics |
 | Trigger | The interactive E1M1 source-spawn observer now resubmits all 1,861 static draws for every camera update. Startup mesh upload was repaired, but view-dependent candidate selection remains unstudied. |
 | Related ADRs | ADR-0003, ADR-0007, ADR-0008, ADR-0009, ADR-0012, ADR-0013 |
@@ -403,15 +403,55 @@ occlusion-query/depth-pyramid handles are not eligible public vocabulary.
 
 ## Disposition
 
-**Under Review.** Keep full explicit submission as the current renderer
-contract. Run the staged comparison in order, beginning with a bounded
-corpus-local frustum/AABB experiment. The study may compare source-specific
-Doom spatial selection after the generic baseline; it may investigate GPU
-methods only as provider-specific research. The only admissible outcome is a
-source-neutral, provider-neutral capability that satisfies the Admission Clamp
-and has independent caller evidence. Do not add a public culling API, scene
-graph, Doom visibility coupling, or provider-native occlusion contract from
-this record's current evidence.
+**Closed -- no shared capability admitted.** Keep explicit caller-owned full
+submission as the renderer contract and correctness fallback. Retain the
+corpus-local per-draw AABB filter as the strongest source-neutral candidate:
+it materially reduced E1M1 submissions and warm-frame CPU time while preserving
+caller order, but it has neither an independent caller nor a retained native
+side-by-side no-visible-omission observation. The static uniform grid reduced
+exact tests but did not establish one generally preferable resolution or a
+shared index owner.
+
+Keep Doom BSP, SEG, wall-tier, solid-range, and plane reconstruction in the
+Doom corpus. These experiments recovered useful source protocol and explained
+why full-shell rendering exposes geometry that classic Doom would not present,
+but every uploaded aggressive representation produced visible false negatives:
+the horizontal-only control removed most of the spawn room, the dynamic
+per-column control lost nearby walls, and the bounded plane-cell/contextual
+control retained thin wall/plane edge openings after its projection mismatch
+was repaired. None is valid production-like candidate selection.
+
+Do not add a public culling API, renderer-owned scene graph, Doom visibility
+coupling, shared spatial index, occluder policy, or provider-native GPU
+occlusion contract. GPU occlusion and a shared provider-neutral selector remain
+reopening work, not incomplete obligations. A future proposal must supply an
+independent caller, satisfy the Admission Clamp, preserve order, fail open, and
+pass retained false-negative review before ADR-0008/ADR-0009 admission work.
+
+### Final Comparison Matrix
+
+The measurements below are retained development-profile observations, not a
+portable benchmark. Pose differences are stated because unlike poses are not a
+valid speed ranking. `Not measured` is preserved where a headless source study
+never built renderer commands; a smaller candidate count is not substituted
+for missing performance or correctness evidence.
+
+| Variant | Fixed evidence pose | Prepared geometry/resources | Submitted or retained | Selection / command CPU | Warm frame | Source identity and visual disposition |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Full whole-linedef submission | source spawn/source heading | 1,861 uploaded meshes | 1,861 | 67 / 79 us | 46.281 ms | Prepared wall/flat labels retained; correctness fallback |
+| Per-draw frustum/AABB | source spawn/source heading | same 1,861 meshes | 495 | 2,588 / 43 us | 28.257 ms | Order and labels retained; material saving demonstrated, native no-omission visual remains unclaimed |
+| Static uniform grid `8x4x8` plus exact AABB | source spawn/yaw +90 | same 1,861 meshes; 177 occupied cells and 4,503 memberships | 1,051, exactly matching per-draw AABB | 1,820 us selection in the corroborating run; 52 us command in the retained paired run | 35.584 ms in the retained paired run | Order retained; no generally preferable resolution or independent index owner |
+| Whole-linedef BSP membership union | source spawn/yaw +90 | same 1,861 meshes; 237 source leaves | 1,115 | 665 / 47 us | 34.608 ms | Linedef/sidedef identity retained; conservative 64-draw excess over AABB; no visual-closure claim |
+| SEG-granular generic leaf/frustum control | source spawn/yaw +90 | 1,256 wall triangles from 519 SEGs / 454 linedefs | 780 headless survivors | Not measured | Not measured | Split-wall test preserved linedef/sidedef identity and continuous U; count-only control |
+| Doom horizontal screen-span representation | fixed source spawn | 154 wall meshes from 47 visible intervals | 154 | Not separately retained | 8.036 ms | Source-labelled, but manual comparison removed substantial spawn-room geometry; rejected |
+| Doom bounded plane/context representation | locked fixed source spawn | 22 plane meshes / 2,220 triangles plus 80 whole-SEG wall meshes | 102 | Not separately retained | 7.553 ms before projection correction | Broad losses were repaired, but thin wall/plane edge openings remained; rejected |
+
+The matrix answers the Stage-3 falsification question asymmetrically. SEG
+granularity itself is viable and preserves source identity/texture continuity,
+but neither Doom presentation selector survived the no-visible-false-negative
+gate. The favorable draw and frame counts therefore cannot justify admission.
+The generic AABB result remains promising but incomplete rather than being
+retroactively promoted from the failure of the more aggressive alternatives.
 
 ## Required Follow-Up
 
@@ -436,9 +476,10 @@ this record's current evidence.
       candidates (1,025 opaque plus all 26 cutouts), exactly matching the
       retained native fixed-pose count. This is manual presentation evidence,
       not timing or pixel-equivalence evidence.
-- [ ] Stage 1: retain manual side-by-side native full-submission/selected visual
-      observations before claiming that the conservative filter caused no
-      visible false negatives.
+- [x] Stage 1 disposition: do not claim that the conservative filter caused no
+      visible false negatives. Count, timing, and browser presentation evidence
+      is retained, but the native side-by-side artifact was not retained; this
+      remains a reopening gate rather than a positive result.
 - [x] Stage 1 theory subtrial: compare per-draw AABB against per-draw enclosing
       sphere across the fixed reports. Spheres were cheaper in one debug run
       but less selective; retain the tradeoff as corpus evidence only.
@@ -462,9 +503,10 @@ this record's current evidence.
       Stage-1 per-draw baseline across traces, retaining build cost, index
       storage, cell tests, exact tests, and submitted draws. Every retained
       final count matched the baseline; see the camera evidence record.
-- [ ] Stage 2: retain a manual native visual comparison of the fixed medium-grid
-      playback mode against the already-retained per-draw/full-submission
-      evidence before making any no-visible-omission claim for the grid.
+- [x] Stage 2 disposition: do not make a no-visible-omission claim for the
+      medium grid. Its exact final candidate set matched per-draw AABB, but the
+      requested native visual artifact was not retained and no generally
+      preferable grid resolution or shared index owner emerged.
 - [x] Temporal subtrial: retain one-frame candidate-carry overlap over smooth
       yaw, abrupt-turn, and declared-teleport poses while keeping fresh AABB
       classification authoritative. The carry is highly over-inclusive after an
@@ -473,11 +515,11 @@ this record's current evidence.
       the 60-degree authoritative frustum over the same abrupt-turn/teleport
       trace. The expanded set retained every fresh candidate but adds work and
       still loses temporal overlap at discontinuities; it is not a cache policy.
-- [ ] Stage 3: after the ordinary-frustum baseline, compare Doom BSP traversal
+- [x] Stage 3: after the ordinary-frustum baseline, compare Doom BSP traversal
       and any separately justified portal/sector method as source-specific
       candidate selection/oracle. Do not place WAD terms in `tokimu-render` or
       propose this source-specific method as Tokimu's answer.
-  - [ ] Retain one fixed E1M1 sky-boundary pose and source-valid span control
+  - [x] Retain one fixed E1M1 sky-boundary pose and source-valid span control
         (including linedef 247 / sidedef 344) through a Doom BSP/front-to-back
         screen-clipping comparison. Establish whether each span is submitted by
         the classic oracle before treating it as a lowering defect or a
@@ -494,14 +536,14 @@ this record's current evidence.
         strict too-short rejection, and source-specific claim. The row is a
         monster sector and the column is a player sector; it is not a camera or
         render-visibility oracle.
-  - [ ] Stage 3A control: compare a conservative whole-linedef membership-union
+  - [x] Stage 3A control: compare a conservative whole-linedef membership-union
         filter with the current full and ordinary-frustum baselines. A wall or
         cutout survives whenever any of its source subsector memberships
         survives; preserve source submission order and retain all false-positive
         cost as measurement rather than tightening the filter.
     - [x] Headless source-spawn/overview count comparison retained; timing and
           visual comparison remain open.
-  - [ ] Stage 3B representation experiment: only after Stage 3A, lower a
+  - [x] Stage 3B representation experiment: only after Stage 3A, lower a
         corpus-local SEG-granular wall/cutout variant and compare it with the
         whole-linedef control. Preserve the original linedef/sidedef identity,
         side, and continuous texture parameterization across every SEG split.
@@ -530,7 +572,7 @@ this record's current evidence.
           closed-opening SEGs, alongside `371` open SEGs. This classification
           records only source sector-height evidence and cannot itself hide a
           projected span.
-    - [ ] Add bounded screen-span clipping, with a separate Doom-owned
+    - [x] Add bounded screen-span clipping, with a separate Doom-owned
           occluder-authority classification, before interpreting the surviving
           SEG set as Doom presentation visibility.
       - [x] Fixed source-spawn control records `320` horizontal diagnostic
@@ -549,7 +591,7 @@ this record's current evidence.
             wall meshes from `47` retained source intervals, with no masked
             middles; it retains separate resource/command/warm-frame evidence.
             The diagnostic screen projection is not historic-Doom parity.
-      - [ ] Retain a manual fixed-pose comparison of that representation with
+      - [x] Retain a manual fixed-pose comparison of that representation with
             the static shell, including the hut-wall observation. Do not turn
             the diagnostic column projection into a presentation-correctness
             claim.
@@ -558,7 +600,7 @@ this record's current evidence.
               retained only `154` walls and visibly removed substantial
               spawn-room surfaces, so its horizontal-only coverage state is
               unsound for E1M1 presentation.
-        - [ ] If Stage 3B continues, replace the one-dimensional control only
+        - [x] If Stage 3B continues, replace the one-dimensional control only
               with a separately documented Doom-owned projected vertical-span
               experiment. It must preserve non-occluding openings and retain
               explicit false-negative inspection; do not repair this by
@@ -570,7 +612,7 @@ this record's current evidence.
           - [x] Refine that grid to per-column source-ray/SEG intersections,
                 rather than using one enclosing rectangle for a sloped wall.
                 Retain the change in candidates before considering visual work.
-          - [ ] Do not upload the per-column result until a fixed-pose
+          - [x] Do not upload the per-column result until a fixed-pose
                 false-negative protocol, including the spawn room and hut
                 control, is specified. The lower count is not visual evidence.
           - [x] Establish that the per-column upload is fixed-pose comparison
@@ -731,38 +773,87 @@ this record's current evidence.
                 screen-plane instance identity differ; it does not claim
                 visplane parity, select flats, lower geometry, or establish a
                 presentation/culling mode.
+          - [x] Preserve contributing source-sector and source-SEG identity on
+                every reconstructed plane instance, then resolve non-sky
+                instances against the prepared source-labelled flat geometry.
+                All five fixed controls resolve every non-sky instance;
+                near-wall B's remaining instance is explicitly `F_SKY1`
+                presentation. Resolution is intentionally broad: source spawn
+                maps `8` plane instances to `121` whole subsector-triangle
+                candidates. This proves source/material availability while
+                leaving screen-span-shaped clipping unresolved.
+          - [x] Reconstruct each retained non-sky column span as one bounded
+                source-plane quad by intersecting its four diagnostic screen
+                boundaries with the declared source height. All five fixed
+                poses reconstruct every populated non-sky column with zero
+                horizon, behind-viewer, or degenerate losses. Source spawn
+                converts `49,712` retained cells into `1,110` quads / `2,220`
+                triangles instead of selecting `121` whole-subsector flat
+                triangles. This is headless source geometry; upload, texture
+                realization, and visual false-negative review remain open.
+          - [x] Group the fixed source-spawn reconstructed quads by retained
+                plane key and source owner, apply the existing flat materials
+                and continuous source-spatial UV field, and upload them only
+                in a separate plane-only corpus mode. `49,712` source cells
+                become `22` ordinary meshes / `2,220` triangles; the native
+                two-frame control retains zero warm uploads/replacements and
+                a `5.594 ms` development-profile warm frame. No renderer or
+                public plane/visibility vocabulary was added.
+          - [x] Retain the manual fixed-pose plane-only visual observation.
+                The AMD/Vulkan run visibly presents multiple source floors and
+                ceiling portions with their expected flat materials. Because
+                walls are intentionally absent, this establishes realization
+                only and cannot distinguish every true gap from an expected
+                wall-bounded opening.
+          - [x] Inspect the contextual companion, which adds `80` admitted
+                whole-SEG wall-tier meshes to the `22` reconstructed plane
+                meshes. The first interactive inspection exposed visible
+                floor/ceiling gaps, but the executable still allowed the
+                camera to leave the single pose used for reconstruction. This
+                falsifies use of that scene as a freely navigable result; it
+                does not by itself locate a source-spawn reconstruction loss.
+          - [x] Repeat the contextual observation with the source-spawn camera
+                structurally locked. Visible floor and ceiling gaps remain, so
+                the pre-Cycle-54 reconstruction is a fixed-pose false negative
+                and cannot be admitted as presentation selection.
+          - [x] Recheck after aligning the diagnostic column projection,
+                reconstructed column rays, and native presentation camera to
+                one tangent-space 90-degree-horizontal perspective. Broad
+                omissions disappeared, but thin openings remain at some
+                wall/plane edges. Reject the bounded plane-cell variant rather
+                than filling it with coarse whole-subsector flats or an
+                unprincipled overlap epsilon.
       - [x] Retain a source-derived hut control: player-one looking at the
             LINEDEFS #208 midpoint. Both SEG records for linedef `247` project
             to columns `166..180` and are fully covered before they contribute
             coverage (`SEG 567` is `OpeningClosed`; `SEG 559` is
             `BackSectorClosed`). This supports a presentation-model mismatch,
             not deletion of the source wall, within the bounded control.
-  - [ ] Stage 3 comparison matrix: retain prepared geometry/resource count,
+  - [x] Stage 3 comparison matrix: retain prepared geometry/resource count,
         candidates, submitted draws, selection CPU, command-build CPU, warm
         frame observation, startup preparation, and bounded source identity
         evidence for: full whole-linedef submission; generic frustum on
         whole-linedefs; whole-linedef membership union; SEG-granular generic
         frustum; and SEG-granular Doom BSP selection if the prior experiment
         makes that comparison meaningful.
-  - [ ] Stage 3 falsification: reject the SEG-granular direction if it does not
+  - [x] Stage 3 falsification: reject the SEG-granular direction if it does not
         materially outperform the whole-linedef control, loses source wall
         identity/texture continuity, or creates enough geometry/resource and
         submission cost to erase any selection saving. A favorable E1M1 result
         remains corpus evidence, not a generic Tokimu contract.
-- [ ] Stage 4: do not implement GPU occlusion until independent pressure
-      justifies a separate provider/resource/scheduling review.
-- [ ] Before any occlusion trial, retain an application-owned occluder-eligibility
-      classification experiment that keeps opaque, cutout, and Blend semantics
+- [x] Stage 4 disposition: do not implement GPU occlusion. No independent
+      pressure justified its provider/resource/scheduling cost.
+- [x] Occluder-eligibility gate retained but not triggered: no occlusion trial
+      was admitted. Any reopening must keep opaque, cutout, and Blend semantics
       distinct under ADR-0013 and AR-0023.
-- [ ] Theoretical trials: record a source-neutral hypothesis, inputs,
+- [x] Theoretical trials: record a source-neutral hypothesis, inputs,
       guarantee, falsifying result, measurement protocol, and corpus-local
       containment before implementation. Do not promote a theory because a
       single E1M1 observation is favorable.
-- [ ] Compare against a second independent camera/scene consumer before
-      proposing any generic contract, and prove the proposal satisfies every
-      Admission Clamp condition.
-- [ ] Apply ADR-0008 and ADR-0009 if a shared capability or hot-path contract
-      is proposed.
+- [x] Independent-caller gate enforced: no second consumer was demonstrated,
+      so no generic contract is proposed. This remains a reopening condition.
+- [x] ADR-0008/ADR-0009 gate not triggered because no shared capability or
+      hot-path contract is proposed.
 
 ## Reopening Triggers
 
@@ -1699,6 +1790,157 @@ this record's current evidence.
   is whether these retained instances can select and lower source flat spans
   without reintroducing any of the mandatory false negatives; no renderer or
   public visibility contract follows from this cycle.
+
+### Cycle 49 -- 2026-08-13
+
+- Reconstructed plane instances now retain their contributing source-sector
+  and source-SEG identities. Later flat resolution therefore does not have to
+  guess ownership solely from a shared `(kind, height, flat, light)` key.
+- A headless resolution control matches each non-sky instance against existing
+  source-labelled static flat draws. Source spawn resolves `8/8` instances to
+  `121` prepared flat triangles; near-wall A resolves `2/2` to `48`; near-wall
+  B resolves `7/7` non-sky instances to `109` while classifying one `F_SKY1`
+  instance separately; courtyard resolves `4/4` to `34`; and hut resolves
+  `2/2` to `48`. No non-sky instance is unresolved.
+- This is positive provenance/material evidence and negative granularity
+  evidence. The prepared meshes are whole source-subsector triangles and may
+  be candidates for multiple split plane instances, so submitting them would
+  recreate the over-inclusive static shell. The remaining task is actual
+  source-plane span clipping/mapping, not flat lookup, missing geometry, or a
+  generic renderer visibility abstraction.
+
+### Cycle 50 -- 2026-08-13
+
+- The Doom-only plane trace now intersects each retained non-sky column span
+  with its declared horizontal source plane. One populated column becomes one
+  near/far quad rather than one quad per diagnostic cell; the latter was
+  rejected during implementation as avoidable over-tessellation.
+- Every canonical non-sky column reconstructs as finite, forward,
+  nondegenerate geometry: source spawn produces `1,110` quads / `2,220`
+  triangles from `49,712` cells; near-wall A `628/1,256` from `27,288`;
+  near-wall B `652/1,304` from `24,028` while omitting its separately-owned
+  sky instance; courtyard `652/1,304` from `29,952`; and hut `480/960` from
+  `25,173`. Horizon, behind-viewer, and degenerate rejections are all zero.
+- Focused fixtures retain both ordinary floor/ceiling reconstruction and an
+  explicit horizon rejection. This proves a bounded viewer-relative geometry
+  path without reusing whole-subsector flat meshes. It does not yet upload the
+  quads, apply continuous flat UVs/materials, establish historic Doom pixel
+  parity, or prove visual false-negative safety.
+
+### Cycle 51 -- 2026-08-13
+
+- Each reconstructed column now retains the source sector and SEG responsible
+  for its span. The fixed source-spawn presentation groups cells by plane key,
+  sector, and owning subsector, then lowers them into ordinary supplied-UV
+  meshes using the already prepared flat materials. The renderer receives no
+  Doom plane key, screen column, or source visibility state.
+- The control realizes `49,712` retained cells as `22` grouped meshes / `2,220`
+  triangles. Its native two-frame run submits `22` opaque corpus draws (plus
+  the existing sky/debug draws), performs zero warm mesh uploads or
+  replacements, and observes `5.594 ms` for the development-profile warm
+  frame. Grouping avoids one draw per column while preserving source-owner
+  provenance beside each draw.
+- This is intentionally a plane-only, fixed-pose control. Walls and cutouts are
+  absent, so it cannot be mistaken for a complete classic-Doom presentation.
+  Manual source-spawn inspection remains the next falsifier: any visible
+  floor/ceiling omission rejects the reconstructed plane control regardless of
+  its resource and timing evidence.
+
+### Cycle 52 -- 2026-08-13
+
+- Manual AMD/Vulkan inspection confirms that the plane-only control actually
+  presents multiple textured floor and ceiling portions. This closes the
+  realization question but not the no-visible-omission question: intentionally
+  absent walls make some apparent openings visually ambiguous.
+- A second fixed source-spawn control therefore adds the recursively admitted,
+  already lowerable opaque wall tiers around the same reconstructed planes.
+  It retains `22` plane meshes / `2,220` plane triangles plus `80` whole-SEG
+  wall meshes, with zero wall omissions and `102` total corpus draws. The
+  two-frame AMD/Vulkan observation retains zero warm uploads/replacements and
+  a `7.553 ms` development-profile warm frame.
+- This is a falsification aid, not a completed classic presentation. Its walls
+  are admitted whole-SEG tier geometry rather than exact projected wall-tier
+  spans. The next evidence is manual inspection for plane gaps in this better
+  framed view; wall overdraw cannot be interpreted as wall parity.
+
+### Cycle 53 -- 2026-08-13
+
+- Manual contextual inspection exposed visible missing floor and ceiling
+  regions. The observation also exposed a test-harness defect: both
+  reconstructed-plane presentation modes described a fixed source-spawn result
+  while still accepting ordinary mouse look and movement. Once the camera left
+  that pose, missing geometry was expected because no dynamic reconstruction
+  occurred.
+- The two modes now structurally lock the source-spawn observer, ignore
+  movement/look input, and label the native window `fixed-source-spawn`.
+  Therefore the observed interactive gaps reject any freely navigable use of
+  this reconstruction but do not yet prove a loss at its declared pose. The
+  locked contextual rerun remains the honest visual falsifier.
+- This is a corpus-fixture correction, not a visibility admission or a repair
+  by over-including whole static flats. The `25` focused native tests remain
+  green after the change.
+
+### Cycle 54 -- 2026-08-13
+
+- The locked source-spawn contextual rerun still visibly omits portions of the
+  floor and ceiling. This is a genuine fixed-pose false negative; the existing
+  reconstructed plane-cell result is not acceptable presentation selection.
+- Before attributing the loss solely to Doom plane marking, inspection found
+  three inconsistent projection assumptions in the fixture. Horizontal wall
+  admission used tangent-space perspective columns, reconstructed cells used
+  linearly interpolated angles, and the native camera presented them with a
+  separate 60-degree vertical field of view. The experiment now uses the exact
+  inverse tangent mapping for reconstructed column/row boundaries, uses that
+  perspective mapping for vertical clip rows, and gives the locked native
+  camera the corresponding 90-degree-horizontal projection.
+- This correction does not add geometry or weaken the falsification rule. A
+  new locked visual observation must decide whether projection mismatch caused
+  the visible loss. If it did not, the bounded plane-cell variant is rejected
+  and the missing ranges return to the Doom plane protocol investigation.
+
+### Cycle 55 -- 2026-08-13
+
+- The projection-aligned locked rerun removes the broad missing floor and
+  ceiling regions. It therefore confirms that the Cycle-54 projection mismatch
+  was a material fixture defect rather than harmless numerical noise.
+- Thin openings remain around some wall/plane edges. Under the asymmetric
+  acceptance rule these are still visible false negatives. The bounded
+  plane-cell realization is rejected as presentation selection even though it
+  reconstructs most of the fixed view successfully.
+- The remaining seam is also useful representation evidence: integer screen
+  coverage cells translated back into ordinary world triangles do not
+  automatically share exact continuous boundaries with the contextual
+  whole-SEG wall meshes. No overlap epsilon, coarse static-flat fallback, or
+  renderer exception is authorized to make the image look complete. A future
+  Doom presentation experiment would need an exact shared wall/plane boundary
+  model or remain screen-span presentation rather than reconstructed world
+  geometry.
+
+### Cycle 56 -- 2026-08-13
+
+- The completed comparison matrix separates fixed-pose counts, resource shape,
+  CPU observations, warm-frame observations, source identity, and visual
+  disposition. It deliberately leaves headless-only values unmeasured rather
+  than treating a smaller candidate count as performance evidence.
+- Generic per-draw AABB selection remains the strongest source-neutral
+  candidate: it reduced the source-heading pose from `1,861` to `495` draws
+  and the retained warm CPU frame from `46.281 ms` to `28.257 ms`, while
+  preserving order and failing open on uncertain bounds. It is not admitted
+  because no independent caller or retained native no-visible-omission
+  comparison exists.
+- The uniform grid and whole-linedef membership union remain corpus-local
+  alternatives. The grid did not establish a generally preferable resolution;
+  the membership union retained `1,115` draws versus AABB's `1,051` at the
+  yaw-plus-90 pose and demonstrated source-topology coarseness rather than a
+  better general policy.
+- SEG granularity preserved source identity and continuous texture U, but each
+  uploaded Doom visibility reconstruction produced visible false negatives.
+  Favorable `154`-draw and `102`-draw observations are therefore rejected as
+  candidate-selection wins rather than optimized until the image looks right.
+- Final disposition: close with no shared capability admitted. Full submission
+  remains the renderer contract/fallback; Doom visibility remains Doom-owned;
+  GPU occlusion and any provider-neutral service require new independent
+  pressure and a reopened review.
 
 ## References
 

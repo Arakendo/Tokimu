@@ -119,6 +119,23 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
   --doom-seg-clip-presentation
 
+# AR-0025 fixed source-spawn classic-plane reconstruction control. It groups
+# retained viewer-relative floor/ceiling columns into ordinary supplied-UV
+# meshes while deliberately omitting walls. Add --measure-two-frames for the
+# retained resource/command evidence. The camera is locked to the exact
+# source-spawn reconstruction pose during manual gap inspection.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --doom-seg-classic-plane-presentation
+
+# The contextual companion adds only BSP-admitted whole-SEG wall tiers around
+# those reconstructed planes. It makes plane gaps easier to judge, but is
+# still an intermediate fixed-pose control rather than exact wall-tier clipping.
+# Movement and mouse-look are intentionally disabled in both fixed-pose modes.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --doom-seg-classic-context-presentation
+
 # AR-0025 fixed visual pose known to retain all 26 cutout candidates. Add
 # --frustum-aabb for the per-draw baseline, or --frustum-grid-8x4x8 for the
 # explicitly corpus-local medium-grid comparison.
@@ -211,6 +228,21 @@ and must be compared manually with the full static shell. The current
 horizontal-only control is intentionally retained as a **falsified** variant:
 it visibly removes valid spawn-room walls. It is diagnostic presentation
 evidence only, not an original-Doom renderer or a Tokimu visibility feature.
+`--doom-seg-classic-plane-presentation` uploads the separate source-spawn
+plane-column reconstruction as grouped ordinary flat meshes with continuous
+source-spatial UVs. It deliberately omits walls and cutouts so visual review
+can identify floor/ceiling gaps without confusing the control with a complete
+Doom presentation path. The meshes are fixed-pose corpus evidence, not
+visplanes, renderer pixels, or a reusable visibility contract. The camera is
+structurally locked to that source-spawn pose so movement cannot manufacture
+out-of-domain omissions.
+`--doom-seg-classic-context-presentation` adds the BSP-admitted opaque
+whole-SEG wall tiers to that plane reconstruction. It exists solely to frame
+manual plane-gap inspection. The walls have not yet undergone exact projected
+tier clipping, so this mode remains neither classic-Doom parity nor a proposed
+normal presentation path. Projection alignment removed its broad plane losses,
+but retained thin wall/plane edge openings; the mode is therefore retained as
+a falsified representation control rather than usable presentation selection.
 `--doom-seg-clip-2d-report` is the next headless Stage 3B control. It adds a
 bounded source-space vertical-span grid to the same near-first SEG order and
 Doom-owned occluder authority. Its rectangular projected spans are still only
