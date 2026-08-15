@@ -46,8 +46,14 @@ jobs:
         with:
           submodules: false
 
-      - name: Initialize the declared Ring 0 source
-        run: git submodule update --init --depth 1 third-party/ring-0/glam
+      - name: Initialize metadata and declared Ring 0 sources
+        run: |
+          # The audit traverses only the configured Ring 0 roots, but Cargo
+          # metadata must first parse every workspace member and its path
+          # dependencies. Tosumu is therefore a metadata prerequisite, not
+          # part of the audited Ring 0 closure.
+          git submodule update --init --depth 1 third-party/tosumu
+          git submodule update --init --depth 1 third-party/ring-0/glam
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable

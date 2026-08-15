@@ -20,6 +20,7 @@ on:
       - "corpus/consumers/ui-resource-workbench/**"
       - "corpus/lib/particle-tools/**"
       - "third-party/fonts/departure-mono"
+      - "third-party/ring-0/glam"
       - "third-party/tosumu"
       - "website/**"
   workflow_dispatch:
@@ -40,10 +41,11 @@ jobs:
 
       - name: Initialize website build fixtures
         run: |
-          # Departure Mono supplies the native terminal/font corpus, while the
-          # asset workbench's Rust/WASM engine links the accepted Tosumu
-          # provider through its pinned submodule path.
+          # Departure Mono supplies the native terminal/font corpus. The
+          # interactive Rust/WASM workspace links the pinned Ring 0 glam source
+          # and the accepted Tosumu provider through their submodule paths.
           git submodule update --init --depth 1 third-party/fonts/departure-mono
+          git submodule update --init --depth 1 third-party/ring-0/glam
           git submodule update --init --depth 1 third-party/tosumu
 
       - name: Set up Python
