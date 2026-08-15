@@ -187,3 +187,81 @@ Repeated player use of an active code-1 door now follows the released reversal
 rule: closing reopens, while opening or waiting begins closing immediately.
 The state transition has a deterministic regression and remains inside the
 corpus runtime. Sound and a reusable dynamic-geometry contract remain open.
+
+## Slice 8 moving-floor runtime evidence
+
+The code-36 and code-88 experiments retain two distinct corpus-local state
+machines rather than hiding their different lifetimes behind a generic mover.
+Both resolve all target sectors by the source line tag and derive destinations
+from adjacent immutable source sectors.
+
+The released constants are four map units per tick for both effects. Code 36
+selects the highest surrounding floor and adds eight units when it differs
+from the starting floor. Code 88 selects the lowest surrounding floor, waits
+three seconds (`105` ticks) at the bottom, returns to its original height, and
+may be triggered again after completing. See id Software's
+[`p_floor.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_floor.c),
+[`p_plats.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_plats.c),
+and [`p_spec.h`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_spec.h).
+
+Canonical-package command:
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --moving-floor-runtime-report
+```
+
+The retained report resolves both E1M1 lines without rejection:
+
+- linedef 308, code 36, tag 1 lowers sector 59 from floor `96` to `-40`
+  over 34 ticks and completes as a one-shot runtime;
+- linedef 195, code 88, tag 2 lowers sector 70 from `104` to `-48`, waits
+  105 ticks, returns to `104`, and completes after 181 ticks ready for a later
+  retrigger.
+
+The report explicitly retains `source_map_mutated=false` and
+`presentation_mutated=false`. It proves destination selection, timing, and
+lifetime behavior only.
+
+The native walk path now compares each accepted source-space movement segment
+against retained code-11/36/88 lines and handles intersections in movement
+order. A successful code-36 start consumes that one-shot line; code 88 refuses
+to duplicate an active platform but can start again after completion. Code 11
+reports that map transition remains unimplemented. A deterministic local
+fixture proves crossing order and excludes ordinary `Use` specials from this
+path. Active runtime floor heights now overlay the matching retained sector
+after BSP ownership resolution, alongside but separate from active door
+ceiling overrides.
+
+The application presentation path now uses the same source-preserving pattern
+as dynamic doors: it clones the decoded map, overlays only the active runtime
+floor heights, and re-lowers affected target-sector and boundary lower-wall
+spans. Exact floor-flat vertices move by retained sector/plane identity. A
+stationary observer is carried only when both its retained sector and previous
+floor height match the moving surface. No motion or Doom vocabulary is assigned
+to `tokimu-render`.
+
+Canonical no-window presentation replay:
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --moving-floor-resource-replay-report
+```
+
+The retained result completes code 36 in 34 ticks with 12 sector-59 floor
+vertices at `-40`, then completes code 88 in 181 ticks with six sector-70 floor
+vertices restored to `104`. Both stationary-observer carry checks are `true`.
+The replay materializes two source-derived dynamic wall draws with two distinct
+handles, retains 32 dirty meshes for a later renderer upload, reports
+`visual-diagnostic=none`, and explicitly records
+`source-map-mutated=false; renderer-initialized=false`.
+
+This closes the deterministic runtime-to-presentation seam. The maintainer then
+traversed the native E1M1 scene with Shift-assisted movement and observed both
+canonical effects: the exit-side one-shot surface lowers on approach, while the
+inner platform lowers and subsequently raises. That supplies the outstanding
+player-visible traversal and motion evidence, so the bounded Slice 8
+lift/moving-floor item is complete. Sound and generalized moving-surface
+contracts remain outside this slice.

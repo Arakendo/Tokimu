@@ -322,7 +322,7 @@ impl DoomWalkFloorWorld {
         point: [f32; 2],
         current_floor_height: i16,
     ) -> DoomWalkFloorResolution {
-        self.resolve_transition_with_ceiling_overrides(point, current_floor_height, &[])
+        self.resolve_transition_with_runtime_overrides(point, current_floor_height, &[], &[])
     }
 
     /// Resolves a candidate world point through the unchanged Doom BSP/source
@@ -332,25 +332,28 @@ impl DoomWalkFloorWorld {
         embedding: DoomComparativeEmbedding,
         world_point: [f32; 2],
         current_floor_height: i16,
+        floor_overrides: &[(DoomSourceRecord, i16)],
         ceiling_overrides: &[(DoomSourceRecord, i16)],
     ) -> DoomWalkFloorResolution {
         let (source_point, _) =
             embedding.lower_direction(Vec3::new(world_point[0], 0.0, world_point[1]));
-        self.resolve_transition_with_ceiling_overrides(
+        self.resolve_transition_with_runtime_overrides(
             source_point,
             current_floor_height,
+            floor_overrides,
             ceiling_overrides,
         )
     }
 
-    /// Applies a bounded caller-owned ceiling overlay after source-sector
-    /// ownership is resolved. The immutable WAD sector still supplies the
-    /// floor and default ceiling; active corpus runtime state may replace only
-    /// the ceiling for its retained source-sector identity.
-    pub fn resolve_transition_with_ceiling_overrides(
+    /// Applies bounded caller-owned floor and ceiling overlays after
+    /// source-sector ownership is resolved. The immutable WAD sector remains
+    /// the default; active corpus runtime state may replace either height only
+    /// for its retained source-sector identity.
+    pub fn resolve_transition_with_runtime_overrides(
         &self,
         point: [f32; 2],
         current_floor_height: i16,
+        floor_overrides: &[(DoomSourceRecord, i16)],
         ceiling_overrides: &[(DoomSourceRecord, i16)],
     ) -> DoomWalkFloorResolution {
         let point = [
@@ -370,14 +373,22 @@ impl DoomWalkFloorWorld {
         let Some(sector) = self.sectors.get(usize::from(ownership.sector_index)) else {
             return DoomWalkFloorResolution::PointOutsideUniqueSubsector { point };
         };
+        let floor_height = source_floor_height(sector, floor_overrides);
         let ceiling_height = source_ceiling_height(sector, ceiling_overrides);
         classify_floor_transition(
             sector.source,
-            sector.floor_height,
+            floor_height,
             ceiling_height,
             current_floor_height,
         )
     }
+}
+
+fn source_floor_height(sector: &DoomSector, floor_overrides: &[(DoomSourceRecord, i16)]) -> i16 {
+    floor_overrides
+        .iter()
+        .find_map(|(source, height)| (*source == sector.source).then_some(*height))
+        .unwrap_or(sector.floor_height)
 }
 
 fn source_ceiling_height(
@@ -617,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn active_runtime_ceiling_override_replaces_only_the_matching_source_sector() {
+    fn active_runtime_height_overrides_replace_only_the_matching_source_sector() {
         let sector = DoomSector {
             floor_height: 0,
             ceiling_height: 0,
@@ -634,5 +645,11 @@ mod tests {
             68
         );
         assert_eq!(source_ceiling_height(&sector, &[(source_sector(5), 68)]), 0);
+        assert_eq!(source_floor_height(&sector, &[]), 0);
+        assert_eq!(
+            source_floor_height(&sector, &[(source_sector(4), -40)]),
+            -40
+        );
+        assert_eq!(source_floor_height(&sector, &[(source_sector(5), -40)]), 0);
     }
 }

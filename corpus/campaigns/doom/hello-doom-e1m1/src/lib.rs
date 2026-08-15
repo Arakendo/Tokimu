@@ -577,9 +577,11 @@ pub fn reembed_comparative_mesh(
                 .to_array();
         }
         mesh.positions.swap(base + 1, base + 2);
-        mesh.texture_coordinates.swap(base + 1, base + 2);
+        if mesh.has_texture_coordinates() {
+            mesh.texture_coordinates.swap(base + 1, base + 2);
+        }
 
-        if reverse_u {
+        if reverse_u && mesh.has_texture_coordinates() {
             let minimum_u = mesh.texture_coordinates[base..base + 3]
                 .iter()
                 .map(|uv| uv[0])
@@ -1922,6 +1924,30 @@ mod tests {
             assert!(rebuilt_right_normal.dot(expected_right) > 0.0);
             assert!(rebuilt_right_normal.dot(-expected_right) < 0.0);
         }
+    }
+
+    #[test]
+    fn candidate_embedding_rebuilds_untextured_depth_mesh_without_uv_access() {
+        let mut mesh = Mesh::uniform_normal(
+            vec![[10.0, 0.0, 20.0], [30.0, 64.0, 40.0], [30.0, 0.0, 40.0]],
+            [0.0, 0.0, 1.0],
+        );
+
+        reembed_comparative_mesh(&mut mesh, DoomComparativeEmbedding::PreserveNorth, false);
+
+        assert!(mesh.texture_coordinates.is_empty());
+        assert_eq!(mesh.positions.len(), 3);
+        assert_eq!(mesh.normals.len(), 3);
+        assert!(mesh
+            .positions
+            .iter()
+            .flatten()
+            .all(|component| component.is_finite()));
+        assert!(mesh
+            .normals
+            .iter()
+            .flatten()
+            .all(|component| component.is_finite()));
     }
 
     #[test]

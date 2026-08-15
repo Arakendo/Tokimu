@@ -148,3 +148,24 @@ The fixed view used reviewed `THINGS` record 0 at `(1056, -3616)`, heading
 window title reported `1861 draws`. This is a manual native observation of the
 same fixed package/camera specification as the browser evidence, not a PNG
 golden or a claim that the midpoint is Doom player-height policy.
+
+## Canonical sidedef-ownership pressure
+
+On 2026-08-13, interactive comparison against UZDoom identified a distinct
+source-ownership requirement for E1M1 linedef 464. Its right/front sidedef 634
+in sector 57 names middle texture `BROWNGRN`; left/back sidedef 635 in sector
+62 has no middle texture. The reference presents this surface as solid from
+the pit-facing owning side, omits it from the secret-catwalk/back side, and
+allows traversal through the two-sided nonspecial line.
+
+The earlier Tokimu path presented the right/front cutout candidate from both
+sides because the admitted generic categorical-cutout pipeline is deliberately
+two-sided. That is not an alpha-policy defect and does not justify changing the
+renderer contract. The Doom consumer now applies source-owning-face selection
+after ordinary camera candidate selection, using each lowered wall triangle's
+retained owning-side normal. A focused regression proves that the owning side
+survives and the reverse side is rejected; incomplete mesh evidence fails open.
+Interactive native confirmation on 2026-08-13 established that linedef 464 is
+solid from the pit-facing owning side, absent from the secret-catwalk/back
+side, and remains traversable. The checklist regression is closed without
+changing the generic two-sided categorical-cutout renderer contract.

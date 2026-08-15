@@ -5,6 +5,8 @@ pub enum KeyCode {
     Escape,
     Space,
     ControlLeft,
+    ShiftLeft,
+    ShiftRight,
     Enter,
     Backspace,
     Delete,

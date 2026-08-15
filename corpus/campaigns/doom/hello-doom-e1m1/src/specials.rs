@@ -256,6 +256,236 @@ impl DoomManualDoorRuntime {
     }
 }
 
+/// Released-source timing for the E1M1 code-36 turbo floor. Heights and speed
+/// are expressed in Doom map units per simulation tick.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomTurboLowerFloorPolicy {
+    pub speed_per_tick: i16,
+    pub destination_clearance: i16,
+}
+
+impl DoomTurboLowerFloorPolicy {
+    pub const CLASSIC: Self = Self {
+        speed_per_tick: 4,
+        destination_clearance: 8,
+    };
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomTurboLowerFloorPhase {
+    Lowering,
+    Complete,
+}
+
+/// Runtime-owned floor height for one sector selected by a code-36 line tag.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomTurboLowerFloorRuntime {
+    pub target_sector: DoomSourceRecord,
+    pub start_floor_height: i16,
+    pub destination_floor_height: i16,
+    pub current_floor_height: i16,
+    pub phase: DoomTurboLowerFloorPhase,
+    pub policy: DoomTurboLowerFloorPolicy,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomTaggedFloorStartError {
+    NoTaggedSector { tag: u16 },
+    NoAdjacentFloor { target_sector: DoomSourceRecord },
+    InvalidSpeed { speed_per_tick: i16 },
+    DestinationOverflow { target_sector: DoomSourceRecord },
+}
+
+impl DoomTurboLowerFloorRuntime {
+    /// Starts every immutable source sector selected by the line tag. The
+    /// destination follows `turboLower`: highest adjacent floor plus eight
+    /// units when that floor differs from the starting height.
+    pub fn start_tagged(
+        source: &DoomLineActivationSource,
+        tag: u16,
+        policy: DoomTurboLowerFloorPolicy,
+    ) -> Result<Vec<Self>, DoomTaggedFloorStartError> {
+        if policy.speed_per_tick <= 0 {
+            return Err(DoomTaggedFloorStartError::InvalidSpeed {
+                speed_per_tick: policy.speed_per_tick,
+            });
+        }
+        let targets = tagged_sector_indices(source, tag);
+        if targets.is_empty() {
+            return Err(DoomTaggedFloorStartError::NoTaggedSector { tag });
+        }
+        targets
+            .into_iter()
+            .map(|target_index| {
+                let target = &source.sectors[target_index];
+                let highest_neighbor = adjacent_floor_heights(source, target_index).max().ok_or(
+                    DoomTaggedFloorStartError::NoAdjacentFloor {
+                        target_sector: target.source,
+                    },
+                )?;
+                let destination_floor_height = if highest_neighbor == target.floor_height {
+                    highest_neighbor
+                } else {
+                    highest_neighbor
+                        .checked_add(policy.destination_clearance)
+                        .ok_or(DoomTaggedFloorStartError::DestinationOverflow {
+                            target_sector: target.source,
+                        })?
+                };
+                Ok(Self {
+                    target_sector: target.source,
+                    start_floor_height: target.floor_height,
+                    destination_floor_height,
+                    current_floor_height: target.floor_height,
+                    phase: DoomTurboLowerFloorPhase::Lowering,
+                    policy,
+                })
+            })
+            .collect()
+    }
+
+    pub fn advance_tick(&mut self) {
+        if self.phase == DoomTurboLowerFloorPhase::Complete {
+            return;
+        }
+        self.current_floor_height = self
+            .current_floor_height
+            .saturating_sub(self.policy.speed_per_tick)
+            .max(self.destination_floor_height);
+        if self.current_floor_height == self.destination_floor_height {
+            self.phase = DoomTurboLowerFloorPhase::Complete;
+        }
+    }
+}
+
+/// Released-source timing for E1M1 code-88 `downWaitUpStay` platforms.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomDownWaitUpStayPolicy {
+    pub speed_per_tick: i16,
+    pub wait_ticks: u16,
+}
+
+impl DoomDownWaitUpStayPolicy {
+    pub const CLASSIC: Self = Self {
+        speed_per_tick: 4,
+        wait_ticks: 105,
+    };
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomDownWaitUpStayPhase {
+    Lowering,
+    Waiting { remaining_ticks: u16 },
+    Raising,
+    Complete,
+}
+
+/// Runtime-owned platform floor for one sector selected by a code-88 tag.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomDownWaitUpStayRuntime {
+    pub target_sector: DoomSourceRecord,
+    pub low_floor_height: i16,
+    pub high_floor_height: i16,
+    pub current_floor_height: i16,
+    pub phase: DoomDownWaitUpStayPhase,
+    pub policy: DoomDownWaitUpStayPolicy,
+}
+
+impl DoomDownWaitUpStayRuntime {
+    pub fn start_tagged(
+        source: &DoomLineActivationSource,
+        tag: u16,
+        policy: DoomDownWaitUpStayPolicy,
+    ) -> Result<Vec<Self>, DoomTaggedFloorStartError> {
+        if policy.speed_per_tick <= 0 {
+            return Err(DoomTaggedFloorStartError::InvalidSpeed {
+                speed_per_tick: policy.speed_per_tick,
+            });
+        }
+        let targets = tagged_sector_indices(source, tag);
+        if targets.is_empty() {
+            return Err(DoomTaggedFloorStartError::NoTaggedSector { tag });
+        }
+        targets
+            .into_iter()
+            .map(|target_index| {
+                let target = &source.sectors[target_index];
+                let low_floor_height = adjacent_floor_heights(source, target_index)
+                    .min()
+                    .ok_or(DoomTaggedFloorStartError::NoAdjacentFloor {
+                        target_sector: target.source,
+                    })?
+                    .min(target.floor_height);
+                Ok(Self {
+                    target_sector: target.source,
+                    low_floor_height,
+                    high_floor_height: target.floor_height,
+                    current_floor_height: target.floor_height,
+                    phase: DoomDownWaitUpStayPhase::Lowering,
+                    policy,
+                })
+            })
+            .collect()
+    }
+
+    pub fn advance_tick(&mut self) {
+        match self.phase {
+            DoomDownWaitUpStayPhase::Lowering => {
+                self.current_floor_height = self
+                    .current_floor_height
+                    .saturating_sub(self.policy.speed_per_tick)
+                    .max(self.low_floor_height);
+                if self.current_floor_height == self.low_floor_height {
+                    self.phase = DoomDownWaitUpStayPhase::Waiting {
+                        remaining_ticks: self.policy.wait_ticks,
+                    };
+                }
+            }
+            DoomDownWaitUpStayPhase::Waiting { remaining_ticks } if remaining_ticks > 1 => {
+                self.phase = DoomDownWaitUpStayPhase::Waiting {
+                    remaining_ticks: remaining_ticks - 1,
+                };
+            }
+            DoomDownWaitUpStayPhase::Waiting { .. } => {
+                self.phase = DoomDownWaitUpStayPhase::Raising;
+            }
+            DoomDownWaitUpStayPhase::Raising => {
+                self.current_floor_height = self
+                    .current_floor_height
+                    .saturating_add(self.policy.speed_per_tick)
+                    .min(self.high_floor_height);
+                if self.current_floor_height == self.high_floor_height {
+                    self.phase = DoomDownWaitUpStayPhase::Complete;
+                }
+            }
+            DoomDownWaitUpStayPhase::Complete => {}
+        }
+    }
+}
+
+fn tagged_sector_indices(source: &DoomLineActivationSource, tag: u16) -> Vec<usize> {
+    source
+        .sectors
+        .iter()
+        .enumerate()
+        .filter_map(|(index, sector)| (sector.tag == tag).then_some(index))
+        .collect()
+}
+
+fn adjacent_floor_heights(
+    source: &DoomLineActivationSource,
+    target_sector_index: usize,
+) -> impl Iterator<Item = i16> + '_ {
+    source
+        .linedefs
+        .iter()
+        .filter_map(move |line| {
+            neighboring_sector_index(line, target_sector_index, &source.sidedefs)
+        })
+        .filter_map(|index| source.sectors.get(index))
+        .map(|sector| sector.floor_height)
+}
+
 /// Returns the sector on the other side of a two-sided source line which
 /// touches `target_sector_index`. One-sided lines and malformed sidedef
 /// references contribute no adjacency rather than inventing a destination.
@@ -648,5 +878,126 @@ mod tests {
         );
         door.phase = DoomManualDoorPhase::Closed;
         assert_eq!(door.reuse_by_player(), None);
+    }
+
+    fn moving_floor_source() -> DoomLineActivationSource {
+        let boundary = |record_index, right_sidedef, left_sidedef| DoomLinedef {
+            source: source(record_index),
+            start_vertex: 0,
+            end_vertex: 1,
+            flags: 0,
+            special: 0,
+            tag: 0,
+            right_sidedef: Some(right_sidedef),
+            left_sidedef: Some(left_sidedef),
+        };
+        let side = |record_index, sector| DoomSidedef {
+            source: source(record_index),
+            x_offset: 0,
+            y_offset: 0,
+            upper_texture: "-".to_owned(),
+            lower_texture: "-".to_owned(),
+            middle_texture: "-".to_owned(),
+            sector,
+        };
+        let sector = |record_index, floor_height, tag| DoomSector {
+            source: source(record_index),
+            floor_height,
+            ceiling_height: 128,
+            floor_texture: "FLOOR0_1".to_owned(),
+            ceiling_texture: "CEIL1_1".to_owned(),
+            light_level: 160,
+            special: 0,
+            tag,
+        };
+        DoomLineActivationSource {
+            linedefs: vec![boundary(20, 0, 1), boundary(21, 2, 3)],
+            sidedefs: vec![side(30, 0), side(31, 1), side(32, 0), side(33, 2)],
+            sectors: vec![sector(40, 64, 7), sector(41, 0, 0), sector(42, 32, 0)],
+        }
+    }
+
+    #[test]
+    fn turbo_lower_uses_highest_neighbor_plus_eight_without_mutating_source() {
+        let source_data = moving_floor_source();
+        let mut floors = DoomTurboLowerFloorRuntime::start_tagged(
+            &source_data,
+            7,
+            DoomTurboLowerFloorPolicy::CLASSIC,
+        )
+        .unwrap();
+        assert_eq!(floors.len(), 1);
+        let floor = &mut floors[0];
+        assert_eq!(floor.destination_floor_height, 40);
+        for _ in 0..6 {
+            floor.advance_tick();
+        }
+        assert_eq!(floor.current_floor_height, 40);
+        assert_eq!(floor.phase, DoomTurboLowerFloorPhase::Complete);
+        assert_eq!(source_data.sectors[0].floor_height, 64);
+    }
+
+    #[test]
+    fn down_wait_up_stay_completes_classic_cycle_and_can_be_restarted() {
+        let source_data = moving_floor_source();
+        let mut platforms = DoomDownWaitUpStayRuntime::start_tagged(
+            &source_data,
+            7,
+            DoomDownWaitUpStayPolicy::CLASSIC,
+        )
+        .unwrap();
+        let platform = &mut platforms[0];
+        assert_eq!(platform.low_floor_height, 0);
+        for _ in 0..16 {
+            platform.advance_tick();
+        }
+        assert_eq!(
+            platform.phase,
+            DoomDownWaitUpStayPhase::Waiting {
+                remaining_ticks: 105
+            }
+        );
+        for _ in 0..105 {
+            platform.advance_tick();
+        }
+        assert_eq!(platform.phase, DoomDownWaitUpStayPhase::Raising);
+        for _ in 0..16 {
+            platform.advance_tick();
+        }
+        assert_eq!(platform.current_floor_height, 64);
+        assert_eq!(platform.phase, DoomDownWaitUpStayPhase::Complete);
+
+        let restarted = DoomDownWaitUpStayRuntime::start_tagged(
+            &source_data,
+            7,
+            DoomDownWaitUpStayPolicy::CLASSIC,
+        )
+        .unwrap();
+        assert_eq!(restarted[0].phase, DoomDownWaitUpStayPhase::Lowering);
+        assert_eq!(source_data.sectors[0].floor_height, 64);
+    }
+
+    #[test]
+    fn tagged_floor_starts_reject_missing_targets_and_invalid_speed() {
+        let source_data = moving_floor_source();
+        assert_eq!(
+            DoomTurboLowerFloorRuntime::start_tagged(
+                &source_data,
+                99,
+                DoomTurboLowerFloorPolicy::CLASSIC,
+            ),
+            Err(DoomTaggedFloorStartError::NoTaggedSector { tag: 99 })
+        );
+        assert_eq!(
+            DoomDownWaitUpStayRuntime::start_tagged(
+                &source_data,
+                7,
+                DoomDownWaitUpStayPolicy {
+                    speed_per_tick: 0,
+                    ..DoomDownWaitUpStayPolicy::CLASSIC
+                },
+            ),
+            Err(DoomTaggedFloorStartError::InvalidSpeed { speed_per_tick: 0 })
+        );
     }
 }

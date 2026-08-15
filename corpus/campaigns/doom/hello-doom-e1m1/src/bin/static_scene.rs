@@ -13,16 +13,23 @@ use std::{
 use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
 use doom_geometry_provider::{
     clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
-    locate_doom_point_subsector, lower_doom_seg_textured_wall_triangles,
-    lower_doom_textured_wall_triangles, observe_doom_seg_occluders, observe_doom_seg_plane_marks,
+    locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
+    lower_doom_seg_textured_wall_triangles, lower_doom_textured_wall_triangles,
+    observe_doom_classic_bsp,
+    observe_doom_classic_vertical_clip_state as observe_shared_doom_classic_vertical_clip_state,
+    observe_doom_seg_occluders, observe_doom_seg_plane_marks, project_doom_sector_runtime_heights,
     resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
     resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
-    resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomSegPlaneMarkObservation,
-    DoomSegTexturedWallTriangle, DoomSurfacePlane, DoomTextureExtent, DoomWallTextureRole,
+    resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomClassicBspObservation,
+    DoomSectorRuntimeHeightSnapshot, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
+    DoomSegClassicPlaneSpanObservation, DoomSegPlaneMarkObservation, DoomSegTexturedWallTriangle,
+    DoomSurfacePlane, DoomTextureExtent, DoomWallTextureRole,
 };
-use doom_map_provider::{
-    decode_doom_map_core, resolve_doom_player_one_start, DoomBspChild, DoomMapCore,
-};
+#[cfg(test)]
+use doom_geometry_provider::{DoomSegClassicPlaneInstance, DoomSegClassicVerticalClipObservation};
+#[cfg(test)]
+use doom_map_provider::DoomBspChild;
+use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore};
 use doom_raster_provider::{
     DoomFlatDecodeLimits, DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomTextureComposeLimits,
     DoomTextureDecodeLimits,
@@ -36,9 +43,11 @@ use hello_doom_e1m1::collision::{
 };
 use hello_doom_e1m1::debug_console::DoomDebugConsole;
 use hello_doom_e1m1::specials::{
-    resolve_doom_line_activation, DoomLineActivation, DoomLineActivationIntent,
+    resolve_doom_line_activation, DoomDownWaitUpStayPhase, DoomDownWaitUpStayPolicy,
+    DoomDownWaitUpStayRuntime, DoomLineActivation, DoomLineActivationIntent,
     DoomLineActivationRequest, DoomLineActivationResolution, DoomLineActivationSource,
-    DoomManualDoorPhase, DoomManualDoorPolicy, DoomManualDoorRuntime,
+    DoomManualDoorPhase, DoomManualDoorPolicy, DoomManualDoorRuntime, DoomTurboLowerFloorPhase,
+    DoomTurboLowerFloorPolicy, DoomTurboLowerFloorRuntime,
 };
 use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
@@ -70,6 +79,10 @@ use tokimu::{
 };
 use tokimu_core::math::{Mat4, Vec3};
 use tokimu_input::{InputState, KeyCode, MouseButton};
+
+/// Compatibility name retained while E1M1 migrates from its former
+/// executable-local observation to the shared Doom-provider result.
+type DoomSegClassicBspObservation = DoomClassicBspObservation;
 use ui_tools::provider::{UiFontRasterizer, UiFontSource};
 use winit::window::CursorGrabMode;
 
@@ -132,7 +145,11 @@ const DIAGNOSTIC_SKY_MESH_BASE: u64 = 9_000_100;
 const DOOM_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_020);
 const DOOM_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_020);
 const DOOM_SKY_MESH: MeshHandle = MeshHandle(9_000_020);
+const DOOM_SKY_BOUNDARY_MATERIAL: MaterialHandle = MaterialHandle(9_000_021);
+const DOOM_SOURCE_SKY_PLANE_MESH_BASE: u64 = 9_002_000;
+const DOOM_VIEWER_SKY_SPAN_MESH: MeshHandle = MeshHandle(9_003_000);
 const WALK_SPEED: f32 = 240.0;
+const RUN_SPEED_MULTIPLIER: f32 = 2.0;
 const WALK_RADIUS: f32 = 16.0;
 // id Software's released `p_local.h` declares USERANGE as 64 map units.
 // This remains a Doom-corpus interaction policy, not a generic Tokimu reach.
@@ -159,12 +176,17 @@ struct App {
     diagnostic_sky_records: Vec<String>,
     doom_sky_texture: PreparedStaticTexture,
     doom_sky_mesh: Mesh,
+    doom_sky_boundary_draws: Vec<DoomSkyBoundaryDepthDraw>,
     doom_sky_enabled: bool,
+    source_sky_plane_depth_enabled: bool,
+    source_sky_plane_depth_global_control: bool,
+    source_sky_plane_selected: Vec<bool>,
     cutout_mesh_base: u64,
     include_cutouts: bool,
     pipeline: PipelineHandle,
     cutout_pipeline: Option<PipelineHandle>,
     doom_sky_pipeline: Option<PipelineHandle>,
+    doom_sky_boundary_pipeline: Option<PipelineHandle>,
     debug_pipeline: Option<PipelineHandle>,
     debug_font: Option<UiFontRasterizer>,
     debug_console: DoomDebugConsole,
@@ -189,6 +211,10 @@ struct App {
     door_geometry_source: DoomDynamicDoorGeometrySource,
     active_manual_doors: Vec<DoomManualDoorRuntime>,
     door_tick_accumulator: f64,
+    active_turbo_floors: Vec<DoomTurboLowerFloorRuntime>,
+    active_down_wait_up_platforms: Vec<DoomDownWaitUpStayRuntime>,
+    consumed_one_shot_cross_lines: BTreeSet<u32>,
+    moving_floor_tick_accumulator: f64,
     dirty_opaque_meshes: HashSet<usize>,
     door_visual_diagnostic: Option<String>,
     door_geometry_diagnostic: Option<String>,
@@ -223,6 +249,7 @@ struct SceneInput {
     diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
     diagnostic_sky_records: Vec<String>,
     doom_sky_texture: PreparedStaticTexture,
+    doom_sky_boundary_draws: Vec<DoomSkyBoundaryDepthDraw>,
     spawn_observer: SpawnObserver,
     walk_collision: DoomWalkCollisionWorld,
     walk_floors: DoomWalkFloorWorld,
@@ -231,6 +258,44 @@ struct SceneInput {
     membership_selection: DoomMembershipSelectionInput,
     activation_source: DoomLineActivationSource,
     door_geometry_source: DoomDynamicDoorGeometrySource,
+}
+
+#[derive(Clone, Debug)]
+struct DoomSkyBoundaryDepthDraw {
+    source_linedef: doom_map_provider::DoomSourceRecord,
+    source_sidedef: doom_map_provider::DoomSourceRecord,
+    source_sector: doom_map_provider::DoomSourceRecord,
+    mesh: Mesh,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct SourceLookRay {
+    origin: [f32; 3],
+    direction: [f32; 3],
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PreparedRayHit<'a> {
+    distance: f32,
+    draw: &'a StaticDrawPlanEntry,
+    family: &'static str,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PreparedSkyBoundaryRayHit<'a> {
+    distance: f32,
+    draw: &'a DoomSkyBoundaryDepthDraw,
+}
+
+/// One retained intersection with an omitted source `F_SKY1` plane. This is
+/// LOOK/headless evidence only: it distinguishes a ray leaving the source
+/// world through a sky aperture from a ray that reaches ordinary geometry
+/// without crossing sky. It does not make the diagnostic flat a renderer
+/// mask or admit a general sky/portal contract.
+#[derive(Clone, Copy, Debug)]
+struct PreparedSourceSkyPlaneRayHit<'a> {
+    distance: f32,
+    draw: &'a StaticDrawPlanEntry,
 }
 
 /// Immutable source geometry retained only so Slice 8 can re-lower the
@@ -327,6 +392,7 @@ struct DoomSegClassicAdmissionObservation {
     source_segs: usize,
     backface_rejected: usize,
     outside_fov_rejected: usize,
+    near_plane_fail_open: usize,
     edge_on: usize,
     solid_admitted: usize,
     pass_admitted: usize,
@@ -334,82 +400,6 @@ struct DoomSegClassicAdmissionObservation {
     solid_range_fully_covered: usize,
     solid_range_covered_columns: usize,
     samples: Vec<String>,
-}
-
-/// Headless Doom-only continuation of the Stage 3B source protocol. It tracks
-/// which BSP leaves were reached after an accumulated horizontal solid-range
-/// check. It is neither generic candidate selection nor a draw plan.
-#[derive(Default)]
-struct DoomSegClassicBspObservation {
-    leaves_visited: usize,
-    visited_subsectors: BTreeSet<u16>,
-    source_segs_visited: usize,
-    far_children_pruned: usize,
-    far_children_outside_fov: usize,
-    far_children_fail_open: usize,
-    backface_rejected: usize,
-    edge_on: usize,
-    outside_fov_rejected: usize,
-    solid_admitted: usize,
-    pass_admitted: usize,
-    solid_range_contributors: usize,
-    solid_range_fully_covered: usize,
-    solid_range_covered_columns: usize,
-    admitted_seg_records: BTreeSet<u32>,
-    /// Preserves the source-protocol admission order for the next, still
-    /// headless, wall-tier/plane-clip observation. A set alone cannot show
-    /// which earlier wall tier constrained a later source range.
-    admitted_seg_order: Vec<u32>,
-    hut_linedef_segs_visited: usize,
-    hut_linedef_segs_admitted: usize,
-    watched_subsector_elisions: Vec<String>,
-    samples: Vec<String>,
-}
-
-/// Headless continuation of the recursive Doom-only traversal evidence. This
-/// observes how already-admitted source wall tiers would constrain separate
-/// ceiling/floor clip boundaries at a deliberately coarse diagnostic column
-/// resolution. It does not create visplanes, select flat meshes, or author a
-/// presentation/culling result.
-#[derive(Default)]
-struct DoomSegClassicVerticalClipObservation {
-    admitted_segs: usize,
-    upper_tier_spans: usize,
-    lower_tier_spans: usize,
-    middle_tier_spans: usize,
-    floor_plane_marks: usize,
-    ceiling_plane_marks: usize,
-    paired_sky_adjustments: usize,
-    ceiling_clip_updates: usize,
-    floor_clip_updates: usize,
-    plane_spans: DoomSegClassicPlaneSpanObservation,
-    samples: Vec<String>,
-}
-
-/// Bounded source-plane reconstruction produced while the Doom-owned wall
-/// loop evolves its per-column clip state. These are diagnostic screen cells,
-/// not renderer pixels, selected flat meshes, or a public visibility model.
-#[derive(Default)]
-struct DoomSegClassicPlaneSpanObservation {
-    keys: BTreeMap<DoomSegClassicPlaneKey, Vec<DoomSegClassicPlaneInstance>>,
-    plane_instances: usize,
-    collision_splits: usize,
-    horizontal_spans: usize,
-    populated_columns: usize,
-    populated_cells: usize,
-    overlapping_writes: usize,
-    empty_after_clip: usize,
-    samples: Vec<String>,
-}
-
-#[derive(Default)]
-struct DoomSegClassicPlaneInstance {
-    columns: Vec<Option<[usize; 2]>>,
-    column_sources: Vec<Option<[u32; 2]>>,
-    minimum_column: usize,
-    maximum_column: usize,
-    source_sectors: BTreeSet<u32>,
-    source_segs: BTreeSet<u32>,
 }
 
 /// Resolution of reconstructed source-plane instances against the existing
@@ -446,6 +436,7 @@ struct DoomSegClassicPlaneCellReconstruction {
 #[derive(Clone, Debug)]
 struct DoomSegClassicPlaneCell {
     key: DoomSegClassicPlaneKey,
+    source_height: i16,
     source_sector: u32,
     source_seg: u32,
     source_corners: [[f64; 2]; 4],
@@ -464,20 +455,6 @@ struct DoomSegClassicContextPresentation {
     plane_triangles: usize,
     wall_meshes: usize,
     omitted_wall_triangles: usize,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-enum DoomSegClassicPlaneKind {
-    Floor,
-    Ceiling,
-}
-
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-struct DoomSegClassicPlaneKey {
-    kind: DoomSegClassicPlaneKind,
-    height: i16,
-    texture: String,
-    light: i16,
 }
 
 /// Source identity inventory that precedes any attempt to construct classic
@@ -507,6 +484,7 @@ struct DoomSegPerColumnPresentation {
 /// static; only the caller-owned submitted subset changes with the observer.
 struct DoomSegDynamicSelectionInput {
     draw_indices_by_seg: BTreeMap<u32, Vec<usize>>,
+    flat_indices_by_subsector: BTreeMap<u32, Vec<usize>>,
     unsupported_textures: BTreeSet<String>,
 }
 
@@ -552,6 +530,10 @@ enum CandidateSelection {
     DoomMembershipUnion,
     /// Source-specific, fail-open per-column SEG control for AR-0025 only.
     DoomSegPerColumn,
+    /// Doom-owned, corpus-local BSP/solid-range control. Walls follow admitted
+    /// source SEGs; flats follow leaves reached by the same traversal. This is
+    /// deliberately not renderer visibility or historic pixel parity.
+    DoomClassicBsp,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -635,6 +617,14 @@ fn main() -> PlatformResult<()> {
         .iter()
         .any(|argument| argument == "--diagnostic-sky-omissions");
     let doom_sky = !diagnostic_sky && !args.iter().any(|argument| argument == "--no-doom-sky");
+    let source_sky_plane_depth = doom_sky
+        && args
+            .iter()
+            .any(|argument| argument == "--source-sky-plane-depth");
+    let source_sky_plane_depth_global_control = doom_sky
+        && args
+            .iter()
+            .any(|argument| argument == "--source-sky-plane-depth-global-control");
     let spawn_observer = !args.iter().any(|argument| argument == "--overview-camera");
     let spawn_yaw_plus_90 = args
         .iter()
@@ -687,6 +677,12 @@ fn main() -> PlatformResult<()> {
     let door_runtime_report = args
         .iter()
         .any(|argument| argument == "--door-runtime-report");
+    let moving_floor_runtime_report = args
+        .iter()
+        .any(|argument| argument == "--moving-floor-runtime-report");
+    let moving_floor_resource_replay_report = args
+        .iter()
+        .any(|argument| argument == "--moving-floor-resource-replay-report");
     let door_resource_replay_report = args
         .iter()
         .any(|argument| argument == "--door-resource-replay-report");
@@ -760,10 +756,14 @@ fn main() -> PlatformResult<()> {
     let doom_seg_per_column_dynamic = args
         .iter()
         .any(|argument| argument == "--doom-seg-per-column-dynamic");
+    let doom_seg_classic_dynamic = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-classic-dynamic");
     if [
         doom_seg_clip_presentation,
         doom_seg_per_column_presentation,
         doom_seg_per_column_dynamic,
+        doom_seg_classic_dynamic,
         doom_seg_classic_plane_presentation,
         doom_seg_classic_context_presentation,
     ]
@@ -779,11 +779,18 @@ fn main() -> PlatformResult<()> {
             .strip_prefix("--wall-source-report=")
             .and_then(|record| record.parse::<u32>().ok())
     });
+    let look_ray_report = args
+        .iter()
+        .find_map(|argument| argument.strip_prefix("--look-ray-report="))
+        .map(parse_source_look_ray)
+        .transpose()?;
     args.retain(|argument| argument != "--masked-cutouts");
     args.retain(|argument| argument != "--no-masked-cutouts");
     args.retain(|argument| argument != "--diagnostic-sky-omissions");
     args.retain(|argument| argument != "--doom-sky");
     args.retain(|argument| argument != "--no-doom-sky");
+    args.retain(|argument| argument != "--source-sky-plane-depth");
+    args.retain(|argument| argument != "--source-sky-plane-depth-global-control");
     args.retain(|argument| argument != "--spawn-observer");
     args.retain(|argument| argument != "--overview-camera");
     args.retain(|argument| argument != "--spawn-yaw-plus-90");
@@ -806,6 +813,8 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--flat-normal-report");
     args.retain(|argument| argument != "--special-activation-report");
     args.retain(|argument| argument != "--door-runtime-report");
+    args.retain(|argument| argument != "--moving-floor-runtime-report");
+    args.retain(|argument| argument != "--moving-floor-resource-replay-report");
     args.retain(|argument| argument != "--door-resource-replay-report");
     args.retain(|argument| argument != "--measure-two-frames");
     args.retain(|argument| argument != "--spatial-orientation-report");
@@ -831,13 +840,15 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--doom-seg-clip-presentation");
     args.retain(|argument| argument != "--doom-seg-per-column-presentation");
     args.retain(|argument| argument != "--doom-seg-per-column-dynamic");
+    args.retain(|argument| argument != "--doom-seg-classic-dynamic");
     args.retain(|argument| !argument.starts_with("--wall-source-report="));
+    args.retain(|argument| !argument.starts_with("--look-ray-report="));
     args.retain(|argument| argument != "--embedding-east");
     args.retain(|argument| argument != "--embedding-north");
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -848,6 +859,12 @@ fn main() -> PlatformResult<()> {
     if doom_seg_per_column_dynamic && !spawn_observer {
         return Err(
             "--doom-seg-per-column-dynamic requires the source-spawn observer; omit --overview-camera"
+                .into(),
+        );
+    }
+    if doom_seg_classic_dynamic && !spawn_observer {
+        return Err(
+            "--doom-seg-classic-dynamic requires the source-spawn observer; omit --overview-camera"
                 .into(),
         );
     }
@@ -990,11 +1007,13 @@ fn main() -> PlatformResult<()> {
         scene.opaque_draws = presentation.draws;
         scene.cutout_draws.clear();
     }
-    let doom_seg_dynamic_selection = if doom_seg_per_column_dynamic {
+    let doom_seg_dynamic_selection = if doom_seg_per_column_dynamic || doom_seg_classic_dynamic {
         let selection = prepare_doom_seg_per_column_dynamic_scene(&mut scene)?;
         eprintln!(
-            "E1M1 AR-0025 Stage 3B dynamic SEG control: retained_seg_records={}; unsupported_textures={:?}; meaning=source-local-draw-enable-experiment-not-renderer-visibility",
+            "E1M1 AR-0025 Stage 3B dynamic SEG control: mode={}; retained_seg_records={}; retained_flat_subsectors={}; unsupported_textures={:?}; meaning=source-local-draw-enable-experiment-not-renderer-visibility",
+            if doom_seg_classic_dynamic { "classic-bsp" } else { "per-column-grid" },
             selection.draw_indices_by_seg.len(),
+            selection.flat_indices_by_subsector.len(),
             selection.unsupported_textures,
         );
         Some(selection)
@@ -1002,6 +1021,10 @@ fn main() -> PlatformResult<()> {
         None
     };
     reembed_scene_for_comparison(&mut scene, comparative_embedding);
+    if let Some(ray) = look_ray_report {
+        report_source_look_ray(&scene, comparative_embedding, ray, include_cutouts);
+        return Ok(());
+    }
     if spatial_flat_uv_report {
         report_spatial_flat_uv(&scene, comparative_embedding);
         return Ok(());
@@ -1061,6 +1084,10 @@ fn main() -> PlatformResult<()> {
         report_doom_manual_door_runtime(&scene.activation_source);
         return Ok(());
     }
+    if moving_floor_runtime_report {
+        report_doom_moving_floor_runtime(&scene.activation_source);
+        return Ok(());
+    }
     if walk_collision_report {
         report_walk_collision(&scene);
         return Ok(());
@@ -1085,9 +1112,21 @@ fn main() -> PlatformResult<()> {
         } else {
             0
         }
+        // Paired-sky boundary meshes remain retained source evidence, but
+        // E1M1 proved that presenting them unconditionally can hide valid
+        // foreground geometry (the hut from the spawn-room window). The
+        // synthetic paired-sky fixture remains the bounded mechanism control.
+        + if source_sky_plane_depth_global_control {
+            scene.diagnostic_sky_draws.len()
+        } else if source_sky_plane_depth {
+            1
+        } else {
+            0
+        }
         + usize::from(doom_sky);
     let opaque_selected = vec![true; scene.opaque_draws.len()];
     let cutout_selected = vec![true; scene.cutout_draws.len()];
+    let source_sky_plane_selected = vec![false; scene.diagnostic_sky_draws.len()];
     let cutout_mesh_base = scene.opaque_draws.len() as u64 + 1;
     let commands = Vec::with_capacity(draw_count + 1);
     let mut app = App {
@@ -1101,12 +1140,17 @@ fn main() -> PlatformResult<()> {
         diagnostic_sky_records: scene.diagnostic_sky_records,
         doom_sky_texture: scene.doom_sky_texture,
         doom_sky_mesh: build_doom_sky_cylinder(center, radius).map_err(io::Error::other)?,
+        doom_sky_boundary_draws: scene.doom_sky_boundary_draws,
         doom_sky_enabled: doom_sky,
+        source_sky_plane_depth_enabled: source_sky_plane_depth,
+        source_sky_plane_depth_global_control,
+        source_sky_plane_selected,
         cutout_mesh_base,
         include_cutouts,
         pipeline: PipelineHandle(0),
         cutout_pipeline: None,
         doom_sky_pipeline: None,
+        doom_sky_boundary_pipeline: None,
         debug_pipeline: None,
         debug_font: None,
         debug_console: DoomDebugConsole::default(),
@@ -1149,6 +1193,10 @@ fn main() -> PlatformResult<()> {
         door_geometry_source: scene.door_geometry_source,
         active_manual_doors: Vec::new(),
         door_tick_accumulator: 0.0,
+        active_turbo_floors: Vec::new(),
+        active_down_wait_up_platforms: Vec::new(),
+        consumed_one_shot_cross_lines: BTreeSet::new(),
+        moving_floor_tick_accumulator: 0.0,
         dirty_opaque_meshes: HashSet::new(),
         door_visual_diagnostic: None,
         door_geometry_diagnostic: None,
@@ -1156,7 +1204,9 @@ fn main() -> PlatformResult<()> {
         dynamic_door_mesh_handles: BTreeMap::new(),
         next_dynamic_mesh_handle: cutout_mesh_base + cutout_selected.len() as u64,
         opaque_draw_enabled: opaque_selected.clone(),
-        candidate_selection: if frustum_grid {
+        candidate_selection: if doom_seg_classic_dynamic {
+            CandidateSelection::DoomClassicBsp
+        } else if frustum_grid {
             CandidateSelection::UniformGrid8x4x8
         } else if doom_membership_union {
             CandidateSelection::DoomMembershipUnion
@@ -1182,6 +1232,10 @@ fn main() -> PlatformResult<()> {
     };
     if door_resource_replay_report {
         report_door_resource_replay(&mut app)?;
+        return Ok(());
+    }
+    if moving_floor_resource_replay_report {
+        report_moving_floor_resource_replay(&mut app)?;
         return Ok(());
     }
     run_window_with_app(
@@ -1259,8 +1313,17 @@ impl App {
             direction -= Vec3::Y;
         }
         if direction.length_squared() > 0.0 {
-            let delta = direction.normalize() * (WALK_SPEED * delta_seconds as f32);
+            let speed = if self.input.keyboard.is_pressed(KeyCode::ShiftLeft)
+                || self.input.keyboard.is_pressed(KeyCode::ShiftRight)
+            {
+                WALK_SPEED * RUN_SPEED_MULTIPLIER
+            } else {
+                WALK_SPEED
+            };
+            let delta = direction.normalize() * (speed * delta_seconds as f32);
             if let Some(collision) = self.walk_collision.as_ref().filter(|_| !self.noclip) {
+                let source_before =
+                    observer_doom_source_pose(observer, look, self.comparative_embedding).0;
                 let observation = collision.move_disc_in_embedding(
                     self.comparative_embedding,
                     [observer.position.x, observer.position.z],
@@ -1279,6 +1342,11 @@ impl App {
                     self.last_collision_contacts = observation.contacted_linedefs;
                 }
                 self.apply_walk_floor_transition(observation.resolved_position);
+                if let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) {
+                    let source_after =
+                        observer_doom_source_pose(observer, look, self.comparative_embedding).0;
+                    self.try_cross_special_lines(source_before, source_after);
+                }
             } else if let Some(observer) = self.spawn_observer.as_mut() {
                 observer.position += delta;
             }
@@ -1301,6 +1369,16 @@ impl App {
             // geometry resident after the door has finished moving.
             .map(|door| (door.target_sector, door.current_ceiling_height))
             .collect::<Vec<_>>();
+        let active_floor_overrides = self
+            .active_turbo_floors
+            .iter()
+            .map(|floor| (floor.target_sector, floor.current_floor_height))
+            .chain(
+                self.active_down_wait_up_platforms
+                    .iter()
+                    .map(|platform| (platform.target_sector, platform.current_floor_height)),
+            )
+            .collect::<Vec<_>>();
         let Some(observer) = self.spawn_observer.as_mut() else {
             return;
         };
@@ -1308,6 +1386,7 @@ impl App {
             self.comparative_embedding,
             candidate_position,
             observer.floor,
+            &active_floor_overrides,
             &active_ceiling_overrides,
         );
         match resolution {
@@ -1380,6 +1459,8 @@ impl App {
             KeyCode::KeyD,
             KeyCode::Space,
             KeyCode::ControlLeft,
+            KeyCode::ShiftLeft,
+            KeyCode::ShiftRight,
         ] {
             self.input.keyboard.release(key);
         }
@@ -1678,6 +1759,187 @@ impl App {
         )
     }
 
+    fn try_cross_special_lines(&mut self, source_before: [i16; 2], source_after: [i16; 2]) {
+        let crossings = source_motion_special_crossings(
+            &self.door_geometry_source.map.vertices,
+            &self.door_geometry_source.map.linedefs,
+            source_before,
+            source_after,
+        );
+        for source_linedef in crossings {
+            let resolution = resolve_doom_line_activation(
+                &self.activation_source,
+                DoomLineActivationRequest {
+                    source_linedef,
+                    activation: DoomLineActivation::Cross,
+                },
+            );
+            let message = match resolution {
+                DoomLineActivationResolution::Accepted {
+                    special: 36,
+                    intent: DoomLineActivationIntent::LowerFloorTurbo { tag },
+                    ..
+                } => {
+                    if self
+                        .consumed_one_shot_cross_lines
+                        .contains(&source_linedef.record_index)
+                    {
+                        continue;
+                    }
+                    match DoomTurboLowerFloorRuntime::start_tagged(
+                        &self.activation_source,
+                        tag,
+                        DoomTurboLowerFloorPolicy::CLASSIC,
+                    ) {
+                        Ok(floors) => {
+                            let targets = floors
+                                .iter()
+                                .map(|floor| floor.target_sector.record_index.to_string())
+                                .collect::<Vec<_>>()
+                                .join(",");
+                            self.active_turbo_floors.extend(floors);
+                            self.consumed_one_shot_cross_lines
+                                .insert(source_linedef.record_index);
+                            format!(
+                                "cross: turbo-lower started linedef={} tag={tag} sectors=[{targets}]",
+                                source_linedef.record_index
+                            )
+                        }
+                        Err(error) => format!(
+                            "cross: turbo-lower linedef={} tag={tag} start-rejected={error:?}",
+                            source_linedef.record_index
+                        ),
+                    }
+                }
+                DoomLineActivationResolution::Accepted {
+                    special: 88,
+                    intent: DoomLineActivationIntent::PlatformDownWaitUpStay { tag },
+                    ..
+                } => match DoomDownWaitUpStayRuntime::start_tagged(
+                    &self.activation_source,
+                    tag,
+                    DoomDownWaitUpStayPolicy::CLASSIC,
+                ) {
+                    Ok(platforms) => {
+                        let mut started = Vec::new();
+                        for platform in platforms {
+                            if let Some(active) = self
+                                .active_down_wait_up_platforms
+                                .iter_mut()
+                                .find(|active| active.target_sector == platform.target_sector)
+                            {
+                                if active.phase != DoomDownWaitUpStayPhase::Complete {
+                                    continue;
+                                }
+                                *active = platform;
+                            } else {
+                                self.active_down_wait_up_platforms.push(platform);
+                            }
+                            started.push(platform.target_sector.record_index.to_string());
+                        }
+                        if started.is_empty() {
+                            format!(
+                                "cross: platform linedef={} tag={tag} already-active",
+                                source_linedef.record_index
+                            )
+                        } else {
+                            format!(
+                                "cross: platform started linedef={} tag={tag} sectors=[{}]",
+                                source_linedef.record_index,
+                                started.join(",")
+                            )
+                        }
+                    }
+                    Err(error) => format!(
+                        "cross: platform linedef={} tag={tag} start-rejected={error:?}",
+                        source_linedef.record_index
+                    ),
+                },
+                DoomLineActivationResolution::Accepted {
+                    special: 11,
+                    intent: DoomLineActivationIntent::ExitLevel { .. },
+                    ..
+                } => format!(
+                    "cross: exit linedef={} retained; map transition not implemented",
+                    source_linedef.record_index
+                ),
+                other => format!(
+                    "cross: linedef={} unexpected-resolution={other:?}",
+                    source_linedef.record_index
+                ),
+            };
+            eprintln!("E1M1 {message}");
+            self.debug_console.append(message);
+        }
+    }
+
+    fn advance_active_moving_floors(&mut self, delta_seconds: f64) {
+        self.moving_floor_tick_accumulator += delta_seconds.clamp(0.0, 0.25);
+        let mut changed = false;
+        while self.moving_floor_tick_accumulator >= DOOM_TIC_SECONDS {
+            self.moving_floor_tick_accumulator -= DOOM_TIC_SECONDS;
+            let floor_transitions = self
+                .active_turbo_floors
+                .iter_mut()
+                .filter(|floor| floor.phase != DoomTurboLowerFloorPhase::Complete)
+                .filter_map(|floor| {
+                    let before = floor.current_floor_height;
+                    floor.advance_tick();
+                    (before != floor.current_floor_height).then_some((
+                        floor.target_sector,
+                        before,
+                        floor.current_floor_height,
+                    ))
+                })
+                .collect::<Vec<_>>();
+            let platform_transitions = self
+                .active_down_wait_up_platforms
+                .iter_mut()
+                .filter(|platform| platform.phase != DoomDownWaitUpStayPhase::Complete)
+                .filter_map(|platform| {
+                    let before = platform.current_floor_height;
+                    platform.advance_tick();
+                    (before != platform.current_floor_height).then_some((
+                        platform.target_sector,
+                        before,
+                        platform.current_floor_height,
+                    ))
+                })
+                .collect::<Vec<_>>();
+            for (target_sector, before, after) in
+                floor_transitions.into_iter().chain(platform_transitions)
+            {
+                self.dirty_opaque_meshes.extend(apply_sector_flat_height(
+                    &mut self.draws,
+                    target_sector,
+                    doom_geometry_provider::DoomSurfacePlane::Floor,
+                    before,
+                    after,
+                ));
+                carry_observer_with_floor(
+                    self.spawn_observer.as_mut(),
+                    target_sector,
+                    before,
+                    after,
+                );
+                changed = true;
+            }
+        }
+        if changed {
+            match self.refresh_active_dynamic_wall_meshes() {
+                Ok(()) => self.door_visual_diagnostic = None,
+                Err(error) => {
+                    let diagnostic = format!("moving-sector visual refresh failed: {error}");
+                    if self.door_visual_diagnostic.as_deref() != Some(&diagnostic) {
+                        eprintln!("E1M1 {diagnostic}");
+                        self.debug_console.append(diagnostic.clone());
+                    }
+                    self.door_visual_diagnostic = Some(diagnostic);
+                }
+            }
+        }
+    }
+
     fn advance_active_manual_doors(&mut self, delta_seconds: f64) {
         self.door_tick_accumulator += delta_seconds.clamp(0.0, 0.25);
         let mut changed = false;
@@ -1702,7 +1964,7 @@ impl App {
             }
         }
         if changed {
-            match self.refresh_active_manual_door_wall_meshes() {
+            match self.refresh_active_dynamic_wall_meshes() {
                 Ok(()) => self.door_visual_diagnostic = None,
                 Err(error) => {
                     let diagnostic = format!("door visual refresh failed: {error}");
@@ -1716,14 +1978,48 @@ impl App {
         }
     }
 
+    /// Produces the Doom-local topology snapshot used by the live Stage 3B
+    /// visibility control. Decoded WAD records remain immutable; only the
+    /// already-authoritative corpus runtime heights are projected into this
+    /// short-lived source view before BSP traversal.
+    fn current_doom_visibility_map(&self) -> PlatformResult<DoomMapCore> {
+        let snapshots =
+            self.active_manual_doors
+                .iter()
+                .map(|door| DoomSectorRuntimeHeightSnapshot {
+                    source_sector: door.target_sector,
+                    floor_height: None,
+                    ceiling_height: Some(door.current_ceiling_height),
+                })
+                .chain(self.active_turbo_floors.iter().map(|floor| {
+                    DoomSectorRuntimeHeightSnapshot {
+                        source_sector: floor.target_sector,
+                        floor_height: Some(floor.current_floor_height),
+                        ceiling_height: None,
+                    }
+                }))
+                .chain(self.active_down_wait_up_platforms.iter().map(|platform| {
+                    DoomSectorRuntimeHeightSnapshot {
+                        source_sector: platform.target_sector,
+                        floor_height: Some(platform.current_floor_height),
+                        ceiling_height: None,
+                    }
+                }))
+                .collect::<Vec<_>>();
+        Ok(project_doom_sector_runtime_heights(
+            &self.door_geometry_source.map,
+            &snapshots,
+        )?)
+    }
+
     /// Re-lowers only wall spans attributable to the active manual-door
     /// sectors from a clone of the already decoded map. Runtime ceiling state
     /// replaces the clone's source height; WAD bytes and source records remain
     /// unchanged. This prevents vertex-only deformation from silently becoming
     /// Doom wall-span or UV policy.
-    fn refresh_active_manual_door_wall_meshes(&mut self) -> PlatformResult<()> {
+    fn refresh_active_dynamic_wall_meshes(&mut self) -> PlatformResult<()> {
         let mut map = self.door_geometry_source.map.clone();
-        let active = self
+        let active_ceilings = self
             .active_manual_doors
             .iter()
             // A completed closing tick must also restore the source-height
@@ -1737,7 +2033,25 @@ impl App {
                 )
             })
             .collect::<Vec<_>>();
-        for (target_sector, height, _) in &active {
+        let active_floors = self
+            .active_turbo_floors
+            .iter()
+            .map(|floor| {
+                (
+                    floor.target_sector,
+                    floor.current_floor_height,
+                    manual_door_boundary_linedefs(&self.activation_source, floor.target_sector),
+                )
+            })
+            .chain(self.active_down_wait_up_platforms.iter().map(|platform| {
+                (
+                    platform.target_sector,
+                    platform.current_floor_height,
+                    manual_door_boundary_linedefs(&self.activation_source, platform.target_sector),
+                )
+            }))
+            .collect::<Vec<_>>();
+        for (target_sector, height, _) in &active_ceilings {
             if let Some(sector) = map
                 .sectors
                 .iter_mut()
@@ -1746,17 +2060,34 @@ impl App {
                 sector.ceiling_height = *height;
             }
         }
+        for (target_sector, height, _) in &active_floors {
+            if let Some(sector) = map
+                .sectors
+                .iter_mut()
+                .find(|sector| sector.source == *target_sector)
+            {
+                sector.floor_height = *height;
+            }
+        }
 
         let mut dynamic_meshes = BTreeMap::<String, Vec<DynamicDoorWallMesh>>::new();
         for triangle in
             lower_doom_textured_wall_triangles(&map, &self.door_geometry_source.wall_extents)?
         {
-            let affected = active.iter().any(|(target_sector, _, boundaries)| {
+            let affected_by_ceiling =
+                active_ceilings
+                    .iter()
+                    .any(|(target_sector, _, boundaries)| {
+                        triangle.source_sector == *target_sector
+                            || (triangle.role == doom_geometry_provider::DoomWallTextureRole::Upper
+                                && boundaries.contains(&triangle.source_linedef))
+                    });
+            let affected_by_floor = active_floors.iter().any(|(target_sector, _, boundaries)| {
                 triangle.source_sector == *target_sector
-                    || (triangle.role == doom_geometry_provider::DoomWallTextureRole::Upper
+                    || (triangle.role == doom_geometry_provider::DoomWallTextureRole::Lower
                         && boundaries.contains(&triangle.source_linedef))
             });
-            if !affected {
+            if !affected_by_ceiling && !affected_by_floor {
                 continue;
             }
             let Some(extent) = self
@@ -1805,9 +2136,24 @@ impl App {
 
         let mut existing = std::collections::BTreeMap::<String, Vec<usize>>::new();
         for (index, draw) in self.draws.iter().enumerate() {
-            let affected = active.iter().any(|(target_sector, _, boundaries)| {
-                is_door_mesh_for_target(draw, *target_sector, boundaries)
-            });
+            let affected = active_ceilings
+                .iter()
+                .any(|(target_sector, _, boundaries)| {
+                    is_dynamic_mesh_for_target(
+                        draw,
+                        *target_sector,
+                        doom_geometry_provider::DoomSurfacePlane::Ceiling,
+                        boundaries,
+                    )
+                })
+                || active_floors.iter().any(|(target_sector, _, boundaries)| {
+                    is_dynamic_mesh_for_target(
+                        draw,
+                        *target_sector,
+                        doom_geometry_provider::DoomSurfacePlane::Floor,
+                        boundaries,
+                    )
+                });
             if affected {
                 if let Some(key) = static_wall_triangle_key(draw) {
                     existing.entry(key).or_default().push(index);
@@ -1899,44 +2245,48 @@ impl App {
         Ok(())
     }
 
+    fn refresh_active_manual_door_wall_meshes(&mut self) -> PlatformResult<()> {
+        self.refresh_active_dynamic_wall_meshes()
+    }
+
     fn inspect_center_ray(&self) -> String {
         let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
             return "look: source-spawn observer unavailable".to_owned();
         };
         let direction = observer_direction(look.yaw, look.pitch).normalize_or_zero();
-        let mut nearest: Option<(f32, &StaticDrawPlanEntry, &'static str)> = None;
-        for (draw, family) in self.draws.iter().map(|draw| (draw, "opaque")).chain(
-            self.include_cutouts
-                .then_some(())
-                .into_iter()
-                .flat_map(|_| self.cutout_draws.iter().map(|draw| (draw, "cutout"))),
-        ) {
-            for triangle in draw.mesh.positions.chunks_exact(3) {
-                let Some(distance) = ray_triangle_distance(
-                    observer.position,
-                    direction,
-                    Vec3::from_array(triangle[0]),
-                    Vec3::from_array(triangle[1]),
-                    Vec3::from_array(triangle[2]),
-                ) else {
-                    continue;
-                };
-                if nearest.is_none_or(|(current, _, _)| distance < current) {
-                    nearest = Some((distance, draw, family));
-                }
-            }
-        }
-        nearest.map_or_else(
-            || "look: no prepared triangle intersects the center ray".to_owned(),
-            |(distance, draw, family)| {
-                format!(
-                    "look: exact prepared-triangle hit distance={distance:.3} family={family} material={} label={} source={}",
-                    draw.material.0,
-                    draw.source_label,
-                    compact_draw_source(&draw.source),
-                )
-            },
-        )
+        let hit = nearest_prepared_ray_hit(
+            observer.position,
+            direction,
+            &self.draws,
+            self.include_cutouts.then_some(self.cutout_draws.as_slice()),
+        );
+        let ordinary = format_look_ray_observation(
+            observer.position,
+            direction,
+            self.comparative_embedding,
+            hit,
+            nearest_sky_boundary_ray_hit(
+                observer.position,
+                direction,
+                &self.doom_sky_boundary_draws,
+            ),
+            nearest_source_sky_plane_ray_hit(
+                observer.position,
+                direction,
+                &self.diagnostic_sky_draws,
+            ),
+        );
+        let (source_xy, _) = self
+            .comparative_embedding
+            .lower_direction(observer.position);
+        let (source_direction, _) = self.comparative_embedding.lower_direction(direction);
+        let classic = format_source_classic_ray_trace(
+            &self.door_geometry_source.map,
+            source_xy,
+            source_direction,
+            hit,
+        );
+        format!("{ordinary}\n{classic}")
     }
 
     fn rebuild_debug_console(&mut self, renderer: &mut WgpuBackend) -> PlatformResult<()> {
@@ -1958,6 +2308,302 @@ impl App {
         )?;
         Ok(())
     }
+}
+
+fn nearest_prepared_ray_hit<'a>(
+    origin: Vec3,
+    direction: Vec3,
+    opaque_draws: &'a [StaticDrawPlanEntry],
+    cutout_draws: Option<&'a [StaticDrawPlanEntry]>,
+) -> Option<PreparedRayHit<'a>> {
+    let mut nearest = None;
+    for (draw, family) in opaque_draws.iter().map(|draw| (draw, "opaque")).chain(
+        cutout_draws
+            .into_iter()
+            .flat_map(|draws| draws.iter().map(|draw| (draw, "cutout"))),
+    ) {
+        for triangle in draw.mesh.positions.chunks_exact(3) {
+            let Some(distance) = ray_triangle_distance(
+                origin,
+                direction,
+                Vec3::from_array(triangle[0]),
+                Vec3::from_array(triangle[1]),
+                Vec3::from_array(triangle[2]),
+            ) else {
+                continue;
+            };
+            if nearest.is_none_or(|hit: PreparedRayHit<'_>| distance < hit.distance) {
+                nearest = Some(PreparedRayHit {
+                    distance,
+                    draw,
+                    family,
+                });
+            }
+        }
+    }
+    nearest
+}
+
+fn format_look_ray_observation(
+    world_origin: Vec3,
+    world_direction: Vec3,
+    embedding: DoomComparativeEmbedding,
+    hit: Option<PreparedRayHit<'_>>,
+    sky_boundary_hit: Option<PreparedSkyBoundaryRayHit<'_>>,
+    source_sky_plane_hit: Option<PreparedSourceSkyPlaneRayHit<'_>>,
+) -> String {
+    let (source_xy, source_z) = embedding.lower_direction(world_origin);
+    let (source_direction_xy, source_direction_z) = embedding.lower_direction(world_direction);
+    let replay = format!(
+        "source_xyz=({:.3},{:.3},{:.3}) source_direction=({:.6},{:.6},{:.6}) world_xyz=({:.3},{:.3},{:.3}) world_direction=({:.6},{:.6},{:.6}) replay=--look-ray-report={:.9},{:.9},{:.9},{:.9},{:.9},{:.9}",
+        source_xy[0],
+        source_xy[1],
+        source_z,
+        source_direction_xy[0],
+        source_direction_xy[1],
+        source_direction_z,
+        world_origin.x,
+        world_origin.y,
+        world_origin.z,
+        world_direction.x,
+        world_direction.y,
+        world_direction.z,
+        source_xy[0],
+        source_xy[1],
+        source_z,
+        source_direction_xy[0],
+        source_direction_xy[1],
+        source_direction_z,
+    );
+    let ordinary = hit.map_or_else(
+        || format!("look: no prepared triangle intersects ray; {replay}"),
+        |hit| {
+            let world_hit = world_origin + world_direction * hit.distance;
+            let (source_hit_xy, source_hit_z) = embedding.lower_direction(world_hit);
+            format!(
+                "look: exact prepared-triangle hit distance={:.3} family={} material={} label={} source={} hit_source_xyz=({:.3},{:.3},{:.3}); {replay}",
+                hit.distance,
+                hit.family,
+                hit.draw.material.0,
+                hit.draw.source_label,
+                compact_draw_source(&hit.draw.source),
+                source_hit_xy[0],
+                source_hit_xy[1],
+                source_hit_z,
+            )
+        },
+    );
+    let boundary = sky_boundary_hit.map_or_else(
+        || "sky_boundary=none".to_owned(),
+        |boundary| {
+            let relation = hit.map_or("no-ordinary-hit", |hit| {
+                if boundary.distance < hit.distance {
+                    "before-ordinary-hit"
+                } else {
+                    "behind-ordinary-hit"
+                }
+            });
+            format!(
+                "sky_boundary=distance:{:.3},linedef:{},sidedef:{},sector:{},relation:{relation}",
+                boundary.distance,
+                boundary.draw.source_linedef.record_index,
+                boundary.draw.source_sidedef.record_index,
+                boundary.draw.source_sector.record_index,
+            )
+        },
+    );
+    let sky_plane = source_sky_plane_hit.map_or_else(
+        || "source_sky_plane=none".to_owned(),
+        |sky| {
+            let relation = hit.map_or("no-ordinary-hit", |hit| {
+                if sky.distance < hit.distance {
+                    "before-ordinary-hit"
+                } else {
+                    "behind-ordinary-hit"
+                }
+            });
+            format!(
+                "source_sky_plane=distance:{:.3},source:{},relation:{relation}",
+                sky.distance,
+                compact_draw_source(&sky.draw.source),
+            )
+        },
+    );
+    format!("{ordinary} {boundary} {sky_plane}")
+}
+
+fn nearest_sky_boundary_ray_hit<'a>(
+    origin: Vec3,
+    direction: Vec3,
+    draws: &'a [DoomSkyBoundaryDepthDraw],
+) -> Option<PreparedSkyBoundaryRayHit<'a>> {
+    draws
+        .iter()
+        .filter_map(|draw| {
+            nearest_mesh_ray_hit(origin, direction, &draw.mesh)
+                .map(|distance| PreparedSkyBoundaryRayHit { distance, draw })
+        })
+        .min_by(|left, right| left.distance.total_cmp(&right.distance))
+}
+
+fn nearest_source_sky_plane_ray_hit<'a>(
+    origin: Vec3,
+    direction: Vec3,
+    draws: &'a [StaticDrawPlanEntry],
+) -> Option<PreparedSourceSkyPlaneRayHit<'a>> {
+    draws
+        .iter()
+        .filter_map(|draw| {
+            nearest_mesh_ray_hit(origin, direction, &draw.mesh)
+                .map(|distance| PreparedSourceSkyPlaneRayHit { distance, draw })
+        })
+        .min_by(|left, right| left.distance.total_cmp(&right.distance))
+}
+
+fn format_source_classic_ray_trace(
+    map: &DoomMapCore,
+    source_origin: [f32; 2],
+    source_direction: [f32; 2],
+    hit: Option<PreparedRayHit<'_>>,
+) -> String {
+    let rounded = source_origin.map(|value| value.round());
+    if rounded
+        .iter()
+        .any(|value| *value < f32::from(i16::MIN) || *value > f32::from(i16::MAX))
+    {
+        return "classic_source_trace=unavailable:viewer-outside-i16-source-domain".to_owned();
+    }
+    let viewer = [rounded[0] as i16, rounded[1] as i16];
+    let paths = match resolve_doom_subsector_bsp_paths(map) {
+        Ok(paths) => paths,
+        Err(error) => return format!("classic_source_trace=unavailable:paths:{error}"),
+    };
+    let viewer_subsector = locate_doom_point_subsector(viewer, &paths)
+        .map(|location| location.source_subsector.record_index.to_string())
+        .unwrap_or_else(|_| String::from("ambiguous"));
+    let mut target_subsectors = BTreeSet::new();
+    let mut target_linedef = None;
+    if let Some(hit) = hit {
+        match hit.draw.source {
+            StaticDrawSource::Flat {
+                source_subsector, ..
+            } => {
+                if let Ok(index) = u16::try_from(source_subsector.record_index) {
+                    target_subsectors.insert(index);
+                }
+            }
+            StaticDrawSource::Wall { source_linedef, .. } => {
+                target_linedef = Some(source_linedef.record_index);
+                if let Some(membership) = resolve_doom_linedef_subsector_membership(map)
+                    .into_iter()
+                    .find(|entry| entry.source_linedef == source_linedef)
+                {
+                    target_subsectors.extend(
+                        membership
+                            .source_subsectors
+                            .into_iter()
+                            .filter_map(|source| u16::try_from(source.record_index).ok()),
+                    );
+                }
+            }
+        }
+    }
+    if source_direction[0].abs() <= f32::EPSILON && source_direction[1].abs() <= f32::EPSILON {
+        return format!(
+            "classic_source_trace=viewer-subsector:{viewer_subsector},target-subsectors:{target_subsectors:?},unavailable:vertical-source-ray"
+        );
+    }
+    let heading = f64::from(source_direction[1]).atan2(f64::from(source_direction[0]));
+    let observation = match observe_doom_seg_classic_bsp(map, viewer, heading, &target_subsectors) {
+        Ok(observation) => observation,
+        Err(error) => {
+            return format!(
+                "classic_source_trace=viewer-subsector:{viewer_subsector},target-subsectors:{target_subsectors:?},unavailable:bsp:{error}"
+            );
+        }
+    };
+    let reached = target_subsectors
+        .intersection(&observation.visited_subsectors)
+        .copied()
+        .collect::<Vec<_>>();
+    let target_seg_records = target_linedef.map_or_else(Vec::new, |linedef| {
+        map.segs
+            .iter()
+            .filter(|seg| u32::from(seg.linedef) == linedef)
+            .map(|seg| seg.source.record_index)
+            .collect::<Vec<_>>()
+    });
+    let admitted_target_segs = target_seg_records
+        .iter()
+        .filter(|record| observation.admitted_seg_records.contains(record))
+        .copied()
+        .collect::<Vec<_>>();
+    format!(
+        "classic_source_trace=viewer-subsector:{viewer_subsector},heading-degrees:{:.3},target-subsectors:{target_subsectors:?},reached:{reached:?},target-segs:{target_seg_records:?},admitted-target-segs:{admitted_target_segs:?},elisions:{} meaning=doom-bsp-horizontal-source-protocol-not-pixel-parity",
+        heading.to_degrees(),
+        observation.watched_subsector_elisions.join("|")
+    )
+}
+
+fn parse_source_look_ray(value: &str) -> PlatformResult<SourceLookRay> {
+    let values = value
+        .split(',')
+        .map(str::trim)
+        .map(str::parse::<f32>)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| io::Error::other(format!("invalid --look-ray-report value: {error}")))?;
+    let [x, y, z, dx, dy, dz] = values.as_slice() else {
+        return Err(io::Error::other(
+            "--look-ray-report expects source x,y,z,direction-x,direction-y,direction-z",
+        )
+        .into());
+    };
+    let direction = Vec3::new(*dx, *dz, *dy);
+    if !values.iter().all(|value| value.is_finite()) || direction.length_squared() <= f32::EPSILON {
+        return Err(io::Error::other(
+            "--look-ray-report requires finite values and a nonzero direction",
+        )
+        .into());
+    }
+    Ok(SourceLookRay {
+        origin: [*x, *y, *z],
+        direction: [*dx, *dy, *dz],
+    })
+}
+
+fn report_source_look_ray(
+    scene: &SceneInput,
+    embedding: DoomComparativeEmbedding,
+    ray: SourceLookRay,
+    include_cutouts: bool,
+) {
+    let origin = embedding.lift_direction([ray.origin[0], ray.origin[1]], ray.origin[2]);
+    let direction = embedding
+        .lift_direction([ray.direction[0], ray.direction[1]], ray.direction[2])
+        .normalize_or_zero();
+    let hit = nearest_prepared_ray_hit(
+        origin,
+        direction,
+        &scene.opaque_draws,
+        include_cutouts.then_some(scene.cutout_draws.as_slice()),
+    );
+    println!(
+        "{}\n{}",
+        format_look_ray_observation(
+            origin,
+            direction,
+            embedding,
+            hit,
+            nearest_sky_boundary_ray_hit(origin, direction, &scene.doom_sky_boundary_draws),
+            nearest_source_sky_plane_ray_hit(origin, direction, &scene.diagnostic_sky_draws),
+        ),
+        format_source_classic_ray_trace(
+            &scene.door_geometry_source.map,
+            [ray.origin[0], ray.origin[1]],
+            [ray.direction[0], ray.direction[1]],
+            hit,
+        )
+    );
 }
 
 fn trace_doom_use_lines(
@@ -2003,6 +2649,53 @@ fn trace_doom_use_lines(
         }
     }
     DoomUseTraceResult::NoIntercept
+}
+
+/// Returns source specials crossed by one accepted horizontal movement in
+/// movement order. This is Doom-corpus trigger evidence, not a generic
+/// collision event or spatial-query API.
+fn source_motion_special_crossings(
+    vertices: &[doom_map_provider::DoomVertex],
+    linedefs: &[doom_map_provider::DoomLinedef],
+    from: [i16; 2],
+    to: [i16; 2],
+) -> Vec<doom_map_provider::DoomSourceRecord> {
+    let motion = [
+        f64::from(to[0]) - f64::from(from[0]),
+        f64::from(to[1]) - f64::from(from[1]),
+    ];
+    if motion[0].abs() <= f64::EPSILON && motion[1].abs() <= f64::EPSILON {
+        return Vec::new();
+    }
+    let cross = |left: [f64; 2], right: [f64; 2]| left[0] * right[1] - left[1] * right[0];
+    let mut crossings = linedefs
+        .iter()
+        .filter(|linedef| matches!(linedef.special, 11 | 36 | 88))
+        .filter_map(|linedef| {
+            let start = vertices.get(usize::from(linedef.start_vertex))?;
+            let end = vertices.get(usize::from(linedef.end_vertex))?;
+            let wall = [
+                f64::from(end.x) - f64::from(start.x),
+                f64::from(end.y) - f64::from(start.y),
+            ];
+            let offset = [
+                f64::from(start.x) - f64::from(from[0]),
+                f64::from(start.y) - f64::from(from[1]),
+            ];
+            let denominator = cross(motion, wall);
+            if denominator.abs() <= f64::EPSILON {
+                return None;
+            }
+            let movement_progress = cross(offset, wall) / denominator;
+            let wall_progress = cross(offset, motion) / denominator;
+            (movement_progress > f64::EPSILON
+                && movement_progress <= 1.0
+                && (0.0..=1.0).contains(&wall_progress))
+            .then_some((movement_progress, linedef.source))
+        })
+        .collect::<Vec<_>>();
+    crossings.sort_by(|left, right| left.0.total_cmp(&right.0));
+    crossings.into_iter().map(|(_, source)| source).collect()
 }
 
 fn within_classic_use_range(distance: f64) -> bool {
@@ -2138,12 +2831,6 @@ impl PlatformEventHandler for App {
                         address_v: TextureAddressMode::Repeat,
                     }),
             )?;
-            for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
-                renderer.upload_mesh(
-                    MeshHandle(DIAGNOSTIC_SKY_MESH_BASE + index as u64),
-                    &draw.mesh,
-                );
-            }
             eprintln!(
                 "E1M1 AR-0027 diagnostic sky stand-in enabled: draws={}; asset=corpus/assets/PNG/Purple/texture_01.png; records={}",
                 self.diagnostic_sky_draws.len(),
@@ -2181,11 +2868,61 @@ impl PlatformEventHandler for App {
                     }),
             )?;
             renderer.upload_mesh(DOOM_SKY_MESH, &self.doom_sky_mesh);
+            renderer.upload_material(
+                DOOM_SKY_BOUNDARY_MATERIAL,
+                &Material::new(
+                    "doom-e1m1-paired-sky-depth-boundary",
+                    Color::rgb(0.0, 0.0, 0.0),
+                ),
+            )?;
+            if self.source_sky_plane_depth_global_control {
+                for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
+                    renderer.upload_mesh(
+                        MeshHandle(DOOM_SOURCE_SKY_PLANE_MESH_BASE + index as u64),
+                        &draw.mesh,
+                    );
+                }
+                eprintln!(
+                    "E1M1 experimental source-sky-plane depth coverage: triangles={}; policy=global-exact-retained-F_SKY1-source-flat-meshes; scope=corpus-local-falsification-control",
+                    self.diagnostic_sky_draws.len(),
+                );
+            }
+            if self.source_sky_plane_depth_enabled {
+                eprintln!(
+                    "E1M1 experimental viewer-relative sky depth: policy=classic-visible-F_SKY1-screen-cells-on-source-ceiling-planes; scope=corpus-local-falsification-control",
+                );
+            }
+            let boundary_sources = self
+                .doom_sky_boundary_draws
+                .iter()
+                .map(|draw| draw.source_linedef.record_index)
+                .collect::<BTreeSet<_>>();
             eprintln!(
                 "E1M1 corpus sky enabled: source=SKY1; raster={}x{}; presentation=static-panorama-cylinder; scope=corpus-local-non-equivalent-to-original-view-dependent-sky",
                 sky.descriptor.width,
                 sky.descriptor.height,
             );
+            eprintln!(
+                "E1M1 paired-sky boundary evidence retained: triangles={}; linedefs={}; presentation=disabled-after-valid-hut-geometry-was-clipped",
+                self.doom_sky_boundary_draws.len(),
+                boundary_sources.len(),
+            );
+            if let Some(sample) = self.doom_sky_boundary_draws.first() {
+                eprintln!(
+                    "E1M1 paired-sky boundary sample: linedef={}; sidedef={}; sector={}",
+                    sample.source_linedef.record_index,
+                    sample.source_sidedef.record_index,
+                    sample.source_sector.record_index,
+                );
+            }
+        }
+        if self.diagnostic_sky_enabled {
+            for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
+                renderer.upload_mesh(
+                    MeshHandle(DIAGNOSTIC_SKY_MESH_BASE + index as u64),
+                    &draw.mesh,
+                );
+            }
         }
         self.debug_font = Some(
             UiFontRasterizer::from_bytes(UiFontSource::from_native_default()?.bytes)
@@ -2220,7 +2957,8 @@ impl PlatformEventHandler for App {
         }
         if let Some(collision) = &self.walk_collision {
             eprintln!(
-                "E1M1 Slice 6 walk proof: radius={WALK_RADIUS}; speed={WALK_SPEED}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-E-use-click-capture-escape-release-R-reset-noclip-space-up-left-control-down",
+                "E1M1 Slice 6 walk proof: radius={WALK_RADIUS}; walk-speed={WALK_SPEED}; run-speed={}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-shift-run-E-use-click-capture-escape-release-R-reset-noclip-space-up-left-control-down",
+                WALK_SPEED * RUN_SPEED_MULTIPLIER,
                 collision.blocking_wall_count(),
                 self.noclip,
             );
@@ -2249,6 +2987,27 @@ impl PlatformEventHandler for App {
                         })?,
                 )?,
             );
+            self.doom_sky_boundary_pipeline = Some(
+                renderer.register_pipeline(
+                    &Pipeline::new(
+                        "doom-e1m1-paired-sky-boundary-depth",
+                        PipelineKind::LitColor3d,
+                    )
+                    .with_render_state(PipelineRenderState {
+                        blend: BlendMode::Opaque,
+                        depth_test: DepthTest::LessEqual,
+                        depth_write: true,
+                        // The retained triangle winding faces the higher
+                        // source sector's owning sidedef. Sky-boundary depth
+                        // therefore has authority only from that source side;
+                        // making it double-sided hides legitimate geometry
+                        // (including the hut) when viewed through the same
+                        // boundary from the opposite sector.
+                        cull_mode: CullMode::Back,
+                        color_write: ColorWriteMask::NONE,
+                    })?,
+                )?,
+            );
         }
         if self.include_cutouts {
             self.cutout_pipeline =
@@ -2273,6 +3032,7 @@ impl PlatformEventHandler for App {
                 CandidateSelection::UniformGrid8x4x8 => "uniform-grid-8x4x8",
                 CandidateSelection::DoomMembershipUnion => "doom-membership-union",
                 CandidateSelection::DoomSegPerColumn => "doom-seg-per-column-dynamic",
+                CandidateSelection::DoomClassicBsp => "doom-seg-classic-dynamic",
             },
             self.walk_collision.is_some(),
             self.noclip,
@@ -2375,6 +3135,7 @@ impl PlatformEventHandler for App {
             self.apply_inspection_movement(delta_seconds);
         }
         self.advance_active_manual_doors(delta_seconds);
+        self.advance_active_moving_floors(delta_seconds);
         let frame_started = Instant::now();
         let mut camera = scene_camera(
             self.size,
@@ -2395,6 +3156,27 @@ impl PlatformEventHandler for App {
         }
         let selection_started = Instant::now();
         let view_projection = camera.projection * camera.view;
+        let source_sky_span_depth_mesh = if self.source_sky_plane_depth_enabled {
+            let (mesh, triangles) = prepare_viewer_relative_source_sky_span_mesh(
+                &self.door_geometry_source,
+                self.spawn_observer
+                    .expect("source sky plane selection requires an observer"),
+                self.observer_look
+                    .expect("source sky plane selection requires observer look"),
+                self.comparative_embedding,
+            )?;
+            if self.frame_index == 0 {
+                eprintln!(
+                    "E1M1 viewer-relative source-sky depth: reconstructed_triangles={triangles}; policy=classic-visible-F_SKY1-screen-cells-on-source-ceiling-planes; scope=corpus-falsification-control-not-pixel-parity",
+                );
+            }
+            mesh
+        } else if self.source_sky_plane_depth_global_control {
+            self.source_sky_plane_selected.fill(true);
+            None
+        } else {
+            None
+        };
         let mut selection = CandidateSelectionSummary::default();
         let mut rejection_samples = Vec::new();
         if self.candidate_selection == CandidateSelection::DoomMembershipUnion {
@@ -2418,6 +3200,24 @@ impl PlatformEventHandler for App {
                     .expect("dynamic SEG selection requires an observer"),
                 self.observer_look
                     .expect("dynamic SEG selection requires observer look"),
+                self.comparative_embedding,
+                &mut self.opaque_selected,
+                &mut selection,
+                &mut rejection_samples,
+                self.frame_index == 0,
+            )?;
+        } else if self.candidate_selection == CandidateSelection::DoomClassicBsp {
+            let visibility_map = self.current_doom_visibility_map()?;
+            select_doom_seg_classic_bsp_candidates(
+                &self.draws,
+                self.doom_seg_dynamic_selection
+                    .as_ref()
+                    .expect("classic BSP selection has retained source input"),
+                &visibility_map,
+                self.spawn_observer
+                    .expect("classic BSP selection requires an observer"),
+                self.observer_look
+                    .expect("classic BSP selection requires observer look"),
                 self.comparative_embedding,
                 &mut self.opaque_selected,
                 &mut selection,
@@ -2449,7 +3249,10 @@ impl PlatformEventHandler for App {
                     &mut rejection_samples,
                     self.frame_index == 0,
                 );
-            } else if self.candidate_selection == CandidateSelection::DoomSegPerColumn {
+            } else if matches!(
+                self.candidate_selection,
+                CandidateSelection::DoomSegPerColumn | CandidateSelection::DoomClassicBsp
+            ) {
                 self.cutout_selected.fill(true);
                 selection.candidates += self.cutout_selected.len();
                 selection.submitted += self.cutout_selected.len();
@@ -2460,6 +3263,16 @@ impl PlatformEventHandler for App {
                     &self.cutout_bounds,
                     &self.cutout_draws,
                     view_projection,
+                    &mut self.cutout_selected,
+                    &mut selection,
+                    &mut rejection_samples,
+                    self.frame_index == 0,
+                );
+            }
+            if let Some(observer) = self.spawn_observer {
+                select_masked_middle_owning_sides(
+                    &self.cutout_draws,
+                    observer.position,
                     &mut self.cutout_selected,
                     &mut selection,
                     &mut rejection_samples,
@@ -2486,6 +3299,34 @@ impl PlatformEventHandler for App {
                 camera: Some(CAMERA),
                 viewport: None,
             }));
+            let boundary_pipeline = self
+                .doom_sky_boundary_pipeline
+                .ok_or_else(|| io::Error::other("Doom sky boundary pipeline missing"))?;
+            if source_sky_span_depth_mesh.is_some() {
+                self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: DOOM_VIEWER_SKY_SPAN_MESH,
+                    material: DOOM_SKY_BOUNDARY_MATERIAL,
+                    pipeline: boundary_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CAMERA),
+                    viewport: None,
+                }));
+            }
+            if self.source_sky_plane_depth_global_control {
+                for (index, selected) in self.source_sky_plane_selected.iter().enumerate() {
+                    if !selected {
+                        continue;
+                    }
+                    self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: MeshHandle(DOOM_SOURCE_SKY_PLANE_MESH_BASE + index as u64),
+                        material: DOOM_SKY_BOUNDARY_MATERIAL,
+                        pipeline: boundary_pipeline,
+                        instance: Instance2d::identity(),
+                        camera: Some(CAMERA),
+                        viewport: None,
+                    }));
+                }
+            }
         }
         for (index, draw) in self.draws.iter().enumerate() {
             if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
@@ -2593,6 +3434,9 @@ impl PlatformEventHandler for App {
         for (handle, mesh) in dynamic_mesh_uploads {
             renderer.upload_mesh(handle, &mesh);
         }
+        if let Some(mesh) = source_sky_span_depth_mesh {
+            renderer.upload_mesh(DOOM_VIEWER_SKY_SPAN_MESH, &mesh);
+        }
         renderer.upload_camera(CAMERA, camera);
         if self.debug_pipeline.is_some() {
             renderer.upload_camera(
@@ -2650,6 +3494,46 @@ impl PlatformEventHandler for App {
     }
 }
 
+/// Applies Doom's sidedef ownership after ordinary camera candidate selection.
+///
+/// A two-sided middle texture belongs to the sidedef that names it. Classic
+/// Doom therefore presents it only while viewing that owning face; the reverse
+/// SEG cannot borrow the other side's middle texture. The renderer's generic
+/// cutout pipeline is deliberately two-sided, so this source rule remains in
+/// the Doom consumer rather than becoming alpha or renderer policy.
+fn select_masked_middle_owning_sides(
+    draws: &[StaticDrawPlanEntry],
+    observer_position: Vec3,
+    selected: &mut [bool],
+    summary: &mut CandidateSelectionSummary,
+    rejection_samples: &mut Vec<String>,
+    retain_samples: bool,
+) {
+    for (index, (draw, selected)) in draws.iter().zip(selected.iter_mut()).enumerate() {
+        if !*selected || mesh_owning_side_visible(&draw.mesh, observer_position) {
+            continue;
+        }
+        *selected = false;
+        summary.submitted = summary.submitted.saturating_sub(1);
+        summary.rejected += 1;
+        if retain_samples && rejection_samples.len() < 12 {
+            rejection_samples.push(format!(
+                "{}:doom-masked-middle-non-owning-side:index={index}",
+                draw.source_label
+            ));
+        }
+    }
+}
+
+fn mesh_owning_side_visible(mesh: &Mesh, observer_position: Vec3) -> bool {
+    let (Some(position), Some(normal)) = (mesh.positions.first(), mesh.normals.first()) else {
+        return true;
+    };
+    let position = Vec3::from_array(*position);
+    let normal = Vec3::from_array(*normal);
+    normal.dot(observer_position - position) >= 0.0
+}
+
 impl App {
     /// Static corpus geometry crosses the provider boundary once at startup.
     /// Camera motion changes only the uploaded camera and submitted draws;
@@ -2705,6 +3589,22 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
     )?;
     let selection = select_doom_episode_map(&read.observation.wad, "E1M1")?;
     let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)?;
+    let doom_sky_boundary_draws = lower_doom_paired_sky_boundary_triangles(&map)?
+        .into_iter()
+        .map(|triangle| DoomSkyBoundaryDepthDraw {
+            source_linedef: triangle.source_linedef,
+            source_sidedef: triangle.source_sidedef,
+            source_sector: triangle.source_sector,
+            mesh: Mesh::uniform_normal(
+                triangle
+                    .positions
+                    .into_iter()
+                    .map(|position| position.map(|component| component as f32))
+                    .collect(),
+                [0.0, 1.0, 0.0],
+            ),
+        })
+        .collect::<Vec<_>>();
     let walk_collision = DoomWalkCollisionWorld::from_map(&map);
     let walk_floors = DoomWalkFloorWorld::from_map(&map)?;
     let start = resolve_doom_player_one_start(&map.things)?;
@@ -2904,6 +3804,7 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         diagnostic_sky_draws,
         diagnostic_sky_records,
         doom_sky_texture,
+        doom_sky_boundary_draws,
         spawn_observer,
         walk_collision,
         walk_floors,
@@ -2945,6 +3846,9 @@ fn reembed_scene_for_comparison(scene: &mut SceneInput, embedding: DoomComparati
                 uv[0] = -uv[0];
             }
         }
+    }
+    for draw in &mut scene.doom_sky_boundary_draws {
+        reembed_comparative_mesh(&mut draw.mesh, embedding, false);
     }
 
     scene.spawn_observer.position = embedding.lift_direction(
@@ -3912,9 +4816,22 @@ fn prepare_doom_seg_per_column_dynamic_scene(
     let map = &scene.door_geometry_source.map;
     let triangles =
         lower_doom_seg_textured_wall_triangles(map, &scene.door_geometry_source.wall_extents)?;
-    scene
-        .opaque_draws
-        .retain(|draw| !matches!(draw.source, StaticDrawSource::Wall { .. }));
+    let unsupported_linedefs = triangles
+        .iter()
+        .filter(|triangle| {
+            !scene
+                .door_geometry_source
+                .wall_materials
+                .contains_key(&triangle.texture_name)
+        })
+        .map(|triangle| triangle.source_linedef.record_index)
+        .collect::<BTreeSet<_>>();
+    scene.opaque_draws.retain(|draw| match draw.source {
+        StaticDrawSource::Wall { source_linedef, .. } => {
+            unsupported_linedefs.contains(&source_linedef.record_index)
+        }
+        _ => true,
+    });
     let mut unsupported_textures = BTreeSet::new();
     for triangle in triangles {
         let extent = scene
@@ -3965,6 +4882,7 @@ fn prepare_doom_seg_per_column_dynamic_scene(
         });
     }
     let mut draw_indices_by_seg = BTreeMap::<u32, Vec<usize>>::new();
+    let mut flat_indices_by_subsector = BTreeMap::<u32, Vec<usize>>::new();
     for (index, draw) in scene.opaque_draws.iter().enumerate() {
         if let Some(seg) = draw
             .source_label
@@ -3974,9 +4892,19 @@ fn prepare_doom_seg_per_column_dynamic_scene(
         {
             draw_indices_by_seg.entry(seg).or_default().push(index);
         }
+        if let StaticDrawSource::Flat {
+            source_subsector, ..
+        } = draw.source
+        {
+            flat_indices_by_subsector
+                .entry(source_subsector.record_index)
+                .or_default()
+                .push(index);
+        }
     }
     Ok(DoomSegDynamicSelectionInput {
         draw_indices_by_seg,
+        flat_indices_by_subsector,
         unsupported_textures,
     })
 }
@@ -4162,13 +5090,14 @@ fn report_doom_seg_classic_admission_trace(scene: &SceneInput) -> PlatformResult
             heading_degrees.to_radians(),
         )?;
         println!(
-            "E1M1 AR-0025 Stage 3B classic-admission trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; source_segs={}; backface_rejected={}; edge_on={}; outside_fov_rejected={}; solid_admitted={}; pass_admitted={}; solid-range-contributors={}; solid-range-fully-covered={}; solid-range-covered-columns={}; samples={}; meaning=doom-source-protocol-preflight-with-horizontal-range-union-not-bsp-bbox-pruning-or-presentation-selection",
+            "E1M1 AR-0025 Stage 3B classic-admission trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; source_segs={}; backface_rejected={}; edge_on={}; outside_fov_rejected={}; near-plane-fail-open={}; solid_admitted={}; pass_admitted={}; solid-range-contributors={}; solid-range-fully-covered={}; solid-range-covered-columns={}; samples={}; meaning=doom-source-protocol-preflight-with-horizontal-range-union-not-bsp-bbox-pruning-or-presentation-selection",
             viewer[0],
             viewer[1],
             observation.source_segs,
             observation.backface_rejected,
             observation.edge_on,
             observation.outside_fov_rejected,
+            observation.near_plane_fail_open,
             observation.solid_admitted,
             observation.pass_admitted,
             observation.solid_range_contributors,
@@ -4252,7 +5181,7 @@ fn report_doom_seg_classic_bsp_trace(scene: &SceneInput) -> PlatformResult<()> {
         let (retained_floor_draws, retained_ceiling_draws) =
             count_classic_bsp_static_flat_draws(scene, &observation);
         println!(
-            "E1M1 AR-0025 Stage 3B classic-BSP trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; leaves-visited={}; source-segs-visited={}; far-children-solid-pruned={}; far-children-outside-fov={}; far-children-fail-open={}; backface-rejected={}; edge-on={}; outside-fov-rejected={}; solid-admitted={}; pass-admitted={}; admitted-source-segs={}; lowerable-seg-wall-triangles={}; lowerable-wall-role-triangles=[upper:{} lower:{} middle:{}]; source-plane-marks=[floor:{} ceiling:{} paired-sky:{}]; retained-static-flats=[floor:{} ceiling:{}]; solid-range-contributors={}; solid-range-fully-covered={}; solid-range-covered-columns={}; hut-line-247=[subsectors:{:?} reached:{:?} visited:{} admitted:{} lowerable-seg-wall-triangles:{} elisions:{}]; samples={}; meaning=doom-source-protocol-comparison-not-historic-doom-parity-or-presentation-selection",
+            "E1M1 AR-0025 Stage 3B classic-BSP trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; leaves-visited={}; source-segs-visited={}; far-children-solid-pruned={}; far-children-outside-fov={}; far-children-fail-open={}; backface-rejected={}; edge-on={}; outside-fov-rejected={}; near-plane-fail-open={}; solid-admitted={}; pass-admitted={}; admitted-source-segs={}; lowerable-seg-wall-triangles={}; lowerable-wall-role-triangles=[upper:{} lower:{} middle:{}]; source-plane-marks=[floor:{} ceiling:{} paired-sky:{}]; retained-static-flats=[floor:{} ceiling:{}]; solid-range-contributors={}; solid-range-fully-covered={}; solid-range-covered-columns={}; hut-line-247=[subsectors:{:?} reached:{:?} visited:{} admitted:{} lowerable-seg-wall-triangles:{} elisions:{}]; samples={}; meaning=doom-source-protocol-comparison-not-historic-doom-parity-or-presentation-selection",
             viewer[0],
             viewer[1],
             observation.leaves_visited,
@@ -4263,6 +5192,7 @@ fn report_doom_seg_classic_bsp_trace(scene: &SceneInput) -> PlatformResult<()> {
             observation.backface_rejected,
             observation.edge_on,
             observation.outside_fov_rejected,
+            observation.near_plane_fail_open,
             observation.solid_admitted,
             observation.pass_admitted,
             observation.admitted_seg_records.len(),
@@ -4327,7 +5257,7 @@ fn report_doom_seg_classic_vertical_clip_trace(scene: &SceneInput) -> PlatformRe
             heading_degrees.to_radians(),
             &BTreeSet::new(),
         )?;
-        let vertical = observe_doom_seg_classic_vertical_clip_state(
+        let vertical = observe_shared_doom_classic_vertical_clip_state(
             &scene.door_geometry_source.map,
             &lowerable_triangles,
             &plane_marks,
@@ -4416,7 +5346,7 @@ fn report_doom_seg_classic_plane_span_trace(scene: &SceneInput) -> PlatformResul
             heading_degrees.to_radians(),
             &BTreeSet::new(),
         )?;
-        let vertical = observe_doom_seg_classic_vertical_clip_state(
+        let vertical = observe_shared_doom_classic_vertical_clip_state(
             &scene.door_geometry_source.map,
             &lowerable_triangles,
             &plane_marks,
@@ -4538,6 +5468,7 @@ fn observe_doom_seg_classic_plane_identities(
     result
 }
 
+#[cfg(test)]
 fn doom_seg_classic_plane_key(
     kind: DoomSegClassicPlaneKind,
     sector: &doom_map_provider::DoomSector,
@@ -4565,6 +5496,7 @@ fn doom_seg_classic_plane_key(
     }
 }
 
+#[cfg(test)]
 fn retain_doom_seg_classic_plane_range(
     observation: &mut DoomSegClassicPlaneSpanObservation,
     key: DoomSegClassicPlaneKey,
@@ -4702,6 +5634,49 @@ fn reconstruct_doom_seg_classic_plane_cells(
     heading: f64,
     eye_height: f64,
 ) -> DoomSegClassicPlaneCellReconstruction {
+    reconstruct_doom_seg_classic_plane_cells_with_height(
+        spans,
+        viewer,
+        heading,
+        eye_height,
+        |key, _| {
+            (!(key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1"))
+                .then_some(key.height)
+        },
+    )
+}
+
+fn reconstruct_doom_seg_classic_sky_cells(
+    spans: &DoomSegClassicPlaneSpanObservation,
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: f64,
+) -> DoomSegClassicPlaneCellReconstruction {
+    reconstruct_doom_seg_classic_plane_cells_with_height(
+        spans,
+        viewer,
+        heading,
+        eye_height,
+        |key, source_sector| {
+            (key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1")
+                .then(|| {
+                    map.sectors
+                        .get(source_sector as usize)
+                        .map(|sector| sector.ceiling_height)
+                })
+                .flatten()
+        },
+    )
+}
+
+fn reconstruct_doom_seg_classic_plane_cells_with_height(
+    spans: &DoomSegClassicPlaneSpanObservation,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: f64,
+    source_height: impl Fn(&DoomSegClassicPlaneKey, u32) -> Option<i16>,
+) -> DoomSegClassicPlaneCellReconstruction {
     const MINIMUM_TANGENT: f64 = 1.0e-9;
     const MINIMUM_QUAD_AREA: f64 = 1.0e-9;
 
@@ -4720,15 +5695,17 @@ fn reconstruct_doom_seg_classic_plane_cells(
     let mut result = DoomSegClassicPlaneCellReconstruction::default();
 
     for (key, instances) in &spans.keys {
-        if key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1" {
-            continue;
-        }
-        let plane_delta = f64::from(key.height) - eye_height;
         for (instance_index, instance) in instances.iter().enumerate() {
             for (column, rows) in instance.columns.iter().enumerate() {
                 let Some([top, bottom]) = rows else {
                     continue;
                 };
+                let [source_sector, source_seg] = instance.column_sources[column]
+                    .expect("each retained plane column preserves its source owner");
+                let Some(source_height) = source_height(key, source_sector) else {
+                    continue;
+                };
+                let plane_delta = f64::from(source_height) - eye_height;
                 result.source_cells += bottom - top + 1;
                 let corners = [
                     (column as f64, *top as f64),
@@ -4781,10 +5758,9 @@ fn reconstruct_doom_seg_classic_plane_cells(
                 }
                 result.reconstructed_quads += 1;
                 result.reconstructed_triangles += 2;
-                let [source_sector, source_seg] = instance.column_sources[column]
-                    .expect("each retained plane column preserves its source owner");
                 result.cells.push(DoomSegClassicPlaneCell {
                     key: key.clone(),
+                    source_height,
                     source_sector,
                     source_seg,
                     source_corners: points,
@@ -4833,7 +5809,7 @@ fn prepare_doom_seg_classic_plane_presentation(
         &scene.door_geometry_source.map,
         scene.spawn_observer.position.y as i16,
     )?;
-    let vertical = observe_doom_seg_classic_vertical_clip_state(
+    let vertical = observe_shared_doom_classic_vertical_clip_state(
         &scene.door_geometry_source.map,
         &lowerable_triangles,
         &plane_marks,
@@ -4878,7 +5854,7 @@ fn prepare_doom_seg_classic_plane_presentation(
         })?;
         let positions = cell.source_corners.map(|[x, y]| {
             DoomComparativeEmbedding::CurrentReflected
-                .lift_direction([x as f32, y as f32], f32::from(cell.key.height))
+                .lift_direction([x as f32, y as f32], f32::from(cell.source_height))
         });
         let desired_normal = match cell.key.kind {
             DoomSegClassicPlaneKind::Floor => Vec3::Y,
@@ -5043,6 +6019,7 @@ fn prepare_doom_seg_classic_context_presentation(
     })
 }
 
+#[cfg(test)]
 fn finalize_doom_seg_classic_plane_spans(observation: &mut DoomSegClassicPlaneSpanObservation) {
     observation.horizontal_spans = 0;
     observation.plane_instances = 0;
@@ -5092,8 +6069,9 @@ fn finalize_doom_seg_classic_plane_spans(observation: &mut DoomSegClassicPlaneSp
 /// Bounded source-local observation of the clip boundaries that wall tiers
 /// evolve after recursive BSP admission. The arrays are diagnostic only: no
 /// renderer scissor, candidate selector, flat draw, or visplane consumes them.
-#[allow(clippy::too_many_arguments)]
-fn observe_doom_seg_classic_vertical_clip_state(
+#[cfg(test)]
+#[allow(dead_code, clippy::too_many_arguments)]
+fn legacy_observe_doom_seg_classic_vertical_clip_state(
     map: &DoomMapCore,
     triangles: &[DoomSegTexturedWallTriangle],
     plane_marks: &[DoomSegPlaneMarkObservation],
@@ -5431,36 +6409,16 @@ fn observe_doom_seg_classic_bsp(
     heading: f64,
     watched_subsectors: &BTreeSet<u16>,
 ) -> PlatformResult<DoomSegClassicBspObservation> {
-    let root = map
-        .nodes
-        .len()
-        .checked_sub(1)
-        .ok_or_else(|| io::Error::other("Stage 3B classic BSP requires a node root"))?;
-    let occluders = observe_doom_seg_occluders(map)?
-        .into_iter()
-        .map(|observation| (observation.source_seg.record_index, observation))
-        .collect::<BTreeMap<_, _>>();
-    let mut observation = DoomSegClassicBspObservation::default();
-    let mut solid_ranges = Vec::new();
-    let mut ancestors = Vec::new();
-    visit_doom_seg_classic_bsp_child(
+    Ok(observe_doom_classic_bsp(
         map,
-        DoomBspChild::Node(root as u16),
         viewer,
         heading,
-        &occluders,
-        &mut solid_ranges,
-        &mut ancestors,
         watched_subsectors,
-        &mut observation,
-    )?;
-    observation.solid_range_covered_columns = solid_ranges
-        .iter()
-        .map(|[first, last]| last - first + 1)
-        .sum();
-    Ok(observation)
+    )?)
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
 fn visit_doom_seg_classic_bsp_child(
     map: &DoomMapCore,
@@ -5602,6 +6560,7 @@ fn visit_doom_seg_classic_bsp_child(
     }
 }
 
+#[cfg(test)]
 fn record_watched_subsector_elision(
     observation: &mut DoomSegClassicBspObservation,
     node: u16,
@@ -5617,11 +6576,13 @@ fn record_watched_subsector_elision(
     }
 }
 
+#[cfg(test)]
 fn doom_bsp_child_contains_subsector(map: &DoomMapCore, child: DoomBspChild, target: u16) -> bool {
     let mut visited_nodes = HashSet::new();
     doom_bsp_child_contains_subsector_inner(map, child, target, &mut visited_nodes)
 }
 
+#[cfg(test)]
 fn doom_bsp_child_contains_subsector_inner(
     map: &DoomMapCore,
     child: DoomBspChild,
@@ -5653,6 +6614,7 @@ fn doom_bsp_child_contains_subsector_inner(
     }
 }
 
+#[cfg(test)]
 fn admit_doom_seg_classic(
     map: &DoomMapCore,
     seg: &doom_map_provider::DoomSeg,
@@ -5693,9 +6655,8 @@ fn admit_doom_seg_classic(
     };
     let (start_depth, start_angle) = project([start.x, start.y]);
     let (end_depth, end_angle) = project([end.x, end.y]);
-    if start_depth <= 0.0
-        || end_depth <= 0.0
-        || (start_angle.abs() > HALF_FOV && end_angle.abs() > HALF_FOV)
+    if (start_depth <= 0.0 && end_depth <= 0.0)
+        || source_segment_outside_horizontal_fov(start_angle, end_angle, HALF_FOV)
     {
         observation.outside_fov_rejected += 1;
         return;
@@ -5711,7 +6672,7 @@ fn admit_doom_seg_classic(
     if seg.linedef == 247 {
         observation.hut_linedef_segs_admitted += 1;
     }
-    if solid {
+    if solid && start_depth > 0.0 && end_depth > 0.0 {
         observation.solid_admitted += 1;
         let interval = source_fov_column_interval(start_angle, end_angle, HALF_FOV, 320);
         if merge_solid_range(solid_ranges, interval) {
@@ -5719,6 +6680,10 @@ fn admit_doom_seg_classic(
         } else {
             observation.solid_range_contributors += 1;
         }
+    } else if solid {
+        // A wall crossing the viewer plane must remain present, but its
+        // unclipped behind-view endpoint cannot safely close a screen range.
+        observation.near_plane_fail_open += 1;
     } else {
         observation.pass_admitted += 1;
     }
@@ -5795,9 +6760,8 @@ fn observe_doom_seg_classic_admission(
         };
         let (start_depth, start_angle) = project_angle([start.x, start.y]);
         let (end_depth, end_angle) = project_angle([end.x, end.y]);
-        if start_depth <= 0.0
-            || end_depth <= 0.0
-            || (start_angle.abs() > HALF_FOV && end_angle.abs() > HALF_FOV)
+        if (start_depth <= 0.0 && end_depth <= 0.0)
+            || source_segment_outside_horizontal_fov(start_angle, end_angle, HALF_FOV)
         {
             result.outside_fov_rejected += 1;
             continue;
@@ -5806,7 +6770,7 @@ fn observe_doom_seg_classic_admission(
             .get(&seg.source.record_index)
             .expect("every source SEG is classified");
         let solid = authority.kind != doom_geometry_provider::DoomSegOccluderKind::Open;
-        if solid {
+        if solid && start_depth > 0.0 && end_depth > 0.0 {
             result.solid_admitted += 1;
             let interval = source_fov_column_interval(start_angle, end_angle, HALF_FOV, 320);
             if merge_solid_range(&mut solid_ranges, interval) {
@@ -5814,6 +6778,8 @@ fn observe_doom_seg_classic_admission(
             } else {
                 result.solid_range_contributors += 1;
             }
+        } else if solid {
+            result.near_plane_fail_open += 1;
         } else {
             result.pass_admitted += 1;
         }
@@ -5853,9 +6819,22 @@ fn source_fov_column_interval(
     [first.min(second), first.max(second)]
 }
 
+/// A segment is horizontally outside only when both endpoint bearings lie on
+/// the same exterior side. Opposite exterior bearings cross the view and must
+/// not be rejected merely because each endpoint is individually outside.
+fn source_segment_outside_horizontal_fov(
+    first_angle: f64,
+    second_angle: f64,
+    half_fov: f64,
+) -> bool {
+    (first_angle > half_fov && second_angle > half_fov)
+        || (first_angle < -half_fov && second_angle < -half_fov)
+}
+
 /// Source-only far-child bbox outcome for the Stage 3B `R_CheckBBox` control.
 /// It distinguishes a definitely outside FOV from geometry whose projection is
 /// ambiguous and must remain fail-open.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SourceBBoxProjection {
     OutsideFov,
@@ -5866,6 +6845,7 @@ enum SourceBBoxProjection {
 /// Projects the two source bbox silhouette corners selected by the classic
 /// `R_CheckBBox` position table. This is Doom-only protocol work, not a
 /// generic bounding-box culler.
+#[cfg(test)]
 fn source_bbox_fov_column_interval(
     viewer: [i16; 2],
     heading: f64,
@@ -6626,6 +7606,250 @@ fn report_doom_manual_door_runtime(source: &DoomLineActivationSource) {
     );
 }
 
+/// Runs the two tagged E1M1 moving-floor effects through their distinct
+/// released-source state machines. This path changes no imported sector,
+/// collision world, mesh, or renderer resource.
+fn report_doom_moving_floor_runtime(source: &DoomLineActivationSource) {
+    let mut details = Vec::new();
+    let mut started = 0_usize;
+    let mut rejected = 0_usize;
+    for linedef in source
+        .linedefs
+        .iter()
+        .filter(|line| matches!(line.special, 36 | 88))
+    {
+        let resolution = resolve_doom_line_activation(
+            source,
+            DoomLineActivationRequest {
+                source_linedef: linedef.source,
+                activation: DoomLineActivation::Cross,
+            },
+        );
+        match resolution {
+            DoomLineActivationResolution::Accepted {
+                intent: DoomLineActivationIntent::LowerFloorTurbo { tag },
+                ..
+            } => match DoomTurboLowerFloorRuntime::start_tagged(
+                source,
+                tag,
+                DoomTurboLowerFloorPolicy::CLASSIC,
+            ) {
+                Ok(mut floors) => {
+                    started += floors.len();
+                    for floor in &mut floors {
+                        let mut ticks = 0_u32;
+                        while floor.phase != DoomTurboLowerFloorPhase::Complete && ticks < 4_096 {
+                            floor.advance_tick();
+                            ticks += 1;
+                        }
+                        details.push(format!(
+                            "line{}:code36:tag{}:sector{}:{}->{}:ticks{}:final={:?}:one-shot=true",
+                            linedef.source.record_index,
+                            tag,
+                            floor.target_sector.record_index,
+                            floor.start_floor_height,
+                            floor.destination_floor_height,
+                            ticks,
+                            floor.phase,
+                        ));
+                    }
+                }
+                Err(error) => {
+                    rejected += 1;
+                    details.push(format!(
+                        "line{}:code36:tag{}:start-rejected:{error:?}",
+                        linedef.source.record_index, tag
+                    ));
+                }
+            },
+            DoomLineActivationResolution::Accepted {
+                intent: DoomLineActivationIntent::PlatformDownWaitUpStay { tag },
+                ..
+            } => match DoomDownWaitUpStayRuntime::start_tagged(
+                source,
+                tag,
+                DoomDownWaitUpStayPolicy::CLASSIC,
+            ) {
+                Ok(mut platforms) => {
+                    started += platforms.len();
+                    for platform in &mut platforms {
+                        let mut ticks = 0_u32;
+                        while platform.phase != DoomDownWaitUpStayPhase::Complete && ticks < 4_096 {
+                            platform.advance_tick();
+                            ticks += 1;
+                        }
+                        details.push(format!(
+                            "line{}:code88:tag{}:sector{}:high{}:low{}:ticks{}:final={:?}:retriggerable-after-complete=true",
+                            linedef.source.record_index,
+                            tag,
+                            platform.target_sector.record_index,
+                            platform.high_floor_height,
+                            platform.low_floor_height,
+                            ticks,
+                            platform.phase,
+                        ));
+                    }
+                }
+                Err(error) => {
+                    rejected += 1;
+                    details.push(format!(
+                        "line{}:code88:tag{}:start-rejected:{error:?}",
+                        linedef.source.record_index, tag
+                    ));
+                }
+            },
+            other => {
+                rejected += 1;
+                details.push(format!(
+                    "line{}:special{}:unexpected-resolution:{other:?}",
+                    linedef.source.record_index, linedef.special
+                ));
+            }
+        }
+    }
+    println!(
+        "E1M1 Slice 8 moving-floor runtime observation: source_lines={}; started_sectors={started}; start_rejected={rejected}; source_map_mutated=false; presentation_mutated=false; details={}",
+        details.len(),
+        details.join(" | "),
+    );
+}
+
+/// Replays E1M1's two moving-floor lifetimes through the application-owned
+/// presentation seam without initializing a renderer. This proves that the
+/// canonical source effects update retained flat geometry, re-lower affected
+/// wall spans, retain stable dynamic identities, and carry a stationary
+/// observer whose exact sector/floor identity matches the moving surface.
+fn report_moving_floor_resource_replay(app: &mut App) -> PlatformResult<()> {
+    let (turbo_line_source, turbo_tag) = app
+        .activation_source
+        .linedefs
+        .iter()
+        .find(|line| line.special == 36)
+        .map(|line| (line.source, line.tag))
+        .ok_or("E1M1 contains no code-36 turbo floor")?;
+    let mut turbo = DoomTurboLowerFloorRuntime::start_tagged(
+        &app.activation_source,
+        turbo_tag,
+        DoomTurboLowerFloorPolicy::CLASSIC,
+    )
+    .map_err(|error| io::Error::other(format!("turbo-floor replay start failed: {error:?}")))?
+    .into_iter()
+    .next()
+    .ok_or("E1M1 code-36 tag selected no sector")?;
+    let turbo_start = turbo.current_floor_height;
+    let turbo_destination = turbo.destination_floor_height;
+    if let Some(observer) = app.spawn_observer.as_mut() {
+        observer.sector = turbo.target_sector.record_index;
+        observer.floor = turbo_start;
+        observer.position.y = f32::from(turbo_start) + 36.0;
+    }
+    app.active_turbo_floors.push(turbo);
+    let mut turbo_ticks = 0_u32;
+    while app.active_turbo_floors[0].phase != DoomTurboLowerFloorPhase::Complete
+        && turbo_ticks < 4_096
+    {
+        app.advance_active_moving_floors(DOOM_TIC_SECONDS * 1.001);
+        turbo_ticks += 1;
+    }
+    turbo = app.active_turbo_floors[0];
+    let turbo_floor_vertices = sector_flat_vertices_at_height(
+        &app.draws,
+        turbo.target_sector,
+        doom_geometry_provider::DoomSurfacePlane::Floor,
+        turbo_destination,
+    );
+    let turbo_observer_carried = app.spawn_observer.is_some_and(|observer| {
+        observer.sector == turbo.target_sector.record_index
+            && observer.floor == turbo_destination
+            && (observer.position.y - (f32::from(turbo_destination) + 36.0)).abs() <= f32::EPSILON
+    });
+    app.active_turbo_floors.clear();
+
+    let (platform_line_source, platform_tag) = app
+        .activation_source
+        .linedefs
+        .iter()
+        .find(|line| line.special == 88)
+        .map(|line| (line.source, line.tag))
+        .ok_or("E1M1 contains no code-88 down-wait-up-stay platform")?;
+    let mut platform = DoomDownWaitUpStayRuntime::start_tagged(
+        &app.activation_source,
+        platform_tag,
+        DoomDownWaitUpStayPolicy::CLASSIC,
+    )
+    .map_err(|error| io::Error::other(format!("platform replay start failed: {error:?}")))?
+    .into_iter()
+    .next()
+    .ok_or("E1M1 code-88 tag selected no sector")?;
+    if let Some(observer) = app.spawn_observer.as_mut() {
+        observer.sector = platform.target_sector.record_index;
+        observer.floor = platform.high_floor_height;
+        observer.position.y = f32::from(platform.high_floor_height) + 36.0;
+    }
+    app.active_down_wait_up_platforms.push(platform);
+    let mut platform_ticks = 0_u32;
+    while app.active_down_wait_up_platforms[0].phase != DoomDownWaitUpStayPhase::Complete
+        && platform_ticks < 4_096
+    {
+        app.advance_active_moving_floors(DOOM_TIC_SECONDS * 1.001);
+        platform_ticks += 1;
+    }
+    platform = app.active_down_wait_up_platforms[0];
+    let platform_floor_vertices = sector_flat_vertices_at_height(
+        &app.draws,
+        platform.target_sector,
+        doom_geometry_provider::DoomSurfacePlane::Floor,
+        platform.high_floor_height,
+    );
+    let platform_observer_carried = app.spawn_observer.is_some_and(|observer| {
+        observer.sector == platform.target_sector.record_index
+            && observer.floor == platform.high_floor_height
+            && (observer.position.y - (f32::from(platform.high_floor_height) + 36.0)).abs()
+                <= f32::EPSILON
+    });
+    let visual_diagnostic = app.door_visual_diagnostic.as_deref().unwrap_or("none");
+
+    println!(
+        "E1M1 Slice 8 moving-floor resource replay: turbo-line={}; turbo-sector={}; turbo={turbo_start}->{turbo_destination}; turbo-ticks={turbo_ticks}; turbo-final={:?}; turbo-floor-vertices={turbo_floor_vertices}; turbo-observer-carried={turbo_observer_carried}; platform-line={}; platform-sector={}; platform-high={}; platform-low={}; platform-ticks={platform_ticks}; platform-final={:?}; platform-floor-vertices={platform_floor_vertices}; platform-observer-carried={platform_observer_carried}; dynamic-wall-draws={}; dynamic-wall-handles={}; dirty-meshes={}; visual-diagnostic={visual_diagnostic}; source-map-mutated=false; renderer-initialized=false",
+        turbo_line_source.record_index,
+        turbo.target_sector.record_index,
+        turbo.phase,
+        platform_line_source.record_index,
+        platform.target_sector.record_index,
+        platform.high_floor_height,
+        platform.low_floor_height,
+        platform.phase,
+        app.dynamic_door_draws.len(),
+        app.dynamic_door_mesh_handles.len(),
+        app.dirty_opaque_meshes.len(),
+    );
+    Ok(())
+}
+
+fn sector_flat_vertices_at_height(
+    draws: &[StaticDrawPlanEntry],
+    target_sector: doom_map_provider::DoomSourceRecord,
+    target_plane: doom_geometry_provider::DoomSurfacePlane,
+    height: i16,
+) -> usize {
+    let height = f32::from(height);
+    draws
+        .iter()
+        .filter(|draw| {
+            matches!(
+                draw.source,
+                StaticDrawSource::Flat {
+                    source_sector,
+                    plane,
+                    ..
+                } if source_sector == target_sector && plane == target_plane
+            )
+        })
+        .flat_map(|draw| &draw.mesh.positions)
+        .filter(|position| (position[1] - height).abs() <= f32::EPSILON)
+        .count()
+}
+
 /// Replays the exact dynamic-resource lifetime that exposed the E1M1 handle
 /// collision: a closed `DOORTRAK` span is absent, opening materializes it,
 /// closing suppresses it, and reopening must reuse the original dynamic
@@ -6953,19 +8177,35 @@ fn apply_door_ceiling_flat_height(
     previous_height: i16,
     next_height: i16,
 ) -> Vec<usize> {
+    apply_sector_flat_height(
+        draws,
+        target_sector,
+        doom_geometry_provider::DoomSurfacePlane::Ceiling,
+        previous_height,
+        next_height,
+    )
+}
+
+fn apply_sector_flat_height(
+    draws: &mut [StaticDrawPlanEntry],
+    target_sector: doom_map_provider::DoomSourceRecord,
+    target_plane: doom_geometry_provider::DoomSurfacePlane,
+    previous_height: i16,
+    next_height: i16,
+) -> Vec<usize> {
     let previous = f32::from(previous_height);
     let next = f32::from(next_height);
     let mut changed = Vec::new();
     for (index, draw) in draws.iter_mut().enumerate() {
-        let is_target_ceiling = matches!(
+        let is_target_flat = matches!(
             draw.source,
             StaticDrawSource::Flat {
                 source_sector,
-                plane: doom_geometry_provider::DoomSurfacePlane::Ceiling,
+                plane,
                 ..
-            } if source_sector == target_sector
+            } if source_sector == target_sector && plane == target_plane
         );
-        if !is_target_ceiling {
+        if !is_target_flat {
             continue;
         }
         let mut modified = false;
@@ -6980,6 +8220,23 @@ fn apply_door_ceiling_flat_height(
         }
     }
     changed
+}
+
+fn carry_observer_with_floor(
+    observer: Option<&mut SpawnObserver>,
+    target_sector: doom_map_provider::DoomSourceRecord,
+    previous_height: i16,
+    next_height: i16,
+) -> bool {
+    let Some(observer) = observer else {
+        return false;
+    };
+    if observer.sector != target_sector.record_index || observer.floor != previous_height {
+        return false;
+    }
+    observer.position.y += f32::from(next_height - previous_height);
+    observer.floor = next_height;
+    true
 }
 
 fn dynamic_wall_triangle_key(
@@ -7021,26 +8278,48 @@ fn static_wall_triangle_key(draw: &StaticDrawPlanEntry) -> Option<String> {
     ))
 }
 
-fn is_door_mesh_for_target(
+fn is_dynamic_mesh_for_target(
     draw: &StaticDrawPlanEntry,
     target_sector: doom_map_provider::DoomSourceRecord,
+    target_plane: doom_geometry_provider::DoomSurfacePlane,
     boundary_linedefs: &[doom_map_provider::DoomSourceRecord],
 ) -> bool {
     match draw.source {
         StaticDrawSource::Flat {
             source_sector,
-            plane: doom_geometry_provider::DoomSurfacePlane::Ceiling,
+            plane,
             ..
-        } => source_sector == target_sector,
+        } => source_sector == target_sector && plane == target_plane,
         StaticDrawSource::Wall { source_sector, .. } if source_sector == target_sector => true,
         StaticDrawSource::Wall {
             source_linedef,
             role: doom_geometry_provider::DoomWallTextureRole::Upper,
             ..
-        } => boundary_linedefs.contains(&source_linedef),
+        } if target_plane == doom_geometry_provider::DoomSurfacePlane::Ceiling => {
+            boundary_linedefs.contains(&source_linedef)
+        }
+        StaticDrawSource::Wall {
+            source_linedef,
+            role: doom_geometry_provider::DoomWallTextureRole::Lower,
+            ..
+        } if target_plane == doom_geometry_provider::DoomSurfacePlane::Floor => {
+            boundary_linedefs.contains(&source_linedef)
+        }
         StaticDrawSource::Wall { .. } => false,
-        StaticDrawSource::Flat { .. } => false,
     }
+}
+
+fn is_door_mesh_for_target(
+    draw: &StaticDrawPlanEntry,
+    target_sector: doom_map_provider::DoomSourceRecord,
+    boundary_linedefs: &[doom_map_provider::DoomSourceRecord],
+) -> bool {
+    is_dynamic_mesh_for_target(
+        draw,
+        target_sector,
+        doom_geometry_provider::DoomSurfacePlane::Ceiling,
+        boundary_linedefs,
+    )
 }
 
 /// Returns the source linedefs which bound an active manual-door sector. The
@@ -7156,6 +8435,9 @@ fn candidate_is_selected(
         (CandidateSelection::DoomSegPerColumn, _) => {
             unreachable!("SEG selection must use retained source-grid evidence")
         }
+        (CandidateSelection::DoomClassicBsp, _) => {
+            unreachable!("classic BSP selection must use retained Doom source evidence")
+        }
         (CandidateSelection::FrustumAabb, Some(bounds)) => {
             classify_static_draw_frustum_rejection(bounds, view_projection)
         }
@@ -7260,6 +8542,126 @@ fn select_doom_seg_per_column_candidates(
     Ok(())
 }
 
+/// Applies the Doom-owned Stage 3B BSP/solid-range protocol to stable,
+/// already-uploaded SEG wall draws. Whole flat draws stay fail-open because
+/// reached BSP leaves are not equivalent to presented plane coverage; the
+/// first live visual control falsified that approximation. Unknown draw kinds
+/// and cutouts also stay fail-open, and original caller order is never changed.
+#[allow(clippy::too_many_arguments)]
+fn select_doom_seg_classic_bsp_candidates(
+    draws: &[StaticDrawPlanEntry],
+    input: &DoomSegDynamicSelectionInput,
+    map: &DoomMapCore,
+    observer: SpawnObserver,
+    look: ObserverLook,
+    embedding: DoomComparativeEmbedding,
+    selected: &mut [bool],
+    summary: &mut CandidateSelectionSummary,
+    rejection_samples: &mut Vec<String>,
+    capture_samples: bool,
+) -> PlatformResult<()> {
+    let (source_position, source_angle) = observer_doom_source_pose(observer, look, embedding);
+    let observation =
+        observe_doom_seg_classic_bsp(map, source_position, source_angle, &BTreeSet::new())?;
+
+    // Fail open for anything without retained Doom wall/flat selection
+    // identity. Only known SEG and subsector-owned draws begin disabled.
+    selected.fill(true);
+    for indices in input.draw_indices_by_seg.values() {
+        for &index in indices {
+            selected[index] = false;
+        }
+    }
+    for source_seg in &observation.admitted_seg_records {
+        if let Some(indices) = input.draw_indices_by_seg.get(source_seg) {
+            for &index in indices {
+                selected[index] = true;
+            }
+        }
+    }
+    for (draw, is_selected) in draws.iter().zip(selected.iter()) {
+        summary.candidates += 1;
+        if *is_selected {
+            summary.submitted += 1;
+        } else {
+            summary.rejected += 1;
+            if capture_samples && rejection_samples.len() < 12 {
+                rejection_samples.push(format!(
+                    "{}:doom-classic-bsp-source-filtered",
+                    draw.source_label
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Reconstructs only the current Doom-owned sky ceiling screen cells on their
+/// source ceiling planes. Unlike the falsified source-sector control, these
+/// cells do not grant an entire retained subsector flat depth authority merely
+/// because one part of its sector contributed a visible sky span. The mesh is
+/// replaced as the observer moves and remains corpus falsification machinery,
+/// not an admitted renderer stencil, portal, or sky contract.
+fn prepare_viewer_relative_source_sky_span_mesh(
+    source: &DoomDynamicDoorGeometrySource,
+    observer: SpawnObserver,
+    look: ObserverLook,
+    embedding: DoomComparativeEmbedding,
+) -> PlatformResult<(Option<Mesh>, usize)> {
+    let (source_position, source_angle) = observer_doom_source_pose(observer, look, embedding);
+    let traversal =
+        observe_doom_seg_classic_bsp(&source.map, source_position, source_angle, &BTreeSet::new())?;
+    let lowerable_triangles =
+        lower_doom_seg_textured_wall_triangles(&source.map, &source.wall_extents)?;
+    let plane_marks = observe_doom_seg_plane_marks(&source.map, observer.position.y as i16)?;
+    let vertical = observe_shared_doom_classic_vertical_clip_state(
+        &source.map,
+        &lowerable_triangles,
+        &plane_marks,
+        &traversal,
+        source_position,
+        source_angle,
+        f64::from(observer.position.y),
+    );
+    let reconstruction = reconstruct_doom_seg_classic_sky_cells(
+        &vertical.plane_spans,
+        &source.map,
+        source_position,
+        source_angle,
+        f64::from(observer.position.y),
+    );
+    let mut positions = Vec::with_capacity(reconstruction.cells.len() * 6);
+    for cell in &reconstruction.cells {
+        let corners = cell.source_corners.map(|[x, y]| {
+            embedding.lift_direction([x as f32, y as f32], f32::from(cell.source_height))
+        });
+        let desired_normal = -Vec3::Y;
+        let mut indices = [0usize, 1, 2, 0, 2, 3];
+        let normal = (corners[indices[1]] - corners[indices[0]])
+            .cross(corners[indices[2]] - corners[indices[0]]);
+        if normal.dot(desired_normal) < 0.0 {
+            indices = [0, 2, 1, 0, 3, 2];
+        }
+        positions.extend(indices.map(|index| corners[index].to_array()));
+    }
+    let triangles = positions.len() / 3;
+    Ok((
+        (!positions.is_empty()).then(|| Mesh::uniform_normal(positions, (-Vec3::Y).to_array())),
+        triangles,
+    ))
+}
+
+#[cfg(test)]
+fn source_sky_sectors(spans: &DoomSegClassicPlaneSpanObservation) -> BTreeSet<u32> {
+    spans
+        .keys
+        .iter()
+        .filter(|(key, _)| key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1")
+        .flat_map(|(_, instances)| instances.iter())
+        .flat_map(|instance| instance.source_sectors.iter().copied())
+        .collect()
+}
+
 /// Lowers a corpus observer pose through the explicit AR-0028 comparison
 /// embedding. This is diagnostic/source-adapter machinery, not camera API.
 fn observer_doom_source_pose(
@@ -7336,6 +8738,9 @@ fn select_current_candidates(
         }
         CandidateSelection::DoomSegPerColumn => {
             unreachable!("SEG per-column selection must use retained Doom source evidence")
+        }
+        CandidateSelection::DoomClassicBsp => {
+            unreachable!("classic BSP selection must use retained Doom source evidence")
         }
     }
 }
@@ -8251,7 +9656,6 @@ fn ray_triangle_distance(origin: Vec3, direction: Vec3, a: Vec3, b: Vec3, c: Vec
 /// Returns the closest exact triangle hit in one prepared mesh. This remains
 /// corpus-local inspection machinery; callers retain the source identity from
 /// the owning draw rather than treating the mesh as a generic picking object.
-#[cfg(test)]
 fn nearest_mesh_ray_hit(origin: Vec3, direction: Vec3, mesh: &Mesh) -> Option<f32> {
     mesh.positions
         .chunks_exact(3)
@@ -8296,17 +9700,21 @@ mod tests {
 
     use super::{
         apply_observer_look_delta, build_doom_sky_cylinder, candidate_is_selected,
-        finalize_doom_seg_classic_plane_spans, merge_solid_range, nearest_mesh_ray_hit,
-        ray_triangle_distance, reconstruct_doom_seg_classic_plane_cells,
-        retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
-        source_fov_column_interval, source_point_segment_distance_squared,
-        source_ray_segment_depth, source_seg_facing, summarize_grouped_aabb_selection,
-        visible_column_runs, within_classic_use_range, CandidateSelection,
-        CandidateSelectionSummary, DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey,
-        DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation, ObserverLook,
-        SourceBBoxProjection, SourceSegFacing, UniformGridAabbIndex,
+        carry_observer_with_floor, finalize_doom_seg_classic_plane_spans,
+        format_look_ray_observation, merge_solid_range, mesh_owning_side_visible,
+        nearest_mesh_ray_hit, parse_source_look_ray, ray_triangle_distance,
+        reconstruct_doom_seg_classic_plane_cells, retain_doom_seg_classic_plane_range,
+        source_bbox_fov_column_interval, source_fov_column_interval,
+        source_motion_special_crossings, source_point_segment_distance_squared,
+        source_ray_segment_depth, source_seg_facing, source_segment_outside_horizontal_fov,
+        source_sky_sectors, summarize_grouped_aabb_selection, visible_column_runs,
+        within_classic_use_range, CandidateSelection, CandidateSelectionSummary,
+        DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
+        DoomSegClassicPlaneSpanObservation, ObserverLook, SourceBBoxProjection, SourceSegFacing,
+        SpawnObserver, UniformGridAabbIndex,
     };
     use doom_geometry_provider::doom_point_to_tokimu;
+    use doom_map_provider::{DoomLinedef, DoomSourceRecord, DoomVertex};
     use hello_doom_e1m1::{
         classify_static_draw_frustum_rejection, classify_static_draw_sphere_frustum_rejection,
         doom_heading_degrees_to_observer_yaw, doom_heading_forward, observer_direction,
@@ -8315,6 +9723,49 @@ mod tests {
         StaticDrawFrustumRejection, StaticDrawSphere,
     };
     use tokimu::Mesh;
+
+    #[test]
+    fn source_look_ray_parser_rejects_incomplete_and_stationary_rays() {
+        let ray = parse_source_look_ray("1056,-3616,36,0,1,0").expect("source ray");
+        assert_eq!(ray.origin, [1056.0, -3616.0, 36.0]);
+        assert_eq!(ray.direction, [0.0, 1.0, 0.0]);
+        assert!(parse_source_look_ray("1056,-3616,36,0,0").is_err());
+        assert!(parse_source_look_ray("1056,-3616,36,0,0,0").is_err());
+    }
+
+    #[test]
+    fn look_observation_retains_replayable_source_ray() {
+        let embedding = DoomComparativeEmbedding::PreserveNorth;
+        let source_origin = [1056.0, -3616.0, 36.0];
+        let source_direction = [0.0, 1.0, 0.0];
+        let world_origin =
+            embedding.lift_direction([source_origin[0], source_origin[1]], source_origin[2]);
+        let world_direction = embedding.lift_direction(
+            [source_direction[0], source_direction[1]],
+            source_direction[2],
+        );
+
+        let observation =
+            format_look_ray_observation(world_origin, world_direction, embedding, None, None, None);
+
+        assert!(observation.contains("source_xyz=(1056.000,-3616.000,36.000)"));
+        assert!(observation.contains("source_direction=(0.000000,1.000000,0.000000)"));
+        assert!(observation.contains(
+            "replay=--look-ray-report=1056.000000000,-3616.000000000,36.000000000,0.000000000,1.000000000,0.000000000"
+        ));
+    }
+
+    #[test]
+    fn masked_middle_ownership_is_visible_only_from_the_supplied_normal_side() {
+        let mesh = Mesh::uniform_normal(
+            vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            [0.0, 0.0, 1.0],
+        );
+
+        assert!(mesh_owning_side_visible(&mesh, Vec3::new(0.0, 0.0, 8.0)));
+        assert!(!mesh_owning_side_visible(&mesh, Vec3::new(0.0, 0.0, -8.0)));
+        assert!(mesh_owning_side_visible(&Mesh::default(), Vec3::ZERO));
+    }
 
     #[test]
     fn doom_sky_cylinder_is_a_closed_horizontal_panorama_seam() {
@@ -8342,6 +9793,100 @@ mod tests {
             source_ray_segment_depth([0, 0], [1.0, 0.0], [-10, -5], [-10, 5]),
             None
         );
+    }
+
+    #[test]
+    fn source_motion_crossings_are_ordered_and_ignore_non_cross_specials() {
+        let source = |record_index| DoomSourceRecord {
+            lump_index: 17,
+            record_index,
+        };
+        let vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: 5,
+                y: -5,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 5,
+                y: 5,
+            },
+            DoomVertex {
+                source: source(2),
+                x: 8,
+                y: -5,
+            },
+            DoomVertex {
+                source: source(3),
+                x: 8,
+                y: 5,
+            },
+            DoomVertex {
+                source: source(4),
+                x: 3,
+                y: -5,
+            },
+            DoomVertex {
+                source: source(5),
+                x: 3,
+                y: 5,
+            },
+        ];
+        let line = |record_index, start_vertex, end_vertex, special| DoomLinedef {
+            source: source(record_index),
+            start_vertex,
+            end_vertex,
+            flags: 0,
+            special,
+            tag: 1,
+            right_sidedef: None,
+            left_sidedef: None,
+        };
+        let lines = vec![line(20, 0, 1, 88), line(21, 2, 3, 36), line(22, 4, 5, 1)];
+        assert_eq!(
+            source_motion_special_crossings(&vertices, &lines, [0, 0], [10, 0]),
+            vec![source(20), source(21)]
+        );
+        assert!(source_motion_special_crossings(&vertices, &lines, [0, 0], [2, 0]).is_empty());
+    }
+
+    #[test]
+    fn moving_floor_carries_only_its_stationary_sector_observer() {
+        let target = DoomSourceRecord {
+            lump_index: 17,
+            record_index: 4,
+        };
+        let mut observer = SpawnObserver {
+            position: Vec3::new(10.0, 36.0, 20.0),
+            forward: Vec3::Z,
+            source_record: 0,
+            source_position: [10, 20],
+            source_angle: 0,
+            sector: 4,
+            floor: 0,
+            ceiling: 72,
+        };
+
+        assert!(carry_observer_with_floor(
+            Some(&mut observer),
+            target,
+            0,
+            -4
+        ));
+        assert_eq!(observer.floor, -4);
+        assert_eq!(observer.position.y, 32.0);
+        assert!(!carry_observer_with_floor(
+            Some(&mut observer),
+            DoomSourceRecord {
+                lump_index: 17,
+                record_index: 5,
+            },
+            -4,
+            -8,
+        ));
+        assert_eq!(observer.floor, -4);
+        assert_eq!(observer.position.y, 32.0);
     }
 
     #[test]
@@ -8387,6 +9932,15 @@ mod tests {
     fn source_fov_interval_clamps_to_declared_diagnostic_columns() {
         assert_eq!(source_fov_column_interval(-2.0, 2.0, 1.0, 10), [0, 9]);
         assert_eq!(source_fov_column_interval(-0.5, 0.5, 1.0, 10), [3, 6]);
+    }
+
+    #[test]
+    fn source_fov_rejects_only_segments_outside_on_the_same_side() {
+        let half_fov = 1.0;
+        assert!(source_segment_outside_horizontal_fov(1.1, 1.5, half_fov));
+        assert!(source_segment_outside_horizontal_fov(-1.1, -1.5, half_fov));
+        assert!(!source_segment_outside_horizontal_fov(-1.5, 1.5, half_fov));
+        assert!(!source_segment_outside_horizontal_fov(0.0, 1.5, half_fov));
     }
 
     #[test]
@@ -8841,6 +10395,43 @@ mod tests {
         assert_eq!(reconstructed.reconstructed_quads, 0);
         assert_eq!(reconstructed.horizon_rejections, 1);
         assert!(reconstructed.cells.is_empty());
+    }
+
+    #[test]
+    fn source_sky_sector_admission_ignores_ordinary_ceiling_instances() {
+        let instance = |sector| DoomSegClassicPlaneInstance {
+            columns: vec![Some([0, 1])],
+            column_sources: vec![Some([sector, sector + 100])],
+            minimum_column: 0,
+            maximum_column: 0,
+            source_sectors: BTreeSet::from([sector]),
+            source_segs: BTreeSet::from([sector + 100]),
+        };
+        let spans = DoomSegClassicPlaneSpanObservation {
+            keys: BTreeMap::from([
+                (
+                    DoomSegClassicPlaneKey {
+                        kind: DoomSegClassicPlaneKind::Ceiling,
+                        height: 0,
+                        texture: String::from("F_SKY1"),
+                        light: 0,
+                    },
+                    vec![instance(7), instance(9)],
+                ),
+                (
+                    DoomSegClassicPlaneKey {
+                        kind: DoomSegClassicPlaneKind::Ceiling,
+                        height: 64,
+                        texture: String::from("CEIL3_5"),
+                        light: 160,
+                    },
+                    vec![instance(11)],
+                ),
+            ]),
+            ..Default::default()
+        };
+
+        assert_eq!(source_sky_sectors(&spans), BTreeSet::from([7, 9]));
     }
 
     fn bounds(minimum: [f32; 3], maximum: [f32; 3]) -> StaticDrawAabb {

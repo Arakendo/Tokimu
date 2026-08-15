@@ -1391,6 +1391,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-doom-visibility-conformance"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "doom-geometry-provider",
+ "doom-map-provider",
+ "thiserror 1.0.69",
+ "tokimu",
+ "winit",
+]
+
+[[package]]
+name = "hello-doom-visibility-conformance-web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "doom-geometry-provider",
+ "hello-doom-visibility-conformance",
+ "tokimu",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "hello-file-io"
 version = "0.1.0"
 dependencies = [

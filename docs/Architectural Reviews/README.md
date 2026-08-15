@@ -230,9 +230,8 @@ across unrelated decisions.
   adapting explicitly to WebGPU depth, and retains application-owned resource
   identity/terminal policy without a shared allocator or record owner
 - [AR-0025: Comparative Camera Candidate-Selection And Visibility Study](AR-0025-camera-candidate-selection-and-visibility-culling.md)
-  — Under Review; compares explicit submission, generic CPU selection,
-  Doom-specific spatial methods, and deferred GPU research before considering
-  any shared visibility capability
+  — No Change; retains full submission as the renderer fallback, keeps generic
+  selection unadmitted, and leaves Doom source protocols provider-local
 - [AR-0026: Non-Euclidean Spatial Charts And Authored Angular Topology](AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md)
   — Incubating; explores non-Euclidean simulation as first-class Tokimu meaning
   through locally Euclidean charts, explicit transitions, and authored angular
@@ -248,3 +247,7 @@ across unrelated decisions.
 - [AR-0029: Camera, View, And Projection Construction Ownership](AR-0029-camera-view-and-projection-construction-ownership.md)
   — Accepted; ADR-0014 admits the demonstrated three-family Narrow B seam while
   keeping `glam::camera` private
+- [AR-0030: Tokimu Render Preparation And Submission Framework](AR-0030-source-owned-presentation-preparation-boundary.md)
+  — Under Review; must select a reliable Tokimu-render-specific submission
+  strategy through Doom, Quake, ordinary retained-3D, and large or multi-view
+  campaign pressure while keeping preparation algorithms program-owned

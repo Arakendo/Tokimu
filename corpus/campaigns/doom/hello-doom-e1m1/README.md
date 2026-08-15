@@ -38,9 +38,10 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD --spawn-observer
 
 # Slice 6 corpus-local first walk proof. WASD moves a 16-unit disc at the
-# reviewed spawn; E uses the centered source wall, click captures mouse look,
-# Escape releases it, and R resets. In noclip only, Space moves vertically up
-# and physical Left Ctrl moves vertically down.
+# reviewed spawn; holding either Shift key runs at twice the walk speed. E uses
+# the centered source wall, click captures mouse look, Escape releases it, and
+# R resets. In noclip only, Space moves vertically up and physical Left Ctrl
+# moves vertically down.
 # The source BLOCKMAP only narrows candidates. If it has no blocking candidate,
 # the proof fails safe to all known blocking linedefs. --noclip is a visible
 # diagnostic control, not a gameplay mode.
@@ -328,6 +329,22 @@ does not establish generic renderer culling, historic Doom visibility, or a
 stable public contract. Current missing source wall materials are reported at
 startup rather than synthesized. It is now a retained **falsified** control:
 the per-column approximation removes valid nearby walls at reproduced poses.
+`--doom-seg-classic-dynamic` is its distinct Doom-owned successor. It uploads
+SEG-derived walls once, recalculates the recursive BSP/solid-range source
+protocol from the live observer every frame, enables only admitted SEG walls,
+and retains whole flat draws only for reached subsectors. Draws without that
+retained identity fail open, and unsupported SEG materials retain the original
+whole-linedef wall rather than disappearing. This remains an opt-in corpus
+control: it preserves caller order but does not claim historic pixel parity,
+visplane reconstruction, or renderer-owned visibility. Run it from the repo
+root with:
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --doom-seg-classic-dynamic
+```
+
 `--frustum-grid-8x4x8` renders the retained medium grid experiment so it can be
 visually compared with full submission or `--frustum-aabb`. It preserves input
 order, rechecks grid survivors with the per-draw AABB test, and falls back to
@@ -348,6 +365,27 @@ E1M1 manual-door visual proof; it is currently an explicit source request, not
 a physical reach/side interaction claim. The center crosshair identifies the ray used by
 `LOOK`; a hit is an exact prepared-triangle intersection and reports distance,
 opaque/cutout family, material handle, source label, and retained draw source.
+It also reports `source_xyz=(map-x,map-y,height)` and
+`source_direction=(map-dx,map-dy,vertical)`, plus the corresponding Tokimu
+world-space ray. Copy the emitted `replay=--look-ray-report=...` argument into a
+headless invocation to reproduce the same ray without navigating the window:
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --look-ray-report=1056,-3616,36,0,1,0
+```
+
+The headless report prepares the same canonical scene and returns the nearest
+prepared triangle with its hit source coordinate and retained draw identity.
+It also reports the nearest paired-sky depth boundary and omitted source
+`F_SKY1` plane, including whether either falls before or behind the ordinary
+hit. A bounded classic-source trace retains the viewer leaf, target leaves,
+target SEG admission, and any watched BSP elision. This makes a sky leak
+reproducible as a structural source-presentation relationship before
+visual-regression automation exists.
+It is a deterministic problem-location probe, not a claim that arbitrary free
+camera state or rendered visibility has become Doom source truth.
 With the console closed, `E` performs that same exact center-wall lookup and
 submits the resulting corpus-local `Use` request automatically; aim at a
 manual door such as `BIGDOOR2` and press `E`. Its retained response includes

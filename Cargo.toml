@@ -73,6 +73,8 @@ members = [
     "corpus/focused/data-interchange/hello-archive",
     "corpus/campaigns/doom/hello-wad-inspect",
     "corpus/campaigns/doom/hello-doom-e1m1",
+    "corpus/campaigns/doom/hello-doom-visibility-conformance",
+    "corpus/campaigns/doom/hello-doom-visibility-conformance-web",
     "corpus/campaigns/textured-presentation/hello-streaming-texture",
     "corpus/campaigns/textured-presentation/hello-texture-color-space",
     "corpus/campaigns/renderer-reliability/hello-render-resource-identity",

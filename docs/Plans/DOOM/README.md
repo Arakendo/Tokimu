@@ -6,7 +6,8 @@
 | Controlling plan | [DOOM WAD Checklist](DOOM%20WAD%20Checklist.md) |
 | Boundary study | [DOOM TypeScript Boundary Stress Plan](DOOM%20TypeScript%20Boundary%20Stress%20Plan.md) |
 | Readiness audit | [DOOM WAD Implementation Readiness Audit](DOOM%20WAD%20implementation%20readiness%20audit.md) |
-| Next action | Continue the current checklist slice and update retained evidence |
+| Active study | [Viewer-Relative Presentation Synthetic Conformance](Studies/Doom%20viewer-relative%20presentation%20synthetic%20conformance.md) |
+| Next action | Complete the viewer-relative study's shared Doom-provider seam, then begin its synthetic builder |
 
 This campaign uses Doom as architecture-driving corpus pressure without making
 the renderer, Resource Space, or Native Ring own Doom-specific semantics.
@@ -16,6 +17,11 @@ the renderer, Resource Space, or Native Ring own Doom-specific semantics.
 Source decoding, lowering, presentation, visibility, controls, and special
 semantics records live in [Evidence](Evidence/). Evidence documents support the
 controlling plans; they are not separate architectural authority.
+
+Bounded supporting investigations live in `Studies/`. They do not replace the
+WAD checklist or imply that their candidate implementation has been accepted.
+The active viewer-relative study keeps Quake dormant; another source enters
+only if Doom evidence later earns an independent-caller comparison.
 
 ## Reopening And Escalation
 

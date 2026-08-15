@@ -445,6 +445,107 @@ Implementation sequence:
           a wholly empty bottom eight-row band, so the panorama retains only
           rows 0--119 and rejects any partial or internal coverage gap without
           inventing texels or weakening ordinary texture-alpha deferral.
+    - [x] Falsify a Doom-local world-space sky-aperture depth mask. Retained
+          `F_SKY1` flat meshes can bound upward rays but cannot reproduce
+          viewer-relative sky coverage near the horizon; canonical native
+          inspection still showed distant static-shell sectors through the
+          sky region. The experimental mask was removed rather than tightened
+          until it hid the symptom.
+    - [ ] Observe the narrower paired-sky boundary control. The provider now
+          retains the omitted upper band between unequal adjacent `F_SKY1`
+          ceilings as separately identified depth coverage: the panorama is
+          drawn first, the color-suppressed boundary writes depth, and ordinary
+          world geometry follows. Focused controls prove the band exists only
+          for paired sky ceilings with unequal heights; native hut-area visual
+          acceptance remains open.
+      - [x] Confirm the exact hut boundary blocks farther sector geometry.
+      - [ ] Confirm owning-side-only depth after rejecting double-sided depth:
+            the latter also masked the hut when the boundary was viewed from
+            its opposite source sector. The depth pipeline now back-face culls
+            using the retained source-owned winding.
+      - [ ] Identify the remaining lower sky-aperture leaks toward the main
+            buildings. These occur below/alongside the repaired hut boundary
+            and must not be hidden by broadening that wall's authority.
+        - [x] Retain concrete `LOOK` identities: wall linedef 249 / sector 56
+              and ceiling subsector 104 / sector 40. Headless comparison finds
+              no paired-sky boundary on the captured ceiling direction, so
+              this is a distinct viewer-relative wall/plane case rather than
+              missing coverage from the linedef-252 control.
+        - [x] Classify the multi-sector pattern rather than patching individual
+              surfaces. Captures retain ordinary geometry from sectors 24, 40,
+              49, 56, and 72 through the same aperture. A replayable wall-249
+              ray crosses neither a paired-sky wall boundary nor an omitted
+              source-sky plane before its ordinary hit.
+        - [x] Compare that wall-249 ray with the Stage-3B Doom source protocol.
+              The global shell hits wall 249, while classic horizontal
+              traversal admits neither source SEG and explicitly prunes one
+              owning subsector behind an already closed full-screen range.
+              This establishes viewer-relative presentation mismatch rather
+              than a missing wall or permission for another depth patch.
+        - [x] Classify the remaining lower-hut ray family separately from the
+              paired-sky boundary. Fresh `LOOK` records retain ordinary
+              ceiling/wall hits only *after* a nearer `F_SKY1` source ceiling
+              plane, with `sky-boundary=none`; the classic source trace can
+              elide the later target through a solid range. This is evidence
+              for bounded Doom source-plane coverage, not permission to make
+              every one-sky wall a depth occluder.
+        - [x] Falsify the new single-sky-plane source control against the
+              lower-hut/main-building captures. It must retain a named source
+              plane and a bounded projected interval, preserve the existing
+              one-sky upper-wall negative, and never become a generic renderer
+              sky or occlusion rule. The synthetic bounded control passed, but
+              submitting all retained `F_SKY1` subsector meshes globally in
+              E1M1 fixed the leak by incorrectly masking the nearby hut. Global
+              source identity is therefore insufficient presentation authority.
+        - [x] Falsify viewer-relative sky-span source-sector admission. The
+              narrower opt-in control recomputes the current Doom BSP/vertical
+              clip observation and enables only retained sky flats owned by
+              emitted sky spans. Visual review showed that the hut remains
+              visible nearby but is masked after backing away: sector
+              admission still grants a whole subsector flat more authority
+              than the projected source span earned.
+        - [ ] Falsify exact viewer-relative sky screen-cell depth coverage.
+              Reconstruct only current `F_SKY1` ceiling cells from the shared
+              classic BSP/vertical-span observation, place them on their
+              owning source-sector ceiling heights, and replace one bounded
+              corpus mesh as the observer moves. Reject it if the hut is still
+              masked, leaks return, or camera motion exposes cracks.
+    - [ ] Resolve the remaining distant-sector leak through Doom-owned
+          viewer-relative presentation evidence. A successful continuation
+          must either present source sky spans directly or establish exact
+          shared wall/plane screen boundaries; a world-space sky enclosure,
+          frustum filter, depth-only source plane, or generic renderer
+          exception is not sufficient.
+      - [x] Add an opt-in live classic-BSP source control distinct from the
+            falsified per-column selector. Stable SEG walls upload once;
+            recursive source admission updates the caller mask per observer;
+            flats follow reached subsectors; unknown identities and missing
+            SEG materials fail open; survivor order remains unchanged.
+      - [x] Correct two ordinary source-projection defects before visual use:
+            opposite-side exterior endpoint bearings cross the FOV instead of
+            being rejected, and viewer-plane-straddling solid walls remain
+            visible without closing an unsafe horizontal range.
+      - [x] Falsify the first `--doom-seg-classic-dynamic` composition through
+            live native inspection. Changing subsectors removed spawn-room
+            floor portions around pillars; the first door exposed sky until
+            the observer crossed it; and the hut aperture improved without
+            removing all distant geometry. A smaller submission count is not
+            accepted over these visible false negatives.
+        - [x] Remove reached-subsector flat selection from the live control.
+              Reached BSP leaves are not presented plane coverage, so ordinary
+              whole-subsector flats now fail open pending an exact plane/span
+              experiment.
+        - [x] Apply active door and moving-floor heights to a short-lived Doom
+              topology snapshot before each source traversal. The decoded WAD
+              remains immutable, but visibility no longer reasons from a
+              knowingly stale closed-door map.
+        - [ ] Reinspect the bounded wall-only source filter for close-wall and
+              dynamic-door regressions. This may validate the two local repairs
+              but cannot resolve the retained hut plane/sky leak.
+      - [ ] Establish exact Doom-owned wall/plane screen boundaries or present
+            retained source sky spans directly. Do not restore flat filtering,
+            add overlap epsilon, or hide the remaining hut geometry with a
+            broader depth wall.
     - [ ] Retain native visual evidence that the exterior has no purple or
           black sky gaps, the panorama seam is acceptable, and ordinary world
           surfaces continue to occlude the enclosure.
@@ -534,6 +635,14 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
         cutout crosses through ADR-0013's generic renderer capability and they
         remain outside the static opaque draw plan. See
         [E1M1 masked-middle cutout intake evidence](Evidence/E1M1%20masked-middle%20cutout%20intake%20evidence.md).
+    - [x] Close the canonical linedef-464 sidedef-ownership regression:
+          `BROWNGRN` is named only by the right/front sidedef and must remain
+          visible from the pit-facing owning side while disappearing from the
+          secret-catwalk/back side. Keep the line non-blocking and retain this
+          as Doom candidate-selection policy rather than changing the generic
+          two-sided categorical-cutout renderer contract. Source-reference
+          behavior, a focused native ownership test, and interactive native
+          confirmation from both the pit and secret-catwalk sides are retained.
 - [x] Select either original view-dependent plane spans or a documented,
       intentionally non-equivalent plane mapping; do not imply that Slice 5's
       wall texel coordinates decide this.
@@ -846,6 +955,22 @@ make Doom commands, picking, or an embedded shell part of Ring 0.
         subsector/sector/plane identity for flat hits; these remain
         corpus-owned source descriptions attached to an exact
         prepared-triangle result.
+  - [x] Report the source-space ray as `x,y,height` plus map-plane and vertical
+        direction, retain the corresponding Tokimu world ray, and emit a
+        copyable `--look-ray-report=...` token for deterministic headless
+        replay of observed problem locations. The emitted replay values retain
+        nine decimal places: the earlier three/six-decimal token could move a
+        hut-aperture ray across a narrow edge and turn a visible hit into a
+        headless miss. A targeted replay-format regression protects that
+        diagnostic evidence path.
+  - [x] Compare each replay ray with paired-sky depth-boundary meshes and
+        retain whether the closest boundary lies before or behind the ordinary
+        prepared hit, including its Doom source identity.
+  - [x] Compare each replay with omitted `F_SKY1` source planes and the bounded
+        Stage-3B classic horizontal traversal. Retain viewer/target subsectors,
+        target SEG admission, and watched BSP elisions so a global-shell hit
+        can be distinguished from a surface Doom source preparation would not
+        submit.
   - [ ] Add Thing inspection when Things enter prepared caller data. Do not
         invent a diagnostic radius, height, or billboard solely to make a
         source point selectable.
@@ -948,7 +1073,40 @@ composition under AR-0013.
           reviewed ordered-intercept, closed-line, and front-side rules.
     - [x] Define and prove reusable-door reversal behavior while a door is
           opening, waiting, or closing.
-- [ ] Implement lifts and moving floors needed by the selected map.
+- [x] Implement lifts and moving floors needed by the selected map.
+  - [x] Retain separate corpus-local runtime state for E1M1 code 36 turbo
+        lowering and code 88 down/wait/up/stay platforms. Both select immutable
+        source sectors by tag, derive their destinations from adjacent source
+        floors, and reject absent tags, missing adjacency, or invalid timing
+        rather than inventing motion.
+  - [x] Exercise the canonical E1M1 code-36 and code-88 targets through their
+        complete released-source cycles without WAD, collision, or presentation
+        mutation; retain the report in
+        [`E1M1 special semantics evidence.md`](Evidence/E1M1%20special%20semantics%20evidence.md).
+  - [x] Detect eligible physical line crossings in source order and start the
+        tagged runtime exactly once for code 36 or when inactive for reusable
+        code 88.
+    - [x] Filter accepted source-space movement against retained code-11/36/88
+          linedefs, preserve intersection order, and cover ordered crossing
+          independently from camera rays or prepared geometry.
+    - [x] Consume code 36 only after successful runtime creation; keep code 88
+          inactive while its platform is moving and permit a new runtime only
+          after the prior cycle completes. Code 11 remains an explicit
+          unimplemented map-transition observation.
+  - [x] Overlay active floor heights into walk clearance and re-lower affected
+        flats/wall spans without reparsing WAD bytes.
+    - [x] Overlay active code-36/code-88 floor heights by retained sector
+          identity after BSP ownership resolution; immutable source floors and
+          active door ceiling overlays remain separate inputs.
+    - [x] Re-lower affected floor flats and boundary wall spans from runtime
+          heights, and carry a stationary observer standing on a moving
+          platform without assigning motion to rendering.
+    - [x] Retain a no-window canonical resource replay proving both completed
+          E1M1 effects update their exact floor vertices, regenerate affected
+          wall spans without a visual diagnostic, reuse the existing dynamic
+          handle seam, and carry a source-sector-matched observer.
+  - [x] Retain native traversal and visual observations for both E1M1 effects
+        before calling either progression path complete.
 - [ ] Implement switches and texture-state changes.
 - [ ] Implement teleports if required by the admitted map slice.
 - [ ] Track secrets, exits, and map transitions as application semantics.

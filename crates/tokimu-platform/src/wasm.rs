@@ -288,6 +288,8 @@ fn map_key_code(code: &str) -> Option<KeyCode> {
         "Escape" => Some(KeyCode::Escape),
         "Space" => Some(KeyCode::Space),
         "ControlLeft" => Some(KeyCode::ControlLeft),
+        "ShiftLeft" => Some(KeyCode::ShiftLeft),
+        "ShiftRight" => Some(KeyCode::ShiftRight),
         "Enter" => Some(KeyCode::Enter),
         "Backspace" => Some(KeyCode::Backspace),
         "Delete" => Some(KeyCode::Delete),

@@ -1942,6 +1942,101 @@ retroactively promoted from the failure of the more aggressive alternatives.
   GPU occlusion and any provider-neutral service require new independent
   pressure and a reopened review.
 
+### Post-close evidence -- 2026-08-13
+
+- The completed `SKY1` panorama made the static-shell mismatch independently
+  visible: source-valid distant sector geometry can appear through a nearer
+  Doom sky region even though the sky raster and ordinary GPU depth behavior
+  are correct.
+- A bounded Doom-local control wrote depth from the retained world-space
+  `F_SKY1` flat meshes before ordinary geometry. Native inspection rejected
+  it: horizontal source planes do not reproduce Doom's viewer-relative sky
+  coverage near the horizon, and the distant-sector leak remained.
+- The control was removed. This reinforces rather than changes the closed
+  disposition: neither a skybox nor generic world-space culling can substitute
+  for Doom's source presentation protocol. Any future Doom continuation must
+  present retained source sky spans directly or establish exact shared
+  wall/plane screen boundaries; no renderer capability is admitted here.
+- A narrower follow-up retains the exact upper wall span already omitted by
+  the paired-`F_SKY1` source rule as a separately identified, color-suppressed
+  depth boundary. This is not candidate selection: it tests whether one Doom
+  source boundary has distinct color and sky-coverage roles. Provider tests
+  cover paired-sky height differences and negative controls; native visual
+  acceptance remains open and cannot alter this review's no-shared-capability
+  disposition.
+- Native observation confirmed the span blocks the original distant-sector
+  leak, but a double-sided depth pipeline also masked legitimate hut geometry
+  from the opposite source side. The control was narrowed to the retained
+  owning-face winding. Remaining lower-aperture leaks are separate Doom
+  presentation evidence, not permission to expand a generic or wall-wide
+  occlusion rule.
+- Repeated `LOOK` captures then found ordinary walls and ceilings from sectors
+  24, 40, 49, 56, and 72 through the same outdoor aperture. This distribution
+  rejects a per-wall repair hypothesis: several unrelated, source-valid pieces
+  of the global static shell are surviving one viewer-relative opening.
+- `LOOK` and `--look-ray-report` now retain three separable facts for the same
+  source ray: the nearest ordinary prepared triangle, the nearest paired-sky
+  wall boundary, and the nearest omitted `F_SKY1` source plane. Neither sky
+  boundary class precedes the retained wall-249 ray.
+- The same ray was replayed through the Stage-3B horizontal source protocol.
+  The observer is in subsector 141; wall 249 belongs to subsectors 190 and 216;
+  subsector 216 is pruned at node 219 by an already closed `[0,319]` screen
+  range; and neither wall-249 SEG (`560`, `657`) is admitted. The modern global
+  shell nevertheless reports wall 249 as its nearest prepared hit.
+- This is direct evidence for presentation-model mismatch, not malformed wall
+  lowering or incomplete paired-sky depth coverage. It also confirms the
+  closed disposition: Doom-owned viewer-relative source preparation can reject
+  this wall, while generic frustum/depth rendering of the full shell cannot.
+  The diagnostic does not revive the falsified per-column selector or admit a
+  shared visibility capability.
+- A new opt-in `--doom-seg-classic-dynamic` control now composes the retained
+  source pieces without reviving that selector: SEG-derived wall meshes upload
+  once; each live observer pose reruns the recursive BSP/solid-range protocol;
+  admitted SEG walls and reached-subsector flats update only the caller-owned
+  submission mask; unknown identities and unsupported SEG materials fail open.
+- Its first bounded source-spawn run retained `2,095` candidates and submitted
+  `496` (`482` opaque plus `14` owning-side cutouts), with no warm-frame mesh
+  uploads or replacements. Warm selection cost was approximately `1.8 ms` in
+  the debug build. These are mechanism observations, not a performance win or
+  visual acceptance.
+- Building the control exposed and repaired an ordinary protocol defect: two
+  SEG endpoints outside opposite FOV sides describe a view-crossing segment,
+  not an outside segment. Solid walls crossing the viewer plane now remain
+  admitted but cannot close a horizontal range until clipped safely. Focused
+  tests retain both rules.
+- Native free-movement inspection remains required. In particular, the
+  reached-subsector whole-flat approximation has not established shared
+  wall/plane screen boundaries or classic visplane behavior. The control stays
+  opt-in and cannot replace full submission until the retained hut ray is
+  removed without the earlier close-wall, turn, or plane false negatives.
+- Native inspection then falsified that first live composition: floor portions
+  disappeared as the observer changed subsectors, an opening door exposed the
+  sky enclosure until the observer crossed its boundary, and the hut aperture
+  still retained distant geometry. The first two failures identify bounded
+  fixture defects—reached leaves are not plane coverage, and dynamic traversal
+  must observe active sector heights—so flats now fail open and live heights
+  enter a temporary Doom-source snapshot. The third failure remains the
+  architectural evidence: horizontal wall admission alone cannot replace an
+  exact Doom-owned wall/plane/sky screen-boundary model. This strengthens the
+  no-shared-capability disposition rather than reopening it.
+- Targeted inspection of the released Doom renderer and the independently
+  faithful Chocolate Doom continuation explains why the two attempted sky
+  repairs failed in opposite directions. Ordered SEG processing derives plane
+  intervals from the current per-column ceiling/floor coverage and then updates
+  those same bounds for wall tiers. Paired sky changes that source clipping
+  calculation; sky drawing later consumes the retained intervals. It does not
+  create a hidden world-space occluder. This **falsifies world-space sky
+  geometry or hidden sky depth surfaces as the authoritative Doom solution**.
+- A new synthetic `partial-paired-sky-far-control` then tested whether a less
+  invasive Boolean source-candidate filter was expressive enough. The same far
+  source SEG occupies `97` diagnostic columns: `81` overlap the nearer
+  paired-sky interval (`[120,200]`), while two required eight-column runs
+  survive outside it (`[112,119]`, `[201,208]`). Keeping or rejecting the SEG
+  whole cannot represent both source dispositions. This falsifies whole-SEG
+  Boolean selection at the pressure boundary and earns a Doom-owned
+  fragment/interval experiment; it does not admit screen spans, scissors,
+  visplanes, or a visibility API to Tokimu's renderer.
+
 ## References
 
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`

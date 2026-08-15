@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tokimu Doom Visibility Synthetic Browser Evidence</title>
+  </head>
+  <body style="background:#061012;color:#8fffea;font-family:monospace">
+    <h1>Doom synthetic visibility controls</h1>
+    <p>Slice 6 browser/WASM evidence. Source lowering and render state remain Rust-owned.</p>
+    <button data-fixture="paired-sky">Paired sky</button>
+    <button data-fixture="one-sky-negative">One-sky negative</button>
+    <button data-fixture="vertical-aperture">Vertical aperture</button>
+    <button data-fixture="shared-key-plane">Shared plane key</button>
+    <button data-fixture="dynamic-door-snapshot">Dynamic door snapshots</button>
+    <button data-fixture="platform-snapshot">Platform snapshots</button>
+    <button data-fixture="projection-epsilon">Projection epsilon</button>
+    <button data-fixture="cutout-non-occluder">Cutout non-occluder</button>
+    <pre id="status">ready</pre>
+    <canvas id="scene" width="960" height="600" style="border:1px solid #285c59"></canvas>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

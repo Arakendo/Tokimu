@@ -3,9 +3,9 @@
 //! This provider resolves map-table references only. Mesh construction,
 //! materials, renderer resources, and WAD acquisition remain outside it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use doom_map_provider::{DoomBspChild, DoomMapCore, DoomSourceRecord};
+use doom_map_provider::{DoomBspChild, DoomMapCore, DoomSector, DoomSourceRecord};
 use thiserror::Error;
 
 /// One original sidedef and its owning sector, retained before wall semantics
@@ -38,6 +38,43 @@ pub struct DoomWallTopologyAudit {
     pub one_sided: usize,
     pub two_sided: usize,
     pub same_sector_two_sided: usize,
+}
+
+/// One temporary sector-height observation projected over immutable decoded
+/// Doom source. It is a corpus/provider input to later geometry or visibility
+/// preparation, not a moving-sector state machine and not a renderer command.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomSectorRuntimeHeightSnapshot {
+    pub source_sector: DoomSourceRecord,
+    pub floor_height: Option<i16>,
+    pub ceiling_height: Option<i16>,
+}
+
+/// Applies bounded runtime height facts to a clone of decoded source records.
+/// An unavailable source identity is rejected explicitly: treating it as a
+/// no-op would make stale application runtime state indistinguishable from an
+/// intentional static source view.
+pub fn project_doom_sector_runtime_heights(
+    map: &DoomMapCore,
+    snapshots: &[DoomSectorRuntimeHeightSnapshot],
+) -> Result<DoomMapCore, DoomGeometryError> {
+    let mut projected = map.clone();
+    for snapshot in snapshots {
+        let sector = projected
+            .sectors
+            .iter_mut()
+            .find(|sector| sector.source == snapshot.source_sector)
+            .ok_or(DoomGeometryError::RuntimeSnapshotSectorUnavailable {
+                source_sector: snapshot.source_sector,
+            })?;
+        if let Some(floor_height) = snapshot.floor_height {
+            sector.floor_height = floor_height;
+        }
+        if let Some(ceiling_height) = snapshot.ceiling_height {
+            sector.ceiling_height = ceiling_height;
+        }
+    }
+    Ok(projected)
 }
 
 /// Raw vertical-clearance evidence retained before wall visibility, middle
@@ -220,6 +257,23 @@ pub struct DoomTwoSidedWallTriangle {
     pub positions: [[f64; 3]; 3],
 }
 
+/// One renderer-neutral depth-coverage triangle for a height discontinuity
+/// between adjacent classic-sky ceilings.
+///
+/// Doom does not present the corresponding upper wall texture, but the
+/// viewer-relative sky aperture still prevents unrelated, farther map
+/// geometry from showing through that span. This retained source identity is
+/// deliberately separate from ordinary visible wall lowering.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DoomPairedSkyBoundaryTriangle {
+    pub source_linedef: DoomSourceRecord,
+    pub source_sidedef: DoomSourceRecord,
+    pub source_sector: DoomSourceRecord,
+    pub side: DoomWallSideKind,
+    /// Doom map X/Z with the adjacent ceiling heights as Y.
+    pub positions: [[f64; 3]; 3],
+}
+
 /// An authored two-sided middle texture and the source opening it occupies.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoomMiddleTextureObservation {
@@ -397,6 +451,8 @@ struct DoomWallBandRequest<'a> {
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
 pub enum DoomGeometryError {
+    #[error("runtime height snapshot refers to unavailable sector record {source_sector:?}")]
+    RuntimeSnapshotSectorUnavailable { source_sector: DoomSourceRecord },
     #[error("linedef {linedef_index} has neither a right nor left sidedef")]
     MissingBothSidedefs { linedef_index: u32 },
     #[error("linedef {linedef_index} has identical start and end vertices")]
@@ -433,6 +489,8 @@ pub enum DoomGeometryError {
         subsector_index: u16,
         available: usize,
     },
+    #[error("BSP traversal reaches node index {node_index}, but only {available} exist")]
+    BspNodeOutOfBounds { node_index: u16, available: usize },
     #[error("BSP traversal revisits node index {node_index}")]
     BspCycle { node_index: u16 },
     #[error("map has no vertices from which to establish a bounded BSP clip region")]
@@ -465,6 +523,1079 @@ pub enum DoomGeometryError {
     UnsupportedSegDirection { seg_index: u32, direction: u16 },
     #[error("linedef clipping interval is not finite or is outside 0 through 1")]
     InvalidLinedefInterval,
+}
+
+/// Bounded source-only result of a near-first Doom BSP traversal. It records
+/// Doom SEG admission and horizontal solid-range coverage before mesh or
+/// renderer work begins. It is corpus/provider evidence, not a generic
+/// visibility result or renderer scheduling policy.
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
+pub struct DoomClassicBspObservation {
+    pub leaves_visited: usize,
+    pub visited_subsectors: BTreeSet<u16>,
+    pub source_segs_visited: usize,
+    pub far_children_pruned: usize,
+    pub far_children_outside_fov: usize,
+    pub far_children_fail_open: usize,
+    pub backface_rejected: usize,
+    pub edge_on: usize,
+    pub outside_fov_rejected: usize,
+    pub near_plane_fail_open: usize,
+    pub solid_admitted: usize,
+    pub pass_admitted: usize,
+    pub solid_range_contributors: usize,
+    pub solid_range_fully_covered: usize,
+    pub solid_range_covered_columns: usize,
+    pub admitted_seg_records: BTreeSet<u32>,
+    /// Source protocol order matters to later Doom-local wall-tier and plane
+    /// observations. A set alone cannot retain the preceding authority.
+    pub admitted_seg_order: Vec<u32>,
+    /// E1M1's retained hut control uses linedef 247 as a corpus-local watched
+    /// identity. General fixtures use `watched_subsector_elisions` instead.
+    pub hut_linedef_segs_visited: usize,
+    pub hut_linedef_segs_admitted: usize,
+    pub watched_subsector_elisions: Vec<String>,
+    pub samples: Vec<String>,
+}
+
+/// Bounded Doom-source observation of per-column vertical clip state after
+/// classic BSP admission. This is corpus/provider evidence only: it forms no
+/// renderer scissor, visplane, mesh, or public visibility contract.
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
+pub struct DoomSegClassicVerticalClipObservation {
+    pub admitted_segs: usize,
+    pub upper_tier_spans: usize,
+    pub lower_tier_spans: usize,
+    pub middle_tier_spans: usize,
+    pub floor_plane_marks: usize,
+    pub ceiling_plane_marks: usize,
+    pub paired_sky_adjustments: usize,
+    pub ceiling_clip_updates: usize,
+    pub floor_clip_updates: usize,
+    /// Bounded final per-column clip facts with the source SEG tiers that
+    /// contributed to them. These are Doom-provider diagnostic cells, not
+    /// renderer pixels, a scissor contract, or an admission of a visplane API.
+    pub column_traces: Vec<DoomSegClassicVerticalColumnTrace>,
+    pub plane_spans: DoomSegClassicPlaneSpanObservation,
+    pub samples: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomSegClassicVerticalColumnTrace {
+    pub column: usize,
+    pub ceiling_clip: usize,
+    pub floor_clip: usize,
+    pub upper_source_segs: BTreeSet<u32>,
+    pub lower_source_segs: BTreeSet<u32>,
+    pub middle_source_segs: BTreeSet<u32>,
+    /// Paired-sky source boundaries whose horizontal interval reaches this
+    /// diagnostic cell. This records a Doom-specific potential depth boundary;
+    /// it is deliberately not folded into upper-wall authority or generic
+    /// occlusion state.
+    pub paired_sky_boundary_source_segs: BTreeSet<u32>,
+}
+
+/// Bounded plane-span state keyed only by Doom source plane identity. The
+/// intervals are diagnostic screen cells, not renderer pixels or flat draws.
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
+pub struct DoomSegClassicPlaneSpanObservation {
+    pub keys: BTreeMap<DoomSegClassicPlaneKey, Vec<DoomSegClassicPlaneInstance>>,
+    pub plane_instances: usize,
+    pub collision_splits: usize,
+    pub horizontal_spans: usize,
+    pub populated_columns: usize,
+    pub populated_cells: usize,
+    pub overlapping_writes: usize,
+    pub empty_after_clip: usize,
+    pub samples: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomSegClassicPlaneInstance {
+    pub columns: Vec<Option<[usize; 2]>>,
+    pub column_sources: Vec<Option<[u32; 2]>>,
+    pub minimum_column: usize,
+    pub maximum_column: usize,
+    pub source_sectors: BTreeSet<u32>,
+    pub source_segs: BTreeSet<u32>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DoomSegClassicPlaneKind {
+    Floor,
+    Ceiling,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct DoomSegClassicPlaneKey {
+    pub kind: DoomSegClassicPlaneKind,
+    pub height: i16,
+    pub texture: String,
+    pub light: i16,
+}
+
+/// Runs the bounded Doom near-first BSP/solid-range control shared by E1M1 and
+/// synthetic corpus fixtures. It intentionally stops before plane spans,
+/// texture/material selection, mesh lowering, or renderer submission.
+pub fn observe_doom_classic_bsp(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    watched_subsectors: &BTreeSet<u16>,
+) -> Result<DoomClassicBspObservation, DoomGeometryError> {
+    observe_doom_classic_bsp_with_order(
+        map,
+        viewer,
+        heading,
+        watched_subsectors,
+        DoomClassicBspTraversalOrder::NearFirst,
+    )
+}
+
+/// Internal corpus/provider control only. Callers cannot select Doom BSP
+/// traversal order; production remains explicitly near-first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DoomClassicBspTraversalOrder {
+    NearFirst,
+    #[cfg(test)]
+    FarFirstControl,
+}
+
+fn observe_doom_classic_bsp_with_order(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    watched_subsectors: &BTreeSet<u16>,
+    traversal_order: DoomClassicBspTraversalOrder,
+) -> Result<DoomClassicBspObservation, DoomGeometryError> {
+    let root = map
+        .nodes
+        .len()
+        .checked_sub(1)
+        .ok_or(DoomGeometryError::MissingBspRoot {
+            subsectors: map.subsectors.len(),
+        })?;
+    let occluders = observe_doom_seg_occluders(map)?
+        .into_iter()
+        .map(|observation| (observation.source_seg.record_index, observation))
+        .collect::<BTreeMap<_, _>>();
+    let mut observation = DoomClassicBspObservation::default();
+    let mut solid_ranges = Vec::new();
+    let mut ancestors = Vec::new();
+    visit_doom_classic_bsp_child(
+        map,
+        DoomBspChild::Node(root as u16),
+        viewer,
+        heading,
+        &occluders,
+        &mut solid_ranges,
+        &mut ancestors,
+        watched_subsectors,
+        &mut observation,
+        traversal_order,
+    )?;
+    observation.solid_range_covered_columns = solid_ranges
+        .iter()
+        .map(|[first, last]| last - first + 1)
+        .sum();
+    Ok(observation)
+}
+
+#[cfg(test)]
+fn observe_doom_classic_bsp_far_first_control(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    watched_subsectors: &BTreeSet<u16>,
+) -> Result<DoomClassicBspObservation, DoomGeometryError> {
+    observe_doom_classic_bsp_with_order(
+        map,
+        viewer,
+        heading,
+        watched_subsectors,
+        DoomClassicBspTraversalOrder::FarFirstControl,
+    )
+}
+
+/// Observes the Doom-owned vertical clip and plane-span facts for SEG wall
+/// tiers already admitted by [`observe_doom_classic_bsp`]. The caller supplies
+/// ordinary source wall triangles so texture/material resolution remains at
+/// the corpus edge. No renderer object enters or leaves this function.
+#[allow(clippy::too_many_arguments)]
+pub fn observe_doom_classic_vertical_clip_state(
+    map: &DoomMapCore,
+    triangles: &[DoomSegTexturedWallTriangle],
+    plane_marks: &[DoomSegPlaneMarkObservation],
+    traversal: &DoomClassicBspObservation,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: f64,
+) -> DoomSegClassicVerticalClipObservation {
+    const COLUMNS: usize = 320;
+    const ROWS: usize = 200;
+    const HALF_HORIZONTAL_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    let half_vertical_fov = ((ROWS as f64 / COLUMNS as f64) * HALF_HORIZONTAL_FOV.tan()).atan();
+    let mut result = DoomSegClassicVerticalClipObservation {
+        admitted_segs: traversal.admitted_seg_order.len(),
+        ..Default::default()
+    };
+    let mut ceiling_clip = vec![0usize; COLUMNS];
+    let mut floor_clip = vec![ROWS; COLUMNS];
+    let mut upper_sources = vec![BTreeSet::new(); COLUMNS];
+    let mut lower_sources = vec![BTreeSet::new(); COLUMNS];
+    let mut middle_sources = vec![BTreeSet::new(); COLUMNS];
+    let mut paired_sky_boundary_sources = vec![BTreeSet::new(); COLUMNS];
+    let marks_by_seg = plane_marks
+        .iter()
+        .map(|mark| (mark.source_seg.record_index, mark))
+        .collect::<BTreeMap<_, _>>();
+    let segs_by_record = map
+        .segs
+        .iter()
+        .map(|seg| (seg.source.record_index, seg))
+        .collect::<BTreeMap<_, _>>();
+    let sectors_by_record = map
+        .sectors
+        .iter()
+        .map(|sector| (sector.source.record_index, sector))
+        .collect::<BTreeMap<_, _>>();
+    let mut tier_heights = BTreeMap::<(u32, u8), (DoomWallTextureRole, f64, f64)>::new();
+    for triangle in triangles {
+        if !traversal
+            .admitted_seg_records
+            .contains(&triangle.source_seg.record_index)
+        {
+            continue;
+        }
+        let role_key = match triangle.role {
+            DoomWallTextureRole::Upper => 0,
+            DoomWallTextureRole::Lower => 1,
+            DoomWallTextureRole::Middle => 2,
+        };
+        let minimum = triangle
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f64::INFINITY, f64::min);
+        let maximum = triangle
+            .positions
+            .iter()
+            .map(|position| position[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        tier_heights
+            .entry((triangle.source_seg.record_index, role_key))
+            .and_modify(|(_, stored_minimum, stored_maximum)| {
+                *stored_minimum = stored_minimum.min(minimum);
+                *stored_maximum = stored_maximum.max(maximum);
+            })
+            .or_insert((triangle.role, minimum, maximum));
+    }
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let project = |point: [i16; 2]| {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        let lateral = relative[0] * right[0] + relative[1] * right[1];
+        (depth, lateral.atan2(depth))
+    };
+    let row = |angle: f64| {
+        let normalized = (angle.tan() / half_vertical_fov.tan()).clamp(-1.0, 1.0);
+        (((1.0 - normalized) * 0.5) * ROWS as f64) as usize
+    };
+    for source_seg in &traversal.admitted_seg_order {
+        let (Some(mark), Some(seg)) =
+            (marks_by_seg.get(source_seg), segs_by_record.get(source_seg))
+        else {
+            continue;
+        };
+        let front_sector = sectors_by_record
+            .get(&mark.front_sector.record_index)
+            .expect("validated plane mark names an existing front sector");
+        result.floor_plane_marks += usize::from(mark.floor_marked);
+        result.ceiling_plane_marks += usize::from(mark.ceiling_marked);
+        result.paired_sky_adjustments += usize::from(mark.paired_sky_ceiling_adjustment);
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let (start_depth, start_angle) = project([start.x, start.y]);
+        let (end_depth, end_angle) = project([end.x, end.y]);
+        if start_depth <= 0.0
+            || end_depth <= 0.0
+            || source_segment_outside_horizontal_fov(start_angle, end_angle, HALF_HORIZONTAL_FOV)
+        {
+            continue;
+        }
+        let [left, right_column] =
+            source_fov_column_interval(start_angle, end_angle, HALF_HORIZONTAL_FOV, COLUMNS);
+        if mark.paired_sky_ceiling_adjustment {
+            for source_set in &mut paired_sky_boundary_sources[left..=right_column] {
+                source_set.insert(*source_seg);
+            }
+        }
+        let has_upper = tier_heights.contains_key(&(*source_seg, 0));
+        let has_lower = tier_heights.contains_key(&(*source_seg, 1));
+        let has_middle = tier_heights.contains_key(&(*source_seg, 2));
+        let mut ceiling_plane_writes = Vec::new();
+        let mut floor_plane_writes = Vec::new();
+        for x in left..=right_column {
+            let normalized = -1.0 + ((x as f64 + 0.5) / COLUMNS as f64) * 2.0;
+            let local_angle = (normalized * HALF_HORIZONTAL_FOV.tan()).atan();
+            let ray = [
+                forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+            ];
+            let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+                .unwrap_or((start_depth + end_depth) * 0.5);
+            let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
+                .min(ROWS - 1);
+            let floor =
+                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+            let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
+            if mark.ceiling_marked {
+                ceiling_plane_writes.push((
+                    x,
+                    ceiling_clip[x].saturating_add(1),
+                    ceiling.saturating_sub(1),
+                ));
+            }
+            if mark.floor_marked {
+                floor_plane_writes.push((
+                    x,
+                    floor.saturating_add(1),
+                    floor_clip[x].saturating_sub(1),
+                ));
+            }
+        }
+        if !ceiling_plane_writes.is_empty() {
+            retain_classic_plane_range(
+                &mut result.plane_spans,
+                classic_plane_key(DoomSegClassicPlaneKind::Ceiling, front_sector),
+                mark.front_sector.record_index,
+                *source_seg,
+                &ceiling_plane_writes,
+                COLUMNS,
+            );
+        }
+        if !floor_plane_writes.is_empty() {
+            retain_classic_plane_range(
+                &mut result.plane_spans,
+                classic_plane_key(DoomSegClassicPlaneKind::Floor, front_sector),
+                mark.front_sector.record_index,
+                *source_seg,
+                &floor_plane_writes,
+                COLUMNS,
+            );
+        }
+        for role_key in 0..=2 {
+            let Some((role, minimum, maximum)) = tier_heights.get(&(*source_seg, role_key)) else {
+                continue;
+            };
+            match role {
+                DoomWallTextureRole::Upper => result.upper_tier_spans += 1,
+                DoomWallTextureRole::Lower => result.lower_tier_spans += 1,
+                DoomWallTextureRole::Middle => result.middle_tier_spans += 1,
+            }
+            let mut center_trace = None;
+            for x in left..=right_column {
+                let normalized = -1.0 + ((x as f64 + 0.5) / COLUMNS as f64) * 2.0;
+                let local_angle = (normalized * HALF_HORIZONTAL_FOV.tan()).atan();
+                let ray = [
+                    forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                    forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+                ];
+                let depth =
+                    source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+                        .unwrap_or((start_depth + end_depth) * 0.5);
+                let top = row((maximum - eye_height).atan2(depth)).min(ROWS - 1);
+                let bottom = row((minimum - eye_height).atan2(depth)).min(ROWS - 1);
+                let (top, bottom) = (top.min(bottom), top.max(bottom));
+                let prior = [ceiling_clip[x], floor_clip[x]];
+                match role {
+                    DoomWallTextureRole::Upper => {
+                        upper_sources[x].insert(*source_seg);
+                        let next = ceiling_clip[x].max(bottom.saturating_add(1));
+                        result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
+                        ceiling_clip[x] = next;
+                    }
+                    DoomWallTextureRole::Lower => {
+                        lower_sources[x].insert(*source_seg);
+                        let next = floor_clip[x].min(top);
+                        result.floor_clip_updates += usize::from(next != floor_clip[x]);
+                        floor_clip[x] = next;
+                    }
+                    DoomWallTextureRole::Middle => {
+                        middle_sources[x].insert(*source_seg);
+                    }
+                }
+                if x == COLUMNS / 2 {
+                    center_trace = Some(format!("seg={source_seg} line={} tier={role:?} rows={top}..{bottom} clip-before={}..{} clip-after={}..{}", seg.linedef, prior[0], prior[1], ceiling_clip[x], floor_clip[x]));
+                }
+            }
+            if let Some(sample) = center_trace {
+                if result.samples.len() < 12 {
+                    result.samples.push(sample);
+                }
+            }
+        }
+        for x in left..=right_column {
+            let normalized = -1.0 + ((x as f64 + 0.5) / COLUMNS as f64) * 2.0;
+            let local_angle = (normalized * HALF_HORIZONTAL_FOV.tan()).atan();
+            let ray = [
+                forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+            ];
+            let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+                .unwrap_or((start_depth + end_depth) * 0.5);
+            let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
+                .min(ROWS - 1);
+            let floor =
+                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+            let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
+            if has_middle && mark.back_sector.is_none() {
+                result.ceiling_clip_updates += usize::from(ceiling_clip[x] != ROWS);
+                result.floor_clip_updates += usize::from(floor_clip[x] != 0);
+                ceiling_clip[x] = ROWS;
+                floor_clip[x] = 0;
+            } else {
+                if !has_upper && mark.ceiling_marked {
+                    let next = ceiling_clip[x].max(ceiling.saturating_sub(1));
+                    result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
+                    ceiling_clip[x] = next;
+                }
+                if !has_lower && mark.floor_marked {
+                    let next = floor_clip[x].min(floor.saturating_add(1));
+                    result.floor_clip_updates += usize::from(next != floor_clip[x]);
+                    floor_clip[x] = next;
+                }
+            }
+        }
+    }
+    finalize_classic_plane_spans(&mut result.plane_spans);
+    result.column_traces = (0..COLUMNS)
+        .filter_map(|column| {
+            let upper_source_segs = std::mem::take(&mut upper_sources[column]);
+            let lower_source_segs = std::mem::take(&mut lower_sources[column]);
+            let middle_source_segs = std::mem::take(&mut middle_sources[column]);
+            let paired_sky_boundary_source_segs =
+                std::mem::take(&mut paired_sky_boundary_sources[column]);
+            (ceiling_clip[column] != 0
+                || floor_clip[column] != ROWS
+                || !upper_source_segs.is_empty()
+                || !lower_source_segs.is_empty()
+                || !middle_source_segs.is_empty()
+                || !paired_sky_boundary_source_segs.is_empty())
+            .then_some(DoomSegClassicVerticalColumnTrace {
+                column,
+                ceiling_clip: ceiling_clip[column],
+                floor_clip: floor_clip[column],
+                upper_source_segs,
+                lower_source_segs,
+                middle_source_segs,
+                paired_sky_boundary_source_segs,
+            })
+        })
+        .collect();
+    result
+}
+
+fn classic_plane_key(kind: DoomSegClassicPlaneKind, sector: &DoomSector) -> DoomSegClassicPlaneKey {
+    if kind == DoomSegClassicPlaneKind::Ceiling && sector.ceiling_texture == "F_SKY1" {
+        DoomSegClassicPlaneKey {
+            kind,
+            height: 0,
+            texture: String::from("F_SKY1"),
+            light: 0,
+        }
+    } else {
+        DoomSegClassicPlaneKey {
+            kind,
+            height: match kind {
+                DoomSegClassicPlaneKind::Floor => sector.floor_height,
+                DoomSegClassicPlaneKind::Ceiling => sector.ceiling_height,
+            },
+            texture: match kind {
+                DoomSegClassicPlaneKind::Floor => sector.floor_texture.clone(),
+                DoomSegClassicPlaneKind::Ceiling => sector.ceiling_texture.clone(),
+            },
+            light: sector.light_level,
+        }
+    }
+}
+
+fn retain_classic_plane_range(
+    observation: &mut DoomSegClassicPlaneSpanObservation,
+    key: DoomSegClassicPlaneKey,
+    source_sector: u32,
+    source_seg: u32,
+    writes: &[(usize, usize, usize)],
+    columns: usize,
+) {
+    let valid = writes
+        .iter()
+        .filter_map(|&(column, top, bottom)| {
+            if top > bottom {
+                observation.empty_after_clip += 1;
+                None
+            } else {
+                Some((column, top, bottom))
+            }
+        })
+        .collect::<Vec<_>>();
+    let Some(minimum_column) = valid.iter().map(|(column, _, _)| *column).min() else {
+        return;
+    };
+    let maximum_column = valid
+        .iter()
+        .map(|(column, _, _)| *column)
+        .max()
+        .expect("a minimum column proves a valid plane write");
+    let instances = observation.keys.entry(key).or_default();
+    let compatible = instances.iter().position(|instance| {
+        let intersection_start = minimum_column.max(instance.minimum_column);
+        let intersection_end = maximum_column.min(instance.maximum_column);
+        intersection_start > intersection_end
+            || instance.columns[intersection_start..=intersection_end]
+                .iter()
+                .all(Option::is_none)
+    });
+    let instance_index = compatible.unwrap_or_else(|| {
+        if !instances.is_empty() {
+            observation.collision_splits += 1;
+        }
+        instances.push(DoomSegClassicPlaneInstance {
+            columns: vec![None; columns],
+            column_sources: vec![None; columns],
+            minimum_column,
+            maximum_column,
+            source_sectors: BTreeSet::new(),
+            source_segs: BTreeSet::new(),
+        });
+        instances.len() - 1
+    });
+    let instance = &mut instances[instance_index];
+    instance.source_sectors.insert(source_sector);
+    instance.source_segs.insert(source_seg);
+    instance.minimum_column = instance.minimum_column.min(minimum_column);
+    instance.maximum_column = instance.maximum_column.max(maximum_column);
+    for (column, top, bottom) in valid {
+        let slot = &mut instance.columns[column];
+        if slot.is_some() {
+            observation.overlapping_writes += 1;
+        } else {
+            *slot = Some([top, bottom]);
+            instance.column_sources[column] = Some([source_sector, source_seg]);
+        }
+    }
+}
+
+fn finalize_classic_plane_spans(observation: &mut DoomSegClassicPlaneSpanObservation) {
+    observation.horizontal_spans = 0;
+    observation.plane_instances = 0;
+    observation.populated_columns = 0;
+    observation.populated_cells = 0;
+    observation.samples.clear();
+    for (key, instances) in &observation.keys {
+        let mut key_spans = 0usize;
+        let mut key_columns = 0usize;
+        let mut key_cells = 0usize;
+        for instance in instances {
+            observation.plane_instances += 1;
+            let mut in_span = false;
+            for column in &instance.columns {
+                match column {
+                    Some([top, bottom]) => {
+                        if !in_span {
+                            key_spans += 1;
+                            in_span = true;
+                        }
+                        key_columns += 1;
+                        key_cells += bottom - top + 1;
+                    }
+                    None => in_span = false,
+                }
+            }
+        }
+        observation.horizontal_spans += key_spans;
+        observation.populated_columns += key_columns;
+        observation.populated_cells += key_cells;
+        if observation.samples.len() < 12 {
+            observation.samples.push(format!(
+                "kind={:?} height={} flat={} light={} instances={} spans={} columns={} cells={}",
+                key.kind,
+                key.height,
+                key.texture,
+                key.light,
+                instances.len(),
+                key_spans,
+                key_columns,
+                key_cells
+            ));
+        }
+    }
+}
+
+fn source_ray_segment_depth(
+    viewer: [i16; 2],
+    ray: [f64; 2],
+    start: [i16; 2],
+    end: [i16; 2],
+) -> Option<f64> {
+    let offset = [
+        f64::from(start[0] - viewer[0]),
+        f64::from(start[1] - viewer[1]),
+    ];
+    let segment = [f64::from(end[0] - start[0]), f64::from(end[1] - start[1])];
+    let cross = |left: [f64; 2], right: [f64; 2]| left[0] * right[1] - left[1] * right[0];
+    let denominator = cross(ray, segment);
+    if denominator.abs() <= f64::EPSILON {
+        return None;
+    }
+    let depth = cross(offset, segment) / denominator;
+    let progression = cross(offset, ray) / denominator;
+    (depth > 0.0 && (0.0..=1.0).contains(&progression)).then_some(depth)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn visit_doom_classic_bsp_child(
+    map: &DoomMapCore,
+    child: DoomBspChild,
+    viewer: [i16; 2],
+    heading: f64,
+    occluders: &BTreeMap<u32, DoomSegOccluderObservation>,
+    solid_ranges: &mut Vec<[usize; 2]>,
+    ancestors: &mut Vec<u16>,
+    watched_subsectors: &BTreeSet<u16>,
+    observation: &mut DoomClassicBspObservation,
+    traversal_order: DoomClassicBspTraversalOrder,
+) -> Result<(), DoomGeometryError> {
+    match child {
+        DoomBspChild::Subsector(index) => {
+            let subsector = map.subsectors.get(usize::from(index)).ok_or(
+                DoomGeometryError::BspSubsectorOutOfBounds {
+                    subsector_index: index,
+                    available: map.subsectors.len(),
+                },
+            )?;
+            observation.leaves_visited += 1;
+            observation.visited_subsectors.insert(index);
+            let first = usize::from(subsector.first_seg);
+            let end = first + usize::from(subsector.seg_count);
+            for seg in &map.segs[first..end] {
+                admit_doom_classic_seg(
+                    map,
+                    seg,
+                    viewer,
+                    heading,
+                    occluders,
+                    solid_ranges,
+                    observation,
+                );
+            }
+            Ok(())
+        }
+        DoomBspChild::Node(index) => {
+            if ancestors.contains(&index) {
+                return Err(DoomGeometryError::BspCycle { node_index: index });
+            }
+            let node =
+                map.nodes
+                    .get(usize::from(index))
+                    .ok_or(DoomGeometryError::BspNodeOutOfBounds {
+                        node_index: index,
+                        available: map.nodes.len(),
+                    })?;
+            ancestors.push(index);
+            let side = i64::from(node.delta_x) * i64::from(viewer[1] - node.y)
+                - i64::from(node.delta_y) * i64::from(viewer[0] - node.x);
+            let (near, _near_bbox, far, far_bbox) = if side < 0 {
+                (
+                    node.right_child,
+                    node.right_bbox,
+                    node.left_child,
+                    node.left_bbox,
+                )
+            } else {
+                (
+                    node.left_child,
+                    node.left_bbox,
+                    node.right_child,
+                    node.right_bbox,
+                )
+            };
+            let (first, second, second_bbox) = match traversal_order {
+                DoomClassicBspTraversalOrder::NearFirst => (near, far, far_bbox),
+                #[cfg(test)]
+                DoomClassicBspTraversalOrder::FarFirstControl => (far, near, _near_bbox),
+            };
+            visit_doom_classic_bsp_child(
+                map,
+                first,
+                viewer,
+                heading,
+                occluders,
+                solid_ranges,
+                ancestors,
+                watched_subsectors,
+                observation,
+                traversal_order,
+            )?;
+            let watched_far = watched_subsectors
+                .iter()
+                .filter_map(|target| {
+                    doom_bsp_child_contains_subsector(map, second, *target).then_some(*target)
+                })
+                .collect::<Vec<_>>();
+            match source_bbox_fov_column_interval(
+                viewer,
+                heading,
+                second_bbox,
+                std::f64::consts::FRAC_PI_4,
+                320,
+            ) {
+                SourceBBoxProjection::OutsideFov => {
+                    observation.far_children_outside_fov += 1;
+                    record_watched_subsector_elision(
+                        observation,
+                        index,
+                        "outside-fov",
+                        &watched_far,
+                        None,
+                        None,
+                    );
+                }
+                SourceBBoxProjection::Interval(interval) => {
+                    if let Some(covering_range) = solid_ranges
+                        .iter()
+                        .find(|[first, last]| *first <= interval[0] && interval[1] <= *last)
+                    {
+                        observation.far_children_pruned += 1;
+                        record_watched_subsector_elision(
+                            observation,
+                            index,
+                            "solid-range",
+                            &watched_far,
+                            Some(interval),
+                            Some(*covering_range),
+                        );
+                    } else {
+                        visit_doom_classic_bsp_child(
+                            map,
+                            second,
+                            viewer,
+                            heading,
+                            occluders,
+                            solid_ranges,
+                            ancestors,
+                            watched_subsectors,
+                            observation,
+                            traversal_order,
+                        )?;
+                    }
+                }
+                SourceBBoxProjection::Uncertain => {
+                    observation.far_children_fail_open += 1;
+                    visit_doom_classic_bsp_child(
+                        map,
+                        second,
+                        viewer,
+                        heading,
+                        occluders,
+                        solid_ranges,
+                        ancestors,
+                        watched_subsectors,
+                        observation,
+                        traversal_order,
+                    )?;
+                }
+            }
+            ancestors.pop();
+            Ok(())
+        }
+    }
+}
+
+fn record_watched_subsector_elision(
+    observation: &mut DoomClassicBspObservation,
+    node: u16,
+    reason: &str,
+    subsectors: &[u16],
+    interval: Option<[usize; 2]>,
+    covering_range: Option<[usize; 2]>,
+) {
+    if !subsectors.is_empty() {
+        observation.watched_subsector_elisions.push(format!(
+            "node={node}:reason={reason}:subsectors={subsectors:?}:interval={interval:?}:covering-range={covering_range:?}"
+        ));
+    }
+}
+
+fn doom_bsp_child_contains_subsector(map: &DoomMapCore, child: DoomBspChild, target: u16) -> bool {
+    let mut visited_nodes = HashSet::new();
+    doom_bsp_child_contains_subsector_inner(map, child, target, &mut visited_nodes)
+}
+
+fn doom_bsp_child_contains_subsector_inner(
+    map: &DoomMapCore,
+    child: DoomBspChild,
+    target: u16,
+    visited_nodes: &mut HashSet<u16>,
+) -> bool {
+    match child {
+        DoomBspChild::Subsector(index) => index == target,
+        DoomBspChild::Node(index) => {
+            if !visited_nodes.insert(index) {
+                return false;
+            }
+            let contains = map.nodes.get(usize::from(index)).is_some_and(|node| {
+                doom_bsp_child_contains_subsector_inner(
+                    map,
+                    node.right_child,
+                    target,
+                    visited_nodes,
+                ) || doom_bsp_child_contains_subsector_inner(
+                    map,
+                    node.left_child,
+                    target,
+                    visited_nodes,
+                )
+            });
+            visited_nodes.remove(&index);
+            contains
+        }
+    }
+}
+
+fn admit_doom_classic_seg(
+    map: &DoomMapCore,
+    seg: &doom_map_provider::DoomSeg,
+    viewer: [i16; 2],
+    heading: f64,
+    occluders: &BTreeMap<u32, DoomSegOccluderObservation>,
+    solid_ranges: &mut Vec<[usize; 2]>,
+    observation: &mut DoomClassicBspObservation,
+) {
+    const HALF_FOV: f64 = std::f64::consts::FRAC_PI_4;
+    observation.source_segs_visited += 1;
+    if seg.linedef == 247 {
+        observation.hut_linedef_segs_visited += 1;
+    }
+    let start = &map.vertices[usize::from(seg.start_vertex)];
+    let end = &map.vertices[usize::from(seg.end_vertex)];
+    match source_seg_facing(viewer, [start.x, start.y], [end.x, end.y]) {
+        SourceSegFacing::Back => {
+            observation.backface_rejected += 1;
+            return;
+        }
+        SourceSegFacing::EdgeOn => {
+            observation.edge_on += 1;
+            return;
+        }
+        SourceSegFacing::Front => {}
+    }
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let project = |point: [i16; 2]| {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        let lateral = relative[0] * right[0] + relative[1] * right[1];
+        (depth, lateral.atan2(depth))
+    };
+    let (start_depth, start_angle) = project([start.x, start.y]);
+    let (end_depth, end_angle) = project([end.x, end.y]);
+    if (start_depth <= 0.0 && end_depth <= 0.0)
+        || source_segment_outside_horizontal_fov(start_angle, end_angle, HALF_FOV)
+    {
+        observation.outside_fov_rejected += 1;
+        return;
+    }
+    let authority = occluders
+        .get(&seg.source.record_index)
+        .expect("every source SEG is classified");
+    let solid = authority.kind != DoomSegOccluderKind::Open;
+    observation
+        .admitted_seg_records
+        .insert(seg.source.record_index);
+    observation.admitted_seg_order.push(seg.source.record_index);
+    if seg.linedef == 247 {
+        observation.hut_linedef_segs_admitted += 1;
+    }
+    if solid && start_depth > 0.0 && end_depth > 0.0 {
+        observation.solid_admitted += 1;
+        let interval = source_fov_column_interval(start_angle, end_angle, HALF_FOV, 320);
+        if merge_solid_range(solid_ranges, interval) {
+            observation.solid_range_fully_covered += 1;
+        } else {
+            observation.solid_range_contributors += 1;
+        }
+    } else if solid {
+        observation.near_plane_fail_open += 1;
+    } else {
+        observation.pass_admitted += 1;
+    }
+    if observation.samples.len() < 8 {
+        observation.samples.push(format!(
+            "seg={} line={} kind={:?} admission={}",
+            seg.source.record_index,
+            seg.linedef,
+            authority.kind,
+            if solid { "solid" } else { "pass" },
+        ));
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceBBoxProjection {
+    OutsideFov,
+    Interval([usize; 2]),
+    Uncertain,
+}
+
+fn source_bbox_fov_column_interval(
+    viewer: [i16; 2],
+    heading: f64,
+    bbox: [i16; 4],
+    half_fov: f64,
+    columns: usize,
+) -> SourceBBoxProjection {
+    let [top, bottom, left, right] = bbox;
+    let box_x = if viewer[0] <= left {
+        0
+    } else if viewer[0] < right {
+        1
+    } else {
+        2
+    };
+    let box_y = if viewer[1] >= top {
+        0
+    } else if viewer[1] > bottom {
+        1
+    } else {
+        2
+    };
+    let box_position = box_y * 4 + box_x;
+    if box_position == 5 {
+        return SourceBBoxProjection::Uncertain;
+    }
+    const CHECK_COORD: [[usize; 4]; 12] = [
+        [3, 0, 2, 1],
+        [3, 0, 2, 0],
+        [3, 1, 2, 0],
+        [0, 0, 0, 0],
+        [2, 0, 2, 1],
+        [0, 0, 0, 0],
+        [3, 1, 3, 0],
+        [0, 0, 0, 0],
+        [2, 0, 3, 1],
+        [2, 1, 3, 1],
+        [2, 1, 3, 0],
+        [0, 0, 0, 0],
+    ];
+    let source = [top, bottom, left, right];
+    let coordinates = CHECK_COORD[box_position];
+    let points = [
+        [source[coordinates[0]], source[coordinates[1]]],
+        [source[coordinates[2]], source[coordinates[3]]],
+    ];
+    let forward = [heading.cos(), heading.sin()];
+    let view_right = [-forward[1], forward[0]];
+    let mut angles = Vec::with_capacity(2);
+    for point in points {
+        let relative = [
+            f64::from(point[0] - viewer[0]),
+            f64::from(point[1] - viewer[1]),
+        ];
+        let depth = relative[0] * forward[0] + relative[1] * forward[1];
+        if depth <= 0.0 {
+            return SourceBBoxProjection::Uncertain;
+        }
+        let lateral = relative[0] * view_right[0] + relative[1] * view_right[1];
+        angles.push(lateral.atan2(depth));
+    }
+    let span = (angles[0] - angles[1]).abs();
+    if span >= std::f64::consts::PI {
+        return SourceBBoxProjection::Uncertain;
+    }
+    let minimum = angles[0].min(angles[1]);
+    let maximum = angles[0].max(angles[1]);
+    if maximum < -half_fov || minimum > half_fov {
+        SourceBBoxProjection::OutsideFov
+    } else {
+        SourceBBoxProjection::Interval(source_fov_column_interval(
+            minimum, maximum, half_fov, columns,
+        ))
+    }
+}
+
+fn source_fov_column_interval(
+    first_angle: f64,
+    second_angle: f64,
+    half_fov: f64,
+    columns: usize,
+) -> [usize; 2] {
+    let column = |angle: f64| {
+        let normalized = angle.clamp(-half_fov, half_fov).tan() / half_fov.tan();
+        (((normalized + 1.0) * 0.5) * columns as f64) as usize
+    };
+    let first = column(first_angle).min(columns - 1);
+    let second = column(second_angle).min(columns - 1);
+    [first.min(second), first.max(second)]
+}
+
+fn source_segment_outside_horizontal_fov(
+    first_angle: f64,
+    second_angle: f64,
+    half_fov: f64,
+) -> bool {
+    (first_angle > half_fov && second_angle > half_fov)
+        || (first_angle < -half_fov && second_angle < -half_fov)
+}
+
+fn merge_solid_range(ranges: &mut Vec<[usize; 2]>, interval: [usize; 2]) -> bool {
+    let fully_covered = ranges
+        .iter()
+        .any(|[first, last]| *first <= interval[0] && interval[1] <= *last);
+    let mut merged = interval;
+    let mut index = 0;
+    while index < ranges.len() {
+        let [first, last] = ranges[index];
+        if last.saturating_add(1) < merged[0] || merged[1].saturating_add(1) < first {
+            index += 1;
+            continue;
+        }
+        merged[0] = merged[0].min(first);
+        merged[1] = merged[1].max(last);
+        ranges.remove(index);
+    }
+    ranges.insert(index, merged);
+    fully_covered
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceSegFacing {
+    Front,
+    Back,
+    EdgeOn,
+}
+
+fn source_seg_facing(viewer: [i16; 2], start: [i16; 2], end: [i16; 2]) -> SourceSegFacing {
+    let segment = [i64::from(end[0] - start[0]), i64::from(end[1] - start[1])];
+    let to_viewer = [
+        i64::from(viewer[0] - start[0]),
+        i64::from(viewer[1] - start[1]),
+    ];
+    let side = segment[0] * to_viewer[1] - segment[1] * to_viewer[0];
+    if side < 0 {
+        SourceSegFacing::Front
+    } else if side > 0 {
+        SourceSegFacing::Back
+    } else {
+        SourceSegFacing::EdgeOn
+    }
 }
 
 /// Resolves linedef endpoints and sidedef-sector ownership for later lowering.
@@ -1237,6 +2368,67 @@ pub fn lower_doom_two_sided_wall_bands(
                 },
             );
         }
+    }
+    Ok(triangles)
+}
+
+/// Retains the non-colored depth boundary implied by two adjacent `F_SKY1`
+/// ceilings whose heights differ.
+///
+/// This does not restore the omitted upper wall as visible geometry. It gives
+/// a Doom presentation consumer the exact source span needed to keep the sky
+/// aperture in front of unrelated farther map geometry.
+pub fn lower_doom_paired_sky_boundary_triangles(
+    map: &DoomMapCore,
+) -> Result<Vec<DoomPairedSkyBoundaryTriangle>, DoomGeometryError> {
+    let candidates = resolve_doom_wall_candidates(map)?;
+    let mut triangles = Vec::new();
+    for candidate in candidates {
+        let (Some(right), Some(left)) = (candidate.right.as_ref(), candidate.left.as_ref()) else {
+            continue;
+        };
+        let right_sector = &map.sectors[usize::from(right.sector_index)];
+        let left_sector = &map.sectors[usize::from(left.sector_index)];
+        if right_sector.ceiling_texture != "F_SKY1"
+            || left_sector.ceiling_texture != "F_SKY1"
+            || right_sector.ceiling_height == left_sector.ceiling_height
+        {
+            continue;
+        }
+
+        let (ownership, side, bottom, top) =
+            if right_sector.ceiling_height > left_sector.ceiling_height {
+                (
+                    right,
+                    DoomWallSideKind::Right,
+                    left_sector.ceiling_height,
+                    right_sector.ceiling_height,
+                )
+            } else {
+                (
+                    left,
+                    DoomWallSideKind::Left,
+                    right_sector.ceiling_height,
+                    left_sector.ceiling_height,
+                )
+            };
+        let source_start = candidate.start.map(f64::from);
+        let source_end = candidate.end.map(f64::from);
+        let start_bottom = doom_point_to_tokimu(source_start, f64::from(bottom));
+        let end_bottom = doom_point_to_tokimu(source_end, f64::from(bottom));
+        let start_top = doom_point_to_tokimu(source_start, f64::from(top));
+        let end_top = doom_point_to_tokimu(source_end, f64::from(top));
+        triangles.extend(
+            doom_wall_quad_triangles(side, start_bottom, end_bottom, start_top, end_top).map(
+                |positions| DoomPairedSkyBoundaryTriangle {
+                    source_linedef: candidate.source_linedef,
+                    source_sidedef: ownership.source_sidedef,
+                    source_sector: ownership.source_sector,
+                    side,
+                    positions,
+                },
+            ),
+        );
     }
     Ok(triangles)
 }
@@ -2160,6 +3352,8 @@ fn point_for_vertex(map: &DoomMapCore, vertex_index: u16) -> [i16; 2] {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use doom_map_provider::{
         DoomBlockmapObservation, DoomBspChild, DoomLinedef, DoomMapCore, DoomNode,
         DoomRejectMatrix, DoomSector, DoomSeg, DoomSidedef, DoomSourceRecord, DoomSubsector,
@@ -2171,17 +3365,18 @@ mod tests {
         audit_doom_subsector_loop_closure, audit_doom_vertical_topology, audit_doom_wall_topology,
         clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_direction_to_tokimu,
         doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_one_sided_walls,
-        lower_doom_seg_textured_wall_triangles, lower_doom_subsector_surfaces,
-        lower_doom_textured_wall_triangles, lower_doom_two_sided_middle_walls,
-        lower_doom_two_sided_wall_bands, observe_doom_seg_occluders, observe_doom_seg_plane_marks,
-        observe_doom_sky_surfaces, observe_doom_two_sided_middle_textures,
-        observe_doom_wall_texture_axes, resolve_doom_linedef_subsector_membership,
-        resolve_doom_subsector_bsp_paths, resolve_doom_subsector_loops,
-        resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
-        resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates,
-        resolve_doom_wall_texture_bindings, tokimu_direction_to_doom, tokimu_point_to_doom,
-        DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership, DoomSurfacePlane,
-        DoomTextureExtent, DoomWallBand, DoomWallSideKind,
+        lower_doom_paired_sky_boundary_triangles, lower_doom_seg_textured_wall_triangles,
+        lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles,
+        lower_doom_two_sided_middle_walls, lower_doom_two_sided_wall_bands,
+        observe_doom_classic_bsp, observe_doom_classic_bsp_far_first_control,
+        observe_doom_seg_occluders, observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
+        observe_doom_two_sided_middle_textures, observe_doom_wall_texture_axes,
+        resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
+        resolve_doom_subsector_loops, resolve_doom_subsector_regions,
+        resolve_doom_subsector_sector_ownership, resolve_doom_viewer_subsector_order,
+        resolve_doom_wall_candidates, resolve_doom_wall_texture_bindings, tokimu_direction_to_doom,
+        tokimu_point_to_doom, DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership,
+        DoomSurfacePlane, DoomTextureExtent, DoomWallBand, DoomWallSideKind,
     };
 
     #[test]
@@ -3045,6 +4240,42 @@ mod tests {
     }
 
     #[test]
+    fn retains_depth_boundary_between_adjacent_classic_sky_ceilings() {
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.sectors[0].ceiling_texture = "F_SKY1".to_owned();
+        map.sectors[1].ceiling_texture = "F_SKY1".to_owned();
+        map.sectors[1].ceiling_height = 96;
+
+        let triangles = lower_doom_paired_sky_boundary_triangles(&map).unwrap();
+
+        assert_eq!(triangles.len(), 2);
+        assert!(triangles
+            .iter()
+            .all(|triangle| triangle.side == DoomWallSideKind::Right));
+        assert!(triangles
+            .iter()
+            .flat_map(|triangle| triangle.positions)
+            .all(|position| position[1] == 96.0 || position[1] == 128.0));
+    }
+
+    #[test]
+    fn does_not_invent_paired_sky_boundary_without_height_difference() {
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.sectors[0].ceiling_texture = "F_SKY1".to_owned();
+        map.sectors[1].ceiling_texture = "F_SKY1".to_owned();
+
+        assert!(lower_doom_paired_sky_boundary_triangles(&map)
+            .unwrap()
+            .is_empty());
+
+        map.sectors[1].ceiling_height = 96;
+        map.sectors[1].ceiling_texture = "CEIL1_1".to_owned();
+        assert!(lower_doom_paired_sky_boundary_triangles(&map)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
     fn retains_upper_band_when_only_one_ceiling_is_classic_sky() {
         let mut map = map_with_linedef(Some(0), Some(1));
         map.sectors[0].ceiling_texture = "F_SKY1".to_owned();
@@ -3189,6 +4420,33 @@ mod tests {
         assert_eq!(bindings[0].texture_height, 128);
     }
 
+    #[test]
+    fn far_first_control_exposes_why_near_first_is_a_doom_provider_invariant() {
+        let map = near_solid_far_bsp_map();
+        let watched = BTreeSet::from([1]);
+        let near_first =
+            observe_doom_classic_bsp(&map, [0, -96], std::f64::consts::FRAC_PI_2, &watched)
+                .unwrap();
+        let far_first = observe_doom_classic_bsp_far_first_control(
+            &map,
+            [0, -96],
+            std::f64::consts::FRAC_PI_2,
+            &watched,
+        )
+        .unwrap();
+
+        // The production traversal visits the near solid first and can prove
+        // that the watched far leaf is fully covered. The test-only reversed
+        // traversal admits the far SEG before the same range exists. This is
+        // a deliberately explained coverage difference, not a selectable
+        // renderer or application policy.
+        assert_eq!(near_first.admitted_seg_order, vec![0]);
+        assert_eq!(near_first.far_children_pruned, 1);
+        assert_eq!(far_first.admitted_seg_order, vec![1, 0]);
+        assert_eq!(far_first.far_children_pruned, 0);
+        assert!(far_first.admitted_seg_records.contains(&1));
+    }
+
     fn map_with_linedef(right_sidedef: Option<u16>, left_sidedef: Option<u16>) -> DoomMapCore {
         let source = |record_index| DoomSourceRecord {
             lump_index: 1,
@@ -3256,6 +4514,98 @@ mod tests {
                 cell_linedefs: Vec::new(),
             },
         }
+    }
+
+    fn near_solid_far_bsp_map() -> DoomMapCore {
+        let mut map = map_with_linedef(Some(0), None);
+        map.vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: -128,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 128,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(2),
+                x: -24,
+                y: 64,
+            },
+            DoomVertex {
+                source: source(3),
+                x: 24,
+                y: 64,
+            },
+        ];
+        map.linedefs = vec![
+            DoomLinedef {
+                source: source(0),
+                start_vertex: 0,
+                end_vertex: 1,
+                flags: 0,
+                special: 0,
+                tag: 0,
+                right_sidedef: Some(0),
+                left_sidedef: None,
+            },
+            DoomLinedef {
+                source: source(1),
+                start_vertex: 2,
+                end_vertex: 3,
+                flags: 0,
+                special: 0,
+                tag: 0,
+                right_sidedef: Some(0),
+                left_sidedef: None,
+            },
+        ];
+        map.segs = vec![
+            DoomSeg {
+                source: source(0),
+                start_vertex: 0,
+                end_vertex: 1,
+                angle: 0,
+                linedef: 0,
+                direction: 0,
+                offset: 0,
+            },
+            DoomSeg {
+                source: source(1),
+                start_vertex: 2,
+                end_vertex: 3,
+                angle: 0,
+                linedef: 1,
+                direction: 0,
+                offset: 0,
+            },
+        ];
+        map.subsectors = vec![
+            DoomSubsector {
+                source: source(0),
+                first_seg: 0,
+                seg_count: 1,
+            },
+            DoomSubsector {
+                source: source(1),
+                first_seg: 1,
+                seg_count: 1,
+            },
+        ];
+        map.nodes = vec![DoomNode {
+            source: source(0),
+            x: 0,
+            y: 0,
+            delta_x: 0,
+            delta_y: 64,
+            right_bbox: [64, 64, 24, -24],
+            left_bbox: [0, 0, 128, -128],
+            right_child: DoomBspChild::Subsector(1),
+            left_child: DoomBspChild::Subsector(0),
+        }];
+        map
     }
 
     fn sector(source: DoomSourceRecord) -> DoomSector {

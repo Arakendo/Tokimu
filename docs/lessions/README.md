@@ -19,6 +19,9 @@ ADR, or an active Architectural Review.
 - [Camera clip depth and provider adaptation](camera-clip-depth-provider-adaptation.md)
   — why accepted draws can produce an empty frame and where GL-to-WebGPU depth
   conversion belongs.
+- [Read available reference source earlier](read-reference-source-early.md) —
+  when bounded source inspection can expose the invariant sooner, and how to
+  keep a reference implementation from becoming Tokimu's architecture.
 
 ## Maintenance Rule
 

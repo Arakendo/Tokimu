@@ -25,6 +25,21 @@ Manual fixed-window observation:
   opaque family, material handle, wall label, and compact source
   linedef/sidedef/sector identity. Flat hits retain source
   subsector/sector/plane identity through the same caller-owned path.
+- `LOOK` also retains the source ray as map `x/y`, vertical height, map-plane
+  direction, and vertical direction alongside the Tokimu world ray. Its
+  copyable `--look-ray-report=...` token replays that exact source-space probe
+  headlessly against the canonical prepared scene, including explicit no-hit
+  results and the source coordinate of an exact hit.
+- Sky-boundary investigations additionally retain the nearest paired-sky
+  depth-boundary intersection and its relation to the ordinary hit. This
+  supports headless assertions about problem rays without treating a rendered
+  screenshot or generic renderer occlusion as Doom source truth.
+- The same observation now reports intersections with omitted source
+  `F_SKY1` planes separately from paired-sky wall boundaries. Its bounded
+  classic-source trace retains the viewer leaf, target leaves, target SEG
+  admission, and watched BSP elisions. A wall-249 replay demonstrated a global
+  prepared-shell hit whose two source SEGs were not admitted by the Doom-owned
+  horizontal protocol.
 - The console remained readable after long `LOOK` output once font-metric
   wrapping was added. The prompt retained a visible underscore cursor.
 - Closing the console returned to the scene without leaving movement or mouse
@@ -38,6 +53,10 @@ source package above; it is not claimed as a pixel-deterministic artifact.
 - `cargo test -p hello-doom-e1m1 -p tokimu-input -p tokimu-platform` passed,
   including font-measured wrapping, bounded transcript, exact center-ray
   intersection, and prepared draw-provenance regressions.
+- The focused static-scene suite passed with 31 tests after adding source-ray
+  parsing and replay-format regressions. A canonical headless spawn ray also
+  completed with an explicit no-hit observation while preserving source
+  `(1056,-3616,36)`, source direction `(0,1,0)`, and its world-space lowering.
 - `cargo check -p doom-ts-boundary-workbench-engine
   --target wasm32-unknown-unknown` passed after the caller-side provenance
   enrichment, preserving the existing browser first-frame corpus path.
