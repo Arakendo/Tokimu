@@ -7,11 +7,13 @@
 use std::collections::BTreeSet;
 
 use doom_geometry_provider::{
+    clip_doom_seg_textured_wall_triangle_to_linedef_interval,
     lower_doom_seg_textured_wall_triangles, observe_doom_classic_bsp,
     observe_doom_classic_vertical_clip_state, observe_doom_seg_plane_marks,
     project_doom_sector_runtime_heights, resolve_doom_subsector_loops, DoomClassicBspObservation,
     DoomGeometryError, DoomSectorRuntimeHeightSnapshot, DoomSegClassicVerticalClipObservation,
-    DoomSegPlaneMarkObservation, DoomSubsectorLoop, DoomTextureExtent,
+    DoomSegPlaneMarkObservation, DoomSegTexturedWallTriangle, DoomSubsectorLoop, DoomTextureExtent,
+    DoomWallSideKind, DoomWallTextureRole,
 };
 use doom_map_provider::{
     DoomBlockmapObservation, DoomBspChild, DoomLinedef, DoomMapCore, DoomNode, DoomRejectMatrix,
@@ -527,6 +529,34 @@ pub struct DiagnosticColumnRun {
     pub last: usize,
 }
 
+/// One Doom-owned retained portion of a source wall contribution.
+///
+/// Diagnostic columns explain why the fragment survived; the normalized
+/// linedef interval and clipped source triangles are the presentation input.
+/// Neither representation is renderer visibility vocabulary.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PartialCoverageSourceFragment {
+    pub diagnostic_columns: DiagnosticColumnRun,
+    pub linedef_interval: [f64; 2],
+    pub source_seg: DoomSourceRecord,
+    pub source_linedef: DoomSourceRecord,
+    pub source_sidedef: DoomSourceRecord,
+    pub source_sector: DoomSourceRecord,
+    pub side: DoomWallSideKind,
+    pub role: DoomWallTextureRole,
+    pub texture_name: String,
+    pub source_u_range: [f64; 2],
+    pub triangles: Vec<DoomSegTexturedWallTriangle>,
+}
+
+/// Source-labelled realization of the partial paired-sky control.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PartialCoverageFragmentManifest {
+    pub expressiveness: PartialCoverageExpressivenessObservation,
+    pub excluded_linedef_interval: [f64; 2],
+    pub fragments: Vec<PartialCoverageSourceFragment>,
+}
+
 fn contiguous_column_runs(columns: &BTreeSet<usize>) -> Vec<DiagnosticColumnRun> {
     let mut columns = columns.iter().copied();
     let Some(first) = columns.next() else {
@@ -608,6 +638,136 @@ pub fn observe_partial_coverage_expressiveness(
     })
 }
 
+fn cross_2d(left: [f64; 2], right: [f64; 2]) -> f64 {
+    left[0] * right[1] - left[1] * right[0]
+}
+
+fn ray_linedef_parameter(
+    origin: [f64; 2],
+    through: [f64; 2],
+    line_start: [f64; 2],
+    line_end: [f64; 2],
+) -> Option<f64> {
+    let ray = [through[0] - origin[0], through[1] - origin[1]];
+    let line = [line_end[0] - line_start[0], line_end[1] - line_start[1]];
+    let offset = [line_start[0] - origin[0], line_start[1] - origin[1]];
+    let denominator = cross_2d(ray, line);
+    if denominator.abs() <= f64::EPSILON {
+        return None;
+    }
+    let ray_distance = cross_2d(offset, line) / denominator;
+    let line_parameter = cross_2d(offset, ray) / denominator;
+    (ray_distance >= 0.0 && (0.0..=1.0).contains(&line_parameter)).then_some(line_parameter)
+}
+
+fn source_u_range(triangles: &[DoomSegTexturedWallTriangle]) -> [f64; 2] {
+    triangles
+        .iter()
+        .flat_map(|triangle| triangle.texture_coordinates)
+        .map(|uv| uv[0])
+        .fold(
+            [f64::INFINITY, f64::NEG_INFINITY],
+            |[minimum, maximum], u| [minimum.min(u), maximum.max(u)],
+        )
+}
+
+/// Realizes the partial paired-sky observation as two source fragments.
+///
+/// The excluded interval is derived by projecting the nearer source segment
+/// onto the farther source linedef from the fixture viewer. Diagnostic column
+/// runs are retained as evidence only; they do not become clipping inputs.
+pub fn realize_partial_coverage_fragments(
+) -> Result<PartialCoverageFragmentManifest, DoomGeometryError> {
+    let fixture = partial_paired_sky_far_control_fixture()
+        .expect("the built-in partial-coverage fixture must remain valid");
+    let expressiveness = observe_partial_coverage_expressiveness()?;
+    let near_seg = &fixture.map.segs[0];
+    let far_seg = &fixture.map.segs[1];
+    let near_start = &fixture.map.vertices[usize::from(near_seg.start_vertex)];
+    let near_end = &fixture.map.vertices[usize::from(near_seg.end_vertex)];
+    let far_linedef = &fixture.map.linedefs[usize::from(far_seg.linedef)];
+    let far_start = &fixture.map.vertices[usize::from(far_linedef.start_vertex)];
+    let far_end = &fixture.map.vertices[usize::from(far_linedef.end_vertex)];
+    let origin = [
+        f64::from(fixture.viewer.position[0]),
+        f64::from(fixture.viewer.position[1]),
+    ];
+    let target_start = [f64::from(far_start.x), f64::from(far_start.y)];
+    let target_end = [f64::from(far_end.x), f64::from(far_end.y)];
+    let mut excluded_linedef_interval = [
+        ray_linedef_parameter(
+            origin,
+            [f64::from(near_start.x), f64::from(near_start.y)],
+            target_start,
+            target_end,
+        )
+        .expect("near start ray must intersect the built-in far linedef"),
+        ray_linedef_parameter(
+            origin,
+            [f64::from(near_end.x), f64::from(near_end.y)],
+            target_start,
+            target_end,
+        )
+        .expect("near end ray must intersect the built-in far linedef"),
+    ];
+    excluded_linedef_interval.sort_by(f64::total_cmp);
+
+    let extents = [DoomTextureExtent {
+        name: "WALL".to_owned(),
+        width: 64,
+        height: 128,
+    }];
+    let far_triangles = lower_doom_seg_textured_wall_triangles(&fixture.map, &extents)?
+        .into_iter()
+        .filter(|triangle| triangle.source_seg == far_seg.source)
+        .collect::<Vec<_>>();
+    let retained_intervals = [
+        [0.0, excluded_linedef_interval[0]],
+        [excluded_linedef_interval[1], 1.0],
+    ];
+    let fragments = expressiveness
+        .surviving_runs
+        .iter()
+        .copied()
+        .zip(retained_intervals)
+        .map(|(diagnostic_columns, linedef_interval)| {
+            let triangles = far_triangles
+                .iter()
+                .flat_map(|triangle| {
+                    clip_doom_seg_textured_wall_triangle_to_linedef_interval(
+                        &fixture.map,
+                        triangle,
+                        linedef_interval,
+                    )
+                    .expect("derived source interval must remain valid")
+                })
+                .collect::<Vec<_>>();
+            let first = triangles
+                .first()
+                .expect("each retained source interval must produce geometry");
+            PartialCoverageSourceFragment {
+                diagnostic_columns,
+                linedef_interval,
+                source_seg: first.source_seg,
+                source_linedef: first.source_linedef,
+                source_sidedef: first.source_sidedef,
+                source_sector: first.source_sector,
+                side: first.side,
+                role: first.role,
+                texture_name: first.texture_name.clone(),
+                source_u_range: source_u_range(&triangles),
+                triangles,
+            }
+        })
+        .collect();
+
+    Ok(PartialCoverageFragmentManifest {
+        expressiveness,
+        excluded_linedef_interval,
+        fragments,
+    })
+}
+
 /// Negative control for [`paired_sky_far_control_fixture`]. Only the near
 /// front ceiling remains sky, so the same source boundary must retain its
 /// ordinary upper-wall presentation and must not gain paired-sky depth-only
@@ -626,6 +786,83 @@ pub fn one_sky_far_control_fixture() -> Result<DoomVisibilityFixture, DoomFixtur
     fixture.map.sectors[1].ceiling_texture = "CEILING".to_owned();
     fixture.map.sidedefs[0].upper_texture = "WALL".to_owned();
     Ok(fixture)
+}
+
+/// Identity-only negative control for the Slice 4B paired-sky protocol.
+///
+/// Geometry, heights, BSP structure, SEG order, and authored wall textures are
+/// byte-for-byte equivalent to [`paired_sky_far_control_fixture`]. Only the
+/// farther ceiling loses `F_SKY1` identity. This isolates source sky meaning
+/// from the older one-sky upper-wall presentation control above.
+pub fn one_sky_identity_differential_fixture(
+) -> Result<DoomVisibilityFixture, DoomFixtureBuildError> {
+    let mut fixture = paired_sky_far_control_fixture()?;
+    fixture.name = "one-sky-identity-differential".to_owned();
+    fixture.map.sectors[1].ceiling_texture = "CEILING".to_owned();
+    Ok(fixture)
+}
+
+/// Ordered Slice 4B control with a near hut-like upper tier, a retained sky
+/// ceiling interval, and a farther upper tier in the same diagnostic columns.
+///
+/// The fixture asks whether earlier source contributions and the intervening
+/// sky plane constrain the later wall tier. It does not create sky-depth
+/// geometry or ask the generic renderer to infer Doom visibility.
+pub fn terminal_sky_ordered_fixture() -> Result<DoomVisibilityFixture, DoomFixtureBuildError> {
+    let mut builder = DoomFixtureBuilder::new(
+        "terminal-sky-ordered",
+        DoomFixtureViewer {
+            position: [0, -96],
+            heading_radians: std::f64::consts::FRAC_PI_2,
+        },
+    );
+
+    let near_front = builder.sector(0, 128);
+    let near_back = builder.sector(0, 72);
+    let sky_front = builder.sector(0, 96);
+    let sky_back = builder.sector(0, 48);
+    let far_front = builder.sector(0, 128);
+    let far_back = builder.sector(0, 48);
+    builder.sectors[usize::from(sky_front)].ceiling_texture = "F_SKY1".to_owned();
+
+    let near_right = builder.sidedef(near_front, "-");
+    let near_left = builder.sidedef(near_back, "-");
+    builder.sidedefs[usize::from(near_right)].upper_texture = "WALL".to_owned();
+    let sky_right = builder.sidedef(sky_front, "-");
+    let sky_left = builder.sidedef(sky_back, "-");
+    // The sky plane paints the interval retained by the ordered protocol; it
+    // does not close that interval by virtue of being sky. This authored
+    // upper tier supplies the actual source wall coverage that advances the
+    // upper clip bound before the farther contribution is visited.
+    builder.sidedefs[usize::from(sky_right)].upper_texture = "WALL".to_owned();
+    let far_right = builder.sidedef(far_front, "-");
+    let far_left = builder.sidedef(far_back, "-");
+    builder.sidedefs[usize::from(far_right)].upper_texture = "WALL".to_owned();
+
+    let near_start = builder.vertex(-16, 0);
+    let near_end = builder.vertex(16, 0);
+    let sky_start = builder.vertex(-48, 32);
+    let sky_end = builder.vertex(48, 32);
+    let far_start = builder.vertex(-48, 64);
+    let far_end = builder.vertex(48, 64);
+    let near = builder.linedef(near_start, near_end, Some(near_right), Some(near_left));
+    let sky = builder.linedef(sky_start, sky_end, Some(sky_right), Some(sky_left));
+    let far = builder.linedef(far_start, far_end, Some(far_right), Some(far_left));
+    builder.seg(near_start, near_end, near, 0);
+    builder.seg(sky_start, sky_end, sky, 0);
+    builder.seg(far_start, far_end, far, 0);
+    builder.subsector(0, 2);
+    builder.subsector(2, 1);
+    builder.node(DoomFixtureNode {
+        point: [0, 48],
+        delta: [64, 0],
+        right_bbox: [64, 64, 48, -48],
+        left_bbox: [32, 0, 48, -48],
+        right_child: DoomBspChild::Subsector(0),
+        left_child: DoomBspChild::Subsector(1),
+    });
+    builder.watch_subsector(1);
+    builder.build()
 }
 
 /// Source-only control for a nearer *single* sky ceiling plane.
@@ -1103,11 +1340,11 @@ fn empty_blockmap() -> DoomBlockmapObservation {
 mod tests {
     use super::*;
     use doom_geometry_provider::{
-        clip_doom_seg_textured_wall_triangle_to_linedef_interval,
         lower_doom_paired_sky_boundary_triangles, lower_doom_textured_wall_triangles,
         lower_doom_two_sided_wall_bands, observe_doom_seg_occluders,
-        observe_doom_two_sided_middle_textures, DoomSegClassicPlaneKind, DoomSegOccluderKind,
-        DoomWallBand,
+        observe_doom_two_sided_middle_textures, DoomOrderedCoverageFailOpenReason,
+        DoomOrderedCoverageTransitionReason, DoomSegClassicPlaneKind, DoomSegOccluderKind,
+        DoomSegPlaneMarkObservation, DoomWallBand,
     };
 
     #[test]
@@ -1584,6 +1821,156 @@ mod tests {
     }
 
     #[test]
+    fn partial_sky_coverage_realizes_two_source_fragments_with_continuous_uvs() {
+        let manifest = realize_partial_coverage_fragments().unwrap();
+
+        assert_eq!(
+            manifest.expressiveness.overlapping_runs,
+            vec![DiagnosticColumnRun {
+                first: 120,
+                last: 200,
+            }]
+        );
+        assert_eq!(
+            manifest.expressiveness.surviving_runs,
+            vec![
+                DiagnosticColumnRun {
+                    first: 112,
+                    last: 119,
+                },
+                DiagnosticColumnRun {
+                    first: 201,
+                    last: 207,
+                },
+            ]
+        );
+        assert_eq!(manifest.fragments.len(), 2);
+        assert!((manifest.excluded_linedef_interval[0] - 1.0 / 12.0).abs() < 1.0e-12);
+        assert!((manifest.excluded_linedef_interval[1] - 11.0 / 12.0).abs() < 1.0e-12);
+        assert_eq!(manifest.fragments[0].linedef_interval, [0.0, 1.0 / 12.0]);
+        assert_eq!(manifest.fragments[1].linedef_interval, [11.0 / 12.0, 1.0]);
+
+        let first = &manifest.fragments[0];
+        assert!(manifest.fragments.iter().all(|fragment| {
+            !fragment.triangles.is_empty()
+                && fragment.source_seg == first.source_seg
+                && fragment.source_linedef == first.source_linedef
+                && fragment.source_sidedef == first.source_sidedef
+                && fragment.source_sector == first.source_sector
+                && fragment.side == first.side
+                && fragment.role == first.role
+                && fragment.texture_name == first.texture_name
+                && fragment.triangles.iter().all(|triangle| {
+                    triangle.source_seg == fragment.source_seg
+                        && triangle.source_linedef == fragment.source_linedef
+                        && triangle.source_sidedef == fragment.source_sidedef
+                        && triangle.source_sector == fragment.source_sector
+                        && triangle.side == fragment.side
+                        && triangle.role == fragment.role
+                        && triangle.texture_name == fragment.texture_name
+                })
+        }));
+
+        let fixture = partial_paired_sky_far_control_fixture().unwrap();
+        let whole = lower_doom_seg_textured_wall_triangles(
+            &fixture.map,
+            &[DoomTextureExtent {
+                name: "WALL".to_owned(),
+                width: 64,
+                height: 128,
+            }],
+        )
+        .unwrap()
+        .into_iter()
+        .filter(|triangle| triangle.source_seg == first.source_seg)
+        .collect::<Vec<_>>();
+        let whole_u = source_u_range(&whole);
+        let mut fragment_u = manifest
+            .fragments
+            .iter()
+            .map(|fragment| fragment.source_u_range)
+            .collect::<Vec<_>>();
+        fragment_u.sort_by(|left, right| left[0].total_cmp(&right[0]));
+        let whole_width = whole_u[1] - whole_u[0];
+        assert!((fragment_u[0][0] - whole_u[0]).abs() < 1.0e-12);
+        assert!((fragment_u[1][1] - whole_u[1]).abs() < 1.0e-12);
+        assert!((fragment_u[0][1] - fragment_u[0][0] - whole_width / 12.0).abs() < 1.0e-12);
+        assert!((fragment_u[1][1] - fragment_u[1][0] - whole_width / 12.0).abs() < 1.0e-12);
+        assert!(fragment_u[0][1] < fragment_u[1][0]);
+
+        // Keeping the source contribution whole reintroduces all 81 excluded
+        // overlap columns. Rejecting it loses both required survivor runs.
+        assert_eq!(manifest.expressiveness.overlapping_columns, 81);
+        assert_eq!(manifest.fragments.len(), 2);
+        assert_eq!(manifest.expressiveness.far_only_columns, 15);
+        assert!(manifest.expressiveness.requires_source_fragments);
+    }
+
+    #[test]
+    fn partial_sky_far_first_control_changes_the_ordered_coverage_trace() {
+        let fixture = partial_paired_sky_far_control_fixture().unwrap();
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 64,
+            height: 128,
+        }];
+        let triangles = lower_doom_seg_textured_wall_triangles(&fixture.map, &extents).unwrap();
+        let plane_marks = fixture.observe_plane_marks(41).unwrap();
+        let near_first = fixture.observe_classic_bsp().unwrap();
+        let near_trace = observe_doom_classic_vertical_clip_state(
+            &fixture.map,
+            &triangles,
+            &plane_marks,
+            &near_first,
+            fixture.viewer.position,
+            fixture.viewer.heading_radians,
+            41.0,
+        );
+
+        // Deliberately corrupt only the ordered protocol. This is a corpus
+        // negative control, not a selectable provider traversal policy.
+        let mut far_first = near_first.clone();
+        far_first.admitted_seg_order.reverse();
+        let far_trace = observe_doom_classic_vertical_clip_state(
+            &fixture.map,
+            &triangles,
+            &plane_marks,
+            &far_first,
+            fixture.viewer.position,
+            fixture.viewer.heading_radians,
+            41.0,
+        );
+
+        assert_eq!(near_first.admitted_seg_order, vec![0, 1]);
+        assert_eq!(far_first.admitted_seg_order, vec![1, 0]);
+        assert_ne!(
+            near_trace.ordered_coverage_transitions,
+            far_trace.ordered_coverage_transitions
+        );
+        assert_eq!(near_trace.ordered_coverage_transitions[0].source_seg, 0);
+        assert_eq!(far_trace.ordered_coverage_transitions[0].source_seg, 1);
+
+        let retained = |trace: &DoomSegClassicVerticalClipObservation, source_seg| {
+            trace
+                .ordered_wall_intervals
+                .iter()
+                .filter(|interval| {
+                    interval.source_seg == source_seg && interval.retained_interval.is_some()
+                })
+                .count()
+        };
+        let far_seg = fixture.map.segs[1].source.record_index;
+        assert_eq!(retained(&near_trace, far_seg), 96);
+        assert_eq!(retained(&far_trace, far_seg), 96);
+        assert_eq!(near_trace.ordered_coverage_transitions.len(), 369);
+        assert_eq!(far_trace.ordered_coverage_transitions.len(), 369);
+        assert_eq!(
+            near_trace.ordered_wall_intervals,
+            far_trace.ordered_wall_intervals
+        );
+    }
+
+    #[test]
     fn one_sky_boundary_retains_ordinary_upper_wall_and_no_sky_depth_boundary() {
         let mut one_sky = adjacent_plane_fixture(0, 96);
         one_sky.map.sectors[0].ceiling_texture = "F_SKY1".to_owned();
@@ -1616,6 +2003,176 @@ mod tests {
         assert!(vertical.column_traces.iter().all(|trace| {
             trace.paired_sky_boundary_source_segs.is_empty() && !trace.upper_source_segs.is_empty()
         }));
+    }
+
+    #[test]
+    fn paired_sky_identity_alone_changes_ordered_plane_protocol_not_geometry_or_traversal() {
+        let paired = paired_sky_far_control_fixture().unwrap();
+        let one_sky = one_sky_identity_differential_fixture().unwrap();
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 64,
+            height: 128,
+        }];
+
+        assert_eq!(paired.map.vertices, one_sky.map.vertices);
+        assert_eq!(paired.map.linedefs, one_sky.map.linedefs);
+        assert_eq!(paired.map.sidedefs, one_sky.map.sidedefs);
+        assert_eq!(paired.map.segs, one_sky.map.segs);
+        assert_eq!(paired.map.subsectors, one_sky.map.subsectors);
+        assert_eq!(paired.map.nodes, one_sky.map.nodes);
+        assert_eq!(paired.map.sectors[0], one_sky.map.sectors[0]);
+        assert_eq!(
+            paired.map.sectors[1].ceiling_height,
+            one_sky.map.sectors[1].ceiling_height
+        );
+        assert_ne!(
+            paired.map.sectors[1].ceiling_texture,
+            one_sky.map.sectors[1].ceiling_texture
+        );
+
+        let paired_traversal = paired.observe_classic_bsp().unwrap();
+        let one_sky_traversal = one_sky.observe_classic_bsp().unwrap();
+        assert_eq!(paired_traversal, one_sky_traversal);
+
+        let paired_walls = lower_doom_seg_textured_wall_triangles(&paired.map, &extents).unwrap();
+        let one_sky_walls = lower_doom_seg_textured_wall_triangles(&one_sky.map, &extents).unwrap();
+        assert_eq!(paired_walls, one_sky_walls);
+
+        let paired_vertical = paired.observe_classic_vertical_clips(41, &extents).unwrap();
+        let one_sky_vertical = one_sky
+            .observe_classic_vertical_clips(41, &extents)
+            .unwrap();
+        let paired_seg = paired.map.segs[0].source.record_index;
+
+        assert_eq!(paired_vertical.paired_sky_adjustments, 1);
+        assert_eq!(one_sky_vertical.paired_sky_adjustments, 0);
+        assert!(paired_vertical
+            .ordered_coverage_transitions
+            .iter()
+            .any(|transition| {
+                transition.source_seg == paired_seg
+                    && transition.reason
+                        == DoomOrderedCoverageTransitionReason::PairedSkyBoundaryRetained
+                    && transition.upper_before == transition.upper_after
+                    && transition.lower_before == transition.lower_after
+                    && transition.retained_plane_interval.is_none()
+            }));
+        assert!(one_sky_vertical
+            .ordered_coverage_transitions
+            .iter()
+            .all(|transition| {
+                transition.reason != DoomOrderedCoverageTransitionReason::PairedSkyBoundaryRetained
+            }));
+        assert!(one_sky_vertical
+            .ordered_coverage_transitions
+            .iter()
+            .any(|transition| {
+                transition.source_seg == paired_seg
+                    && transition.reason == DoomOrderedCoverageTransitionReason::CeilingPlaneMarked
+                    && transition.retained_plane_interval.is_some()
+            }));
+
+        // The ordered protocol records source coverage facts only. Its paired
+        // sky event is deliberately non-mutating and creates neither an
+        // ordinary wall triangle nor a hidden world-space depth wall.
+        assert!(paired_vertical
+            .ordered_coverage_transitions
+            .iter()
+            .filter(|transition| {
+                transition.reason == DoomOrderedCoverageTransitionReason::PairedSkyBoundaryRetained
+            })
+            .all(|transition| {
+                transition.upper_before == transition.upper_after
+                    && transition.lower_before == transition.lower_after
+                    && transition.retained_plane_interval.is_none()
+            }));
+    }
+
+    #[test]
+    fn terminal_sky_order_preserves_near_tier_and_excludes_far_reentry() {
+        let fixture = terminal_sky_ordered_fixture().unwrap();
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 64,
+            height: 128,
+        }];
+        let traversal = fixture.observe_classic_bsp().unwrap();
+        assert_eq!(traversal.admitted_seg_order, vec![0, 1, 2]);
+
+        let assert_terminal_relationship =
+            |vertical: &doom_geometry_provider::DoomSegClassicVerticalClipObservation| {
+                let sky_intervals = vertical
+                    .ordered_coverage_transitions
+                    .iter()
+                    .filter_map(|transition| {
+                        (transition.source_seg == 1
+                            && transition.reason
+                                == DoomOrderedCoverageTransitionReason::CeilingPlaneMarked)
+                            .then_some((transition.column, transition.retained_plane_interval))
+                    })
+                    .filter_map(|(column, interval)| interval.map(|interval| (column, interval)))
+                    .collect::<std::collections::BTreeMap<_, _>>();
+                assert!(!sky_intervals.is_empty());
+
+                let near = vertical
+                    .ordered_wall_intervals
+                    .iter()
+                    .filter(|interval| interval.source_seg == 0)
+                    .collect::<Vec<_>>();
+                assert!(!near.is_empty());
+                assert!(near
+                    .iter()
+                    .all(|interval| interval.retained_interval.is_some()));
+
+                // SEG 1 owns both the retained sky-plane interval and the
+                // ordinary upper tier that advances the upper clip bound.
+                // Sky identity itself is deliberately not treated as an
+                // occluder.
+                assert!(vertical.ordered_wall_intervals.iter().any(|interval| {
+                    interval.source_seg == 1 && interval.retained_interval.is_some()
+                }));
+
+                let far = vertical
+                    .ordered_wall_intervals
+                    .iter()
+                    .filter(|interval| interval.source_seg == 2)
+                    .collect::<Vec<_>>();
+                assert!(!far.is_empty());
+                let mut pressured_columns = 0;
+                for interval in far {
+                    let Some(sky) = sky_intervals.get(&interval.column) else {
+                        continue;
+                    };
+                    let raw_overlaps_sky =
+                        interval.raw_interval[0] <= sky[1] && sky[0] <= interval.raw_interval[1];
+                    if !raw_overlaps_sky {
+                        continue;
+                    }
+                    pressured_columns += 1;
+                    assert!(interval
+                        .retained_interval
+                        .is_none_or(|retained| { retained[1] < sky[0] || sky[1] < retained[0] }));
+                }
+                assert!(pressured_columns > 0);
+
+                assert!(vertical.ordered_coverage_fail_open.iter().all(|failure| {
+                    failure.reason
+                        == doom_geometry_provider::DoomOrderedCoverageFailOpenReason::RaySegmentDepthUnresolved
+                }));
+            };
+
+        let vertical = fixture
+            .observe_classic_vertical_clips(41, &extents)
+            .unwrap();
+        assert_terminal_relationship(&vertical);
+
+        let mut jittered = fixture.clone();
+        jittered.viewer.position[0] += 2;
+        let jittered = jittered
+            .observe_classic_vertical_clips(41, &extents)
+            .unwrap();
+        assert_terminal_relationship(&jittered);
     }
 
     #[test]
@@ -1764,6 +2321,186 @@ mod tests {
             .keys
             .keys()
             .any(|key| key.kind == DoomSegClassicPlaneKind::Ceiling));
+        assert!(vertical
+            .ordered_coverage_transitions
+            .iter()
+            .any(|transition| {
+                transition.reason == DoomOrderedCoverageTransitionReason::UpperTierRaised
+                    && transition.upper_after > transition.upper_before
+                    && transition.lower_after == transition.lower_before
+            }));
+        assert!(vertical
+            .ordered_coverage_transitions
+            .iter()
+            .any(|transition| {
+                transition.reason == DoomOrderedCoverageTransitionReason::LowerTierLowered
+                    && transition.lower_after < transition.lower_before
+                    && transition.upper_after == transition.upper_before
+            }));
+        assert!(vertical
+            .ordered_coverage_transitions
+            .iter()
+            .all(|transition| {
+                transition.reason != DoomOrderedCoverageTransitionReason::OneSidedMiddleClosed
+            }));
+        assert!(!vertical.ordered_coverage_fail_open.is_empty());
+        assert!(vertical.ordered_coverage_fail_open.iter().all(|failure| {
+            failure.reason == DoomOrderedCoverageFailOpenReason::RaySegmentDepthUnresolved
+                && failure.column.is_some()
+                && vertical
+                    .ordered_coverage_transitions
+                    .iter()
+                    .all(|transition| {
+                        transition.source_seg != failure.source_seg
+                            || Some(transition.column) != failure.column
+                    })
+        }));
+    }
+
+    #[test]
+    fn one_sided_middle_closes_columns_before_a_forced_far_source_can_reenter() {
+        let fixture = near_solid_far_control_fixture(false);
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 64,
+            height: 128,
+        }];
+        let triangles = lower_doom_seg_textured_wall_triangles(&fixture.map, &extents).unwrap();
+        let marks = fixture.observe_plane_marks(41).unwrap();
+        let mut forced_order = fixture.observe_classic_bsp().unwrap();
+        forced_order.admitted_seg_order = vec![0, 1];
+        forced_order.admitted_seg_records = [0, 1].into_iter().collect();
+
+        let observation = observe_doom_classic_vertical_clip_state(
+            &fixture.map,
+            &triangles,
+            &marks,
+            &forced_order,
+            fixture.viewer.position,
+            fixture.viewer.heading_radians,
+            41.0,
+        );
+        let closed_columns = observation
+            .ordered_coverage_transitions
+            .iter()
+            .filter(|transition| {
+                transition.source_seg == 0
+                    && transition.reason
+                        == DoomOrderedCoverageTransitionReason::OneSidedMiddleClosed
+            })
+            .map(|transition| transition.column)
+            .collect::<BTreeSet<_>>();
+
+        assert!(!closed_columns.is_empty());
+        assert!(observation
+            .ordered_coverage_transitions
+            .iter()
+            .filter(|transition| transition.source_seg == 1)
+            .all(|transition| !closed_columns.contains(&transition.column)));
+        assert!(observation.column_traces.iter().all(|trace| {
+            !closed_columns.contains(&trace.column)
+                || (trace.ceiling_clip == 200 && trace.floor_clip == 0)
+        }));
+        assert!(!observation.ordered_coverage_fail_open.is_empty());
+        assert!(observation
+            .ordered_coverage_fail_open
+            .iter()
+            .all(|failure| {
+                failure.reason == DoomOrderedCoverageFailOpenReason::RaySegmentDepthUnresolved
+                    && failure.column.is_some()
+                    && observation
+                        .ordered_coverage_transitions
+                        .iter()
+                        .all(|transition| {
+                            transition.source_seg != failure.source_seg
+                                || Some(transition.column) != failure.column
+                        })
+            }));
+    }
+
+    #[test]
+    fn unresolved_vertical_projection_is_explicit_and_never_closes_a_column() {
+        let fixture = viewer_plane_fixture();
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 64,
+            height: 128,
+        }];
+        let triangles = lower_doom_seg_textured_wall_triangles(&fixture.map, &extents).unwrap();
+        let marks = fixture.observe_plane_marks(41).unwrap();
+        let mut forced_order = DoomClassicBspObservation::default();
+        forced_order.admitted_seg_order.push(0);
+        forced_order.admitted_seg_records.insert(0);
+
+        let observation = observe_doom_classic_vertical_clip_state(
+            &fixture.map,
+            &triangles,
+            &marks,
+            &forced_order,
+            fixture.viewer.position,
+            fixture.viewer.heading_radians,
+            41.0,
+        );
+
+        assert!(observation.ordered_coverage_transitions.is_empty());
+        assert_eq!(observation.column_traces.len(), 0);
+        assert_eq!(observation.ordered_coverage_fail_open.len(), 1);
+        assert_eq!(
+            observation.ordered_coverage_fail_open[0].reason,
+            DoomOrderedCoverageFailOpenReason::ProjectionBehindViewer
+        );
+    }
+
+    #[test]
+    fn unresolved_source_ownership_is_explicit_and_never_mutates_coverage() {
+        let fixture = viewer_plane_fixture();
+        let mut forced_order = DoomClassicBspObservation::default();
+        forced_order.admitted_seg_order.push(99);
+        forced_order.admitted_seg_records.insert(99);
+
+        let missing_mark = observe_doom_classic_vertical_clip_state(
+            &fixture.map,
+            &[],
+            &[],
+            &forced_order,
+            fixture.viewer.position,
+            fixture.viewer.heading_radians,
+            41.0,
+        );
+        assert!(missing_mark.ordered_coverage_transitions.is_empty());
+        assert!(missing_mark.column_traces.is_empty());
+        assert_eq!(missing_mark.ordered_coverage_fail_open.len(), 1);
+        assert_eq!(
+            missing_mark.ordered_coverage_fail_open[0].reason,
+            DoomOrderedCoverageFailOpenReason::MissingPlaneMark
+        );
+
+        let orphan_mark = DoomSegPlaneMarkObservation {
+            source_seg: source(99),
+            source_linedef: source(0),
+            side: DoomWallSideKind::Right,
+            front_sector: source(0),
+            back_sector: None,
+            floor_marked: true,
+            ceiling_marked: true,
+            paired_sky_ceiling_adjustment: false,
+        };
+        let missing_seg = observe_doom_classic_vertical_clip_state(
+            &fixture.map,
+            &[],
+            &[orphan_mark],
+            &forced_order,
+            fixture.viewer.position,
+            fixture.viewer.heading_radians,
+            41.0,
+        );
+        assert!(missing_seg.ordered_coverage_transitions.is_empty());
+        assert!(missing_seg.column_traces.is_empty());
+        assert_eq!(missing_seg.ordered_coverage_fail_open.len(), 1);
+        assert_eq!(
+            missing_seg.ordered_coverage_fail_open[0].reason,
+            DoomOrderedCoverageFailOpenReason::MissingSourceSeg
+        );
     }
 
     #[test]

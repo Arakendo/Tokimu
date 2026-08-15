@@ -5,7 +5,7 @@ web page supplies only fixture selection and bounded status presentation; Rust
 owns source maps, lowering, pipelines, and diagnostics.
 
 Build the browser package using the repository's normal WASM packaging flow,
-then serve `web/`. Run all six controls and retain browser metadata alongside
+then serve `web/`. Run all nine controls and retain browser metadata alongside
 the native observations. `Shared plane key` is the source-plane identity
 control: green sector 0 and orange sector 1 share a floor key but must survive
 as distinct provider-lowered floor instances. Their claim is semantic parity,
@@ -22,3 +22,7 @@ controller.
 `Cutout non-occluder` presents a caller-declared checkerboard cutout over an
 opaque far wall. Its transparent texels must expose that wall; this is a
 Doom-local negative authority control, not a generic occlusion contract.
+`Ordered coverage fragments` presents one visible near-authority control and
+the two ordinary far-source meshes produced by Doom-owned partial coverage.
+The two orange meshes retain one SEG identity and continuous linedef intervals;
+diagnostic columns explain their derivation but are not renderer scissors.

@@ -16,7 +16,8 @@ use hello_doom_visibility_conformance::{
     dynamic_door_snapshot_fixture, moving_platform_snapshot_fixture, one_sky_far_control_fixture,
     paired_sky_far_control_fixture, projection_close_forward_seg_fixture,
     projection_near_plane_crossing_fixture, projection_thin_forward_seg_fixture,
-    shared_key_disjoint_plane_fixture, vertical_aperture_control_fixture,
+    realize_partial_coverage_fragments, shared_key_disjoint_plane_fixture,
+    vertical_aperture_control_fixture, PartialCoverageSourceFragment,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
@@ -51,6 +52,7 @@ enum FixtureMode {
     PlatformSnapshot,
     ProjectionEpsilon,
     CutoutNonOccluder,
+    OrderedCoverage,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -65,6 +67,7 @@ impl FixtureMode {
             "platform-snapshot" => Ok(Self::PlatformSnapshot),
             "projection-epsilon" => Ok(Self::ProjectionEpsilon),
             "cutout-non-occluder" => Ok(Self::CutoutNonOccluder),
+            "ordered-coverage" => Ok(Self::OrderedCoverage),
             other => Err(JsValue::from_str(&format!(
                 "unknown visibility fixture `{other}`"
             ))),
@@ -81,6 +84,7 @@ impl FixtureMode {
             Self::PlatformSnapshot => "platform-snapshot",
             Self::ProjectionEpsilon => "projection-epsilon",
             Self::CutoutNonOccluder => "cutout-non-occluder",
+            Self::OrderedCoverage => "ordered-coverage",
         }
     }
 }
@@ -243,7 +247,18 @@ fn upload_fixture(renderer: &mut WgpuBackend, mode: FixtureMode) -> Result<Strin
     renderer
         .upload_material(
             MaterialHandle(2),
-            &Material::new("far-control", Color::rgb(0.92, 0.22, 0.12)),
+            &Material::new(
+                if matches!(mode, FixtureMode::OrderedCoverage) {
+                    "visible-near-authority"
+                } else {
+                    "far-control"
+                },
+                if matches!(mode, FixtureMode::OrderedCoverage) {
+                    Color::rgb(0.12, 0.72, 0.28)
+                } else {
+                    Color::rgb(0.92, 0.22, 0.12)
+                },
+            ),
         )
         .map_err(js_debug)?;
 
@@ -257,7 +272,8 @@ fn upload_fixture(renderer: &mut WgpuBackend, mode: FixtureMode) -> Result<Strin
                 | FixtureMode::DynamicDoorSnapshot
                 | FixtureMode::PlatformSnapshot
                 | FixtureMode::ProjectionEpsilon
-                | FixtureMode::CutoutNonOccluder => unreachable!(),
+                | FixtureMode::CutoutNonOccluder
+                | FixtureMode::OrderedCoverage => unreachable!(),
             }
             .map_err(js_debug)?;
             let boundaries =
@@ -587,6 +603,51 @@ fn upload_fixture(renderer: &mut WgpuBackend, mode: FixtureMode) -> Result<Strin
                 .map_err(js_debug)?;
             Ok("cutout=declared-threshold-0.5; transparent-texels=far-wall-visible; source-authority=none".to_owned())
         }
+        FixtureMode::OrderedCoverage => {
+            let manifest = realize_partial_coverage_fragments().map_err(js_debug)?;
+            let [left, right] = manifest.fragments.as_slice() else {
+                return Err(JsValue::from_str(&format!(
+                    "ordered coverage expected two fragments, observed {}",
+                    manifest.fragments.len()
+                )));
+            };
+            renderer.upload_mesh(FIRST_SOURCE, &partial_fragment_mesh(left));
+            renderer.upload_mesh(SECOND_SOURCE, &partial_fragment_mesh(right));
+            renderer
+                .upload_material(
+                    MaterialHandle(3),
+                    &Material::new(
+                        "left-retained-source-fragment",
+                        Color::rgb(0.94, 0.35, 0.12),
+                    ),
+                )
+                .map_err(js_debug)?;
+            renderer
+                .upload_material(
+                    MaterialHandle(4),
+                    &Material::new(
+                        "right-retained-source-fragment",
+                        Color::rgb(0.94, 0.35, 0.12),
+                    ),
+                )
+                .map_err(js_debug)?;
+            Ok(format!(
+                "source_seg={}; excluded=[{:.6},{:.6}]; left_columns={}..{}; left_source=[{:.6},{:.6}]:triangles={}; right_columns={}..{}; right_source=[{:.6},{:.6}]:triangles={}; semantics=doom-owned-source-fragments-not-renderer-scissors",
+                left.source_seg.record_index,
+                manifest.excluded_linedef_interval[0],
+                manifest.excluded_linedef_interval[1],
+                left.diagnostic_columns.first,
+                left.diagnostic_columns.last,
+                left.linedef_interval[0],
+                left.linedef_interval[1],
+                left.triangles.len(),
+                right.diagnostic_columns.first,
+                right.diagnostic_columns.last,
+                right.linedef_interval[0],
+                right.linedef_interval[1],
+                right.triangles.len(),
+            ))
+        }
     }
 }
 
@@ -698,6 +759,16 @@ fn draws(
                 Instance2d::identity().with_translation([0.45, -0.10]),
             ),
         ]);
+    } else if matches!(mode, FixtureMode::OrderedCoverage) {
+        commands.extend([
+            draw(
+                MeshHandle(2),
+                MaterialHandle(2),
+                Instance2d::identity().with_scale([0.82, 0.96]),
+            ),
+            draw(MeshHandle(3), MaterialHandle(3), Instance2d::identity()),
+            draw(MeshHandle(4), MaterialHandle(4), Instance2d::identity()),
+        ]);
     } else {
         // The paired-sky boundary or one-sky ordinary wall precedes the far
         // control, preserving the corresponding native control order.
@@ -711,6 +782,25 @@ fn draws(
         ]);
     }
     commands
+}
+
+#[cfg(target_arch = "wasm32")]
+fn partial_fragment_mesh(fragment: &PartialCoverageSourceFragment) -> Mesh {
+    Mesh::uniform_normal(
+        fragment
+            .triangles
+            .iter()
+            .flat_map(|triangle| triangle.positions)
+            .map(|position| {
+                [
+                    position[0] as f32 / 48.0,
+                    position[1] as f32 / 80.0 - 0.80,
+                    -0.25,
+                ]
+            })
+            .collect(),
+        [0.0, 0.0, -1.0],
+    )
 }
 
 #[cfg(target_arch = "wasm32")]

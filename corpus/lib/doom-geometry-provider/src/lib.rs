@@ -572,11 +572,95 @@ pub struct DoomSegClassicVerticalClipObservation {
     pub paired_sky_adjustments: usize,
     pub ceiling_clip_updates: usize,
     pub floor_clip_updates: usize,
+    /// Ordered, source-labelled mutations of the bounded diagnostic columns.
+    /// These facts expose the Doom provider's preparation protocol for corpus
+    /// review; they are not renderer commands or a public span API.
+    pub ordered_coverage_transitions: Vec<DoomOrderedCoverageTransition>,
+    /// Cases where the provider could not prove a coverage mutation. The
+    /// corresponding diagnostic column remains unchanged.
+    pub ordered_coverage_fail_open: Vec<DoomOrderedCoverageFailOpen>,
+    /// Source wall-tier intervals after applying the coverage established by
+    /// earlier near-to-far contributions. A missing retained interval means
+    /// the tier was source-valid but could not re-enter the currently open
+    /// vertical range. These are diagnostic cells, not renderer fragments.
+    pub ordered_wall_intervals: Vec<DoomOrderedWallInterval>,
     /// Bounded final per-column clip facts with the source SEG tiers that
     /// contributed to them. These are Doom-provider diagnostic cells, not
     /// renderer pixels, a scissor contract, or an admission of a visplane API.
     pub column_traces: Vec<DoomSegClassicVerticalColumnTrace>,
     pub plane_spans: DoomSegClassicPlaneSpanObservation,
+    pub samples: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomOrderedCoverageTransitionReason {
+    CeilingPlaneMarked,
+    FloorPlaneMarked,
+    PairedSkyBoundaryRetained,
+    UpperTierRaised,
+    LowerTierLowered,
+    OneSidedMiddleClosed,
+    CeilingMarkClosed,
+    FloorMarkClosed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomOrderedCoverageTransition {
+    pub source_seg: u32,
+    pub source_linedef: u32,
+    pub front_sector: u32,
+    pub back_sector: Option<u32>,
+    pub column: usize,
+    pub upper_before: usize,
+    pub lower_before: usize,
+    pub upper_after: usize,
+    pub lower_after: usize,
+    pub retained_plane_interval: Option<[usize; 2]>,
+    pub reason: DoomOrderedCoverageTransitionReason,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomOrderedCoverageFailOpenReason {
+    MissingPlaneMark,
+    MissingSourceSeg,
+    ProjectionBehindViewer,
+    ProjectionOutsideHorizontalFov,
+    RaySegmentDepthUnresolved,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomOrderedCoverageFailOpen {
+    pub source_seg: u32,
+    pub source_linedef: Option<u32>,
+    pub column: Option<usize>,
+    pub reason: DoomOrderedCoverageFailOpenReason,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomOrderedWallInterval {
+    pub source_seg: u32,
+    pub source_linedef: u32,
+    pub column: usize,
+    pub role: DoomWallTextureRole,
+    pub raw_interval: [usize; 2],
+    pub open_interval_before: Option<[usize; 2]>,
+    pub retained_interval: Option<[usize; 2]>,
+}
+
+/// Bounded reconstruction of ordered wall cells as ordinary source-labelled
+/// triangles for corpus presentation. The provider owns the Doom projection
+/// and source interpolation; consumers still receive plain textured geometry.
+///
+/// This is deliberately a fixed 320x200 diagnostic reconstruction rather than
+/// a public renderer span/scissor contract or a claim of historic pixel parity.
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct DoomOrderedWallFragmentReconstruction {
+    pub retained_cells: usize,
+    pub reconstructed_triangles: Vec<DoomSegTexturedWallTriangle>,
+    /// Retained source cells whose owning wall tier has no vertical extent.
+    /// These are explicit presentation omissions, not unresolved failures.
+    pub degenerate_cells: usize,
+    pub unresolved_cells: usize,
     pub samples: Vec<String>,
 }
 
@@ -806,9 +890,26 @@ pub fn observe_doom_classic_vertical_clip_state(
         (((1.0 - normalized) * 0.5) * ROWS as f64) as usize
     };
     for source_seg in &traversal.admitted_seg_order {
-        let (Some(mark), Some(seg)) =
-            (marks_by_seg.get(source_seg), segs_by_record.get(source_seg))
-        else {
+        let Some(mark) = marks_by_seg.get(source_seg) else {
+            result
+                .ordered_coverage_fail_open
+                .push(DoomOrderedCoverageFailOpen {
+                    source_seg: *source_seg,
+                    source_linedef: None,
+                    column: None,
+                    reason: DoomOrderedCoverageFailOpenReason::MissingPlaneMark,
+                });
+            continue;
+        };
+        let Some(seg) = segs_by_record.get(source_seg) else {
+            result
+                .ordered_coverage_fail_open
+                .push(DoomOrderedCoverageFailOpen {
+                    source_seg: *source_seg,
+                    source_linedef: Some(mark.source_linedef.record_index),
+                    column: None,
+                    reason: DoomOrderedCoverageFailOpenReason::MissingSourceSeg,
+                });
             continue;
         };
         let front_sector = sectors_by_record
@@ -821,17 +922,52 @@ pub fn observe_doom_classic_vertical_clip_state(
         let end = &map.vertices[usize::from(seg.end_vertex)];
         let (start_depth, start_angle) = project([start.x, start.y]);
         let (end_depth, end_angle) = project([end.x, end.y]);
-        if start_depth <= 0.0
-            || end_depth <= 0.0
-            || source_segment_outside_horizontal_fov(start_angle, end_angle, HALF_HORIZONTAL_FOV)
-        {
+        if start_depth <= 0.0 || end_depth <= 0.0 {
+            result
+                .ordered_coverage_fail_open
+                .push(DoomOrderedCoverageFailOpen {
+                    source_seg: *source_seg,
+                    source_linedef: Some(u32::from(seg.linedef)),
+                    column: None,
+                    reason: DoomOrderedCoverageFailOpenReason::ProjectionBehindViewer,
+                });
+            continue;
+        }
+        if source_segment_outside_horizontal_fov(start_angle, end_angle, HALF_HORIZONTAL_FOV) {
+            result
+                .ordered_coverage_fail_open
+                .push(DoomOrderedCoverageFailOpen {
+                    source_seg: *source_seg,
+                    source_linedef: Some(u32::from(seg.linedef)),
+                    column: None,
+                    reason: DoomOrderedCoverageFailOpenReason::ProjectionOutsideHorizontalFov,
+                });
             continue;
         }
         let [left, right_column] =
             source_fov_column_interval(start_angle, end_angle, HALF_HORIZONTAL_FOV, COLUMNS);
         if mark.paired_sky_ceiling_adjustment {
-            for source_set in &mut paired_sky_boundary_sources[left..=right_column] {
+            for (offset, source_set) in paired_sky_boundary_sources[left..=right_column]
+                .iter_mut()
+                .enumerate()
+            {
                 source_set.insert(*source_seg);
+                let column = left + offset;
+                result
+                    .ordered_coverage_transitions
+                    .push(DoomOrderedCoverageTransition {
+                        source_seg: *source_seg,
+                        source_linedef: u32::from(seg.linedef),
+                        front_sector: mark.front_sector.record_index,
+                        back_sector: mark.back_sector.map(|source| source.record_index),
+                        column,
+                        upper_before: ceiling_clip[column],
+                        lower_before: floor_clip[column],
+                        upper_after: ceiling_clip[column],
+                        lower_after: floor_clip[column],
+                        retained_plane_interval: None,
+                        reason: DoomOrderedCoverageTransitionReason::PairedSkyBoundaryRetained,
+                    });
             }
         }
         let has_upper = tier_heights.contains_key(&(*source_seg, 0));
@@ -846,26 +982,67 @@ pub fn observe_doom_classic_vertical_clip_state(
                 forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                 forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
             ];
-            let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
-                .unwrap_or((start_depth + end_depth) * 0.5);
+            let Some(depth) =
+                source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+            else {
+                result
+                    .ordered_coverage_fail_open
+                    .push(DoomOrderedCoverageFailOpen {
+                        source_seg: *source_seg,
+                        source_linedef: Some(u32::from(seg.linedef)),
+                        column: Some(x),
+                        reason: DoomOrderedCoverageFailOpenReason::RaySegmentDepthUnresolved,
+                    });
+                continue;
+            };
             let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
                 .min(ROWS - 1);
             let floor =
                 row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if mark.ceiling_marked {
-                ceiling_plane_writes.push((
-                    x,
-                    ceiling_clip[x].saturating_add(1),
-                    ceiling.saturating_sub(1),
-                ));
+                let top = ceiling_clip[x].saturating_add(1);
+                let bottom = ceiling.saturating_sub(1);
+                ceiling_plane_writes.push((x, top, bottom));
+                if top <= bottom {
+                    result
+                        .ordered_coverage_transitions
+                        .push(DoomOrderedCoverageTransition {
+                            source_seg: *source_seg,
+                            source_linedef: u32::from(seg.linedef),
+                            front_sector: mark.front_sector.record_index,
+                            back_sector: mark.back_sector.map(|source| source.record_index),
+                            column: x,
+                            upper_before: ceiling_clip[x],
+                            lower_before: floor_clip[x],
+                            upper_after: ceiling_clip[x],
+                            lower_after: floor_clip[x],
+                            retained_plane_interval: Some([top, bottom]),
+                            reason: DoomOrderedCoverageTransitionReason::CeilingPlaneMarked,
+                        });
+                }
             }
             if mark.floor_marked {
-                floor_plane_writes.push((
-                    x,
-                    floor.saturating_add(1),
-                    floor_clip[x].saturating_sub(1),
-                ));
+                let top = floor.saturating_add(1);
+                let bottom = floor_clip[x].saturating_sub(1);
+                floor_plane_writes.push((x, top, bottom));
+                if top <= bottom {
+                    result
+                        .ordered_coverage_transitions
+                        .push(DoomOrderedCoverageTransition {
+                            source_seg: *source_seg,
+                            source_linedef: u32::from(seg.linedef),
+                            front_sector: mark.front_sector.record_index,
+                            back_sector: mark.back_sector.map(|source| source.record_index),
+                            column: x,
+                            upper_before: ceiling_clip[x],
+                            lower_before: floor_clip[x],
+                            upper_after: ceiling_clip[x],
+                            lower_after: floor_clip[x],
+                            retained_plane_interval: Some([top, bottom]),
+                            reason: DoomOrderedCoverageTransitionReason::FloorPlaneMarked,
+                        });
+                }
             }
         }
         if !ceiling_plane_writes.is_empty() {
@@ -905,28 +1082,102 @@ pub fn observe_doom_classic_vertical_clip_state(
                     forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                     forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
                 ];
-                let depth =
+                let Some(depth) =
                     source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
-                        .unwrap_or((start_depth + end_depth) * 0.5);
+                else {
+                    result
+                        .ordered_coverage_fail_open
+                        .push(DoomOrderedCoverageFailOpen {
+                            source_seg: *source_seg,
+                            source_linedef: Some(u32::from(seg.linedef)),
+                            column: Some(x),
+                            reason: DoomOrderedCoverageFailOpenReason::RaySegmentDepthUnresolved,
+                        });
+                    continue;
+                };
                 let top = row((maximum - eye_height).atan2(depth)).min(ROWS - 1);
                 let bottom = row((minimum - eye_height).atan2(depth)).min(ROWS - 1);
                 let (top, bottom) = (top.min(bottom), top.max(bottom));
                 let prior = [ceiling_clip[x], floor_clip[x]];
+                // Wall rows meet the current clip bounds; retained plane
+                // intervals occupy the cells strictly between those bounds.
+                // Keeping the conventions distinct preserves row-zero upper
+                // tiers while still preventing a later wall from re-entering
+                // an already retained plane interval.
+                let open_top = prior[0];
+                let open_bottom = prior[1];
+                let open_interval_before =
+                    (open_top <= open_bottom).then_some([open_top, open_bottom]);
+                let retained_top = top.max(open_top);
+                let retained_bottom = bottom.min(open_bottom);
+                let retained_interval =
+                    (retained_top <= retained_bottom).then_some([retained_top, retained_bottom]);
+                result.ordered_wall_intervals.push(DoomOrderedWallInterval {
+                    source_seg: *source_seg,
+                    source_linedef: u32::from(seg.linedef),
+                    column: x,
+                    role: *role,
+                    raw_interval: [top, bottom],
+                    open_interval_before,
+                    retained_interval,
+                });
                 match role {
                     DoomWallTextureRole::Upper => {
+                        let Some(retained) = retained_interval else {
+                            continue;
+                        };
                         upper_sources[x].insert(*source_seg);
-                        let next = ceiling_clip[x].max(bottom.saturating_add(1));
+                        let next = ceiling_clip[x].max(retained[1].saturating_add(1));
                         result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
                         ceiling_clip[x] = next;
+                        if next != prior[0] {
+                            result.ordered_coverage_transitions.push(
+                                DoomOrderedCoverageTransition {
+                                    source_seg: *source_seg,
+                                    source_linedef: u32::from(seg.linedef),
+                                    front_sector: mark.front_sector.record_index,
+                                    back_sector: mark.back_sector.map(|source| source.record_index),
+                                    column: x,
+                                    upper_before: prior[0],
+                                    lower_before: prior[1],
+                                    upper_after: next,
+                                    lower_after: prior[1],
+                                    retained_plane_interval: None,
+                                    reason: DoomOrderedCoverageTransitionReason::UpperTierRaised,
+                                },
+                            );
+                        }
                     }
                     DoomWallTextureRole::Lower => {
+                        let Some(retained) = retained_interval else {
+                            continue;
+                        };
                         lower_sources[x].insert(*source_seg);
-                        let next = floor_clip[x].min(top);
+                        let next = floor_clip[x].min(retained[0]);
                         result.floor_clip_updates += usize::from(next != floor_clip[x]);
                         floor_clip[x] = next;
+                        if next != prior[1] {
+                            result.ordered_coverage_transitions.push(
+                                DoomOrderedCoverageTransition {
+                                    source_seg: *source_seg,
+                                    source_linedef: u32::from(seg.linedef),
+                                    front_sector: mark.front_sector.record_index,
+                                    back_sector: mark.back_sector.map(|source| source.record_index),
+                                    column: x,
+                                    upper_before: prior[0],
+                                    lower_before: prior[1],
+                                    upper_after: prior[0],
+                                    lower_after: next,
+                                    retained_plane_interval: None,
+                                    reason: DoomOrderedCoverageTransitionReason::LowerTierLowered,
+                                },
+                            );
+                        }
                     }
                     DoomWallTextureRole::Middle => {
-                        middle_sources[x].insert(*source_seg);
+                        if retained_interval.is_some() {
+                            middle_sources[x].insert(*source_seg);
+                        }
                     }
                 }
                 if x == COLUMNS / 2 {
@@ -946,28 +1197,93 @@ pub fn observe_doom_classic_vertical_clip_state(
                 forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                 forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
             ];
-            let depth = source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
-                .unwrap_or((start_depth + end_depth) * 0.5);
+            let Some(depth) =
+                source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
+            else {
+                result
+                    .ordered_coverage_fail_open
+                    .push(DoomOrderedCoverageFailOpen {
+                        source_seg: *source_seg,
+                        source_linedef: Some(u32::from(seg.linedef)),
+                        column: Some(x),
+                        reason: DoomOrderedCoverageFailOpenReason::RaySegmentDepthUnresolved,
+                    });
+                continue;
+            };
             let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
                 .min(ROWS - 1);
             let floor =
                 row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
-            if has_middle && mark.back_sector.is_none() {
+            if has_middle && mark.back_sector.is_none() && middle_sources[x].contains(source_seg) {
+                let prior = [ceiling_clip[x], floor_clip[x]];
                 result.ceiling_clip_updates += usize::from(ceiling_clip[x] != ROWS);
                 result.floor_clip_updates += usize::from(floor_clip[x] != 0);
                 ceiling_clip[x] = ROWS;
                 floor_clip[x] = 0;
+                if prior != [ROWS, 0] {
+                    result
+                        .ordered_coverage_transitions
+                        .push(DoomOrderedCoverageTransition {
+                            source_seg: *source_seg,
+                            source_linedef: u32::from(seg.linedef),
+                            front_sector: mark.front_sector.record_index,
+                            back_sector: None,
+                            column: x,
+                            upper_before: prior[0],
+                            lower_before: prior[1],
+                            upper_after: ROWS,
+                            lower_after: 0,
+                            retained_plane_interval: None,
+                            reason: DoomOrderedCoverageTransitionReason::OneSidedMiddleClosed,
+                        });
+                }
             } else {
                 if !has_upper && mark.ceiling_marked {
+                    let prior = ceiling_clip[x];
                     let next = ceiling_clip[x].max(ceiling.saturating_sub(1));
                     result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
                     ceiling_clip[x] = next;
+                    if next != prior {
+                        result
+                            .ordered_coverage_transitions
+                            .push(DoomOrderedCoverageTransition {
+                                source_seg: *source_seg,
+                                source_linedef: u32::from(seg.linedef),
+                                front_sector: mark.front_sector.record_index,
+                                back_sector: mark.back_sector.map(|source| source.record_index),
+                                column: x,
+                                upper_before: prior,
+                                lower_before: floor_clip[x],
+                                upper_after: next,
+                                lower_after: floor_clip[x],
+                                retained_plane_interval: None,
+                                reason: DoomOrderedCoverageTransitionReason::CeilingMarkClosed,
+                            });
+                    }
                 }
                 if !has_lower && mark.floor_marked {
+                    let prior = floor_clip[x];
                     let next = floor_clip[x].min(floor.saturating_add(1));
                     result.floor_clip_updates += usize::from(next != floor_clip[x]);
                     floor_clip[x] = next;
+                    if next != prior {
+                        result
+                            .ordered_coverage_transitions
+                            .push(DoomOrderedCoverageTransition {
+                                source_seg: *source_seg,
+                                source_linedef: u32::from(seg.linedef),
+                                front_sector: mark.front_sector.record_index,
+                                back_sector: mark.back_sector.map(|source| source.record_index),
+                                column: x,
+                                upper_before: ceiling_clip[x],
+                                lower_before: prior,
+                                upper_after: ceiling_clip[x],
+                                lower_after: next,
+                                retained_plane_interval: None,
+                                reason: DoomOrderedCoverageTransitionReason::FloorMarkClosed,
+                            });
+                    }
                 }
             }
         }
@@ -2645,6 +2961,286 @@ pub fn clip_doom_seg_textured_wall_triangle_to_linedef_interval(
     .collect())
 }
 
+/// Reconstructs the retained ordered wall cells as ordinary textured
+/// triangles. This lets a corpus consumer test whether Doom-owned partial
+/// coverage can be realized through the existing mesh renderer without
+/// exporting columns, scissors, or visplane state as renderer vocabulary.
+///
+/// Cell boundaries are intersected with the owning source SEG and clamped to
+/// its endpoints. The clamp is intentional: the diagnostic column containing
+/// an endpoint extends half a cell beyond the projected finite segment.
+pub fn reconstruct_doom_ordered_wall_fragments(
+    map: &DoomMapCore,
+    source_triangles: &[DoomSegTexturedWallTriangle],
+    observation: &DoomSegClassicVerticalClipObservation,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: f64,
+) -> DoomOrderedWallFragmentReconstruction {
+    const COLUMNS: usize = 320;
+    const ROWS: usize = 200;
+    const HALF_HORIZONTAL_FOV: f64 = std::f64::consts::FRAC_PI_4;
+
+    let half_vertical_fov = ((ROWS as f64 / COLUMNS as f64) * HALF_HORIZONTAL_FOV.tan()).atan();
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let segs_by_record = map
+        .segs
+        .iter()
+        .map(|seg| (seg.source.record_index, seg))
+        .collect::<BTreeMap<_, _>>();
+    let triangles_by_key = source_triangles.iter().fold(
+        BTreeMap::<(u32, u8), Vec<&DoomSegTexturedWallTriangle>>::new(),
+        |mut triangles, triangle| {
+            triangles
+                .entry((
+                    triangle.source_seg.record_index,
+                    wall_role_key(triangle.role),
+                ))
+                .or_default()
+                .push(triangle);
+            triangles
+        },
+    );
+    let mut result = DoomOrderedWallFragmentReconstruction::default();
+
+    for interval in &observation.ordered_wall_intervals {
+        let Some([top, bottom]) = interval.retained_interval else {
+            continue;
+        };
+        result.retained_cells += 1;
+        let key = (interval.source_seg, wall_role_key(interval.role));
+        let (Some(seg), Some(reference_triangles)) = (
+            segs_by_record.get(&interval.source_seg),
+            triangles_by_key.get(&key),
+        ) else {
+            result.unresolved_cells += 1;
+            retain_fragment_sample(
+                &mut result.samples,
+                format!(
+                    "seg={} linedef={} column={} role={:?} unresolved=source-identity",
+                    interval.source_seg, interval.source_linedef, interval.column, interval.role
+                ),
+            );
+            continue;
+        };
+        let start = &map.vertices[usize::from(seg.start_vertex)];
+        let end = &map.vertices[usize::from(seg.end_vertex)];
+        let source_start = [f64::from(start.x), f64::from(start.y)];
+        let source_end = [f64::from(end.x), f64::from(end.y)];
+        let ray_for_column_edge = |edge: usize| {
+            let normalized = -1.0 + (edge as f64 / COLUMNS as f64) * 2.0;
+            let local_angle = (normalized * HALF_HORIZONTAL_FOV.tan()).atan();
+            [
+                forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+            ]
+        };
+        let Some((left_source, left_depth)) = source_ray_segment_intersection(
+            viewer,
+            ray_for_column_edge(interval.column),
+            source_start,
+            source_end,
+        ) else {
+            result.unresolved_cells += 1;
+            retain_fragment_sample(
+                &mut result.samples,
+                format!(
+                    "seg={} linedef={} column={} role={:?} unresolved=left-ray",
+                    interval.source_seg, interval.source_linedef, interval.column, interval.role
+                ),
+            );
+            continue;
+        };
+        let Some((right_source, right_depth)) = source_ray_segment_intersection(
+            viewer,
+            ray_for_column_edge(interval.column + 1),
+            source_start,
+            source_end,
+        ) else {
+            result.unresolved_cells += 1;
+            retain_fragment_sample(
+                &mut result.samples,
+                format!(
+                    "seg={} linedef={} column={} role={:?} unresolved=right-ray",
+                    interval.source_seg, interval.source_linedef, interval.column, interval.role
+                ),
+            );
+            continue;
+        };
+
+        let minimum = reference_triangles
+            .iter()
+            .flat_map(|triangle| triangle.positions)
+            .map(|position| position[1])
+            .fold(f64::INFINITY, f64::min);
+        let maximum = reference_triangles
+            .iter()
+            .flat_map(|triangle| triangle.positions)
+            .map(|position| position[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        if (maximum - minimum).abs() <= f64::EPSILON {
+            result.degenerate_cells += 1;
+            retain_fragment_sample(
+                &mut result.samples,
+                format!(
+                    "seg={} linedef={} column={} role={:?} omitted=zero-height-source-tier",
+                    interval.source_seg, interval.source_linedef, interval.column, interval.role
+                ),
+            );
+            continue;
+        }
+        let height_for_row = |row: usize, depth: f64| {
+            let normalized = 1.0 - (row as f64 / ROWS as f64) * 2.0;
+            (eye_height + normalized * half_vertical_fov.tan() * depth).clamp(minimum, maximum)
+        };
+        let positions = [
+            doom_point_to_tokimu(left_source, height_for_row(top, left_depth)),
+            doom_point_to_tokimu(right_source, height_for_row(top, right_depth)),
+            doom_point_to_tokimu(right_source, height_for_row(bottom + 1, right_depth)),
+            doom_point_to_tokimu(left_source, height_for_row(bottom + 1, left_depth)),
+        ];
+        let Some(texture_coordinates) = positions
+            .iter()
+            .map(|position| interpolate_wall_texture_coordinate(reference_triangles, *position))
+            .collect::<Option<Vec<_>>>()
+        else {
+            result.unresolved_cells += 1;
+            retain_fragment_sample(
+                &mut result.samples,
+                format!(
+                    "seg={} linedef={} column={} role={:?} unresolved=texture-interpolation",
+                    interval.source_seg, interval.source_linedef, interval.column, interval.role
+                ),
+            );
+            continue;
+        };
+        let reference = reference_triangles[0];
+        for indices in [[0, 1, 2], [0, 2, 3]] {
+            let mut triangle_positions = indices.map(|index| positions[index]);
+            let mut triangle_uvs = indices.map(|index| texture_coordinates[index]);
+            if dot3(
+                triangle_normal64(triangle_positions),
+                triangle_normal64(reference.positions),
+            ) < 0.0
+            {
+                triangle_positions.swap(1, 2);
+                triangle_uvs.swap(1, 2);
+            }
+            result
+                .reconstructed_triangles
+                .push(DoomSegTexturedWallTriangle {
+                    source_seg: reference.source_seg,
+                    source_linedef: reference.source_linedef,
+                    source_sidedef: reference.source_sidedef,
+                    source_sector: reference.source_sector,
+                    side: reference.side,
+                    role: reference.role,
+                    texture_name: reference.texture_name.clone(),
+                    positions: triangle_positions,
+                    texture_coordinates: triangle_uvs,
+                });
+        }
+    }
+
+    result
+}
+
+fn wall_role_key(role: DoomWallTextureRole) -> u8 {
+    match role {
+        DoomWallTextureRole::Upper => 0,
+        DoomWallTextureRole::Lower => 1,
+        DoomWallTextureRole::Middle => 2,
+    }
+}
+
+fn retain_fragment_sample(samples: &mut Vec<String>, sample: String) {
+    if samples.len() < 12 {
+        samples.push(sample);
+    }
+}
+
+fn source_ray_segment_intersection(
+    viewer: [i16; 2],
+    ray: [f64; 2],
+    start: [f64; 2],
+    end: [f64; 2],
+) -> Option<([f64; 2], f64)> {
+    let viewer = viewer.map(f64::from);
+    let offset = [start[0] - viewer[0], start[1] - viewer[1]];
+    let segment = [end[0] - start[0], end[1] - start[1]];
+    let cross = |left: [f64; 2], right: [f64; 2]| left[0] * right[1] - left[1] * right[0];
+    let denominator = cross(ray, segment);
+    if denominator.abs() <= f64::EPSILON {
+        return None;
+    }
+    let depth = cross(offset, segment) / denominator;
+    let progression = (cross(offset, ray) / denominator).clamp(0.0, 1.0);
+    (depth > 0.0).then_some((
+        [
+            start[0] + segment[0] * progression,
+            start[1] + segment[1] * progression,
+        ],
+        depth,
+    ))
+}
+
+fn interpolate_wall_texture_coordinate(
+    triangles: &[&DoomSegTexturedWallTriangle],
+    position: [f64; 3],
+) -> Option<[f64; 2]> {
+    triangles.iter().find_map(|triangle| {
+        let origin = triangle.positions[0];
+        let first = subtract3(triangle.positions[1], origin);
+        let second = subtract3(triangle.positions[2], origin);
+        let relative = subtract3(position, origin);
+        let first_first = dot3(first, first);
+        let first_second = dot3(first, second);
+        let second_second = dot3(second, second);
+        let relative_first = dot3(relative, first);
+        let relative_second = dot3(relative, second);
+        let denominator = first_first * second_second - first_second * first_second;
+        if denominator.abs() <= f64::EPSILON {
+            return None;
+        }
+        let first_weight =
+            (relative_first * second_second - relative_second * first_second) / denominator;
+        let second_weight =
+            (relative_second * first_first - relative_first * first_second) / denominator;
+        let origin_weight = 1.0 - first_weight - second_weight;
+        const TOLERANCE: f64 = 1.0e-6;
+        (origin_weight >= -TOLERANCE && first_weight >= -TOLERANCE && second_weight >= -TOLERANCE)
+            .then(|| {
+                [
+                    origin_weight * triangle.texture_coordinates[0][0]
+                        + first_weight * triangle.texture_coordinates[1][0]
+                        + second_weight * triangle.texture_coordinates[2][0],
+                    origin_weight * triangle.texture_coordinates[0][1]
+                        + first_weight * triangle.texture_coordinates[1][1]
+                        + second_weight * triangle.texture_coordinates[2][1],
+                ]
+            })
+    })
+}
+
+fn subtract3(left: [f64; 3], right: [f64; 3]) -> [f64; 3] {
+    [left[0] - right[0], left[1] - right[1], left[2] - right[2]]
+}
+
+fn dot3(left: [f64; 3], right: [f64; 3]) -> f64 {
+    left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
+}
+
+fn triangle_normal64(positions: [[f64; 3]; 3]) -> [f64; 3] {
+    let first = subtract3(positions[1], positions[0]);
+    let second = subtract3(positions[2], positions[0]);
+    [
+        first[1] * second[2] - first[2] * second[1],
+        first[2] * second[0] - first[0] * second[2],
+        first[0] * second[1] - first[1] * second[0],
+    ]
+}
+
 /// Observes only the source sector-height conditions under which classic Doom
 /// may close a screen interval for a SEG. It neither projects the SEG nor
 /// writes any coverage state; masked middles and sky behavior remain separate
@@ -3371,12 +3967,14 @@ mod tests {
         observe_doom_classic_bsp, observe_doom_classic_bsp_far_first_control,
         observe_doom_seg_occluders, observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
         observe_doom_two_sided_middle_textures, observe_doom_wall_texture_axes,
-        resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
-        resolve_doom_subsector_loops, resolve_doom_subsector_regions,
-        resolve_doom_subsector_sector_ownership, resolve_doom_viewer_subsector_order,
-        resolve_doom_wall_candidates, resolve_doom_wall_texture_bindings, tokimu_direction_to_doom,
-        tokimu_point_to_doom, DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership,
-        DoomSurfacePlane, DoomTextureExtent, DoomWallBand, DoomWallSideKind,
+        reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
+        resolve_doom_subsector_bsp_paths, resolve_doom_subsector_loops,
+        resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
+        resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates,
+        resolve_doom_wall_texture_bindings, tokimu_direction_to_doom, tokimu_point_to_doom,
+        DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership, DoomOrderedWallInterval,
+        DoomSegClassicVerticalClipObservation, DoomSurfacePlane, DoomTextureExtent, DoomWallBand,
+        DoomWallSideKind, DoomWallTextureRole,
     };
 
     #[test]
@@ -4445,6 +5043,96 @@ mod tests {
         assert_eq!(far_first.admitted_seg_order, vec![1, 0]);
         assert_eq!(far_first.far_children_pruned, 0);
         assert!(far_first.admitted_seg_records.contains(&1));
+    }
+
+    #[test]
+    fn reconstructs_one_retained_ordered_cell_as_source_labelled_triangles() {
+        let mut map = near_solid_far_bsp_map();
+        map.sidedefs[0].middle_texture = "WALL".to_owned();
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 128,
+            height: 128,
+        }];
+        let source_triangles = lower_doom_seg_textured_wall_triangles(&map, &extents).unwrap();
+        let observation = DoomSegClassicVerticalClipObservation {
+            ordered_wall_intervals: vec![DoomOrderedWallInterval {
+                source_seg: 0,
+                source_linedef: 0,
+                column: 160,
+                role: DoomWallTextureRole::Middle,
+                raw_interval: [40, 159],
+                open_interval_before: Some([0, 199]),
+                retained_interval: Some([40, 159]),
+            }],
+            ..DoomSegClassicVerticalClipObservation::default()
+        };
+
+        let reconstruction = reconstruct_doom_ordered_wall_fragments(
+            &map,
+            &source_triangles,
+            &observation,
+            [0, -96],
+            std::f64::consts::FRAC_PI_2,
+            41.0,
+        );
+
+        assert_eq!(reconstruction.retained_cells, 1);
+        assert_eq!(reconstruction.degenerate_cells, 0);
+        assert_eq!(reconstruction.unresolved_cells, 0);
+        assert_eq!(reconstruction.reconstructed_triangles.len(), 2);
+        assert!(reconstruction
+            .reconstructed_triangles
+            .iter()
+            .all(|triangle| triangle.source_seg.record_index == 0
+                && triangle.source_linedef.record_index == 0
+                && triangle.source_sidedef.record_index == 0
+                && triangle.texture_name == "WALL"));
+        assert!(reconstruction
+            .reconstructed_triangles
+            .iter()
+            .flat_map(|triangle| triangle.texture_coordinates)
+            .all(|uv| uv.into_iter().all(f64::is_finite)));
+    }
+
+    #[test]
+    fn retains_zero_height_ordered_cells_as_explicit_degenerate_omissions() {
+        let mut map = near_solid_far_bsp_map();
+        map.sidedefs[0].middle_texture = "WALL".to_owned();
+        map.sectors[0].ceiling_height = map.sectors[0].floor_height;
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 128,
+            height: 128,
+        }];
+        let source_triangles = lower_doom_seg_textured_wall_triangles(&map, &extents).unwrap();
+        let observation = DoomSegClassicVerticalClipObservation {
+            ordered_wall_intervals: vec![DoomOrderedWallInterval {
+                source_seg: 0,
+                source_linedef: 0,
+                column: 160,
+                role: DoomWallTextureRole::Middle,
+                raw_interval: [100, 100],
+                open_interval_before: Some([0, 199]),
+                retained_interval: Some([100, 100]),
+            }],
+            ..DoomSegClassicVerticalClipObservation::default()
+        };
+
+        let reconstruction = reconstruct_doom_ordered_wall_fragments(
+            &map,
+            &source_triangles,
+            &observation,
+            [0, -96],
+            std::f64::consts::FRAC_PI_2,
+            41.0,
+        );
+
+        assert_eq!(reconstruction.retained_cells, 1);
+        assert_eq!(reconstruction.degenerate_cells, 1);
+        assert_eq!(reconstruction.unresolved_cells, 0);
+        assert!(reconstruction.reconstructed_triangles.is_empty());
+        assert!(reconstruction.samples[0].contains("zero-height-source-tier"));
     }
 
     fn map_with_linedef(right_sidedef: Option<u16>, left_sidedef: Option<u16>) -> DoomMapCore {

@@ -11,6 +11,8 @@ use std::{
 };
 
 use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
+#[cfg(test)]
+use doom_geometry_provider::DoomSegClassicPlaneInstance;
 use doom_geometry_provider::{
     clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
     locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
@@ -18,15 +20,15 @@ use doom_geometry_provider::{
     observe_doom_classic_bsp,
     observe_doom_classic_vertical_clip_state as observe_shared_doom_classic_vertical_clip_state,
     observe_doom_seg_occluders, observe_doom_seg_plane_marks, project_doom_sector_runtime_heights,
-    resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
-    resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
-    resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomClassicBspObservation,
+    reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
+    resolve_doom_subsector_bsp_paths, resolve_doom_subsector_regions,
+    resolve_doom_subsector_sector_ownership, resolve_doom_viewer_subsector_order,
+    resolve_doom_wall_candidates, DoomClassicBspObservation, DoomOrderedWallFragmentReconstruction,
     DoomSectorRuntimeHeightSnapshot, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
-    DoomSegClassicPlaneSpanObservation, DoomSegPlaneMarkObservation, DoomSegTexturedWallTriangle,
-    DoomSurfacePlane, DoomTextureExtent, DoomWallTextureRole,
+    DoomSegClassicPlaneSpanObservation, DoomSegClassicVerticalClipObservation,
+    DoomSegPlaneMarkObservation, DoomSegTexturedWallTriangle, DoomSurfacePlane, DoomTextureExtent,
+    DoomWallTextureRole,
 };
-#[cfg(test)]
-use doom_geometry_provider::{DoomSegClassicPlaneInstance, DoomSegClassicVerticalClipObservation};
 #[cfg(test)]
 use doom_map_provider::DoomBspChild;
 use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore};
@@ -85,6 +87,11 @@ use tokimu_input::{InputState, KeyCode, MouseButton};
 type DoomSegClassicBspObservation = DoomClassicBspObservation;
 use ui_tools::provider::{UiFontRasterizer, UiFontSource};
 use winit::window::CursorGrabMode;
+
+#[path = "static_scene/observer.rs"]
+mod observer;
+
+use observer::{apply_look_delta, scene_camera, ObserverLook, SpawnObserver};
 
 const WAD_LIMITS: WadReadLimits =
     WadReadLimits::new(64 * 1024 * 1024, 8_192, 16 * 1024 * 1024, 64 * 1024 * 1024);
@@ -235,6 +242,10 @@ struct App {
     mouse_captured: bool,
     input: InputState,
     comparative_embedding: DoomComparativeEmbedding,
+    /// True when the renderer input is the complete declaration set emitted
+    /// by the Slice 4B ordered source preparation rather than the global map
+    /// shell. Candidate filtering, if any, is a later and separate stage.
+    ordered_coverage_prepared: bool,
     /// The classic-plane presentation is reconstructed for exactly the
     /// source-spawn observer. Allowing ordinary free-look/movement would make
     /// geometry outside that retained view look like reconstruction evidence.
@@ -457,6 +468,46 @@ struct DoomSegClassicContextPresentation {
     omitted_wall_triangles: usize,
 }
 
+/// Fixed-source-spawn comparison that consumes the Doom provider's retained
+/// per-column wall intervals as source-labelled ordinary meshes. The
+/// intervals and reconstruction remain Doom-owned; `tokimu-render` receives
+/// only the resulting opaque/cutout draws.
+struct DoomSegOrderedCoveragePresentation {
+    opaque_draws: Vec<StaticDrawPlanEntry>,
+    cutout_draws: Vec<StaticDrawPlanEntry>,
+    retained_cells: usize,
+    reconstructed_triangles: usize,
+    lowered_wall_triangles: usize,
+    source_degenerate_cells: usize,
+    source_unresolved_cells: usize,
+    lowering_degenerate_triangles: usize,
+    lowering_unresolved_triangles: usize,
+    grouped_wall_meshes: usize,
+    ordinary_plane_intervals: usize,
+    sky_plane_intervals: usize,
+    reconstructed_plane_quads: usize,
+    rejected_plane_intervals: usize,
+    lowered_plane_quads: usize,
+    source_cutout_keys: usize,
+    lowered_cutout_keys: usize,
+    coverage_transitions: usize,
+    coverage_fail_open: usize,
+    degenerate_omissions: usize,
+    unresolved_cells: usize,
+    samples: Vec<String>,
+}
+
+/// One fixed-view Slice 4B source observation. Walls and planes are derived
+/// from the same traversal and vertical-coverage state before either is
+/// lowered into renderer declarations.
+struct DoomOrderedCoveragePreparation {
+    vertical: DoomSegClassicVerticalClipObservation,
+    walls: DoomOrderedWallFragmentReconstruction,
+    planes: DoomSegClassicPlaneCellReconstruction,
+    ordinary_plane_intervals: usize,
+    sky_plane_intervals: usize,
+}
+
 /// Source identity inventory that precedes any attempt to construct classic
 /// Doom plane spans. These keys deliberately retain only the `R_FindPlane`
 ///-style grouping inputs visible in decoded sector data; they are not a
@@ -488,36 +539,12 @@ struct DoomSegDynamicSelectionInput {
     unsupported_textures: BTreeSet<String>,
 }
 
-/// Corpus-local source-spawn observer. This is a fixed visual evidence camera,
-/// not runtime player state, movement, collision, or an original-Doom claim.
-#[derive(Clone, Copy, Debug)]
-struct SpawnObserver {
-    position: Vec3,
-    forward: Vec3,
-    source_record: u32,
-    source_position: [i16; 2],
-    source_angle: u16,
-    sector: u32,
-    floor: i16,
-    ceiling: i16,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum DoomUseTraceResult {
     Special { distance: f64, linedef: u32 },
     BackSide { distance: f64, linedef: u32 },
     Blocked { distance: f64, linedef: u32 },
     NoIntercept,
-}
-
-/// Presentation-only look state for the opt-in source-spawn observer. It is
-/// deliberately not imported player orientation, runtime state, or input
-/// policy beyond this native evidence application.
-#[derive(Clone, Copy, Debug)]
-struct ObserverLook {
-    yaw: f32,
-    pitch: f32,
-    last_cursor: Option<[f32; 2]>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -534,6 +561,22 @@ enum CandidateSelection {
     /// source SEGs; flats follow leaves reached by the same traversal. This is
     /// deliberately not renderer visibility or historic pixel parity.
     DoomClassicBsp,
+}
+
+fn candidate_selection_label(
+    selection: CandidateSelection,
+    ordered_coverage_prepared: bool,
+) -> &'static str {
+    match (selection, ordered_coverage_prepared) {
+        (CandidateSelection::FullSubmission, false) => "global-full-submission",
+        (CandidateSelection::FullSubmission, true) => "prepared-full-submission",
+        (CandidateSelection::FrustumAabb, true) => "prepared-frustum-filtered",
+        (CandidateSelection::FrustumAabb, false) => "global-frustum-aabb",
+        (CandidateSelection::UniformGrid8x4x8, _) => "uniform-grid-8x4x8",
+        (CandidateSelection::DoomMembershipUnion, _) => "doom-membership-union",
+        (CandidateSelection::DoomSegPerColumn, _) => "doom-seg-per-column-dynamic",
+        (CandidateSelection::DoomClassicBsp, _) => "doom-seg-classic-dynamic",
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -747,6 +790,15 @@ fn main() -> PlatformResult<()> {
     let doom_seg_classic_context_presentation = args
         .iter()
         .any(|argument| argument == "--doom-seg-classic-context-presentation");
+    let doom_seg_ordered_coverage_report = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-ordered-coverage-report");
+    let doom_seg_ordered_coverage_pose_matrix = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-ordered-coverage-pose-matrix");
+    let doom_seg_ordered_coverage_presentation = args
+        .iter()
+        .any(|argument| argument == "--doom-seg-ordered-coverage-presentation");
     let doom_seg_clip_presentation = args
         .iter()
         .any(|argument| argument == "--doom-seg-clip-presentation");
@@ -766,6 +818,7 @@ fn main() -> PlatformResult<()> {
         doom_seg_classic_dynamic,
         doom_seg_classic_plane_presentation,
         doom_seg_classic_context_presentation,
+        doom_seg_ordered_coverage_presentation,
     ]
     .iter()
     .filter(|enabled| **enabled)
@@ -837,6 +890,9 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--doom-seg-classic-plane-span-trace");
     args.retain(|argument| argument != "--doom-seg-classic-plane-presentation");
     args.retain(|argument| argument != "--doom-seg-classic-context-presentation");
+    args.retain(|argument| argument != "--doom-seg-ordered-coverage-report");
+    args.retain(|argument| argument != "--doom-seg-ordered-coverage-pose-matrix");
+    args.retain(|argument| argument != "--doom-seg-ordered-coverage-presentation");
     args.retain(|argument| argument != "--doom-seg-clip-presentation");
     args.retain(|argument| argument != "--doom-seg-per-column-presentation");
     args.retain(|argument| argument != "--doom-seg-per-column-dynamic");
@@ -848,7 +904,7 @@ fn main() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -877,6 +933,14 @@ fn main() -> PlatformResult<()> {
     if doom_seg_classic_context_presentation && !spawn_observer {
         return Err(
             "--doom-seg-classic-context-presentation requires the source-spawn observer; omit --overview-camera"
+                .into(),
+        );
+    }
+    if (doom_seg_ordered_coverage_report || doom_seg_ordered_coverage_presentation)
+        && !spawn_observer
+    {
+        return Err(
+            "ordered coverage comparison requires the source-spawn observer; omit --overview-camera"
                 .into(),
         );
     }
@@ -956,6 +1020,39 @@ fn main() -> PlatformResult<()> {
         report_doom_seg_classic_plane_span_trace(&scene)?;
         return Ok(());
     }
+    if doom_seg_ordered_coverage_report {
+        let presentation = prepare_doom_seg_ordered_coverage_presentation(&scene)?;
+        eprintln!(
+            "E1M1 AR-0025 Slice 7 ordered-coverage report: wall-conservation=[retained-cells:{} reconstructed-triangles:{} lowered-triangles:{} source-degenerate-cells:{} source-unresolved-cells:{} lowering-degenerate-triangles:{} lowering-unresolved-triangles:{}]; grouped-wall-meshes={}; opaque-draws={}; cutout-draws={}; plane-conservation=[ordinary:{} reconstructed:{} rejected:{} lowered:{}]; sky-background-intervals={}; cutout-key-conservation={}/{}; coverage=[transitions:{} fail-open:{}]; degenerate-omissions={}; unresolved-contributions={}; samples={:?}; meaning=one-fixed-source-observation-lowered-to-complete-prepared-declarations",
+            presentation.retained_cells,
+            presentation.reconstructed_triangles,
+            presentation.lowered_wall_triangles,
+            presentation.source_degenerate_cells,
+            presentation.source_unresolved_cells,
+            presentation.lowering_degenerate_triangles,
+            presentation.lowering_unresolved_triangles,
+            presentation.grouped_wall_meshes,
+            presentation.opaque_draws.len(),
+            presentation.cutout_draws.len(),
+            presentation.ordinary_plane_intervals,
+            presentation.reconstructed_plane_quads,
+            presentation.rejected_plane_intervals,
+            presentation.lowered_plane_quads,
+            presentation.sky_plane_intervals,
+            presentation.lowered_cutout_keys,
+            presentation.source_cutout_keys,
+            presentation.coverage_transitions,
+            presentation.coverage_fail_open,
+            presentation.degenerate_omissions,
+            presentation.unresolved_cells,
+            presentation.samples,
+        );
+        return Ok(());
+    }
+    if doom_seg_ordered_coverage_pose_matrix {
+        report_doom_seg_ordered_coverage_pose_matrix(&scene)?;
+        return Ok(());
+    }
     if let Some(linedef) = wall_source_report {
         report_wall_source(&scene, linedef);
         return Ok(());
@@ -1006,6 +1103,36 @@ fn main() -> PlatformResult<()> {
         );
         scene.opaque_draws = presentation.draws;
         scene.cutout_draws.clear();
+    }
+    if doom_seg_ordered_coverage_presentation {
+        let presentation = prepare_doom_seg_ordered_coverage_presentation(&scene)?;
+        eprintln!(
+            "E1M1 AR-0025 Slice 7 ordered-coverage presentation: renderer-input=prepared-full-submission; wall-conservation=[retained-cells:{} reconstructed-triangles:{} lowered-triangles:{} source-degenerate-cells:{} source-unresolved-cells:{} lowering-degenerate-triangles:{} lowering-unresolved-triangles:{}]; grouped-wall-meshes={}; opaque-draws={}; cutout-draws={}; plane-conservation=[ordinary:{} reconstructed:{} rejected:{} lowered:{}]; sky-background-intervals={}; cutout-key-conservation={}/{}; coverage=[transitions:{} fail-open:{}]; degenerate-omissions={}; unresolved-contributions={}; samples={:?}; meaning=one-fixed-source-observation-lowered-to-complete-prepared-declarations",
+            presentation.retained_cells,
+            presentation.reconstructed_triangles,
+            presentation.lowered_wall_triangles,
+            presentation.source_degenerate_cells,
+            presentation.source_unresolved_cells,
+            presentation.lowering_degenerate_triangles,
+            presentation.lowering_unresolved_triangles,
+            presentation.grouped_wall_meshes,
+            presentation.opaque_draws.len(),
+            presentation.cutout_draws.len(),
+            presentation.ordinary_plane_intervals,
+            presentation.reconstructed_plane_quads,
+            presentation.rejected_plane_intervals,
+            presentation.lowered_plane_quads,
+            presentation.sky_plane_intervals,
+            presentation.lowered_cutout_keys,
+            presentation.source_cutout_keys,
+            presentation.coverage_transitions,
+            presentation.coverage_fail_open,
+            presentation.degenerate_omissions,
+            presentation.unresolved_cells,
+            presentation.samples,
+        );
+        scene.opaque_draws = presentation.opaque_draws;
+        scene.cutout_draws = presentation.cutout_draws;
     }
     let doom_seg_dynamic_selection = if doom_seg_per_column_dynamic || doom_seg_classic_dynamic {
         let selection = prepare_doom_seg_per_column_dynamic_scene(&mut scene)?;
@@ -1227,8 +1354,10 @@ fn main() -> PlatformResult<()> {
         mouse_captured: false,
         input: InputState::default(),
         comparative_embedding,
+        ordered_coverage_prepared: doom_seg_ordered_coverage_presentation,
         fixed_reconstruction_camera: doom_seg_classic_plane_presentation
-            || doom_seg_classic_context_presentation,
+            || doom_seg_classic_context_presentation
+            || doom_seg_ordered_coverage_presentation,
     };
     if door_resource_replay_report {
         report_door_resource_replay(&mut app)?;
@@ -3026,14 +3155,10 @@ impl PlatformEventHandler for App {
             self.cutout_draws.len(),
             self.include_cutouts,
             if self.spawn_observer.is_some() { "source-spawn-observer" } else { "overview" },
-            match self.candidate_selection {
-                CandidateSelection::FullSubmission => "full-submission",
-                CandidateSelection::FrustumAabb => "frustum-aabb",
-                CandidateSelection::UniformGrid8x4x8 => "uniform-grid-8x4x8",
-                CandidateSelection::DoomMembershipUnion => "doom-membership-union",
-                CandidateSelection::DoomSegPerColumn => "doom-seg-per-column-dynamic",
-                CandidateSelection::DoomClassicBsp => "doom-seg-classic-dynamic",
-            },
+            candidate_selection_label(
+                self.candidate_selection,
+                self.ordered_coverage_prepared,
+            ),
             self.walk_collision.is_some(),
             self.noclip,
             renderer.backend_api(),
@@ -3086,7 +3211,7 @@ impl PlatformEventHandler for App {
         if let PlatformInputEvent::MouseMotion { delta_x, delta_y } = event {
             if self.mouse_captured && !self.fixed_reconstruction_camera {
                 if let Some(look) = self.observer_look.as_mut() {
-                    apply_observer_look_delta(look, delta_x, delta_y);
+                    apply_look_delta(look, delta_x, delta_y);
                 }
             }
             return Ok(());
@@ -5001,6 +5126,106 @@ fn report_doom_seg_per_column_position_trace(scene: &SceneInput) -> PlatformResu
     Ok(())
 }
 
+/// Replays the Slice 7 ordered-coverage reconstruction over the established
+/// heading, declared-offset, and retained-failure poses. This remains a
+/// headless source-input matrix: it proves that partial wall and plane
+/// reconstruction remains bounded and attributable as the viewer changes,
+/// not that the resulting frames are visually correct or collision-valid.
+fn report_doom_seg_ordered_coverage_pose_matrix(scene: &SceneInput) -> PlatformResult<()> {
+    let map = &scene.door_geometry_source.map;
+    let source_triangles =
+        lower_doom_seg_textured_wall_triangles(map, &scene.door_geometry_source.wall_extents)?;
+    let eye_height = scene.spawn_observer.position.y as f64;
+    let plane_marks = observe_doom_seg_plane_marks(map, eye_height as i16)?;
+    let origin = scene.spawn_observer.source_position;
+    let source_heading = f64::from(scene.spawn_observer.source_angle);
+    let mut poses = Vec::new();
+    for heading_offset in [0.0, 90.0, 180.0, 270.0] {
+        poses.push((
+            format!("turn-{heading_offset:.0}"),
+            origin,
+            (source_heading + heading_offset).rem_euclid(360.0),
+        ));
+    }
+    for [offset_x, offset_y] in [[64, 0], [-64, 0], [0, 64], [0, -64], [128, 64]] {
+        poses.push((
+            format!("offset-{offset_x}-{offset_y}"),
+            [origin[0] + offset_x, origin[1] + offset_y],
+            source_heading,
+        ));
+    }
+    poses.extend([
+        (String::from("retained-near-wall-a"), [1202, -3502], -24.0),
+        (String::from("retained-near-wall-b"), [1296, -3427], -0.4),
+        (
+            String::from("retained-courtyard-loss"),
+            [1514, -2481],
+            -29.2,
+        ),
+    ]);
+
+    let mut total_wall_cells = 0usize;
+    let mut total_wall_triangles = 0usize;
+    let mut total_plane_cells = 0usize;
+    let mut total_plane_triangles = 0usize;
+    let mut total_degenerate_wall_cells = 0usize;
+    let mut total_unresolved_wall_cells = 0usize;
+    for (label, viewer, heading_degrees) in &poses {
+        let heading = heading_degrees.to_radians();
+        let traversal = observe_doom_seg_classic_bsp(map, *viewer, heading, &BTreeSet::new())?;
+        let vertical = observe_shared_doom_classic_vertical_clip_state(
+            map,
+            &source_triangles,
+            &plane_marks,
+            &traversal,
+            *viewer,
+            heading,
+            eye_height,
+        );
+        let walls = reconstruct_doom_ordered_wall_fragments(
+            map,
+            &source_triangles,
+            &vertical,
+            *viewer,
+            heading,
+            eye_height,
+        );
+        let planes = reconstruct_doom_seg_classic_plane_cells(
+            &vertical.plane_spans,
+            *viewer,
+            heading,
+            eye_height,
+        );
+        total_wall_cells += walls.retained_cells;
+        total_wall_triangles += walls.reconstructed_triangles.len();
+        total_plane_cells += planes.source_cells;
+        total_plane_triangles += planes.reconstructed_triangles;
+        total_degenerate_wall_cells += walls.degenerate_cells;
+        total_unresolved_wall_cells += walls.unresolved_cells;
+        println!(
+            "E1M1 AR-0025 Slice 7 ordered-coverage pose: label={label}; source-viewer=({},{}); source-heading-degrees={heading_degrees:.1}; admitted-segs={}; wall-cells={}; wall-triangles={}; degenerate-wall-cells={}; unresolved-wall-cells={}; plane-source-cells={}; plane-triangles={}; plane-rejections=[horizon:{} behind:{} degenerate:{}]; wall-samples={:?}; meaning=headless-source-pose-reconstruction-not-visual-correctness-or-navigation",
+            viewer[0],
+            viewer[1],
+            vertical.admitted_segs,
+            walls.retained_cells,
+            walls.reconstructed_triangles.len(),
+            walls.degenerate_cells,
+            walls.unresolved_cells,
+            planes.source_cells,
+            planes.reconstructed_triangles,
+            planes.horizon_rejections,
+            planes.behind_viewer_rejections,
+            planes.degenerate_rejections,
+            walls.samples,
+        );
+    }
+    println!(
+        "E1M1 AR-0025 Slice 7 ordered-coverage pose matrix: poses={}; total-wall-cells={total_wall_cells}; total-wall-triangles={total_wall_triangles}; total-degenerate-wall-cells={total_degenerate_wall_cells}; total-unresolved-wall-cells={total_unresolved_wall_cells}; total-plane-source-cells={total_plane_cells}; total-plane-triangles={total_plane_triangles}; matrix=spawn-four-headings-plus-five-declared-offsets-plus-three-retained-failures; movement-claim=none",
+        poses.len(),
+    );
+    Ok(())
+}
+
 /// Replays the retained interactive false-negative poses from AR-0025 Cycle
 /// 35. These are observation inputs, not navigation waypoints or a fix.
 fn report_doom_seg_per_column_failure_trace(scene: &SceneInput) -> PlatformResult<()> {
@@ -5786,15 +6011,12 @@ fn reconstruct_doom_seg_classic_plane_cells_with_height(
     result
 }
 
-/// Lowers the fixed source-spawn plane-cell trace into ordinary supplied-UV
-/// meshes. Grouping is by semantic plane key and retained source owner so the
-/// comparison does not allocate one renderer draw per diagnostic column. This
-/// remains a Doom corpus presentation control, not a renderer plane contract.
-fn prepare_doom_seg_classic_plane_presentation(
+fn observe_fixed_source_ordered_coverage(
     scene: &SceneInput,
-) -> PlatformResult<DoomSegClassicPlanePresentation> {
+) -> PlatformResult<(DoomSegClassicVerticalClipObservation, [i16; 2], f64, f64)> {
     let viewer = scene.spawn_observer.source_position;
     let heading = f64::from(scene.spawn_observer.source_angle).to_radians();
+    let eye_height = scene.spawn_observer.position.y as f64;
     let traversal = observe_doom_seg_classic_bsp(
         &scene.door_geometry_source.map,
         viewer,
@@ -5805,10 +6027,8 @@ fn prepare_doom_seg_classic_plane_presentation(
         &scene.door_geometry_source.map,
         &scene.door_geometry_source.wall_extents,
     )?;
-    let plane_marks = observe_doom_seg_plane_marks(
-        &scene.door_geometry_source.map,
-        scene.spawn_observer.position.y as i16,
-    )?;
+    let plane_marks =
+        observe_doom_seg_plane_marks(&scene.door_geometry_source.map, eye_height as i16)?;
     let vertical = observe_shared_doom_classic_vertical_clip_state(
         &scene.door_geometry_source.map,
         &lowerable_triangles,
@@ -5816,15 +6036,71 @@ fn prepare_doom_seg_classic_plane_presentation(
         &traversal,
         viewer,
         heading,
-        scene.spawn_observer.position.y as f64,
+        eye_height,
+    );
+    Ok((vertical, viewer, heading, eye_height))
+}
+
+fn count_plane_intervals(
+    spans: &DoomSegClassicPlaneSpanObservation,
+    predicate: impl Fn(&DoomSegClassicPlaneKey) -> bool,
+) -> usize {
+    spans
+        .keys
+        .iter()
+        .filter(|(key, _)| predicate(key))
+        .flat_map(|(_, instances)| instances)
+        .flat_map(|instance| &instance.columns)
+        .filter(|rows| rows.is_some())
+        .count()
+}
+
+fn prepare_doom_ordered_coverage_observation(
+    scene: &SceneInput,
+) -> PlatformResult<DoomOrderedCoveragePreparation> {
+    let (vertical, viewer, heading, eye_height) = observe_fixed_source_ordered_coverage(scene)?;
+    let source_triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let walls = reconstruct_doom_ordered_wall_fragments(
+        &scene.door_geometry_source.map,
+        &source_triangles,
+        &vertical,
+        viewer,
+        heading,
+        eye_height,
     );
     let reconstruction = reconstruct_doom_seg_classic_plane_cells(
         &vertical.plane_spans,
         viewer,
         heading,
-        scene.spawn_observer.position.y as f64,
+        eye_height,
     );
+    let ordinary_plane_intervals = count_plane_intervals(&vertical.plane_spans, |key| {
+        !(key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1")
+    });
+    let sky_plane_intervals = count_plane_intervals(&vertical.plane_spans, |key| {
+        key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1"
+    });
+    Ok(DoomOrderedCoveragePreparation {
+        vertical,
+        walls,
+        planes: reconstruction,
+        ordinary_plane_intervals,
+        sky_plane_intervals,
+    })
+}
 
+/// Lowers one already-observed fixed source-spawn plane-cell reconstruction
+/// into ordinary supplied-UV meshes. Grouping is by semantic plane key and
+/// retained source owner so the comparison does not allocate one renderer
+/// draw per diagnostic column. This remains a Doom corpus presentation
+/// control, not a renderer plane contract.
+fn lower_doom_seg_classic_plane_presentation(
+    scene: &SceneInput,
+    reconstruction: DoomSegClassicPlaneCellReconstruction,
+) -> PlatformResult<DoomSegClassicPlanePresentation> {
     let map = &scene.door_geometry_source.map;
     let mut subsector_by_seg = BTreeMap::new();
     for subsector in &map.subsectors {
@@ -5931,6 +6207,335 @@ fn prepare_doom_seg_classic_plane_presentation(
         grouped_meshes: draws.len(),
         triangles,
         draws,
+    })
+}
+
+fn prepare_doom_seg_classic_plane_presentation(
+    scene: &SceneInput,
+) -> PlatformResult<DoomSegClassicPlanePresentation> {
+    let (vertical, viewer, heading, eye_height) = observe_fixed_source_ordered_coverage(scene)?;
+    let reconstruction = reconstruct_doom_seg_classic_plane_cells(
+        &vertical.plane_spans,
+        viewer,
+        heading,
+        eye_height,
+    );
+    lower_doom_seg_classic_plane_presentation(scene, reconstruction)
+}
+
+fn doom_wall_role_key(role: DoomWallTextureRole) -> u8 {
+    match role {
+        DoomWallTextureRole::Upper => 0,
+        DoomWallTextureRole::Lower => 1,
+        DoomWallTextureRole::Middle => 2,
+    }
+}
+
+/// Reconstructs the provider's retained per-column wall cells into grouped
+/// ordinary meshes while preserving source and material identity. This is the
+/// explicit Slice 7 falsification candidate: it may prove that source-derived
+/// partial fragments are sufficient, or expose that the retained intervals are
+/// still incomplete. It is not the default E1M1 preparation path.
+fn prepare_doom_seg_ordered_coverage_presentation(
+    scene: &SceneInput,
+) -> PlatformResult<DoomSegOrderedCoveragePresentation> {
+    struct WallGroup {
+        source_seg: doom_map_provider::DoomSourceRecord,
+        source_linedef: doom_map_provider::DoomSourceRecord,
+        source_sidedef: doom_map_provider::DoomSourceRecord,
+        source_sector: doom_map_provider::DoomSourceRecord,
+        role: DoomWallTextureRole,
+        texture_name: String,
+        material: MaterialHandle,
+        cutout: bool,
+        positions: Vec<[f32; 3]>,
+        normals: Vec<[f32; 3]>,
+        texture_coordinates: Vec<[f32; 2]>,
+    }
+
+    let preparation = prepare_doom_ordered_coverage_observation(scene)?;
+    let DoomOrderedCoveragePreparation {
+        vertical,
+        walls: reconstruction,
+        planes: plane_reconstruction,
+        ordinary_plane_intervals,
+        sky_plane_intervals,
+    } = preparation;
+    let rejected_plane_intervals = plane_reconstruction.horizon_rejections
+        + plane_reconstruction.behind_viewer_rejections
+        + plane_reconstruction.degenerate_rejections;
+    if ordinary_plane_intervals
+        != plane_reconstruction.reconstructed_quads + rejected_plane_intervals
+    {
+        return Err(io::Error::other(format!(
+            "ordered coverage plane conservation failed: retained ordinary intervals={ordinary_plane_intervals}, reconstructed={}, rejected={rejected_plane_intervals}",
+            plane_reconstruction.reconstructed_quads,
+        ))
+        .into());
+    }
+    let reconstructed_plane_quads = plane_reconstruction.reconstructed_quads;
+    let planes = lower_doom_seg_classic_plane_presentation(scene, plane_reconstruction)?;
+    let lowered_plane_quads = planes.triangles / 2;
+    if lowered_plane_quads != reconstructed_plane_quads {
+        return Err(io::Error::other(format!(
+            "ordered coverage plane lowering lost contributions: reconstructed quads={reconstructed_plane_quads}, lowered quads={lowered_plane_quads}",
+        ))
+        .into());
+    }
+
+    let cutout_materials = scene
+        .cutout_draws
+        .iter()
+        .filter_map(|draw| match draw.source {
+            StaticDrawSource::Wall {
+                source_linedef,
+                source_sidedef,
+                role,
+                ..
+            } => Some((
+                (
+                    source_linedef.record_index,
+                    source_sidedef.record_index,
+                    doom_wall_role_key(role),
+                ),
+                draw.material,
+            )),
+            StaticDrawSource::Flat { .. } => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+    let retained_middle_segs = vertical
+        .ordered_wall_intervals
+        .iter()
+        .filter(|interval| {
+            interval.role == DoomWallTextureRole::Middle && interval.retained_interval.is_some()
+        })
+        .map(|interval| interval.source_seg)
+        .collect::<BTreeSet<_>>();
+    let source_cutout_keys = retained_middle_segs
+        .iter()
+        .filter_map(|source_seg| {
+            let seg = scene
+                .door_geometry_source
+                .map
+                .segs
+                .iter()
+                .find(|seg| seg.source.record_index == *source_seg)?;
+            let linedef = &scene.door_geometry_source.map.linedefs[usize::from(seg.linedef)];
+            let sidedef_index = match seg.direction {
+                0 => linedef.right_sidedef,
+                1 => linedef.left_sidedef,
+                _ => None,
+            }?;
+            let sidedef = &scene.door_geometry_source.map.sidedefs[usize::from(sidedef_index)];
+            let key = (
+                linedef.source.record_index,
+                sidedef.source.record_index,
+                doom_wall_role_key(DoomWallTextureRole::Middle),
+            );
+            cutout_materials.contains_key(&key).then_some(key)
+        })
+        .collect::<BTreeSet<_>>();
+    let extents = scene
+        .door_geometry_source
+        .wall_extents
+        .iter()
+        .map(|extent| (extent.name.as_str(), extent.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut groups = BTreeMap::<(u32, u32, u8, String, bool), WallGroup>::new();
+    let source_degenerate_cells = reconstruction.degenerate_cells;
+    let source_unresolved_cells = reconstruction.unresolved_cells;
+    let reconstructed_triangles = reconstruction.reconstructed_triangles.len();
+    if reconstructed_triangles % 2 != 0
+        || reconstruction.retained_cells
+            != reconstructed_triangles / 2 + source_degenerate_cells + source_unresolved_cells
+    {
+        return Err(io::Error::other(format!(
+            "ordered coverage wall reconstruction conservation failed: retained cells={}, reconstructed triangles={reconstructed_triangles}, source-degenerate cells={source_degenerate_cells}, source-unresolved cells={source_unresolved_cells}",
+            reconstruction.retained_cells,
+        ))
+        .into());
+    }
+    let mut lowering_unresolved_triangles = 0;
+    let mut lowering_degenerate_triangles = 0;
+    let mut samples = reconstruction.samples.clone();
+
+    for triangle in &reconstruction.reconstructed_triangles {
+        let role_key = doom_wall_role_key(triangle.role);
+        let cutout_key = (
+            triangle.source_linedef.record_index,
+            triangle.source_sidedef.record_index,
+            role_key,
+        );
+        let (material, cutout) = if let Some(material) = cutout_materials.get(&cutout_key) {
+            (*material, true)
+        } else if let Some(material) = scene
+            .door_geometry_source
+            .wall_materials
+            .get(&triangle.texture_name)
+        {
+            (*material, false)
+        } else {
+            lowering_unresolved_triangles += 1;
+            if samples.len() < 12 {
+                samples.push(format!(
+                    "seg={}:linedef={}:texture={}:reason=material-unresolved",
+                    triangle.source_seg.record_index,
+                    triangle.source_linedef.record_index,
+                    triangle.texture_name,
+                ));
+            }
+            continue;
+        };
+        let Some(extent) = extents.get(triangle.texture_name.as_str()).cloned() else {
+            lowering_unresolved_triangles += 1;
+            if samples.len() < 12 {
+                samples.push(format!(
+                    "seg={}:linedef={}:texture={}:reason=extent-unresolved",
+                    triangle.source_seg.record_index,
+                    triangle.source_linedef.record_index,
+                    triangle.texture_name,
+                ));
+            }
+            continue;
+        };
+        let lowered = match lower_static_seg_wall_triangle(triangle, extent) {
+            Ok(lowered) => lowered,
+            Err(StaticFlatLoweringError::DegenerateTriangle) => {
+                lowering_degenerate_triangles += 1;
+                if samples.len() < 12 {
+                    samples.push(format!(
+                        "seg={}:linedef={}:texture={}:omitted=degenerate-reconstructed-fragment",
+                        triangle.source_seg.record_index,
+                        triangle.source_linedef.record_index,
+                        triangle.texture_name,
+                    ));
+                }
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let key = (
+            triangle.source_seg.record_index,
+            triangle.source_sidedef.record_index,
+            role_key,
+            triangle.texture_name.clone(),
+            cutout,
+        );
+        let group = groups.entry(key).or_insert_with(|| WallGroup {
+            source_seg: triangle.source_seg,
+            source_linedef: triangle.source_linedef,
+            source_sidedef: triangle.source_sidedef,
+            source_sector: triangle.source_sector,
+            role: triangle.role,
+            texture_name: triangle.texture_name.clone(),
+            material,
+            cutout,
+            positions: Vec::new(),
+            normals: Vec::new(),
+            texture_coordinates: Vec::new(),
+        });
+        group.positions.extend(lowered.wall.mesh.positions);
+        group.normals.extend(lowered.wall.mesh.normals);
+        group
+            .texture_coordinates
+            .extend(lowered.wall.mesh.texture_coordinates);
+    }
+
+    let grouped_wall_meshes = groups.len();
+    let lowered_wall_triangles = groups
+        .values()
+        .map(|group| group.positions.len() / 3)
+        .sum::<usize>();
+    if reconstructed_triangles
+        != lowered_wall_triangles + lowering_degenerate_triangles + lowering_unresolved_triangles
+    {
+        return Err(io::Error::other(format!(
+            "ordered coverage wall lowering conservation failed: reconstructed triangles={reconstructed_triangles}, lowered triangles={lowered_wall_triangles}, lowering-degenerate triangles={lowering_degenerate_triangles}, lowering-unresolved triangles={lowering_unresolved_triangles}",
+        ))
+        .into());
+    }
+    let mut opaque_draws = planes.draws;
+    let mut cutout_draws = Vec::new();
+    for (_, group) in groups {
+        let mesh = Mesh::new(group.positions, group.normals)
+            .with_texture_coordinates(group.texture_coordinates)?;
+        let draw = StaticDrawPlanEntry {
+            source_label: format!(
+                "ordered-coverage-wall:{}:{}:{:?}:{}",
+                group.source_seg.record_index,
+                group.source_linedef.record_index,
+                group.role,
+                group.texture_name,
+            ),
+            source: StaticDrawSource::Wall {
+                source_linedef: group.source_linedef,
+                source_sidedef: group.source_sidedef,
+                source_sector: group.source_sector,
+                role: group.role,
+            },
+            mesh,
+            material: group.material,
+        };
+        if group.cutout {
+            cutout_draws.push(draw);
+        } else {
+            opaque_draws.push(draw);
+        }
+    }
+    let lowered_cutout_keys = cutout_draws
+        .iter()
+        .filter_map(|draw| match draw.source {
+            StaticDrawSource::Wall {
+                source_linedef,
+                source_sidedef,
+                role,
+                ..
+            } => Some((
+                source_linedef.record_index,
+                source_sidedef.record_index,
+                doom_wall_role_key(role),
+            )),
+            StaticDrawSource::Flat { .. } => None,
+        })
+        .collect::<BTreeSet<_>>();
+    if lowered_cutout_keys != source_cutout_keys {
+        let missing = source_cutout_keys
+            .difference(&lowered_cutout_keys)
+            .copied()
+            .collect::<Vec<_>>();
+        let fabricated = lowered_cutout_keys
+            .difference(&source_cutout_keys)
+            .copied()
+            .collect::<Vec<_>>();
+        return Err(io::Error::other(format!(
+            "ordered coverage cutout conservation failed: missing={missing:?}, fabricated={fabricated:?}",
+        ))
+        .into());
+    }
+
+    Ok(DoomSegOrderedCoveragePresentation {
+        opaque_draws,
+        cutout_draws,
+        retained_cells: reconstruction.retained_cells,
+        reconstructed_triangles,
+        lowered_wall_triangles,
+        source_degenerate_cells,
+        source_unresolved_cells,
+        lowering_degenerate_triangles,
+        lowering_unresolved_triangles,
+        grouped_wall_meshes,
+        ordinary_plane_intervals,
+        sky_plane_intervals,
+        reconstructed_plane_quads,
+        rejected_plane_intervals,
+        lowered_plane_quads,
+        source_cutout_keys: source_cutout_keys.len(),
+        lowered_cutout_keys: lowered_cutout_keys.len(),
+        coverage_transitions: vertical.ordered_coverage_transitions.len(),
+        coverage_fail_open: vertical.ordered_coverage_fail_open.len(),
+        degenerate_omissions: source_degenerate_cells + lowering_degenerate_triangles,
+        unresolved_cells: source_unresolved_cells + lowering_unresolved_triangles,
+        samples,
     })
 }
 
@@ -8065,55 +8670,6 @@ fn doom_membership_draw_selected(
     }
 }
 
-fn apply_observer_look_delta(look: &mut ObserverLook, delta_x: f32, delta_y: f32) {
-    // `look_at_rh` receives the source-world forward vector, whose horizontal
-    // view sign is opposite the screen-space cursor delta on the native path:
-    // moving right therefore subtracts yaw to turn the displayed view right.
-    // Moving down looks down. This is a first-person observer convention, not
-    // the AR-0021 model-orbit convention.
-    look.yaw -= delta_x * 0.0032;
-    look.pitch = (look.pitch - delta_y * 0.0024).clamp(-0.7, 0.7);
-}
-
-fn scene_camera(
-    size: [f32; 2],
-    center: Vec3,
-    radius: f32,
-    spawn_observer: Option<SpawnObserver>,
-    observer_look: Option<ObserverLook>,
-) -> Camera {
-    let mut camera = Camera::perspective_3d(size[0], size[1]);
-    // `Camera::perspective_3d` deliberately serves small corpus fixtures
-    // with a 100-unit far plane. E1M1's ordinary source coordinates span
-    // thousands of units, so this consumer owns an explicit overview
-    // projection rather than treating that convenience default as a
-    // renderer-wide Doom policy.
-    let aspect = size[0] / size[1].max(1.0);
-    camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
-        60.0_f32.to_radians(),
-        aspect,
-        (radius * 0.000_1).max(0.1),
-        radius * 4.0,
-    )
-    .expect("perspective parameters must be finite and ordered");
-    camera.view = if let (Some(observer), Some(look)) = (spawn_observer, observer_look) {
-        tokimu_core::math::try_view_look_at_rh(
-            observer.position,
-            observer.position + observer_direction(look.yaw, look.pitch) * 128.0,
-            Vec3::Y,
-        )
-        .expect("camera basis must be finite and non-degenerate")
-    } else {
-        tokimu_core::math::try_view_look_at_rh(
-            center + Vec3::new(radius, radius * 0.72, radius),
-            center,
-            Vec3::Y,
-        )
-        .expect("camera basis must be finite and non-degenerate")
-    };
-    camera
-}
-
 /// Builds the first Doom-owned sky presentation fixture. `SKY1` is a
 /// horizontal panorama in the source package, so this consumer places it on
 /// an enclosure rather than pretending the source marker is an ordinary flat
@@ -9699,7 +10255,7 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
     use super::{
-        apply_observer_look_delta, build_doom_sky_cylinder, candidate_is_selected,
+        build_doom_sky_cylinder, candidate_is_selected, candidate_selection_label,
         carry_observer_with_floor, finalize_doom_seg_classic_plane_spans,
         format_look_ray_observation, merge_solid_range, mesh_owning_side_visible,
         nearest_mesh_ray_hit, parse_source_look_ray, ray_triangle_distance,
@@ -9710,8 +10266,8 @@ mod tests {
         source_sky_sectors, summarize_grouped_aabb_selection, visible_column_runs,
         within_classic_use_range, CandidateSelection, CandidateSelectionSummary,
         DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
-        DoomSegClassicPlaneSpanObservation, ObserverLook, SourceBBoxProjection, SourceSegFacing,
-        SpawnObserver, UniformGridAabbIndex,
+        DoomSegClassicPlaneSpanObservation, SourceBBoxProjection, SourceSegFacing, SpawnObserver,
+        UniformGridAabbIndex,
     };
     use doom_geometry_provider::doom_point_to_tokimu;
     use doom_map_provider::{DoomLinedef, DoomSourceRecord, DoomVertex};
@@ -9723,6 +10279,26 @@ mod tests {
         StaticDrawFrustumRejection, StaticDrawSphere,
     };
     use tokimu::Mesh;
+
+    #[test]
+    fn candidate_labels_distinguish_global_and_prepared_submission_stages() {
+        assert_eq!(
+            candidate_selection_label(CandidateSelection::FullSubmission, false),
+            "global-full-submission"
+        );
+        assert_eq!(
+            candidate_selection_label(CandidateSelection::FullSubmission, true),
+            "prepared-full-submission"
+        );
+        assert_eq!(
+            candidate_selection_label(CandidateSelection::FrustumAabb, true),
+            "prepared-frustum-filtered"
+        );
+        assert_eq!(
+            candidate_selection_label(CandidateSelection::FrustumAabb, false),
+            "global-frustum-aabb"
+        );
+    }
 
     #[test]
     fn source_look_ray_parser_rejects_incomplete_and_stationary_rays() {
@@ -10086,23 +10662,6 @@ mod tests {
 
         let screen_right_yaw = source_yaw - std::f32::consts::FRAC_PI_2;
         assert!(observer_direction(screen_right_yaw, 0.0).dot(right) > 0.999_9);
-    }
-
-    #[test]
-    fn observer_look_uses_first_person_pointer_signs_and_bounded_pitch() {
-        let mut look = ObserverLook {
-            yaw: 0.0,
-            pitch: 0.0,
-            last_cursor: None,
-        };
-
-        apply_observer_look_delta(&mut look, 100.0, -100.0);
-        assert!(look.yaw < 0.0);
-        assert!(look.pitch > 0.0);
-        assert!(observer_direction(look.yaw, 0.0).dot(observer_right(Vec3::Z)) > 0.0);
-
-        apply_observer_look_delta(&mut look, 0.0, -10_000.0);
-        assert_eq!(look.pitch, 0.7);
     }
 
     #[test]

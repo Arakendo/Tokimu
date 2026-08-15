@@ -8,7 +8,7 @@
 | Parent review | AR-0025 (closed; post-close Doom evidence continues) |
 | Controlling plan | [DOOM WAD Checklist](../DOOM%20WAD%20Checklist.md) |
 | Proposed corpus target | `corpus/campaigns/doom/hello-doom-visibility-conformance/` |
-| Next action | Implement Slice 4B's source-informed ordered wall/plane coverage trace, realize the retained partial-coverage runs as Doom-owned presentation fragments, and pass its negative controls before returning to E1M1. |
+| Next action | Retain the structurally conserved but visually falsified prepared-full checkpoint; apply ADR-0015 through a behavior-preserving private-module decomposition before resuming the fixed-spawn A/B investigation. |
 
 ## Problem
 
@@ -823,53 +823,155 @@ surviving source-labelled fragments become ordinary presentation declarations
 It is not a public pixel-span API, renderer scissor contract, or generic
 occlusion service.
 
-- [ ] Add a bounded provider-local ordered-coverage trace whose input is the
+- [x] Add a bounded provider-local ordered-coverage trace whose input is the
       already admitted near-to-far source SEG/tier sequence and whose output
       retains, per diagnostic column, the upper bound, lower bound, plane-mark
       intervals, source identity, and reason for every state transition.
-  - [ ] Prove a one-sided middle wall closes both applicable bounds and that a
+  - [x] Prove a one-sided middle wall closes both applicable bounds and that a
         later far wall or plane cannot re-enter the closed interval.
-  - [ ] Prove two-sided upper and lower tiers update their respective bounds
+  - [x] Prove two-sided upper and lower tiers update their respective bounds
         independently while the opening remains available to farther source
         contributions.
-  - [ ] Fail open with an explicit reason when projection, vertical ordering,
+  - [x] Fail open with an explicit reason when projection, vertical ordering,
         or source ownership is unresolved; never convert uncertainty into a
         closed interval.
-- [ ] Add a paired-sky protocol differential using identical geometry and
+    - [x] Retain projection failures, including viewer-plane and finite-SEG
+          edge-ray failures, without mutating the diagnostic columns.
+    - [x] Retain missing plane-mark and missing SEG ownership independently,
+          without inventing source identity or coverage.
+    - [x] Determine whether an actually reachable unresolved vertical-order
+          case exists without manufacturing ambiguity from valid closed-column
+          state. None exists in the bounded protocol: source heights are
+          integral, admitted projection has positive finite depth, and the row
+          mapping consequently produces finite ordered endpoints. A column
+          whose upper bound has crossed its lower bound is already validly
+          closed source state, not unresolved ordering. No dead fail-open
+          variant or artificial fixture is added; reopen only if a future
+          runtime-height or source-format caller can supply genuinely
+          indeterminate vertical order.
+
+Initial Slice 4B evidence (2026-08-15):
+
+- `DoomSegClassicVerticalClipObservation` now retains ordered, source-labelled
+  bound/plane transitions and bounded fail-open observations. These remain
+  provider-local diagnostics, not renderer spans, scissors, or scheduling.
+- The one-sided control forces a farther source SEG through the vertical stage
+  after near closure and proves that it cannot reopen any closed column.
+- The two-sided aperture control proves independent upper/lower evolution and
+  retained opening availability. Rounded finite-SEG edge cells are explicitly
+  `RaySegmentDepthUnresolved` and leave state unchanged.
+- Viewer-plane projection, missing plane-mark authority, and orphaned SEG
+  identity are explicit fail-open controls. Review found no reachable
+  unresolved vertical-order state in the bounded typed input; valid closed
+  columns remain terminal source state rather than being relabelled as
+  uncertainty.
+- Validation: `cargo test -p hello-doom-visibility-conformance --lib --quiet`
+  (60 passed) and `cargo test -p doom-geometry-provider --lib --quiet`
+  (35 passed).
+- [x] Add a paired-sky protocol differential using identical geometry and
       traversal order for one-sky and paired-sky cases. Assert the changed
       upper-bound/plane-mark facts directly and assert that neither result
       invents a world-space hidden depth wall.
-- [ ] Add a terminal-sky fixture with three ordered roles: a valid near
+      The paired case retains a non-mutating `PairedSkyBoundaryRetained`
+      transition while the one-sky control retains ordinary
+      `CeilingPlaneMarked` authority. Geometry and traversal remain identical;
+      neither case mutates clip bounds or creates hidden world-depth authority.
+- [x] Add a terminal-sky fixture with three ordered roles: a valid near
       hut-like contribution, a bounded retained sky-plane interval, and an
       unrelated farther contribution.
-  - [ ] Require the near contribution to survive where source order admits it.
-  - [ ] Require the farther contribution not to enter the terminal sky
+  - [x] Require the near contribution to survive where source order admits it.
+  - [x] Require the farther contribution not to enter the terminal sky
         interval after the ordered source protocol has closed it.
-  - [ ] Repeat with a small deterministic camera jitter and retain every
+        The closing authority is the earlier ordinary upper wall tier, not sky
+        identity. The retained sky interval consumes that already-established
+        coverage and the far raw overlap cannot re-enter it.
+  - [x] Repeat with a small deterministic camera jitter and retain every
         explained boundary transition.
-- [ ] Realize the existing `partial-paired-sky-far-control` result as two
+        The same identities and causal transition sequence survive a fixed
+        `+2` source-X viewer jitter.
+- [x] Realize the existing `partial-paired-sky-far-control` result as two
       Doom-owned presentation fragments for the same far source SEG:
-      `[112,119]` and `[201,208]`, with `[120,200]` excluded by the nearer
+      `[112,119]` and `[201,207]`, with `[120,200]` excluded by the nearer
       source interval.
-  - [ ] Preserve linedef, sidedef, SEG, wall-tier, and continuous source-UV
+      The earlier `[201,208]` estimate was corrected when the actual finite
+      source SEG was clipped: its last covered diagnostic column is `207`.
+  - [x] Preserve linedef, sidedef, SEG, wall-tier, and continuous source-UV
         correspondence across both surviving fragments.
-  - [ ] Retain a negative Boolean selector result proving that whole-source
+        The realized intervals are exactly `[0,1/12]` and `[11/12,1]` of the
+        linedef. Both fragments retain the same SEG/linedef/sidedef/sector,
+        side, tier, texture, and continuous source-U progression.
+  - [x] Retain a negative Boolean selector result proving that whole-source
         keep loses the excluded overlap and whole-source reject loses both
         required survivor runs.
-- [ ] Re-run the deliberate far-first traversal control against the new trace.
+        Whole keep admits all `81` excluded overlap cells; whole reject loses
+        all `15` required survivor cells.
+- [x] Re-run the deliberate far-first traversal control against the new trace.
       It must reject the invalid protocol order or retain the precisely named
       changed result; collection order may not silently substitute for Doom's
       required near-first traversal.
-- [ ] Retain a short reference-evidence mapping from the extracted invariant to
+      The negative control reverses admitted SEG order from `[0,1]` to `[1,0]`.
+      The first transition provenance consequently changes from SEG `0` to SEG
+      `1`; both traces retain `369` transitions and `96` far-wall cells because
+      paired-sky plane retention is deliberately non-mutating. This is the
+      precise changed result, not a fabricated geometry difference.
+- [x] Retain a short reference-evidence mapping from the extracted invariant to
       the inspected classic Doom and faithful-port wall/plane paths. Record
       behavior and ordering only; do not claim exact fixed-point, visplane, or
       framebuffer parity.
-- [ ] Add small native presentation only after the corresponding headless
+      The targeted classic-source checkpoint below maps near-first admission to
+      `R_RenderBSPNode`/`R_CheckBBox`/`R_AddLine`, evolving wall and plane bounds
+      to `R_StoreWallRange`/`R_RenderSegLoop`, and downstream sky painting to
+      `R_DrawPlanes`. Chocolate Doom is retained only as an independent faithful
+      behavior/order control; no historic arrays or raster details are claimed.
+- [x] Add small native presentation only after the corresponding headless
       trace passes. Use legible source-role colors and ordinary Tokimu draws;
       do not revive the falsified world-space sky-depth boundary as the
       authority.
-- [ ] Add Browser WebGPU observation only after native semantic and
+  - [x] Implement `ordered_coverage_presentation`: a visible green near-source
+        authority plus two orange ordinary meshes realized from the retained
+        far SEG fragments. The renderer receives neither Doom diagnostic
+        columns nor scissor vocabulary.
+  - [x] Prove the fixture uses each fragment's actual triangulation rather than
+        coercing both retained source portions into convenient quads.
+  - [x] Retain the native first/warm/jitter observation and visual review.
+        Manual review on 2026-08-15 showed the green near authority occupying
+        the excluded middle interval and the orange far SEG surviving only as
+        two edge fragments. First, warm, and jitter frames retained four
+        draws, four material resolutions, two pipeline switches, no backend
+        diagnostic, and zero warm/jitter mesh uploads or replacements.
+- [x] Add Browser WebGPU observation only after native semantic and
       presentation evidence pass, retaining semantic rather than pixel parity.
+  - [x] Add the same ordered-coverage mode to the Rust-owned browser fixture
+        selector and compile it for `wasm32-unknown-unknown`.
+  - [x] Retain the Browser WebGPU first/warm/jitter observation and visual
+        review after the native observation passes.
+        Manual review on 2026-08-15 showed the same semantic role structure as
+        native: green near authority in the excluded middle and two orange
+        far-source edge fragments. First, warm, and jitter frames retained four
+        draws; warm and jitter retained zero mesh uploads or replacements.
+        The browser reported `browser-webgpu`, a `960x600` canvas, and semantic
+        rather than pixel-identical comparison scope.
+
+Presentation implementation evidence (2026-08-15):
+
+- The native and browser fixtures both draw a visible near-authority control
+  and two independently uploaded far-source fragment meshes. Both far meshes
+  are derived from the same source SEG and retain their actual clipped
+  triangles; they are not screen rectangles synthesized by the renderer.
+- Native bin validation passes (`1` test); the full fixture package passes its
+  `60` library tests plus all binary tests. The provider retains `35` passing
+  library tests.
+- `cargo check -p hello-doom-visibility-conformance-web --target
+  wasm32-unknown-unknown` passes. Actual Browser WebGPU presentation also
+  retains the same source SEG, excluded interval `[0.083333,0.916667]`, left
+  source interval `[0,0.083333]`, right source interval
+  `[0.916667,1]`, and `3/3` realized fragment triangles as native.
+- Strict native Clippy passes for the changed provider and fixture packages.
+  Strict WASM-target Clippy reaches the browser crate but remains red on
+  pre-existing target-specific `tokimu-platform` (`let_unit_value`) and
+  `tokimu-render` (`arc_with_non_send_sync`) findings; ordinary WASM target
+  compilation is green, and this Slice does not suppress or repair those
+  unrelated workspace findings.
 
 ### Deliverables
 
@@ -1143,6 +1245,34 @@ charge those existing core target-lint findings to the source fixtures.
 
 ## Slice 7 — E1M1 Escalation Gate
 
+### Three-stage comparison
+
+Slice 7 compares three deliberately separate dataflows. The word "full" must
+identify which declaration domain is being submitted:
+
+| Label | Dataflow | Purpose |
+| --- | --- | --- |
+| `global-full-submission` | Original global E1M1 shell -> `tokimu-render` | Independent correctness control. |
+| `prepared-full-submission` | One Slice 4B Doom ordered observation -> every retained wall, ordinary plane, sky interval, and cutout contribution -> ordinary Tokimu declarations -> `tokimu-render` | Tests whether source-faithful preparation is expressive and complete. |
+| `prepared-frustum-filtered` | Prepared-full output -> conservative AABB/frustum filter -> `tokimu-render` | Later AR-0030 Alternative-F experiment; it cannot repair source preparation. |
+
+The first Slice 7 implementation was a hybrid and is not evidence against
+Slice 4B. Walls and planes independently recomputed similar source protocol,
+while all global-shell cutouts bypassed preparation as a fallback. The renderer
+then full-submitted that mixed result. Missing floors from that run therefore
+demonstrated pipeline incoherence, not a failure of ordered coverage.
+
+An earlier suspicion that this hybrid mixed final-frame `PreserveNorth` and
+`CurrentReflected` embeddings was also walked back after tracing the shared
+internal/base representation and final re-embedding. The retained defect is
+the incoherent preparation path, not a proven final-frame embedding mismatch.
+
+Prepared-full submission must conserve semantic contributions before visual
+comparison. Raw triangle counts may change during lowering, but every retained
+wall fragment, floor interval, ceiling interval, sky interval, and cutout
+contribution must reach a named lowering destination or a bounded named
+omission. Generic filtering is forbidden until this balance holds.
+
 ### Targeted classic-source checkpoint
 
 The 2026-08-14 E1M1 reruns falsified both ordinary world-depth variants of
@@ -1182,9 +1312,11 @@ world-space occluder.
       `partial-paired-sky-far-control` makes one far source SEG wider than a
       nearer paired-sky interval. Its shared provider observation retains both
       overlapping columns and far-only columns for the same far source SEG.
-      The headless result is `81` paired-sky columns and `97` far-wall columns:
+      The headless result is `81` paired-sky columns and `96` finite far-wall
+      columns:
       overlap `[120,200]` is one `81`-column run, while required survivors
-      `[112,119]` and `[201,208]` are two eight-column runs. Keeping that SEG
+      `[112,119]` and `[201,207]` are one eight-column and one seven-column run.
+      Keeping that SEG
       whole cannot encode the excluded overlap; rejecting it loses the two
       required survivor runs. Whole-SEG candidate selection is therefore
       falsified at this boundary. A subsequent experiment must retain
@@ -1205,12 +1337,53 @@ world-space occluder.
       `--doom-seg-*` experimental flag and reports its `candidate_selection`
       identity in first-frame metadata; no flag or UI control silently selects
       a candidate as the normal E1M1 presentation.
-- [ ] Re-run the canonical E1M1 pose/path matrix only after all applicable
-      guards pass.
-- [ ] Retain source identities for any remaining E1M1-only failure and decide
-      whether it requires a new synthetic fixture.
+- [x] Re-run the canonical E1M1 pose/path matrix only after all applicable
+      guards pass. The labelled ordered-coverage reconstruction now covers four
+      source-spawn headings, five declared source-coordinate offsets, and the
+      three retained AR-0025 loss poses. Across the 12 poses it retained 6,843
+      wall cells, reconstructed 13,590 wall triangles, retained 437,174 plane
+      source cells and reconstructed 19,588 plane triangles with zero
+      unresolved wall cells. These declared offsets are presentation probes,
+      not claims that collision-valid gameplay reached each pose.
+- [x] Retain source identities for any remaining E1M1-only failure and decide
+      whether it requires a new synthetic fixture. The matrix isolated 48
+      zero-height middle-tier cells to SEG 18 / linedef 156 at the retained
+      courtyard pose. A provider regression proves that the source tier has
+      equal top and bottom heights and therefore cannot produce visible
+      triangles. The cells are retained as explicit degenerate omissions; no
+      new semantic fixture is warranted. At fixed source spawn, the only later
+      application-level omission is one zero-area fragment from SEG 321 /
+      linedef 52 (`STARTAN3`), also retained rather than treated as unresolved
+      source coverage.
 - [ ] Compare full submission and the candidate without accepting visual loss
       for lower draw counts.
+- [x] Audit the initial Slice 7 candidate dataflow and classify it as hybrid:
+      separately recomputed wall/plane observations plus a global cutout
+      fallback. Do not use its missing floors as evidence against Slice 4B.
+- [x] Derive walls and planes from one fixed-view ordered vertical-coverage
+      observation before either contribution family is lowered.
+- [x] Remove the global cutout bypass. Derive cutout identities only from
+      retained middle-tier contributions in the same ordered observation and
+      reject missing or fabricated lowering identities.
+- [x] Add fail-closed contribution accounting for wall reconstruction/lowering,
+      ordinary plane reconstruction/lowering, and cutout identities. Sky
+      intervals remain separately counted because they lower to background
+      presentation rather than ordinary plane meshes.
+- [ ] Retain manual fixed-source-spawn native observations for both
+      `global-full-submission` and `prepared-full-submission`; visual loss in B
+      remains a source-preparation finding even when all lowering conservation
+      checks pass.
+- [x] Retain the first corrected `prepared-full-submission` fixed-source-spawn
+      observation. Contribution conservation passed, but the presented frame
+      still omitted required geometry around the spawn-room floor and wall
+      boundaries. This falsifies the current ordered observation as complete;
+      it does not identify an unexplained lowering loss or a renderer failure.
+      The observed title count was `53` total draws, including presentation
+      draws outside the `52` opaque prepared contributions reported by the
+      structural balance.
+- [ ] After B passes structural and visual comparison, run
+      `prepared-frustum-filtered` as a separate conservative post-preparation
+      experiment. Do not use it to compensate for B.
 - [x] Require the five frontier guards—presentation-instance identity,
       vertical partial occlusion, stationary dynamics, projection epsilon, and
       camera jitter—to pass before returning to the current hut/door/spawn
@@ -1218,11 +1391,154 @@ world-space occluder.
       and Browser WebGPU first/warm/jitter observations. This gate authorizes
       the labelled E1M1 falsification run that exposed the world-space sky
       model's failure; it does not authorize another E1M1 candidate by itself.
-- [ ] Require Slice 4B's ordered wall/plane coverage trace, paired-sky
+- [x] Require Slice 4B's ordered wall/plane coverage trace, paired-sky
       differential, terminal-sky near/far control, and partial-fragment
       realization to pass before the next E1M1 presentation candidate runs.
       The previously green frontier guards remain necessary but are no longer
-      sufficient after source inspection changed the causal model.
+      sufficient after source inspection changed the causal model. All named
+      headless Slice 4B guards, target implementations, and bounded manual
+      native and Browser WebGPU observations now pass. This authorizes the next
+      labelled E1M1 falsification candidate; it does not make that candidate a
+      default or admit Doom coverage vocabulary into `tokimu-render`.
+
+### Slice 7 prepared-full-submission evidence
+
+The corrected candidate consumes one Doom-owned ordered observation for wall
+and plane preparation, reconstructs retained source fragments as ordinary
+source-labelled meshes, and derives masked-middle participation from that same
+observation. It does not expose Doom columns, SEGs, or coverage vocabulary to
+`tokimu-render`.
+
+The fixed-source-spawn headless conservation run currently reports:
+
+```text
+wall retained cells:                  822
+wall reconstructed triangles:      1,644
+wall lowered triangles:             1,643
+wall source-degenerate cells:           0
+wall source-unresolved cells:           0
+wall lowering-degenerate triangles:     1
+wall lowering-unresolved triangles:     0
+grouped wall meshes:                   31
+ordinary plane intervals:           1,105
+reconstructed plane quads:          1,105
+rejected plane intervals:               0
+lowered plane quads:                1,105
+sky background intervals:               0
+prepared/lowered cutout keys:         0/0
+coverage transitions:               2,489
+coverage fail-open observations:       99
+opaque draws:                           52
+cutout draws:                            0
+```
+
+The one lowering-degenerate wall triangle retains SEG 321 / linedef 52
+(`STARTAN3`) as a named omission. Zero sky intervals and zero cutout keys are
+facts about this fixed indoor source-spawn observation, not general claims that
+the preparation model has no sky or cutout contributions. The earlier 26
+cutout draws were global-shell leakage and are intentionally absent.
+
+These balances prove only that the retained observation reaches ordinary
+renderer declarations without unexplained loss. They do not prove that the
+ordered observation itself retained every surface required by the canonical
+view. The manual A/B comparison remains the correctness gate; lower draw count
+alone is not favorable evidence.
+
+The first corrected native B observation confirms that distinction: despite
+the balanced lowering report, required spawn-room geometry is visibly absent.
+The B candidate therefore remains falsified at the source-preparation stage.
+Do not use generic AABB/frustum filtering, global-shell fallback, or renderer
+patches to compensate for this loss.
+
+This observation is also the semantic checkpoint for ADR-0015's first required
+verification campaign. `static_scene.rs` is 11,088 lines and has become a convergence
+point for several independently meaningful experiments and controls. Further
+substantial semantic repair should follow a separately reviewed,
+behavior-preserving private-module decomposition that reproduces this exact
+passing structural balance and visible falsification before investigation
+resumes. Decomposition must not make the frame look better accidentally or
+move Doom ownership into `tokimu-render`.
+
+#### ADR-0015 pilot — observer responsibility extraction
+
+The first private-module pilot preserves the checkpoint before any Slice 7
+semantic repair:
+
+```text
+src/bin/static_scene/observer.rs
+    owns: source-spawn observer identity, presentation-only look deltas,
+          and corpus camera construction
+    inputs: retained source-derived observer data; pointer deltas; viewport,
+            overview center/radius, and source-direction conversion
+    outputs: observer state and a `Camera` used by the corpus application
+    excludes: input policy, movement, collision, Doom runtime state,
+              candidate preparation, renderer declarations, and public API
+```
+
+`static_scene.rs` remains the executable composition root. The extracted
+module is private (`pub(super)`) and adds no public-contract change. It depends
+only on the Doom corpus library's source-direction helper plus Tokimu's public
+`Camera` and owned `Vec3`; it does not reach into `App`, renderer backend,
+runtime state, or presentation preparation. The root still owns window events
+and all source/presentation experiments. This is therefore a
+subject-directory/responsibility-module split, not a line-count bucket or a new
+shared observer subsystem.
+
+The root was 11,088 lines at the checkpoint; after this bounded extraction it
+is 11,003 lines, with 109 lines in the dedicated observer module (including
+its directly co-located invariant test). The modest
+reduction is intentional: ADR-0015 requires a cohesive, behavior-preserving
+seam before larger decomposition, not a cosmetic file-size target.
+
+Verification retained:
+
+- `cargo fmt --all`;
+- `cargo test -p hello-doom-e1m1 --bin static_scene` — 34 passing tests,
+  including the first-person pointer-sign/bounded-pitch observer regression
+  and source-heading/look conventions;
+- `cargo clippy -p hello-doom-e1m1 --bin static_scene -- -D warnings`.
+- `cargo check -p hello-doom-e1m1 --lib --target wasm32-unknown-unknown`.
+
+The executable itself is a native-window corpus target and is not a WASM entry
+surface; its direct WASM build remains inapplicable because it imports the
+native `run_window_with_app` lifecycle. The successful library target check is
+the relevant non-native boundary evidence for this extraction, not a claim of
+browser execution for `static_scene`.
+
+The prepared-full structural balance and its known missing-geometry visual
+falsification are deliberately unchanged and remain the Slice 7 checkpoint.
+This pilot does not claim the candidate is repaired. The post-extraction
+coupling review found one narrow root-to-module relationship (the executable
+consumes observer state and requests its camera); no child module reaches into
+application state and no renderer or Ring 0 ownership moved.
+
+##### Follow-up ADR-0015 extraction order
+
+The observer pilot demonstrates a real subject/responsibility seam, but does
+not make the 11K-line composition cohesive. The next groups are deliberately
+ordered so private reorganization remains distinguishable from the active Slice
+7 visibility result:
+
+- [x] **Observer/view** — source-spawn camera identity, look delta, corpus
+      camera realization, and its directly-owned regression.
+- [ ] **Source presentation preparation** — the ordered wall/plane/sky/cutout
+      observation types and preparation helpers. This is the highest-value
+      next seam, but must move as one private `presentation` subject only after
+      retaining the current prepared-full structural balance and its visible
+      missing-geometry falsification.
+- [ ] **Candidate selection** — global/full, prepared/full, and optional
+      conservative generic filtering helpers, including their invariant tests.
+      It must remain downstream of source preparation and cannot be used to
+      compensate for a source-presentation loss.
+- [ ] **Interactive diagnostics and controls** — bounded console commands,
+      report formatting, native input, collision, and activation orchestration.
+      These remain corpus-local application mechanics, not renderer or Doom
+      provider authority.
+
+Each group requires a separate coupling inventory and the same focused native
+and library-WASM checks before the next semantic repair. No directory or public
+API is created in advance: `presentation`, `candidate_selection`, and
+`diagnostics` become modules only when the moved responsibility is concrete.
 
 ### Deliverables
 
