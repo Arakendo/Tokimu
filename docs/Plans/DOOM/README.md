@@ -7,7 +7,8 @@
 | Boundary study | [DOOM TypeScript Boundary Stress Plan](DOOM%20TypeScript%20Boundary%20Stress%20Plan.md) |
 | Readiness audit | [DOOM WAD Implementation Readiness Audit](DOOM%20WAD%20implementation%20readiness%20audit.md) |
 | Active study | [Viewer-Relative Presentation Synthetic Conformance](Studies/Doom%20viewer-relative%20presentation%20synthetic%20conformance.md) |
-| Next action | Complete the viewer-relative study's shared Doom-provider seam, then begin its synthetic builder |
+| Candidate study | [Source-Topology Admission Over Complete Geometry](Studies/Doom%20source-topology%20admission%20over%20complete%20geometry.md) |
+| Next action | Review, then begin the topology-admission study by freezing the global-full control and inventorying original source-labelled contributions |
 
 This campaign uses Doom as architecture-driving corpus pressure without making
 the renderer, Resource Space, or Native Ring own Doom-specific semantics.

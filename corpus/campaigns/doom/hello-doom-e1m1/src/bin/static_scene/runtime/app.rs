@@ -7,6 +7,72 @@
 use super::super::*;
 
 impl App {
+    fn refresh_ordered_coverage_for_observer(&mut self) -> PlatformResult<()> {
+        let (Some(source), Some(observer), Some(look)) = (
+            self.ordered_coverage_source.as_ref(),
+            self.spawn_observer,
+            self.observer_look,
+        ) else {
+            return Ok(());
+        };
+        let (source_position, source_heading_radians) =
+            observer_doom_source_pose(observer, look, self.comparative_embedding);
+        let view = DoomOrderedCoverageView {
+            source_position,
+            source_heading_radians,
+            eye_height: f64::from(observer.position.y),
+        };
+        if self.ordered_coverage_view.is_some_and(|previous| {
+            previous.source_position == view.source_position
+                && (previous.source_heading_radians - view.source_heading_radians).abs() < 1.0e-5
+                && (previous.eye_height - view.eye_height).abs() < 1.0e-5
+        }) {
+            return Ok(());
+        }
+
+        let mut presentation =
+            prepare_doom_seg_ordered_coverage_presentation_for_view(source, view)?;
+        reembed_draws_for_comparison(&mut presentation.opaque_draws, self.comparative_embedding);
+        reembed_draws_for_comparison(&mut presentation.cutout_draws, self.comparative_embedding);
+
+        self.draws = presentation.opaque_draws;
+        self.cutout_draws = presentation.cutout_draws;
+        self.opaque_bounds = draw_bounds(&self.draws);
+        self.cutout_bounds = draw_bounds(&self.cutout_draws);
+        self.opaque_grid = self
+            .opaque_grid
+            .as_ref()
+            .and_then(|_| UniformGridAabbIndex::build(&self.opaque_bounds, [8, 4, 8]));
+        self.cutout_grid = self
+            .cutout_grid
+            .as_ref()
+            .and_then(|_| UniformGridAabbIndex::build(&self.cutout_bounds, [8, 4, 8]));
+        self.opaque_selected = vec![true; self.draws.len()];
+        self.cutout_selected = vec![true; self.cutout_draws.len()];
+        self.opaque_draw_enabled = vec![true; self.draws.len()];
+        self.dynamic_door_draws.clear();
+        self.dynamic_door_mesh_handles.clear();
+        self.dirty_opaque_meshes.clear();
+        self.commands.clear();
+        self.ordered_coverage_view = Some(view);
+
+        if let Some(mut renderer) = self.renderer.take() {
+            self.upload_static_meshes(&mut renderer);
+            self.renderer = Some(renderer);
+        }
+        eprintln!(
+            "E1M1 ordered preparation refreshed: source=({},{}); heading_degrees={:.3}; eye_height={:.3}; opaque_draws={}; cutout_draws={}; submission={}",
+            view.source_position[0],
+            view.source_position[1],
+            view.source_heading_radians.to_degrees(),
+            view.eye_height,
+            self.draws.len(),
+            self.cutout_draws.len(),
+            candidate_selection_label(self.candidate_selection, true),
+        );
+        Ok(())
+    }
+
     fn set_mouse_captured(&mut self, captured: bool) {
         let Some(window) = self.window.as_ref() else {
             return;
@@ -1563,6 +1629,7 @@ impl PlatformEventHandler for App {
         }
         self.advance_active_manual_doors(delta_seconds);
         self.advance_active_moving_floors(delta_seconds);
+        self.refresh_ordered_coverage_for_observer()?;
         let frame_started = Instant::now();
         let mut camera = scene_camera(
             self.size,

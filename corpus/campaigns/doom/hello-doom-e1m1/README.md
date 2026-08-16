@@ -18,6 +18,32 @@ cargo run -p hello-doom-e1m1 --bin hello-doom-e1m1 -- `
 cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD
 
+# Slice 7 A/B/C render-strategy comparison. A submits the original global
+# scene. B submits every declaration retained by one coherent Doom ordered
+# preparation. C runs that same B preparation first, then applies the generic
+# conservative frustum/AABB filter to its output. B and C now rebuild that
+# Doom-owned preparation from the live observer pose as the camera moves. B
+# full-submits every surviving prepared declaration; C applies the generic
+# filter only afterward. Both remain experimental while their known
+# missing-edge geometry is under investigation; neither is the normal E1M1
+# presentation profile.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --render-strategy=a
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --render-strategy=b
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --render-strategy=c
+
+# For interactive B inspection, click the window to capture mouse look, use
+# WASD to move (Shift runs), and press Escape to release the mouse. `~` opens
+# the debug console; LOOK reports the source-labelled surface under the center
+# ray. The live preparation currently consumes immutable decoded source state,
+# so this is evidence for static floor/wall joins rather than runtime door or
+# platform-height integration.
+
 # ADR-0013 categorical-cutout evidence. This adds the retained masked-middle
 # candidates after the unchanged opaque scene using the admitted generic path.
 cargo run -p hello-doom-e1m1 --bin static_scene -- `

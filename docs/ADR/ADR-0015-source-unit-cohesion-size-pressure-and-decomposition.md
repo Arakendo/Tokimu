@@ -454,16 +454,17 @@ The measured result is:
 
 | Source unit | Lines after formatting | Disposition |
 | --- | ---: | --- |
-| `static_scene.rs` | 3,939 | Retain after explicit review as the composition root and active comparative-algorithm boundary. |
+| `static_scene.rs` | 793 | Retain as the thin executable composition root. |
 | `runtime/app.rs` | 1,952 | Retain as the cohesive application lifecycle subject. |
-| Largest other extracted subject | 609 | Retain under its named concept folder. |
+| `presentation/legacy_source_protocol/comparison_preparation.rs` | 1,043 | Retain as corpus-private comparison preparation pending AR-0025/AR-0030 disposition. |
 
 The root therefore moved from the exceptional `>8,000` band, through the
-presumed-debt `>4,000` band, into ADR-0015's explicit-review band. The review
-does not treat 3,939 as a quality score: it records the remaining responsibilities
-and their sequencing reason. A future semantic decision that retires or admits
-the comparative SEG/BSP path should trigger another local review because that
-decision may create a cleaner removal or provider seam.
+presumed-debt and explicit-review bands, below the ordinary `1,000`-line review
+signal. The review does not treat 793 as a quality score: it records that the
+remaining unit now composes named private subjects. A future semantic decision
+that retires or admits the comparative SEG/BSP path should still trigger a
+local review because that decision may create a cleaner removal or provider
+seam.
 
 The extraction did not change a public API, promote Doom semantics into
 `tokimu-render`, or intentionally alter the known Slice 7 missing-geometry
@@ -560,6 +561,25 @@ ownership, focused tests and strict Clippy passed, and the known semantic
 falsification was not recast as a refactor success. This completion validates
 the procedure for this Rust corpus unit without converting the graduated
 thresholds into hard limits.
+
+The accepted pilot checkpoint is commit `140e5b5`. Continued decomposition
+after that checkpoint reduced the executable root from 3,939 to 793 lines.
+Startup and command-line composition moved into a private `startup` subject;
+retained source-protocol mechanics moved into focused comparison-preparation,
+classic-BSP, and screen-projection subjects. Slice 7's canonical comparison
+alternatives are now separate private strategy files rather than interleaved
+conditionals:
+
+- A — `global_full_submission.rs`;
+- B — `prepared_full_submission.rs`; and
+- C — `prepared_frustum_filtered.rs`.
+
+The selection seam is corpus-local and deliberately small. C invokes B's
+ordered Doom preparation before selecting the generic frustum/AABB post-filter;
+it is not another preparation implementation. This layout makes strategy
+switching explicit without admitting strategy vocabulary into Tokimu's public
+renderer API. The known prepared-full missing-edge falsification remains open
+and was not changed by this structural work.
 
 ## Reopening Triggers
 

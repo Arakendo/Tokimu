@@ -4,11 +4,11 @@
 | --- | --- |
 | Status | Under Review |
 | Opened | 2026-08-14 |
-| Last reviewed | 2026-08-14 |
+| Last reviewed | 2026-08-15 |
 | Scope | Stable Tokimu render API / program preparation / renderer boundary |
 | Trigger | Doom synthetic and E1M1 evidence falsified both global static-shell rendering with sky depth patches and whole-source Boolean filtering as sufficient source-faithful presentation models. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009, ADR-0013 |
-| Related evidence | AR-0023, AR-0025, Doom viewer-relative presentation synthetic conformance campaign, planned Quake and independent non-BSP campaigns |
+| Related evidence | AR-0023, AR-0025, Doom viewer-relative presentation synthetic conformance campaign, Doom source-topology admission over complete geometry study, planned Quake and independent non-BSP campaigns |
 | Admission exception | None |
 
 ## Architectural Question
@@ -91,6 +91,23 @@ without importing their domain vocabulary into `tokimu-render`.
 - Horizontal-only and insufficiently recomputed Doom controls produced visible
   false negatives when the camera moved, demonstrating that view and current
   runtime state are causal inputs rather than initialization metadata.
+- The first live-observer `prepared-full-submission` realization reran the
+  ordered Doom preparation as position and heading changed, then submitted all
+  retained declarations without a generic post-filter. It still produced
+  cracks where floors and ceilings meet walls, made some walls disappear at
+  close range, and exposed the finite prepared view rectangle with sky outside
+  it during free look. These are source-preparation/realization failures, not
+  renderer full-submission or AABB failures.
+- Conservation of retained contributions is therefore necessary but not
+  sufficient. Reconstructing fixed-column wall and plane observations as
+  approximate world geometry can preserve identities and counts while losing
+  continuous boundary coverage and near-view behavior.
+- The failed realization exposes three distinct domains that the eventual
+  handoff must not collapse: Doom source space, the Doom-owned prepared-view
+  domain, and Tokimu presentation world/view space. The failed path discretized
+  a prepared view, approximately inverted it into world geometry, and then
+  projected it again. That round trip destroyed the coverage continuity the
+  preparation had established.
 
 ### Automated and synthetic evidence
 
@@ -139,6 +156,9 @@ corpus intake remain separate work; this AR does not authorize importing
 
 - A surviving Doom preparation candidate that passes the new ordered synthetic
   guards and the canonical E1M1 path matrix.
+- A Doom realization that can preserve partial wall, floor, ceiling, and sky
+  coverage under moving and near-boundary views without exposing a finite
+  screen-column observation as a world-space view box.
 - Executable Quake, ordinary retained-3D, and large or multi-view campaign
   evidence against the same candidate framework.
 - A comparison against the current `Renderer::submit(&[RenderCommand])`
@@ -358,6 +378,10 @@ renderer, platform, Doom, or provider-native objects.
    named framework is not earned if explicit handoff, view, validation,
    identity, ordering, lifetime, and failure semantics can strengthen that API
    without making ordinary callers more complicated.
+10. A stable renderer handoff must not assume that every provider-prepared
+    presentation can be reconstructed as persistent global world-space
+    geometry. View-local contributions are a first-class falsification case,
+    even if their eventual renderer realization still uses ordinary triangles.
 
 ## Disposition
 
@@ -471,6 +495,11 @@ AR-0030 may close with an admitted framework only when all of these hold:
   produces fragments, multiple views reuse a resource, or a frame is rebuilt.
 - Multiple views and multiple presentation occurrences of one source object
   are representable without pretending they are one global Euclidean object.
+- Provider-prepared retained regions can be handed off without requiring a
+  lossy prepared-view -> approximate-world -> view round trip. The admitted
+  contract may realize them as view-local ordinary geometry or through another
+  bounded mechanism, but it must preserve continuous coverage and source
+  correlation across camera jitter and near-view movement.
 - Ordered opaque, cutout, and incubating blend work preserves the responsibilities
   established by AR-0023; the framework does not silently reorder submissions.
 - Invalid resources, stale or unsupported declarations, preparation failure,
@@ -568,5 +597,6 @@ The review moves away from shared admission when:
 - `docs/Architectural Reviews/AR-0025-camera-candidate-selection-and-visibility-culling.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
 - `docs/Plans/DOOM/Studies/Doom viewer-relative presentation synthetic conformance.md`
+- `docs/Plans/DOOM/Studies/Doom source-topology admission over complete geometry.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`
 - `docs/lessions/read-reference-source-early.md`

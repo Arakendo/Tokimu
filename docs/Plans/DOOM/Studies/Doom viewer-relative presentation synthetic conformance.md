@@ -1373,6 +1373,12 @@ world-space occluder.
       `global-full-submission` and `prepared-full-submission`; visual loss in B
       remains a source-preparation finding even when all lowering conservation
       checks pass.
+- [x] Make B and C inspectable from the live observer without changing their
+      ordering: derive a Doom source pose from the observer, rerun the same
+      Slice 4B preparation when that pose changes, then full-submit every
+      prepared declaration for B or apply the conservative generic filter
+      afterward for C. Keep the immutable decoded source snapshot explicit;
+      runtime door/platform heights remain a separate integration gap.
 - [x] Retain the first corrected `prepared-full-submission` fixed-source-spawn
       observation. Contribution conservation passed, but the presented frame
       still omitted required geometry around the spawn-room floor and wall
@@ -1450,6 +1456,73 @@ the balanced lowering report, required spawn-room geometry is visibly absent.
 The B candidate therefore remains falsified at the source-preparation stage.
 Do not use generic AABB/frustum filtering, global-shell fallback, or renderer
 patches to compensate for this loss.
+
+The subsequent live-observer B control makes the falsification stronger. It
+reruns the same ordered preparation when the observer's source position,
+heading, or eye height changes and then full-submits every surviving prepared
+declaration. Manual movement found four independent failures:
+
+- gaps remain where reconstructed floor and ceiling cells meet wall fragments;
+- approaching some walls makes them disappear;
+- free look exposes the finite prepared view rectangle, with the sky panorama
+  visible outside that rectangle;
+- the result remains visually incomplete even though retained-to-lowered
+  contribution accounting balances.
+
+This means the problem is not a frozen camera, generic candidate filtering, or
+lost declarations after preparation. The current candidate converts a bounded
+`320 x 200` source screen observation back into approximate world meshes. That
+conversion can conserve source identities and counts while failing continuous
+coverage and near-plane behavior. Keep live B as a useful falsification and
+inspection control, but do not call it a viable moving-view prefilter.
+
+The next candidate must test a more faithful Doom-owned realization of the
+ordered result. A custom SEG-only Boolean selector is not automatically
+sufficient: walls can survive partially, while floors, ceilings, and sky are
+plane/span contributions rather than SEGs. Candidate representations may
+include source-labelled wall fragments plus authoritative plane intervals, or
+direct view-local presentation fragments, but they remain corpus/provider
+experiments until AR-0030 establishes a provider-neutral handoff.
+
+#### Realization matrix after the live-B falsification
+
+Keep the ordered Doom preparation fixed while comparing how one correlated
+prepared observation reaches `tokimu-render`:
+
+| Realization | Shape | Status / question |
+| --- | --- | --- |
+| A — inverse world reconstruction | prepared screen cells -> approximate persistent world meshes -> ordinary projection | Retained failed control. It conserves identities and counts but leaks the finite `320 x 200` box, cracks at boundaries, and loses close walls. |
+| B — view-local ordinary geometry | prepared semantic regions -> camera/view-space triangles -> ordinary renderer declarations | Next candidate. Tests whether the renderer can stay unaware of Doom columns while avoiding the lossy inverse-world round trip. |
+| C — bounded view-fragment handoff | prepared semantic regions -> direct bounded view/screen fragments | Escalation candidate only if B cannot preserve coverage. It may require a narrower presentation mechanism and therefore remains AR-0030 evidence, not an assumed API. |
+
+The preparation result should describe retained semantic regions rather than
+renderer pixels. The experimental correlated model should retain, at minimum:
+
+- wall source SEG/linedef/sidedef identity, source interval, retained
+  horizontal and vertical intervals, wall role, material, and UV
+  correspondence;
+- plane source sector/plane identity, retained view intervals, floor/ceiling/
+  sky classification, and source correspondence;
+- cutout contribution identity and declared categorical coverage policy;
+- prepared-view identity and runtime-snapshot identity.
+
+The exact private type names are deliberately unspecified. These are evidence
+fields for comparing realizations, not a public vocabulary proposal.
+
+Do not increase the `320 x 200` preparation resolution to make A look better.
+That finite grid remains a hostile control: higher resolution could demonstrate
+convergence while leaving the underlying prepared-view -> world -> view
+continuity error intact. Likewise, do not patch cracks or missing walls
+individually. The next experiment must preserve the same ordered preparation
+and change only its realization.
+
+- [ ] Freeze A as the named failed world-reconstruction control.
+- [ ] Define one private, source-correlated prepared-contribution observation
+      shared by A and B without exposing Doom vocabulary to `tokimu-render`.
+- [ ] Implement B as view-local ordinary geometry and rerun the boundary,
+      near-wall, free-look, camera-jitter, native, and Browser WebGPU gates.
+- [ ] Escalate to C only if B demonstrates that ordinary view-local triangles
+      cannot faithfully realize the retained semantic regions.
 
 Two bounded follow-up controls further narrow that falsification:
 
@@ -1672,12 +1745,51 @@ The candidate-selection extraction retained all 34 focused native tests. It
 does not alter the prepared-full observation, solve the known missing geometry,
 or promote any Doom membership/SEG experiment into renderer vocabulary.
 
+Slice 7 now has an explicit corpus-local selection seam whose implementations
+live in separate files:
+
+```text
+--render-strategy=a
+    -> global_full_submission.rs
+
+--render-strategy=b
+    -> prepared_full_submission.rs
+    -> one coherent ordered Doom preparation
+    -> submit all retained declarations
+
+--render-strategy=c
+    -> prepared_frustum_filtered.rs
+    -> invoke B preparation
+    -> apply conservative frustum/AABB filtering afterward
+```
+
+The former `--doom-seg-ordered-coverage-presentation` flag remains only as a
+compatibility spelling for B (or C when paired with `--frustum-aabb`). This
+separation prevents the comparison alternatives from silently accumulating
+different preparation logic. It is structural evidence only: B still has the
+known missing-edge visual falsification, and C must not be evaluated as a
+successful post-filter until B is lossless enough for the A/B comparison.
+
+B and C are now live-observer inspection modes rather than frozen-camera
+screenshots. Observer movement is converted back into a source-space position,
+heading, and eye height; the same ordered preparation is rerun; and its entire
+re-embedded result replaces the previous prepared declaration set. A real
+native Vulkan run on the AMD Radeon RX 7900 XTX presented first and warm frames
+without diagnostics. The initial exact source-heading preparation retained 53
+opaque draws while the first live-observer refresh retained 51, exposing a
+small heading-precision sensitivity that remains evidence for the ordered
+protocol rather than a reason to hide the refresh. This wiring enables manual
+floor/wall-join inspection; it does not repair the known visual omissions or
+claim runtime dynamic-height parity.
+
 ##### ADR-0015 post-extraction coupling review
 
-The completed pilot reduced the executable root from the 11,088-line semantic
-checkpoint to 9,086 lines. That remains above ADR-0015's exceptional threshold;
-the reduction is evidence of moved responsibilities, not a claim that the root
-is now acceptably cohesive merely because it is shorter.
+The initial pilot checkpoint reduced the executable root from the 11,088-line
+semantic checkpoint to 9,086 lines. Continued subject extraction reduced it to
+793 lines and moved startup/CLI composition, retained source-protocol
+mechanics, and the canonical A/B/C trial strategies behind named private
+modules. The reduction is evidence of moved responsibilities, not a claim that
+the root is coherent merely because it is shorter.
 
 The retained dependency direction is:
 
@@ -1689,6 +1801,15 @@ static_scene.rs composition root
          -> viewport
          -> preparation
          -> lowering
+         -> legacy_source_protocol
+              -> comparison_preparation
+              -> classic_bsp
+              -> screen_projection
+    -> render_strategies
+         -> A global full submission
+         -> B prepared full submission
+         -> C prepared then frustum-filtered
+         -> legacy comparison controls
     -> candidate_selection
          -> model
          -> conservative

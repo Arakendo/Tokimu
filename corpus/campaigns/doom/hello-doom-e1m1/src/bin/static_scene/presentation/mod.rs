@@ -4,6 +4,7 @@
 //! before ordinary Tokimu render declarations. It does not define renderer
 //! visibility policy or public Doom-provider API.
 
+mod legacy_source_protocol;
 mod lowering;
 mod model;
 mod preparation;
@@ -11,10 +12,29 @@ mod sky_cylinder;
 mod sky_span;
 mod viewport;
 
+pub(crate) use legacy_source_protocol::{
+    count_classic_bsp_static_flat_draws, observe_doom_seg_classic_admission,
+    observe_doom_seg_classic_bsp, observe_doom_seg_classic_plane_identities,
+    observe_doom_seg_screen_grid, observe_doom_seg_screen_grid_with_order,
+    prepare_doom_seg_classic_context_presentation, prepare_doom_seg_classic_plane_presentation,
+    prepare_doom_seg_clip_presentation, prepare_doom_seg_ordered_coverage_presentation,
+    prepare_doom_seg_ordered_coverage_presentation_for_view,
+    prepare_doom_seg_per_column_dynamic_scene, prepare_doom_seg_per_column_presentation,
+    resolve_doom_seg_classic_plane_flats, source_ray_segment_depth, source_seg_facing,
+    source_seg_linedef_interval, summarize_classic_bsp_plane_marks,
+    summarize_classic_bsp_wall_triangle_roles, visible_column_runs, SourceSegFacing,
+};
+#[cfg(test)]
+pub(crate) use legacy_source_protocol::{
+    finalize_doom_seg_classic_plane_spans, merge_solid_range, retain_doom_seg_classic_plane_range,
+    source_bbox_fov_column_interval, source_fov_column_interval,
+    source_point_segment_distance_squared, source_segment_outside_horizontal_fov,
+    source_sky_sectors, SourceBBoxProjection,
+};
 pub(crate) use lowering::{doom_wall_role_key, lower_doom_seg_classic_plane_presentation};
 
 pub(crate) use model::{
-    DoomCoverageFailOpenSummary, DoomOrderedCoveragePreparation,
+    DoomCoverageFailOpenSummary, DoomOrderedCoveragePreparation, DoomOrderedCoverageView,
     DoomSegClassicAdmissionObservation, DoomSegClassicContextPresentation,
     DoomSegClassicPlaneFlatResolution, DoomSegClassicPlaneIdentityObservation,
     DoomSegClassicPlanePresentation, DoomSegClipPresentation, DoomSegOrderedCoveragePresentation,

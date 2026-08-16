@@ -6,6 +6,15 @@ use doom_geometry_provider::{
 };
 use hello_doom_e1m1::StaticDrawPlanEntry;
 
+/// Explicit viewer input to Doom-owned ordered presentation preparation.
+/// This is source-space observation state, not a renderer camera contract.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct DoomOrderedCoverageView {
+    pub(crate) source_position: [i16; 2],
+    pub(crate) source_heading_radians: f64,
+    pub(crate) eye_height: f64,
+}
+
 /// Corpus-only output of the Stage 3B diagnostic span experiment.
 pub(crate) struct DoomSegClipPresentation {
     pub(crate) draws: Vec<StaticDrawPlanEntry>,
