@@ -2,126 +2,10 @@
 
 ## Status
 
-Accepted — 2026-08-15, with ADR-0005 pre-admission pilot evidence substitution
+Accepted — 2026-08-15
 
-## ADR-0005 Evidence Substitution
-
-The accountable maintainer accepted this decision under ADR-0005 before the
-Doom composition completed the proposed pre-admission decomposition pilot.
-This is permanent admission by evidence substitution, not an assertion that
-the then-missing pilot evidence existed at admission time.
-
-### Normal requirement waived
-
-The proposed draft required a successful behavior-preserving decomposition of
-the 11,088-line Doom `static_scene.rs` composition before this ADR could be
-accepted. The maintainer waived completion before admission; the pilot was
-subsequently completed under the accepted conservation boundary.
-
-### Why pre-acceptance completion adds limited decision value
-
-The deferred pilot tested whether the thresholds were calibrated well and whether
-the proposed review procedure produces useful private seams. It does not decide
-the underlying ownership rule: decomposition must preserve existing ownership,
-authority, dependency direction, behavior, and retained failures. Accepting
-that conservation rule before the pilot provides the boundary under which the
-pilot can proceed and avoids treating an improvised refactor as architectural
-evidence.
-
-The pilot could still falsify the threshold calibration, coupling checks, or
-review procedure. Such a result would have required revision or supersession of
-this ADR; it did not justify performing the pilot without an accepted
-conservation boundary.
-
-### Substitute evidence
-
-- `static_scene.rs` already exceeds the exceptional threshold and combines
-  independently testable application, Doom preparation, presentation,
-  selection, runtime-control, diagnostic, CLI, and regression
-  responsibilities.
-- AR-0025, AR-0028, AR-0030, Doom sky work, dynamic-sector work, and the Doom
-  checklist have independently modified or pressured the same source unit.
-- The current Slice 7 checkpoint demonstrates the attribution risk directly:
-  structural contribution conservation passes while required geometry remains
-  visibly absent.
-- ADR-0008 already requires serious decomposition, reuse, code hygiene, and
-  proportional review; ADR-0009 already requires retained focused evidence and
-  failure identity. This ADR makes their source-unit consequences explicit
-  rather than creating a conflicting ownership model.
-- Hard line limits, tooling-only reporting, continued local judgment, and
-  arbitrary file splitting were considered and rejected in this decision.
-
-### Consequences and accepted risk
-
-- No runtime contract, dependency direction, public API, platform behavior, or
-  Native/WASM semantic is admitted by accepting this organizational rule.
-- The thresholds could have proved poorly calibrated, and the first pilot could
-  have exposed organizational seams that did not reduce coupling. The retained
-  completion record did not observe either failure.
-- Existing large files are not required to undergo immediate bulk migration.
-  Review is triggered proportionally by substantive work and the thresholds in
-  this ADR.
-- CI remains prohibited from treating line count alone as a failure.
-- At admission time, the Doom composition still had to complete the
-  checkpointed conservation and post-extraction coupling review described
-  below. The retained pilot record now reports that completion.
-
-### Required verification after acceptance
-
-The Doom composition is the first mandatory application of this ADR. Its
-decomposition campaign preserved the Slice 7 structural fingerprints and known
-missing-geometry falsification while moving implementation into private subject
-modules. The post-extraction record below distinguishes completed structural
-verification from browser visual evidence that remains owned by the semantic
-campaign rather than by this refactor.
-
-Failure of a future mandatory pilot reopens this ADR. The maintainer must revise
-the thresholds or procedure, supersede the decision, or record a narrower
-retained rule. The accepted status must not be used to declare a failed pilot
-successful.
-
-## Context
-
-Tokimu deliberately retains corpus regressions, comparative candidates,
-diagnostics, and cross-target evidence. That practice is valuable, but it can
-also make a successful corpus composition accumulate unrelated responsibilities
-inside one source unit.
-
-The immediate trigger is
-`corpus/campaigns/doom/hello-doom-e1m1/src/bin/static_scene.rs`. At the time of
-this proposal it is 11,088 lines and contains responsibilities including:
-
-- native application and platform-loop composition;
-- command-line option parsing and experimental-mode selection;
-- E1M1 scene and runtime-state orchestration;
-- global and source-prepared presentation paths;
-- candidate-selection experiments;
-- camera, input, collision, door, and platform controls;
-- interactive console diagnostics and retained reports; and
-- a large collection of regressions from several Architectural Reviews and
-  Doom campaign slices.
-
-The current Slice 7 prepared-full-submission experiment provides a coherent
-checkpoint. Its lowering conservation checks pass, while manual observation
-still finds missing geometry. That result must be retained as a
-source-preparation falsification. Continuing semantic repair and reorganizing an
-11,000-line composition simultaneously would make later failures difficult to
-attribute.
-
-Line count alone is not an architectural defect. A short file can mix several
-owners, while a generated table or cohesive declarative schema can reasonably
-be large. The architectural pressure appears when a source unit no longer
-communicates one coherent implementation responsibility and consequently makes
-ownership, review, testing, navigation, or change isolation materially worse.
-
-Tokimu therefore needs a proportional review rule that detects decomposition
-pressure without turning a line quota into architecture, manufacturing public
-APIs, or forcing risky reorganizations in the middle of an unresolved
-experiment.
-
-> File size triggers review; responsibility boundaries justify decomposition.
-
-> Split by meaning, not by line count.
+The ADR-0005 admission history and completed Doom pilot evidence are retained
+in [Acceptance And Pilot Record](#acceptance-and-pilot-record).
 
 ## Decision
 
@@ -382,6 +266,48 @@ An explicit decomposition review records:
 A planning document is appropriate for a multi-step extraction campaign. The
 plan must distinguish behavior-preserving moves from later semantic repairs.
 
+## Context
+
+Tokimu deliberately retains corpus regressions, comparative candidates,
+diagnostics, and cross-target evidence. That practice is valuable, but it can
+also make a successful corpus composition accumulate unrelated responsibilities
+inside one source unit.
+
+The immediate trigger was
+`corpus/campaigns/doom/hello-doom-e1m1/src/bin/static_scene.rs`. At the time of
+the proposal it was 11,088 lines and contained responsibilities including:
+
+- native application and platform-loop composition;
+- command-line option parsing and experimental-mode selection;
+- E1M1 scene and runtime-state orchestration;
+- global and source-prepared presentation paths;
+- candidate-selection experiments;
+- camera, input, collision, door, and platform controls;
+- interactive console diagnostics and retained reports; and
+- a large collection of regressions from several Architectural Reviews and
+  Doom campaign slices.
+
+The Slice 7 prepared-full-submission experiment provided a coherent checkpoint.
+Its lowering conservation checks passed while manual observation still found
+missing geometry. That result had to remain a source-preparation falsification.
+Continuing semantic repair and reorganizing an 11,000-line composition at the
+same time would have made later failures difficult to attribute.
+
+Line count alone is not an architectural defect. A short file can mix several
+owners, while a generated table or cohesive declarative schema can reasonably
+be large. The architectural pressure appears when a source unit no longer
+communicates one coherent implementation responsibility and consequently makes
+ownership, review, testing, navigation, or change isolation materially worse.
+
+Tokimu therefore needs a proportional review rule that detects decomposition
+pressure without turning a line quota into architecture, manufacturing public
+APIs, or forcing risky reorganizations in the middle of an unresolved
+experiment.
+
+> File size triggers review; responsibility boundaries justify decomposition.
+
+> Split by meaning, not by line count.
+
 ## Immediate Application To The Doom Composition
 
 `static_scene.rs` exceeds the exceptional threshold and satisfies several
@@ -541,7 +467,7 @@ filesystem layout a new architectural authority.
 - Numeric triggers may be mistaken for quality scores unless reviews continue
   to emphasize responsibility.
 
-## Acceptance Record
+## Acceptance And Pilot Record
 
 The maintainer accepted that:
 
@@ -580,6 +506,35 @@ it is not another preparation implementation. This layout makes strategy
 switching explicit without admitting strategy vocabulary into Tokimu's public
 renderer API. The known prepared-full missing-edge falsification remains open
 and was not changed by this structural work.
+
+### ADR-0005 admission history
+
+The accountable maintainer accepted this decision under ADR-0005 before the
+Doom composition completed the proposed pre-admission decomposition pilot.
+This was permanent admission by evidence substitution, not an assertion that
+the then-missing pilot evidence already existed.
+
+The proposed draft had required successful behavior-preserving decomposition
+of the 11,088-line Doom `static_scene.rs` before acceptance. Completion timing
+was waived because the binding conservation rule was already supported by:
+
+- the exceptional size and demonstrated responsibility mixture of the Doom
+  composition;
+- repeated independent pressure from AR-0025, AR-0028, AR-0030, Doom sky and
+  dynamic-sector work, and the Doom checklist;
+- a Slice 7 checkpoint where contribution accounting passed while visible
+  geometry remained missing, demonstrating attribution risk; and
+- the existing ADR-0008 code-quality and ADR-0009 retained-evidence boundaries.
+
+The deferred pilot still had authority to falsify the threshold calibration,
+coupling checks, or review procedure. A failed result would have reopened this
+ADR and required revision, supersession, or a narrower retained rule. Instead,
+the later checkpointed pilot passed under the accepted conservation boundary,
+as recorded above.
+
+Admission did not create a runtime contract, public API, dependency change, or
+Native/WASM semantic. It did not require immediate bulk migration of existing
+large files, and it did not authorize CI failure from line count alone.
 
 ## Reopening Triggers
 
