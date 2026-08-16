@@ -733,6 +733,27 @@ pub fn observe_doom_classic_bsp(
         heading,
         watched_subsectors,
         DoomClassicBspTraversalOrder::NearFirst,
+        DoomClassicBspPruning::SolidRanges,
+    )
+}
+
+/// Diagnostic control for the Doom corpus. It retains near-first BSP order and
+/// source SEG admission, but does not let accumulated solid horizontal ranges
+/// prune a far child. This isolates the effect of the coarse 320-column prune;
+/// it is not a production visibility mode or renderer candidate contract.
+pub fn observe_doom_classic_bsp_without_solid_range_pruning(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    watched_subsectors: &BTreeSet<u16>,
+) -> Result<DoomClassicBspObservation, DoomGeometryError> {
+    observe_doom_classic_bsp_with_order(
+        map,
+        viewer,
+        heading,
+        watched_subsectors,
+        DoomClassicBspTraversalOrder::NearFirst,
+        DoomClassicBspPruning::OutsideFovOnly,
     )
 }
 
@@ -745,12 +766,19 @@ enum DoomClassicBspTraversalOrder {
     FarFirstControl,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DoomClassicBspPruning {
+    SolidRanges,
+    OutsideFovOnly,
+}
+
 fn observe_doom_classic_bsp_with_order(
     map: &DoomMapCore,
     viewer: [i16; 2],
     heading: f64,
     watched_subsectors: &BTreeSet<u16>,
     traversal_order: DoomClassicBspTraversalOrder,
+    pruning: DoomClassicBspPruning,
 ) -> Result<DoomClassicBspObservation, DoomGeometryError> {
     let root = map
         .nodes
@@ -777,6 +805,7 @@ fn observe_doom_classic_bsp_with_order(
         watched_subsectors,
         &mut observation,
         traversal_order,
+        pruning,
     )?;
     observation.solid_range_covered_columns = solid_ranges
         .iter()
@@ -798,6 +827,7 @@ fn observe_doom_classic_bsp_far_first_control(
         heading,
         watched_subsectors,
         DoomClassicBspTraversalOrder::FarFirstControl,
+        DoomClassicBspPruning::SolidRanges,
     )
 }
 
@@ -982,7 +1012,7 @@ pub fn observe_doom_classic_vertical_clip_state(
                 forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                 forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
             ];
-            let Some(depth) =
+            let Some(radial_depth) =
                 source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
             else {
                 result
@@ -995,10 +1025,16 @@ pub fn observe_doom_classic_vertical_clip_state(
                     });
                 continue;
             };
-            let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
-                .min(ROWS - 1);
+            // Ray/SEG intersection returns distance along the normalized
+            // horizontal ray. Rectilinear perspective rows are defined by
+            // distance along the camera-forward axis instead.
+            let forward_depth = radial_depth * local_angle.cos();
+            let ceiling =
+                row((f64::from(front_sector.ceiling_height) - eye_height).atan2(forward_depth))
+                    .min(ROWS - 1);
             let floor =
-                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+                row((f64::from(front_sector.floor_height) - eye_height).atan2(forward_depth))
+                    .min(ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if mark.ceiling_marked {
                 let top = ceiling_clip[x].saturating_add(1);
@@ -1082,7 +1118,7 @@ pub fn observe_doom_classic_vertical_clip_state(
                     forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                     forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
                 ];
-                let Some(depth) =
+                let Some(radial_depth) =
                     source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
                 else {
                     result
@@ -1095,8 +1131,9 @@ pub fn observe_doom_classic_vertical_clip_state(
                         });
                     continue;
                 };
-                let top = row((maximum - eye_height).atan2(depth)).min(ROWS - 1);
-                let bottom = row((minimum - eye_height).atan2(depth)).min(ROWS - 1);
+                let forward_depth = radial_depth * local_angle.cos();
+                let top = row((maximum - eye_height).atan2(forward_depth)).min(ROWS - 1);
+                let bottom = row((minimum - eye_height).atan2(forward_depth)).min(ROWS - 1);
                 let (top, bottom) = (top.min(bottom), top.max(bottom));
                 let prior = [ceiling_clip[x], floor_clip[x]];
                 // Wall rows meet the current clip bounds; retained plane
@@ -1197,7 +1234,7 @@ pub fn observe_doom_classic_vertical_clip_state(
                 forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
                 forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
             ];
-            let Some(depth) =
+            let Some(radial_depth) =
                 source_ray_segment_depth(viewer, ray, [start.x, start.y], [end.x, end.y])
             else {
                 result
@@ -1210,10 +1247,13 @@ pub fn observe_doom_classic_vertical_clip_state(
                     });
                 continue;
             };
-            let ceiling = row((f64::from(front_sector.ceiling_height) - eye_height).atan2(depth))
-                .min(ROWS - 1);
+            let forward_depth = radial_depth * local_angle.cos();
+            let ceiling =
+                row((f64::from(front_sector.ceiling_height) - eye_height).atan2(forward_depth))
+                    .min(ROWS - 1);
             let floor =
-                row((f64::from(front_sector.floor_height) - eye_height).atan2(depth)).min(ROWS - 1);
+                row((f64::from(front_sector.floor_height) - eye_height).atan2(forward_depth))
+                    .min(ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if has_middle && mark.back_sector.is_none() && middle_sources[x].contains(source_seg) {
                 let prior = [ceiling_clip[x], floor_clip[x]];
@@ -1485,6 +1525,7 @@ fn visit_doom_classic_bsp_child(
     watched_subsectors: &BTreeSet<u16>,
     observation: &mut DoomClassicBspObservation,
     traversal_order: DoomClassicBspTraversalOrder,
+    pruning: DoomClassicBspPruning,
 ) -> Result<(), DoomGeometryError> {
     match child {
         DoomBspChild::Subsector(index) => {
@@ -1556,6 +1597,7 @@ fn visit_doom_classic_bsp_child(
                 watched_subsectors,
                 observation,
                 traversal_order,
+                pruning,
             )?;
             let watched_far = watched_subsectors
                 .iter()
@@ -1582,9 +1624,13 @@ fn visit_doom_classic_bsp_child(
                     );
                 }
                 SourceBBoxProjection::Interval(interval) => {
-                    if let Some(covering_range) = solid_ranges
-                        .iter()
-                        .find(|[first, last]| *first <= interval[0] && interval[1] <= *last)
+                    if let Some(covering_range) = (pruning == DoomClassicBspPruning::SolidRanges)
+                        .then(|| {
+                            solid_ranges
+                                .iter()
+                                .find(|[first, last]| *first <= interval[0] && interval[1] <= *last)
+                        })
+                        .flatten()
                     {
                         observation.far_children_pruned += 1;
                         record_watched_subsector_elision(
@@ -1607,6 +1653,7 @@ fn visit_doom_classic_bsp_child(
                             watched_subsectors,
                             observation,
                             traversal_order,
+                            pruning,
                         )?;
                     }
                 }
@@ -1623,6 +1670,7 @@ fn visit_doom_classic_bsp_child(
                         watched_subsectors,
                         observation,
                         traversal_order,
+                        pruning,
                     )?;
                 }
             }
@@ -3031,17 +3079,18 @@ pub fn reconstruct_doom_ordered_wall_fragments(
         let ray_for_column_edge = |edge: usize| {
             let normalized = -1.0 + (edge as f64 / COLUMNS as f64) * 2.0;
             let local_angle = (normalized * HALF_HORIZONTAL_FOV.tan()).atan();
-            [
-                forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
-                forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
-            ]
+            (
+                [
+                    forward[0] * local_angle.cos() + right[0] * local_angle.sin(),
+                    forward[1] * local_angle.cos() + right[1] * local_angle.sin(),
+                ],
+                local_angle.cos(),
+            )
         };
-        let Some((left_source, left_depth)) = source_ray_segment_intersection(
-            viewer,
-            ray_for_column_edge(interval.column),
-            source_start,
-            source_end,
-        ) else {
+        let (left_ray, left_forward_scale) = ray_for_column_edge(interval.column);
+        let Some((left_source, left_radial_depth)) =
+            source_ray_segment_intersection(viewer, left_ray, source_start, source_end)
+        else {
             result.unresolved_cells += 1;
             retain_fragment_sample(
                 &mut result.samples,
@@ -3052,12 +3101,10 @@ pub fn reconstruct_doom_ordered_wall_fragments(
             );
             continue;
         };
-        let Some((right_source, right_depth)) = source_ray_segment_intersection(
-            viewer,
-            ray_for_column_edge(interval.column + 1),
-            source_start,
-            source_end,
-        ) else {
+        let (right_ray, right_forward_scale) = ray_for_column_edge(interval.column + 1);
+        let Some((right_source, right_radial_depth)) =
+            source_ray_segment_intersection(viewer, right_ray, source_start, source_end)
+        else {
             result.unresolved_cells += 1;
             retain_fragment_sample(
                 &mut result.samples,
@@ -3068,6 +3115,8 @@ pub fn reconstruct_doom_ordered_wall_fragments(
             );
             continue;
         };
+        let left_forward_depth = left_radial_depth * left_forward_scale;
+        let right_forward_depth = right_radial_depth * right_forward_scale;
 
         let minimum = reference_triangles
             .iter()
@@ -3095,10 +3144,13 @@ pub fn reconstruct_doom_ordered_wall_fragments(
             (eye_height + normalized * half_vertical_fov.tan() * depth).clamp(minimum, maximum)
         };
         let positions = [
-            doom_point_to_tokimu(left_source, height_for_row(top, left_depth)),
-            doom_point_to_tokimu(right_source, height_for_row(top, right_depth)),
-            doom_point_to_tokimu(right_source, height_for_row(bottom + 1, right_depth)),
-            doom_point_to_tokimu(left_source, height_for_row(bottom + 1, left_depth)),
+            doom_point_to_tokimu(left_source, height_for_row(top, left_forward_depth)),
+            doom_point_to_tokimu(right_source, height_for_row(top, right_forward_depth)),
+            doom_point_to_tokimu(
+                right_source,
+                height_for_row(bottom + 1, right_forward_depth),
+            ),
+            doom_point_to_tokimu(left_source, height_for_row(bottom + 1, left_forward_depth)),
         ];
         let Some(texture_coordinates) = positions
             .iter()
@@ -5093,6 +5145,55 @@ mod tests {
             .iter()
             .flat_map(|triangle| triangle.texture_coordinates)
             .all(|uv| uv.into_iter().all(f64::is_finite)));
+    }
+
+    #[test]
+    fn off_center_wall_cell_round_trips_through_rectilinear_projection() {
+        let mut map = near_solid_far_bsp_map();
+        map.sidedefs[0].middle_texture = "WALL".to_owned();
+        let extents = [DoomTextureExtent {
+            name: "WALL".to_owned(),
+            width: 128,
+            height: 128,
+        }];
+        let source_triangles = lower_doom_seg_textured_wall_triangles(&map, &extents).unwrap();
+        let observation = DoomSegClassicVerticalClipObservation {
+            ordered_wall_intervals: vec![DoomOrderedWallInterval {
+                source_seg: 0,
+                source_linedef: 0,
+                column: 80,
+                role: DoomWallTextureRole::Middle,
+                raw_interval: [40, 159],
+                open_interval_before: Some([0, 199]),
+                retained_interval: Some([40, 159]),
+            }],
+            ..DoomSegClassicVerticalClipObservation::default()
+        };
+
+        let reconstruction = reconstruct_doom_ordered_wall_fragments(
+            &map,
+            &source_triangles,
+            &observation,
+            [0, -96],
+            std::f64::consts::FRAC_PI_2,
+            41.0,
+        );
+        let half_vertical_fov = ((200.0_f64 / 320.0) * std::f64::consts::FRAC_PI_4.tan()).atan();
+
+        for triangle in &reconstruction.reconstructed_triangles {
+            for world in triangle.positions {
+                let (source, height) = tokimu_point_to_doom(world);
+                let relative = [source[0], source[1] + 96.0];
+                let forward_depth = relative[1];
+                let lateral = -relative[0];
+                let column = ((lateral / forward_depth + 1.0) * 0.5) * 320.0;
+                let row =
+                    (1.0 - (height - 41.0) / forward_depth / half_vertical_fov.tan()) * 0.5 * 200.0;
+
+                assert!((column - 80.0).abs() < 1.0e-9 || (column - 81.0).abs() < 1.0e-9);
+                assert!((row - 40.0).abs() < 1.0e-9 || (row - 160.0).abs() < 1.0e-9);
+            }
+        }
     }
 
     #[test]

@@ -8,7 +8,7 @@
 | Parent review | AR-0025 (closed; post-close Doom evidence continues) |
 | Controlling plan | [DOOM WAD Checklist](../DOOM%20WAD%20Checklist.md) |
 | Proposed corpus target | `corpus/campaigns/doom/hello-doom-visibility-conformance/` |
-| Next action | Retain the structurally conserved but visually falsified prepared-full checkpoint; apply ADR-0015 through a behavior-preserving private-module decomposition before resuming the fixed-spawn A/B investigation. |
+| Next action | Re-run the fixed-spawn native A/B observation after the rectilinear radial/forward-depth correction; if visual loss remains, continue at the ordered source-preparation boundary rather than adding renderer or generic-filter compensation. |
 
 ## Problem
 
@@ -1409,26 +1409,27 @@ source-labelled meshes, and derives masked-middle participation from that same
 observation. It does not expose Doom columns, SEGs, or coverage vocabulary to
 `tokimu-render`.
 
-The fixed-source-spawn headless conservation run currently reports:
+The fixed-source-spawn headless conservation run after correcting the
+rectilinear radial/forward-depth conversion currently reports:
 
 ```text
-wall retained cells:                  822
-wall reconstructed triangles:      1,644
-wall lowered triangles:             1,643
+wall retained cells:                  821
+wall reconstructed triangles:      1,642
+wall lowered triangles:             1,641
 wall source-degenerate cells:           0
 wall source-unresolved cells:           0
 wall lowering-degenerate triangles:     1
 wall lowering-unresolved triangles:     0
 grouped wall meshes:                   31
-ordinary plane intervals:           1,105
-reconstructed plane quads:          1,105
+ordinary plane intervals:           1,104
+reconstructed plane quads:          1,104
 rejected plane intervals:               0
-lowered plane quads:                1,105
+lowered plane quads:                1,104
 sky background intervals:               0
 prepared/lowered cutout keys:         0/0
-coverage transitions:               2,489
+coverage transitions:               2,496
 coverage fail-open observations:       99
-opaque draws:                           52
+opaque draws:                           53
 cutout draws:                            0
 ```
 
@@ -1444,11 +1445,38 @@ ordered observation itself retained every surface required by the canonical
 view. The manual A/B comparison remains the correctness gate; lower draw count
 alone is not favorable evidence.
 
-The first corrected native B observation confirms that distinction: despite
+The first conserved native B observation confirms that distinction: despite
 the balanced lowering report, required spawn-room geometry is visibly absent.
 The B candidate therefore remains falsified at the source-preparation stage.
 Do not use generic AABB/frustum filtering, global-shell fallback, or renderer
 patches to compensate for this loss.
+
+Two bounded follow-up controls further narrow that falsification:
+
+- disabling BSP solid-range far-child pruning visited `155` rather than `115`
+  leaves, pruned `0` rather than `10` far children, and admitted `89` rather
+  than `37` SEGs, but produced the same `822` retained wall cells, `1,105`
+  ordinary plane intervals, `2,489` coverage transitions, and terminal draw
+  declarations as the then-current candidate. BSP far-child pruning is
+  therefore not the cause of the missing prepared geometry;
+- all `99` default fail-open observations were
+  `RaySegmentDepthUnresolved`. They represent repeated boundary ray/SEG
+  intersection misses rather than missing marks, unprojectable SEGs, or an
+  unknown failure bucket. The no-prune control increased these observations
+  without recovering terminal contributions, so merely traversing more BSP
+  leaves is not a repair.
+
+Review of the screen-cell reconstruction then found a genuine rectilinear
+projection mismatch. Horizontal ray/SEG intersection yields radial distance
+along a normalized ray, while vertical row projection consumes camera-forward
+depth. The candidate had treated those values as interchangeable: wall
+clipping projected radial depth directly, and plane reconstruction multiplied
+a normalized off-axis ray by forward depth. The provider and consumer now
+convert explicitly using the horizontal-angle cosine in both directions.
+Focused off-centre wall and plane round-trip regressions retain this invariant.
+The small count changes above are expected consequences of correcting the
+projection boundary; they are not by themselves evidence that the manual
+visual falsification is resolved.
 
 This observation is also the semantic checkpoint for ADR-0015's first required
 verification campaign. `static_scene.rs` is 11,088 lines and has become a convergence
@@ -1512,6 +1540,56 @@ coupling review found one narrow root-to-module relationship (the executable
 consumes observer state and requests its camera); no child module reaches into
 application state and no renderer or Ring 0 ownership moved.
 
+#### ADR-0015 presentation subject — model checkpoint
+
+The next decomposition increment establishes the concept folder without moving
+behavior prematurely:
+
+```text
+src/bin/static_scene/presentation/
+    mod.rs
+        private subject boundary and composition-root exports
+    model.rs
+        Doom-owned source observations, reconstructed plane cells,
+        prepared wall/plane balance, and presentation results
+    preparation.rs
+        fixed-view wall/plane observation assembly,
+        plane/sky cell reconstruction, and interval accounting
+    lowering.rs
+        Doom plane-cell and ordered wall-fragment lowering into ordinary
+        Tokimu renderer declarations with structural conservation checks
+```
+
+The extracted model contains only the intermediate facts used by the existing
+Stage 3B and Slice 4B preparation paths. Its inputs remain Doom-provider
+observations and source-labelled corpus draw plans; its outputs remain private
+data consumed by the executable's unchanged preparation/lowering functions. It
+does not own traversal, candidate filtering, renderer scheduling, application
+state, or public API. The crate-visible fields are an intra-binary composition
+mechanism necessitated by the nested subject module, not an admitted contract.
+
+The model checkpoint moved 155 lines of cohesive definitions. The subsequent
+behavior checkpoint moves pure plane/sky cell reconstruction, interval
+accounting, and coherent fixed-view wall/plane preparation behind explicit map,
+texture-extent, and observer inputs. Its two reconstruction regressions now live
+with the behavior they protect.
+
+The lowering checkpoint moves two distinct transformations behind explicit
+inputs. Plane lowering consumes a map, flat uploads, caller-selected comparative
+embedding, and one already-reconstructed set of plane cells. Ordered wall
+lowering consumes the map, texture extents/materials, existing cutout
+declarations, retained middle-SEG identities, and reconstructed wall fragments.
+It returns ordinary opaque/cutout draws plus the counts and source-key sets
+needed for the root's conservation assertions. Neither lowering helper observes
+the camera, selects candidates, reaches into application state, nor defines a
+renderer-owned Doom concept. The comparative embedding remains explicitly
+`CurrentReflected` at the existing experimental call sites; decomposition does
+not silently change the known Slice 7 result.
+
+The composition root still joins wall and plane results and proves cross-family
+balance. The 34 focused native tests remain green; the known prepared-full
+missing-geometry falsification remains unchanged.
+
 ##### Follow-up ADR-0015 extraction order
 
 The observer pilot demonstrates a real subject/responsibility seam, but does
@@ -1521,24 +1599,152 @@ ordered so private reorganization remains distinguishable from the active Slice
 
 - [x] **Observer/view** — source-spawn camera identity, look delta, corpus
       camera realization, and its directly-owned regression.
-- [ ] **Source presentation preparation** — the ordered wall/plane/sky/cutout
+- [x] **Source presentation preparation** — the ordered wall/plane/sky/cutout
       observation types and preparation helpers. This is the highest-value
       next seam, but must move as one private `presentation` subject only after
       retaining the current prepared-full structural balance and its visible
       missing-geometry falsification.
-- [ ] **Candidate selection** — global/full, prepared/full, and optional
+  - [x] Establish the private `presentation` concept folder and move its
+        observation/result model without changing preparation behavior.
+  - [x] Move pure plane/sky cell reconstruction, interval accounting, coherent
+        fixed-view wall/plane preparation, and their directly-owned regression
+        fixtures without changing structural conservation.
+  - [x] Inventory and move renderer-declaration lowering helpers while
+        preserving structural conservation and the visible falsification.
+    - [x] Move plane-cell lowering with explicit map, flat-upload, embedding,
+          and reconstruction inputs.
+    - [x] Move ordered wall-fragment lowering with explicit source/material
+          inputs and retained cutout-identity evidence.
+    - [x] Deliberately retain composition-only joining and cross-family
+          conservation at the executable root. Retain the older context
+          presentation lowerer as an explicitly non-authoritative comparison
+          control rather than mixing it into the prepared-full path.
+- [x] **Candidate selection** — global/full, prepared/full, and optional
       conservative generic filtering helpers, including their invariant tests.
       It must remain downstream of source preparation and cannot be used to
       compensate for a source-presentation loss.
-- [ ] **Interactive diagnostics and controls** — bounded console commands,
+  - [x] Establish the private `candidate_selection` concept folder and move
+        selection policy, labels, summaries, and uniform-grid evidence models.
+  - [x] Move generic conservative AABB/frustum, grouped-range, and grid
+        selection mechanics with their fail-open and survivor-order tests.
+  - [x] Move Doom membership and SEG/BSP comparative selectors while retaining
+        their explicit Doom-source ownership and fail-open behavior.
+  - [x] Deliberately retain selection-mode composition, timing, and report
+        formatting in the executable root. Candidate selection remains a
+        downstream filter over already-declared presentation work.
+- [x] **Interactive diagnostics and controls** — bounded console commands,
       report formatting, native input, collision, and activation orchestration.
       These remain corpus-local application mechanics, not renderer or Doom
       provider authority.
+  - [x] Extract replayable LOOK/source-ray parsing, prepared-hit inspection,
+        source/BSP trace formatting, and their focused tests into
+        `static_scene/diagnostics/look.rs`. The module consumes prepared Doom
+        evidence and retains source identity; it does not establish a renderer
+        picking API or stable console contract.
+  - [x] Extract console command normalization and classification into
+        `static_scene/diagnostics/command.rs`, with alias, case, argument, and
+        unsupported-command tests. Execution remains in the root because it
+        coordinates observer, collision, door, and application state; the
+        existing transcript/raster implementation remains the separate
+        corpus-library presentation seam.
+  - [x] Extract native inspection movement intent and navigation-key release
+        into `static_scene/controls/mod.rs`, with direct regressions for A/D
+        handedness, diagonal/run normalization, and noclip-only vertical
+        controls. Collision, floor transitions, source crossing, and camera
+        mutation remain application orchestration.
+  - [x] Inventory collision and source-special activation seams. Source
+        collision/blockmap/floor mechanics already reside in the corpus
+        library's `collision` subject, and activation classification plus
+        door/platform state machines already reside in its `specials` subject.
+        The executable deliberately retains movement-to-collision composition,
+        floor-transition application, crossed-line dispatch, active runtime
+        advancement, and renderer-resource refresh because those operations
+        coordinate multiple subjects. No pass-through wrapper or duplicate
+        concept was introduced merely to reduce the root's line count.
 
 Each group requires a separate coupling inventory and the same focused native
 and library-WASM checks before the next semantic repair. No directory or public
-API is created in advance: `presentation`, `candidate_selection`, and
-`diagnostics` become modules only when the moved responsibility is concrete.
+API is created in advance: `presentation`, `candidate_selection`,
+`diagnostics`, and `controls` become modules only when the moved responsibility
+is concrete.
+
+The candidate-selection extraction retained all 34 focused native tests. It
+does not alter the prepared-full observation, solve the known missing geometry,
+or promote any Doom membership/SEG experiment into renderer vocabulary.
+
+##### ADR-0015 post-extraction coupling review
+
+The completed pilot reduced the executable root from the 11,088-line semantic
+checkpoint to 9,086 lines. That remains above ADR-0015's exceptional threshold;
+the reduction is evidence of moved responsibilities, not a claim that the root
+is now acceptably cohesive merely because it is shorter.
+
+The retained dependency direction is:
+
+```text
+static_scene.rs composition root
+    -> observer
+    -> presentation
+         -> model
+         -> viewport
+         -> preparation
+         -> lowering
+    -> candidate_selection
+         -> model
+         -> conservative
+         -> doom comparative controls
+    -> diagnostics
+         -> command
+         -> look
+    -> controls
+```
+
+The classic 320x200 viewport and field-of-view reconstruction initially
+remained defined in the root, which made `presentation::preparation` import
+presentation meaning backward from its parent. The coupling review corrected
+that direction by moving the private viewport convention into
+`presentation/viewport.rs`; the root and preparation code now both consume the
+presentation-owned definition. A directly-owned regression protects the
+derived vertical field of view.
+
+The extracted modules do not receive `App` or `&mut App`, own renderer/runtime
+state, mutate the camera, allocate stable public identity, or define a public
+Tokimu/Doom contract. Mutable orchestration remains in the root. Tests live
+beside pure observer, viewport, command, control, conservative-selection,
+reconstruction, and lowering mechanics rather than reaching through a broad
+application context. Sibling implementation files communicate through their
+subject model or named parent exports, not by sharing an application context.
+
+Two residual root dependencies are retained deliberately and are not described
+as completed architectural seams:
+
+- `candidate_selection/doom.rs` consumes the older experimental SEG screen-grid
+  and classic-BSP observation functions still housed in the root. These are
+  comparative AR-0025 controls, not the authoritative Slice 4B preparation
+  path. Moving them is a later legacy-observation extraction, not a prerequisite
+  for resuming the falsified prepared-full investigation.
+- `diagnostics/look.rs` consumes root-owned prepared-scene aggregate types plus
+  mesh-ray/source-trace helpers. LOOK remains a corpus inspection client of the
+  composition's assembled evidence. A future extraction is warranted if this
+  inspection protocol changes substantively or gains another caller; a wrapper
+  solely to hide the dependency would not reduce responsibility coupling.
+
+The pilot therefore passes as a behavior-preserving first application of
+ADR-0015: concrete responsibilities, models, tests, and one misplaced semantic
+constant family moved; cross-subject mutation and policy remained visible in
+the root; no provider or Ring 0 boundary changed; and the Slice 7
+missing-geometry falsification remains the next semantic work. The root retains
+a documented sequencing exception while that investigation is active. Further
+substantive additions should either fit an established subject or trigger the
+next named extraction rather than accumulating anonymously in the root.
+
+Final focused verification for this checkpoint:
+
+- `cargo fmt --all`;
+- `cargo test -p hello-doom-e1m1 --bin static_scene` — 41 passing tests;
+- `cargo clippy -p hello-doom-e1m1 --bin static_scene -- -D warnings`;
+- `cargo check -p hello-doom-e1m1 --lib --target wasm32-unknown-unknown`;
+- `git diff --check`.
 
 ### Deliverables
 

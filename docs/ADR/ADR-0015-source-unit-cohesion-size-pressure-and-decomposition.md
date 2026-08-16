@@ -9,17 +9,18 @@ Accepted — 2026-08-15, with ADR-0005 pre-admission pilot evidence substitution
 The accountable maintainer accepted this decision under ADR-0005 before the
 Doom composition completed the proposed pre-admission decomposition pilot.
 This is permanent admission by evidence substitution, not an assertion that
-the missing pilot evidence already exists.
+the then-missing pilot evidence existed at admission time.
 
 ### Normal requirement waived
 
 The proposed draft required a successful behavior-preserving decomposition of
 the 11,088-line Doom `static_scene.rs` composition before this ADR could be
-accepted. That pilot has not yet run.
+accepted. The maintainer waived completion before admission; the pilot was
+subsequently completed under the accepted conservation boundary.
 
 ### Why pre-acceptance completion adds limited decision value
 
-The missing pilot tests whether the thresholds are calibrated well and whether
+The deferred pilot tested whether the thresholds were calibrated well and whether
 the proposed review procedure produces useful private seams. It does not decide
 the underlying ownership rule: decomposition must preserve existing ownership,
 authority, dependency direction, behavior, and retained failures. Accepting
@@ -27,10 +28,10 @@ that conservation rule before the pilot provides the boundary under which the
 pilot can proceed and avoids treating an improvised refactor as architectural
 evidence.
 
-The pilot can still falsify the threshold calibration, coupling checks, or
-review procedure. Those results require revision or supersession of this ADR;
-they do not justify performing the pilot without an accepted conservation
-boundary.
+The pilot could still falsify the threshold calibration, coupling checks, or
+review procedure. Such a result would have required revision or supersession of
+this ADR; it did not justify performing the pilot without an accepted
+conservation boundary.
 
 ### Substitute evidence
 
@@ -54,26 +55,30 @@ boundary.
 
 - No runtime contract, dependency direction, public API, platform behavior, or
   Native/WASM semantic is admitted by accepting this organizational rule.
-- The thresholds may prove poorly calibrated, and the first pilot may expose
-  organizational seams that do not reduce coupling.
+- The thresholds could have proved poorly calibrated, and the first pilot could
+  have exposed organizational seams that did not reduce coupling. The retained
+  completion record did not observe either failure.
 - Existing large files are not required to undergo immediate bulk migration.
   Review is triggered proportionally by substantive work and the thresholds in
   this ADR.
 - CI remains prohibited from treating line count alone as a failure.
-- The Doom composition must still complete the checkpointed conservation and
-  post-extraction coupling review described below.
+- At admission time, the Doom composition still had to complete the
+  checkpointed conservation and post-extraction coupling review described
+  below. The retained pilot record now reports that completion.
 
 ### Required verification after acceptance
 
 The Doom composition is the first mandatory application of this ADR. Its
-decomposition campaign must preserve the Slice 7 structural fingerprints,
-native/WASM gates, and known missing-geometry falsification before semantic
-work resumes. It must then record whether the extracted private modules reduce
-responsibility coupling rather than distribute the monolith.
+decomposition campaign preserved the Slice 7 structural fingerprints and known
+missing-geometry falsification while moving implementation into private subject
+modules. The post-extraction record below distinguishes completed structural
+verification from browser visual evidence that remains owned by the semantic
+campaign rather than by this refactor.
 
-Failure of that pilot reopens this ADR. The maintainer must revise the
-thresholds or procedure, supersede the decision, or record a narrower retained
-rule. The accepted status must not be used to declare a failed pilot successful.
+Failure of a future mandatory pilot reopens this ADR. The maintainer must revise
+the thresholds or procedure, supersede the decision, or record a narrower
+retained rule. The accepted status must not be used to declare a failed pilot
+successful.
 
 ## Context
 
@@ -425,6 +430,59 @@ static_scene/
 The extraction plan must preserve the current missing-geometry falsification.
 Making the image look better is not evidence of a successful decomposition.
 
+The completed checkpointed application established private subject folders for:
+
+- observer/view behavior;
+- conservative and Doom-owned candidate selection;
+- input and inspection controls;
+- replayable LOOK/source-ray, candidate, SEG, and campaign diagnostics;
+- source presentation models, preparation, lowering, sky spans, and viewport
+  conventions;
+- mutable application lifecycle, dynamic geometry, and replay reports; and
+- composition conservation tests.
+
+Directly owned models, mechanics, formatting, and tests moved with those
+subjects. The application object moved as a cohesive private runtime subject
+rather than being split into artificial `models`, `interfaces`, or `utils`
+files. The executable root remains the composition and experiment-selection
+unit. It also retains actively compared legacy SEG/BSP reconstruction mechanics
+whose semantic disposition belongs to AR-0025/AR-0030; moving those mechanics
+again during this refactor would distribute an unsettled algorithm without
+reducing its coupling.
+
+The measured result is:
+
+| Source unit | Lines after formatting | Disposition |
+| --- | ---: | --- |
+| `static_scene.rs` | 3,939 | Retain after explicit review as the composition root and active comparative-algorithm boundary. |
+| `runtime/app.rs` | 1,952 | Retain as the cohesive application lifecycle subject. |
+| Largest other extracted subject | 609 | Retain under its named concept folder. |
+
+The root therefore moved from the exceptional `>8,000` band, through the
+presumed-debt `>4,000` band, into ADR-0015's explicit-review band. The review
+does not treat 3,939 as a quality score: it records the remaining responsibilities
+and their sequencing reason. A future semantic decision that retires or admits
+the comparative SEG/BSP path should trigger another local review because that
+decision may create a cleaner removal or provider seam.
+
+The extraction did not change a public API, promote Doom semantics into
+`tokimu-render`, or intentionally alter the known Slice 7 missing-geometry
+falsification. Focused verification after extraction retained 42 native
+composition tests, and strict Clippy passed for the `static_scene` binary.
+Incremental-cache hard-link warnings remain an environment/filesystem condition,
+not a source warning. Browser visual parity remains evidence for the active Doom
+semantic campaign; this structural pilot does not claim a new browser rendering
+observation.
+
+The post-extraction coupling review records two deliberate dependencies. The
+composition root still coordinates source preparation and comparative SEG/BSP
+mechanics across presentation modes, while LOOK diagnostics consume assembled
+scene evidence through explicit inputs. Neither child owns or mutates the
+application object. Collision and source-special mechanics remain in the corpus
+library; the runtime subject owns only their application-level orchestration.
+These dependencies are visible and directional rather than hidden behind
+pass-through wrappers.
+
 ## Alternatives Considered
 
 ### No shared rule
@@ -495,10 +553,13 @@ The maintainer accepted that:
 - the Doom composition is the appropriate first mandatory verification
   campaign.
 
-The Doom pilot's pre-acceptance timing requirement is the explicitly missing
-evidence substituted under ADR-0005 above. Its success is not checked or
-implied by this acceptance. It remains required verification and an explicit
-reopening gate.
+The Doom pilot's pre-acceptance timing requirement was the evidence substituted
+under ADR-0005. The later checkpointed pilot completed successfully: the root
+left the exceptional and presumed-debt bands, private subjects retained their
+ownership, focused tests and strict Clippy passed, and the known semantic
+falsification was not recast as a refactor success. This completion validates
+the procedure for this Rust corpus unit without converting the graduated
+thresholds into hard limits.
 
 ## Reopening Triggers
 

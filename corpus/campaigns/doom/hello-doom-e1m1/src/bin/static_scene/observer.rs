@@ -4,7 +4,7 @@
 //! presentation-only look deltas. It deliberately does not own input policy,
 //! player simulation, collision, or Doom runtime state.
 
-use hello_doom_e1m1::observer_direction;
+use hello_doom_e1m1::{observer_direction, DoomComparativeEmbedding};
 use tokimu::Camera;
 use tokimu_core::math::Vec3;
 
@@ -40,6 +40,21 @@ pub(super) fn apply_look_delta(look: &mut ObserverLook, delta_x: f32, delta_y: f
     // the AR-0021 model-orbit convention.
     look.yaw -= delta_x * 0.0032;
     look.pitch = (look.pitch - delta_y * 0.0024).clamp(-0.7, 0.7);
+}
+
+/// Lowers a corpus observer pose through the explicit AR-0028 comparison
+/// embedding. This is diagnostic/source-adapter machinery, not camera API.
+pub(super) fn doom_source_pose(
+    observer: SpawnObserver,
+    look: ObserverLook,
+    embedding: DoomComparativeEmbedding,
+) -> ([i16; 2], f64) {
+    let (source_xy, _) = embedding.lower_direction(observer.position);
+    let source_position = [source_xy[0].round() as i16, source_xy[1].round() as i16];
+    let direction = observer_direction(look.yaw, look.pitch);
+    let (source_forward, _) = embedding.lower_direction(direction);
+    let source_angle = f64::from(source_forward[1].atan2(source_forward[0]));
+    (source_position, source_angle)
 }
 
 /// Builds the corpus camera from either the retained source-spawn observer or
