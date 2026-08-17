@@ -4,8 +4,14 @@ Browser/WASM companion for the Doom-local synthetic visibility controls. The
 web page supplies only fixture selection and bounded status presentation; Rust
 owns source maps, lowering, pipelines, and diagnostics.
 
-Build the browser package using the repository's normal WASM packaging flow,
-then serve `web/`. Run all nine controls and retain browser metadata alongside
+Build the browser package with:
+
+```powershell
+cargo build -p hello-doom-visibility-conformance-web --release --target wasm32-unknown-unknown
+wasm-bindgen target/wasm32-unknown-unknown/release/hello-doom-visibility-conformance-web.wasm --target web --out-dir corpus/campaigns/doom/hello-doom-visibility-conformance-web/web/pkg --out-name hello-doom-visibility-conformance-web
+```
+
+Then serve `web/`. Run all controls and retain browser metadata alongside
 the native observations. `Shared plane key` is the source-plane identity
 control: green sector 0 and orange sector 1 share a floor key but must survive
 as distinct provider-lowered floor instances. Their claim is semantic parity,
@@ -26,3 +32,7 @@ Doom-local negative authority control, not a generic occlusion contract.
 the two ordinary far-source meshes produced by Doom-owned partial coverage.
 The two orange meshes retain one SEG identity and continuous linedef intervals;
 diagnostic columns explain their derivation but are not renderer scissors.
+`G2 submission-local geometry` exercises the explicitly unstable AR-0030
+renderer intake across three distinct submissions. It reuses local slot
+numbers without persistent mesh identity, rejects one missing-material batch,
+recovers with a valid batch, and keeps two persistent control meshes unchanged.

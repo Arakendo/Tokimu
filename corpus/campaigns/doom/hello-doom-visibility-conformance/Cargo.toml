@@ -10,5 +10,5 @@ blake3.workspace = true
 doom-geometry-provider = { path = "../../../lib/doom-geometry-provider" }
 doom-map-provider = { path = "../../../lib/doom-map-provider" }
 thiserror.workspace = true
-tokimu = { path = "../../../../crates/tokimu", features = ["platform", "render"] }
+tokimu = { path = "../../../../crates/tokimu", features = ["platform", "render", "experimental-submission-local-geometry"] }
 winit.workspace = true

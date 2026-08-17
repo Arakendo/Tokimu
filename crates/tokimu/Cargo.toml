@@ -9,6 +9,10 @@ repository.workspace = true
 default = []
 platform = ["dep:tokimu-platform"]
 render = ["dep:tokimu-render"]
+experimental-submission-local-geometry = [
+    "render",
+    "tokimu-render/experimental-submission-local-geometry",
+]
 
 [dependencies]
 tokimu-assets = { path = "../tokimu-assets" }

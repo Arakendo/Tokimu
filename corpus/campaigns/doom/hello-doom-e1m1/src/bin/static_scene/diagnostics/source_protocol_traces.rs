@@ -448,6 +448,13 @@ pub(crate) fn report_doom_seg_classic_vertical_clip_trace(
         ("near-wall-a", [1202, -3502], -24.0_f64),
         ("near-wall-b", [1296, -3427], -0.4_f64),
         ("courtyard-loss", [1514, -2481], -29.2_f64),
+        // Retained LOOK-ray exterior observations from the hut/sky fault
+        // investigation. These are diagnostic source poses, not collision-
+        // valid player locations. They test actual F_SKY1 plane authority,
+        // rather than treating paired-sky boundary metadata as authority.
+        ("exterior-hut-west", [2354, -3861], -87.7_f64),
+        ("exterior-hut-east", [2076, -3560], -25.1_f64),
+        ("exterior-far-east", [2801, -3450], -2.5_f64),
         (
             "hut-control",
             scene.spawn_observer.source_position,
@@ -469,11 +476,30 @@ pub(crate) fn report_doom_seg_classic_vertical_clip_trace(
             heading_degrees.to_radians(),
             scene.spawn_observer.position.y as f64,
         );
+        let authoritative_sky = model_authoritative_sky_regions(
+            &vertical,
+            &traversal.admitted_seg_order,
+            AuthoritativeSkyViewIdentity {
+                fixture: format!("e1m1-{label}"),
+                source_position: viewer,
+                heading_radians: heading_degrees.to_radians(),
+                source_eye_height: scene.spawn_observer.position.y as i16,
+            },
+            "decoded-source-heights",
+        );
         println!(
-            "E1M1 AR-0025 Stage 3B classic-vertical-clip trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; admitted-segs={}; tier-spans=[upper:{} lower:{} middle:{}]; source-plane-marks=[floor:{} ceiling:{} paired-sky:{}]; clip-updates=[ceiling:{} floor:{}]; center-column-trace={}; meaning=doom-owned-wall-tier-and-plane-clip-state-not-visplanes-flat-selection-or-presentation-visibility",
+            "E1M1 AR-0025 Stage 3B classic-vertical-clip trace: pose={label}; source_viewer=({},{}); source_heading_degrees={heading_degrees:.1}; admitted-segs={}; tier-spans=[upper:{} lower:{} middle:{}]; source-plane-marks=[floor:{} ceiling:{} paired-sky:{}]; authoritative-sky=[regions:{} input-intervals:{} modeled-intervals:{} omitted-intervals:{} cells:{}/{} fail-open:{} fingerprint:{}]; clip-updates=[ceiling:{} floor:{}]; center-column-trace={}; meaning=doom-owned-wall-tier-and-plane-clip-state-with-candidate1-authority-audit-not-presentation-visibility",
             viewer[0], viewer[1], vertical.admitted_segs, vertical.upper_tier_spans,
             vertical.lower_tier_spans, vertical.middle_tier_spans, vertical.floor_plane_marks,
             vertical.ceiling_plane_marks, vertical.paired_sky_adjustments,
+            authoritative_sky.regions.len(),
+            authoritative_sky.input_sky_intervals,
+            authoritative_sky.modeled_sky_intervals,
+            authoritative_sky.omitted_sky_intervals,
+            authoritative_sky.modeled_sky_cells,
+            authoritative_sky.input_sky_cells,
+            authoritative_sky.fail_open,
+            authoritative_sky.structural_fingerprint,
             vertical.ceiling_clip_updates, vertical.floor_clip_updates, vertical.samples.join(" | "),
         );
     }

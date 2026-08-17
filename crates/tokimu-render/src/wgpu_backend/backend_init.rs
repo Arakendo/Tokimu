@@ -61,6 +61,8 @@ impl WgpuBackend {
             instance_bindings: Vec::new(),
             camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
+            #[cfg(feature = "experimental-submission-local-geometry")]
+            submission_local_meshes: Vec::new(),
             materials: HashMap::new(),
             derived_materials: HashMap::new(),
             pipelines: HashMap::new(),
@@ -134,6 +136,8 @@ impl WgpuBackend {
             instance_bindings: Vec::new(),
             camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
+            #[cfg(feature = "experimental-submission-local-geometry")]
+            submission_local_meshes: Vec::new(),
             materials: HashMap::new(),
             derived_materials: HashMap::new(),
             pipelines: HashMap::new(),
@@ -226,6 +230,8 @@ impl WgpuBackend {
             instance_bindings: Vec::new(),
             camera_bindings: HashMap::new(),
             meshes: HashMap::new(),
+            #[cfg(feature = "experimental-submission-local-geometry")]
+            submission_local_meshes: Vec::new(),
             materials: HashMap::new(),
             derived_materials: HashMap::new(),
             pipelines: HashMap::new(),

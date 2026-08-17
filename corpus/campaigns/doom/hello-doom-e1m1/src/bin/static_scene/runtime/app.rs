@@ -274,10 +274,12 @@ impl App {
         let Some(command) = self.debug_console.take_submission() else {
             return;
         };
+        eprintln!("[doom-console] > {command}");
         let response = match parse_debug_command(&command) {
             DebugCommand::Help => "commands: HELP | CLEAR | STATUS | CAMERA | COLLISION | LOOK | USE <linedef> | NOCLIP [ON|OFF|TOGGLE]".to_owned(),
             DebugCommand::Clear => {
                 self.debug_console.clear();
+                eprintln!("[doom-console] [doom] transcript cleared");
                 return;
             }
             DebugCommand::Camera => self.spawn_observer.map_or_else(
@@ -363,6 +365,7 @@ impl App {
             }
             DebugCommand::Unsupported(command) => format!("unsupported command: {command}"),
         };
+        eprintln!("[doom-console] {response}");
         self.debug_console.append(response);
     }
 
@@ -800,6 +803,211 @@ impl App {
             &self.door_geometry_source.map,
             &snapshots,
         )?)
+    }
+
+    /// Prepares Candidate 1 as one all-or-nothing Doom-owned G2 batch.
+    ///
+    /// The ordered Doom protocol owns which F_SKY1 regions have authority and
+    /// which source SEG supplies their depth. The renderer sees only bounded,
+    /// submission-local clip geometry. Any unresolved source fact fails open
+    /// for the entire batch, leaving the unchanged global scene submission as
+    /// the frame's sole geometry authority.
+    fn prepare_candidate1_sky_depth_batch(
+        &self,
+    ) -> PlatformResult<Option<Candidate1SkyDepthBatch>> {
+        if !self.candidate1_sky_depth_enabled {
+            return Ok(None);
+        }
+        let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
+            if self.frame_index == 0 {
+                eprintln!(
+                    "E1M1 Candidate 1 fail-open: reason=missing-source-observer; local-batch=omitted; global-full-submission=unchanged"
+                );
+            }
+            return Ok(None);
+        };
+
+        let map = self.current_doom_visibility_map()?;
+        let (source_position, heading_radians) =
+            observer_doom_source_pose(observer, look, self.comparative_embedding);
+        let source_eye_height = observer.position.y.round() as i16;
+        let fixture = DoomVisibilityFixture {
+            name: "e1m1-candidate1-authoritative-sky".to_owned(),
+            map: map.clone(),
+            viewer: DoomFixtureViewer {
+                position: source_position,
+                heading_radians,
+            },
+            watched_subsectors: BTreeSet::new(),
+        };
+        let traversal = fixture.observe_classic_bsp().map_err(io::Error::other)?;
+        let vertical = fixture
+            .observe_classic_vertical_clips(
+                source_eye_height,
+                &self.door_geometry_source.wall_extents,
+            )
+            .map_err(io::Error::other)?;
+        let runtime_snapshot = format!(
+            "doors={:?};turbo-floors={:?};platforms={:?}",
+            self.active_manual_doors
+                .iter()
+                .map(|door| (door.target_sector, door.current_ceiling_height))
+                .collect::<Vec<_>>(),
+            self.active_turbo_floors
+                .iter()
+                .map(|floor| (floor.target_sector, floor.current_floor_height))
+                .collect::<Vec<_>>(),
+            self.active_down_wait_up_platforms
+                .iter()
+                .map(|platform| (platform.target_sector, platform.current_floor_height))
+                .collect::<Vec<_>>(),
+        );
+        let regions = model_authoritative_sky_regions(
+            &vertical,
+            &traversal.admitted_seg_order,
+            AuthoritativeSkyViewIdentity {
+                fixture: fixture.name.clone(),
+                source_position,
+                heading_radians,
+                source_eye_height,
+            },
+            &runtime_snapshot,
+        );
+        let region_conservation = !regions.fail_open
+            && regions.omitted_sky_intervals == 0
+            && regions.omitted_sky_cells == 0
+            && regions.removed_non_sky_contributions == 0
+            && regions.modeled_sky_intervals == regions.input_sky_intervals
+            && regions.modeled_sky_cells == regions.input_sky_cells;
+        if !region_conservation {
+            if self.frame_index < 2 {
+                eprintln!(
+                    "E1M1 Candidate 1 fail-open: reason=authoritative-region-conservation; regions={}; input-intervals={}; modeled-intervals={}; omitted-intervals={}; input-cells={}; modeled-cells={}; omitted-cells={}; removed-non-sky={}; local-batch=omitted; global-full-submission=unchanged",
+                    regions.regions.len(),
+                    regions.input_sky_intervals,
+                    regions.modeled_sky_intervals,
+                    regions.omitted_sky_intervals,
+                    regions.input_sky_cells,
+                    regions.modeled_sky_cells,
+                    regions.omitted_sky_cells,
+                    regions.removed_non_sky_contributions,
+                );
+            }
+            return Ok(None);
+        }
+        if regions.regions.is_empty() {
+            if self.frame_index < 2 {
+                eprintln!(
+                    "E1M1 Candidate 1 inactive: reason=no-authoritative-sky-in-current-view; input-intervals=0; modeled-intervals=0; local-batch=not-required; global-full-submission=unchanged"
+                );
+            }
+            return Ok(None);
+        }
+
+        let near = f64::from((self.radius * 0.000_1).max(0.1));
+        let far = f64::from(self.radius * 4.0);
+        let depth = prepare_authoritative_sky_source_depth_declarations(
+            &regions,
+            &map,
+            near,
+            far,
+            "e1m1-candidate1-authoritative-sky-depth",
+        );
+        let approximation =
+            observe_authoritative_sky_source_depth_approximation(&regions, &depth, &map, near, far);
+        let depth_conservation = depth.persistent_mesh_identities == 0
+            && depth.declarations.len() == regions.regions.len()
+            && depth.outcomes.len() == regions.regions.len()
+            && depth
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.declaration.is_some() && outcome.rejection.is_none());
+        if !depth_conservation {
+            if self.frame_index < 2 {
+                eprintln!(
+                    "E1M1 Candidate 1 fail-open: reason=source-depth-realization; regions={}; declarations={}; outcomes={:?}; persistent-mesh-identities={}; local-batch=omitted; global-full-submission=unchanged",
+                    regions.regions.len(),
+                    depth.declarations.len(),
+                    depth.outcomes,
+                    depth.persistent_mesh_identities,
+                );
+            }
+            return Ok(None);
+        }
+        if self.frame_index < 2 {
+            eprintln!(
+                "E1M1 Candidate 1 oracle/triangle comparison: oracle-samples={}; coverage-mismatches={}; coverage-extra-cells={}; coverage-missing-cells={}; depth-samples={}; unresolved-depth-samples={}; max-clip-depth-error={:.9}; mean-clip-depth-error={:.9}; meaning=doom-ledger-column-centers-versus-continuous-triangle-realization-not-pixel-parity",
+                approximation.oracle_samples,
+                approximation.coverage_mismatches,
+                approximation.coverage_extra_cells,
+                approximation.coverage_missing_cells,
+                approximation.depth_samples,
+                approximation.unresolved_depth_samples,
+                approximation.maximum_absolute_clip_depth_error,
+                approximation.mean_absolute_clip_depth_error,
+            );
+        }
+
+        let submission_identity = self.frame_index.saturating_add(1);
+        let snapshot = prepare_authoritative_sky_submission_local_geometry(
+            &depth,
+            SubmissionIdentity(submission_identity),
+            SubmissionLocalGeometryLimits::default(),
+        )
+        .map_err(io::Error::other)?;
+        if snapshot.persistent_mesh_identities != 0
+            || snapshot.payloads.len() != depth.declarations.len()
+            || snapshot.draws.len() != depth.declarations.len()
+        {
+            return Err(io::Error::other(
+                "Candidate 1 G2 lowering violated submission-local conservation",
+            )
+            .into());
+        }
+
+        let pipeline = self
+            .candidate1_sky_depth_pipeline
+            .ok_or_else(|| io::Error::other("Candidate 1 sky-depth pipeline missing"))?;
+        let mut builder = ExperimentalSubmissionLocalGeometryBuilder::new(
+            ExperimentalSubmissionIdentity(submission_identity),
+        );
+        let mut local_ids = Vec::with_capacity(snapshot.payloads.len());
+        for payload in &snapshot.payloads {
+            local_ids.push(
+                builder
+                    .add_geometry(Mesh::uniform_normal(
+                        payload.positions.clone(),
+                        [0.0, 0.0, -1.0],
+                    ))
+                    .map_err(io::Error::other)?,
+            );
+        }
+        for draw in &snapshot.draws {
+            let geometry = local_ids
+                .get(draw.geometry.slot as usize)
+                .copied()
+                .ok_or_else(|| io::Error::other("Candidate 1 local slot missing"))?;
+            builder
+                .add_draw(ExperimentalLocalGeometryDraw {
+                    geometry,
+                    material: CANDIDATE1_SKY_DEPTH_MATERIAL,
+                    pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CANDIDATE1_CLIP_CAMERA),
+                    viewport: None,
+                    material_override: None,
+                })
+                .map_err(io::Error::other)?;
+        }
+        let batch = builder.finish().map_err(io::Error::other)?;
+        Ok(Some(Candidate1SkyDepthBatch {
+            batch,
+            source_regions: regions.regions.len(),
+            declarations: depth.declarations.len(),
+            vertices: snapshot.total_vertices,
+            triangles: snapshot.total_triangles,
+            structural_fingerprint: snapshot.structural_fingerprint,
+        }))
     }
 
     /// Re-lowers only wall spans attributable to the active manual-door
@@ -1506,6 +1714,31 @@ impl PlatformEventHandler for App {
                 )?,
             );
         }
+        if self.candidate1_sky_depth_enabled {
+            renderer.upload_material(
+                CANDIDATE1_SKY_DEPTH_MATERIAL,
+                &Material::new(
+                    "e1m1-candidate1-authoritative-sky-depth",
+                    Color::rgb(0.0, 0.0, 0.0),
+                ),
+            )?;
+            renderer.upload_camera(CANDIDATE1_CLIP_CAMERA, Camera::default());
+            self.candidate1_sky_depth_pipeline = Some(
+                renderer.register_pipeline(
+                    &Pipeline::new(
+                        "e1m1-candidate1-authoritative-sky-depth",
+                        PipelineKind::SolidColor2d,
+                    )
+                    .with_render_state(PipelineRenderState {
+                        blend: BlendMode::Opaque,
+                        depth_test: DepthTest::LessEqual,
+                        depth_write: true,
+                        cull_mode: CullMode::None,
+                        color_write: ColorWriteMask::NONE,
+                    })?,
+                )?,
+            );
+        }
         if self.include_cutouts {
             self.cutout_pipeline =
                 Some(renderer.register_pipeline(&Pipeline::textured_3d_cutout(
@@ -1518,7 +1751,11 @@ impl PlatformEventHandler for App {
         }
         self.upload_static_meshes(&mut renderer);
         eprintln!(
-            "E1M1 native first-frame metadata: opaque_draws={}; cutout_draws={}; cutouts_enabled={}; camera={}; candidate_selection={}; walk_collision={}; noclip={}; backend={}; device={}; adapter={}",
+            "E1M1 native first-frame metadata: strategy={}; stages={}; topology_inventory_records={}; topology_inventory_hash={:016x}; opaque_draws={}; cutout_draws={}; cutouts_enabled={}; camera={}; candidate_selection={}; walk_collision={}; noclip={}; backend={}; device={}; adapter={}",
+            self.render_strategy_name,
+            self.render_strategy_stages,
+            self.topology_inventory.records.len(),
+            self.topology_inventory.aggregate_hash,
             self.draws.len(),
             self.cutout_draws.len(),
             self.include_cutouts,
@@ -1650,6 +1887,7 @@ impl PlatformEventHandler for App {
         }
         let selection_started = Instant::now();
         let view_projection = camera.projection * camera.view;
+        let candidate1_sky_depth_batch = self.prepare_candidate1_sky_depth_batch()?;
         let source_sky_span_depth_mesh = if self.source_sky_plane_depth_enabled {
             let (mesh, triangles) = prepare_viewer_relative_source_sky_span_mesh(
                 &self.door_geometry_source,
@@ -1823,6 +2061,11 @@ impl PlatformEventHandler for App {
                 }
             }
         }
+        // Candidate 1 is deliberately inserted after the sky panorama and
+        // before every ordinary world declaration. The Doom consumer owns
+        // the authoritative coverage; tokimu-render sees only G2 clip-space
+        // geometry with depth-only render state.
+        let candidate1_insertion_index = self.commands.len();
         for (index, draw) in self.draws.iter().enumerate() {
             if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
                 continue;
@@ -1940,13 +2183,42 @@ impl PlatformEventHandler for App {
             );
         }
         renderer.begin_frame();
-        renderer.submit(&self.commands);
+        renderer.submit(&self.commands[..candidate1_insertion_index]);
+        let candidate1_observation = candidate1_sky_depth_batch
+            .as_ref()
+            .map(|candidate| {
+                renderer
+                    .submit_experimental_submission_local_geometry(&candidate.batch)
+                    .map_err(io::Error::other)
+            })
+            .transpose()?;
+        renderer.submit(&self.commands[candidate1_insertion_index..]);
         renderer.present()?;
         let stats = renderer.end_frame();
+        if self.candidate1_sky_depth_enabled && self.frame_index < 2 {
+            if let Some(candidate) = candidate1_sky_depth_batch.as_ref() {
+                eprintln!(
+                    "E1M1 AR-0030 Candidate 1 {} frame: source-regions={}; declarations={}; vertices={}; triangles={}; submission-scoped-fingerprint={}; renderer-observation={candidate1_observation:?}; persistent-mesh-identity=none; fallback=not-taken",
+                    if self.frame_index == 0 { "first" } else { "warm" },
+                    candidate.source_regions,
+                    candidate.declarations,
+                    candidate.vertices,
+                    candidate.triangles,
+                    candidate.structural_fingerprint,
+                );
+            } else {
+                eprintln!(
+                    "E1M1 AR-0030 Candidate 1 {} frame: local-batch=omitted; fallback=global-full-submission; partial-authority=forbidden",
+                    if self.frame_index == 0 { "first" } else { "warm" },
+                );
+            }
+        }
         if self.frame_index < 2 {
             eprintln!(
-                "E1M1 AR-0025 {} frame: selection={:?}; candidates={}; rejected={}; submitted={}; opaque_submitted={}; cutout_submitted={}; uncertain_bounds={}; rejected_by_plane=[left:{},right:{},bottom:{},top:{},near:{},far:{}]; selection_cpu_us={}; command_build_cpu_us={}; frame_cpu_us={}; draws={}; material_resolutions={}; pipeline_switches={}; mesh_uploads={}; mesh_replacements={}; lifetime_mesh_uploads={}; lifetime_mesh_replacements={}",
+                "E1M1 AR-0025 {} frame: strategy={}; stages={}; selection={:?}; candidates={}; rejected={}; submitted={}; opaque_submitted={}; cutout_submitted={}; uncertain_bounds={}; rejected_by_plane=[left:{},right:{},bottom:{},top:{},near:{},far:{}]; selection_cpu_us={}; command_build_cpu_us={}; frame_cpu_us={}; draws={}; material_resolutions={}; pipeline_switches={}; mesh_uploads={}; mesh_replacements={}; lifetime_mesh_uploads={}; lifetime_mesh_replacements={}",
                 if self.frame_index == 0 { "first" } else { "warm" },
+                self.render_strategy_name,
+                self.render_strategy_stages,
                 self.candidate_selection,
                 selection.candidates,
                 selection.rejected,

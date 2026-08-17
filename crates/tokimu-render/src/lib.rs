@@ -1,6 +1,9 @@
 pub mod camera;
 pub mod color;
 pub mod commands;
+#[cfg(feature = "experimental-submission-local-geometry")]
+#[doc(hidden)]
+pub mod experimental_submission_local_geometry;
 pub mod instance;
 pub mod material;
 pub mod mesh;

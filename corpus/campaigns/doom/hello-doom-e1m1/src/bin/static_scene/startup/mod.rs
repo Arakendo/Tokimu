@@ -35,13 +35,30 @@ pub(crate) fn run() -> PlatformResult<()> {
         && args
             .iter()
             .any(|argument| argument == "--source-sky-plane-depth-global-control");
+    let candidate1_sky_depth = doom_sky
+        && args
+            .iter()
+            .any(|argument| argument == "--global-full-plus-view-local-sky-depth");
+    let exterior_hut_east_view = args.iter().any(|argument| {
+        matches!(
+            argument.as_str(),
+            "--exterior-hut-east-view" | "--candidate1-sky-authority-view"
+        )
+    });
     let spawn_observer = !args.iter().any(|argument| argument == "--overview-camera");
     let spawn_yaw_plus_90 = args
         .iter()
         .any(|argument| argument == "--spawn-yaw-plus-90");
+
     let walk_collision = !args
         .iter()
         .any(|argument| argument == "--no-walk-collision");
+    if exterior_hut_east_view && walk_collision {
+        return Err(
+            "--exterior-hut-east-view requires --no-walk-collision because the fixed diagnostic pose does not claim runtime player-sector state"
+                .into(),
+        );
+    }
     let walk_collision_report = args
         .iter()
         .any(|argument| argument == "--walk-collision-report");
@@ -66,6 +83,9 @@ pub(crate) fn run() -> PlatformResult<()> {
     let candidate_temporal_report = args
         .iter()
         .any(|argument| argument == "--candidate-temporal-report");
+    let topology_inventory_report = args
+        .iter()
+        .any(|argument| argument == "--topology-inventory-report");
     let doom_reject_report = args
         .iter()
         .any(|argument| argument == "--doom-reject-report");
@@ -91,6 +111,15 @@ pub(crate) fn run() -> PlatformResult<()> {
     let moving_floor_runtime_report = args
         .iter()
         .any(|argument| argument == "--moving-floor-runtime-report");
+    let ordered_occurrence_runtime_snapshot_report = args
+        .iter()
+        .any(|argument| argument == "--ordered-occurrence-runtime-snapshot-report");
+    let ordered_occurrence_prepared_report = args
+        .iter()
+        .any(|argument| argument == "--ordered-occurrence-prepared-report");
+    let ordered_occurrence_six_ray_report = args
+        .iter()
+        .any(|argument| argument == "--ordered-occurrence-six-ray-report");
     let moving_floor_resource_replay_report = args
         .iter()
         .any(|argument| argument == "--moving-floor-resource-replay-report");
@@ -172,6 +201,23 @@ pub(crate) fn run() -> PlatformResult<()> {
         doom_seg_ordered_coverage_presentation,
         frustum_aabb,
     )?;
+    if candidate1_sky_depth && trial_render_strategy.is_some() {
+        return Err(
+            "--global-full-plus-view-local-sky-depth requires the unchanged global-full submission control"
+                .into(),
+        );
+    }
+    if candidate1_sky_depth
+        && (source_sky_plane_depth
+            || source_sky_plane_depth_global_control
+            || frustum_aabb
+            || frustum_grid)
+    {
+        return Err(
+            "Candidate 1 cannot be combined with superseded sky-depth or generic camera-filter controls"
+                .into(),
+        );
+    }
     let doom_seg_clip_presentation = args
         .iter()
         .any(|argument| argument == "--doom-seg-clip-presentation");
@@ -234,6 +280,9 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--no-doom-sky");
     args.retain(|argument| argument != "--source-sky-plane-depth");
     args.retain(|argument| argument != "--source-sky-plane-depth-global-control");
+    args.retain(|argument| argument != "--global-full-plus-view-local-sky-depth");
+    args.retain(|argument| argument != "--exterior-hut-east-view");
+    args.retain(|argument| argument != "--candidate1-sky-authority-view");
     args.retain(|argument| argument != "--spawn-observer");
     args.retain(|argument| argument != "--overview-camera");
     args.retain(|argument| argument != "--spawn-yaw-plus-90");
@@ -249,6 +298,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--candidate-pathological-report");
     args.retain(|argument| argument != "--candidate-grid-report");
     args.retain(|argument| argument != "--candidate-temporal-report");
+    args.retain(|argument| argument != "--topology-inventory-report");
     args.retain(|argument| argument != "--doom-reject-report");
     args.retain(|argument| argument != "--doom-topology-report");
     args.retain(|argument| argument != "--doom-membership-report");
@@ -257,6 +307,9 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--special-activation-report");
     args.retain(|argument| argument != "--door-runtime-report");
     args.retain(|argument| argument != "--moving-floor-runtime-report");
+    args.retain(|argument| argument != "--ordered-occurrence-runtime-snapshot-report");
+    args.retain(|argument| argument != "--ordered-occurrence-prepared-report");
+    args.retain(|argument| argument != "--ordered-occurrence-six-ray-report");
     args.retain(|argument| argument != "--moving-floor-resource-replay-report");
     args.retain(|argument| argument != "--door-resource-replay-report");
     args.retain(|argument| argument != "--measure-two-frames");
@@ -296,7 +349,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered] [--global-full-plus-view-local-sky-depth] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -335,11 +388,22 @@ pub(crate) fn run() -> PlatformResult<()> {
                 TrialRenderStrategy::PreparedFullSubmission
                     | TrialRenderStrategy::PreparedFrustumFiltered
             )
-        ))
+        )
+        || trial_render_strategy
+            .is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration))
         && !spawn_observer
     {
         return Err(
             "ordered coverage comparison requires the source-spawn observer; omit --overview-camera"
+                .into(),
+        );
+    }
+    if (ordered_occurrence_prepared_report || ordered_occurrence_six_ray_report)
+        && !trial_render_strategy
+            .is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration)
+    {
+        return Err(
+            "ordered-occurrence prepared reports require an ordered-occurrence render strategy"
                 .into(),
         );
     }
@@ -351,6 +415,48 @@ pub(crate) fn run() -> PlatformResult<()> {
         );
     }
     let mut scene = prepare_scene(package, member)?;
+    let ordered_prepared_observation = trial_render_strategy
+        .filter(|strategy| strategy.is_ordered_occurrence_integration())
+        .map(|_| {
+            let cutout_materials = scene
+                .cutout_uploads
+                .iter()
+                .map(|upload| (upload.source_name.clone(), upload.material))
+                .collect::<BTreeMap<_, _>>();
+            prepare_ordered_occurrence_submission(
+                &scene.door_geometry_source.map,
+                scene.spawn_observer.source_position,
+                f64::from(scene.spawn_observer.source_angle).to_radians(),
+                scene.spawn_observer.position.y as i16,
+                &scene.door_geometry_source.wall_extents,
+                &scene.door_geometry_source.wall_materials,
+                &cutout_materials,
+                &scene.opaque_uploads,
+            )
+        })
+        .transpose()
+        .map_err(io::Error::other)?;
+    let ordered_occurrence_observation = ordered_prepared_observation
+        .as_ref()
+        .map(|observation| observation.source.clone());
+    let ordered_wall_lowering_observation = ordered_prepared_observation
+        .as_ref()
+        .map(|observation| observation.walls.clone());
+    let ordered_plane_occurrence_observation = ordered_prepared_observation
+        .as_ref()
+        .map(|observation| observation.planes.clone());
+    let ordered_plane_lowering_observation = ordered_prepared_observation
+        .as_ref()
+        .map(|observation| observation.plane_lowering.clone());
+
+    if ordered_occurrence_runtime_snapshot_report {
+        report_ordered_occurrence_runtime_snapshots(&scene)?;
+        return Ok(());
+    }
+    if ordered_occurrence_six_ray_report {
+        report_ordered_occurrence_six_ray_handoff(&scene)?;
+        return Ok(());
+    }
     if spatial_orientation_report {
         report_spatial_orientation(&scene);
         return Ok(());
@@ -481,7 +587,7 @@ pub(crate) fn run() -> PlatformResult<()> {
                 strategy,
                 TrialRenderStrategy::PreparedFullSubmission
                     | TrialRenderStrategy::PreparedFrustumFiltered
-            )
+            ) || strategy.is_ordered_occurrence_integration()
         })
         .map(|_| Box::new(scene.clone()));
     let ordered_coverage_camera_bounds = ordered_coverage_source.as_ref().map(|source| {
@@ -493,6 +599,14 @@ pub(crate) fn run() -> PlatformResult<()> {
             .collect::<Vec<_>>();
         scene_bounds(&draws)
     });
+    if trial_render_strategy.is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration) {
+        render_strategies::replace_ordered_occurrence_declarations(
+            &mut scene,
+            ordered_prepared_observation
+                .as_ref()
+                .expect("ordered strategy has a coherent prepared observation"),
+        )?;
+    }
     let applied_trial_strategy = trial_render_strategy
         .map(|strategy| strategy.apply(&mut scene))
         .transpose()?;
@@ -510,6 +624,64 @@ pub(crate) fn run() -> PlatformResult<()> {
         None
     };
     reembed_scene_for_comparison(&mut scene, comparative_embedding);
+    if topology_inventory_report {
+        let inventory_scene = ordered_coverage_source.as_deref().unwrap_or(&scene);
+        let mesh_base = if ordered_coverage_source.is_some() {
+            ORDERED_COVERAGE_CUTOUT_MESH_BASE
+        } else {
+            inventory_scene.opaque_draws.len() as u64 + 1
+        };
+        let inventory = build_original_contribution_inventory(
+            &inventory_scene.opaque_draws,
+            &inventory_scene.cutout_draws,
+            &inventory_scene.diagnostic_sky_draws,
+            mesh_base,
+            &inventory_scene.activation_source,
+        );
+        let strategy_name = trial_render_strategy
+            .map(TrialRenderStrategy::resolved_name)
+            .unwrap_or("implicit-global-full");
+        let stages = trial_render_strategy
+            .map(TrialRenderStrategy::ordered_stages)
+            .unwrap_or("original-complete-geometry>renderer-full-submission");
+        println!(
+            "E1M1 source-topology inventory: strategy={strategy_name}; stages={stages}; {}; unchanged={}; outcomes=admitted:0,rejected:0,unresolved-fail-open:{}",
+            inventory.report(),
+            inventory.verify_unchanged(
+                &inventory_scene.opaque_draws,
+                &inventory_scene.cutout_draws,
+                &inventory_scene.diagnostic_sky_draws,
+            ),
+            inventory.records.len(),
+        );
+        if let Some(observation) = ordered_occurrence_observation.as_ref() {
+            println!(
+                "E1M1 ordered source occurrence observation: strategy={strategy_name}; {}; renderer-mutation=false; original-contributions=all-fail-open",
+                observation.report(),
+            );
+        }
+        if let Some(observation) = ordered_wall_lowering_observation.as_ref() {
+            println!(
+                "E1M1 ordered wall occurrence lowering observation: strategy={strategy_name}; {}; renderer-mutation=false; original-contributions=unchanged",
+                observation.report(),
+            );
+        }
+        if let Some(observation) = ordered_plane_occurrence_observation.as_ref() {
+            println!(
+                "E1M1 ordered plane occurrence association observation: strategy={strategy_name}; {}; renderer-mutation=false",
+                observation.report(),
+            );
+        }
+        if let Some(observation) = ordered_plane_lowering_observation.as_ref() {
+            println!(
+                "E1M1 ordered plane destination lowering observation: strategy={strategy_name}; {}; renderer-mutation={}; prepared-scene-replacement={}",
+                observation.report(),
+                trial_render_strategy.is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration),
+                trial_render_strategy.is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration),
+            );
+        }
+        return Ok(());
+    }
     if let Some(ray) = look_ray_report {
         report_source_look_ray(&scene, comparative_embedding, ray, include_cutouts);
         return Ok(());
@@ -624,9 +796,120 @@ pub(crate) fn run() -> PlatformResult<()> {
     } else {
         scene.opaque_draws.len() as u64 + 1
     };
+    let inventory_scene = ordered_coverage_source.as_deref().unwrap_or(&scene);
+    let topology_inventory = build_original_contribution_inventory(
+        &inventory_scene.opaque_draws,
+        &inventory_scene.cutout_draws,
+        &inventory_scene.diagnostic_sky_draws,
+        cutout_mesh_base,
+        &inventory_scene.activation_source,
+    );
+    if !topology_inventory.verify_unchanged(
+        &inventory_scene.opaque_draws,
+        &inventory_scene.cutout_draws,
+        &inventory_scene.diagnostic_sky_draws,
+    ) {
+        return Err("topology admission inventory mutated original geometry".into());
+    }
+    let (render_strategy_name, render_strategy_stages) = if candidate1_sky_depth {
+        (
+            "global-full-plus-view-local-sky-depth",
+            "sky-panorama>doom-authoritative-sky-depth-delta>original-complete-geometry>renderer-full-submission",
+        )
+    } else {
+        trial_render_strategy.map_or(
+            (
+                "implicit-global-full",
+                "original-complete-geometry>renderer-full-submission",
+            ),
+            |strategy| (strategy.resolved_name(), strategy.ordered_stages()),
+        )
+    };
+    if trial_render_strategy.is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration) {
+        let source_observation = ordered_occurrence_observation
+            .as_ref()
+            .map(OrderedSourceOccurrenceObservation::report)
+            .unwrap_or_else(|| "not-observed".to_owned());
+        let wall_lowering_observation = ordered_wall_lowering_observation
+            .as_ref()
+            .map(OrderedWallOccurrenceLoweringObservation::report)
+            .unwrap_or_else(|| "not-observed".to_owned());
+        let plane_occurrence_observation = ordered_plane_occurrence_observation
+            .as_ref()
+            .map(OrderedPlaneOccurrenceObservation::report)
+            .unwrap_or_else(|| "not-observed".to_owned());
+        let plane_lowering_observation = ordered_plane_lowering_observation
+            .as_ref()
+            .map(OrderedPlaneLoweringObservation::report)
+            .unwrap_or_else(|| "not-observed".to_owned());
+        let family_conservation = ordered_prepared_observation
+            .as_ref()
+            .map(OrderedPreparedSubmissionObservation::family_conservation_report)
+            .unwrap_or_else(|| "not-observed".to_owned());
+        eprintln!(
+            "E1M1 ordered-occurrence integration baseline: strategy={render_strategy_name}; stages={render_strategy_stages}; source-observation=[{source_observation}]; wall-lowering-observation=[{wall_lowering_observation}]; plane-occurrence-observation=[{plane_occurrence_observation}]; plane-lowering-observation=[{plane_lowering_observation}]; family-conservation=[{family_conservation}]; original-inventory=[{}]; original-inventory-retained-separately=true; prepared-opaque-declarations={}; prepared-cutout-declarations={}; conservation=balanced; renderer-mutation=true; fixed-source-view=true; generic-camera-filter=none; legacy-screen-column-reconstruction=false",
+            topology_inventory.report(),
+            scene.opaque_draws.len(),
+            scene.cutout_draws.len(),
+        );
+        if ordered_occurrence_prepared_report {
+            return Ok(());
+        }
+    } else {
+        eprintln!(
+            "E1M1 source-topology original contribution inventory: strategy={render_strategy_name}; stages={render_strategy_stages}; {}; outcomes=admitted:0,rejected:0,unresolved-fail-open:{}",
+            topology_inventory.report(),
+            topology_inventory.records.len(),
+        );
+    }
     let commands = Vec::with_capacity(draw_count + 1);
+    let has_ordered_control_source = ordered_coverage_source.is_some();
+    let runtime_ordered_coverage_source = if trial_render_strategy.is_some_and(|strategy| {
+        matches!(
+            strategy,
+            TrialRenderStrategy::PreparedFullSubmission
+                | TrialRenderStrategy::PreparedFrustumFiltered
+        )
+    }) {
+        ordered_coverage_source
+    } else {
+        None
+    };
+    // This retained LOOK-ray pose is the smallest deterministic E1M1 control
+    // currently known to produce actual F_SKY1 plane authority: six modeled
+    // regions over 320 intervals with no omission. Paired-sky metadata alone
+    // is deliberately insufficient. This is a diagnostic camera, not a
+    // synthetic player spawn; collision is therefore forbidden above rather
+    // than supplied with invented sector state.
+    let mut selected_observer = scene.spawn_observer;
+    let selected_observer_yaw = if exterior_hut_east_view {
+        let source_position = [2076.0_f32, -3560.0_f32];
+        let source_heading = (-25.1_f32).to_radians();
+        selected_observer.position =
+            comparative_embedding.lift_direction(source_position, selected_observer.position.y);
+        selected_observer.forward = comparative_embedding
+            .lift_direction([source_heading.cos(), source_heading.sin()], 0.0)
+            .normalize();
+        selected_observer.source_record = u32::MAX;
+        selected_observer.source_position = [2076, -3560];
+        selected_observer.source_angle = 335;
+        eprintln!(
+            "E1M1 fixed exterior-hut-east view: source-position=(2076,-3560); source-heading-degrees=-25.1; source-thing=none; collision=disabled; provenance=retained-LOOK-exterior-hut-east"
+        );
+        observer_yaw_from_forward(selected_observer.forward)
+    } else {
+        observer_yaw_from_forward(scene.spawn_observer.forward)
+            + if spawn_yaw_plus_90 {
+                std::f32::consts::FRAC_PI_2
+            } else {
+                0.0
+            }
+    };
     let mut app = App {
         renderer: None,
+        render_strategy_name,
+        render_strategy_stages,
+        topology_inventory,
         draws: scene.opaque_draws,
         uploads: scene.opaque_uploads,
         cutout_draws: scene.cutout_draws,
@@ -640,6 +923,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         doom_sky_enabled: doom_sky,
         source_sky_plane_depth_enabled: source_sky_plane_depth,
         source_sky_plane_depth_global_control,
+        candidate1_sky_depth_enabled: candidate1_sky_depth,
         source_sky_plane_selected,
         cutout_mesh_base,
         include_cutouts,
@@ -647,31 +931,22 @@ pub(crate) fn run() -> PlatformResult<()> {
         cutout_pipeline: None,
         doom_sky_pipeline: None,
         doom_sky_boundary_pipeline: None,
+        candidate1_sky_depth_pipeline: None,
         debug_pipeline: None,
         debug_font: None,
         debug_console: DoomDebugConsole::default(),
         size: [1280.0, 800.0],
         center,
         radius,
-        spawn_observer: spawn_observer.then_some(scene.spawn_observer),
-        initial_spawn_observer: spawn_observer.then_some(scene.spawn_observer),
+        spawn_observer: spawn_observer.then_some(selected_observer),
+        initial_spawn_observer: spawn_observer.then_some(selected_observer),
         observer_look: spawn_observer.then_some(ObserverLook {
-            yaw: observer_yaw_from_forward(scene.spawn_observer.forward)
-                + if spawn_yaw_plus_90 {
-                    std::f32::consts::FRAC_PI_2
-                } else {
-                    0.0
-                },
+            yaw: selected_observer_yaw,
             pitch: 0.0,
             last_cursor: None,
         }),
         initial_observer_look: spawn_observer.then_some(ObserverLook {
-            yaw: observer_yaw_from_forward(scene.spawn_observer.forward)
-                + if spawn_yaw_plus_90 {
-                    std::f32::consts::FRAC_PI_2
-                } else {
-                    0.0
-                },
+            yaw: selected_observer_yaw,
             pitch: 0.0,
             last_cursor: None,
         }),
@@ -698,7 +973,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         door_geometry_diagnostic: None,
         dynamic_door_draws: BTreeSet::new(),
         dynamic_door_mesh_handles: BTreeMap::new(),
-        next_dynamic_mesh_handle: if ordered_coverage_source.is_some() {
+        next_dynamic_mesh_handle: if has_ordered_control_source {
             ORDERED_COVERAGE_DYNAMIC_MESH_BASE
         } else {
             cutout_mesh_base + cutout_selected.len() as u64
@@ -731,7 +1006,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         comparative_embedding,
         ordered_coverage_prepared: applied_trial_strategy
             .is_some_and(|applied| applied.ordered_coverage_prepared),
-        ordered_coverage_source,
+        ordered_coverage_source: runtime_ordered_coverage_source,
         ordered_coverage_view: None,
         fixed_reconstruction_camera: applied_trial_strategy
             .is_some_and(|applied| applied.fixed_reconstruction_camera)

@@ -193,7 +193,9 @@ fn legacy_observe_doom_seg_classic_vertical_clip_state(
 
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if mark.ceiling_marked {
-                let top = ceiling_clip[x].saturating_add(1);
+                // The unsigned observer stores the first open row, equivalent
+                // to Doom's signed last-closed ceiling row plus one.
+                let top = ceiling_clip[x];
                 let bottom = ceiling.saturating_sub(1);
                 ceiling_plane_writes.push((x, top, bottom));
             }
@@ -302,7 +304,7 @@ fn legacy_observe_doom_seg_classic_vertical_clip_state(
                 floor_clip[x] = 0;
             } else {
                 if !has_upper && mark.ceiling_marked {
-                    let next = ceiling_clip[x].max(ceiling.saturating_sub(1));
+                    let next = ceiling_clip[x].max(ceiling);
                     result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
                     ceiling_clip[x] = next;
                 }

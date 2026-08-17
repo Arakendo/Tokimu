@@ -37,6 +37,16 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
   --render-strategy=c
 
+# Slice 6B headless final-handoff proof. This rebuilds the literal ordered
+# preparation for six retained source rays and checks terminal rejection,
+# partial-plane survival, final declaration identity, and conservation without
+# opening a window or applying a generic camera filter.
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --render-strategy=ordered-occurrence-prepared-full `
+  --ordered-occurrence-six-ray-report `
+  --no-walk-collision
+
 # For interactive B inspection, click the window to capture mouse look, use
 # WASD to move (Shift runs), and press Escape to release the mouse. `~` opens
 # the debug console; LOOK reports the source-labelled surface under the center
@@ -377,6 +387,29 @@ order, rechecks grid survivors with the per-draw AABB test, and falls back to
 full submission if no finite grid can be built. It is not an admitted default.
 `--spawn-yaw-plus-90` is a fixed corpus observation pose rather than a player
 or input policy.
+
+AR-0030 Candidate 1 compares unchanged global-full geometry against the same
+geometry plus Doom-owned, view-local authoritative-sky depth. Run the retained
+exterior-hut-east pose from the repository root with collision disabled because
+the diagnostic pose does not claim player-sector state:
+
+```powershell
+# Unchanged global-full control.
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --exterior-hut-east-view --no-walk-collision --measure-two-frames
+
+# Candidate 1: global full plus submission-local authoritative-sky depth.
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --global-full-plus-view-local-sky-depth `
+  --exterior-hut-east-view --no-walk-collision --measure-two-frames
+```
+
+The Candidate 1 fingerprint in frame logs is submission-scoped and therefore
+changes with the submission identity. Geometry-only baseline/jitter/baseline
+recurrence is retained by the separate G2 conformance fixture. Neither command
+enables AABB/frustum selection, and Candidate 1 adds no persistent mesh identity.
 
 For native inspection, click the scene to capture the mouse; press `Escape` to
 release it. `W`/`A`/`S`/`D` move; accepted source-sector floor transitions

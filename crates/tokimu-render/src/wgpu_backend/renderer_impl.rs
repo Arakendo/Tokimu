@@ -1,6 +1,6 @@
 use crate::{Color, RenderCommand, RenderStats, Renderer};
 
-use super::{QueuedDraw, WgpuBackend};
+use super::{QueuedDraw, QueuedGeometry, WgpuBackend};
 
 impl Renderer for WgpuBackend {
     fn name(&self) -> &'static str {
@@ -14,6 +14,8 @@ impl Renderer for WgpuBackend {
     fn begin_frame(&mut self) {
         self.stats.begin_frame();
         self.queued_draws.clear();
+        #[cfg(feature = "experimental-submission-local-geometry")]
+        self.submission_local_meshes.clear();
     }
 
     fn submit(&mut self, commands: &[RenderCommand]) {
@@ -33,7 +35,7 @@ impl Renderer for WgpuBackend {
             .extend(commands.iter().filter_map(|command| match command {
                 RenderCommand::Clear(_) => None,
                 RenderCommand::DrawMesh(draw) => Some(QueuedDraw {
-                    mesh: draw.mesh,
+                    geometry: QueuedGeometry::Persistent(draw.mesh),
                     material: draw.material,
                     pipeline: draw.pipeline,
                     instance: draw.instance,
@@ -42,7 +44,7 @@ impl Renderer for WgpuBackend {
                     material_override: None,
                 }),
                 RenderCommand::DrawMeshMaterialOverride(draw) => Some(QueuedDraw {
-                    mesh: draw.draw.mesh,
+                    geometry: QueuedGeometry::Persistent(draw.draw.mesh),
                     material: draw.draw.material,
                     pipeline: draw.draw.pipeline,
                     instance: draw.draw.instance,
@@ -53,7 +55,7 @@ impl Renderer for WgpuBackend {
                 RenderCommand::DrawRenderable(draw) => {
                     let renderable = self.renderables.get(&draw.renderable)?;
                     Some(QueuedDraw {
-                        mesh: renderable.mesh,
+                        geometry: QueuedGeometry::Persistent(renderable.mesh),
                         material: renderable.material,
                         pipeline: renderable.pipeline,
                         instance: draw.instance,

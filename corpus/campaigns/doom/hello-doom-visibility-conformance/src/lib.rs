@@ -21,6 +21,61 @@ use doom_map_provider::{
 };
 use thiserror::Error;
 
+mod authoritative_sky;
+mod candidate1_matrix;
+mod ordered_reference;
+mod relational_classifier;
+mod source_occurrence;
+mod submission_local_geometry;
+mod topology_admission;
+
+pub use authoritative_sky::{
+    model_authoritative_sky_regions, observe_authoritative_sky_regions,
+    observe_authoritative_sky_source_depth_approximation,
+    prepare_authoritative_sky_depth_declarations,
+    prepare_authoritative_sky_source_depth_declarations, AuthoritativeSkyBoundaryKnot,
+    AuthoritativeSkyDepthApproximationObservation, AuthoritativeSkyDepthDeclaration,
+    AuthoritativeSkyDepthManifest, AuthoritativeSkyDepthOutcome, AuthoritativeSkyDepthRejection,
+    AuthoritativeSkyLedgerOutcome, AuthoritativeSkyLedgerOutcomeKind,
+    AuthoritativeSkyOmissionReason, AuthoritativeSkyRegion, AuthoritativeSkyRegionManifest,
+    AuthoritativeSkyViewIdentity,
+};
+pub use candidate1_matrix::{
+    observe_candidate1_synthetic_matrix, Candidate1ControlObservation,
+    Candidate1SyntheticMatrixManifest,
+};
+
+pub use ordered_reference::{
+    observe_ordered_reference_planner, OrderedReferenceCaseManifest,
+    OrderedReferencePlannerManifest,
+};
+pub use relational_classifier::{
+    classify_relational_depth, compose_ordered_partitions, observe_candidate_support,
+    resolve_ordered_authority, resolve_ordered_solid_authority, split_contribution, AuthorityKind,
+    AuthorityOccurrence, CandidateFacingObservation, CandidateSourceSupport, ComparisonConvention,
+    ComparisonSample, ComparisonSampleValue, ContributionConservation, ContributionDisposition,
+    ContributionDomain, ContributionFragment, ContributionProvenance, DepthObservation,
+    DepthProfileSegment, FiniteInterval, OrderedAuthorityResolution, OrderedPartitionAuthority,
+    OrderedPartitionComposition, OrderedPartitionStep, PlaneKind, RelationalClassification,
+    RelationalTolerance, SupportObservation,
+};
+
+pub use source_occurrence::{
+    lower_occurrences_to_presentation, lower_runtime_snapshots_to_presentation,
+    observe_partial_survival_reconstruction, observe_private_occurrence_model,
+    observe_shared_boundary_conservation, OccurrencePresentationDeclaration,
+    OccurrencePresentationManifest, PartialSurvivalPoseObservation,
+    PartialSurvivalReconstructionObservation, PrivateOccurrenceModelObservation,
+    RuntimeSnapshotPhase, RuntimeSnapshotPresentationManifest, RuntimeSnapshotPresentationState,
+    SharedBoundaryCaseObservation, SharedBoundaryConservationObservation, SnapshotLifecycleAction,
+};
+pub use submission_local_geometry::{
+    prepare_authoritative_sky_submission_local_geometry, SubmissionIdentity, SubmissionLocalDraw,
+    SubmissionLocalGeometryBuilder, SubmissionLocalGeometryError, SubmissionLocalGeometryId,
+    SubmissionLocalGeometryLimits, SubmissionLocalGeometryPayload, SubmissionLocalGeometrySnapshot,
+};
+pub use topology_admission::*;
+
 const FIXTURE_LUMP_INDEX: u32 = 0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -588,6 +643,17 @@ pub fn observe_partial_coverage_expressiveness(
 ) -> Result<PartialCoverageExpressivenessObservation, DoomGeometryError> {
     let fixture = partial_paired_sky_far_control_fixture()
         .expect("the built-in partial-coverage fixture must remain valid");
+    observe_partial_coverage_expressiveness_for_fixture(&fixture)
+}
+
+/// Runs the whole-source-contribution expressiveness observation for an
+/// explicitly positioned copy of the built-in partial-coverage fixture.
+///
+/// This is study-local pressure for bounded camera movement. It does not make
+/// diagnostic columns or source fragments renderer vocabulary.
+pub fn observe_partial_coverage_expressiveness_for_fixture(
+    fixture: &DoomVisibilityFixture,
+) -> Result<PartialCoverageExpressivenessObservation, DoomGeometryError> {
     let paired_sky_source_seg = fixture.map.segs[0].source.record_index;
     let far_wall_source_seg = fixture.map.segs[1].source.record_index;
     let vertical = fixture.observe_classic_vertical_clips(
@@ -680,7 +746,16 @@ pub fn realize_partial_coverage_fragments(
 ) -> Result<PartialCoverageFragmentManifest, DoomGeometryError> {
     let fixture = partial_paired_sky_far_control_fixture()
         .expect("the built-in partial-coverage fixture must remain valid");
-    let expressiveness = observe_partial_coverage_expressiveness()?;
+    realize_partial_coverage_fragments_for_fixture(&fixture)
+}
+
+/// Campaign-private realization seam used to replay the same source fixture
+/// under controlled viewer changes. Screen columns remain diagnostic output;
+/// continuous source intersections construct the retained fragments.
+pub(crate) fn realize_partial_coverage_fragments_for_fixture(
+    fixture: &DoomVisibilityFixture,
+) -> Result<PartialCoverageFragmentManifest, DoomGeometryError> {
+    let expressiveness = observe_partial_coverage_expressiveness_for_fixture(fixture)?;
     let near_seg = &fixture.map.segs[0];
     let far_seg = &fixture.map.segs[1];
     let near_start = &fixture.map.vertices[usize::from(near_seg.start_vertex)];
@@ -896,6 +971,17 @@ pub fn single_sky_plane_far_control_fixture() -> Result<DoomVisibilityFixture, D
         builder.seg(start, end, linedef, 0);
     }
     builder.subsector(0, 4);
+    // Keep the fixture usable by the shared ordered BSP/vertical preparation
+    // path. A single leaf still needs an explicit root in decoded-map form;
+    // both sides intentionally resolve to the same source subsector.
+    builder.node(DoomFixtureNode {
+        point: [0, 0],
+        delta: [0, 48],
+        right_bbox: [0, 48, 48, -48],
+        left_bbox: [0, 48, 48, -48],
+        right_child: DoomBspChild::Subsector(0),
+        left_child: DoomBspChild::Subsector(0),
+    });
     builder.watch_subsector(0);
     builder.build()
 }
@@ -1087,6 +1173,80 @@ pub fn moving_platform_snapshot_fixture() -> Result<DoomVisibilityFixture, DoomF
 pub fn projection_near_plane_crossing_fixture(
 ) -> Result<DoomVisibilityFixture, DoomFixtureBuildError> {
     projection_forward_seg_fixture("projection-near-plane-crossing", [-32, -1], [32, 3])
+}
+
+/// Two source leaves behind a near boundary, used to distinguish a real
+/// terminal solid-range rejection from an unresolved absence. When
+/// `near_is_open` is true, the identical far source occurrence remains
+/// reachable through the two-sided aperture.
+pub fn source_terminal_boundary_fixture(
+    near_is_open: bool,
+) -> Result<DoomVisibilityFixture, DoomFixtureBuildError> {
+    let mut builder = DoomFixtureBuilder::new(
+        if near_is_open {
+            "near-open-far-control"
+        } else {
+            "near-solid-far-control"
+        },
+        DoomFixtureViewer {
+            position: [0, -96],
+            heading_radians: std::f64::consts::FRAC_PI_2,
+        },
+    );
+    let sector = builder.sector(0, 128);
+    let right = builder.sidedef(sector, "WALL");
+    let left = near_is_open.then(|| builder.sidedef(sector, "-"));
+    let near_start = builder.vertex(-128, 0);
+    let near_end = builder.vertex(128, 0);
+    let far_start = builder.vertex(-24, 64);
+    let far_end = builder.vertex(24, 64);
+    let near = builder.linedef(near_start, near_end, Some(right), left);
+    let far = builder.linedef(far_start, far_end, Some(right), None);
+    builder.seg(near_start, near_end, near, 0);
+    builder.seg(far_start, far_end, far, 0);
+    builder.subsector(0, 1);
+    builder.subsector(1, 1);
+    builder.node(DoomFixtureNode {
+        point: [0, 0],
+        delta: [0, 64],
+        right_bbox: [64, 64, 24, -24],
+        left_bbox: [0, 0, 128, -128],
+        right_child: DoomBspChild::Subsector(1),
+        left_child: DoomBspChild::Subsector(0),
+    });
+    builder.watch_subsector(1);
+    builder.build()
+}
+
+/// Two-sided middle-texture control. The authored middle contribution is
+/// reachable, while the source boundary remains open and therefore cannot
+/// gain terminal topology authority from the texture's alpha coverage.
+pub fn masked_middle_topology_fixture() -> Result<DoomVisibilityFixture, DoomFixtureBuildError> {
+    let mut builder = DoomFixtureBuilder::new(
+        "masked-middle-topology",
+        DoomFixtureViewer {
+            position: [0, -64],
+            heading_radians: std::f64::consts::FRAC_PI_2,
+        },
+    );
+    let front = builder.sector(0, 128);
+    let back = builder.sector(0, 128);
+    let front_side = builder.sidedef(front, "MASKED");
+    let back_side = builder.sidedef(back, "-");
+    let start = builder.vertex(-48, 0);
+    let end = builder.vertex(48, 0);
+    let boundary = builder.linedef(start, end, Some(front_side), Some(back_side));
+    builder.seg(start, end, boundary, 0);
+    builder.subsector(0, 1);
+    builder.node(DoomFixtureNode {
+        point: [0, 0],
+        delta: [0, 64],
+        right_bbox: [0, 64, 48, -48],
+        left_bbox: [0, 64, 48, -48],
+        right_child: DoomBspChild::Subsector(0),
+        left_child: DoomBspChild::Subsector(0),
+    });
+    builder.build()
 }
 
 /// A one-unit-wide source SEG entirely in front of the viewer. It is retained
@@ -2308,19 +2468,15 @@ mod tests {
                 && !trace.lower_source_segs.is_empty()
                 && trace.middle_source_segs.is_empty()
         }));
-        assert!(vertical
-            .plane_spans
-            .keys
-            .keys()
-            .any(|key| key.kind == DoomSegClassicPlaneKind::Floor));
-        // The upper tier can legitimately consume the visible ceiling range
-        // at this one aperture.  Retaining its source mark separately from a
-        // surviving plane span is precisely the distinction under test.
-        assert!(!vertical
-            .plane_spans
-            .keys
-            .keys()
-            .any(|key| key.kind == DoomSegClassicPlaneKind::Ceiling));
+        // The upper and lower tiers can legitimately consume the visible
+        // ceiling and floor ranges at this one aperture. Retaining their
+        // source marks separately from surviving plane spans is precisely the
+        // distinction under test; the corrected signed/inclusive Doom clip
+        // translation must not manufacture an extra row at either boundary.
+        assert!(!vertical.plane_spans.keys.keys().any(|key| matches!(
+            key.kind,
+            DoomSegClassicPlaneKind::Floor | DoomSegClassicPlaneKind::Ceiling
+        )));
         assert!(vertical
             .ordered_coverage_transitions
             .iter()

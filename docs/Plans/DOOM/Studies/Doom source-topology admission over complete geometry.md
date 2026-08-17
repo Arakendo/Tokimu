@@ -4,12 +4,12 @@
 | --- | --- |
 | Campaign | DOOM |
 | Role | Bounded candidate-realization study |
-| Status | Proposed |
+| Status | Completed — insufficient at Slice 3 decision gate |
 | Parent review | AR-0030 |
 | Controlling plan | [DOOM WAD Checklist](../DOOM%20WAD%20Checklist.md) |
 | Preceding study | [Doom Viewer-Relative Presentation Synthetic Conformance](Doom%20viewer-relative%20presentation%20synthetic%20conformance.md) |
 | Corpus target | `corpus/campaigns/doom/hello-doom-e1m1/` plus focused synthetic fixtures |
-| Next action | Freeze the global-full baseline and inventory the original source-labelled presentation contributions without reconstructing any geometry. |
+| Next action | Continue in the successor [Doom Ordered Source-Occurrence Preparation](Doom%20ordered%20source%20occurrence%20preparation.md) study. Do not promote this plan's Alternatives B/C to E1M1. |
 
 ## Purpose
 
@@ -203,17 +203,18 @@ They must not be silently hidden to improve a screenshot.
 
 ### Deliverables
 
-- [ ] Record the exact A invocation, resolved defaults, package fingerprint,
-      embedding, camera poses, draw-family inventory, and current known sky
-      leakage.
-- [ ] Add distinct long-form executable strategy names for A, B, and C without
+- [x] Record the exact A invocation, resolved defaults, package fingerprint,
+      embedding, draw-family inventory, and current known sky leakage. The
+      multi-pose registry remains the separate open item below.
+- [x] Add distinct long-form executable strategy names for A, B, and C without
       changing the behavior of any existing comparison control.
-- [ ] Make startup and first/warm-frame metadata print the resolved strategy and
+- [x] Make startup and first/warm-frame metadata print the resolved strategy and
       ordered stage list.
 - [ ] Retain canonical source poses for spawn, hut/window, exterior hut, first
       door, moving platform, green-room one-sided cutout, and EXIT.
-- [ ] Record structural hashes for the original complete meshes used by those
-      poses.
+- [x] Record a global aggregate structural hash for the original complete
+      contribution inventory. Per-pose structural subsets remain subordinate
+      to the open canonical-pose registry item.
 
 ### Acceptance criteria
 
@@ -225,14 +226,19 @@ They must not be silently hidden to improve a screenshot.
 
 ### Deliverables
 
-- [ ] Establish one private contribution record that references an existing
+- [x] Establish one private contribution record that references an existing
       original draw/mesh rather than owning reconstructed geometry.
-- [ ] Map original floor, ceiling, wall-role, cutout, sky, door, and platform
-      draws to source identities.
-- [ ] Detect and report original draws that cannot be correlated to an
+- [x] Map original floor, ceiling, wall-role, cutout, and sky draws to source
+      identities; classify 174 static contributions as related to a declared
+      special/tagged runtime sector. Active runtime-added door/platform draws
+      remain an integration item because they do not exist at initial inventory
+      creation.
+- [ ] Extend the inventory across active runtime-added door/platform draws when
+      Slice 4 first exercises a changing E1M1 snapshot.
+- [x] Detect and report original draws that cannot be correlated to an
       admission contribution.
-- [ ] Prove that inventory creation does not upload, replace, or mutate meshes.
-- [ ] Retain counts by family and bounded duplicate/unresolved samples.
+- [x] Prove that inventory creation does not upload, replace, or mutate meshes.
+- [x] Retain counts by family and bounded duplicate/unresolved samples.
 
 ### Acceptance criteria
 
@@ -245,19 +251,27 @@ They must not be silently hidden to improve a screenshot.
 
 ### Fixtures
 
-- [ ] Connected rooms with an open source aperture: both room contributions
+- [x] Connected rooms with an open source aperture: both room contributions
       remain admissible.
-- [ ] Connected records behind a source-terminal solid boundary: the far
+- [x] Connected records behind a source-terminal solid boundary: the far
       contributions are rejected with source provenance.
-- [ ] Paired-sky and one-sky controls: sky does not independently close or open
+- [x] Paired-sky and one-sky controls: sky does not independently close or open
       source reachability.
-- [ ] Vertical aperture: upper/lower wall roles and plane contributions are
+- [x] Vertical aperture: upper/lower wall roles and plane contributions are
       admitted independently where the source opening permits them.
-- [ ] Masked middle: the contribution remains admitted while transparent texels
+- [x] Masked middle: the contribution remains admitted while transparent texels
       do not authorize it as a solid topology occluder.
-- [ ] Declared closed/open door and low/raised platform snapshots: admission
+- [x] Declared closed/open door and low/raised platform snapshots: admission
       consumes current heights without implementing movement policy.
-- [ ] Ambiguous or unsupported topology: fail open and retain a bounded reason.
+- [x] Ambiguous or unsupported topology: fail open and retain a bounded reason.
+
+Retained evidence: [Doom source-topology synthetic admission evidence](../Evidence/Doom%20source-topology%20synthetic%20admission%20evidence.md).
+The focused admission suite contains 12 deterministic tests. The complete
+crate currently also retains one inherited vertical-aperture baseline failure:
+the source floor mark is present while the old assertion expects a surviving
+projected floor span at a pose where the provider consumes that span. That
+limitation is not treated as admission evidence and is not hidden by this
+study.
 
 ### Acceptance criteria
 
@@ -276,13 +290,15 @@ final view?
 
 ### Deliverables
 
-- [ ] Run A and B over the same partial-survival fixture using identical
+- [x] Run A and B over the same partial-survival fixture using identical
       original geometry.
-- [ ] Retain which unrelated contributions B rejects and why.
-- [ ] Demonstrate whether the complete retained contribution creates any
+- [x] Retain which unrelated contributions B rejects and why. The bounded
+      fixture has no positive terminal-solid provenance, so the honest set is
+      empty; Slice 2 separately proves positive terminal rejection.
+- [x] Demonstrate whether the complete retained contribution creates any
       visible source-invalid pixels/regions that ordinary depth cannot resolve.
-- [ ] Repeat under bounded camera jitter and a near-view movement control.
-- [ ] Retain a negative control where partial removal is deliberately required.
+- [x] Repeat under bounded camera jitter and a near-view movement control.
+- [x] Retain a negative control where partial removal is deliberately required.
 
 ### Decision gate
 
@@ -295,7 +311,58 @@ final view?
 Increasing source observation resolution, reconstructing geometry, or patching
 the offending contribution is not an allowed repair in this slice.
 
+### Result — failed gate
+
+The unchanged far source SEG requires two surviving side intervals while its
+central overlap is source-invalid. Alternative B admits the whole contribution
+at all three poses because no positive terminal-solid rejection applies:
+
+| Pose | Invalid overlap columns | Required survivor columns | Ordinary depth authority in overlap |
+| --- | ---: | ---: | --- |
+| baseline | 81 | 15 | no |
+| jitter `x + 2` | 81 | 15 | no |
+| near `+ 16` | 97 | 9 | no |
+
+Rejecting the whole contribution would remove required side intervals;
+retaining it exposes the forbidden middle. The fixture fingerprint is
+`e79bb365ef3c1d8bb77dcce721cef1d5a08c1394a1370ffe4a6d35aef8ba94db`.
+This is the plan's explicit **Insufficient** result. Slices 4–6 are parked and
+were not started; implementing fragments here would evade rather than satisfy
+the decision gate.
+
+### Interpretation and handoff
+
+The falsifier also retires **prefilter** as an adequate description of the
+required Doom operation. A Boolean filter maps one contribution to keep or
+reject. The demonstrated source operation must instead be able to map one
+source contribution to zero, one, or multiple view-local presentation
+occurrences:
+
+```text
+source contribution + runtime snapshot + prepared view
+        ↓
+0..N bounded presentation occurrences
+```
+
+This plan does not define that occurrence representation. The next AR-0030
+experiment should first establish the smallest Doom-local representation that
+can retain source identity, source-relative correspondence, view and runtime
+snapshot identity, bounded presentation region, material/role, and provenance.
+It should then compare realizations of that private representation before
+proposing a public API.
+
+The `320 x 200` column trace is diagnostic evidence, not admitted semantics.
+Its column intervals prove partial participation, but the next experiment must
+test whether continuous source-relative/view-relative boundaries can realize
+the same result without inheriting the diagnostic raster grid. View-local
+ordinary triangles are the preferred first realization to test; bounded
+screen-local primitives remain a later alternative only if ordinary triangles
+are falsified.
+
 ## Slice 4 — E1M1 Source-Topology Candidate
+
+**Parked:** Slice 3 falsified whole-contribution admission before E1M1
+promotion.
 
 ### Deliverables
 
@@ -328,6 +395,9 @@ the offending contribution is not an allowed repair in this slice.
 
 Begin only after B passes Slice 4.
 
+**Parked:** B did not pass the Slice 3 prerequisite, so a generic filter cannot
+be used to repair it.
+
 ### Deliverables
 
 - [ ] Feed B's admitted, unchanged contributions to the existing conservative
@@ -348,6 +418,8 @@ Begin only after B passes Slice 4.
 
 ## Slice 6 — Native And Browser Parity
 
+**Parked:** no surviving B/C candidate exists to promote across targets.
+
 - [ ] Provide the same A/B/C strategy selection in the Rust-owned Browser
       WebGPU fixture without moving WAD parsing or admission semantics into
       TypeScript.
@@ -364,8 +436,8 @@ Begin only after B passes Slice 4.
 - [ ] Produce an A/B/C matrix covering correctness, continuity, source
       fidelity, diagnostics, resource churn, CPU cost, draw reduction, native/
       browser parity, and implementation complexity.
-- [ ] State whether whole original contribution admission is sufficient.
-- [ ] Update AR-0030 with the result and its effect on Alternative F.
+- [x] State whether whole original contribution admission is sufficient.
+- [x] Update AR-0030 with the result and its effect on Alternative F.
 - [ ] Update the synthetic conformance study so the failed inverse-world
       realization and this candidate cannot be confused.
 - [ ] Update the DOOM WAD Checklist with the accepted/parked next action.
@@ -415,7 +487,7 @@ This study completes with one of two honest results:
    complete-geometry continuity of A, and C safely composes afterward. AR-0030
    gains executable evidence for source preparation followed by ordinary
    conservative selection and rendering.
-2. **Insufficient:** a retained falsifier proves whole original contribution
+2. **Insufficient (selected):** a retained falsifier proves whole original contribution
    admission cannot express the required view. AR-0030 gains evidence that
    partial/view-local presentation is earned complexity rather than a design
    preference.

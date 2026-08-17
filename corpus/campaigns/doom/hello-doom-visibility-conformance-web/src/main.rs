@@ -13,14 +13,21 @@ use doom_geometry_provider::{
 };
 #[cfg(target_arch = "wasm32")]
 use hello_doom_visibility_conformance::{
-    dynamic_door_snapshot_fixture, moving_platform_snapshot_fixture, one_sky_far_control_fixture,
-    paired_sky_far_control_fixture, projection_close_forward_seg_fixture,
+    dynamic_door_snapshot_fixture, moving_platform_snapshot_fixture,
+    observe_authoritative_sky_regions, one_sky_far_control_fixture, paired_sky_far_control_fixture,
+    prepare_authoritative_sky_depth_declarations,
+    prepare_authoritative_sky_submission_local_geometry, projection_close_forward_seg_fixture,
     projection_near_plane_crossing_fixture, projection_thin_forward_seg_fixture,
     realize_partial_coverage_fragments, shared_key_disjoint_plane_fixture,
-    vertical_aperture_control_fixture, PartialCoverageSourceFragment,
+    terminal_sky_ordered_fixture, vertical_aperture_control_fixture, PartialCoverageSourceFragment,
+    SubmissionIdentity as DoomSubmissionIdentity, SubmissionLocalGeometryLimits,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
+    experimental_submission_local_geometry::{
+        ExperimentalLocalGeometryDraw, ExperimentalSubmissionIdentity,
+        ExperimentalSubmissionLocalGeometry, ExperimentalSubmissionLocalGeometryBuilder,
+    },
     math::{Mat4, Vec3},
     BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color, ColorWriteMask,
     CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d, Material,
@@ -40,6 +47,254 @@ fn main() {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {}
+
+#[cfg(target_arch = "wasm32")]
+fn g2_submission(
+    identity: u64,
+    source_x_jitter: i16,
+    material: MaterialHandle,
+    pipeline: PipelineHandle,
+) -> Result<(ExperimentalSubmissionLocalGeometry, String), JsValue> {
+    let mut fixture = terminal_sky_ordered_fixture().map_err(js_debug)?;
+    fixture.viewer.position[0] = fixture.viewer.position[0].saturating_add(source_x_jitter);
+    let regions = observe_authoritative_sky_regions(&fixture, 41, "static-source-fixture")
+        .map_err(js_debug)?;
+    let depth = prepare_authoritative_sky_depth_declarations(&regions, 0.25, "doom-sky:SKY1");
+    let source = prepare_authoritative_sky_submission_local_geometry(
+        &depth,
+        DoomSubmissionIdentity(identity),
+        SubmissionLocalGeometryLimits::default(),
+    )
+    .map_err(js_debug)?;
+    let geometry_fingerprint = blake3::hash(
+        format!(
+            "source-x-jitter={source_x_jitter};positions={:?}",
+            source
+                .payloads
+                .iter()
+                .map(|payload| &payload.positions)
+                .collect::<Vec<_>>()
+        )
+        .as_bytes(),
+    )
+    .to_hex()
+    .to_string();
+    let mut builder =
+        ExperimentalSubmissionLocalGeometryBuilder::new(ExperimentalSubmissionIdentity(identity));
+    for payload in source.payloads {
+        let geometry = builder
+            .add_geometry(Mesh::uniform_normal(payload.positions, [0.0, 0.0, -1.0]))
+            .map_err(js_debug)?;
+        builder
+            .add_draw(ExperimentalLocalGeometryDraw {
+                geometry,
+                material,
+                pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CameraHandle(1)),
+                viewport: None,
+                material_override: None,
+            })
+            .map_err(js_debug)?;
+    }
+    Ok((builder.finish().map_err(js_debug)?, geometry_fingerprint))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn g2_persistent_draw(
+    mesh: MeshHandle,
+    material: MaterialHandle,
+    pipeline: PipelineHandle,
+) -> RenderCommand {
+    RenderCommand::DrawMesh(DrawMeshCommand {
+        mesh,
+        material,
+        pipeline,
+        instance: Instance2d::identity(),
+        camera: Some(CameraHandle(1)),
+        viewport: None,
+    })
+}
+
+/// Browser/WASM realization of the unstable AR-0030 G2 intake.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn run_submission_local_geometry(canvas: HtmlCanvasElement) -> Result<String, JsValue> {
+    console_error_panic_hook::set_once();
+    let width = canvas.width().max(1);
+    let height = canvas.height().max(1);
+    let mut renderer = WgpuBackend::for_window(canvas, width, height)
+        .await
+        .map_err(js_debug)?;
+    let backend = renderer.backend_api();
+    let device = renderer.device_kind();
+    let adapter = renderer.adapter_name().to_owned();
+
+    let background_pipeline = renderer
+        .register_pipeline(
+            &Pipeline::new("g2-browser-background", PipelineKind::SolidColor2d)
+                .with_render_state(PipelineRenderState {
+                    blend: BlendMode::Opaque,
+                    depth_test: DepthTest::LessEqual,
+                    depth_write: false,
+                    cull_mode: CullMode::None,
+                    color_write: ColorWriteMask::ALL,
+                })
+                .map_err(js_debug)?,
+        )
+        .map_err(js_debug)?;
+    let local_pipeline = renderer
+        .register_pipeline(
+            &Pipeline::new("g2-browser-local-depth", PipelineKind::SolidColor2d)
+                .with_render_state(PipelineRenderState {
+                    blend: BlendMode::Opaque,
+                    depth_test: DepthTest::LessEqual,
+                    depth_write: true,
+                    cull_mode: CullMode::None,
+                    color_write: ColorWriteMask::NONE,
+                })
+                .map_err(js_debug)?,
+        )
+        .map_err(js_debug)?;
+    let far_pipeline = renderer
+        .register_pipeline(
+            &Pipeline::new("g2-browser-far", PipelineKind::SolidColor2d)
+                .with_render_state(PipelineRenderState {
+                    blend: BlendMode::Opaque,
+                    depth_test: DepthTest::LessEqual,
+                    depth_write: true,
+                    cull_mode: CullMode::None,
+                    color_write: ColorWriteMask::ALL,
+                })
+                .map_err(js_debug)?,
+        )
+        .map_err(js_debug)?;
+    // Keep these persistent controls geometrically identical to the native
+    // fixture. A pair of same-sized `Mesh::quad()` controls lets the nearer
+    // orange quad hide the blue background completely, which makes a valid
+    // draw look like a browser-only resource/lifetime failure.
+    renderer.upload_mesh(MeshHandle(1), &clip_quad(0.90, -0.95, 0.95, -0.80, 0.80));
+    renderer.upload_mesh(MeshHandle(2), &clip_quad(0.50, -0.45, 0.45, -0.65, 0.45));
+    renderer.upload_mesh(MeshHandle(3), &clip_quad(0.10, -0.16, 0.16, -0.20, 0.20));
+    renderer
+        .upload_material(
+            MaterialHandle(1),
+            &Material::new("g2-browser-background", Color::rgb(0.08, 0.24, 0.48)),
+        )
+        .map_err(js_debug)?;
+    renderer
+        .upload_material(
+            MaterialHandle(2),
+            &Material::new("g2-browser-far", Color::rgb(0.94, 0.35, 0.18)),
+        )
+        .map_err(js_debug)?;
+    renderer
+        .upload_material(
+            MaterialHandle(3),
+            &Material::new("g2-browser-local-depth", Color::rgb(1.0, 0.0, 1.0)),
+        )
+        .map_err(js_debug)?;
+    renderer
+        .upload_material(
+            MaterialHandle(4),
+            &Material::new("g2-browser-near", Color::rgb(0.15, 0.85, 0.40)),
+        )
+        .map_err(js_debug)?;
+    renderer.upload_camera(CameraHandle(1), Camera::default());
+
+    let background_control = || {
+        [
+            RenderCommand::Clear(ClearCommand {
+                color: Color::rgb(0.015, 0.02, 0.03),
+            }),
+            g2_persistent_draw(MeshHandle(1), MaterialHandle(1), background_pipeline),
+        ]
+    };
+    let far_wall_control = || {
+        [g2_persistent_draw(
+            MeshHandle(2),
+            MaterialHandle(2),
+            far_pipeline,
+        )]
+    };
+    let near_object_control = || {
+        [g2_persistent_draw(
+            MeshHandle(3),
+            MaterialHandle(4),
+            far_pipeline,
+        )]
+    };
+
+    let mut observations = Vec::new();
+    let mut persistent_counts = None;
+    let mut baseline_geometry_fingerprint = None;
+    for identity in 41..=43 {
+        let source_x_jitter = if identity == 42 { 8 } else { 0 };
+        renderer.begin_frame();
+        if identity == 43 {
+            let (invalid, _) = g2_submission(900, 0, MaterialHandle(999), local_pipeline)?;
+            renderer
+                .submit_experimental_submission_local_geometry(&invalid)
+                .expect_err("missing material must reject browser G2 batch");
+        }
+        renderer.submit(&background_control());
+        let (local, geometry_fingerprint) =
+            g2_submission(identity, source_x_jitter, MaterialHandle(3), local_pipeline)?;
+        match identity {
+            41 => baseline_geometry_fingerprint = Some(geometry_fingerprint.clone()),
+            42 if baseline_geometry_fingerprint.as_deref()
+                == Some(geometry_fingerprint.as_str()) =>
+            {
+                return Err(JsValue::from_str(
+                    "source-view jitter did not change ephemeral G2 geometry",
+                ));
+            }
+            43 if baseline_geometry_fingerprint.as_deref()
+                != Some(geometry_fingerprint.as_str()) =>
+            {
+                return Err(JsValue::from_str(
+                    "returning to the baseline view did not restore G2 geometry",
+                ));
+            }
+            _ => {}
+        }
+        let observation = renderer
+            .submit_experimental_submission_local_geometry(&local)
+            .map_err(js_debug)?;
+        renderer.submit(&far_wall_control());
+        renderer.submit(&near_object_control());
+        let stats = renderer.present().map_err(js_debug)?;
+        let diagnostics = renderer.drain_diagnostics();
+        if let Some(record) = diagnostics.first() {
+            return Err(JsValue::from_str(&format!(
+                "provider diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            )));
+        }
+        let counts = (
+            stats.lifetime.mesh_uploads,
+            stats.lifetime.mesh_replacements,
+        );
+        if let Some(expected) = persistent_counts {
+            if counts != expected {
+                return Err(JsValue::from_str(
+                    "G2 browser frame mutated persistent meshes",
+                ));
+            }
+        } else {
+            persistent_counts = Some(counts);
+        }
+        observations.push(format!(
+            "{identity}:jitter={source_x_jitter}:fingerprint={geometry_fingerprint}:{}/{}/{}:draws={}",
+            observation.payloads, observation.draws, observation.vertices, stats.frame.draw_calls
+        ));
+    }
+    let (uploads, replacements) = persistent_counts.unwrap_or_default();
+    Ok(format!(
+        "status=presented; fixture=submission-local-geometry; submissions={}; local_slots=reused-with-distinct-submission-identity; invalid-state=rejected-then-recovered; depth_controls=near-green-wins,authority-hides-far-orange,blue-sky-remains; persistent_mesh_uploads={uploads}; persistent_mesh_replacements={replacements}; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}; host=DOM; stable_contract=none",
+        observations.join(",")
+    ))
+}
 
 #[cfg(target_arch = "wasm32")]
 #[derive(Clone, Copy)]
@@ -910,6 +1165,21 @@ fn quad_at_depth(depth: f32) -> Mesh {
         position[2] = depth;
     }
     mesh
+}
+
+#[cfg(target_arch = "wasm32")]
+fn clip_quad(depth: f32, left: f32, right: f32, bottom: f32, top: f32) -> Mesh {
+    Mesh::uniform_normal(
+        vec![
+            [left, bottom, depth],
+            [right, bottom, depth],
+            [right, top, depth],
+            [left, bottom, depth],
+            [right, top, depth],
+            [left, top, depth],
+        ],
+        [0.0, 0.0, -1.0],
+    )
 }
 
 #[cfg(target_arch = "wasm32")]

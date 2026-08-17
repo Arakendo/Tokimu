@@ -8,7 +8,7 @@
 | Parent review | AR-0025 (closed; post-close Doom evidence continues) |
 | Controlling plan | [DOOM WAD Checklist](../DOOM%20WAD%20Checklist.md) |
 | Proposed corpus target | `corpus/campaigns/doom/hello-doom-visibility-conformance/` |
-| Next action | Re-run the fixed-spawn native A/B observation after the rectilinear radial/forward-depth correction; if visual loss remains, continue at the ordered source-preparation boundary rather than adding renderer or generic-filter compensation. |
+| Next action | Use these retained fixtures as the synthetic foundation for [Doom Ordered Source-Occurrence Preparation](Doom%20ordered%20source%20occurrence%20preparation.md); do not repair E1M1 with renderer or generic-filter compensation. |
 
 ## Problem
 

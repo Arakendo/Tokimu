@@ -6,9 +6,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+blake3.workspace = true
 doom-geometry-provider = { path = "../../../lib/doom-geometry-provider" }
 hello-doom-visibility-conformance = { path = "../hello-doom-visibility-conformance" }
-tokimu = { path = "../../../../crates/tokimu", features = ["render"] }
+tokimu = { path = "../../../../crates/tokimu", features = ["render", "experimental-submission-local-geometry"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook.workspace = true

@@ -5,20 +5,36 @@
 
 mod global_full_submission;
 pub(crate) mod legacy_comparisons;
+mod ordered_occurrence_prepared_full;
 mod prepared_frustum_filtered;
 mod prepared_full_submission;
+mod topology_admitted_frustum;
+mod topology_admitted_full;
 
 use super::{CandidateSelection, SceneInput};
+use crate::presentation::OrderedPreparedSubmissionObservation;
 use tokimu::PlatformResult;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TrialRenderStrategy {
     /// A: submit the original global E1M1 shell.
     GlobalFullSubmission,
-    /// B: submit every declaration retained by one ordered Doom preparation.
+    /// Historical Slice 7 B: submit declarations reconstructed from one
+    /// bounded ordered Doom preparation.
     PreparedFullSubmission,
-    /// C: conservatively frustum-filter B's prepared declarations.
+    /// Historical Slice 7 C: frustum-filter the reconstructed declarations.
     PreparedFrustumFiltered,
+    /// Current topology-admission study B: retain original geometry after a
+    /// Doom-owned contribution decision. The first slice is deliberately an
+    /// all-fail-open identity pass.
+    TopologyAdmittedFull,
+    /// Current topology-admission study C: apply the existing conservative
+    /// AABB/frustum selector only after topology admission.
+    TopologyAdmittedFrustum,
+    /// Ordered-occurrence Slice 6 fixed-view integration. Doom preparation
+    /// replaces the global shell with all ordinary wall and plane declarations
+    /// produced for the source-spawn view; no generic camera filter follows.
+    OrderedOccurrencePreparedFull,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -38,11 +54,18 @@ impl TrialRenderStrategy {
             .iter()
             .filter_map(|argument| argument.strip_prefix("--render-strategy="))
             .map(|name| match name {
-                "a" | "global-full-submission" => Ok(Self::GlobalFullSubmission),
+                "a" | "global-full" | "global-full-submission" => {
+                    Ok(Self::GlobalFullSubmission)
+                }
                 "b" | "prepared-full-submission" => Ok(Self::PreparedFullSubmission),
                 "c" | "prepared-frustum-filtered" => Ok(Self::PreparedFrustumFiltered),
+                "topology-admitted-full" => Ok(Self::TopologyAdmittedFull),
+                "topology-admitted-frustum" => Ok(Self::TopologyAdmittedFrustum),
+                "ordered-occurrence-prepared-full" => {
+                    Ok(Self::OrderedOccurrencePreparedFull)
+                }
                 _ => Err(format!(
-                    "unknown render strategy `{name}`; expected a/global-full-submission, b/prepared-full-submission, or c/prepared-frustum-filtered"
+                    "unknown render strategy `{name}`; expected global-full, ordered-occurrence-prepared-full, topology-admitted-full, topology-admitted-frustum, or an explicit historical a/b/c compatibility name"
                 )),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -60,7 +83,12 @@ impl TrialRenderStrategy {
                         .into(),
                 );
             }
-            if compatibility_frustum_flag && strategy != Self::PreparedFrustumFiltered {
+            if compatibility_frustum_flag
+                && !matches!(
+                    strategy,
+                    Self::PreparedFrustumFiltered | Self::TopologyAdmittedFrustum
+                )
+            {
                 return Err(
                     "--frustum-aabb is implicit in render strategy C and conflicts with explicit A/B"
                         .into(),
@@ -85,12 +113,58 @@ impl TrialRenderStrategy {
             Self::GlobalFullSubmission => global_full_submission::apply(scene),
             Self::PreparedFullSubmission => prepared_full_submission::apply(scene),
             Self::PreparedFrustumFiltered => prepared_frustum_filtered::apply(scene),
+            Self::TopologyAdmittedFull => topology_admitted_full::apply(scene),
+            Self::TopologyAdmittedFrustum => topology_admitted_frustum::apply(scene),
+            Self::OrderedOccurrencePreparedFull => ordered_occurrence_prepared_full::apply(scene),
         }
+    }
+
+    pub(crate) const fn resolved_name(self) -> &'static str {
+        match self {
+            Self::GlobalFullSubmission => "global-full",
+            Self::PreparedFullSubmission => "legacy-prepared-full-submission",
+            Self::PreparedFrustumFiltered => "legacy-prepared-frustum-filtered",
+            Self::TopologyAdmittedFull => "topology-admitted-full",
+            Self::TopologyAdmittedFrustum => "topology-admitted-frustum",
+            Self::OrderedOccurrencePreparedFull => "ordered-occurrence-prepared-full",
+        }
+    }
+
+    pub(crate) const fn ordered_stages(self) -> &'static str {
+        match self {
+            Self::GlobalFullSubmission => "original-complete-geometry>renderer-full-submission",
+            Self::PreparedFullSubmission => {
+                "legacy-ordered-reconstruction>renderer-full-submission"
+            }
+            Self::PreparedFrustumFiltered => {
+                "legacy-ordered-reconstruction>generic-frustum>renderer"
+            }
+            Self::TopologyAdmittedFull => {
+                "original-contribution-inventory>doom-topology-admission-fail-open>renderer-full-submission"
+            }
+            Self::TopologyAdmittedFrustum => {
+                "original-contribution-inventory>doom-topology-admission-fail-open>generic-frustum>renderer"
+            }
+            Self::OrderedOccurrencePreparedFull => {
+                "source-occurrence-inventory>doom-ordered-wall-plane-preparation>ordinary-declarations>renderer-full-submission"
+            }
+        }
+    }
+
+    pub(crate) const fn is_ordered_occurrence_integration(self) -> bool {
+        matches!(self, Self::OrderedOccurrencePreparedFull)
     }
 }
 
 pub(crate) fn remove_cli_args(args: &mut Vec<String>) {
     args.retain(|argument| !argument.starts_with("--render-strategy="));
+}
+
+pub(crate) fn replace_ordered_occurrence_declarations(
+    scene: &mut SceneInput,
+    prepared: &OrderedPreparedSubmissionObservation,
+) -> PlatformResult<()> {
+    ordered_occurrence_prepared_full::replace_declarations(scene, prepared)
 }
 
 #[cfg(test)]
@@ -119,6 +193,56 @@ mod tests {
         assert_eq!(
             TrialRenderStrategy::from_args(&args(&["--render-strategy=c"]), false, false).unwrap(),
             Some(TrialRenderStrategy::PreparedFrustumFiltered)
+        );
+    }
+
+    #[test]
+    fn topology_study_names_do_not_alias_historical_prepared_strategies() {
+        assert_eq!(
+            TrialRenderStrategy::from_args(
+                &args(&["--render-strategy=topology-admitted-full"]),
+                false,
+                false,
+            )
+            .unwrap(),
+            Some(TrialRenderStrategy::TopologyAdmittedFull)
+        );
+        assert_eq!(
+            TrialRenderStrategy::from_args(
+                &args(&["--render-strategy=topology-admitted-frustum"]),
+                false,
+                false,
+            )
+            .unwrap(),
+            Some(TrialRenderStrategy::TopologyAdmittedFrustum)
+        );
+        assert_ne!(
+            TrialRenderStrategy::TopologyAdmittedFull,
+            TrialRenderStrategy::PreparedFullSubmission
+        );
+    }
+
+    #[test]
+    fn ordered_occurrence_strategy_is_distinct_from_legacy_and_topology_candidates() {
+        assert_eq!(
+            TrialRenderStrategy::from_args(
+                &args(&["--render-strategy=ordered-occurrence-prepared-full"]),
+                false,
+                false,
+            )
+            .unwrap(),
+            Some(TrialRenderStrategy::OrderedOccurrencePreparedFull)
+        );
+        assert_ne!(
+            TrialRenderStrategy::OrderedOccurrencePreparedFull,
+            TrialRenderStrategy::PreparedFullSubmission
+        );
+        assert_ne!(
+            TrialRenderStrategy::OrderedOccurrencePreparedFull,
+            TrialRenderStrategy::TopologyAdmittedFull
+        );
+        assert!(
+            TrialRenderStrategy::OrderedOccurrencePreparedFull.is_ordered_occurrence_integration()
         );
     }
 

@@ -64,12 +64,22 @@ use hello_doom_e1m1::{
     StaticDrawPlanEntry, StaticDrawSource, StaticFlatLoweringError, StaticTextureEligibility,
     StaticTextureUpload,
 };
+use hello_doom_visibility_conformance::{
+    model_authoritative_sky_regions, observe_authoritative_sky_source_depth_approximation,
+    prepare_authoritative_sky_source_depth_declarations,
+    prepare_authoritative_sky_submission_local_geometry, AuthoritativeSkyViewIdentity,
+    DoomFixtureViewer, DoomVisibilityFixture, SubmissionIdentity, SubmissionLocalGeometryLimits,
+};
 use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, TextureUse};
 use resource_space::{
     AddressCasePolicy, FolderId, InMemoryResourceSpace, ResourceMetadata, ResourceName,
     ResourceRootDescriptor, ResourceRootId, StoreId,
 };
 use resource_space_archive::InspectArchiveResourceRequest;
+use tokimu::experimental_submission_local_geometry::{
+    ExperimentalLocalGeometryDraw, ExperimentalSubmissionIdentity,
+    ExperimentalSubmissionLocalGeometry, ExperimentalSubmissionLocalGeometryBuilder,
+};
 use tokimu::{
     run_window_with_app, BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color,
     ColorWriteMask, CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand,
@@ -179,6 +189,8 @@ const DOOM_SKY_MESH: MeshHandle = MeshHandle(9_000_020);
 const DOOM_SKY_BOUNDARY_MATERIAL: MaterialHandle = MaterialHandle(9_000_021);
 const DOOM_SOURCE_SKY_PLANE_MESH_BASE: u64 = 9_002_000;
 const DOOM_VIEWER_SKY_SPAN_MESH: MeshHandle = MeshHandle(9_003_000);
+const CANDIDATE1_SKY_DEPTH_MATERIAL: MaterialHandle = MaterialHandle(9_004_000);
+const CANDIDATE1_CLIP_CAMERA: CameraHandle = CameraHandle(9_004_000);
 const ORDERED_COVERAGE_CUTOUT_MESH_BASE: u64 = 8_000_000;
 const ORDERED_COVERAGE_DYNAMIC_MESH_BASE: u64 = 8_500_000;
 const WALK_SPEED: f32 = 240.0;
@@ -192,6 +204,9 @@ const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
 
 struct App {
     renderer: Option<WgpuBackend>,
+    render_strategy_name: &'static str,
+    render_strategy_stages: &'static str,
+    topology_inventory: TopologyContributionInventory,
     draws: Vec<StaticDrawPlanEntry>,
     uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
@@ -206,6 +221,7 @@ struct App {
     doom_sky_enabled: bool,
     source_sky_plane_depth_enabled: bool,
     source_sky_plane_depth_global_control: bool,
+    candidate1_sky_depth_enabled: bool,
     source_sky_plane_selected: Vec<bool>,
     cutout_mesh_base: u64,
     include_cutouts: bool,
@@ -213,6 +229,7 @@ struct App {
     cutout_pipeline: Option<PipelineHandle>,
     doom_sky_pipeline: Option<PipelineHandle>,
     doom_sky_boundary_pipeline: Option<PipelineHandle>,
+    candidate1_sky_depth_pipeline: Option<PipelineHandle>,
     debug_pipeline: Option<PipelineHandle>,
     debug_font: Option<UiFontRasterizer>,
     debug_console: DoomDebugConsole,
@@ -687,6 +704,20 @@ fn reembed_scene_for_comparison(scene: &mut SceneInput, embedding: DoomComparati
     for bounds in &mut scene.membership_selection.subsector_bounds {
         *bounds = bounds.and_then(|bounds| reembed_aabb(bounds, embedding));
     }
+}
+
+/// One frame's Doom-private Candidate 1 realization.
+///
+/// The renderer batch contains no persistent mesh identity. The remaining
+/// fields are retained only so E1M1 can prove conservation at the corpus
+/// boundary before the batch is submitted.
+struct Candidate1SkyDepthBatch {
+    batch: ExperimentalSubmissionLocalGeometry,
+    source_regions: usize,
+    declarations: usize,
+    vertices: usize,
+    triangles: usize,
+    structural_fingerprint: String,
 }
 
 fn reembed_draws_for_comparison(

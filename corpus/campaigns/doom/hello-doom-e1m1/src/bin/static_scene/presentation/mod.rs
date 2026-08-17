@@ -7,9 +7,11 @@
 mod legacy_source_protocol;
 mod lowering;
 mod model;
+mod ordered_occurrence;
 mod preparation;
 mod sky_cylinder;
 mod sky_span;
+mod topology_admission;
 mod viewport;
 
 pub(crate) use legacy_source_protocol::{
@@ -32,6 +34,13 @@ pub(crate) use legacy_source_protocol::{
     source_sky_sectors, SourceBBoxProjection,
 };
 pub(crate) use lowering::{doom_wall_role_key, lower_doom_seg_classic_plane_presentation};
+pub(crate) use ordered_occurrence::{
+    format_ordered_occurrence_domain_trace, prepare_ordered_occurrence_submission,
+    OrderedOccurrenceTraceTarget, OrderedPlaneKind, OrderedPlaneLoweringObservation,
+    OrderedPlaneOccurrenceObservation, OrderedPreparedSubmissionObservation,
+    OrderedSourceDispositionKind, OrderedSourceOccurrenceObservation,
+    OrderedWallOccurrenceLoweringObservation,
+};
 
 pub(crate) use model::{
     DoomCoverageFailOpenSummary, DoomOrderedCoveragePreparation, DoomOrderedCoverageView,
@@ -46,6 +55,9 @@ pub(crate) use preparation::{
 };
 pub(crate) use sky_cylinder::build_doom_sky_cylinder;
 pub(crate) use sky_span::prepare_viewer_relative_source_sky_span_mesh;
+pub(crate) use topology_admission::{
+    build_original_contribution_inventory, TopologyContributionInventory,
+};
 pub(crate) use viewport::classic_presentation_half_vertical_fov;
 #[cfg(test)]
 pub(crate) use viewport::{

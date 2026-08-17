@@ -5,8 +5,8 @@ use crate::{RenderFrameCpuTimings, RenderStats, Renderer};
 use super::cpu_timer::CpuTimer;
 use super::material_support::derived_material_key;
 use super::{
-    wgpu_camera_uniform, GpuCameraBinding, GpuInstanceBinding, GpuInstanceUniform, WgpuBackend,
-    WgpuBackendError,
+    wgpu_camera_uniform, GpuCameraBinding, GpuInstanceBinding, GpuInstanceUniform, QueuedGeometry,
+    WgpuBackend, WgpuBackendError,
 };
 
 impl WgpuBackend {
@@ -155,10 +155,17 @@ impl WgpuBackend {
             if self.stats.has_frame_draws() {
                 let mut active_pipeline = None;
                 for (index, draw) in self.queued_draws.iter().enumerate() {
-                    let gpu_mesh = self
-                        .meshes
-                        .get(&draw.mesh)
-                        .ok_or(WgpuBackendError::MissingMesh(draw.mesh.0))?;
+                    let gpu_mesh = match draw.geometry {
+                        QueuedGeometry::Persistent(handle) => self
+                            .meshes
+                            .get(&handle)
+                            .ok_or(WgpuBackendError::MissingMesh(handle.0))?,
+                        #[cfg(feature = "experimental-submission-local-geometry")]
+                        QueuedGeometry::SubmissionLocal(slot) => self
+                            .submission_local_meshes
+                            .get(slot)
+                            .ok_or(WgpuBackendError::MissingSubmissionLocalGeometry(slot))?,
+                    };
                     let gpu_material = match draw.material_override {
                         Some(override_value) => self
                             .derived_materials

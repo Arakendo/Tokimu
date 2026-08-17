@@ -2,6 +2,8 @@ mod backend_init;
 mod cpu_timer;
 mod diagnostics;
 mod error;
+#[cfg(feature = "experimental-submission-local-geometry")]
+mod experimental_submission_local_geometry;
 mod material_resources;
 mod material_support;
 mod mesh_resources;
@@ -99,8 +101,15 @@ enum GpuTextureRole {
 }
 
 #[derive(Clone, Copy)]
+enum QueuedGeometry {
+    Persistent(MeshHandle),
+    #[cfg(feature = "experimental-submission-local-geometry")]
+    SubmissionLocal(usize),
+}
+
+#[derive(Clone, Copy)]
 struct QueuedDraw {
-    mesh: MeshHandle,
+    geometry: QueuedGeometry,
     material: MaterialHandle,
     pipeline: PipelineHandle,
     instance: Instance2d,
@@ -178,6 +187,8 @@ pub struct WgpuBackend {
     instance_bindings: Vec<GpuInstanceBinding>,
     camera_bindings: HashMap<CameraHandle, GpuCameraBinding>,
     meshes: HashMap<MeshHandle, GpuMesh>,
+    #[cfg(feature = "experimental-submission-local-geometry")]
+    submission_local_meshes: Vec<GpuMesh>,
     materials: HashMap<MaterialHandle, GpuMaterial>,
     derived_materials: HashMap<DerivedMaterialKey, GpuMaterial>,
     pipelines: HashMap<PipelineHandle, wgpu::RenderPipeline>,

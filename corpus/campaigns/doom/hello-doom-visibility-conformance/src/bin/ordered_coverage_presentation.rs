@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use hello_doom_visibility_conformance::realize_partial_coverage_fragments;
+use hello_doom_visibility_conformance::lower_occurrences_to_presentation;
 use tokimu::{
     math::{Mat4, Vec3},
     run_window_with_app, BlendMode, Camera, CameraHandle, Color, ColorWriteMask, CullMode,
@@ -45,16 +45,18 @@ struct OrderedCoveragePresentation {
     background_pipeline: PipelineHandle,
     source_pipeline: PipelineHandle,
     presented_frames: u8,
+    structural_fingerprint: String,
+    lowered_occurrences: usize,
 }
 
 impl OrderedCoveragePresentation {
-    fn upload_fixture(&self, renderer: &mut WgpuBackend) -> PlatformResult<()> {
-        let manifest = realize_partial_coverage_fragments()
+    fn upload_fixture(&mut self, renderer: &mut WgpuBackend) -> PlatformResult<()> {
+        let manifest = lower_occurrences_to_presentation()
             .map_err(|error| std::io::Error::other(error.to_string()))?;
-        let [left, right] = manifest.fragments.as_slice() else {
+        let [left, right] = manifest.partial_declarations.as_slice() else {
             return Err(std::io::Error::other(format!(
                 "ordered coverage expected two fragments, observed {}",
-                manifest.fragments.len()
+                manifest.partial_declarations.len()
             ))
             .into());
         };
@@ -64,8 +66,8 @@ impl OrderedCoveragePresentation {
             NEAR_CONTROL_MESH,
             &clip_rect_mesh(-0.82, 0.82, -0.48, 0.48, -0.55),
         );
-        renderer.upload_mesh(LEFT_FRAGMENT_MESH, &fragment_mesh(left));
-        renderer.upload_mesh(RIGHT_FRAGMENT_MESH, &fragment_mesh(right));
+        renderer.upload_mesh(LEFT_FRAGMENT_MESH, &left.mesh);
+        renderer.upload_mesh(RIGHT_FRAGMENT_MESH, &right.mesh);
         renderer.upload_material(
             BACKGROUND_MATERIAL,
             &Material::new("ordered-coverage-background", Color::rgb(0.04, 0.10, 0.18)),
@@ -80,21 +82,22 @@ impl OrderedCoveragePresentation {
         )?;
 
         eprintln!(
-            "ordered-coverage native control: source-seg={}; excluded=[{:.6},{:.6}]; left-columns={}..{}; left-source=[{:.6},{:.6}]; right-columns={}..{}; right-source=[{:.6},{:.6}]; fragment-triangles={}/{}; order=background>visible-near-authority>left-fragment>right-fragment; meaning=doom-owned-source-fragments-not-renderer-scissors",
-            left.source_seg.record_index,
-            manifest.excluded_linedef_interval[0],
-            manifest.excluded_linedef_interval[1],
-            left.diagnostic_columns.first,
-            left.diagnostic_columns.last,
-            left.linedef_interval[0],
-            left.linedef_interval[1],
-            right.diagnostic_columns.first,
-            right.diagnostic_columns.last,
-            right.linedef_interval[0],
-            right.linedef_interval[1],
-            left.triangles.len(),
-            right.triangles.len(),
+            "ordered-coverage native control: source={}; occurrences={:?}/{:?}; left-source=[{:.6},{:.6}]; right-source=[{:.6},{:.6}]; vertices={}/{}; uv-streams={}; view-local={}; structural-fingerprint={}; order=background>visible-near-authority>left-fragment>right-fragment; meaning=ordinary-tokimu-declarations-from-doom-owned-source-occurrences",
+            left.source_correlation,
+            left.occurrence_correlation,
+            right.occurrence_correlation,
+            left.source_interval[0],
+            left.source_interval[1],
+            right.source_interval[0],
+            right.source_interval[1],
+            left.mesh.vertex_count(),
+            right.mesh.vertex_count(),
+            manifest.uv_streams_complete,
+            manifest.generated_geometry_is_view_local,
+            manifest.structural_fingerprint,
         );
+        self.structural_fingerprint = manifest.structural_fingerprint;
+        self.lowered_occurrences = manifest.lowered_semantic_occurrences;
         Ok(())
     }
 }
@@ -203,10 +206,17 @@ impl PlatformEventHandler for OrderedCoveragePresentation {
                 ));
             }
             eprintln!(
-                "ordered-coverage first frame: draws={}; materials={}; pipelines={}; diagnostic=none",
+                "ordered-coverage first frame: occurrences={}; structural-fingerprint={}; draws={}; materials={}; pipelines={}; binding-allocations={}; mesh-uploads={}; mesh-replacements={}; lifetime-mesh-uploads={}; lifetime-mesh-replacements={}; diagnostic=none",
+                self.lowered_occurrences,
+                self.structural_fingerprint,
                 stats.frame.draw_calls,
                 stats.frame.material_resolutions,
                 stats.frame.pipeline_switches,
+                stats.frame.binding_allocations,
+                stats.frame.mesh_uploads,
+                stats.frame.mesh_replacements,
+                stats.lifetime.mesh_uploads,
+                stats.lifetime.mesh_replacements,
             );
         } else if self.presented_frames == 1 || self.presented_frames == 2 {
             if stats.frame.mesh_uploads != 0 || stats.frame.mesh_replacements != 0 {
@@ -219,13 +229,18 @@ impl PlatformEventHandler for OrderedCoveragePresentation {
                 .into());
             }
             eprintln!(
-                "ordered-coverage {} frame: draws={}; materials={}; pipelines={}; mesh_uploads={}; mesh_replacements={}; diagnostic=none",
+                "ordered-coverage {} frame: occurrences={}; structural-fingerprint={}; draws={}; materials={}; pipelines={}; binding-allocations={}; mesh-uploads={}; mesh-replacements={}; lifetime-mesh-uploads={}; lifetime-mesh-replacements={}; diagnostic=none",
                 if self.presented_frames == 1 { "warm" } else { "camera-jitter" },
+                self.lowered_occurrences,
+                self.structural_fingerprint,
                 stats.frame.draw_calls,
                 stats.frame.material_resolutions,
                 stats.frame.pipeline_switches,
+                stats.frame.binding_allocations,
                 stats.frame.mesh_uploads,
                 stats.frame.mesh_replacements,
+                stats.lifetime.mesh_uploads,
+                stats.lifetime.mesh_replacements,
             );
         }
         self.presented_frames = self.presented_frames.saturating_add(1);
@@ -249,26 +264,6 @@ fn draw(
     })
 }
 
-fn fragment_mesh(
-    fragment: &hello_doom_visibility_conformance::PartialCoverageSourceFragment,
-) -> Mesh {
-    Mesh::uniform_normal(
-        fragment
-            .triangles
-            .iter()
-            .flat_map(|triangle| triangle.positions)
-            .map(|position| {
-                [
-                    position[0] as f32 / 48.0,
-                    position[1] as f32 / 80.0 - 0.80,
-                    -0.25,
-                ]
-            })
-            .collect(),
-        [0.0, 0.0, -1.0],
-    )
-}
-
 fn clip_rect_mesh(left: f32, right: f32, bottom: f32, top: f32, depth: f32) -> Mesh {
     Mesh::uniform_normal(
         vec![
@@ -289,18 +284,20 @@ mod tests {
 
     #[test]
     fn presentation_uses_two_distinct_source_fragment_meshes() {
-        let manifest = realize_partial_coverage_fragments().unwrap();
-        assert_eq!(manifest.fragments.len(), 2);
-        for fragment in &manifest.fragments {
-            assert_eq!(
-                fragment_mesh(fragment).vertex_count(),
-                u32::try_from(fragment.triangles.len() * 3).unwrap()
-            );
-            assert!(!fragment.triangles.is_empty());
-        }
+        let manifest = lower_occurrences_to_presentation().unwrap();
+        assert_eq!(manifest.partial_declarations.len(), 2);
+        assert!(manifest
+            .partial_declarations
+            .iter()
+            .all(|declaration| declaration.mesh.vertex_count() > 0
+                && declaration.mesh.has_texture_coordinates()));
         assert_eq!(
-            manifest.fragments[0].source_seg,
-            manifest.fragments[1].source_seg
+            manifest.partial_declarations[0].source_correlation,
+            manifest.partial_declarations[1].source_correlation
+        );
+        assert_ne!(
+            manifest.partial_declarations[0].occurrence_correlation,
+            manifest.partial_declarations[1].occurrence_correlation
         );
     }
 }

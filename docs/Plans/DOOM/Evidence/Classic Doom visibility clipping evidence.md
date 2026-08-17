@@ -7,6 +7,11 @@ corpus experiment. It does not make `tokimu-render` a Doom renderer, admit a
 generic occlusion feature, or claim that the current E1M1 study recreates
 classic Doom presentation.
 
+The later end-to-end source reading, including frame order, coupled wall/plane
+state, sky emission, masked work, and the proposed Tokimu preparation seam, is
+retained separately in
+[Classic Doom Renderer Dataflow And Tokimu Preparation Seam](Classic%20Doom%20renderer%20dataflow%20and%20Tokimu%20preparation%20seam.md).
+
 ## Primary Source
 
 The released id Software renderer separates BSP traversal and horizontal wall
@@ -254,6 +259,54 @@ whole-subsector fallback geometry.
 This remains a Doom presentation-provider experiment. Generic Tokimu callers
 may use different source-owned selection methods; no `SEG`, `solidsegs`, Doom
 portal rule, or classic renderer policy belongs in `tokimu-render`.
+
+## Successor Slice 0 Source-Occurrence Trace
+
+The ordered-occurrence successor study returned to the primary sources to
+answer a representation question left open by the AR-0025 experiments. The
+full trace is retained in
+[Doom Ordered Source-Occurrence Reference Trace](Doom%20ordered%20source%20occurrence%20reference%20trace.md).
+
+### Direct observations
+
+- Classic Doom passes one `seg_t *curline` into `R_AddLine` after near-first
+  BSP traversal.
+- After angular view clipping and horizontal projection,
+  `R_ClipSolidWallSegment` and `R_ClipPassWallSegment` scan accumulated
+  `solidsegs` ranges.
+- One source SEG can cause several `R_StoreWallRange` calls: the routines emit
+  a visible prefix, every uncovered internal gap, and a visible suffix as
+  separate calls.
+- Every individual `R_StoreWallRange` call remains one contiguous inclusive
+  horizontal interval and continues to refer to the same source SEG.
+- `R_RenderSegLoop` uses the same `ceilingclip` and `floorclip` state to bound
+  wall tiers, mark floor/ceiling plane intervals, and update later coverage.
+- Masked two-sided middles defer texture-column drawing and do not gain solid
+  horizontal occlusion authority merely because a mask exists.
+- Chocolate Doom preserves these behaviors while containing bounded storage
+  and portability maintenance differences.
+
+Primary files inspected on 2026-08-16:
+
+- [Classic Doom `r_bsp.c`](https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/r_bsp.c)
+- [Classic Doom `r_segs.c`](https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/r_segs.c)
+- [Chocolate Doom `r_bsp.c`](https://github.com/chocolate-doom/chocolate-doom/blob/master/src/doom/r_bsp.c)
+- [Chocolate Doom `r_segs.c`](https://github.com/chocolate-doom/chocolate-doom/blob/master/src/doom/r_segs.c)
+
+### Tokimu inference
+
+The directly observed multiplicity justifies a Doom-private model in which one
+source contribution produces `0..N` presentation occurrences. It does not
+justify copying integer columns, clip arrays, or arbitrary raster regions.
+Each private occurrence can be constrained initially to one contiguous
+horizontal source-relative interval with bounded upper/lower domains, while
+multiple occurrences retain correlation to one source identity.
+
+The normalized source interval is a Tokimu reconstruction choice. Classic Doom
+retains fixed/projective values and integer range endpoints rather than an
+explicit normalized `t` range. Later slices must derive that interval from
+original source geometry and prepared view intersections, never from
+screen-column inverse projection.
 
 ## Final AR-0025 Disposition
 

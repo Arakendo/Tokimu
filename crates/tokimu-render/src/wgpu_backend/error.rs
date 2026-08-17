@@ -16,6 +16,9 @@ pub enum WgpuBackendError {
     SurfaceAcquire(String),
     #[error("mesh handle {0} has not been uploaded")]
     MissingMesh(u64),
+    #[cfg(feature = "experimental-submission-local-geometry")]
+    #[error("submission-local geometry slot {0} is no longer available")]
+    MissingSubmissionLocalGeometry(usize),
     #[error("material handle {0} has not been uploaded")]
     MissingMaterial(u64),
     #[error("material color must contain only finite values")]

@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, io};
 
 use doom_geometry_provider::{
     locate_doom_point_subsector, resolve_doom_linedef_subsector_membership,
-    resolve_doom_subsector_bsp_paths,
+    resolve_doom_subsector_bsp_paths, DoomSurfacePlane,
 };
 use doom_map_provider::DoomMapCore;
 use hello_doom_e1m1::{DoomComparativeEmbedding, StaticDrawPlanEntry, StaticDrawSource};
@@ -10,8 +10,9 @@ use tokimu::PlatformResult;
 use tokimu_core::math::Vec3;
 
 use crate::{
-    compact_draw_source, nearest_mesh_ray_hit, observe_doom_seg_classic_bsp,
-    DoomSkyBoundaryDepthDraw, SceneInput,
+    compact_draw_source, format_ordered_occurrence_domain_trace, nearest_mesh_ray_hit,
+    observe_doom_seg_classic_bsp, DoomSkyBoundaryDepthDraw, OrderedOccurrenceTraceTarget,
+    OrderedPlaneKind, SceneInput,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -300,8 +301,79 @@ pub(crate) fn report_source_look_ray(
         &scene.opaque_draws,
         include_cutouts.then_some(scene.cutout_draws.as_slice()),
     );
+    let rounded = [ray.origin[0].round(), ray.origin[1].round()];
+    let ordered_domains = if rounded
+        .iter()
+        .chain(std::iter::once(&ray.origin[2]))
+        .any(|value| *value < f32::from(i16::MIN) || *value > f32::from(i16::MAX))
+    {
+        String::from(
+            "ordered_occurrence_domains=unavailable:viewer-or-eye-outside-i16-source-domain",
+        )
+    } else if ray.direction[0].abs() <= f32::EPSILON && ray.direction[1].abs() <= f32::EPSILON {
+        String::from("ordered_occurrence_domains=unavailable:vertical-source-ray")
+    } else {
+        let trace_target = |draw: &StaticDrawPlanEntry| match draw.source {
+            StaticDrawSource::Wall { source_linedef, .. } => OrderedOccurrenceTraceTarget::Wall {
+                source_linedef: source_linedef.record_index,
+            },
+            StaticDrawSource::Flat {
+                source_subsector,
+                plane,
+                ..
+            } => OrderedOccurrenceTraceTarget::Plane {
+                source_subsector: source_subsector.record_index,
+                kind: match plane {
+                    DoomSurfacePlane::Floor => OrderedPlaneKind::Floor,
+                    DoomSurfacePlane::Ceiling => OrderedPlaneKind::Ceiling,
+                },
+            },
+        };
+        let candidate = hit.map(|hit| trace_target(hit.draw));
+        let boundary_authority =
+            nearest_sky_boundary_ray_hit(origin, direction, &scene.doom_sky_boundary_draws).map(
+                |authority| OrderedOccurrenceTraceTarget::Wall {
+                    source_linedef: authority.draw.source_linedef.record_index,
+                },
+            );
+        let plane_authority =
+            nearest_source_sky_plane_ray_hit(origin, direction, &scene.diagnostic_sky_draws)
+                .map(|authority| trace_target(authority.draw));
+        let authority = match (boundary_authority, plane_authority) {
+            (Some(boundary), Some(plane)) => {
+                let boundary_distance =
+                    nearest_sky_boundary_ray_hit(origin, direction, &scene.doom_sky_boundary_draws)
+                        .map(|hit| hit.distance)
+                        .unwrap_or(f32::INFINITY);
+                let plane_distance = nearest_source_sky_plane_ray_hit(
+                    origin,
+                    direction,
+                    &scene.diagnostic_sky_draws,
+                )
+                .map(|hit| hit.distance)
+                .unwrap_or(f32::INFINITY);
+                Some(if boundary_distance <= plane_distance {
+                    boundary
+                } else {
+                    plane
+                })
+            }
+            (Some(boundary), None) => Some(boundary),
+            (None, Some(plane)) => Some(plane),
+            (None, None) => None,
+        };
+        let eye_height = ray.origin[2].round() as i16;
+        format_ordered_occurrence_domain_trace(
+            &scene.door_geometry_source.map,
+            [rounded[0] as i16, rounded[1] as i16],
+            f64::from(ray.direction[1]).atan2(f64::from(ray.direction[0])),
+            eye_height,
+            candidate,
+            authority,
+        )
+    };
     println!(
-        "{}\n{}",
+        "{}\n{}\n{}",
         format_look_ray_observation(
             origin,
             direction,
@@ -315,7 +387,8 @@ pub(crate) fn report_source_look_ray(
             [ray.origin[0], ray.origin[1]],
             [ray.direction[0], ray.direction[1]],
             hit,
-        )
+        ),
+        ordered_domains,
     );
 }
 

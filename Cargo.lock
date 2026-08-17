@@ -1378,6 +1378,7 @@ dependencies = [
  "doom-raster-provider",
  "doom-wad-package",
  "doom-wad-provider",
+ "hello-doom-visibility-conformance",
  "raster-image-corpus",
  "render-orientation-conformance",
  "resource-space",
@@ -1406,6 +1407,7 @@ dependencies = [
 name = "hello-doom-visibility-conformance-web"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "console_error_panic_hook",
  "doom-geometry-provider",
  "hello-doom-visibility-conformance",

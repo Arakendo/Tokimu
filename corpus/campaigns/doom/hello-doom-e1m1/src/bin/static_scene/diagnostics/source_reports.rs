@@ -5,6 +5,542 @@
 
 use super::super::*;
 
+/// Replays the six retained Slice 6B rays against the literal ordered-result
+/// handoff. The expected result is deliberately expressed in source identity:
+/// five rejected wall/plane contributions must have no final declaration,
+/// while the reached ceiling may survive only through partial-plane output.
+pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> PlatformResult<()> {
+    #[derive(Clone, Copy)]
+    enum ExpectedTarget {
+        RejectedWallSegs(&'static [u32]),
+        RejectedPlane {
+            subsector: u32,
+            kind: OrderedPlaneKind,
+        },
+        PartialPlane {
+            subsector: u32,
+            kind: OrderedPlaneKind,
+        },
+    }
+
+    #[derive(Clone, Copy)]
+    struct RayCase {
+        name: &'static str,
+        origin: [f64; 3],
+        direction: [f64; 3],
+        expected: ExpectedTarget,
+    }
+
+    const WALL_230_SEGS: &[u32] = &[415, 423];
+    const WALL_247_SEGS: &[u32] = &[559, 567];
+    let cases = [
+        RayCase {
+            name: "hut-east-wall-230",
+            origin: [2076.0, -3560.0, 36.0],
+            direction: [0.905568898, -0.424199343, 0.0],
+            expected: ExpectedTarget::RejectedWallSegs(WALL_230_SEGS),
+        },
+        RayCase {
+            name: "wall-247-east",
+            origin: [1306.508666992, -3272.168457031, 21.432840347],
+            direction: [0.939651787, -0.338751376, 0.047981590],
+            expected: ExpectedTarget::RejectedWallSegs(WALL_247_SEGS),
+        },
+        RayCase {
+            name: "ceiling-104-reached",
+            origin: [1477.330444336, -3594.213134766, 8.994521141],
+            direction: [-0.792175531, -0.565008104, 0.230702817],
+            expected: ExpectedTarget::PartialPlane {
+                subsector: 104,
+                kind: OrderedPlaneKind::Ceiling,
+            },
+        },
+        RayCase {
+            name: "wall-247-west",
+            origin: [2115.047851562, -3569.925048828, 8.994521141],
+            direction: [0.928815067, -0.358562857, 0.093463443],
+            expected: ExpectedTarget::RejectedWallSegs(WALL_247_SEGS),
+        },
+        RayCase {
+            name: "ceiling-149-rejected",
+            origin: [2139.683349609, -3196.036376953, 8.994521141],
+            direction: [0.180356100, 0.780082107, 0.599119186],
+            expected: ExpectedTarget::RejectedPlane {
+                subsector: 149,
+                kind: OrderedPlaneKind::Ceiling,
+            },
+        },
+        RayCase {
+            name: "ceiling-104-rejected",
+            origin: [2902.150878906, -3206.857421875, 8.994521141],
+            direction: [-0.952072978, -0.304107845, 0.032795019],
+            expected: ExpectedTarget::RejectedPlane {
+                subsector: 104,
+                kind: OrderedPlaneKind::Ceiling,
+            },
+        },
+    ];
+
+    let cutout_materials = scene
+        .cutout_uploads
+        .iter()
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let mut reports = Vec::new();
+    for case in cases {
+        let viewer = [case.origin[0].round() as i16, case.origin[1].round() as i16];
+        let heading = case.direction[1].atan2(case.direction[0]);
+        let eye_height = case.origin[2].round() as i16;
+        let observation = prepare_ordered_occurrence_submission(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading,
+            eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &scene.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        observation
+            .verify_conservation()
+            .map_err(io::Error::other)?;
+
+        let result = match case.expected {
+            ExpectedTarget::RejectedWallSegs(source_segs) => {
+                let declaration_count = observation
+                    .walls
+                    .prepared_declarations
+                    .iter()
+                    .filter(|declaration| source_segs.contains(&declaration.occurrence.source_seg))
+                    .count();
+                let dispositions = observation
+                    .source
+                    .dispositions
+                    .iter()
+                    .filter(|disposition| source_segs.contains(&disposition.source_seg))
+                    .collect::<Vec<_>>();
+                let terminal = dispositions
+                    .iter()
+                    .filter(|disposition| {
+                        disposition.kind == OrderedSourceDispositionKind::TerminalRejected
+                    })
+                    .count();
+                if declaration_count != 0 || terminal != dispositions.len() {
+                    return Err(io::Error::other(format!(
+                        "Slice 6B ray {} expected terminal wall rejection: segs={source_segs:?} declarations={declaration_count} terminal={terminal}/{}",
+                        case.name,
+                        dispositions.len(),
+                    ))
+                    .into());
+                }
+                format!(
+                    "{}=terminal-wall:segs={source_segs:?}:dispositions={terminal}:declarations=0",
+                    case.name,
+                )
+            }
+            ExpectedTarget::RejectedPlane { subsector, kind } => {
+                let associations = observation
+                    .planes
+                    .associations
+                    .iter()
+                    .filter(|association| {
+                        association.source_subsector == subsector && association.kind == kind
+                    })
+                    .count();
+                let instance_ordinals = observation
+                    .planes
+                    .plane_destinations
+                    .iter()
+                    .filter(|destination| {
+                        destination.source_subsector == subsector && destination.kind == kind
+                    })
+                    .map(|destination| destination.plane_instance_ordinal)
+                    .collect::<BTreeSet<_>>();
+                let declarations = observation
+                    .plane_lowering
+                    .prepared_declarations
+                    .iter()
+                    .filter(|declaration| {
+                        declaration.source_subsector == subsector
+                            && instance_ordinals.contains(&declaration.plane_instance_ordinal)
+                    })
+                    .count();
+                let dispositions = observation
+                    .plane_lowering
+                    .source_dispositions
+                    .iter()
+                    .filter(|disposition| {
+                        disposition.source_subsector == subsector
+                            && instance_ordinals.contains(&disposition.plane_instance_ordinal)
+                    })
+                    .count();
+                if associations != 0
+                    || !instance_ordinals.is_empty()
+                    || dispositions != 0
+                    || declarations != 0
+                {
+                    return Err(io::Error::other(format!(
+                        "Slice 6B ray {} expected source-protocol rejection for {:?} plane subsector {} but found associations={associations} destinations={} dispositions={dispositions} declarations={declarations}",
+                        case.name,
+                        kind,
+                        subsector,
+                        instance_ordinals.len(),
+                    ))
+                    .into());
+                }
+                format!(
+                    "{}=source-protocol-rejected-plane:subsector={subsector}:kind={kind:?}:associations=0:destinations=0:dispositions=0:declarations=0",
+                    case.name,
+                )
+            }
+            ExpectedTarget::PartialPlane { subsector, kind } => {
+                let destinations = observation
+                    .planes
+                    .plane_destinations
+                    .iter()
+                    .filter(|destination| {
+                        destination.source_subsector == subsector && destination.kind == kind
+                    })
+                    .collect::<Vec<_>>();
+                let instance_ordinals = destinations
+                    .iter()
+                    .map(|destination| destination.plane_instance_ordinal)
+                    .collect::<BTreeSet<_>>();
+                let declarations = observation
+                    .plane_lowering
+                    .prepared_declarations
+                    .iter()
+                    .filter(|declaration| {
+                        declaration.source_subsector == subsector
+                            && instance_ordinals.contains(&declaration.plane_instance_ordinal)
+                    })
+                    .count();
+                let partial_sources = observation
+                    .plane_lowering
+                    .source_dispositions
+                    .iter()
+                    .filter(|disposition| {
+                        disposition.source_subsector == subsector
+                            && instance_ordinals.contains(&disposition.plane_instance_ordinal)
+                            && disposition.kind == OrderedSourceDispositionKind::PartialPlane
+                    })
+                    .count();
+                let intervals = destinations
+                    .iter()
+                    .flat_map(|destination| destination.view_intervals.iter().copied())
+                    .collect::<Vec<_>>();
+                if declarations == 0 || partial_sources == 0 || intervals.is_empty() {
+                    return Err(io::Error::other(format!(
+                        "Slice 6B ray {} expected partial {:?} plane subsector {}: destinations={} intervals={intervals:?} partial_sources={partial_sources} declarations={declarations}",
+                        case.name,
+                        kind,
+                        subsector,
+                        destinations.len(),
+                    ))
+                    .into());
+                }
+                format!(
+                    "{}=partial-plane:subsector={subsector}:kind={kind:?}:destinations={}:intervals={intervals:?}:partial-sources={partial_sources}:declarations={declarations}",
+                    case.name,
+                    destinations.len(),
+                )
+            }
+        };
+        reports.push(result);
+    }
+
+    println!(
+        "E1M1 Slice 6B six-ray final-handoff replay: cases={}; conservation=balanced; generic-filter=none; results=[{}]",
+        reports.len(),
+        reports.join(" | "),
+    );
+    Ok(())
+}
+
+/// Correlates immutable E1M1 runtime-height snapshots with the same ordered
+/// source-occurrence preparation seam used by the integrated candidate. This
+/// deliberately supplies current spatial facts without recreating activation,
+/// timing, waiting, or reversal policy.
+pub(crate) fn report_ordered_occurrence_runtime_snapshots(
+    scene: &SceneInput,
+) -> PlatformResult<()> {
+    let map = &scene.door_geometry_source.map;
+    let cutout_materials = scene
+        .cutout_uploads
+        .iter()
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let prepare = |map: &DoomMapCore, viewer: [i16; 2], heading: f64, eye_height: i16| {
+        prepare_ordered_occurrence_submission(
+            map,
+            viewer,
+            heading,
+            eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &scene.opaque_uploads,
+        )
+    };
+    let source_sector = |record_index: u32| {
+        map.sectors
+            .iter()
+            .find(|sector| sector.source.record_index == record_index)
+            .map(|sector| sector.source)
+            .ok_or_else(|| format!("E1M1 sector record {record_index} is unavailable"))
+    };
+
+    let door_sector = source_sector(4).map_err(io::Error::other)?;
+    let door_open_map = project_doom_sector_runtime_heights(
+        map,
+        &[DoomSectorRuntimeHeightSnapshot {
+            source_sector: door_sector,
+            floor_height: None,
+            ceiling_height: Some(68),
+        }],
+    )?;
+    let platform_sector = source_sector(70).map_err(io::Error::other)?;
+    let platform_low_map = project_doom_sector_runtime_heights(
+        map,
+        &[DoomSectorRuntimeHeightSnapshot {
+            source_sector: platform_sector,
+            floor_height: Some(-48),
+            ceiling_height: None,
+        }],
+    )?;
+    let prepared_draws = |observation: &OrderedPreparedSubmissionObservation| {
+        observation
+            .walls
+            .prepared_declarations
+            .iter()
+            .map(|declaration| declaration.draw.clone())
+            .chain(
+                observation
+                    .plane_lowering
+                    .prepared_declarations
+                    .iter()
+                    .map(|declaration| declaration.draw.clone()),
+            )
+            .collect::<Vec<_>>()
+    };
+
+    let lowering_unresolved = |observation: &OrderedPreparedSubmissionObservation| {
+        observation.walls.unresolved_fail_open
+            + observation.planes.unresolved_fail_open
+            + observation.plane_lowering.unresolved_fail_open
+    };
+    let source_labels = |draws: &[StaticDrawPlanEntry]| {
+        draws
+            .iter()
+            .map(|draw| draw.source_label.clone())
+            .collect::<BTreeSet<_>>()
+    };
+    let target_linedefs = |target_sector: u32| {
+        map.linedefs
+            .iter()
+            .filter(|linedef| {
+                [linedef.right_sidedef, linedef.left_sidedef]
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|index| map.sidedefs.get(usize::from(index)))
+                    .filter_map(|side| map.sectors.get(usize::from(side.sector)))
+                    .any(|sector| sector.source.record_index == target_sector)
+            })
+            .map(|linedef| linedef.source.record_index)
+            .collect::<BTreeSet<_>>()
+    };
+    let target_views = |target_sector: u32| {
+        let mut views = Vec::new();
+        for linedef in &map.linedefs {
+            let side_sector = |side: Option<u16>| {
+                side.and_then(|index| map.sidedefs.get(usize::from(index)))
+                    .and_then(|side| map.sectors.get(usize::from(side.sector)))
+            };
+            let right = side_sector(linedef.right_sidedef);
+            let left = side_sector(linedef.left_sidedef);
+            if ![right, left]
+                .into_iter()
+                .flatten()
+                .any(|sector| sector.source.record_index == target_sector)
+            {
+                continue;
+            }
+            let (Some(start), Some(end)) = (
+                map.vertices.get(usize::from(linedef.start_vertex)),
+                map.vertices.get(usize::from(linedef.end_vertex)),
+            ) else {
+                continue;
+            };
+            let midpoint = [
+                (f64::from(start.x) + f64::from(end.x)) * 0.5,
+                (f64::from(start.y) + f64::from(end.y)) * 0.5,
+            ];
+            let delta = [f64::from(end.x - start.x), f64::from(end.y - start.y)];
+            let length = delta[0].hypot(delta[1]);
+            if length <= f64::EPSILON {
+                continue;
+            }
+            let right_normal = [delta[1] / length, -delta[0] / length];
+            for (side_name, sign, sector) in [("right", 1.0, right), ("left", -1.0, left)] {
+                let Some(sector) = sector else {
+                    continue;
+                };
+                let viewer_f64 = [
+                    midpoint[0] + right_normal[0] * 48.0 * sign,
+                    midpoint[1] + right_normal[1] * 48.0 * sign,
+                ];
+                let viewer = [viewer_f64[0].round() as i16, viewer_f64[1].round() as i16];
+                let heading = (midpoint[1] - viewer_f64[1]).atan2(midpoint[0] - viewer_f64[0]);
+                views.push((
+                    linedef.source.record_index,
+                    side_name,
+                    viewer,
+                    heading,
+                    sector.floor_height.saturating_add(36),
+                ));
+            }
+        }
+        views
+    };
+    let correlate = |name: &str,
+                     target_sector: u32,
+                     snapshot_map: &DoomMapCore|
+     -> Result<_, io::Error> {
+        let mut best = None;
+        let target_linedefs = target_linedefs(target_sector);
+        for (linedef, side, viewer, heading, eye_height) in target_views(target_sector) {
+            let baseline = prepare(map, viewer, heading, eye_height).map_err(io::Error::other)?;
+            let snapshot =
+                prepare(snapshot_map, viewer, heading, eye_height).map_err(io::Error::other)?;
+            let baseline_draws = prepared_draws(&baseline);
+            let snapshot_draws = prepared_draws(&snapshot);
+            let is_target_draw = |draw: &&StaticDrawPlanEntry| match draw.source {
+                StaticDrawSource::Flat { source_sector, .. } => {
+                    source_sector.record_index == target_sector
+                }
+                StaticDrawSource::Wall { source_linedef, .. } => {
+                    target_linedefs.contains(&source_linedef.record_index)
+                }
+            };
+            let baseline_target_draws = baseline_draws
+                .iter()
+                .filter(is_target_draw)
+                .cloned()
+                .collect::<Vec<_>>();
+            let snapshot_target_draws = snapshot_draws
+                .iter()
+                .filter(is_target_draw)
+                .cloned()
+                .collect::<Vec<_>>();
+            let target_changed = baseline_target_draws != snapshot_target_draws;
+            let changed_target_declarations = baseline_target_draws
+                .iter()
+                .zip(&snapshot_target_draws)
+                .filter(|(baseline, snapshot)| baseline != snapshot)
+                .count()
+                + baseline_target_draws
+                    .len()
+                    .abs_diff(snapshot_target_draws.len());
+            let baseline_labels = source_labels(&baseline_target_draws);
+            let snapshot_labels = source_labels(&snapshot_target_draws);
+            let changed_labels = baseline_labels
+                .symmetric_difference(&snapshot_labels)
+                .take(12)
+                .cloned()
+                .collect::<Vec<_>>();
+            let candidate = (
+                usize::from(target_changed),
+                changed_target_declarations,
+                linedef,
+                side,
+                viewer,
+                heading,
+                eye_height,
+                baseline,
+                snapshot,
+                baseline_draws.len(),
+                snapshot_draws.len(),
+                baseline_target_draws.len(),
+                snapshot_target_draws.len(),
+                changed_labels,
+            );
+            if best.as_ref().is_none_or(
+                |current: &(usize, usize, u32, _, _, _, _, _, _, _, _, _, _, _)| {
+                    (candidate.0, candidate.1) > (current.0, current.1)
+                },
+            ) {
+                best = Some(candidate);
+            }
+        }
+        best.ok_or_else(|| io::Error::other(format!("{name} has no source-boundary-local view")))
+    };
+
+    let door = correlate("door", 4, &door_open_map)?;
+    let platform = correlate("platform", 70, &platform_low_map)?;
+    let door_changed = door.0 == 1;
+    let platform_changed = platform.0 == 1;
+    let lowering_unresolved = lowering_unresolved(&door.7)
+        + lowering_unresolved(&door.8)
+        + lowering_unresolved(&platform.7)
+        + lowering_unresolved(&platform.8);
+
+    println!(
+        "E1M1 ordered-occurrence runtime snapshot correlation: source-view=deterministic-source-boundary-local; snapshot-policy=immutable-current-heights-only; activation-timing-policy=absent; door=[sector:4,ceiling:0->68,target-changed:{door_changed},view:linedef-{}/{},viewer:{:?},heading:{:.6},eye:{},occurrences:{}->{},source-fail-open:{}->{},declarations:{}->{},target-declarations:{}->{},changed-target-declarations:{},changed-target-labels:{:?}]; platform=[sector:70,floor:104->-48,target-changed:{platform_changed},view:linedef-{}/{},viewer:{:?},heading:{:.6},eye:{},occurrences:{}->{},source-fail-open:{}->{},declarations:{}->{},target-declarations:{}->{},changed-target-declarations:{},changed-target-labels:{:?}]; lowering-unresolved={lowering_unresolved}; same-preparation-seam=true",
+        door.2,
+        door.3,
+        door.4,
+        door.5,
+        door.6,
+        door.7.source.occurrences.len(),
+        door.8.source.occurrences.len(),
+        door.7.source.unresolved_fail_open,
+        door.8.source.unresolved_fail_open,
+        door.9,
+        door.10,
+        door.11,
+        door.12,
+        door.1,
+        door.13,
+        platform.2,
+        platform.3,
+        platform.4,
+        platform.5,
+        platform.6,
+        platform.7.source.occurrences.len(),
+        platform.8.source.occurrences.len(),
+        platform.7.source.unresolved_fail_open,
+        platform.8.source.unresolved_fail_open,
+        platform.9,
+        platform.10,
+        platform.11,
+        platform.12,
+        platform.1,
+        platform.13,
+    );
+    println!(
+        "E1M1 ordered-occurrence runtime snapshot controls: door-baseline=[{}]; door-open=[{}]; platform-raised=[{}]; platform-low=[{}]",
+        door.7.source.report(),
+        door.8.source.report(),
+        platform.7.source.report(),
+        platform.8.source.report(),
+    );
+
+    if lowering_unresolved != 0 {
+        return Err(format!(
+            "runtime snapshot preparation retained {lowering_unresolved} unresolved lowering observations"
+        )
+        .into());
+    }
+    if !door_changed || !platform_changed {
+        return Err(format!(
+            "runtime snapshot correlation incomplete: door_changed={door_changed}; platform_changed={platform_changed}"
+        )
+        .into());
+    }
+    Ok(())
+}
+
 /// Narrow source-to-lowered inspection for a single wall selected from a
 /// native `LOOK` observation. It keeps Doom source meaning at the corpus edge
 /// and is diagnostic only: no geometry classification changes here.

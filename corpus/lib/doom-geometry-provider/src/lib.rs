@@ -831,6 +831,24 @@ fn observe_doom_classic_bsp_far_first_control(
     )
 }
 
+// Doom stores `ceilingclip` as the last closed row (initially -1) and
+// `floorclip` as the first closed row (initially view height). This provider
+// normalizes the ceiling value to the first open row so the state remains
+// unsigned. Keep all inclusive/exclusive translation in these helpers.
+fn classic_open_rows(first_open: usize, first_closed: usize) -> Option<[usize; 2]> {
+    let last_open = first_closed.checked_sub(1)?;
+    (first_open <= last_open).then_some([first_open, last_open])
+}
+
+fn classic_ceiling_plane_rows(first_open: usize, projected_ceiling: usize) -> Option<[usize; 2]> {
+    let last_plane_row = projected_ceiling.checked_sub(1)?;
+    (first_open <= last_plane_row).then_some([first_open, last_plane_row])
+}
+
+fn classic_ceiling_after_mark_without_upper(first_open: usize, projected_ceiling: usize) -> usize {
+    first_open.max(projected_ceiling)
+}
+
 /// Observes the Doom-owned vertical clip and plane-span facts for SEG wall
 /// tiers already admitted by [`observe_doom_classic_bsp`]. The caller supplies
 /// ordinary source wall triangles so texture/material resolution remains at
@@ -1037,10 +1055,13 @@ pub fn observe_doom_classic_vertical_clip_state(
                     .min(ROWS - 1);
             let (ceiling, floor) = (ceiling.min(floor), ceiling.max(floor));
             if mark.ceiling_marked {
-                let top = ceiling_clip[x].saturating_add(1);
-                let bottom = ceiling.saturating_sub(1);
-                ceiling_plane_writes.push((x, top, bottom));
-                if top <= bottom {
+                // Doom stores the last closed ceiling row and initializes it
+                // to -1. This observer stores the equivalent first open row
+                // so it can remain unsigned; therefore the first retained
+                // ceiling row is the clip value itself, not clip + 1.
+                let retained = classic_ceiling_plane_rows(ceiling_clip[x], ceiling);
+                if let Some([top, bottom]) = retained {
+                    ceiling_plane_writes.push((x, top, bottom));
                     result
                         .ordered_coverage_transitions
                         .push(DoomOrderedCoverageTransition {
@@ -1136,15 +1157,22 @@ pub fn observe_doom_classic_vertical_clip_state(
                 let bottom = row((minimum - eye_height).atan2(forward_depth)).min(ROWS - 1);
                 let (top, bottom) = (top.min(bottom), top.max(bottom));
                 let prior = [ceiling_clip[x], floor_clip[x]];
-                // Wall rows meet the current clip bounds; retained plane
-                // intervals occupy the cells strictly between those bounds.
-                // Keeping the conventions distinct preserves row-zero upper
-                // tiers while still preventing a later wall from re-entering
-                // an already retained plane interval.
-                let open_top = prior[0];
-                let open_bottom = prior[1];
-                let open_interval_before =
-                    (open_top <= open_bottom).then_some([open_top, open_bottom]);
+                // `ceiling_clip` is the first open row and `floor_clip` is the
+                // first closed row. This is the unsigned normalization of
+                // Doom's inclusive `ceilingclip` / `floorclip` pair.
+                let open_interval_before = classic_open_rows(prior[0], prior[1]);
+                let Some([open_top, open_bottom]) = open_interval_before else {
+                    result.ordered_wall_intervals.push(DoomOrderedWallInterval {
+                        source_seg: *source_seg,
+                        source_linedef: u32::from(seg.linedef),
+                        column: x,
+                        role: *role,
+                        raw_interval: [top, bottom],
+                        open_interval_before: None,
+                        retained_interval: None,
+                    });
+                    continue;
+                };
                 let retained_top = top.max(open_top);
                 let retained_bottom = bottom.min(open_bottom);
                 let retained_interval =
@@ -1281,7 +1309,9 @@ pub fn observe_doom_classic_vertical_clip_state(
             } else {
                 if !has_upper && mark.ceiling_marked {
                     let prior = ceiling_clip[x];
-                    let next = ceiling_clip[x].max(ceiling.saturating_sub(1));
+                    // Doom assigns `ceilingclip = yl - 1` here. In the
+                    // normalized first-open representation that is `yl`.
+                    let next = classic_ceiling_after_mark_without_upper(ceiling_clip[x], ceiling);
                     result.ceiling_clip_updates += usize::from(next != ceiling_clip[x]);
                     ceiling_clip[x] = next;
                     if next != prior {
@@ -4011,6 +4041,7 @@ mod tests {
     use super::{
         audit_doom_pegging_flags, audit_doom_subsector_bsp_paths,
         audit_doom_subsector_loop_closure, audit_doom_vertical_topology, audit_doom_wall_topology,
+        classic_ceiling_after_mark_without_upper, classic_ceiling_plane_rows, classic_open_rows,
         clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_direction_to_tokimu,
         doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_one_sided_walls,
         lower_doom_paired_sky_boundary_triangles, lower_doom_seg_textured_wall_triangles,
@@ -4028,6 +4059,27 @@ mod tests {
         DoomSegClassicVerticalClipObservation, DoomSurfacePlane, DoomTextureExtent, DoomWallBand,
         DoomWallSideKind, DoomWallTextureRole,
     };
+
+    #[test]
+    fn unsigned_classic_clip_state_matches_dooms_signed_inclusive_rows() {
+        // Doom initializes ceilingclip to -1 and floorclip to viewheight.
+        // The provider's unsigned form stores first-open / first-closed.
+        assert_eq!(classic_open_rows(0, 200), Some([0, 199]));
+        assert_eq!(classic_ceiling_plane_rows(0, 40), Some([0, 39]));
+
+        // An upper wall ending on row 63 leaves row 64 as the first open
+        // row. The ordinary max in the wall loop performs this transition.
+        assert_eq!(63usize.saturating_add(1), 64);
+        assert_eq!(classic_open_rows(64, 200), Some([64, 199]));
+
+        // Doom's no-upper path assigns last-closed = yl - 1. In normalized
+        // state that means first-open = yl, without a compensating -1.
+        assert_eq!(classic_ceiling_after_mark_without_upper(0, 40), 40);
+        assert_eq!(classic_open_rows(40, 200), Some([40, 199]));
+
+        // A terminal one-sided wall closes the normalized interval.
+        assert_eq!(classic_open_rows(200, 0), None);
+    }
 
     #[test]
     fn retains_both_side_and_sector_sources_before_wall_lowering() {
