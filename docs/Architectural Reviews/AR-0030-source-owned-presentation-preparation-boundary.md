@@ -1874,6 +1874,62 @@ The review moves away from shared admission when:
 - Result checkpoint:
   `docs/Checkpoints/2026-08-18-doom-source-occurrence-support-shadow.md`.
 
+### Cycle 47 -- 2026-08-18
+
+- Maintainer review preserves the `ceiling-104-reached` exact-cell failure and
+  clarifies the next gate: independently justified neutral-pitch positive
+  planes must agree across complete geometry, final cells, ordered
+  declarations and reconstructed support before pitch lifting is considered.
+- A bounded four-pose `32x20` neutral search found `481` four-way agreements
+  across `12` distinct pose/plane/sector/subsector identities. Three frozen
+  controls cover one ceiling, two floors, two poses, two sectors and three
+  subsectors.
+- Every frozen control has a complete-shell hit, a retained exact source cell,
+  an ordered-declaration exact hit and an exact-key/source-sector geometry
+  shadow hit at the same distance within `0.01`.
+- The neutral-authorized finite world fragments were then queried through
+  cameras pitched `-15`, `0` and `+15` degrees. All nine pitched projections
+  reconstruct and intersect the same fragments at the same distance. Classic
+  rows participate only in neutral source preparation; they are not treated
+  as persistent world-space boundaries.
+- Discovery fingerprint: `129127dbc170cb2b`. Frozen-control fingerprint:
+  `e5cb5acbddd8406d`. No renderer mutation or stable contract change occurred.
+- Architectural disposition: the immediate neutral-positive and bounded
+  pitch-lift gates pass in shadow form. Return before installing a live
+  presentation strategy; the next decision is whether this evidence is enough
+  for another corpus-private A/B walkabout or whether a broader pose/pitch
+  matrix is required first.
+
+### Cycle 48 -- 2026-08-18
+
+- Maintainer review authorizes an opt-in corpus-private live A/B realization
+  after the `481` neutral four-way agreements, three frozen exact positive
+  planes, and nine successful fixed-world-geometry pitch queries. It does not
+  authorize a default strategy, stable contract, or renderer vocabulary.
+- `--render-strategy=source-occurrence-supported` now combines final ordered
+  wall declarations with reconstructed plane fragments clipped by exact plane
+  key, source sector and retained source cells. The complete current-runtime
+  preparation must pass wall, plane and declaration conservation before the
+  composition replaces its prepared declarations.
+- Actual Tokimu pitch reprojects those finite ordinary world fragments and is
+  not part of the source-cell preparation identity. Position, yaw, eye height,
+  door ceiling and moving-floor snapshots remain preparation inputs owned by
+  the corpus application.
+- The dedicated headless acceptance report passes `15/15` twice with
+  fingerprint `b578061ac0312dce`. It retains the old subsector-104 result as an
+  object-occurrence positive but exact-ray negative rather than weakening the
+  historical `6/7` gate.
+- A native Vulkan two-frame spawn smoke completed with `360` opaque and `12`
+  cutout candidate declarations after the runtime-camera refresh. Plane
+  preparation emitted `7,702` triangles (`7.940x` amplification), all
+  conservation checks passed, and unresolved counts remained zero. First and
+  warm CPU frame times were approximately `84.9` and `16.1` ms respectively;
+  they are observations, not budgets.
+- Architectural disposition: begin the adversarial E1M1 walkabout with
+  `global-full-submission` retained as the explicit control. Visual holes or
+  leaks return exact replay evidence to this review; they do not authorize
+  source-cell, BSP, sky, or portal semantics in `tokimu-render`.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

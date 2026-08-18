@@ -47,7 +47,10 @@ pub(super) use render_subsector::{
 };
 pub(super) use screen_clip_report::report_doom_seg_screen_clip;
 pub(super) use seg_reports::report_doom_seg_lowering;
-pub(super) use source_occurrence_support::report_source_occurrence_support;
+pub(super) use source_occurrence_support::{
+    report_neutral_pitch_positive_planes, report_source_occurrence_live_candidate,
+    report_source_occurrence_support,
+};
 pub(super) use source_protocol_traces::{
     report_doom_seg_classic_admission_trace, report_doom_seg_classic_bsp_trace,
     report_doom_seg_classic_plane_identity_trace, report_doom_seg_classic_plane_span_trace,

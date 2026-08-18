@@ -6,6 +6,7 @@
 
 use super::super::*;
 use crate::render_strategies::source_covered_global_shell;
+use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
@@ -61,7 +62,21 @@ impl App {
         // preparer receives only their already-current sector-height facts.
         let runtime_map = self.current_doom_visibility_map()?;
         let (mut opaque_draws, mut cutout_draws, conservation_report, preparation_mode) =
-            if self.source_covered_domain_filter {
+            if self.source_occurrence_support_filter {
+                let prepared = source_occurrence_supported::prepare(
+                    source,
+                    &runtime_map,
+                    view.source_position,
+                    view.source_heading_radians,
+                    view.eye_height as i16,
+                )?;
+                (
+                    prepared.opaque_draws,
+                    prepared.cutout_draws,
+                    prepared.report,
+                    "source-occurrence-supported",
+                )
+            } else if self.source_covered_domain_filter {
                 let prepared = source_covered_global_shell::prepare(
                     source,
                     &runtime_map,

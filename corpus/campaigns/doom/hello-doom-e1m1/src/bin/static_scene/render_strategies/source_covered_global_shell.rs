@@ -176,6 +176,7 @@ pub(super) fn apply(scene: &mut SceneInput) -> PlatformResult<AppliedRenderStrat
         candidate_selection: CandidateSelection::FullSubmission,
         ordered_coverage_prepared: false,
         source_covered_domain_filter: true,
+        source_occurrence_support_filter: false,
         fixed_reconstruction_camera: false,
     })
 }

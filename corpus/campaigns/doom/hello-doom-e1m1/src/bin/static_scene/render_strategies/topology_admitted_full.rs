@@ -12,6 +12,7 @@ pub(super) fn apply(_scene: &mut SceneInput) -> PlatformResult<AppliedRenderStra
         candidate_selection: CandidateSelection::FullSubmission,
         ordered_coverage_prepared: false,
         source_covered_domain_filter: false,
+        source_occurrence_support_filter: false,
         fixed_reconstruction_camera: false,
     })
 }

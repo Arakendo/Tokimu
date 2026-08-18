@@ -9,6 +9,7 @@ mod ordered_occurrence_prepared_full;
 mod prepared_frustum_filtered;
 mod prepared_full_submission;
 pub(crate) mod source_covered_global_shell;
+pub(crate) mod source_occurrence_supported;
 mod topology_admitted_frustum;
 mod topology_admitted_full;
 
@@ -39,6 +40,9 @@ pub(crate) enum TrialRenderStrategy {
     /// Doom-private free-look experiment: retain complete original geometry
     /// only for source domains reached by ordered horizontal BSP coverage.
     SourceCoveredGlobalShell,
+    /// Doom-private live A/B candidate: exact final source cells authorize
+    /// finite ordinary wall and plane geometry before renderer submission.
+    SourceOccurrenceSupported,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -46,6 +50,7 @@ pub(crate) struct AppliedRenderStrategy {
     pub(crate) candidate_selection: CandidateSelection,
     pub(crate) ordered_coverage_prepared: bool,
     pub(crate) source_covered_domain_filter: bool,
+    pub(crate) source_occurrence_support_filter: bool,
     pub(crate) fixed_reconstruction_camera: bool,
 }
 
@@ -70,8 +75,9 @@ impl TrialRenderStrategy {
                     Ok(Self::OrderedOccurrencePreparedFull)
                 }
                 "source-covered-global-shell" => Ok(Self::SourceCoveredGlobalShell),
+                "source-occurrence-supported" => Ok(Self::SourceOccurrenceSupported),
                 _ => Err(format!(
-                    "unknown render strategy `{name}`; expected global-full, ordered-occurrence-prepared-full, source-covered-global-shell, topology-admitted-full, topology-admitted-frustum, or an explicit historical a/b/c compatibility name"
+                    "unknown render strategy `{name}`; expected global-full, ordered-occurrence-prepared-full, source-covered-global-shell, source-occurrence-supported, topology-admitted-full, topology-admitted-frustum, or an explicit historical a/b/c compatibility name"
                 )),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -123,6 +129,7 @@ impl TrialRenderStrategy {
             Self::TopologyAdmittedFrustum => topology_admitted_frustum::apply(scene),
             Self::OrderedOccurrencePreparedFull => ordered_occurrence_prepared_full::apply(scene),
             Self::SourceCoveredGlobalShell => source_covered_global_shell::apply(scene),
+            Self::SourceOccurrenceSupported => source_occurrence_supported::apply(scene),
         }
     }
 
@@ -135,6 +142,7 @@ impl TrialRenderStrategy {
             Self::TopologyAdmittedFrustum => "topology-admitted-frustum",
             Self::OrderedOccurrencePreparedFull => "ordered-occurrence-prepared-full",
             Self::SourceCoveredGlobalShell => "source-covered-global-shell",
+            Self::SourceOccurrenceSupported => "source-occurrence-supported",
         }
     }
 
@@ -159,6 +167,9 @@ impl TrialRenderStrategy {
             Self::SourceCoveredGlobalShell => {
                 "original-complete-geometry>doom-ordered-reached-source-domains>exclusive-unvisited-domain-suppression>renderer-full-submission"
             }
+            Self::SourceOccurrenceSupported => {
+                "doom-final-source-cells>finite-world-support>ordinary-declarations>renderer-full-submission"
+            }
         }
     }
 
@@ -170,8 +181,14 @@ impl TrialRenderStrategy {
         matches!(self, Self::SourceCoveredGlobalShell)
     }
 
+    pub(crate) const fn is_source_occurrence_supported_walkabout(self) -> bool {
+        matches!(self, Self::SourceOccurrenceSupported)
+    }
+
     pub(crate) const fn uses_live_doom_preparation(self) -> bool {
-        self.is_ordered_occurrence_integration() || self.is_source_covered_walkabout()
+        self.is_ordered_occurrence_integration()
+            || self.is_source_covered_walkabout()
+            || self.is_source_occurrence_supported_walkabout()
     }
 }
 
@@ -278,6 +295,24 @@ mod tests {
         );
         assert!(TrialRenderStrategy::SourceCoveredGlobalShell.uses_live_doom_preparation());
         assert!(!TrialRenderStrategy::SourceCoveredGlobalShell.is_ordered_occurrence_integration());
+    }
+
+    #[test]
+    fn source_occurrence_supported_walkabout_is_explicit_and_live() {
+        assert_eq!(
+            TrialRenderStrategy::from_args(
+                &args(&["--render-strategy=source-occurrence-supported"]),
+                false,
+                false,
+            )
+            .unwrap(),
+            Some(TrialRenderStrategy::SourceOccurrenceSupported)
+        );
+        assert!(TrialRenderStrategy::SourceOccurrenceSupported.uses_live_doom_preparation());
+        assert!(TrialRenderStrategy::SourceOccurrenceSupported
+            .is_source_occurrence_supported_walkabout());
+        assert!(!TrialRenderStrategy::SourceOccurrenceSupported.is_ordered_occurrence_integration());
+        assert!(!TrialRenderStrategy::SourceOccurrenceSupported.is_source_covered_walkabout());
     }
 
     #[test]

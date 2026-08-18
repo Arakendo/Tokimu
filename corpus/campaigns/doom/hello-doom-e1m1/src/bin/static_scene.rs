@@ -292,6 +292,9 @@ struct App {
     /// Experimental Doom-private walkabout mode that retains complete global
     /// contributions only for source owners reached by ordered coverage.
     source_covered_domain_filter: bool,
+    /// Experimental live realization of exact final source-cell support as
+    /// finite ordinary world-space declarations.
+    source_occurrence_support_filter: bool,
     /// Immutable decoded/source preparation input retained by strategies B/C.
     /// The runtime changes only the explicit viewer pose passed to the Doom
     /// preparation; it does not mutate this source snapshot or teach the

@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Paused at architectural finding — shadow implemented; exact-cell gate falsified 2026-08-18 |
+| Status | Live corpus-private A/B authorized and implemented — awaiting adversarial E1M1 walkabout |
 | Scope | Determine whether Doom's source-keyed, view-local wall and plane cells can authorize ordinary reconstructed geometry without whole-subsector or whole-key Boolean promotion |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Immediate falsifiers | [2026-08-18 Doom Source-Covered Walkabout Falsifiers](../../../Checkpoints/2026-08-18-doom-source-covered-walkabout-falsifiers.md) |
 | Prior causal evidence | [Doom Source-Ordered Non-Presentation Causality Study](Doom%20source-ordered%20non-presentation%20causality%20study.md) |
 | Stable API authority | None |
 | Renderer changes authorized | None during shadow slices |
-| Presentation install authorized | Only after the shadow passes all retained controls and returns to AR-0030 |
+| Presentation install authorized | Opt-in corpus-private `source-occurrence-supported` strategy only; no stable/default installation |
 
 ## Question
 
@@ -211,3 +211,99 @@ object-occurrence control, whether a new independently visible exact positive
 plane control is required, and how arbitrary pitch may extend source
 realization without claiming pixel parity. Result checkpoint:
 `docs/Checkpoints/2026-08-18-doom-source-occurrence-support-shadow.md`.
+
+## Authorized Follow-Up — Neutral Exact Positives And Pitch Lift
+
+Maintainer review retained the historical `ceiling-104-reached` failure as an
+object/exact-ray granularity warning rather than weakening it into a passing
+pixel oracle. The follow-up searched four neutral-pitch poses on a bounded
+`32x20` sampling of the Classic projection. A candidate was admitted only when
+all four independent paths agreed:
+
+```text
+complete reconstructed shell exact hit
+    + final retained source cell
+    + existing ordered declaration exact hit
+    + exact-key/source-sector cell geometry exact hit
+```
+
+The search found `481` agreements across `12` distinct
+pose/plane/sector/subsector identities. Three diverse controls were frozen:
+
+| Control | Cell | Exact source | Distance |
+| --- | --- | --- | --- |
+| spawn ceiling | `(155,65)` | sector 38 / subsector 97 / `CEIL3_5` | `170.858` |
+| spawn floor | `(155,125)` | sector 39 / subsector 105 / `FLAT14` | `330.520` |
+| near-wall floor | `(165,145)` | sector 38 / subsector 102 / `FLOOR4_8` | `131.685` |
+
+All three retain matching source cells, intersect existing ordered
+declarations, and intersect the reconstructed cell shadow at the same distance
+within `0.01`. The deterministic discovery fingerprint is
+`129127dbc170cb2b`; the frozen-control fingerprint is `e5cb5acbddd8406d`.
+
+The pitch shadow keeps the neutral-source-authorized finite world fragments
+fixed. It projects each exact world ray through cameras pitched `-15`, `0` and
+`+15` degrees, reconstructs the actual-camera ray, and intersects the same
+ordinary fragments. All nine queries preserve their hit and distance. Classic
+rows are not reinterpreted as world boundaries after preparation.
+
+This resolves the immediate positive-oracle and bounded pitch-lift questions
+in shadow form. It does not install a presentation strategy. The next decision
+belongs to AR-0030: authorize a corpus-private live A/B realization using the
+neutral-authorized finite world regions, or require a broader pitch/pose
+matrix first.
+
+## Live A/B Realization — 2026-08-18
+
+Maintainer review authorized the corpus-private live candidate after the
+neutral exact-positive and pitch-lift gates passed. The candidate is selected
+explicitly with:
+
+```text
+--render-strategy=source-occurrence-supported
+```
+
+It combines final ordered wall declarations with reconstructed floor and
+ceiling fragments clipped to exact plane key, source sector and retained
+source cells. Preparation consumes the current runtime height snapshot,
+completes and verifies both wall and plane conservation before replacing the
+composition's current prepared set, and gives the renderer only ordinary
+opaque/cutout declarations. Camera pitch does not rebuild Classic rows; it
+reprojects the already-prepared finite world geometry normally. Position,
+yaw, eye height and moving-sector height changes trigger a new complete
+preparation.
+
+The explicit control remains:
+
+```text
+--render-strategy=global-full-submission
+```
+
+The headless acceptance report is:
+
+```text
+--source-occurrence-live-report
+```
+
+It passes `15/15` twice with deterministic fingerprint
+`b578061ac0312dce`. The matrix includes the five walkabout falsifiers, the six
+historical exact negative rays, wall 135 as a positive wall, and the three
+independently justified positive planes. The historical subsector-104 ceiling
+remains explicitly object-positive but exact-ray-negative; its old `6/7`
+shadow result is not rewritten.
+
+A native Vulkan two-frame smoke run completed at spawn. The runtime-camera
+preparation produced `360` opaque and `12` cutout candidate declarations from
+the complete E1M1 shell, with balanced conservation, `0` unresolved wall or
+plane contributions, and `7,702` output plane triangles (`7.940x` plane
+triangle amplification). The first frame completed in approximately `84.9`
+ms CPU time and the warm frame in `16.1` ms. These are smoke measurements, not
+accepted performance budgets.
+
+The strategy remains opt-in and corpus-local. The next gate is an adversarial
+walkabout at the hut, far-left structure, near-spawn windows/stairs, retained
+sector 24/41 captures, floor 130, walls 241/135, the first moving door and
+platform, green-room cutout, and representative `-15`/`+15` degree pitch.
+Visual failures must be replayed through `LOOK` and the complete-shell → final
+cell → ordered declaration → prepared world support → candidate chain before
+any policy expansion.

@@ -13,6 +13,86 @@ use doom_geometry_provider::DoomSegClassicPlaneKey;
 const SOURCE_COLUMNS: usize = 320;
 const SOURCE_ROWS: usize = 200;
 
+#[derive(Clone, Copy, Debug)]
+struct NeutralPitchPose {
+    name: &'static str,
+    viewer: [i16; 2],
+    eye_height: i16,
+    heading_degrees: f64,
+}
+
+const NEUTRAL_PITCH_POSES: [NeutralPitchPose; 4] = [
+    NeutralPitchPose {
+        name: "source-spawn",
+        viewer: [1056, -3616],
+        eye_height: 36,
+        heading_degrees: 90.0,
+    },
+    NeutralPitchPose {
+        name: "near-wall-a",
+        viewer: [1202, -3502],
+        eye_height: 36,
+        heading_degrees: -24.0,
+    },
+    NeutralPitchPose {
+        name: "near-wall-b",
+        viewer: [1296, -3427],
+        eye_height: 36,
+        heading_degrees: -0.4,
+    },
+    NeutralPitchPose {
+        name: "courtyard",
+        viewer: [1514, -2481],
+        eye_height: 36,
+        heading_degrees: -29.2,
+    },
+];
+
+#[derive(Clone, Copy, Debug)]
+struct NeutralPositivePlaneControl {
+    name: &'static str,
+    pose: NeutralPitchPose,
+    cell: [usize; 2],
+    direction: [f64; 3],
+    plane: DoomSurfacePlane,
+    sector: u32,
+    subsector: u32,
+    label: &'static str,
+}
+
+const NEUTRAL_POSITIVE_PLANE_CONTROLS: [NeutralPositivePlaneControl; 3] = [
+    NeutralPositivePlaneControl {
+        name: "spawn-ceiling-97",
+        pose: NEUTRAL_PITCH_POSES[0],
+        cell: [155, 65],
+        direction: [0.027_482_742, 0.977_164_152, 0.210_701_020],
+        plane: DoomSurfacePlane::Ceiling,
+        sector: 38,
+        subsector: 97,
+        label: "flat:38:CEIL3_5",
+    },
+    NeutralPositivePlaneControl {
+        name: "spawn-floor-105",
+        pose: NEUTRAL_PITCH_POSES[0],
+        cell: [155, 125],
+        direction: [0.027_763_764, 0.987_156_054, -0.157_327_996],
+        plane: DoomSurfacePlane::Floor,
+        sector: 39,
+        subsector: 105,
+        label: "flat:39:FLAT14",
+    },
+    NeutralPositivePlaneControl {
+        name: "near-wall-floor-102",
+        pose: NEUTRAL_PITCH_POSES[1],
+        cell: [165, 145],
+        direction: [0.891_667_121, -0.360_822_431, -0.273_380_537],
+        plane: DoomSurfacePlane::Floor,
+        sector: 38,
+        subsector: 102,
+        label: "flat:38:FLOOR4_8",
+    },
+];
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ExpectedCellSupport {
     Supported,
@@ -377,6 +457,564 @@ pub(crate) fn report_source_occurrence_support(scene: &SceneInput) -> PlatformRe
     Ok(())
 }
 
+/// Searches a bounded neutral-pitch source projection for exact positive plane
+/// controls. Discovery requires independent agreement from the complete
+/// reconstructed shell, final source cell, existing ordered declaration and
+/// the source-cell geometry shadow. It changes no submitted presentation.
+pub(crate) fn report_neutral_pitch_positive_planes(scene: &SceneInput) -> PlatformResult<()> {
+    const GRID_COLUMNS: usize = 32;
+    const GRID_ROWS: usize = 20;
+
+    let cutout_materials = scene
+        .cutout_uploads
+        .iter()
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let wall_triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let (control_rows, control_fingerprint) =
+        replay_neutral_positive_plane_controls(scene, &wall_triangles, &cutout_materials)?;
+    let mut candidates = Vec::new();
+    let mut representatives = BTreeMap::<String, (usize, String)>::new();
+    let mut fingerprint = fnv_offset();
+
+    for pose in NEUTRAL_PITCH_POSES {
+        let heading = pose.heading_degrees.to_radians();
+        let traversal = observe_doom_classic_bsp(
+            &scene.door_geometry_source.map,
+            pose.viewer,
+            heading,
+            &BTreeSet::new(),
+        )?;
+        let marks = observe_doom_seg_plane_marks(&scene.door_geometry_source.map, pose.eye_height)?;
+        let vertical = observe_shared_doom_classic_vertical_clip_state(
+            &scene.door_geometry_source.map,
+            &wall_triangles,
+            &marks,
+            &traversal,
+            pose.viewer,
+            heading,
+            f64::from(pose.eye_height),
+        );
+        let ordered = prepare_ordered_occurrence_submission(
+            &scene.door_geometry_source.map,
+            pose.viewer,
+            heading,
+            pose.eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &scene.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        ordered.verify_conservation().map_err(io::Error::other)?;
+        let shadow = prepare_plane_cell_geometry_support_shadow(
+            &scene.door_geometry_source.map,
+            pose.viewer,
+            heading,
+            pose.eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.opaque_uploads,
+        )?;
+        shadow.verify_conservation().map_err(io::Error::other)?;
+
+        for grid_row in 0..GRID_ROWS {
+            let row = grid_row * SOURCE_ROWS / GRID_ROWS + SOURCE_ROWS / GRID_ROWS / 2;
+            for grid_column in 0..GRID_COLUMNS {
+                let column =
+                    grid_column * SOURCE_COLUMNS / GRID_COLUMNS + SOURCE_COLUMNS / GRID_COLUMNS / 2;
+                let source_direction = source_cell_center_direction(column, row, heading);
+                let (origin, direction) = source_ray_vectors(
+                    [
+                        f64::from(pose.viewer[0]),
+                        f64::from(pose.viewer[1]),
+                        f64::from(pose.eye_height),
+                    ],
+                    source_direction,
+                );
+                let Some(global_hit) = nearest_prepared_ray_hit(
+                    origin,
+                    direction,
+                    &scene.opaque_draws,
+                    Some(&scene.cutout_draws),
+                ) else {
+                    continue;
+                };
+                if !matches!(global_hit.draw.source, StaticDrawSource::Flat { .. })
+                    || !matches!(
+                        source_cell_support(
+                            &scene.door_geometry_source.map,
+                            &vertical,
+                            global_hit.draw,
+                            column,
+                            row,
+                        ),
+                        CellSupport::Supported(_)
+                    )
+                {
+                    continue;
+                }
+                let ordered_draws = ordered
+                    .plane_lowering
+                    .prepared_declarations
+                    .iter()
+                    .filter(|declaration| same_flat_source(&declaration.draw, global_hit.draw))
+                    .map(|declaration| declaration.draw.clone())
+                    .collect::<Vec<_>>();
+                let Some(ordered_hit) =
+                    nearest_prepared_ray_hit(origin, direction, &ordered_draws, None)
+                else {
+                    continue;
+                };
+                let shadow_draws = shadow
+                    .draws
+                    .iter()
+                    .filter(|draw| same_flat_source(draw, global_hit.draw))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let Some(shadow_hit) =
+                    nearest_prepared_ray_hit(origin, direction, &shadow_draws, None)
+                else {
+                    continue;
+                };
+                let StaticDrawSource::Flat {
+                    source_subsector,
+                    source_sector,
+                    plane,
+                } = global_hit.draw.source
+                else {
+                    unreachable!("flat source checked above")
+                };
+                let report = format!(
+                    "pose={}:viewer=({},{},{}):heading-degrees={:.3}:cell=({column},{row}):direction=({:.9},{:.9},{:.9}):plane={plane:?}:sector={}:subsector={}:label={}:global-distance={:.3}:ordered-distance={:.3}:shadow-distance={:.3}",
+                    pose.name,
+                    pose.viewer[0],
+                    pose.viewer[1],
+                    pose.eye_height,
+                    pose.heading_degrees,
+                    source_direction[0],
+                    source_direction[1],
+                    source_direction[2],
+                    source_sector.record_index,
+                    source_subsector.record_index,
+                    global_hit.draw.source_label,
+                    global_hit.distance,
+                    ordered_hit.distance,
+                    shadow_hit.distance,
+                );
+                hash_text(&mut fingerprint, &report);
+                let identity = format!(
+                    "{}:{plane:?}:{}:{}",
+                    pose.name, source_sector.record_index, source_subsector.record_index,
+                );
+                let center_distance =
+                    column.abs_diff(SOURCE_COLUMNS / 2) + row.abs_diff(SOURCE_ROWS / 2);
+                representatives
+                    .entry(identity)
+                    .and_modify(|(stored_distance, stored_report)| {
+                        if center_distance < *stored_distance {
+                            *stored_distance = center_distance;
+                            *stored_report = report.clone();
+                        }
+                    })
+                    .or_insert_with(|| (center_distance, report.clone()));
+                candidates.push(report);
+            }
+        }
+    }
+
+    if candidates.is_empty() {
+        return Err(io::Error::other(
+            "neutral-pitch exact positive-plane search found no four-way agreements",
+        )
+        .into());
+    }
+    println!(
+        "E1M1 neutral-pitch exact positive-plane search: poses={}; grid={}x{}; candidates={}; representative-identities={}; discovery-fingerprint={fingerprint:016x}; frozen-controls={}; control-fingerprint={control_fingerprint:016x}; pitch-lift-degrees=[-15,0,15]; agreement=complete-shell-plus-final-source-cell-plus-ordered-declaration-plus-cell-geometry-shadow; renderer-mutation=false; controls=[{}]; representatives=[{}]",
+        NEUTRAL_PITCH_POSES.len(),
+        GRID_COLUMNS,
+        GRID_ROWS,
+        candidates.len(),
+        representatives.len(),
+        control_rows.len(),
+        control_rows.join(" | "),
+        representatives
+            .values()
+            .map(|(_, report)| report.as_str())
+            .take(32)
+            .collect::<Vec<_>>()
+            .join(" | "),
+    );
+    Ok(())
+}
+
+/// Replays the complete exact-ray acceptance matrix against the opt-in live
+/// candidate without opening a renderer window.
+pub(crate) fn report_source_occurrence_live_candidate(scene: &SceneInput) -> PlatformResult<()> {
+    let mut rows = Vec::new();
+    let mut passed = 0usize;
+    let mut fingerprint = fnv_offset();
+
+    for capture in WALKABOUT_CAPTURES {
+        let heading = capture.direction[1].atan2(capture.direction[0]);
+        let prepared = crate::render_strategies::source_occurrence_supported::prepare(
+            scene,
+            &scene.door_geometry_source.map,
+            [
+                capture.origin[0].round() as i16,
+                capture.origin[1].round() as i16,
+            ],
+            heading,
+            capture.origin[2].round() as i16,
+        )?;
+        let (origin, direction) = source_ray_vectors(capture.origin, capture.direction);
+        let draws = prepared
+            .opaque_draws
+            .iter()
+            .chain(&prepared.cutout_draws)
+            .filter(|draw| capture_target_matches(draw, capture.target))
+            .cloned()
+            .collect::<Vec<_>>();
+        let hit = nearest_prepared_ray_hit(origin, direction, &draws, None);
+        let expected_hit = capture.expected_cell_support == ExpectedCellSupport::Supported;
+        let result = hit.is_some() == expected_hit;
+        passed += usize::from(result);
+        let row = format!(
+            "case={}:expected={}:candidate={}:distance={}:result={}",
+            capture.name,
+            if expected_hit { "hit" } else { "none" },
+            if hit.is_some() { "hit" } else { "none" },
+            hit.map(|hit| format!("{:.3}", hit.distance))
+                .unwrap_or_else(|| "none".to_owned()),
+            if result { "pass" } else { "fail" },
+        );
+        hash_text(&mut fingerprint, &row);
+        rows.push(row);
+    }
+
+    for case in ordered_six_ray_cases() {
+        let heading = case.direction[1].atan2(case.direction[0]);
+        let prepared = crate::render_strategies::source_occurrence_supported::prepare(
+            scene,
+            &scene.door_geometry_source.map,
+            [case.origin[0].round() as i16, case.origin[1].round() as i16],
+            heading,
+            case.origin[2].round() as i16,
+        )?;
+        let (origin, direction) = source_ray_vectors(case.origin, case.direction);
+        let draws = prepared
+            .opaque_draws
+            .iter()
+            .chain(&prepared.cutout_draws)
+            .filter(|draw| six_ray_target_matches(draw, case.expected))
+            .cloned()
+            .collect::<Vec<_>>();
+        let hit = nearest_prepared_ray_hit(origin, direction, &draws, None);
+        // The historical reached ceiling remains a positive object-occurrence
+        // control, but the exact ray is now correctly expected to be absent.
+        let result = hit.is_none();
+        passed += usize::from(result);
+        let row = format!(
+            "case={}:expected=none:candidate={}:distance={}:result={}",
+            case.name,
+            if hit.is_some() { "hit" } else { "none" },
+            hit.map(|hit| format!("{:.3}", hit.distance))
+                .unwrap_or_else(|| "none".to_owned()),
+            if result { "pass" } else { "fail" },
+        );
+        hash_text(&mut fingerprint, &row);
+        rows.push(row);
+    }
+
+    let (wall_origin, wall_direction, wall_linedef, _) = positive_wall_support_control();
+    let wall_heading = wall_direction[1].atan2(wall_direction[0]);
+    let wall_prepared = crate::render_strategies::source_occurrence_supported::prepare(
+        scene,
+        &scene.door_geometry_source.map,
+        [wall_origin[0].round() as i16, wall_origin[1].round() as i16],
+        wall_heading,
+        wall_origin[2].round() as i16,
+    )?;
+    let (origin, direction) = source_ray_vectors(wall_origin, wall_direction);
+    let wall_draws = wall_prepared
+        .opaque_draws
+        .iter()
+        .chain(&wall_prepared.cutout_draws)
+        .filter(|draw| {
+            matches!(
+                draw.source,
+                StaticDrawSource::Wall { source_linedef, .. }
+                    if source_linedef.record_index == wall_linedef
+            )
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    let wall_hit = nearest_prepared_ray_hit(origin, direction, &wall_draws, None);
+    let wall_result = wall_hit.is_some();
+    passed += usize::from(wall_result);
+    let row = format!(
+        "case=positive-wall-135:expected=hit:candidate={}:distance={}:result={}",
+        if wall_hit.is_some() { "hit" } else { "none" },
+        wall_hit
+            .map(|hit| format!("{:.3}", hit.distance))
+            .unwrap_or_else(|| "none".to_owned()),
+        if wall_result { "pass" } else { "fail" },
+    );
+    hash_text(&mut fingerprint, &row);
+    rows.push(row);
+
+    for control in NEUTRAL_POSITIVE_PLANE_CONTROLS {
+        let heading = control.pose.heading_degrees.to_radians();
+        let prepared = crate::render_strategies::source_occurrence_supported::prepare(
+            scene,
+            &scene.door_geometry_source.map,
+            control.pose.viewer,
+            heading,
+            control.pose.eye_height,
+        )?;
+        let (origin, direction) = source_ray_vectors(
+            [
+                f64::from(control.pose.viewer[0]),
+                f64::from(control.pose.viewer[1]),
+                f64::from(control.pose.eye_height),
+            ],
+            control.direction,
+        );
+        let draws = prepared
+            .opaque_draws
+            .iter()
+            .filter(|draw| flat_source_matches_control(draw, control))
+            .cloned()
+            .collect::<Vec<_>>();
+        let hit = nearest_prepared_ray_hit(origin, direction, &draws, None);
+        let result = hit.is_some();
+        passed += usize::from(result);
+        let row = format!(
+            "case={}:expected=hit:candidate={}:distance={}:result={}",
+            control.name,
+            if hit.is_some() { "hit" } else { "none" },
+            hit.map(|hit| format!("{:.3}", hit.distance))
+                .unwrap_or_else(|| "none".to_owned()),
+            if result { "pass" } else { "fail" },
+        );
+        hash_text(&mut fingerprint, &row);
+        rows.push(row);
+    }
+
+    let total = WALKABOUT_CAPTURES.len()
+        + ordered_six_ray_cases().len()
+        + 1
+        + NEUTRAL_POSITIVE_PLANE_CONTROLS.len();
+    if passed != total {
+        return Err(io::Error::other(format!(
+            "source-occurrence live candidate acceptance failed: {passed}/{total}; rows=[{}]",
+            rows.join(" | "),
+        ))
+        .into());
+    }
+    println!(
+        "E1M1 source-occurrence live candidate acceptance: passed={passed}/{total}; fingerprint={fingerprint:016x}; historical-ceiling-104=object-positive-exact-ray-negative; renderer-mutation=false; rows=[{}]",
+        rows.join(" | "),
+    );
+    Ok(())
+}
+
+fn replay_neutral_positive_plane_controls(
+    scene: &SceneInput,
+    wall_triangles: &[DoomSegTexturedWallTriangle],
+    cutout_materials: &BTreeMap<String, MaterialHandle>,
+) -> PlatformResult<(Vec<String>, u64)> {
+    let mut rows = Vec::new();
+    let mut fingerprint = fnv_offset();
+    for control in NEUTRAL_POSITIVE_PLANE_CONTROLS {
+        let heading = control.pose.heading_degrees.to_radians();
+        let projected_cell = source_projection_sample(control.direction, heading)
+            .map_err(|error| io::Error::other(format!("{}:{error}", control.name)))?;
+        if projected_cell != (control.cell[0], control.cell[1]) {
+            return Err(io::Error::other(format!(
+                "neutral positive control {} moved from cell {:?} to {projected_cell:?}",
+                control.name, control.cell,
+            ))
+            .into());
+        }
+        let (origin, direction) = source_ray_vectors(
+            [
+                f64::from(control.pose.viewer[0]),
+                f64::from(control.pose.viewer[1]),
+                f64::from(control.pose.eye_height),
+            ],
+            control.direction,
+        );
+        let global_hit = nearest_prepared_ray_hit(
+            origin,
+            direction,
+            &scene.opaque_draws,
+            Some(&scene.cutout_draws),
+        )
+        .ok_or_else(|| io::Error::other(format!("{} lost complete-shell hit", control.name)))?;
+        if global_hit.draw.source_label != control.label
+            || !flat_source_matches_control(global_hit.draw, control)
+        {
+            return Err(io::Error::other(format!(
+                "neutral positive control {} expected {} sector {}/subsector {:?}, got {} {:?}",
+                control.name,
+                control.label,
+                control.sector,
+                control.subsector,
+                global_hit.draw.source_label,
+                global_hit.draw.source,
+            ))
+            .into());
+        }
+
+        let traversal = observe_doom_classic_bsp(
+            &scene.door_geometry_source.map,
+            control.pose.viewer,
+            heading,
+            &BTreeSet::new(),
+        )?;
+        let marks =
+            observe_doom_seg_plane_marks(&scene.door_geometry_source.map, control.pose.eye_height)?;
+        let vertical = observe_shared_doom_classic_vertical_clip_state(
+            &scene.door_geometry_source.map,
+            wall_triangles,
+            &marks,
+            &traversal,
+            control.pose.viewer,
+            heading,
+            f64::from(control.pose.eye_height),
+        );
+        let support = source_cell_support(
+            &scene.door_geometry_source.map,
+            &vertical,
+            global_hit.draw,
+            control.cell[0],
+            control.cell[1],
+        );
+        if !matches!(support, CellSupport::Supported(_)) {
+            return Err(io::Error::other(format!(
+                "neutral positive control {} lost final source cell: {}",
+                control.name,
+                support.detail(),
+            ))
+            .into());
+        }
+
+        let ordered = prepare_ordered_occurrence_submission(
+            &scene.door_geometry_source.map,
+            control.pose.viewer,
+            heading,
+            control.pose.eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            cutout_materials,
+            &scene.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        ordered.verify_conservation().map_err(io::Error::other)?;
+        let ordered_draws = ordered
+            .plane_lowering
+            .prepared_declarations
+            .iter()
+            .filter(|declaration| flat_source_matches_control(&declaration.draw, control))
+            .map(|declaration| declaration.draw.clone())
+            .collect::<Vec<_>>();
+        let ordered_hit = nearest_prepared_ray_hit(origin, direction, &ordered_draws, None)
+            .ok_or_else(|| {
+                io::Error::other(format!("{} lost ordered declaration ray", control.name))
+            })?;
+
+        let shadow = prepare_plane_cell_geometry_support_shadow(
+            &scene.door_geometry_source.map,
+            control.pose.viewer,
+            heading,
+            control.pose.eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.opaque_uploads,
+        )?;
+        shadow.verify_conservation().map_err(io::Error::other)?;
+        let shadow_draws = shadow
+            .draws
+            .iter()
+            .filter(|draw| flat_source_matches_control(draw, control))
+            .cloned()
+            .collect::<Vec<_>>();
+        let shadow_hit = nearest_prepared_ray_hit(origin, direction, &shadow_draws, None)
+            .ok_or_else(|| {
+                io::Error::other(format!("{} lost geometry-shadow ray", control.name))
+            })?;
+        if (global_hit.distance - ordered_hit.distance).abs() > 0.01
+            || (global_hit.distance - shadow_hit.distance).abs() > 0.01
+        {
+            return Err(io::Error::other(format!(
+                "neutral positive control {} distance disagreement: global={:.6} ordered={:.6} shadow={:.6}",
+                control.name, global_hit.distance, ordered_hit.distance, shadow_hit.distance,
+            ))
+            .into());
+        }
+
+        let mut pitch_rows = Vec::new();
+        for pitch_degrees in [-15.0_f64, 0.0, 15.0] {
+            let (ndc, lifted_direction) = project_and_reconstruct_pitched_source_ray(
+                control.direction,
+                heading,
+                pitch_degrees.to_radians(),
+            )
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "{} is outside the {pitch_degrees}-degree pitched view",
+                    control.name,
+                ))
+            })?;
+            let (_, lifted_world_direction) = source_ray_vectors(
+                [
+                    f64::from(control.pose.viewer[0]),
+                    f64::from(control.pose.viewer[1]),
+                    f64::from(control.pose.eye_height),
+                ],
+                lifted_direction,
+            );
+            let lifted_hit =
+                nearest_prepared_ray_hit(origin, lifted_world_direction, &shadow_draws, None)
+                    .ok_or_else(|| {
+                        io::Error::other(format!(
+                            "{} lost neutral-authorized world support at pitch {pitch_degrees}",
+                            control.name,
+                        ))
+                    })?;
+            if (lifted_hit.distance - shadow_hit.distance).abs() > 0.01 {
+                return Err(io::Error::other(format!(
+                    "{} pitch {pitch_degrees} changed world hit distance {:.6} to {:.6}",
+                    control.name, shadow_hit.distance, lifted_hit.distance,
+                ))
+                .into());
+            }
+            pitch_rows.push(format!(
+                "pitch={pitch_degrees:.0}:ndc=({:.3},{:.3}):distance={:.3}",
+                ndc[0], ndc[1], lifted_hit.distance,
+            ));
+        }
+        let row = format!(
+            "control={}:pose={}:cell=({},{}):plane={:?}:sector={}:subsector={}:label={}:distance={:.3}:cell=supported:ordered=hit:shadow=hit:pitch-lift=[{}]",
+            control.name,
+            control.pose.name,
+            control.cell[0],
+            control.cell[1],
+            control.plane,
+            control.sector,
+            control.subsector,
+            control.label,
+            global_hit.distance,
+            pitch_rows.join(","),
+        );
+        hash_text(&mut fingerprint, &row);
+        rows.push(row);
+    }
+    Ok((rows, fingerprint))
+}
+
 fn retained_control_matrix(
     scene: &SceneInput,
     wall_triangles: &[DoomSegTexturedWallTriangle],
@@ -648,6 +1286,124 @@ fn source_ray_vectors(origin: [f64; 3], direction: [f64; 3]) -> (Vec3, Vec3) {
         )
         .normalize_or_zero();
     (origin, direction)
+}
+
+fn source_cell_center_direction(column: usize, row: usize, heading: f64) -> [f64; 3] {
+    let horizontal_normalized = ((column as f64 + 0.5) / SOURCE_COLUMNS as f64) * 2.0 - 1.0;
+    let vertical_normalized = 1.0 - ((row as f64 + 0.5) / SOURCE_ROWS as f64) * 2.0;
+    let half_vertical_fov =
+        (std::f64::consts::FRAC_PI_4.tan() / (SOURCE_COLUMNS as f64 / SOURCE_ROWS as f64)).atan();
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let lateral = horizontal_normalized * std::f64::consts::FRAC_PI_4.tan();
+    let vertical = vertical_normalized * half_vertical_fov.tan();
+    let direction = [
+        forward[0] + right[0] * lateral,
+        forward[1] + right[1] * lateral,
+        vertical,
+    ];
+    let length = direction[0].hypot(direction[1]).hypot(direction[2]);
+    [
+        direction[0] / length,
+        direction[1] / length,
+        direction[2] / length,
+    ]
+}
+
+fn same_flat_source(candidate: &StaticDrawPlanEntry, target: &StaticDrawPlanEntry) -> bool {
+    matches!(
+        (candidate.source, target.source),
+        (
+            StaticDrawSource::Flat {
+                source_subsector: candidate_subsector,
+                source_sector: candidate_sector,
+                plane: candidate_plane,
+            },
+            StaticDrawSource::Flat {
+                source_subsector: target_subsector,
+                source_sector: target_sector,
+                plane: target_plane,
+            },
+        ) if candidate_subsector == target_subsector
+            && candidate_sector == target_sector
+            && candidate_plane == target_plane
+    )
+}
+
+fn flat_source_matches_control(
+    draw: &StaticDrawPlanEntry,
+    control: NeutralPositivePlaneControl,
+) -> bool {
+    matches!(
+        draw.source,
+        StaticDrawSource::Flat {
+            source_subsector,
+            source_sector,
+            plane,
+        } if source_subsector.record_index == control.subsector
+            && source_sector.record_index == control.sector
+            && plane == control.plane
+    )
+}
+
+fn project_and_reconstruct_pitched_source_ray(
+    direction: [f64; 3],
+    heading: f64,
+    pitch: f64,
+) -> Option<([f64; 2], [f64; 3])> {
+    let neutral_forward = [heading.cos(), heading.sin(), 0.0];
+    let right = [-heading.sin(), heading.cos(), 0.0];
+    let pitched_forward = [
+        neutral_forward[0] * pitch.cos(),
+        neutral_forward[1] * pitch.cos(),
+        pitch.sin(),
+    ];
+    let pitched_up = [
+        -neutral_forward[0] * pitch.sin(),
+        -neutral_forward[1] * pitch.sin(),
+        pitch.cos(),
+    ];
+    let dot = |left: [f64; 3], right: [f64; 3]| {
+        left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
+    };
+    let depth = dot(direction, pitched_forward);
+    if depth <= f64::EPSILON {
+        return None;
+    }
+    let half_vertical_fov =
+        (std::f64::consts::FRAC_PI_4.tan() / (SOURCE_COLUMNS as f64 / SOURCE_ROWS as f64)).atan();
+    let ndc = [
+        dot(direction, right) / depth / std::f64::consts::FRAC_PI_4.tan(),
+        dot(direction, pitched_up) / depth / half_vertical_fov.tan(),
+    ];
+    if !ndc
+        .into_iter()
+        .all(|value| value.is_finite() && (-1.0..=1.0).contains(&value))
+    {
+        return None;
+    }
+    let reconstructed = [
+        pitched_forward[0]
+            + right[0] * ndc[0] * std::f64::consts::FRAC_PI_4.tan()
+            + pitched_up[0] * ndc[1] * half_vertical_fov.tan(),
+        pitched_forward[1]
+            + right[1] * ndc[0] * std::f64::consts::FRAC_PI_4.tan()
+            + pitched_up[1] * ndc[1] * half_vertical_fov.tan(),
+        pitched_forward[2]
+            + right[2] * ndc[0] * std::f64::consts::FRAC_PI_4.tan()
+            + pitched_up[2] * ndc[1] * half_vertical_fov.tan(),
+    ];
+    let length = reconstructed[0]
+        .hypot(reconstructed[1])
+        .hypot(reconstructed[2]);
+    Some((
+        ndc,
+        [
+            reconstructed[0] / length,
+            reconstructed[1] / length,
+            reconstructed[2] / length,
+        ],
+    ))
 }
 
 fn source_projection_sample(direction: [f64; 3], heading: f64) -> Result<(usize, usize), String> {
@@ -1000,6 +1756,52 @@ mod tests {
             let heading = capture.direction[1].atan2(capture.direction[0]);
             let (column, _) = source_projection_sample(capture.direction, heading).unwrap();
             assert_eq!(column, SOURCE_COLUMNS / 2);
+        }
+    }
+
+    #[test]
+    fn neutral_positive_plane_controls_are_diverse_and_cell_stable() {
+        let names = NEUTRAL_POSITIVE_PLANE_CONTROLS
+            .iter()
+            .map(|control| control.name)
+            .collect::<BTreeSet<_>>();
+        let poses = NEUTRAL_POSITIVE_PLANE_CONTROLS
+            .iter()
+            .map(|control| control.pose.name)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(names.len(), NEUTRAL_POSITIVE_PLANE_CONTROLS.len());
+        assert!(poses.len() >= 2);
+        assert!(NEUTRAL_POSITIVE_PLANE_CONTROLS
+            .iter()
+            .any(|control| control.plane == DoomSurfacePlane::Floor));
+        assert!(NEUTRAL_POSITIVE_PLANE_CONTROLS
+            .iter()
+            .any(|control| control.plane == DoomSurfacePlane::Ceiling));
+        for control in NEUTRAL_POSITIVE_PLANE_CONTROLS {
+            let heading = control.pose.heading_degrees.to_radians();
+            assert_eq!(
+                source_projection_sample(control.direction, heading).unwrap(),
+                (control.cell[0], control.cell[1]),
+            );
+        }
+    }
+
+    #[test]
+    fn pitched_projection_reconstructs_the_same_authorized_world_ray() {
+        for control in NEUTRAL_POSITIVE_PLANE_CONTROLS {
+            let heading = control.pose.heading_degrees.to_radians();
+            for pitch_degrees in [-15.0_f64, 0.0, 15.0] {
+                let (_, reconstructed) = project_and_reconstruct_pitched_source_ray(
+                    control.direction,
+                    heading,
+                    pitch_degrees.to_radians(),
+                )
+                .unwrap();
+                let dot = control.direction[0] * reconstructed[0]
+                    + control.direction[1] * reconstructed[1]
+                    + control.direction[2] * reconstructed[2];
+                assert!(dot > 0.999_999_999);
+            }
         }
     }
 }
