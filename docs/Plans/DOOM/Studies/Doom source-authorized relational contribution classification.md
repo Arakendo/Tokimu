@@ -439,6 +439,15 @@ pressure across heterogeneous source families. Slices 3–5 below are parked
 unless new evidence produces an eligible same-domain contribution that the
 ordered protocol has not already classified.
 
+The later BVH/source shadow replay strengthens this disposition. Every one of
+the six global prepared triangles is an exact nearest BVH hit and agrees with
+the brute-force triangle oracle. That includes the five contributions omitted
+by the ordered result and the one partial ceiling occurrence. Spatial
+relevance therefore cannot supply the missing participation distinction. A
+BVH-based prefilter would either retain the leaks or acquire source authority
+it has not earned. See
+[the retained checkpoint](../../../Checkpoints/2026-08-17-sky-leak-bvh-source-shadow.md).
+
 ## Slice 3 — Synthetic Presentation (Parked)
 
 - [ ] Lower all retained whole and partial survivors into ordinary Tokimu

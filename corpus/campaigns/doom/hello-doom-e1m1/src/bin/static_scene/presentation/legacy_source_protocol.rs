@@ -20,10 +20,8 @@ pub(crate) use comparison_preparation::retain_doom_seg_classic_plane_range;
 pub(crate) use comparison_preparation::{
     observe_doom_seg_classic_plane_identities, prepare_doom_seg_classic_context_presentation,
     prepare_doom_seg_classic_plane_presentation, prepare_doom_seg_clip_presentation,
-    prepare_doom_seg_ordered_coverage_presentation,
-    prepare_doom_seg_ordered_coverage_presentation_for_view,
-    prepare_doom_seg_per_column_dynamic_scene, prepare_doom_seg_per_column_presentation,
-    resolve_doom_seg_classic_plane_flats,
+    prepare_doom_seg_ordered_coverage_presentation, prepare_doom_seg_per_column_dynamic_scene,
+    prepare_doom_seg_per_column_presentation, resolve_doom_seg_classic_plane_flats,
 };
 #[cfg(test)]
 pub(crate) use screen_projection::{

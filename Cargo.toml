@@ -75,6 +75,7 @@ members = [
     "corpus/campaigns/doom/hello-doom-e1m1",
     "corpus/campaigns/doom/hello-doom-visibility-conformance",
     "corpus/campaigns/doom/hello-doom-visibility-conformance-web",
+    "corpus/campaigns/doom/hello-doom-spatial-query-portable",
     "corpus/campaigns/textured-presentation/hello-streaming-texture",
     "corpus/campaigns/textured-presentation/hello-texture-color-space",
     "corpus/campaigns/renderer-reliability/hello-render-resource-identity",
@@ -163,6 +164,7 @@ members = [
     "corpus/lib/observation-shell",
     "corpus/lib/tui-tools",
     "corpus/lib/tokimu-math-study",
+    "corpus/lib/tokimu-spatial-query-study",
     "corpus/lib/tokimu-math-study/corpus-cases/hello-3d-mono/alternative-b",
     "corpus/lib/tokimu-math-study/corpus-cases/hello-3d-mono/alternative-c",
 

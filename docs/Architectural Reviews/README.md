@@ -251,3 +251,6 @@ across unrelated decisions.
   — Under Review; must select a reliable Tokimu-render-specific submission
   strategy through Doom, Quake, ordinary retained-3D, and large or multi-view
   campaign pressure while keeping preparation algorithms program-owned
+- [AR-0031: Conservative Spatial-Query Capability](AR-0031-conservative-spatial-query-capability.md)
+  — Incubating; portable BVH mechanics have native/WASM and E1M1 lifecycle
+  evidence, while Ring 2 admission awaits an independent non-Doom consumer

@@ -22,6 +22,9 @@ ADR, or an active Architectural Review.
 - [Read available reference source earlier](read-reference-source-early.md) —
   when bounded source inspection can expose the invariant sooner, and how to
   keep a reference implementation from becoming Tokimu's architecture.
+- [Bounds authority follows the bounded representation](bounds-authority-follows-bounded-representation.md)
+  — audit raw data, declared source members, and derived geometry separately
+  before granting a hierarchy bound rejection authority.
 
 ## Maintenance Rule
 

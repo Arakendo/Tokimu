@@ -5,6 +5,11 @@
 
 pub mod collision;
 pub mod debug_console;
+/// Doom-private ordered source-occurrence preparation shared by native and
+/// browser corpus hosts.  It produces ordinary Tokimu declarations but does
+/// not admit Doom semantics into the renderer boundary.
+#[path = "bin/static_scene/presentation/ordered_occurrence.rs"]
+pub mod ordered_occurrence;
 pub mod specials;
 
 use doom_geometry_provider::{

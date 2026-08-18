@@ -1,19 +1,43 @@
-use std::{collections::BTreeSet, io};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io,
+    time::Instant,
+};
 
 use doom_geometry_provider::{
-    locate_doom_point_subsector, resolve_doom_linedef_subsector_membership,
-    resolve_doom_subsector_bsp_paths, DoomSurfacePlane,
+    locate_doom_point_subsector, lower_doom_seg_textured_wall_triangles,
+    observe_doom_seg_plane_marks, resolve_doom_linedef_subsector_membership,
+    resolve_doom_subsector_bsp_paths, resolve_doom_subsector_regions, DoomSegClassicPlaneInstance,
+    DoomSegClassicPlaneKey, DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
+    DoomSubsectorBspPath, DoomSurfacePlane, DoomTextureExtent,
 };
 use doom_map_provider::DoomMapCore;
-use hello_doom_e1m1::{DoomComparativeEmbedding, StaticDrawPlanEntry, StaticDrawSource};
+use hello_doom_e1m1::{
+    observer_right, DoomComparativeEmbedding, StaticDrawPlanEntry, StaticDrawSource,
+};
 use tokimu::PlatformResult;
 use tokimu_core::math::Vec3;
 
 use crate::{
-    compact_draw_source, format_ordered_occurrence_domain_trace, nearest_mesh_ray_hit,
-    observe_doom_seg_classic_bsp, DoomSkyBoundaryDepthDraw, OrderedOccurrenceTraceTarget,
-    OrderedPlaneKind, SceneInput,
+    bsp_diagnostic_hit, compact_draw_source, format_ordered_occurrence_domain_trace,
+    nearest_mesh_ray_hit, observe_bsp_diagnostic_manifest_at_source, observe_doom_seg_classic_bsp,
+    observe_shared_doom_classic_vertical_clip_state, BspDiagnosticDisposition, BspDiagnosticDraw,
+    BspDiagnosticFamily, BspDiagnosticManifest, BspDiagnosticReason, DoomSkyBoundaryDepthDraw,
+    OrderedOccurrenceTraceTarget, OrderedPlaneKind, SceneInput,
 };
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ClassicPlaneSpanSupport {
+    instances: usize,
+    populated_columns: usize,
+    populated_cells: usize,
+    source_segs: usize,
+}
+
+pub(crate) const DEFAULT_SCAN_COLUMNS: usize = 32;
+pub(crate) const DEFAULT_SCAN_ROWS: usize = 20;
+pub(crate) const MAX_SCAN_SAMPLES: usize = 4_096;
+pub(crate) const MAX_SCAN_GROUPS_REPORTED: usize = 24;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct SourceLookRay {
@@ -21,11 +45,86 @@ pub(crate) struct SourceLookRay {
     direction: [f32; 3],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct SourceViewportScan {
+    origin: [f32; 3],
+    center_direction: [f32; 3],
+    size: [f32; 2],
+    columns: usize,
+    rows: usize,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct BspViewportScanGroup {
+    pub(crate) diagnostic: BspDiagnosticDraw,
+    pub(crate) source: String,
+    pub(crate) samples: usize,
+    pub(crate) minimum_pixel: [f32; 2],
+    pub(crate) maximum_pixel: [f32; 2],
+    pub(crate) representative_pixel: [f32; 2],
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct BspViewportScanObservation {
+    pub(crate) columns: usize,
+    pub(crate) rows: usize,
+    pub(crate) hits: usize,
+    pub(crate) misses: usize,
+    pub(crate) accepted: usize,
+    pub(crate) rejected: usize,
+    pub(crate) unresolved: usize,
+    pub(crate) unavailable: usize,
+    pub(crate) groups: Vec<BspViewportScanGroup>,
+    pub(crate) elapsed_ms: f64,
+}
+
+impl BspViewportScanObservation {
+    pub(crate) fn report(&self) -> String {
+        let mut lines = vec![format!(
+            "scan: frozen-view grid={}x{} samples={} hits={} misses={} accepted={} rejected={} unresolved={} unavailable={} suspicious-groups={} elapsed-ms={:.3} meaning=nearest-prepared-triangle-shadow-classification-not-rendered-pixel-parity",
+            self.columns,
+            self.rows,
+            self.columns * self.rows,
+            self.hits,
+            self.misses,
+            self.accepted,
+            self.rejected,
+            self.unresolved,
+            self.unavailable,
+            self.groups.len(),
+            self.elapsed_ms,
+        )];
+        for group in self.groups.iter().take(MAX_SCAN_GROUPS_REPORTED) {
+            lines.push(format!(
+                "scan suspicious: family={} classification={} reason={} samples={} pixel-bounds=({:.1},{:.1})..({:.1},{:.1}) inspect=LOOK PIXEL {:.1} {:.1} source={}",
+                group.diagnostic.family.label(),
+                group.diagnostic.disposition.label(),
+                group.diagnostic.reason.label(),
+                group.samples,
+                group.minimum_pixel[0],
+                group.minimum_pixel[1],
+                group.maximum_pixel[0],
+                group.maximum_pixel[1],
+                group.representative_pixel[0],
+                group.representative_pixel[1],
+                group.source,
+            ));
+        }
+        if self.groups.len() > MAX_SCAN_GROUPS_REPORTED {
+            lines.push(format!(
+                "scan: omitted-suspicious-groups={} report-limit={MAX_SCAN_GROUPS_REPORTED}",
+                self.groups.len() - MAX_SCAN_GROUPS_REPORTED
+            ));
+        }
+        lines.join("\n")
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct PreparedRayHit<'a> {
-    distance: f32,
-    draw: &'a StaticDrawPlanEntry,
-    family: &'static str,
+    pub(crate) distance: f32,
+    pub(crate) draw: &'a StaticDrawPlanEntry,
+    pub(crate) family: &'static str,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -77,6 +176,137 @@ pub(crate) fn nearest_prepared_ray_hit<'a>(
         }
     }
     nearest
+}
+
+pub(crate) fn viewport_inspection_direction(
+    center_direction: Vec3,
+    size: [f32; 2],
+    ndc: [f32; 2],
+) -> Vec3 {
+    let forward = center_direction.normalize_or_zero();
+    let right = observer_right(forward);
+    let up = right.cross(forward).normalize_or_zero();
+    let vertical_tangent = (30.0_f32.to_radians()).tan();
+    let aspect = size[0] / size[1].max(1.0);
+    (forward + right * (ndc[0] * aspect * vertical_tangent) + up * (ndc[1] * vertical_tangent))
+        .normalize_or_zero()
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn scan_bsp_viewport(
+    origin: Vec3,
+    center_direction: Vec3,
+    size: [f32; 2],
+    columns: usize,
+    rows: usize,
+    opaque_draws: &[StaticDrawPlanEntry],
+    cutout_draws: &[StaticDrawPlanEntry],
+    include_cutouts: bool,
+    manifest: &BspDiagnosticManifest,
+) -> BspViewportScanObservation {
+    let started = Instant::now();
+    let mut hits = 0;
+    let mut misses = 0;
+    let mut accepted = 0;
+    let mut rejected = 0;
+    let mut unresolved = 0;
+    let mut unavailable = 0;
+    let mut groups = BTreeMap::<
+        (
+            BspDiagnosticDisposition,
+            BspDiagnosticFamily,
+            BspDiagnosticReason,
+            String,
+        ),
+        BspViewportScanGroup,
+    >::new();
+    for row in 0..rows {
+        for column in 0..columns {
+            let pixel = [
+                (column as f32 + 0.5) * size[0] / columns as f32,
+                (row as f32 + 0.5) * size[1] / rows as f32,
+            ];
+            let ndc = [
+                2.0 * pixel[0] / size[0] - 1.0,
+                1.0 - 2.0 * pixel[1] / size[1],
+            ];
+            let direction = viewport_inspection_direction(center_direction, size, ndc);
+            let Some(hit) = nearest_prepared_ray_hit(
+                origin,
+                direction,
+                opaque_draws,
+                include_cutouts.then_some(cutout_draws),
+            ) else {
+                misses += 1;
+                continue;
+            };
+            hits += 1;
+            let Some(diagnostic) = bsp_diagnostic_hit(
+                manifest,
+                hit.draw,
+                hit.family == "cutout",
+                opaque_draws,
+                cutout_draws,
+            ) else {
+                unavailable += 1;
+                continue;
+            };
+            match diagnostic.disposition {
+                BspDiagnosticDisposition::Accepted => {
+                    accepted += 1;
+                    continue;
+                }
+                BspDiagnosticDisposition::RejectedSolidRange
+                | BspDiagnosticDisposition::RejectedOutsideFrustum => rejected += 1,
+                BspDiagnosticDisposition::UnresolvedFailOpen => unresolved += 1,
+            }
+            let source = compact_draw_source(&hit.draw.source);
+            let key = (
+                diagnostic.disposition,
+                diagnostic.family,
+                diagnostic.reason,
+                source.clone(),
+            );
+            let group = groups.entry(key).or_insert(BspViewportScanGroup {
+                diagnostic,
+                source,
+                samples: 0,
+                minimum_pixel: pixel,
+                maximum_pixel: pixel,
+                representative_pixel: pixel,
+            });
+            group.samples += 1;
+            group.minimum_pixel[0] = group.minimum_pixel[0].min(pixel[0]);
+            group.minimum_pixel[1] = group.minimum_pixel[1].min(pixel[1]);
+            group.maximum_pixel[0] = group.maximum_pixel[0].max(pixel[0]);
+            group.maximum_pixel[1] = group.maximum_pixel[1].max(pixel[1]);
+        }
+    }
+    let mut groups = groups.into_values().collect::<Vec<_>>();
+    groups.sort_by(|left, right| {
+        let severity = |disposition| match disposition {
+            BspDiagnosticDisposition::RejectedSolidRange
+            | BspDiagnosticDisposition::RejectedOutsideFrustum => 0,
+            BspDiagnosticDisposition::UnresolvedFailOpen => 1,
+            BspDiagnosticDisposition::Accepted => 2,
+        };
+        severity(left.diagnostic.disposition)
+            .cmp(&severity(right.diagnostic.disposition))
+            .then_with(|| right.samples.cmp(&left.samples))
+            .then_with(|| left.source.cmp(&right.source))
+    });
+    BspViewportScanObservation {
+        columns,
+        rows,
+        hits,
+        misses,
+        accepted,
+        rejected,
+        unresolved,
+        unavailable,
+        groups,
+        elapsed_ms: started.elapsed().as_secs_f64() * 1_000.0,
+    }
 }
 
 pub(crate) fn format_look_ray_observation(
@@ -253,10 +483,346 @@ pub(crate) fn format_source_classic_ray_trace(
         .filter(|record| observation.admitted_seg_records.contains(record))
         .copied()
         .collect::<Vec<_>>();
+    let elision_geometry = format_elision_geometry(
+        map,
+        viewer,
+        heading,
+        hit.map(|hit| {
+            [
+                f64::from(source_origin[0])
+                    + f64::from(source_direction[0]) * f64::from(hit.distance),
+                f64::from(source_origin[1])
+                    + f64::from(source_direction[1]) * f64::from(hit.distance),
+            ]
+        }),
+        &observation.watched_subsector_elisions,
+    );
+    let target_geometry = format_target_subsector_geometry(
+        map,
+        &paths,
+        &target_subsectors,
+        hit.map(|hit| {
+            [
+                f64::from(source_origin[0])
+                    + f64::from(source_direction[0]) * f64::from(hit.distance),
+                f64::from(source_origin[1])
+                    + f64::from(source_direction[1]) * f64::from(hit.distance),
+            ]
+        }),
+    );
     format!(
-        "classic_source_trace=viewer-subsector:{viewer_subsector},heading-degrees:{:.3},target-subsectors:{target_subsectors:?},reached:{reached:?},target-segs:{target_seg_records:?},admitted-target-segs:{admitted_target_segs:?},elisions:{} meaning=doom-bsp-horizontal-source-protocol-not-pixel-parity",
-        heading.to_degrees(), observation.watched_subsector_elisions.join("|")
+        "classic_source_trace=viewer-subsector:{viewer_subsector},heading-degrees:{:.3},target-subsectors:{target_subsectors:?},reached:{reached:?},target-segs:{target_seg_records:?},admitted-target-segs:{admitted_target_segs:?},target-geometry:[{}],elisions:{},elision-geometry:[{}] meaning=doom-bsp-horizontal-source-protocol-not-pixel-parity",
+        heading.to_degrees(),
+        target_geometry.join("|"),
+        observation.watched_subsector_elisions.join("|"),
+        elision_geometry.join("|"),
     )
+}
+
+/// Reports whether Classic's frozen-view plane-span reconstruction contains
+/// the hit plane's exact source key and sector. This is deliberately weaker
+/// than pixel or prepared-mesh visibility: the source reconstruction is a
+/// fixed 320x200 diagnostic domain and cannot be mapped honestly onto an
+/// arbitrary pitched Tokimu viewport sample.
+pub(crate) fn format_source_classic_plane_span_support(
+    map: &DoomMapCore,
+    wall_extents: &[DoomTextureExtent],
+    source_origin: [f32; 2],
+    source_center_direction: [f32; 2],
+    eye_height: f32,
+    hit: Option<PreparedRayHit<'_>>,
+) -> String {
+    let Some(hit) = hit else {
+        return "classic_plane_occurrence=not-applicable:no-ordinary-hit".to_owned();
+    };
+    let StaticDrawSource::Flat {
+        source_sector,
+        plane,
+        ..
+    } = hit.draw.source
+    else {
+        return "classic_plane_occurrence=not-applicable:non-plane-hit".to_owned();
+    };
+    let rounded = source_origin.map(|value| value.round());
+    if rounded
+        .iter()
+        .any(|value| *value < f32::from(i16::MIN) || *value > f32::from(i16::MAX))
+    {
+        return "classic_plane_occurrence=unavailable:viewer-outside-i16-source-domain".to_owned();
+    }
+    if source_center_direction[0].abs() <= f32::EPSILON
+        && source_center_direction[1].abs() <= f32::EPSILON
+    {
+        return "classic_plane_occurrence=unavailable:vertical-frozen-view".to_owned();
+    }
+    let Some(sector) = map
+        .sectors
+        .iter()
+        .find(|sector| sector.source == source_sector)
+    else {
+        return format!(
+            "classic_plane_occurrence=unavailable:source-sector-{}-missing",
+            source_sector.record_index
+        );
+    };
+    let (kind, height, texture) = match plane {
+        DoomSurfacePlane::Floor => (
+            DoomSegClassicPlaneKind::Floor,
+            sector.floor_height,
+            sector.floor_texture.clone(),
+        ),
+        DoomSurfacePlane::Ceiling => (
+            DoomSegClassicPlaneKind::Ceiling,
+            sector.ceiling_height,
+            sector.ceiling_texture.clone(),
+        ),
+    };
+    let key = DoomSegClassicPlaneKey {
+        kind,
+        height,
+        texture,
+        light: sector.light_level,
+    };
+    let viewer = [rounded[0] as i16, rounded[1] as i16];
+    let heading =
+        f64::from(source_center_direction[1]).atan2(f64::from(source_center_direction[0]));
+    let traversal = match observe_doom_seg_classic_bsp(map, viewer, heading, &BTreeSet::new()) {
+        Ok(value) => value,
+        Err(error) => return format!("classic_plane_occurrence=unavailable:bsp:{error}"),
+    };
+    let triangles = match lower_doom_seg_textured_wall_triangles(map, wall_extents) {
+        Ok(value) => value,
+        Err(error) => return format!("classic_plane_occurrence=unavailable:walls:{error}"),
+    };
+    let marks = match observe_doom_seg_plane_marks(map, eye_height as i16) {
+        Ok(value) => value,
+        Err(error) => return format!("classic_plane_occurrence=unavailable:marks:{error}"),
+    };
+    let vertical = observe_shared_doom_classic_vertical_clip_state(
+        map,
+        &triangles,
+        &marks,
+        &traversal,
+        viewer,
+        heading,
+        f64::from(eye_height),
+    );
+    let support = summarize_classic_plane_span_support(
+        &vertical.plane_spans,
+        &key,
+        source_sector.record_index,
+    );
+    let key_label = format!(
+        "kind:{:?},height:{},flat:{},light:{},sector:{}",
+        key.kind, key.height, key.texture, key.light, source_sector.record_index
+    );
+    match support {
+        Some(support) => format!(
+            "classic_plane_occurrence=source-key-present,{key_label},instances:{},populated-columns:{},populated-cells:{},source-segs:{} authority=source-key-frozen-view-occurrence-not-prepared-mesh-or-pixel-proof",
+            support.instances,
+            support.populated_columns,
+            support.populated_cells,
+            support.source_segs,
+        ),
+        None => format!(
+            "classic_plane_occurrence=source-key-absent,{key_label} authority=diagnostic-absence-not-plane-rejection-proof"
+        ),
+    }
+}
+
+fn summarize_classic_plane_span_support(
+    spans: &DoomSegClassicPlaneSpanObservation,
+    key: &DoomSegClassicPlaneKey,
+    source_sector: u32,
+) -> Option<ClassicPlaneSpanSupport> {
+    let matching = spans
+        .keys
+        .get(key)?
+        .iter()
+        .filter(|instance| instance.source_sectors.contains(&source_sector))
+        .collect::<Vec<&DoomSegClassicPlaneInstance>>();
+    if matching.is_empty() {
+        return None;
+    }
+    let populated_columns = matching
+        .iter()
+        .map(|instance| instance.columns.iter().flatten().count())
+        .sum();
+    let populated_cells = matching
+        .iter()
+        .flat_map(|instance| instance.columns.iter().flatten())
+        .map(|[top, bottom]| bottom - top + 1)
+        .sum();
+    let source_segs = matching
+        .iter()
+        .flat_map(|instance| instance.source_segs.iter().copied())
+        .collect::<BTreeSet<_>>()
+        .len();
+    Some(ClassicPlaneSpanSupport {
+        instances: matching.len(),
+        populated_columns,
+        populated_cells,
+        source_segs,
+    })
+}
+
+fn format_target_subsector_geometry(
+    map: &DoomMapCore,
+    paths: &[DoomSubsectorBspPath],
+    targets: &BTreeSet<u16>,
+    hit: Option<[f64; 2]>,
+) -> Vec<String> {
+    let regions = resolve_doom_subsector_regions(map, paths).ok();
+    targets
+        .iter()
+        .filter_map(|target| {
+            let subsector = map.subsectors.get(usize::from(*target))?;
+            let first = usize::from(subsector.first_seg);
+            let end = first + usize::from(subsector.seg_count);
+            let mut left = i16::MAX;
+            let mut right = i16::MIN;
+            let mut bottom = i16::MAX;
+            let mut top = i16::MIN;
+            for seg in map.segs.get(first..end)? {
+                for vertex_index in [seg.start_vertex, seg.end_vertex] {
+                    let vertex = map.vertices.get(usize::from(vertex_index))?;
+                    left = left.min(vertex.x);
+                    right = right.max(vertex.x);
+                    bottom = bottom.min(vertex.y);
+                    top = top.max(vertex.y);
+                }
+            }
+            let hit_inside = hit.map(|point| {
+                point[0] >= f64::from(left)
+                    && point[0] <= f64::from(right)
+                    && point[1] >= f64::from(bottom)
+                    && point[1] <= f64::from(top)
+            });
+            let region = regions
+                .as_ref()
+                .and_then(|regions| regions.get(usize::from(*target)));
+            let region_bbox = region.and_then(|region| polygon_bounds(&region.vertices));
+            let hit_inside_region = hit.zip(region).map(|(point, region)| {
+                point_inside_convex_polygon(point, &region.vertices)
+            });
+            let hit_outside_seg_bbox = hit.map(|point| {
+                let dx = if point[0] < f64::from(left) {
+                    f64::from(left) - point[0]
+                } else if point[0] > f64::from(right) {
+                    point[0] - f64::from(right)
+                } else {
+                    0.0
+                };
+                let dy = if point[1] < f64::from(bottom) {
+                    f64::from(bottom) - point[1]
+                } else if point[1] > f64::from(top) {
+                    point[1] - f64::from(top)
+                } else {
+                    0.0
+                };
+                dx.hypot(dy)
+            });
+            Some(format!(
+                "subsector={target}:seg-count={}:seg-endpoint-bbox=[top:{top},bottom:{bottom},left:{left},right:{right}]:bsp-path-steps={}:inferred-region-vertices={}:inferred-region-bbox={region_bbox:?}:hit={hit:?}:hit-inside-seg-bbox={hit_inside:?}:hit-outside-seg-bbox-distance={hit_outside_seg_bbox:?}:hit-inside-inferred-region={hit_inside_region:?}",
+                subsector.seg_count,
+                paths.get(usize::from(*target)).map_or(0, |path| path.steps.len()),
+                region.map_or(0, |region| region.vertices.len()),
+            ))
+        })
+        .collect()
+}
+
+fn polygon_bounds(vertices: &[[f64; 2]]) -> Option<[[f64; 2]; 2]> {
+    let first = *vertices.first()?;
+    let [minimum, maximum] = vertices.iter().copied().fold(
+        [first, first],
+        |[[minimum_x, minimum_y], [maximum_x, maximum_y]], [x, y]| {
+            [
+                [minimum_x.min(x), minimum_y.min(y)],
+                [maximum_x.max(x), maximum_y.max(y)],
+            ]
+        },
+    );
+    Some([minimum, maximum])
+}
+
+fn point_inside_convex_polygon(point: [f64; 2], vertices: &[[f64; 2]]) -> bool {
+    const EPSILON: f64 = 1.0e-7;
+    let mut observed_sign = 0.0_f64;
+    for (start, end) in vertices
+        .iter()
+        .copied()
+        .zip(vertices.iter().copied().cycle().skip(1))
+        .take(vertices.len())
+    {
+        let cross = (end[0] - start[0]) * (point[1] - start[1])
+            - (end[1] - start[1]) * (point[0] - start[0]);
+        if cross.abs() <= EPSILON {
+            continue;
+        }
+        if observed_sign == 0.0 {
+            observed_sign = cross.signum();
+        } else if cross.signum() != observed_sign {
+            return false;
+        }
+    }
+    observed_sign != 0.0
+}
+
+fn format_elision_geometry(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    hit: Option<[f64; 2]>,
+    elisions: &[String],
+) -> Vec<String> {
+    let relative_bearing = |point: [f64; 2]| {
+        let absolute = (point[1] - f64::from(viewer[1])).atan2(point[0] - f64::from(viewer[0]));
+        let mut relative = absolute - heading;
+        while relative > std::f64::consts::PI {
+            relative -= std::f64::consts::TAU;
+        }
+        while relative < -std::f64::consts::PI {
+            relative += std::f64::consts::TAU;
+        }
+        relative.to_degrees()
+    };
+    elisions
+        .iter()
+        .filter_map(|elision| {
+            let node_index = elision
+                .split(':')
+                .find_map(|part| part.strip_prefix("node="))?
+                .parse::<usize>()
+                .ok()?;
+            let node = map.nodes.get(node_index)?;
+            let side = i64::from(node.delta_x) * i64::from(viewer[1] - node.y)
+                - i64::from(node.delta_y) * i64::from(viewer[0] - node.x);
+            let bbox = if side < 0 {
+                node.left_bbox
+            } else {
+                node.right_bbox
+            };
+            let [top, bottom, left, right] = bbox;
+            let corners = [
+                [f64::from(left), f64::from(top)],
+                [f64::from(right), f64::from(top)],
+                [f64::from(right), f64::from(bottom)],
+                [f64::from(left), f64::from(bottom)],
+            ];
+            let bearings = corners.map(relative_bearing);
+            let hit_inside = hit.map(|point| {
+                point[0] >= f64::from(left)
+                    && point[0] <= f64::from(right)
+                    && point[1] >= f64::from(bottom)
+                    && point[1] <= f64::from(top)
+            });
+            Some(format!(
+                "node={node_index}:far-bbox={bbox:?}:corner-bearings-degrees={bearings:?}:hit={hit:?}:hit-inside={hit_inside:?}:hit-bearing-degrees={:?}",
+                hit.map(relative_bearing),
+            ))
+        })
+        .collect()
 }
 
 pub(crate) fn parse_source_look_ray(value: &str) -> PlatformResult<SourceLookRay> {
@@ -285,11 +851,240 @@ pub(crate) fn parse_source_look_ray(value: &str) -> PlatformResult<SourceLookRay
     })
 }
 
+pub(crate) fn parse_source_viewport_scan(value: &str) -> PlatformResult<SourceViewportScan> {
+    let fields = value.split(',').map(str::trim).collect::<Vec<_>>();
+    if !matches!(fields.len(), 8 | 10) {
+        return Err(io::Error::other(
+            "--bsp-diagnostic-scan-report expects source x,y,z,center-dx,center-dy,center-dz,width,height[,columns,rows]",
+        )
+        .into());
+    }
+    let values = fields[..8]
+        .iter()
+        .map(|value| value.parse::<f32>())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| io::Error::other(format!("invalid scan camera value: {error}")))?;
+    let columns = fields
+        .get(8)
+        .map_or(Ok(DEFAULT_SCAN_COLUMNS), |value| value.parse::<usize>())
+        .map_err(|error| io::Error::other(format!("invalid scan column count: {error}")))?;
+    let rows = fields
+        .get(9)
+        .map_or(Ok(DEFAULT_SCAN_ROWS), |value| value.parse::<usize>())
+        .map_err(|error| io::Error::other(format!("invalid scan row count: {error}")))?;
+    let origin = [values[0], values[1], values[2]];
+    let center_direction = [values[3], values[4], values[5]];
+    let size = [values[6], values[7]];
+    if !values.iter().all(|value| value.is_finite())
+        || Vec3::new(
+            center_direction[0],
+            center_direction[2],
+            center_direction[1],
+        )
+        .length_squared()
+            <= f32::EPSILON
+        || size[0] <= 0.0
+        || size[1] <= 0.0
+    {
+        return Err(io::Error::other(
+            "scan camera requires finite values, a nonzero center direction, and positive dimensions",
+        )
+        .into());
+    }
+    if columns < 4
+        || rows < 4
+        || columns > 128
+        || rows > 128
+        || columns.saturating_mul(rows) > MAX_SCAN_SAMPLES
+    {
+        return Err(io::Error::other(format!(
+            "scan grid axes must be 4..128 and contain at most {MAX_SCAN_SAMPLES} samples"
+        ))
+        .into());
+    }
+    Ok(SourceViewportScan {
+        origin,
+        center_direction,
+        size,
+        columns,
+        rows,
+    })
+}
+
+pub(crate) fn report_source_viewport_scan(
+    scene: &SceneInput,
+    embedding: DoomComparativeEmbedding,
+    scan: SourceViewportScan,
+    include_cutouts: bool,
+) -> PlatformResult<()> {
+    let origin = embedding.lift_direction([scan.origin[0], scan.origin[1]], scan.origin[2]);
+    let center_direction = embedding
+        .lift_direction(
+            [scan.center_direction[0], scan.center_direction[1]],
+            scan.center_direction[2],
+        )
+        .normalize_or_zero();
+    let viewer = [
+        scan.origin[0]
+            .round()
+            .clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16,
+        scan.origin[1]
+            .round()
+            .clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16,
+    ];
+    if scan.origin[0] < f32::from(i16::MIN)
+        || scan.origin[0] > f32::from(i16::MAX)
+        || scan.origin[1] < f32::from(i16::MIN)
+        || scan.origin[1] > f32::from(i16::MAX)
+    {
+        return Err(io::Error::other("scan viewer lies outside the i16 source domain").into());
+    }
+    let center_heading =
+        f64::from(scan.center_direction[1]).atan2(f64::from(scan.center_direction[0]));
+    let bounds_draws = scene
+        .opaque_draws
+        .iter()
+        .chain(scene.cutout_draws.iter())
+        .cloned()
+        .collect::<Vec<_>>();
+    let (_, radius) = crate::scene_bounds(&bounds_draws);
+    let view =
+        tokimu_core::math::try_view_look_at_rh(origin, origin + center_direction * 128.0, Vec3::Y)
+            .ok_or_else(|| io::Error::other("headless scan camera view is degenerate"))?;
+    let projection = tokimu_core::math::try_projection_perspective_rh_gl(
+        60.0_f32.to_radians(),
+        scan.size[0] / scan.size[1],
+        (radius * 0.000_1).max(0.1),
+        radius * 4.0,
+    )
+    .ok_or_else(|| io::Error::other("headless scan camera projection is invalid"))?;
+    let manifest = observe_bsp_diagnostic_manifest_at_source(
+        &scene.door_geometry_source.map,
+        &scene.opaque_draws,
+        &scene.cutout_draws,
+        viewer,
+        center_heading,
+        Some(projection * view),
+    )?;
+    let observation = scan_bsp_viewport(
+        origin,
+        center_direction,
+        scan.size,
+        scan.columns,
+        scan.rows,
+        &scene.opaque_draws,
+        &scene.cutout_draws,
+        include_cutouts,
+        &manifest,
+    );
+    println!(
+        "headless_scan_view=source_xyz:({:.9},{:.9},{:.9}),center_direction:({:.9},{:.9},{:.9}),center_heading_degrees:{:.3},client:({:.0},{:.0}),runtime_heights:static-scene-snapshot",
+        scan.origin[0],
+        scan.origin[1],
+        scan.origin[2],
+        scan.center_direction[0],
+        scan.center_direction[1],
+        scan.center_direction[2],
+        center_heading.to_degrees(),
+        scan.size[0],
+        scan.size[1],
+    );
+    println!("{}", observation.report());
+    for (index, group) in observation
+        .groups
+        .iter()
+        .take(MAX_SCAN_GROUPS_REPORTED)
+        .enumerate()
+    {
+        let pixel = group.representative_pixel;
+        let ndc = [
+            2.0 * pixel[0] / scan.size[0] - 1.0,
+            1.0 - 2.0 * pixel[1] / scan.size[1],
+        ];
+        let direction = viewport_inspection_direction(center_direction, scan.size, ndc);
+        let hit = nearest_prepared_ray_hit(
+            origin,
+            direction,
+            &scene.opaque_draws,
+            include_cutouts.then_some(scene.cutout_draws.as_slice()),
+        );
+        let (sample_source_direction, _) = embedding.lower_direction(direction);
+        let sample_heading =
+            f64::from(sample_source_direction[1]).atan2(f64::from(sample_source_direction[0]));
+        let mut heading_offset = (sample_heading - center_heading).to_degrees();
+        while heading_offset > 180.0 {
+            heading_offset -= 360.0;
+        }
+        while heading_offset < -180.0 {
+            heading_offset += 360.0;
+        }
+        println!(
+            "headless_scan_look={index},pixel:({:.1},{:.1}),ndc:({:.6},{:.6}),bsp-view-heading-degrees:{:.3},sample-ray-heading-degrees:{:.3},sample-minus-view-heading-degrees:{heading_offset:.3}",
+            pixel[0],
+            pixel[1],
+            ndc[0],
+            ndc[1],
+            center_heading.to_degrees(),
+            sample_heading.to_degrees(),
+        );
+        println!(
+            "{}",
+            format_look_ray_observation(
+                origin,
+                direction,
+                embedding,
+                hit,
+                nearest_sky_boundary_ray_hit(origin, direction, &scene.doom_sky_boundary_draws),
+                nearest_source_sky_plane_ray_hit(origin, direction, &scene.diagnostic_sky_draws,),
+            )
+        );
+        println!(
+            "{}",
+            format_source_classic_ray_trace(
+                &scene.door_geometry_source.map,
+                [scan.origin[0], scan.origin[1]],
+                sample_source_direction,
+                hit,
+            )
+        );
+        println!(
+            "{}",
+            format_source_classic_plane_span_support(
+                &scene.door_geometry_source.map,
+                &scene.door_geometry_source.wall_extents,
+                [scan.origin[0], scan.origin[1]],
+                [scan.center_direction[0], scan.center_direction[1]],
+                scan.origin[2],
+                hit,
+            )
+        );
+        let classification = hit.map_or_else(
+            || "bsp_shadow_classification=no-ordinary-hit".to_owned(),
+            |hit| {
+                let classification = crate::describe_bsp_diagnostic_hit(
+                    &manifest,
+                    hit.draw,
+                    hit.family == "cutout",
+                    &scene.opaque_draws,
+                    &scene.cutout_draws,
+                );
+                format!(
+                    "{classification},source:{}",
+                    compact_draw_source(&hit.draw.source)
+                )
+            },
+        );
+        println!("{classification}");
+    }
+    Ok(())
+}
+
 pub(crate) fn report_source_look_ray(
     scene: &SceneInput,
     embedding: DoomComparativeEmbedding,
     ray: SourceLookRay,
     include_cutouts: bool,
+    bsp_diagnostic: bool,
 ) {
     let origin = embedding.lift_direction([ray.origin[0], ray.origin[1]], ray.origin[2]);
     let direction = embedding
@@ -372,8 +1167,59 @@ pub(crate) fn report_source_look_ray(
             authority,
         )
     };
+    let bsp_classification = if !bsp_diagnostic {
+        "bsp_shadow_classification=disabled".to_owned()
+    } else if rounded
+        .iter()
+        .any(|value| *value < f32::from(i16::MIN) || *value > f32::from(i16::MAX))
+    {
+        "bsp_shadow_classification=unavailable:viewer-outside-i16-source-domain".to_owned()
+    } else if ray.direction[0].abs() <= f32::EPSILON && ray.direction[1].abs() <= f32::EPSILON {
+        "bsp_shadow_classification=unavailable:vertical-source-ray".to_owned()
+    } else {
+        match observe_bsp_diagnostic_manifest_at_source(
+            &scene.door_geometry_source.map,
+            &scene.opaque_draws,
+            &scene.cutout_draws,
+            [rounded[0] as i16, rounded[1] as i16],
+            f64::from(ray.direction[1]).atan2(f64::from(ray.direction[0])),
+            None,
+        ) {
+            Ok(manifest) => hit.map_or_else(
+                || "bsp_shadow_classification=no-ordinary-hit".to_owned(),
+                |hit| {
+                    let diagnostic = if hit.family == "cutout" {
+                        scene
+                            .cutout_draws
+                            .iter()
+                            .position(|draw| std::ptr::eq(draw, hit.draw))
+                            .and_then(|index| manifest.cutouts.get(index))
+                    } else {
+                        scene
+                            .opaque_draws
+                            .iter()
+                            .position(|draw| std::ptr::eq(draw, hit.draw))
+                            .and_then(|index| manifest.opaque.get(index))
+                    };
+                    diagnostic.map_or_else(
+                        || "bsp_shadow_classification=unavailable:hit-index".to_owned(),
+                        |diagnostic| {
+                            format!(
+                                "bsp_shadow_classification=family:{},classification:{},reason:{},source:{}",
+                                diagnostic.family.label(),
+                                diagnostic.disposition.label(),
+                                diagnostic.reason.label(),
+                                compact_draw_source(&hit.draw.source),
+                            )
+                        },
+                    )
+                },
+            ),
+            Err(error) => format!("bsp_shadow_classification=unavailable:{error}"),
+        }
+    };
     println!(
-        "{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}",
         format_look_ray_observation(
             origin,
             direction,
@@ -388,14 +1234,33 @@ pub(crate) fn report_source_look_ray(
             [ray.direction[0], ray.direction[1]],
             hit,
         ),
+        format_source_classic_plane_span_support(
+            &scene.door_geometry_source.map,
+            &scene.door_geometry_source.wall_extents,
+            [ray.origin[0], ray.origin[1]],
+            [ray.direction[0], ray.direction[1]],
+            ray.origin[2],
+            hit,
+        ),
         ordered_domains,
+        bsp_classification,
     );
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{format_look_ray_observation, parse_source_look_ray};
+    use super::{
+        format_look_ray_observation, parse_source_look_ray, parse_source_viewport_scan,
+        summarize_classic_plane_span_support, viewport_inspection_direction, DEFAULT_SCAN_COLUMNS,
+        DEFAULT_SCAN_ROWS,
+    };
+    use doom_geometry_provider::{
+        DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
+        DoomSegClassicPlaneSpanObservation,
+    };
     use hello_doom_e1m1::DoomComparativeEmbedding;
+    use std::collections::{BTreeMap, BTreeSet};
+    use tokimu_core::math::Vec3;
 
     #[test]
     fn source_look_ray_parser_rejects_incomplete_and_stationary_rays() {
@@ -404,6 +1269,39 @@ mod tests {
         assert_eq!(ray.direction, [0.0, 1.0, 0.0]);
         assert!(parse_source_look_ray("1056,-3616,36,0,0").is_err());
         assert!(parse_source_look_ray("1056,-3616,36,0,0,0").is_err());
+    }
+
+    #[test]
+    fn classic_plane_support_requires_both_exact_key_and_source_sector() {
+        let key = DoomSegClassicPlaneKey {
+            kind: DoomSegClassicPlaneKind::Floor,
+            height: 0,
+            texture: "FLOOR4_8".to_owned(),
+            light: 160,
+        };
+        let instance = DoomSegClassicPlaneInstance {
+            columns: vec![None, Some([10, 12]), Some([20, 20])],
+            column_sources: vec![None, Some([38, 4]), Some([38, 5])],
+            minimum_column: 1,
+            maximum_column: 2,
+            source_sectors: BTreeSet::from([38]),
+            source_segs: BTreeSet::from([4, 5]),
+        };
+        let spans = DoomSegClassicPlaneSpanObservation {
+            keys: BTreeMap::from([(key.clone(), vec![instance])]),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            summarize_classic_plane_span_support(&spans, &key, 38),
+            Some(super::ClassicPlaneSpanSupport {
+                instances: 1,
+                populated_columns: 2,
+                populated_cells: 4,
+                source_segs: 2,
+            })
+        );
+        assert_eq!(summarize_classic_plane_span_support(&spans, &key, 29), None);
     }
 
     #[test]
@@ -422,5 +1320,24 @@ mod tests {
         assert!(observation.contains("source_xyz=(1056.000,-3616.000,36.000)"));
         assert!(observation.contains("source_direction=(0.000000,1.000000,0.000000)"));
         assert!(observation.contains("replay=--look-ray-report=1056.000000000,-3616.000000000,36.000000000,0.000000000,1.000000000,0.000000000"));
+    }
+
+    #[test]
+    fn headless_scan_parser_defaults_and_bounds_the_grid() {
+        let scan =
+            parse_source_viewport_scan("10,20,36,0,1,0,1280,800").expect("default viewport scan");
+        assert_eq!(scan.origin, [10.0, 20.0, 36.0]);
+        assert_eq!(scan.center_direction, [0.0, 1.0, 0.0]);
+        assert_eq!(scan.size, [1280.0, 800.0]);
+        assert_eq!(scan.columns, DEFAULT_SCAN_COLUMNS);
+        assert_eq!(scan.rows, DEFAULT_SCAN_ROWS);
+        assert!(parse_source_viewport_scan("10,20,36,0,1,0,1280,800,128,128").is_err());
+    }
+
+    #[test]
+    fn viewport_center_ray_preserves_the_supplied_camera_direction() {
+        let center = Vec3::new(0.3, -0.2, -0.9).normalize();
+        let ray = viewport_inspection_direction(center, [1280.0, 800.0], [0.0, 0.0]);
+        assert!(ray.dot(center) > 0.999_999);
     }
 }

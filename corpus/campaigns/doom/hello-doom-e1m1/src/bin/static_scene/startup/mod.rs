@@ -86,12 +86,65 @@ pub(crate) fn run() -> PlatformResult<()> {
     let topology_inventory_report = args
         .iter()
         .any(|argument| argument == "--topology-inventory-report");
+    let bsp_diagnostic_enabled = args
+        .iter()
+        .any(|argument| argument == "--bsp-diagnostic-full");
+    let bsp_diagnostic_focus = BspDiagnosticFocus::from_args(&args, bsp_diagnostic_enabled)?;
     let doom_reject_report = args
         .iter()
         .any(|argument| argument == "--doom-reject-report");
     let doom_topology_report = args
         .iter()
         .any(|argument| argument == "--doom-topology-report");
+    let doom_bsp_bounds_audit_report = args
+        .iter()
+        .any(|argument| argument == "--doom-bsp-bounds-audit-report");
+    let render_subsector_inventory_report = args
+        .iter()
+        .any(|argument| argument == "--render-subsector-inventory-report");
+    let render_subsector_shadow_report = args
+        .iter()
+        .any(|argument| argument == "--render-subsector-shadow-report");
+    let render_subsector_prepared_report = args
+        .iter()
+        .any(|argument| argument == "--render-subsector-prepared-report");
+    let render_subsector_connectivity_report = args
+        .iter()
+        .any(|argument| argument == "--render-subsector-connectivity-report");
+    if [
+        render_subsector_inventory_report,
+        render_subsector_shadow_report,
+        render_subsector_prepared_report,
+        render_subsector_connectivity_report,
+    ]
+    .into_iter()
+    .filter(|enabled| *enabled)
+    .count()
+        > 1
+    {
+        return Err("choose only one render-subsector headless report".into());
+    }
+    let tokimu_spatial_bake_report = args
+        .iter()
+        .any(|argument| argument == "--tokimu-spatial-bake-report");
+    let tokimu_spatial_query_report = args
+        .iter()
+        .any(|argument| argument == "--tokimu-spatial-query-report");
+    let tokimu_spatial_runtime_report = args
+        .iter()
+        .any(|argument| argument == "--tokimu-spatial-runtime-report");
+    if [
+        tokimu_spatial_bake_report,
+        tokimu_spatial_query_report,
+        tokimu_spatial_runtime_report,
+    ]
+    .into_iter()
+    .filter(|enabled| *enabled)
+    .count()
+        > 1
+    {
+        return Err("choose only one Tokimu spatial report".into());
+    }
     let doom_membership_report = args
         .iter()
         .any(|argument| argument == "--doom-membership-report");
@@ -120,6 +173,9 @@ pub(crate) fn run() -> PlatformResult<()> {
     let ordered_occurrence_six_ray_report = args
         .iter()
         .any(|argument| argument == "--ordered-occurrence-six-ray-report");
+    let ordered_occurrence_live_refresh_report = args
+        .iter()
+        .any(|argument| argument == "--ordered-occurrence-live-refresh-report");
     let moving_floor_resource_replay_report = args
         .iter()
         .any(|argument| argument == "--moving-floor-resource-replay-report");
@@ -201,6 +257,26 @@ pub(crate) fn run() -> PlatformResult<()> {
         doom_seg_ordered_coverage_presentation,
         frustum_aabb,
     )?;
+    if bsp_diagnostic_enabled
+        && trial_render_strategy
+            .is_some_and(|strategy| strategy != TrialRenderStrategy::GlobalFullSubmission)
+    {
+        return Err(
+            "--bsp-diagnostic-full requires the unchanged global-full render strategy".into(),
+        );
+    }
+    if bsp_diagnostic_enabled && (!spawn_observer || frustum_aabb || frustum_grid) {
+        return Err(
+            "--bsp-diagnostic-full requires a source observer and forbids generic candidate filters"
+                .into(),
+        );
+    }
+    if bsp_diagnostic_enabled && (!include_cutouts || !doom_sky || doom_membership_union) {
+        return Err(
+            "--bsp-diagnostic-full requires cutouts, the skybox, and unchanged full submission"
+                .into(),
+        );
+    }
     if candidate1_sky_depth && trial_render_strategy.is_some() {
         return Err(
             "--global-full-plus-view-local-sky-depth requires the unchanged global-full submission control"
@@ -230,6 +306,12 @@ pub(crate) fn run() -> PlatformResult<()> {
     let doom_seg_classic_dynamic = args
         .iter()
         .any(|argument| argument == "--doom-seg-classic-dynamic");
+    if bsp_diagnostic_enabled && (doom_seg_per_column_dynamic || doom_seg_classic_dynamic) {
+        return Err(
+            "--bsp-diagnostic-full cannot be combined with a presentation-affecting SEG selector"
+                .into(),
+        );
+    }
     if [
         doom_seg_clip_presentation,
         doom_seg_per_column_presentation,
@@ -273,6 +355,17 @@ pub(crate) fn run() -> PlatformResult<()> {
         .find_map(|argument| argument.strip_prefix("--look-ray-report="))
         .map(parse_source_look_ray)
         .transpose()?;
+    let bsp_diagnostic_scan_report = args
+        .iter()
+        .find_map(|argument| argument.strip_prefix("--bsp-diagnostic-scan-report="))
+        .map(parse_source_viewport_scan)
+        .transpose()?;
+    if bsp_diagnostic_scan_report.is_some() && !bsp_diagnostic_enabled {
+        return Err("--bsp-diagnostic-scan-report requires --bsp-diagnostic-full".into());
+    }
+    if bsp_diagnostic_scan_report.is_some() && look_ray_report.is_some() {
+        return Err("choose only one headless LOOK ray or BSP viewport scan report".into());
+    }
     args.retain(|argument| argument != "--masked-cutouts");
     args.retain(|argument| argument != "--no-masked-cutouts");
     args.retain(|argument| argument != "--diagnostic-sky-omissions");
@@ -299,8 +392,18 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--candidate-grid-report");
     args.retain(|argument| argument != "--candidate-temporal-report");
     args.retain(|argument| argument != "--topology-inventory-report");
+    args.retain(|argument| argument != "--bsp-diagnostic-full");
+    args.retain(|argument| !argument.starts_with("--bsp-diagnostic-focus="));
     args.retain(|argument| argument != "--doom-reject-report");
     args.retain(|argument| argument != "--doom-topology-report");
+    args.retain(|argument| argument != "--doom-bsp-bounds-audit-report");
+    args.retain(|argument| argument != "--render-subsector-inventory-report");
+    args.retain(|argument| argument != "--render-subsector-shadow-report");
+    args.retain(|argument| argument != "--render-subsector-prepared-report");
+    args.retain(|argument| argument != "--render-subsector-connectivity-report");
+    args.retain(|argument| argument != "--tokimu-spatial-bake-report");
+    args.retain(|argument| argument != "--tokimu-spatial-query-report");
+    args.retain(|argument| argument != "--tokimu-spatial-runtime-report");
     args.retain(|argument| argument != "--doom-membership-report");
     args.retain(|argument| argument != "--doom-membership-union");
     args.retain(|argument| argument != "--flat-normal-report");
@@ -310,6 +413,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--ordered-occurrence-runtime-snapshot-report");
     args.retain(|argument| argument != "--ordered-occurrence-prepared-report");
     args.retain(|argument| argument != "--ordered-occurrence-six-ray-report");
+    args.retain(|argument| argument != "--ordered-occurrence-live-refresh-report");
     args.retain(|argument| argument != "--moving-floor-resource-replay-report");
     args.retain(|argument| argument != "--door-resource-replay-report");
     args.retain(|argument| argument != "--measure-two-frames");
@@ -344,12 +448,13 @@ pub(crate) fn run() -> PlatformResult<()> {
     render_strategies::remove_cli_args(&mut args);
     args.retain(|argument| !argument.starts_with("--wall-source-report="));
     args.retain(|argument| !argument.starts_with("--look-ray-report="));
+    args.retain(|argument| !argument.starts_with("--bsp-diagnostic-scan-report="));
     args.retain(|argument| argument != "--embedding-east");
     args.retain(|argument| argument != "--embedding-north");
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered] [--global-full-plus-view-local-sky-depth] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-classic-plane-presentation|--doom-seg-classic-context-presentation|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -414,7 +519,7 @@ pub(crate) fn run() -> PlatformResult<()> {
                 .into(),
         );
     }
-    let mut scene = prepare_scene(package, member)?;
+    let mut scene = prepare_scene(package, member, doom_bsp_bounds_audit_report)?;
     let ordered_prepared_observation = trial_render_strategy
         .filter(|strategy| strategy.is_ordered_occurrence_integration())
         .map(|_| {
@@ -449,12 +554,45 @@ pub(crate) fn run() -> PlatformResult<()> {
         .as_ref()
         .map(|observation| observation.plane_lowering.clone());
 
+    if render_subsector_inventory_report {
+        report_render_subsector_inventory(&scene)?;
+        return Ok(());
+    }
+    if render_subsector_shadow_report {
+        report_render_subsector_actual_camera_shadow(&scene)?;
+        return Ok(());
+    }
+    if render_subsector_prepared_report {
+        report_render_subsector_prepared_view(&scene)?;
+        return Ok(());
+    }
+    if render_subsector_connectivity_report {
+        report_render_subsector_connectivity_shadow(&scene)?;
+        return Ok(());
+    }
+
+    if tokimu_spatial_bake_report {
+        report_tokimu_spatial_bake(&scene)?;
+        return Ok(());
+    }
+    if tokimu_spatial_query_report {
+        report_tokimu_spatial_queries(&scene)?;
+        return Ok(());
+    }
+    if tokimu_spatial_runtime_report {
+        report_tokimu_spatial_runtime_queries(&scene)?;
+        return Ok(());
+    }
     if ordered_occurrence_runtime_snapshot_report {
         report_ordered_occurrence_runtime_snapshots(&scene)?;
         return Ok(());
     }
     if ordered_occurrence_six_ray_report {
         report_ordered_occurrence_six_ray_handoff(&scene)?;
+        return Ok(());
+    }
+    if ordered_occurrence_live_refresh_report {
+        report_ordered_occurrence_live_refresh(&scene)?;
         return Ok(());
     }
     if spatial_orientation_report {
@@ -683,7 +821,17 @@ pub(crate) fn run() -> PlatformResult<()> {
         return Ok(());
     }
     if let Some(ray) = look_ray_report {
-        report_source_look_ray(&scene, comparative_embedding, ray, include_cutouts);
+        report_source_look_ray(
+            &scene,
+            comparative_embedding,
+            ray,
+            include_cutouts,
+            bsp_diagnostic_enabled,
+        );
+        return Ok(());
+    }
+    if let Some(scan) = bsp_diagnostic_scan_report {
+        report_source_viewport_scan(&scene, comparative_embedding, scan, include_cutouts)?;
         return Ok(());
     }
     if spatial_flat_uv_report {
@@ -729,6 +877,14 @@ pub(crate) fn run() -> PlatformResult<()> {
 
     if doom_topology_report {
         report_doom_topology(&scene.topology_report);
+        return Ok(());
+    }
+    if doom_bsp_bounds_audit_report {
+        let audit = scene
+            .bsp_bounds_audit
+            .as_ref()
+            .ok_or_else(|| io::Error::other("requested BSP bounds audit was not prepared"))?;
+        println!("E1M1 BSP bounds audit: {}", audit.report());
         return Ok(());
     }
     if doom_membership_report {
@@ -811,7 +967,12 @@ pub(crate) fn run() -> PlatformResult<()> {
     ) {
         return Err("topology admission inventory mutated original geometry".into());
     }
-    let (render_strategy_name, render_strategy_stages) = if candidate1_sky_depth {
+    let (render_strategy_name, render_strategy_stages) = if bsp_diagnostic_enabled {
+        (
+            "bsp-shadow-diagnostic-full",
+            "original-complete-geometry>doom-shadow-bsp-classification>diagnostic-material-only>renderer-full-submission",
+        )
+    } else if candidate1_sky_depth {
         (
             "global-full-plus-view-local-sky-depth",
             "sky-panorama>doom-authoritative-sky-depth-delta>original-complete-geometry>renderer-full-submission",
@@ -847,7 +1008,7 @@ pub(crate) fn run() -> PlatformResult<()> {
             .map(OrderedPreparedSubmissionObservation::family_conservation_report)
             .unwrap_or_else(|| "not-observed".to_owned());
         eprintln!(
-            "E1M1 ordered-occurrence integration baseline: strategy={render_strategy_name}; stages={render_strategy_stages}; source-observation=[{source_observation}]; wall-lowering-observation=[{wall_lowering_observation}]; plane-occurrence-observation=[{plane_occurrence_observation}]; plane-lowering-observation=[{plane_lowering_observation}]; family-conservation=[{family_conservation}]; original-inventory=[{}]; original-inventory-retained-separately=true; prepared-opaque-declarations={}; prepared-cutout-declarations={}; conservation=balanced; renderer-mutation=true; fixed-source-view=true; generic-camera-filter=none; legacy-screen-column-reconstruction=false",
+            "E1M1 ordered-occurrence integration baseline: strategy={render_strategy_name}; stages={render_strategy_stages}; source-observation=[{source_observation}]; wall-lowering-observation=[{wall_lowering_observation}]; plane-occurrence-observation=[{plane_occurrence_observation}]; plane-lowering-observation=[{plane_lowering_observation}]; family-conservation=[{family_conservation}]; original-inventory=[{}]; original-inventory-retained-separately=true; prepared-opaque-declarations={}; prepared-cutout-declarations={}; conservation=balanced; renderer-mutation=true; fixed-source-view=false; generic-camera-filter=none; partial-plane-domain=classic-ordered-vertical-cells-lowered-to-ordinary-geometry",
             topology_inventory.report(),
             scene.opaque_draws.len(),
             scene.cutout_draws.len(),
@@ -869,7 +1030,7 @@ pub(crate) fn run() -> PlatformResult<()> {
             strategy,
             TrialRenderStrategy::PreparedFullSubmission
                 | TrialRenderStrategy::PreparedFrustumFiltered
-        )
+        ) || strategy.is_ordered_occurrence_integration()
     }) {
         ordered_coverage_source
     } else {
@@ -910,6 +1071,8 @@ pub(crate) fn run() -> PlatformResult<()> {
         render_strategy_name,
         render_strategy_stages,
         topology_inventory,
+        bsp_diagnostic_enabled,
+        bsp_diagnostic_focus,
         draws: scene.opaque_draws,
         uploads: scene.opaque_uploads,
         cutout_draws: scene.cutout_draws,
@@ -1007,7 +1170,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         ordered_coverage_prepared: applied_trial_strategy
             .is_some_and(|applied| applied.ordered_coverage_prepared),
         ordered_coverage_source: runtime_ordered_coverage_source,
-        ordered_coverage_view: None,
+        ordered_preparation_identity: None,
         fixed_reconstruction_camera: applied_trial_strategy
             .is_some_and(|applied| applied.fixed_reconstruction_camera)
             || doom_seg_classic_plane_presentation
@@ -1025,9 +1188,14 @@ pub(crate) fn run() -> PlatformResult<()> {
     run_window_with_app(
         WindowConfig {
             title: format!(
-                "Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}{}",
+                "Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}{}{}",
                 if app.fixed_reconstruction_camera {
                     " | fixed-source-spawn"
+                } else {
+                    ""
+                },
+                if app.bsp_diagnostic_enabled {
+                    " | BSP diagnostic"
                 } else {
                     ""
                 }

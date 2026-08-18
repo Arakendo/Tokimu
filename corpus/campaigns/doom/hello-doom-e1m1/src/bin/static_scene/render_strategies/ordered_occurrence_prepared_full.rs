@@ -3,7 +3,7 @@ use crate::presentation::OrderedPreparedSubmissionObservation;
 use tokimu::PlatformResult;
 
 /// Replaces the global E1M1 declaration domain with the complete declaration
-/// set produced by one fixed-view Doom ordered-source preparation.
+/// set produced by one current-view Doom ordered-source preparation.
 ///
 /// This remains corpus-local. Doom owns source traversal and contribution
 /// preparation; the renderer receives ordinary declarations and does not know
@@ -102,6 +102,6 @@ pub(super) fn apply(_scene: &mut SceneInput) -> PlatformResult<AppliedRenderStra
     Ok(AppliedRenderStrategy {
         candidate_selection: CandidateSelection::FullSubmission,
         ordered_coverage_prepared: true,
-        fixed_reconstruction_camera: true,
+        fixed_reconstruction_camera: false,
     })
 }

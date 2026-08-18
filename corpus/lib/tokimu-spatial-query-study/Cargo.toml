@@ -1,0 +1,13 @@
+[package]
+name = "tokimu-spatial-query-study"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+tokimu-core = { path = "../../../crates/tokimu-core" }
+
+[dev-dependencies]
+wasm-bindgen-test = "=0.3.76"

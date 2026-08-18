@@ -23,6 +23,7 @@ corpus/lib/
   presentation-control/           transient presentation intent and resolution
   presentation-geometry-corpus/   vector and presentation geometry harness
   screenshot/                     deterministic visual evidence helpers
+  tokimu-spatial-query-study/     portable conservative spatial-query evidence
   ui-framework/                   composed UI consumer
   ui-tools/                       incubating UI and vector implementation
   xml-tools/                      XML parsing and query proofs
@@ -63,6 +64,8 @@ corpus/lib/
 - `screenshot` provides deterministic saved visual evidence.
 - `performance-diagnostics-corpus` exercises runtime observation and budget
   reporting.
+- `tokimu-spatial-query-study` incubates deterministic immutable BVH mechanics
+  and native/WASM query evidence without claiming visibility authority.
 
 ### Runtime And Movement
 

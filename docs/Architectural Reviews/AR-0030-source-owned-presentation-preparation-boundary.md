@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Under Review |
 | Opened | 2026-08-14 |
-| Last reviewed | 2026-08-16 |
+| Last reviewed | 2026-08-17 |
 | Scope | Stable Tokimu render API / program preparation / renderer boundary |
 | Trigger | Doom synthetic and E1M1 evidence falsified both global static-shell rendering with sky depth patches and whole-source Boolean filtering as sufficient source-faithful presentation models. |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009, ADR-0013 |
@@ -1036,6 +1036,690 @@ The review moves away from shared admission when:
   the authoritative prepared domain, return to this review before proposing a
   stronger provider-neutral presentation primitive.
 
+### Cycle 15 -- 2026-08-17
+
+- Native lifecycle result: the literal ordered-result implementation gained a
+  shared Rust-owned preparation entry, live camera refresh and current
+  door/platform height snapshots without admitting Doom semantics to the
+  renderer.
+- Structural result: source-spawn, bounded yaw/movement, six-ray and runtime
+  snapshot controls conserve successfully through complete ordinary
+  declaration replacement.
+- Visual falsification: the complete source-spawn frame reports 458 draws but
+  exposes severe sky-background leakage through large peripheral and smaller
+  interior regions. Conservation proved complete handling of the candidate's
+  records, not semantic correctness of those records.
+- Disposition: park the literal ordered-result study. Do not advance browser
+  parity, generic post-filtering or sky-depth repair from the visually invalid
+  result.
+- Authorized R&D: open a Doom-private BSP presentation-domain resolver study
+  in headless shadow mode over the original complete contribution inventory.
+  First attribute four marked source-spawn rays through exact camera domain,
+  BSP path, subtree decision, source disposition, lowering and handoff.
+- Boundary unchanged: BSP/source participation remains Doom-owned; no stable
+  renderer/runtime contract or shared visibility capability is admitted. If a
+  safe prefilter cannot be separated from the coupled wall/vertical-plane
+  protocol, retain that as a falsification and return here.
+
+### Cycle 16 -- 2026-08-17
+
+- Diagnostic refinement: the BSP study now has a full-submission visual
+  instrument over the original global contribution inventory. Shadow BSP
+  classification selects only corpus-local PNG materials and transient tint
+  overrides; it cannot remove geometry.
+- Source taxonomy: diagnostic families are floor plane, ceiling plane,
+  one-sided wall, source code-1 door, two-sided boundary, masked middle and
+  presentation-global skybox. Unequal current floor/ceiling heights refine a
+  two-sided boundary as a height-transition boundary. “Window” and “stair” are
+  deliberately not promoted from human visual interpretations to source
+  semantics.
+- Conservative outcomes: admitted SEGs and visited source planes are bright;
+  only positive terminal solid-range coverage is shown as rejected. Projection
+  or traversal absence remains an explicit unresolved/fail-open blue state.
+- Inspection loop: all, accepted, rejected and unresolved focus modes retain
+  identical draw membership and dim only nonmatching records. `LOOK` replay
+  reports family, disposition, exact reason and source identity for the hit.
+- Runtime scope: free look and movement recompute the shadow observation from
+  the current camera and application-owned current-height snapshot. No
+  activation or timing policy moves into preparation.
+- Boundary unchanged: the existing provider-neutral draw-local material
+  override realizes the visualization. No Doom term, BSP traversal, source
+  identity or new contract enters `tokimu-render`; the resolver remains
+  appearance-only until the study's presentation gate is earned.
+
+### Cycle 17 -- 2026-08-17
+
+- Live diagnostic finding: a purple floor hit in source subsector `113`
+  exposed two distinct BSP-derived domains. Its one SEG has endpoint bounds
+  `x=896..928, y=-3072`, while its nine-step root-to-leaf partition path
+  infers a valid convex plane region `x=896..928, y=-3104..-2992`.
+- Exact evidence: the retained ray hits the reconstructed floor at
+  `(925.819,-3026.415)`, inside the inferred plane region but `45.585` source
+  units outside the explicit SEG bounds. Node `107` projects the far-child SEG
+  box outside the view while the floor hit is near the view center.
+- Interpretation: child bounding boxes over wall/SEG evidence cannot be
+  promoted directly to whole-subsector plane rejection authority. The flat
+  itself is not thereby shown oversized; it is lowered from the complete
+  retained BSP partition path, whose implicit boundaries extend beyond the
+  leaf's explicit SEG endpoints.
+- Diagnostic refinement: `LOOK` now reports SEG bounds, inferred plane-region
+  bounds and hit membership in both. The shadow reason
+  `source-plane-child-seg-bounds-outside-fov` remains purple,
+  unresolved/fail-open and fully submitted.
+- Architectural pressure retained: a future Doom-private resolver may need
+  distinct wall/SEG and plane participation rules, or may prove inseparable
+  from the coupled wall/vertical-plane protocol. No presentation authority,
+  renderer contract or engine-wide visibility abstraction is admitted by this
+  finding.
+
+### Cycle 18 -- 2026-08-17
+
+- Viewport-scan finding: a pitched/free-look view exposed two ordinary wall
+  hits at the extreme right edge that the frozen classic-width BSP shadow
+  manifest left unresolved. Both hits lie inside their explicit SEG bounds
+  and inferred leaf regions; their source SEGs are admitted when the off-axis
+  rays are traced as centered views.
+- Camera-domain evidence: the frozen source heading is `-154.944°`; the two
+  wall sample rays are offset by `-48.688°` and `-45.416°`. They are therefore
+  outside the resolver's fixed classic `±45°` horizontal traversal domain
+  even though the pitched Tokimu perspective presents them in the viewport.
+- Diagnostic refinement: these cases now report
+  `source-wall-seg-bounds-outside-fov` rather than generic traversal ambiguity,
+  and sampled LOOK reports the normalized sample-minus-view heading.
+- Architectural finding: unrestricted Tokimu pitch cannot be assumed to share
+  one classic fixed-width horizontal Doom source view. A presentation-
+  affecting resolver would need an explicit choice among the actual Tokimu
+  frustum, multiple source views, or a constrained classic presentation
+  domain. That choice is not made by this diagnostic refinement.
+- Boundary unchanged: no generic camera, renderer or runtime API is changed;
+  unresolved edge walls remain submitted. Do not widen the Doom-private FOV
+  or reject these contributions without a deliberate AR-0030 decision.
+
+### Cycle 19 -- 2026-08-17
+
+- Maintainer direction: use actual prepared geometry and the actual Tokimu
+  frustum as a conservative false-negative guard around source-specific BSP
+  evidence. A BSP proxy disagreement must not omit geometry that intersects
+  the actual view; retain and diagnose it instead.
+- Family authority: exact finite wall SEG/projected-range evidence may support
+  strong wall rejection. Whole floors and ceilings require plane-appropriate
+  support and may not inherit rejection authority from one child SEG endpoint
+  box or covered horizontal range alone.
+- Shadow implementation: a solid-range-pruned plane is classified rejected
+  only when its prepared draw AABB is also definitely outside the actual
+  Tokimu frustum. An intersecting plane becomes unresolved/fail-open with
+  `prepared-geometry-frustum-vetoed-plane-rejection`; unavailable bounds or
+  camera evidence remains explicit ambiguity. Wall classification is
+  unchanged.
+- Scope: the prepared AABB/frustum result is a veto against unsafe negative
+  evidence, not a generic visibility oracle, occlusion system or positive BSP
+  acceptance rule. Full diagnostic submission remains conserved and no
+  renderer/runtime/public contract changes.
+- Validation: a focused three-outcome test fixes rejected, vetoed and
+  unavailable plane behavior. The retained `16x10` subsector `64` replay still
+  produces one unresolved floor group, zero rejected samples and the same
+  inferred-region/SEG-box disagreement. A two-frame source-spawn GPU control
+  reclassifies exactly `158` plane draws from rejected to unresolved, retains
+  all `1,849` declarations and reports zero renderer removals.
+- Live falsifier: a later `32x20` walk/free-look scan reports `120` visible
+  prepared-frustum veto samples and zero rejected nearest hits across the
+  floors and ceilings of subsectors `97` and `99`. The center subsector `97`
+  floor hit is `46.273` units outside its sole SEG box but inside the inferred
+  plane region; its BSP leaf is nevertheless solid-range covered. This
+  directly falsifies promoting horizontal solid coverage of the child proxy
+  to whole-plane rejection authority and corroborates the family split. An
+  exact headless replay reproduces the four groups and expands representative
+  hits `10.699`, `53.255`, `6.538` and `123.321` units outside their SEG boxes
+  but inside their inferred plane regions.
+- Remaining gate: exercise source-spawn, movement, pitch and runtime-height
+  snapshots before deciding whether any family-specific negative evidence is
+  trustworthy enough for a presentation-affecting experiment.
+
+### Cycle 20 -- 2026-08-17
+
+- Canonical baked-data audit: all `236` raw E1M1 NODES records exactly match
+  the decoded partition, bounding-box and child fields. All `472` child boxes
+  contain their complete recursively collected descendant SEG-endpoint
+  envelopes; no source-proxy underbound was found.
+- Representation result: only `149/472` child boxes contain the corresponding
+  inferred convex plane-region envelope. `323/472` inferred plane domains
+  extend beyond the boxes, including the retained node `95`/`96`, subsector
+  `97`/`99` falsifiers.
+- Finding: the decoder and canonical BSP bake are consistent for the source
+  structures the boxes actually bound. The defect is downstream authority:
+  a valid source-subtree prune cannot be promoted to rejection of a larger
+  reconstructed whole-plane contribution.
+- Cross-domain rule: a bound has negative authority only over the
+  representation it actually bounds. This applies to future hierarchical
+  source imports without making source BSP boxes a generic engine visibility
+  concept.
+- Disposition: keep canonical `DOOM1.WAD` unchanged. A later alternate-node-
+  builder comparison may perturb the evidence diagnostically, but rebaking is
+  not an authorized repair or runtime prerequisite.
+- Boundary unchanged: the audit is a corpus-local headless observation over
+  import bytes and existing decoded/inferred structures. It adds no provider,
+  renderer, runtime or stable/public contract.
+
+### Cycle 21 -- 2026-08-17
+
+- Positive-authority correction: reaching a source subsector selects possible
+  Classic Doom floor/ceiling destinations but does not prove occurrence of an
+  entire reconstructed Tokimu convex plane mesh. The earlier
+  `visited-source-plane=accepted` diagnostic overclaimed authority.
+- Shadow refinement: reached intersecting planes now remain unresolved/fail-
+  open with `source-plane-subsector-reached-occurrence-unproven`. Prepared
+  planes definitely outside the actual Tokimu frustum use the distinct
+  `rejected-outside-frustum` disposition and
+  `prepared-geometry-outside-frustum` reason. Solid-range rejection remains a
+  wall/SEG result.
+- Source-spawn control: all `1,849` declarations remain submitted with zero
+  renderer removals. Plane outcomes are `584` actually outside-frustum and
+  `269` unresolved; accepted outcomes are now the `70` exact admitted wall-
+  family draws rather than `407` reached plane draws plus those walls.
+- Viewport control: the retained `32x20` walk/free-look replay reports `631`
+  hits, `203` accepted wall-family hits, zero rejected hits and `428`
+  unresolved plane hits across fourteen groups. No visible sampled plane is
+  rejected or mislabeled accepted.
+- Remaining authority question: plane acceptance or source-specific rejection
+  requires wall-range/per-column plane-occurrence evidence. Neither subsector
+  reachability nor child-box pruning supplies it alone.
+- Boundary unchanged: this remains appearance-only corpus shadow evidence over
+  unchanged full submission. No renderer, runtime or stable/public contract is
+  added.
+
+### Cycle 22 -- 2026-08-17
+
+- Plane-evidence refinement: interactive `LOOK`, headless single-ray replay
+  and automatic headless-scan representatives now match flat hits against the
+  existing Classic `320x200` plane-span observation by exact plane key and
+  source sector. Reports retain matching instance, populated-column,
+  populated-cell and source-SEG counts.
+- Authority remains deliberately narrow: a matching span proves that the
+  source plane identity participates somewhere in the frozen Classic view. It
+  does not prove that an entire reconstructed Tokimu subsector mesh or an
+  arbitrary pitched Tokimu pixel participates. Absence is diagnostic and does
+  not authorize whole-plane rejection.
+- Retained falsifier: subsector `97`'s exact visible floor occurrence remains
+  source-protocol rejected, while the same sector-38 `FLOOR4_8` plane key is
+  present elsewhere in one Classic instance with `249` populated columns,
+  `17,381` populated cells and eight source SEGs. Plane identity participation
+  therefore cannot be substituted for exact occurrence authority.
+- Validation: the focused static-scene suite passes `74/74`; the retained
+  headless ray reproduces the expected exact hit, BSP waterfall and new span
+  evidence without renderer startup.
+- Runtime freshness control: immutable current-height snapshot replays still
+  change twelve door-sector and nineteen platform-sector target declarations
+  through the same shared preparation seam with zero unresolved lowering. The
+  platform's horizontal occurrence fingerprint remains stable while vertical
+  realization changes, as expected; activation and timing policy remain
+  application-owned and absent from preparation.
+- Boundary unchanged: the implementation is corpus-local diagnostic work over
+  an existing provider observation. It changes no submission, renderer,
+  runtime ownership or stable/public contract.
+
+### Cycle 23 -- 2026-08-17
+
+- Proposed direction: park the attempt to use Classic Doom's BSP directly as
+  rejection authority over Tokimu's larger reconstructed presentation meshes.
+  Retain its complete diagnostic and audit evidence as a falsifier.
+- Successor plan: `docs/Plans/DOOM/Tokimu BSP capability setup plan.md`
+  proposes a deterministic BSP bake over the exact geometry Tokimu intends to
+  query, beginning corpus-locally with E1M1.
+- Leading ownership hypothesis under ADR-0003: Ring 1 retains only lightweight
+  spatial primitives; an earned BSP semantic model/provider contract belongs
+  in an optional Ring 2 spatial capability; specialized or external providers
+  belong in Ring 3. A small portable reference implementation may remain with
+  Ring 2 if it is dependency-light and corpus evidence earns it.
+- Required distinction: a geometry BSP may earn conservative spatial candidate
+  authority without earning Doom presentation, occlusion, sky, wall-tier or
+  plane-occurrence authority. Doom-private preparation remains responsible for
+  source semantics and the renderer still receives ordinary declarations.
+- Authorization state: documentation and review only. No new crate, stable
+  trait, facade export, engine dependency or presentation-affecting rejection
+  is authorized. The first possible implementation gate is one corpus-local
+  deterministic bake with containment, conservation and actual-camera query
+  evidence.
+- Reopening evidence: Ring 2 admission requires Doom, Quake and ordinary
+  non-BSP pressure. Failure to separate useful spatial meaning from Doom's
+  coupled presentation protocol favors a provider-private BSP rather than a
+  generic capability.
+
+### Cycle 24 -- 2026-08-17
+
+- Tokimu-first clarification: the proposed capability must define BSP from
+  Tokimu's own finite-member identity, partition, split correlation,
+  containment, revision, conservative-query, conservation and bounded-failure
+  requirements. Doom and Quake structures are later mappings, adapters,
+  rebake inputs or coexisting source-private structures; they do not define the
+  Tokimu semantic model.
+- Provisional smallest meaning deliberately excludes visibility, occlusion,
+  portals, PVS, renderer ordering, materials, collision, simulation, Doom
+  subsectors/SEGs/visplanes and Quake brushes/contents. These may consume or
+  annotate spatial results without becoming BSP semantics.
+- Representation requirement: every artifact must name the exact finite member
+  representation it partitions and preserve exact fragment-to-original
+  correlation. No public Rust generic or stable type is implied by this
+  semantic requirement.
+- Required adversary: compare the corpus-local BSP experiment with a BVH or
+  equivalent containing hierarchy over the same members. If ray/frustum
+  candidates, containment and dynamic refit are the only earned needs, BSP may
+  be an implementation behind a smaller spatial-query capability rather than
+  Ring 2 meaning of its own.
+- Source relationship: Classic Doom's BSP and a Tokimu BSP may legitimately
+  coexist because they answer different questions. Direct source mapping is
+  permitted only with proof that member identity, bounds and guarantees satisfy
+  the Tokimu contract.
+- Authorization remains documentation-only. A first implementation review must
+  authorize both the Tokimu-first corpus bake and its BVH/control adversary;
+  it must not select BSP merely because this investigation began with Doom.
+
+### Cycle 25 -- 2026-08-17
+
+- Authorized corpus result: the first Tokimu-first bake uses the exact `1,849`
+  prepared E1M1 triangles as finite members, retaining draw/triangle identity
+  through splitting. It is corpus-local and does not read Doom BSP topology,
+  affect submission or introduce a shared API/crate.
+- Correctness: the bounded BSP and same-inventory BVH both report zero
+  containment failures and complete member conservation. BSP fragment area is
+  conserved within the declared tolerance. Independent runs repeat BSP
+  fingerprint `78b7e9300f148c33` and BVH fingerprint `599d8ca7411ffd11`.
+- Material BSP result: a deterministic median-axis splitter reaches its global
+  `500,000` generated-fragment budget, leaves `334,345` final fragments from
+  `1,849` triangles (`180.824770x`), creates `14,231` nodes and reaches depth
+  `20`. Fragment payload alone has a `16,048,560`-byte lower bound. Family
+  amplification is floor `254.25x`, ceiling `173.26x`, wall `150.64x` and
+  cutout `113.12x`.
+- BVH adversary: the unsplit control retains `1,849` members in `255` nodes at
+  depth `7`, with `1.0x` amplification. Observed debug-build construction is
+  approximately `4.9–5.2 ms`, versus `406–412 ms` for the bounded BSP.
+- Ordinary failure corrected: the first report enforced the fragment limit per
+  node and reached `650,337` final fragments (`351.72x`). The limit is now a
+  global generated-work budget; when reached, remaining geometry stays in a
+  conservative leaf. The first result remains retained evidence rather than a
+  valid bounded artifact.
+- Architectural finding: naive median-axis triangle splitting is not a viable
+  default Tokimu spatial index for this representation, while the BVH currently
+  satisfies the same Slice 1 containment/conservation requirements much more
+  cheaply. This does not falsify all BSP policies, but continuing requires an
+  explicit choice among a different split/member policy, a non-splitting
+  partition experiment, or advancing BVH queries first. Do not optimize away
+  the adversarial evidence implicitly.
+- Authorization state: stop before Slice 2 actual-camera queries pending that
+  choice. No Ring 2 admission, provider contract or presentation authority is
+  earned.
+
+### Cycle 26 -- 2026-08-17
+
+- Selected disposition: advance the unsplit BVH control through actual-camera
+  queries and park further BSP construction until a caller requires explicit
+  partition topology or split-fragment semantics unavailable from a BVH.
+- Corpus implementation: `--tokimu-spatial-query-report` rebuilds the same
+  deterministic `1,849`-member BVH and queries it with Tokimu's checked native
+  camera view/projection math at nine spawn, yaw, pitch, movement, near-wall
+  and retained off-axis poses.
+- Correctness: every BVH frustum result exactly equals the same-member
+  brute-force conservative AABB/frustum oracle; all exact nearest-triangle ray
+  results equal brute force. Totals are zero false negatives, zero false
+  positives and zero ray mismatches. Matrix fingerprint is
+  `3c80342bb2cfcdf4`.
+- Work reduction: observed frustum leaf testing is `287..1,257` members and ray
+  testing is `43..361` triangles instead of `1,849` brute-force tests. These
+  are debug diagnostic observations and do not establish a performance budget.
+- Retained falsifiers: the subsector 97/64 floor rays and linedef 101/107 wall
+  rays resolve to the same exact source-correlated members as prior `LOOK`
+  evidence without BSP child-bound authority or triangle fragmentation.
+- Architectural finding: no current caller consumes BSP partition planes or
+  split fragments. The evidence now favors investigating a smaller optional
+  conservative spatial-query capability rather than admitting BSP as Tokimu
+  Ring 2 meaning. No capability, crate, trait or public API is admitted yet.
+- Portability limit: the native `static_scene` binary's existing window/runtime
+  path is not a WASM target, so direct target checking fails before reaching
+  this diagnostic. Browser parity requires an authorized portable consumer;
+  this is not worked around by prematurely moving the corpus algorithm into an
+  engine crate.
+- Boundary unchanged: queries remain corpus-local, immutable and diagnostic.
+  They do not alter renderer submission, Doom preparation authority, runtime
+  ownership or presentation membership.
+
+### Cycle 27 -- 2026-08-17
+
+- Naming disposition: the leading architectural candidate is now an optional
+  conservative spatial-query capability, not “Tokimu BSP.” BSP remains a
+  historical study name and possible provider pending a caller that requires
+  partition-specific semantics.
+- Runtime endpoint diagnostic: `--tokimu-spatial-runtime-report` reconstructs
+  current geometry for door sector 4 (`ceiling 0->68`) and platform sector 70
+  (`floor 104->-48`) from immutable height snapshots. Activation, timing,
+  collision and observer policy are absent.
+- Representation proof: after applying ordinary preparation's zero-area
+  omission rule, the reconstructed baseline exactly equals the complete
+  `1,849`-triangle prepared geometry multiset, fingerprint
+  `9f394a35516f5567`.
+- Correctness: immutable rebuild and one reusable static-BVH/dynamic-sidecar
+  union both exactly match complete current-geometry brute-force frustum and
+  nearest-ray oracles at the retained boundary-local views. No renderer
+  submission changes.
+- Refit finding: bounds-only topology refit is unsupported for both endpoints
+  because member identity changes. Door-open adds four triangles; platform-low
+  replaces identities despite retaining the same total count. Refit cannot be
+  treated as a mere bounds update under the exact-member contract.
+- Cost observation: debug current-geometry preparation is approximately
+  `10–11 ms`; immutable BVH rebuild is `7.5–8.5 ms`; sidecar current-member
+  selection is `0.5–0.8 ms` after a reusable `1,831`-member static build.
+  These are observations, not budgets.
+- Lifecycle remains undecided: immutable rebuild provides simpler artifact
+  identity; sidecar avoids static rebuild but requires explicit dynamic
+  classification. Intermediate phases, release measurements and portable
+  execution remain required before selection or Ring 2 admission.
+
+### Cycle 28 -- 2026-08-17
+
+- Runtime sequence: the corpus diagnostic now covers nineteen immutable door
+  and platform revisions through closed/high, 25/50/75-percent motion,
+  open/low, closing/ascending and repeated/waiting states. Both immutable BVH
+  replacement and reusable static-BVH/dynamic-sidecar union match complete
+  current-geometry frustum/ray brute force at every revision.
+- Revision rule: application snapshot revision is bound separately from the
+  geometry structure fingerprint. Opening and closing at the same height may
+  reproduce geometry but cannot alias artifact lifecycle identity. All
+  nineteen current revisions reject the baseline artifact identity.
+- Dynamic bounds: the sidecar remains `18..22` members over a reusable
+  `1,831`-member static artifact. Refit is eligible only at exact
+  baseline-equivalent closed/high states and remains ineligible during actual
+  motion because exact member identity changes.
+- Release economics: twenty complete release replays provide `380` snapshot
+  samples. Mean complete geometry preparation is `2.719 ms`; immutable BVH
+  rebuild `0.430 ms`; sidecar extraction `0.133 ms`. Total update means are
+  `3.149 ms` immutable and `2.852 ms` sidecar. Query means are `0.0568 ms`
+  rebuilt and `0.0602 ms` composite sidecar.
+- Corpus disposition: immutable replacement becomes the reference lifecycle.
+  The sidecar's `0.297 ms` (`9.4%`) total saving does not yet earn composite
+  revision/conservation/query-union semantics because both paths first rebuild
+  the complete geometry. Sidecar remains a measured optimization candidate.
+- Architectural gate: portable CPU/WASM evidence is next, but choosing its
+  repository location and moving reusable machinery out of the native corpus
+  binary requires placement review. No Ring 2 contract, shared crate, trait or
+  facade export is admitted by this result.
+
+### Cycle 29 -- 2026-08-17
+
+- Placement review extracted only immutable BVH, conservative frustum/ray,
+  audit, fingerprint, refit and revision mechanics into the corpus-local
+  `tokimu-spatial-query-study` crate.
+- E1M1 source conversion, runtime movement policy, renderer submission and
+  presentation interpretation remain outside. No Ring 2 contract or facade
+  export was added.
+- One fixed fixture executes natively and through the
+  `wasm32-unknown-unknown` test runner with identical fingerprint, candidates,
+  nearest hit and stale/revised lifecycle assertions.
+- Full E1M1 bake, nine-pose query and nineteen-snapshot runtime fingerprints
+  and conservation remain unchanged after extraction.
+- AR-0031 now owns prospective spatial-capability admission. This does not
+  alter AR-0030's preparation question or grant queries presentation authority.
+
+### Cycle 30 -- 2026-08-17
+
+- The retained six-ray E1M1 handoff replay now queries the exact global
+  prepared-triangle inventory through the corpus BVH before inspecting the
+  final Doom ordered result. The BVH result is checked against the brute-force
+  triangle oracle and remains shadow-only.
+- All six suspect global-shell contributions are nearest BVH hits. Five have
+  no final ordered declaration: walls `230` and `247` terminally reject their
+  source SEGs, while ceiling planes for subsectors `149` and `104` have no
+  association, destination, disposition or declaration at their rejected
+  poses.
+- The sixth BVH hit, ceiling subsector `104` at the reached pose, survives only
+  as a partial plane occurrence with two finite view intervals and eight
+  prepared declarations.
+- Finding: actual-geometry spatial relevance and source presentation
+  participation are orthogonal. A conservative BVH correctly retains all six
+  triangles and therefore cannot repair the sky leak without being granted
+  unsupported source-presentation authority.
+- Disposition: no BVH submission filter is admitted. The leak fix remains in
+  the Doom-private complete ordered-result handoff: whole retained geometry,
+  terminal omission, partial SEG realization and focused partial-plane
+  realization. Work stops before inventing a local classifier that would
+  reconstruct coupled ordered coverage.
+- Detailed evidence:
+  `docs/Checkpoints/2026-08-17-sky-leak-bvh-source-shadow.md`.
+
+### Cycle 31 -- 2026-08-17
+
+- Maintainer authorization: treat the complete Doom ordered result as the
+  authoritative live presentation input and solve partial planes from their
+  own bounded plane-domain evidence. Do not broaden this into a generic plane
+  compositor or renderer visibility contract.
+- Vocabulary: the Doom-private semantic unit is a prepared presentation
+  occurrence, conditioned by view and runtime snapshot. A source contribution
+  may produce zero, one or several bounded occurrences; absence is
+  authoritative.
+- Focused implementation: partial source-plane triangles now intersect the
+  exact ordered vertical plane cells matching kind, sector, subsector, height,
+  texture, light and source SEG. Whole planes reuse ordinary geometry and
+  terminal decisions still emit nothing. Resulting fragments consolidate into
+  one ordinary mesh per surviving source triangle.
+- Retained ceiling evidence: subsector `104`, sector `40`, `CEIL3_5` has `13`
+  exact cells owned by SEGs `310/311`. Its retained ray now has one combined
+  ordinary declaration; the five rejected rays still have zero declarations.
+- Source-spawn structure: `3,432` lowered partial-plane triangles consolidate
+  into `43` plane meshes. With `309` opaque walls and `12` cutouts, the live
+  handoff is `352` opaque plus `12` cutout declarations and remains balanced.
+- Lifecycle refinement: an explicit camera/runtime preparation identity skips
+  identical stationary rebuilds. Identity is installed only after successful
+  complete prepare-then-replace, preserving atomic refresh semantics.
+- Boundary unchanged: no `tokimu-render`, Ring 2, BVH authority or stable
+  public contract was added. Native visual falsifiers and browser parity
+  remain open.
+- Detailed evidence:
+  `docs/Checkpoints/2026-08-17-doom-prepared-occurrence-partial-plane.md`.
+
+### Cycle 32 -- 2026-08-17
+
+- A direct pitch adaptation was tested before visual acceptance: camera pitch
+  was added to the inverse projection of Classic Doom's retained 320x200 plane
+  rows, and pitch was included in the preparation identity.
+- This falsified the retained six-ray control. The previously proven partial
+  ceiling at subsector `104` changed from one declaration to zero even though
+  its source occurrence remained partial and the global BVH still proved the
+  triangle geometrically relevant.
+- Finding: Classic Doom plane rows are evidence for the unpitched source
+  projection that produced them. Reinterpreting those row coordinates as
+  coverage in a pitched Tokimu camera changes their represented world domain;
+  camera pitch does not transfer that authority.
+- The attempted adaptation was removed and the last conserved horizontal
+  preparation restored. True pitched free-look remains an architectural
+  question: it needs an explicit rule for deriving additional plane coverage
+  outside the source protocol, not an arithmetic remap or silent fail-open.
+- Per the study stop conditions, implementation pauses before copying the
+  source vertical clipper, broadening provider contracts, submitting whole
+  partial planes, or adding a renderer primitive.
+
+### Cycle 33 -- 2026-08-17
+
+- Native visual acceptance falsified the Cycle 31 prepared handoff at E1M1
+  spawn after live movement. The active `365`-draw result presented large
+  opaque foreground regions and effectively removed roughly half of the spawn
+  room from the view.
+- This is stronger than the earlier pitch-only finding: the unpitched exact
+  plane-cell lowering can balance every structural ledger and still produce an
+  invalid presentation under ordinary camera refresh.
+- Disposition: Cycle 31 remains useful representation evidence but is not an
+  accepted live rendering path. Its exact Classic row cells cannot yet serve
+  as sufficient world-space prepared-plane geometry for Tokimu walkabout.
+- No screenshot-specific omission, global-shell fallback, renderer exception,
+  or relaxed conservation rule is authorized. The next work is the focused
+  hardware-port precedent study already identified in Cycle 32, followed by an
+  explicit AR-0030 representation decision.
+
+### Cycle 34 -- 2026-08-17
+
+- Focused primary-source precedent compared GZDoom with the smaller Doom
+  iOS/PrBoom-style hardware path for floors, ceilings, sky and free-look.
+- Both replace Classic visplane rows with persistent world-space plane
+  geometry. GZDoom uses subsector/section surfaces plus render-sector, hack and
+  portal preparation; Doom iOS admits coarser triangulated whole-sector planes
+  when an uncovered subsector is reached.
+- GZDoom retains source traversal but combines horizontal angular coverage with
+  pitch-aware subsector tests over actual plane endpoint heights. Doom iOS
+  retains horizontal occlusion and explicitly acknowledges over-admission risk
+  from whole-sector granularity.
+- Finding: the next candidate, if authorized, should test a Doom-private render
+  subsector as the persistent plane unit, followed by actual-camera traversal.
+  It must not use Classic row cells as final geometry or grant a reached leaf
+  authority over an entire sector plane.
+- No implementation is authorized by this evidence alone. Render-sector
+  association, pitch-aware participation and sky role form a new
+  representation decision for AR-0030.
+- Detailed evidence:
+  `docs/Plans/DOOM/Evidence/Hardware Doom arbitrary-pitch plane preparation precedent.md`.
+
+### Cycle 35 -- 2026-08-17
+
+- Maintainer authorization: proceed with one corpus-local Doom-private
+  render-subsector actual-camera preparation experiment under the Cycle 34
+  representation finding.
+- The persistent unit owns a finite ordered subsector boundary, source and
+  render-sector association, current plane facts, ordinary world-space
+  surfaces, wall-tier correlation, sky role and explicit unsupported
+  provenance. It is not a stable Tokimu BSP or renderer concept.
+- The experiment replaces Classic row cells as final plane geometry. Classic
+  ordered observations remain diagnostic oracles; they may not fill the new
+  representation's holes or acquire authority under arbitrary pitch.
+- Per-view preparation may use Doom BSP near-first ordering, source-appropriate
+  horizontal coverage and pitch-aware tests over actual geometry. Child bounds
+  retain authority only over the source representation they bound, and sky
+  remains non-world presentation meaning.
+- The first proof fence is geometry completeness, correct treatment of the five
+  retained omissions plus partial ceiling, and continuity across neutral
+  pitch, bounded pitch, yaw and movement. Neutral-pitch results must agree with
+  retained Classic evidence wherever that evidence has exact authority.
+- A deterministic per-render-subsector inventory is required before the first
+  presentation-affecting candidate. The existing BVH may establish where
+  geometry is, but Doom-private preparation alone decides whether its source
+  presentation belongs.
+- Implementation is authorized through corpus-local construction, shadow
+  traversal, ordinary-declaration lowering, runtime/camera lifecycle and native
+  visual acceptance. Browser parity starts only after the native visual gate.
+- No new crate, stable/public trait, renderer semantic, generic portal
+  primitive, sky-depth geometry or Ring 2 presentation authority is authorized.
+  Evidence requiring one of those returns to this review.
+- Controlling study:
+  `docs/Plans/DOOM/Studies/Doom render-subsector actual-camera preparation.md`.
+
+### Cycle 36 -- 2026-08-18
+
+- Slices 0–2 of the authorized render-subsector experiment are complete as a
+  corpus-private headless shadow; renderer submission remains unchanged.
+- E1M1 construction conserves all 237 subsectors, 474 plane units, 732 source
+  SEGs and 1,256 wall-tier triangles with zero unresolved boundaries,
+  degenerates, containment failures or winding failures.
+- Nine actual-camera poses, including bounded pitch, yaw, movement, return,
+  near-wall and off-axis controls, produced zero geometric false negatives.
+- All six retained participation rays agree. In particular, subsector 104's
+  ceiling is retained from the reached pose and source-covered from the
+  rejected pose, demonstrating view-local rather than whole-sector authority.
+- An initial near-plane defect was repaired: a source solid SEG cannot close a
+  range unless it is source-facing and both finite endpoints are in front of
+  the camera. Near-plane ambiguity fails open.
+- Repeated reports were deterministic: matrix fingerprint
+  `20042a967aaec227`, six-ray fingerprint `64b7e8b802b10d14`.
+- No stable contract, new crate, generic portal concept, sky-depth geometry or
+  Doom renderer vocabulary was introduced. Slice 3 ordinary-declaration
+  preparation is the next authorized step.
+- Detailed evidence:
+  `docs/Checkpoints/2026-08-18-doom-render-subsector-shadow.md`.
+
+### Cycle 37 -- 2026-08-18
+
+- Slice 3 now lowers the conserved render-subsector shadow into complete
+  ordinary opaque/cutout declarations plus terminal sky, frustum and
+  source-coverage evidence. It remains headless and is not installed.
+- Seven prepared poses conserve all 2,182 input triangles. Spawn/return
+  declaration identity is stable; the prepared matrix fingerprint is
+  `d46154cd27ec89a9`.
+- Ordinary finding repaired: texture-name membership was insufficient cutout
+  provenance and initially yielded zero cutout declarations. Exact existing
+  linedef/sidedef source classification correlates all 26 masked-middle source
+  triangles; the owning-side green-room pose retains two cutout declarations.
+- No renderer or stable contract changed. Atomic composition-local install is
+  intentionally left pending so the alternative preparation theory can be
+  reviewed at a clean shadow/presentation boundary.
+
+### Cycle 38 -- 2026-08-18
+
+- Authorized Slice 2B tested render-subsector connectivity as a shadow-only
+  discriminator before the prepared view acquired renderer authority.
+- E1M1's finite graph contains 237 cells, 607 shared-boundary relationships and
+  no isolated cell. It retains explicit closed, positive, masked, paired-sky,
+  implicit and unresolved-fail-open edge reasons.
+- Conservative reachability visits 236 cells. The paired-sky-terminal falsifier
+  visits 233, but both reach every target in the six-ray matrix and disagree
+  with the ordered source oracle on all five rejected far-field specimens.
+- The exact BVH independently confirms that each target is geometrically
+  present along its ray. This is compatible with source-level rejection and
+  does not turn geometry or topological reachability into participation
+  authority.
+- Only the hut-east wall's shortest conservative chain crosses paired sky.
+  Wall 247 and the rejected ceilings remain reachable through ordinary or
+  implicit paths, so paired-sky terminality is not a sufficient resolver.
+- The negative result is deterministic at graph fingerprint
+  `13500e039c076c04` and matrix fingerprint `1d5228cf89a8478b`. No declaration,
+  renderer submission, stable contract or ownership boundary changed.
+- Disposition: retain connectivity as diagnostic topology evidence only. It
+  does not repair the open source-participation problem; live atomic install
+  remains pending review of that problem.
+
+### Cycle 39 -- 2026-08-18
+
+- The authorized custom-BVH view-cell/aperture follow-up completed Slices 0–3
+  as a corpus-private shadow. Renderer submission and stable contracts remain
+  unchanged.
+- The predecessor graph fingerprint remains `13500e039c076c04`. Its directed
+  aperture sidecar contains 457 traversable and 150 non-traversable
+  relationships, 33 zero-clearance relationships and zero boundary
+  containment failures at fingerprint `3447a97c840c5a0f`.
+- Actual-camera transfer retained multiple path-qualified clipped-view states.
+  The six-ray matrix produced 632 states total and a peak of 306; state growth
+  was bounded enough to test the semantic hypothesis.
+- The required positive subsector 104 ceiling is an exact BVH/brute-force hit
+  and is retained by the ordered source oracle, yet its ray crosses all three
+  inferred physical boundaries above their runtime openings. Physical aperture
+  transfer therefore omits a required Doom presentation occurrence.
+- Across 2,175 relevant surfaces, transfer reached 782 and left 1,393 outside.
+  Seventy-four retained surfaces outside transfer require source-ordered
+  rescue, while 290 source-covered surfaces are inside reached cells.
+  Reachability is consequently neither necessary nor sufficient.
+- Variant C agrees with all six controls only by retaining the complete
+  predecessor ordered-source oracle outside and inside the transferred domain.
+  It does not materially localize presentation authority.
+- Disposition: park the physical aperture hybrid as a Doom presentation
+  resolver. Retain its topology and path-state mechanics only as diagnostics.
+  Do not invent wider presentation apertures, sky geometry, renderer portal
+  semantics or Tokimu ownership to work around the falsifier.
+- Detailed evidence:
+  `docs/Checkpoints/2026-08-18-doom-custom-bvh-view-transfer-shadow.md`.
+
+### Cycle 40 -- 2026-08-18
+
+- Maintainer direction: open a diagnostic study explaining why Doom's ordered
+  protocol does not produce the retained far-field E1M1 contributions.
+- The question is refined from whole-sector rejection to exact source
+  occurrence causality. The study must name the first decisive BSP, SEG,
+  wall-tier or plane event and the earlier source events that supplied its
+  covering state.
+- Existing `terminally rejected`, `source-covered`, `not reached` and `zero
+  associations` results are treated as outcomes, not sufficient causal
+  explanations.
+- The paired subsector 104 ceiling views form the mandatory positive/negative
+  comparison. Sky's role must be proved from exact ordered mutations and may
+  validly be non-causal.
+- Authorization is diagnostic-only: observation provenance and bounded
+  counterfactual replay may be added inside the Doom corpus, but source
+  decisions, renderer submission, stable contracts and presentation authority
+  remain unchanged.
+- Controlling study:
+  `docs/Plans/DOOM/Studies/Doom source-ordered non-presentation causality study.md`.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -1046,6 +1730,7 @@ The review moves away from shared admission when:
 - `docs/Plans/DOOM/Studies/Doom viewer-relative presentation synthetic conformance.md`
 - `docs/Plans/DOOM/Studies/Doom source-topology admission over complete geometry.md`
 - `docs/Plans/DOOM/Studies/Doom ordered source occurrence preparation.md`
+- `docs/Plans/DOOM/Tokimu BSP capability setup plan.md`
 - `docs/Plans/DOOM/Studies/Doom authoritative sky coverage delta realization.md`
 - `docs/Plans/DOOM/Studies/Doom source-authorized relational contribution classification.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`
@@ -1053,3 +1738,4 @@ The review moves away from shared admission when:
 - `docs/Plans/DOOM/Evidence/Doom authoritative sky-depth realization seam evidence.md`
 - `docs/Plans/DOOM/Evidence/Doom relational classifier four-case capture ledger.md`
 - `docs/lessions/read-reference-source-early.md`
+- `docs/lessions/bounds-authority-follows-bounded-representation.md`

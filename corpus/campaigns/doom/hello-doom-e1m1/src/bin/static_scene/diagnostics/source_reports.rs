@@ -4,6 +4,73 @@
 //! lifecycle, renderer state, or source mutation policy.
 
 use super::super::*;
+use super::tokimu_spatial_bake::SpatialRayShadow;
+use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
+
+/// Exercises the shared Slice 6B entry point as a composition-local refresh
+/// sequence. This is headless structural evidence: it proves complete results
+/// are prepared before replacing the active declaration set, not pixel output.
+pub(crate) fn report_ordered_occurrence_live_refresh(scene: &SceneInput) -> PlatformResult<()> {
+    let cutout_materials = scene
+        .cutout_uploads
+        .iter()
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let origin = scene.spawn_observer.source_position;
+    let heading = f64::from(scene.spawn_observer.source_angle).to_radians();
+    let eye_height = scene.spawn_observer.position.y as i16;
+    let poses = [
+        ("spawn", origin, heading),
+        (
+            "yaw-minus-2-degrees",
+            origin,
+            heading - 2.0_f64.to_radians(),
+        ),
+        ("yaw-plus-2-degrees", origin, heading + 2.0_f64.to_radians()),
+        (
+            "forward-16",
+            [origin[0].saturating_add(16), origin[1]],
+            heading,
+        ),
+        ("return-spawn", origin, heading),
+    ];
+    let mut active = None;
+    let mut rows = Vec::new();
+    for (ordinal, (label, viewer, pose_heading)) in poses.into_iter().enumerate() {
+        let prepared = prepare_ordered_occurrence_declarations(
+            &scene.door_geometry_source.map,
+            viewer,
+            pose_heading,
+            eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &scene.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        let opaque = prepared.opaque_draws.len();
+        let cutouts = prepared.cutout_draws.len();
+        // The assignment follows successful preparation, so a failed future
+        // refresh leaves `active` unchanged rather than exposing a partial set.
+        active = Some(prepared);
+        rows.push(format!(
+            "{ordinal}:{label}:source=({},{}):heading={:.3}:opaque={opaque}:cutout={cutouts}",
+            viewer[0],
+            viewer[1],
+            pose_heading.to_degrees(),
+        ));
+    }
+    let active = active.expect("the nonempty refresh sequence installs a result");
+    println!(
+        "E1M1 Slice 6B live-refresh structural replay: poses={}; active-opaque={}; active-cutout={}; swap=prepare-then-replace; stale-or-partial-declarations=not-installed; generic-filter=none; conservation={}; rows=[{}]",
+        poses.len(),
+        active.opaque_draws.len(),
+        active.cutout_draws.len(),
+        active.conservation_report,
+        rows.join(" | "),
+    );
+    Ok(())
+}
 
 /// Replays the six retained Slice 6B rays against the literal ordered-result
 /// handoff. The expected result is deliberately expressed in source identity:
@@ -28,6 +95,7 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
         name: &'static str,
         origin: [f64; 3],
         direction: [f64; 3],
+        expected_global_label: &'static str,
         expected: ExpectedTarget,
     }
 
@@ -38,18 +106,21 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
             name: "hut-east-wall-230",
             origin: [2076.0, -3560.0, 36.0],
             direction: [0.905568898, -0.424199343, 0.0],
+            expected_global_label: "wall:230:BROWN1",
             expected: ExpectedTarget::RejectedWallSegs(WALL_230_SEGS),
         },
         RayCase {
             name: "wall-247-east",
             origin: [1306.508666992, -3272.168457031, 21.432840347],
             direction: [0.939651787, -0.338751376, 0.047981590],
+            expected_global_label: "wall:247:BROWN96",
             expected: ExpectedTarget::RejectedWallSegs(WALL_247_SEGS),
         },
         RayCase {
             name: "ceiling-104-reached",
             origin: [1477.330444336, -3594.213134766, 8.994521141],
             direction: [-0.792175531, -0.565008104, 0.230702817],
+            expected_global_label: "flat:40:CEIL3_5",
             expected: ExpectedTarget::PartialPlane {
                 subsector: 104,
                 kind: OrderedPlaneKind::Ceiling,
@@ -59,12 +130,14 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
             name: "wall-247-west",
             origin: [2115.047851562, -3569.925048828, 8.994521141],
             direction: [0.928815067, -0.358562857, 0.093463443],
+            expected_global_label: "wall:247:BROWN96",
             expected: ExpectedTarget::RejectedWallSegs(WALL_247_SEGS),
         },
         RayCase {
             name: "ceiling-149-rejected",
             origin: [2139.683349609, -3196.036376953, 8.994521141],
             direction: [0.180356100, 0.780082107, 0.599119186],
+            expected_global_label: "flat:7:CEIL3_5",
             expected: ExpectedTarget::RejectedPlane {
                 subsector: 149,
                 kind: OrderedPlaneKind::Ceiling,
@@ -74,6 +147,7 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
             name: "ceiling-104-rejected",
             origin: [2902.150878906, -3206.857421875, 8.994521141],
             direction: [-0.952072978, -0.304107845, 0.032795019],
+            expected_global_label: "flat:40:CEIL3_5",
             expected: ExpectedTarget::RejectedPlane {
                 subsector: 104,
                 kind: OrderedPlaneKind::Ceiling,
@@ -86,8 +160,33 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
         .iter()
         .map(|upload| (upload.source_name.clone(), upload.material))
         .collect::<BTreeMap<_, _>>();
+    let spatial_shadow = SpatialRayShadow::build(scene)?;
     let mut reports = Vec::new();
     for case in cases {
+        let spatial_hit = spatial_shadow
+            // Headless reports run before the optional comparative re-embed;
+            // the prepared inventory is still in its source-aligned frame.
+            .query_source_ray(
+                DoomComparativeEmbedding::CurrentReflected,
+                case.origin,
+                case.direction,
+            )?
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "Slice 6B ray {} expected a global prepared-triangle BVH hit",
+                    case.name,
+                ))
+            })?;
+        if spatial_hit.source_label != case.expected_global_label {
+            return Err(io::Error::other(format!(
+                "Slice 6B ray {} expected global BVH source {} but hit {} at distance {:.3}",
+                case.name,
+                case.expected_global_label,
+                spatial_hit.source_label,
+                spatial_hit.distance,
+            ))
+            .into());
+        }
         let viewer = [case.origin[0].round() as i16, case.origin[1].round() as i16];
         let heading = case.direction[1].atan2(case.direction[0]);
         let eye_height = case.origin[2].round() as i16;
@@ -240,18 +339,95 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
                     ))
                     .into());
                 }
+                let instance = destinations
+                    .first()
+                    .and_then(|destination| {
+                        observation
+                            .planes
+                            .plane_instances
+                            .get(destination.plane_instance_ordinal)
+                    })
+                    .ok_or_else(|| {
+                        io::Error::other(format!(
+                            "Slice 6B ray {} partial plane has no retained instance",
+                            case.name,
+                        ))
+                    })?;
+                let exact = prepare_doom_ordered_coverage(
+                    &scene.door_geometry_source.map,
+                    &scene.door_geometry_source.wall_extents,
+                    viewer,
+                    heading,
+                    f64::from(eye_height),
+                    true,
+                )?;
+                let reconstruction = reconstruct_doom_seg_classic_plane_cells(
+                    &exact.vertical.plane_spans,
+                    viewer,
+                    heading,
+                    f64::from(eye_height),
+                );
+                let exact_kind = match kind {
+                    OrderedPlaneKind::Floor => DoomSegClassicPlaneKind::Floor,
+                    OrderedPlaneKind::Ceiling => DoomSegClassicPlaneKind::Ceiling,
+                };
+                let exact_cells = reconstruction
+                    .cells
+                    .iter()
+                    .filter(|cell| {
+                        cell.source_sector == instance.source_sector
+                            && cell.key.kind == exact_kind
+                            && cell.key.height == instance.source_height
+                            && cell.key.texture == instance.texture
+                            && cell.key.light == instance.light_level
+                    })
+                    .collect::<Vec<_>>();
+                let exact_source_segs = exact_cells
+                    .iter()
+                    .map(|cell| cell.source_seg)
+                    .collect::<BTreeSet<_>>();
+                let exact_subsectors = scene
+                    .door_geometry_source
+                    .map
+                    .subsectors
+                    .iter()
+                    .filter(|subsector_record| {
+                        let start = usize::from(subsector_record.first_seg);
+                        let end = start + usize::from(subsector_record.seg_count);
+                        scene.door_geometry_source.map.segs[start..end]
+                            .iter()
+                            .any(|seg| exact_source_segs.contains(&seg.source.record_index))
+                    })
+                    .map(|subsector_record| subsector_record.source.record_index)
+                    .collect::<BTreeSet<_>>();
+                if exact_cells.is_empty() {
+                    return Err(io::Error::other(format!(
+                        "Slice 6B ray {} partial plane has no exact source plane-domain cells",
+                        case.name,
+                    ))
+                    .into());
+                }
                 format!(
-                    "{}=partial-plane:subsector={subsector}:kind={kind:?}:destinations={}:intervals={intervals:?}:partial-sources={partial_sources}:declarations={declarations}",
+                    "{}=partial-plane:subsector={subsector}:kind={kind:?}:destinations={}:intervals={intervals:?}:partial-sources={partial_sources}:declarations={declarations}:exact-plane-domain-cells={}:exact-plane-domain-source-segs={exact_source_segs:?}:exact-plane-domain-subsectors={exact_subsectors:?}",
                     case.name,
                     destinations.len(),
+                    exact_cells.len(),
                 )
             }
         };
-        reports.push(result);
+        reports.push(format!(
+            "{};bvh=geometrically-relevant:source={}:member={}:distance={:.3}:visited-nodes={}:tested-members={}",
+            result,
+            spatial_hit.source_label,
+            spatial_hit.member_identity,
+            spatial_hit.distance,
+            spatial_hit.visited_nodes,
+            spatial_hit.tested_members,
+        ));
     }
 
     println!(
-        "E1M1 Slice 6B six-ray final-handoff replay: cases={}; conservation=balanced; generic-filter=none; results=[{}]",
+        "E1M1 Slice 6B six-ray BVH/source shadow replay: cases={}; conservation=balanced; bvh-role=geometric-relevance-only; source-role=participation-authority; submission-changes=none; results=[{}]",
         reports.len(),
         reports.join(" | "),
     );

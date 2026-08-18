@@ -21,5 +21,6 @@ thiserror.workspace = true
 tokimu = { path = "../../../../crates/tokimu", features = ["platform", "render", "experimental-submission-local-geometry"] }
 tokimu-core = { path = "../../../../crates/tokimu-core" }
 tokimu-input = { path = "../../../../crates/tokimu-input" }
+tokimu-spatial-query-study = { path = "../../../lib/tokimu-spatial-query-study" }
 ui-tools = { path = "../../../lib/ui-tools" }
 winit.workspace = true

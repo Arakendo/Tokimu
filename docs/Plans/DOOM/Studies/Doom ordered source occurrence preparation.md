@@ -4,7 +4,7 @@
 | --- | --- |
 | Campaign | DOOM |
 | Role | Successor candidate-realization study |
-| Status | Active — Slices 0–5 complete; Slice 6 source protocol is coherent; Slice 6B structural handoff and six-ray proof complete, integrated visual/browser gates remain open |
+| Status | Parked — structural conservation and live refresh are retained, but source-spawn visual completeness is falsified by large and interior sky leaks |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Controlling plan | [DOOM WAD Checklist](../DOOM%20WAD%20Checklist.md) |
 | Predecessor | [Doom Source-Topology Admission Over Complete Geometry](Doom%20source-topology%20admission%20over%20complete%20geometry.md) |
@@ -23,7 +23,7 @@
 | E1M1 source-protocol ledger | [Doom E1M1 Ordered Source Protocol Ledger Evidence](../Evidence/Doom%20E1M1%20ordered%20source%20protocol%20ledger%20evidence.md) |
 | Initial target | The retained partial-survival falsifier: one far source contribution with valid left/right survivors and a forbidden middle interval |
 | Focused negative studies | [Doom Authoritative Sky-Coverage Delta Realization](Doom%20authoritative%20sky%20coverage%20delta%20realization.md); [Doom Source-Authorized Relational Contribution Classification](Doom%20source-authorized%20relational%20contribution%20classification.md) |
-| Next action | Realize the coherent ordered result literally: reuse whole survivors, omit terminal rejects, lower partial SEGs source-relatively, and isolate partial-plane realization. Do not return to the global shell or enable the generic post-filter. |
+| Next action | Continue through [Doom Render-Subsector Actual-Camera Preparation](Doom%20render-subsector%20actual-camera%20preparation.md). Do not repair this candidate, advance its browser path, or enable the generic post-filter while it is parked. |
 
 ## Purpose
 
@@ -640,28 +640,55 @@ one coherent ordered result exactly once.
       AABB/frustum filtering.
 - [ ] Re-run the six deterministic rays, source spawn, hut/window, exterior
       hut, first door, moving platform, green-room cutout and EXIT controls.
-- [ ] Verify free look, near-wall movement and camera jitter without a fixed
+- [ ] Exercise free look, near-wall movement and camera jitter through the
+      native live-refresh seam without a fixed
       view box, disappearing walls or stale prepared state.
 - [ ] Retain native and browser structural evidence before any generic
       post-filter experiment.
 
 ### Integrated gate finding
 
-The literal handoff is currently a fixed-view integration. Startup computes
-one ordered occurrence result, replaces the original declarations once, and
-sets `fixed_reconstruction_camera=true`; the runtime consequently suppresses
-camera movement instead of recomputing the Doom-private preparation. The
-headless six-ray replay proves that the same preparation seam produces the
-right view-specific dispositions for six independent views, but it does not
-prove a live composition can replace those declarations safely as the camera
-moves.
+The native integration now exposes one Rust-owned, Doom-private preparation
+entry point. The ordered-occurrence strategy uses it for every presentation
+frame with the current source-camera pose and projected runtime-height
+snapshot, replaces the previous declaration vectors only after successful
+preparation at the corpus composition edge, resets the matching selection
+state, and uploads only the new ordinary declarations. It no longer sets
+`fixed_reconstruction_camera=true`. The same entry point is suitable for a
+browser host, but that host has not yet supplied E1M1 source/runtime inputs.
 
-This leaves the free-look item open for a precise reason rather than as a
-visual mystery. Closing it requires an explicit composition-local refresh
-path that owns the relationship between camera changes, a newly prepared
-submission, replacement/retirement of the previous declarations, and runtime
-height snapshots. That work must not be hidden as renderer-owned Doom
-visibility or as persistent asset identity.
+This establishes the native lifecycle seam, not its visual closeout. The
+headless six-ray replay remains balanced. The same snapshot correlation used
+by the door/platform controls now flows into the live refresh, so a stationary
+camera cannot retain stale prepared geometry while a sector moves. Free-look,
+near-wall movement, camera jitter and safe visual retirement still need
+interactive evidence. None of that work may become renderer-owned Doom
+visibility or persistent asset identity.
+
+The `--ordered-occurrence-live-refresh-report` control now replays spawn,
+bounded yaw changes, a declared forward displacement and return-to-spawn
+through the shared entry point. Each pose installs only after complete
+conserved preparation; the retained canonical run reports opaque/cutout counts
+of `445/12`, `447/12`, `459/12`, `472/12` and `445/12` respectively. This is
+composition-local structural evidence, not a substitute for visual free-look
+or jitter validation.
+
+### Source-spawn visual falsification
+
+Maintainer inspection of the live `ordered-occurrence-prepared-full` strategy
+at source spawn found severe sky-background leakage through large edge regions
+and several bounded interior wall/floor seams. The window reported `458 draws`,
+which is consistent with the complete `445` opaque plus `12` cutout prepared
+declarations and the sky pass. The observation therefore falsifies visual
+completeness of the conserved declaration set; it is not evidence of a partial
+composition swap or stale refresh.
+
+Treat the marked regions as missing prepared foreground coverage. Do not add a
+depth-bearing sky occluder or generic filter to hide them. Before continuing
+browser parity, distinguish source-disposition omission from partial-wall or
+partial-plane realization, triangle facing/culling, and camera/preparation
+projection mismatch. Preserve the source-spawn screenshot as maintainer visual
+evidence when an artifact path is available.
 
 Browser parity is also deliberately open. The browser E1M1 consumer currently
 has a separate preparation implementation and cannot exercise this native
@@ -681,6 +708,88 @@ the final E1M1 handoff.
   partially retained ceiling is represented only in its authorized domain.
 - No correctness result depends on AABB/frustum filtering, renderer-owned Doom
   semantics, screenshot exceptions or a new stable renderer contract.
+
+### Authorized partial-plane occurrence refinement
+
+AR-0030 now treats the complete ordered result as the authoritative live Doom
+presentation input. The private semantic vocabulary is a prepared
+presentation occurrence: one source contribution may produce zero, one, or
+several bounded view/runtime-conditioned occurrences. Absence is authoritative
+and cannot be reopened by the global shell.
+
+The first focused partial-plane refinement does not add a renderer primitive.
+It observes Doom's exact ordered vertical plane cells, correlates them by plane
+kind, sector, subsector, height, texture, light and owning SEG, then intersects
+those cells with the inferred source-region triangles. Whole plane triangles
+still reuse ordinary geometry; terminally rejected triangles emit nothing.
+Only partial plane triangles use the bounded cell intersection.
+
+At the retained ceiling-104 ray, the source protocol supplies `13` exact cells
+owned by SEGs `310/311`, both mapping to subsector `104`. They lower to one
+ordinary combined declaration rather than the former eight horizontal-wedge
+fragments. At source spawn the complete preparation now reports `309` opaque
+wall, `12` cutout, `28` floor and `15` ceiling declarations (`352/12` renderer
+inputs), while conserving `3,432` lowered plane triangles inside `43` combined
+plane meshes. The five terminal six-ray sources remain absent.
+
+Stationary live frames now retain an explicit view/runtime preparation
+identity and skip identical rebuild/upload work. A changed camera pose or
+door/platform snapshot still prepares a complete conserved result before the
+identity and declaration set are replaced.
+
+Open acceptance remains visual: hut, far-left structure, both leak sites,
+peripheral coverage, pitch/free-look continuity and absence of a finite view
+box must be inspected in the launched native path. Browser consumption of the
+same shared Rust unit also remains open.
+
+#### Pitch falsifier and pause gate
+
+A direct remap of the retained Classic Doom plane rows into a pitched Tokimu
+camera was tested and rejected. Adding camera pitch to the row-to-world inverse
+projection caused the retained partial ceiling at subsector `104` to produce
+zero fragments instead of its proven single declaration. The source occurrence
+itself remained partial, so this was a representation failure rather than new
+source rejection evidence.
+
+The retained rows describe the unpitched source projection that generated
+them. They do not gain authority over pitched-camera plane coverage merely
+because both use screen coordinates. The implementation therefore returns to
+the last conserved unpitched lowering and pauses before choosing among a
+pitch-aware source protocol, a conservative provider-local extension, or a new
+presentation representation. That choice changes semantic authority and is an
+AR-0030 decision, not an ordinary lowering repair.
+
+#### Native spawn-room falsifier
+
+The first native walkabout observation of the focused plane-cell handoff also
+failed without relying on pitch. After live refresh the window reported `365`
+draws, but large opaque foreground regions partitioned the spawn view and made
+roughly half the room disappear. Consequently, balanced source, fragment and
+declaration ledgers are necessary but not sufficient acceptance evidence.
+
+The Cycle 31 lowering is retained as diagnostic implementation evidence, not
+as an accepted live presentation path. Work remains paused before adding a
+local exception or reopening the global shell; the representation question
+must return through AR-0030.
+
+#### Hardware-port precedent refinement
+
+Primary-source review confirms that established hardware paths do not retain
+Classic visplane rows as arbitrary-pitch geometry. GZDoom prepares world-space
+subsector/section plane surfaces, render-sector associations and source-specific
+hack/portal relationships, then combines BSP traversal with horizontal and
+pitch-aware clipping. Doom iOS/PrBoom-style GL uses the coarser alternative of
+triangulated whole-sector planes admitted when an uncovered subsector is
+reached, and its source documents the corresponding over-admission risk.
+
+The next representation question is therefore narrower than a custom Doom
+renderer: whether one Doom-private render-subsector unit can preserve the E1M1
+zero/partial/whole evidence under the actual Tokimu camera while lowering only
+ordinary declarations. This remains an AR-0030 decision; no implementation or
+stable contract is admitted by the precedent study.
+
+Evidence:
+`../Evidence/Hardware Doom arbitrary-pitch plane preparation precedent.md`.
 
 ### Released-source clip parity and E1M1 ledger
 

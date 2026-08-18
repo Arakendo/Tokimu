@@ -9,25 +9,40 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use doom_geometry_provider::{
-    clip_doom_seg_textured_wall_triangle_to_linedef_interval,
-    lower_doom_seg_textured_wall_triangles, lower_doom_subsector_surfaces,
-    observe_doom_seg_occluders, observe_doom_seg_plane_marks,
-    observe_doom_two_sided_middle_textures, resolve_doom_subsector_bsp_paths,
-    DoomMiddleTextureObservation, DoomSegOccluderKind, DoomSegOccluderObservation,
-    DoomSegPlaneMarkObservation, DoomSegTexturedWallTriangle, DoomSurfacePlane,
-    DoomSurfaceTriangle, DoomTextureExtent, DoomWallTextureRole,
-};
-use doom_map_provider::{DoomBspChild, DoomMapCore, DoomSector, DoomSeg};
-use hello_doom_e1m1::{
+use crate::{
     lower_static_flat_triangle, lower_static_seg_wall_triangle, FlatExtent, StaticDrawPlanEntry,
     StaticDrawSource, StaticFlatLoweringError, StaticTextureSourceKind, StaticTextureUpload,
 };
+use doom_geometry_provider::{
+    clip_doom_seg_textured_wall_triangle_to_linedef_interval,
+    lower_doom_seg_textured_wall_triangles, lower_doom_subsector_surfaces,
+    observe_doom_classic_bsp, observe_doom_classic_vertical_clip_state, observe_doom_seg_occluders,
+    observe_doom_seg_plane_marks, observe_doom_two_sided_middle_textures,
+    resolve_doom_subsector_bsp_paths, DoomMiddleTextureObservation, DoomSegClassicPlaneKind,
+    DoomSegOccluderKind, DoomSegOccluderObservation, DoomSegPlaneMarkObservation,
+    DoomSegTexturedWallTriangle, DoomSurfacePlane, DoomSurfaceTriangle, DoomTextureExtent,
+    DoomWallTextureRole,
+};
+use doom_map_provider::{DoomBspChild, DoomMapCore, DoomSector, DoomSeg};
 use tokimu::MaterialHandle;
 
 const HALF_FOV_TANGENT: f64 = 1.0;
 const DEPTH_EPSILON: f64 = 1.0e-9;
 const INTERVAL_EPSILON: f64 = 1.0e-9;
+const CLASSIC_COLUMNS: usize = 320;
+const CLASSIC_ROWS: usize = 200;
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct OrderedPlaneDomainCell {
+    kind: OrderedPlaneKind,
+    source_sector: u32,
+    source_subsector: u32,
+    source_height: i16,
+    texture: String,
+    light_level: i16,
+    source_seg: u32,
+    source_corners: [[f64; 2]; 4],
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct OrderedSourceOccurrence {
@@ -426,7 +441,10 @@ pub(crate) fn prepare_ordered_occurrence_submission(
     )?;
     let planes =
         observe_ordered_plane_occurrences(map, viewer, heading, eye_height, &source, &walls)?;
-    let plane_lowering = lower_ordered_plane_destinations(map, opaque_uploads, &planes)?;
+    let plane_domain_cells =
+        observe_ordered_plane_domain_cells(map, viewer, heading, eye_height, extents)?;
+    let plane_lowering =
+        lower_ordered_plane_destinations(map, opaque_uploads, &planes, &plane_domain_cells)?;
     let prepared = OrderedPreparedSubmissionObservation {
         source,
         walls,
@@ -435,6 +453,68 @@ pub(crate) fn prepare_ordered_occurrence_submission(
     };
     prepared.verify_conservation()?;
     Ok(prepared)
+}
+
+/// Renderer-ready declarations from one immutable Doom source/view/snapshot
+/// preparation. The source protocol and its detailed accounting remain private
+/// to this corpus crate; hosts receive only ordinary declarations plus a
+/// bounded conservation report.
+#[allow(dead_code)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreparedOrderedOccurrenceDeclarations {
+    pub opaque_draws: Vec<StaticDrawPlanEntry>,
+    pub cutout_draws: Vec<StaticDrawPlanEntry>,
+    pub conservation_report: String,
+}
+
+/// Shared Doom-private preparation entry point for native and browser corpus
+/// hosts. This is intentionally not a renderer API: it accepts decoded Doom
+/// source facts and returns ordinary Tokimu declarations for one current view.
+#[allow(dead_code, clippy::too_many_arguments)]
+pub fn prepare_ordered_occurrence_declarations(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: i16,
+    extents: &[DoomTextureExtent],
+    opaque_materials: &BTreeMap<String, MaterialHandle>,
+    cutout_materials: &BTreeMap<String, MaterialHandle>,
+    opaque_uploads: &[StaticTextureUpload],
+) -> Result<PreparedOrderedOccurrenceDeclarations, String> {
+    let prepared = prepare_ordered_occurrence_submission(
+        map,
+        viewer,
+        heading,
+        eye_height,
+        extents,
+        opaque_materials,
+        cutout_materials,
+        opaque_uploads,
+    )?;
+    Ok(PreparedOrderedOccurrenceDeclarations {
+        opaque_draws: prepared
+            .walls
+            .prepared_declarations
+            .iter()
+            .filter(|declaration| !declaration.cutout)
+            .map(|declaration| declaration.draw.clone())
+            .chain(
+                prepared
+                    .plane_lowering
+                    .prepared_declarations
+                    .iter()
+                    .map(|declaration| declaration.draw.clone()),
+            )
+            .collect(),
+        cutout_draws: prepared
+            .walls
+            .prepared_declarations
+            .iter()
+            .filter(|declaration| declaration.cutout)
+            .map(|declaration| declaration.draw.clone())
+            .collect(),
+        conservation_report: prepared.family_conservation_report(),
+    })
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -521,9 +601,12 @@ pub(crate) struct OrderedPlaneLoweringObservation {
     pub(crate) ordinary_source_triangles_with_survivors: usize,
     pub(crate) ordinary_source_triangles_fully_rejected: usize,
     pub(crate) clipped_plane_triangles: usize,
+    pub(crate) partial_plane_domain_cells: usize,
+    pub(crate) partial_plane_domain_fragments: usize,
     pub(crate) sky_background_destination_references: usize,
     pub(crate) sky_background_source_triangles: usize,
     pub(crate) lowered_plane_meshes: usize,
+    pub(crate) lowered_plane_triangles: usize,
     pub(crate) degenerate_omissions: usize,
     pub(crate) unresolved_fail_open: usize,
     pub(crate) source_dispositions: Vec<OrderedPlaneSourceDisposition>,
@@ -534,7 +617,7 @@ pub(crate) struct OrderedPlaneLoweringObservation {
 impl OrderedPlaneLoweringObservation {
     pub(crate) fn report(&self) -> String {
         format!(
-            "destination-references={}; destination-source-triangles={}; ordinary-destination-references={}; ordinary-source-triangles={}; ordinary-source-triangles-with-survivors={}; ordinary-source-triangles-fully-rejected={}; clipped-plane-triangles={}; sky-background-destination-references={}; sky-background-source-triangles={}; lowered-plane-meshes={}; degenerate-omissions={}; unresolved-fail-open={}; source-dispositions={}; disposition-conservation={}; destination-conservation={}; source-triangle-conservation={}; fragment-conservation={}; declaration-conservation={}; sky-realization=doom-background-not-depth-writing-plane; whole-region-visibility-claimed=false; unresolved-samples=[{}]",
+            "destination-references={}; destination-source-triangles={}; ordinary-destination-references={}; ordinary-source-triangles={}; ordinary-source-triangles-with-survivors={}; ordinary-source-triangles-fully-rejected={}; clipped-plane-triangles={}; partial-plane-domain-cells={}; partial-plane-domain-fragments={}; sky-background-destination-references={}; sky-background-source-triangles={}; lowered-plane-meshes={}; lowered-plane-triangles={}; degenerate-omissions={}; unresolved-fail-open={}; source-dispositions={}; disposition-conservation={}; destination-conservation={}; source-triangle-conservation={}; fragment-conservation={}; declaration-conservation={}; sky-realization=doom-background-not-depth-writing-plane; whole-region-visibility-claimed=false; unresolved-samples=[{}]",
             self.destination_references,
             self.destination_source_triangles,
             self.ordinary_destination_references,
@@ -542,9 +625,12 @@ impl OrderedPlaneLoweringObservation {
             self.ordinary_source_triangles_with_survivors,
             self.ordinary_source_triangles_fully_rejected,
             self.clipped_plane_triangles,
+            self.partial_plane_domain_cells,
+            self.partial_plane_domain_fragments,
             self.sky_background_destination_references,
             self.sky_background_source_triangles,
             self.lowered_plane_meshes,
+            self.lowered_plane_triangles,
             self.degenerate_omissions,
             self.unresolved_fail_open,
             self.source_dispositions.len(),
@@ -571,7 +657,7 @@ impl OrderedPlaneLoweringObservation {
                 "unbalanced"
             },
             if self.clipped_plane_triangles
-                == self.lowered_plane_meshes + self.degenerate_omissions
+                == self.lowered_plane_triangles + self.degenerate_omissions
             {
                 "balanced"
             } else {
@@ -1808,6 +1894,130 @@ fn correlate_plane_geometry_destinations(
     Ok(())
 }
 
+/// Reconstructs the exact bounded plane cells retained by Doom's ordered
+/// vertical-coverage protocol. These are source-private presentation support,
+/// not renderer pixels or a generic clipping primitive.
+fn observe_ordered_plane_domain_cells(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: i16,
+    extents: &[DoomTextureExtent],
+) -> Result<Vec<OrderedPlaneDomainCell>, String> {
+    const MINIMUM_TANGENT: f64 = 1.0e-9;
+    let traversal = observe_doom_classic_bsp(map, viewer, heading, &BTreeSet::new())
+        .map_err(|error| error.to_string())?;
+    let wall_triangles =
+        lower_doom_seg_textured_wall_triangles(map, extents).map_err(|error| error.to_string())?;
+    let plane_marks =
+        observe_doom_seg_plane_marks(map, eye_height).map_err(|error| error.to_string())?;
+    let vertical = observe_doom_classic_vertical_clip_state(
+        map,
+        &wall_triangles,
+        &plane_marks,
+        &traversal,
+        viewer,
+        heading,
+        f64::from(eye_height),
+    );
+    let mut subsector_by_seg = BTreeMap::new();
+    for subsector in &map.subsectors {
+        let start = usize::from(subsector.first_seg);
+        let end = start + usize::from(subsector.seg_count);
+        let segs = map.segs.get(start..end).ok_or_else(|| {
+            format!(
+                "subsector {} has invalid SEG range {start}..{end}",
+                subsector.source.record_index,
+            )
+        })?;
+        for seg in segs {
+            subsector_by_seg.insert(seg.source.record_index, subsector.source.record_index);
+        }
+    }
+
+    let half_vertical_fov =
+        (std::f64::consts::FRAC_PI_4.tan() / (CLASSIC_COLUMNS as f64 / CLASSIC_ROWS as f64)).atan();
+    let forward = [heading.cos(), heading.sin()];
+    let right = [-forward[1], forward[0]];
+    let viewer_f64 = [f64::from(viewer[0]), f64::from(viewer[1])];
+    let horizontal_angle = |column_boundary: f64| {
+        let normalized = -1.0 + (column_boundary / CLASSIC_COLUMNS as f64) * 2.0;
+        (normalized * std::f64::consts::FRAC_PI_4.tan()).atan()
+    };
+    let vertical_angle = |row_boundary: f64| {
+        let normalized = 1.0 - (row_boundary / CLASSIC_ROWS as f64) * 2.0;
+        (normalized * half_vertical_fov.tan()).atan()
+    };
+    let mut cells = Vec::new();
+    for (key, instances) in &vertical.plane_spans.keys {
+        if key.kind == DoomSegClassicPlaneKind::Ceiling && key.texture == "F_SKY1" {
+            continue;
+        }
+        let kind = match key.kind {
+            DoomSegClassicPlaneKind::Floor => OrderedPlaneKind::Floor,
+            DoomSegClassicPlaneKind::Ceiling => OrderedPlaneKind::Ceiling,
+        };
+        for instance in instances {
+            for (column, rows) in instance.columns.iter().enumerate() {
+                let Some([top, bottom]) = rows else {
+                    continue;
+                };
+                let Some([source_sector, source_seg]) = instance.column_sources[column] else {
+                    continue;
+                };
+                let Some(&source_subsector) = subsector_by_seg.get(&source_seg) else {
+                    continue;
+                };
+                let plane_delta = f64::from(key.height - eye_height);
+                let boundaries = [
+                    (column as f64, *top as f64),
+                    ((column + 1) as f64, *top as f64),
+                    ((column + 1) as f64, (*bottom + 1) as f64),
+                    (column as f64, (*bottom + 1) as f64),
+                ];
+                let mut corners = [[0.0; 2]; 4];
+                let mut valid = true;
+                for (corner, (column_boundary, row_boundary)) in corners.iter_mut().zip(boundaries)
+                {
+                    let tangent = vertical_angle(row_boundary).tan();
+                    if tangent.abs() <= MINIMUM_TANGENT {
+                        valid = false;
+                        break;
+                    }
+                    let forward_distance = plane_delta / tangent;
+                    if !forward_distance.is_finite() || forward_distance <= 0.0 {
+                        valid = false;
+                        break;
+                    }
+                    let angle = horizontal_angle(column_boundary);
+                    let radial_distance = forward_distance / angle.cos();
+                    let ray = [
+                        forward[0] * angle.cos() + right[0] * angle.sin(),
+                        forward[1] * angle.cos() + right[1] * angle.sin(),
+                    ];
+                    *corner = [
+                        viewer_f64[0] + ray[0] * radial_distance,
+                        viewer_f64[1] + ray[1] * radial_distance,
+                    ];
+                }
+                if valid {
+                    cells.push(OrderedPlaneDomainCell {
+                        kind,
+                        source_sector,
+                        source_subsector,
+                        source_height: key.height,
+                        texture: key.texture.clone(),
+                        light_level: key.light,
+                        source_seg,
+                        source_corners: corners,
+                    });
+                }
+            }
+        }
+    }
+    Ok(cells)
+}
+
 /// Lowers the exact source-region destinations retained by the ordered plane
 /// observation. This is a conservative region candidate, not a claim that an
 /// entire subsector is visible through every contributing occurrence.
@@ -1820,6 +2030,7 @@ pub(crate) fn lower_ordered_plane_destinations(
     map: &DoomMapCore,
     opaque_uploads: &[StaticTextureUpload],
     source: &OrderedPlaneOccurrenceObservation,
+    plane_domain_cells: &[OrderedPlaneDomainCell],
 ) -> Result<OrderedPlaneLoweringObservation, String> {
     type DestinationKey = (u32, u32, OrderedPlaneKind);
     let paths = resolve_doom_subsector_bsp_paths(map).map_err(|error| error.to_string())?;
@@ -1921,7 +2132,7 @@ pub(crate) fn lower_ordered_plane_destinations(
         result.ordinary_destination_references += 1;
         result.ordinary_source_triangles += destination_surfaces.len();
         for (source_triangle_ordinal, surface) in destination_surfaces.iter().enumerate() {
-            let clipped_surfaces = destination
+            let interval_clipped_surfaces = destination
                 .view_intervals
                 .iter()
                 .flat_map(|interval| {
@@ -1933,7 +2144,7 @@ pub(crate) fn lower_ordered_plane_destinations(
                     )
                 })
                 .collect::<Vec<_>>();
-            if clipped_surfaces.is_empty() {
+            if interval_clipped_surfaces.is_empty() {
                 result.ordinary_source_triangles_fully_rejected += 1;
                 result
                     .source_dispositions
@@ -1948,42 +2159,68 @@ pub(crate) fn lower_ordered_plane_destinations(
                 continue;
             }
             result.ordinary_source_triangles_with_survivors += 1;
-            result.clipped_plane_triangles += clipped_surfaces.len();
-            let disposition_kind = if plane_triangle_is_unchanged(surface, &clipped_surfaces) {
-                OrderedSourceDispositionKind::WholeRetained
+            let disposition_kind =
+                if plane_triangle_is_unchanged(surface, &interval_clipped_surfaces) {
+                    OrderedSourceDispositionKind::WholeRetained
+                } else {
+                    OrderedSourceDispositionKind::PartialPlane
+                };
+            let clipped_surfaces = if disposition_kind == OrderedSourceDispositionKind::PartialPlane
+            {
+                let matching_cells = plane_domain_cells
+                    .iter()
+                    .filter(|cell| plane_domain_cell_matches(cell, destination, instance))
+                    .collect::<Vec<_>>();
+                result.partial_plane_domain_cells += matching_cells.len();
+                let fragments = matching_cells
+                    .into_iter()
+                    .flat_map(|cell| clip_plane_triangle_to_domain_cell(surface, cell))
+                    .collect::<Vec<_>>();
+                result.partial_plane_domain_fragments += fragments.len();
+                fragments
             } else {
-                OrderedSourceDispositionKind::PartialPlane
+                interval_clipped_surfaces
             };
+            if clipped_surfaces.is_empty() {
+                result.ordinary_source_triangles_with_survivors -= 1;
+                result.ordinary_source_triangles_fully_rejected += 1;
+                result
+                    .source_dispositions
+                    .push(OrderedPlaneSourceDisposition {
+                        plane_instance_ordinal: destination.plane_instance_ordinal,
+                        source_subsector: destination.source_subsector,
+                        source_triangle_ordinal,
+                        kind: OrderedSourceDispositionKind::TerminalRejected,
+                        output_count: 0,
+                        reason: "outside-authoritative-plane-domain-cells".to_owned(),
+                    });
+                continue;
+            }
+            result.clipped_plane_triangles += clipped_surfaces.len();
             let declarations_before = result.prepared_declarations.len();
+            let mut combined_draw = None::<StaticDrawPlanEntry>;
             for clipped_surface in &clipped_surfaces {
                 match lower_static_flat_triangle(clipped_surface, FlatExtent::E1M1) {
                     Ok(flat) => {
-                        let declaration_ordinal = result.prepared_declarations.len();
-                        result
-                            .prepared_declarations
-                            .push(PreparedOrderedPlaneDeclaration {
-                                plane_instance_ordinal: destination.plane_instance_ordinal,
-                                source_subsector: destination.source_subsector,
-                                source_triangle_ordinal,
-                                draw: StaticDrawPlanEntry {
-                                    source_label: format!(
-                                        "ordered-plane:{:?}:{}:{}:{}:{}",
-                                        destination.kind,
-                                        destination.source_sector,
-                                        destination.source_subsector,
-                                        instance.texture,
-                                        declaration_ordinal,
-                                    ),
-                                    source: StaticDrawSource::Flat {
-                                        source_subsector: flat.source.subsector,
-                                        source_sector: flat.source.sector,
-                                        plane: flat.source.plane,
-                                    },
-                                    mesh: flat.mesh,
-                                    material,
+                        result.lowered_plane_triangles += 1;
+                        if let Some(draw) = combined_draw.as_mut() {
+                            draw.mesh.positions.extend(flat.mesh.positions);
+                            draw.mesh.normals.extend(flat.mesh.normals);
+                            draw.mesh
+                                .texture_coordinates
+                                .extend(flat.mesh.texture_coordinates);
+                        } else {
+                            combined_draw = Some(StaticDrawPlanEntry {
+                                source_label: String::new(),
+                                source: StaticDrawSource::Flat {
+                                    source_subsector: flat.source.subsector,
+                                    source_sector: flat.source.sector,
+                                    plane: flat.source.plane,
                                 },
+                                mesh: flat.mesh,
+                                material,
                             });
-                        result.lowered_plane_meshes += 1;
+                        }
                     }
                     Err(StaticFlatLoweringError::DegenerateTriangle) => {
                         result.degenerate_omissions += 1;
@@ -1997,6 +2234,26 @@ pub(crate) fn lower_ordered_plane_destinations(
                         ));
                     }
                 }
+            }
+            if let Some(mut draw) = combined_draw {
+                let declaration_ordinal = result.prepared_declarations.len();
+                draw.source_label = format!(
+                    "ordered-plane:{:?}:{}:{}:{}:{}",
+                    destination.kind,
+                    destination.source_sector,
+                    destination.source_subsector,
+                    instance.texture,
+                    declaration_ordinal,
+                );
+                result
+                    .prepared_declarations
+                    .push(PreparedOrderedPlaneDeclaration {
+                        plane_instance_ordinal: destination.plane_instance_ordinal,
+                        source_subsector: destination.source_subsector,
+                        source_triangle_ordinal,
+                        draw,
+                    });
+                result.lowered_plane_meshes += 1;
             }
             let output_count = result.prepared_declarations.len() - declarations_before;
             result
@@ -2119,6 +2376,63 @@ fn clip_plane_triangle_to_view_interval(
     });
     if polygon.len() < 3 {
         return Vec::new();
+    }
+    (1..polygon.len() - 1)
+        .map(|index| DoomSurfaceTriangle {
+            source_subsector: triangle.source_subsector,
+            source_sector: triangle.source_sector,
+            plane: triangle.plane,
+            texture_name: triangle.texture_name.clone(),
+            positions: [polygon[0], polygon[index], polygon[index + 1]],
+        })
+        .collect()
+}
+
+fn plane_domain_cell_matches(
+    cell: &OrderedPlaneDomainCell,
+    destination: &OrderedPreparedPlaneDestination,
+    instance: &OrderedPreparedPlaneInstance,
+) -> bool {
+    cell.kind == destination.kind
+        && cell.source_sector == destination.source_sector
+        && cell.source_subsector == destination.source_subsector
+        && cell.source_height == instance.source_height
+        && cell.texture == instance.texture
+        && cell.light_level == instance.light_level
+        && cell.source_seg != u32::MAX
+}
+
+/// Intersects one inferred source-region triangle with one exact Doom plane
+/// coverage cell. The result remains ordinary finite plane geometry while the
+/// cell, rather than a SEG parameter or global plane mesh, owns partial
+/// presentation support.
+fn clip_plane_triangle_to_domain_cell(
+    triangle: &DoomSurfaceTriangle,
+    cell: &OrderedPlaneDomainCell,
+) -> Vec<DoomSurfaceTriangle> {
+    let twice_area = cell
+        .source_corners
+        .iter()
+        .zip(cell.source_corners.iter().cycle().skip(1))
+        .take(cell.source_corners.len())
+        .map(|(left, right)| left[0] * right[1] - right[0] * left[1])
+        .sum::<f64>();
+    if !twice_area.is_finite() || twice_area.abs() <= INTERVAL_EPSILON {
+        return Vec::new();
+    }
+    let orientation = twice_area.signum();
+    let mut polygon = triangle.positions.to_vec();
+    for index in 0..cell.source_corners.len() {
+        let start = cell.source_corners[index];
+        let end = cell.source_corners[(index + 1) % cell.source_corners.len()];
+        polygon = clip_polygon_to_half_space(&polygon, |position| {
+            orientation
+                * ((end[0] - start[0]) * (position[2] - start[1])
+                    - (end[1] - start[1]) * (position[0] - start[0]))
+        });
+        if polygon.len() < 3 {
+            return Vec::new();
+        }
     }
     (1..polygon.len() - 1)
         .map(|index| DoomSurfaceTriangle {
@@ -3038,6 +3352,37 @@ mod tests {
         {
             let projected = position[2] / position[0];
             assert!((-0.2 - INTERVAL_EPSILON..=0.2 + INTERVAL_EPSILON).contains(&projected));
+        }
+    }
+
+    #[test]
+    fn partial_plane_triangle_is_bounded_by_its_own_plane_domain_cell() {
+        let triangle = DoomSurfaceTriangle {
+            source_subsector: source(11),
+            source_sector: source(12),
+            plane: DoomSurfacePlane::Ceiling,
+            texture_name: "CEILING".to_owned(),
+            positions: [[0.0, 64.0, 0.0], [8.0, 64.0, 0.0], [0.0, 64.0, 8.0]],
+        };
+        let cell = OrderedPlaneDomainCell {
+            kind: OrderedPlaneKind::Ceiling,
+            source_sector: 12,
+            source_subsector: 11,
+            source_height: 64,
+            texture: "CEILING".to_owned(),
+            light_level: 160,
+            source_seg: 5,
+            source_corners: [[2.0, 2.0], [6.0, 2.0], [6.0, 6.0], [2.0, 6.0]],
+        };
+
+        let fragments = clip_plane_triangle_to_domain_cell(&triangle, &cell);
+        assert!(!fragments.is_empty());
+        for position in fragments
+            .iter()
+            .flat_map(|fragment| fragment.positions.iter())
+        {
+            assert!((2.0 - INTERVAL_EPSILON..=6.0 + INTERVAL_EPSILON).contains(&position[0]));
+            assert!((2.0 - INTERVAL_EPSILON..=6.0 + INTERVAL_EPSILON).contains(&position[2]));
         }
     }
 

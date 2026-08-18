@@ -11,7 +11,8 @@ pub(crate) enum DebugCommand {
     Camera,
     Status,
     Collision,
-    Look,
+    Look(String),
+    Scan(String),
     Use(String),
     Noclip(NoclipAction),
     Unsupported(String),
@@ -32,7 +33,17 @@ pub(crate) fn parse_debug_command(command: &str) -> DebugCommand {
         "camera" => DebugCommand::Camera,
         "status" => DebugCommand::Status,
         "collision" => DebugCommand::Collision,
-        "look" | "inspect" => DebugCommand::Look,
+        command
+            if command == "look"
+                || command == "inspect"
+                || command.starts_with("look ")
+                || command.starts_with("inspect ") =>
+        {
+            DebugCommand::Look(command.to_owned())
+        }
+        command if command == "scan" || command.starts_with("scan ") => {
+            DebugCommand::Scan(command.to_owned())
+        }
         command if command.starts_with("use") => DebugCommand::Use(command.to_owned()),
         "noclip" | "noclip toggle" => DebugCommand::Noclip(NoclipAction::Toggle),
         "noclip on" => DebugCommand::Noclip(NoclipAction::On),
@@ -47,7 +58,18 @@ mod tests {
 
     #[test]
     fn aliases_and_case_normalize_without_execution_policy() {
-        assert_eq!(parse_debug_command(" INSPECT "), DebugCommand::Look);
+        assert_eq!(
+            parse_debug_command(" INSPECT "),
+            DebugCommand::Look("inspect".to_owned())
+        );
+        assert_eq!(
+            parse_debug_command("LOOK PIXEL 900 600"),
+            DebugCommand::Look("look pixel 900 600".to_owned())
+        );
+        assert_eq!(
+            parse_debug_command("SCAN 48 30"),
+            DebugCommand::Scan("scan 48 30".to_owned())
+        );
         assert_eq!(
             parse_debug_command("NOCLIP On"),
             DebugCommand::Noclip(NoclipAction::On)

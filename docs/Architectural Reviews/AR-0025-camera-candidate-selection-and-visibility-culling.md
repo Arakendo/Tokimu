@@ -2036,6 +2036,16 @@ retroactively promoted from the failure of the more aggressive alternatives.
   Boolean selection at the pressure boundary and earns a Doom-owned
   fragment/interval experiment; it does not admit screen spans, scissors,
   visplanes, or a visibility API to Tokimu's renderer.
+- A later canonical E1M1 BSP-bounds audit separates source bounds from inferred
+  presentation support. All `236` raw NODES records match their decoded fields
+  and all `472` child boxes contain their recursively collected descendant SEG
+  endpoint envelopes, while `323/472` inferred convex plane-region envelopes
+  extend outside those boxes. The bake and decoder are consistent for their
+  source representation; the invalid step was granting source proxy bounds
+  rejection authority over larger reconstructed planes. Retained general
+  rule: a bound has negative authority only over the representation it
+  actually bounds. This reinforces the closed no-generic-visibility-capability
+  disposition.
 
 ## References
 
@@ -2045,6 +2055,7 @@ retroactively promoted from the failure of the more aggressive alternatives.
 - `docs/Architectural Reviews/AR-0023-textured-surface-alpha-and-depth-policy.md`
 - `docs/Architectural Reviews/AR-0024-renderer-failure-observation-and-diagnostic-boundary.md`
 - `docs/Architectural Reviews/AR-0026-non-euclidean-spatial-charts-and-authored-angular-topology.md`
+- `docs/lessions/bounds-authority-follows-bounded-representation.md`
 - `docs/Plans/DOOM/DOOM WAD Checklist.md`
 - `docs/Plans/DOOM/Evidence/E1M1 static presentation evidence.md`
 - `docs/Plans/DOOM/Evidence/E1M1 camera candidate-selection evidence.md`

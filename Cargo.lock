@@ -1387,8 +1387,18 @@ dependencies = [
  "tokimu",
  "tokimu-core",
  "tokimu-input",
+ "tokimu-spatial-query-study",
  "ui-tools",
  "winit",
+]
+
+[[package]]
+name = "hello-doom-spatial-query-portable"
+version = "0.1.0"
+dependencies = [
+ "tokimu-core",
+ "tokimu-spatial-query-study",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -3817,6 +3827,14 @@ version = "0.1.0"
 dependencies = [
  "tokimu-core",
  "tokimu-input",
+]
+
+[[package]]
+name = "tokimu-spatial-query-study"
+version = "0.1.0"
+dependencies = [
+ "tokimu-core",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

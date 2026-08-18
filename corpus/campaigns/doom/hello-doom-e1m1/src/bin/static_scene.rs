@@ -50,7 +50,7 @@ use hello_doom_e1m1::specials::{
     DoomManualDoorPhase, DoomManualDoorPolicy, DoomManualDoorRuntime, DoomTurboLowerFloorPhase,
     DoomTurboLowerFloorPolicy, DoomTurboLowerFloorRuntime,
 };
-use hello_doom_e1m1::{
+pub use hello_doom_e1m1::{
     build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
     build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
     classify_static_draw_sphere_frustum_rejection, doom_heading_forward,
@@ -64,6 +64,7 @@ use hello_doom_e1m1::{
     StaticDrawPlanEntry, StaticDrawSource, StaticFlatLoweringError, StaticTextureEligibility,
     StaticTextureUpload,
 };
+pub use hello_doom_e1m1::{lower_static_flat_triangle, FlatExtent, StaticTextureSourceKind};
 use hello_doom_visibility_conformance::{
     model_authoritative_sky_regions, observe_authoritative_sky_source_depth_approximation,
     prepare_authoritative_sky_source_depth_declarations,
@@ -207,6 +208,10 @@ struct App {
     render_strategy_name: &'static str,
     render_strategy_stages: &'static str,
     topology_inventory: TopologyContributionInventory,
+    /// Doom-private shadow classification visualization. Geometry membership
+    /// remains the unchanged global-full inventory in every focus mode.
+    bsp_diagnostic_enabled: bool,
+    bsp_diagnostic_focus: BspDiagnosticFocus,
     draws: Vec<StaticDrawPlanEntry>,
     uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
@@ -288,11 +293,25 @@ struct App {
     /// preparation; it does not mutate this source snapshot or teach the
     /// renderer about Doom traversal.
     ordered_coverage_source: Option<Box<SceneInput>>,
-    ordered_coverage_view: Option<DoomOrderedCoverageView>,
+    /// Identity of the last completely installed Doom-private preparation.
+    /// It prevents stationary frames from rebuilding and re-uploading an
+    /// identical declaration set; assignment occurs only after a successful
+    /// prepare-then-replace transaction.
+    ordered_preparation_identity: Option<OrderedPreparationIdentity>,
     /// The classic-plane presentation is reconstructed for exactly the
     /// source-spawn observer. Allowing ordinary free-look/movement would make
     /// geometry outside that retained view look like reconstruction evidence.
     fixed_reconstruction_camera: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct OrderedPreparationIdentity {
+    source_position: [i16; 2],
+    source_heading_bits: u64,
+    eye_height: i16,
+    door_ceilings: Vec<(u32, i16)>,
+    turbo_floors: Vec<(u32, i16)>,
+    platform_floors: Vec<(u32, i16)>,
 }
 
 #[derive(Clone)]
@@ -310,6 +329,7 @@ struct SceneInput {
     walk_floors: DoomWalkFloorWorld,
     reject_report: DoomRejectReport,
     topology_report: DoomTopologyReport,
+    bsp_bounds_audit: Option<DoomBspBoundsAudit>,
     membership_selection: DoomMembershipSelectionInput,
     activation_source: DoomLineActivationSource,
     door_geometry_source: DoomDynamicDoorGeometrySource,
@@ -410,7 +430,11 @@ fn mesh_owning_side_visible(mesh: &Mesh, observer_position: Vec3) -> bool {
     normal.dot(observer_position - position) >= 0.0
 }
 
-fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
+fn prepare_scene(
+    package: &str,
+    member: &str,
+    audit_bsp_bounds: bool,
+) -> PlatformResult<SceneInput> {
     let bytes = fs::read(package)?;
     let mut space =
         InMemoryResourceSpace::new(StoreId::from_u128(5_101), AddressCasePolicy::Sensitive);
@@ -468,6 +492,24 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
     let location = locate_doom_point_subsector(start.position, &paths)?;
     let ownership = resolve_doom_subsector_sector_ownership(&map)?;
     let regions = resolve_doom_subsector_regions(&map, &paths)?;
+    let inferred_region_bounds = regions
+        .iter()
+        .map(|region| {
+            region.vertices.iter().fold(None, |bounds, [x, y]| {
+                Some(bounds.map_or([*x, *y, *x, *y], |current: [f64; 4]| {
+                    [
+                        current[0].min(*x),
+                        current[1].min(*y),
+                        current[2].max(*x),
+                        current[3].max(*y),
+                    ]
+                }))
+            })
+        })
+        .collect::<Vec<_>>();
+    let bsp_bounds_audit = audit_bsp_bounds
+        .then(|| audit_doom_bsp_bounds(&read.bytes, &selection, &map, &inferred_region_bounds))
+        .transpose()?;
     let sector = ownership
         .iter()
         .find(|entry| entry.source_subsector == location.source_subsector)
@@ -667,6 +709,7 @@ fn prepare_scene(package: &str, member: &str) -> PlatformResult<SceneInput> {
         walk_floors,
         reject_report,
         topology_report,
+        bsp_bounds_audit,
         membership_selection,
         activation_source,
         door_geometry_source: DoomDynamicDoorGeometrySource {

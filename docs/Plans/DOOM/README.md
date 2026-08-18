@@ -6,12 +6,16 @@
 | Controlling plan | [DOOM WAD Checklist](DOOM%20WAD%20Checklist.md) |
 | Boundary study | [DOOM TypeScript Boundary Stress Plan](DOOM%20TypeScript%20Boundary%20Stress%20Plan.md) |
 | Readiness audit | [DOOM WAD Implementation Readiness Audit](DOOM%20WAD%20implementation%20readiness%20audit.md) |
-| Active focused study | [Source-Authorized Relational Contribution Classification](Studies/Doom%20source-authorized%20relational%20contribution%20classification.md) |
+| Proposed architectural direction | [Tokimu Conservative Spatial-Query Capability Study](Tokimu%20BSP%20capability%20setup%20plan.md) |
+| Active focused study | [Doom Render-Subsector Actual-Camera Preparation](Studies/Doom%20render-subsector%20actual-camera%20preparation.md) |
+| Active causal study | [Doom Source-Ordered Non-Presentation Causality Study](Studies/Doom%20source-ordered%20non-presentation%20causality%20study.md) |
+| Parked bounded follow-up | [Doom Custom BVH View-Cell And Aperture Study](Studies/Doom%20custom%20BVH%20view-cell%20aperture%20study.md) |
+| Parked diagnostic study | [Doom BSP Presentation-Domain Resolver Study](Studies/Doom%20BSP%20presentation-domain%20resolver%20study.md) |
 | Falsification parent | [Authoritative Sky-Coverage Delta Realization](Studies/Doom%20authoritative%20sky%20coverage%20delta%20realization.md) |
 | Source-protocol oracle | [Ordered Source-Occurrence Preparation](Studies/Doom%20ordered%20source%20occurrence%20preparation.md) |
 | Synthetic foundation | [Viewer-Relative Presentation Synthetic Conformance](Studies/Doom%20viewer-relative%20presentation%20synthetic%20conformance.md) |
 | Falsified predecessor | [Source-Topology Admission Over Complete Geometry](Studies/Doom%20source-topology%20admission%20over%20complete%20geometry.md) |
-| Next action | Capture exact source identities for the four exterior failures, then test finite source-authority relationships headlessly before any new renderer realization. |
+| Next action | Execute Slice 0 of the source-ordered non-presentation causality study: freeze the six targets and add observation-only causal provenance without changing ordered outcomes or renderer submission. |
 
 This campaign uses Doom as architecture-driving corpus pressure without making
 the renderer, Resource Space, or Native Ring own Doom-specific semantics.

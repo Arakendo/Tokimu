@@ -5,6 +5,7 @@
 //! into engine crates.
 
 use super::super::*;
+use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
     fn refresh_ordered_coverage_for_observer(&mut self) -> PlatformResult<()> {
@@ -22,21 +23,58 @@ impl App {
             source_heading_radians,
             eye_height: f64::from(observer.position.y),
         };
-        if self.ordered_coverage_view.is_some_and(|previous| {
-            previous.source_position == view.source_position
-                && (previous.source_heading_radians - view.source_heading_radians).abs() < 1.0e-5
-                && (previous.eye_height - view.eye_height).abs() < 1.0e-5
-        }) {
+        let identity = OrderedPreparationIdentity {
+            source_position: view.source_position,
+            source_heading_bits: view.source_heading_radians.to_bits(),
+            eye_height: view.eye_height as i16,
+            door_ceilings: self
+                .active_manual_doors
+                .iter()
+                .map(|door| (door.target_sector.record_index, door.current_ceiling_height))
+                .collect(),
+            turbo_floors: self
+                .active_turbo_floors
+                .iter()
+                .map(|floor| (floor.target_sector.record_index, floor.current_floor_height))
+                .collect(),
+            platform_floors: self
+                .active_down_wait_up_platforms
+                .iter()
+                .map(|platform| {
+                    (
+                        platform.target_sector.record_index,
+                        platform.current_floor_height,
+                    )
+                })
+                .collect(),
+        };
+        if self.ordered_preparation_identity.as_ref() == Some(&identity) {
             return Ok(());
         }
+        let cutout_materials = source
+            .cutout_uploads
+            .iter()
+            .map(|upload| (upload.source_name.clone(), upload.material))
+            .collect::<BTreeMap<_, _>>();
+        // Activation and time progression remain in this application. The
+        // preparer receives only their already-current sector-height facts.
+        let runtime_map = self.current_doom_visibility_map()?;
+        let mut prepared = prepare_ordered_occurrence_declarations(
+            &runtime_map,
+            view.source_position,
+            view.source_heading_radians,
+            view.eye_height as i16,
+            &source.door_geometry_source.wall_extents,
+            &source.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &source.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        reembed_draws_for_comparison(&mut prepared.opaque_draws, self.comparative_embedding);
+        reembed_draws_for_comparison(&mut prepared.cutout_draws, self.comparative_embedding);
 
-        let mut presentation =
-            prepare_doom_seg_ordered_coverage_presentation_for_view(source, view)?;
-        reembed_draws_for_comparison(&mut presentation.opaque_draws, self.comparative_embedding);
-        reembed_draws_for_comparison(&mut presentation.cutout_draws, self.comparative_embedding);
-
-        self.draws = presentation.opaque_draws;
-        self.cutout_draws = presentation.cutout_draws;
+        self.draws = prepared.opaque_draws;
+        self.cutout_draws = prepared.cutout_draws;
         self.opaque_bounds = draw_bounds(&self.draws);
         self.cutout_bounds = draw_bounds(&self.cutout_draws);
         self.opaque_grid = self
@@ -54,14 +92,13 @@ impl App {
         self.dynamic_door_mesh_handles.clear();
         self.dirty_opaque_meshes.clear();
         self.commands.clear();
-        self.ordered_coverage_view = Some(view);
-
         if let Some(mut renderer) = self.renderer.take() {
             self.upload_static_meshes(&mut renderer);
             self.renderer = Some(renderer);
         }
+        self.ordered_preparation_identity = Some(identity);
         eprintln!(
-            "E1M1 ordered preparation refreshed: source=({},{}); heading_degrees={:.3}; eye_height={:.3}; opaque_draws={}; cutout_draws={}; submission={}",
+            "E1M1 Slice 6B ordered preparation refreshed: source=({},{}); heading_degrees={:.3}; eye_height={:.3}; opaque_draws={}; cutout_draws={}; submission={}; {}",
             view.source_position[0],
             view.source_position[1],
             view.source_heading_radians.to_degrees(),
@@ -69,6 +106,7 @@ impl App {
             self.draws.len(),
             self.cutout_draws.len(),
             candidate_selection_label(self.candidate_selection, true),
+            prepared.conservation_report,
         );
         Ok(())
     }
@@ -270,13 +308,23 @@ impl App {
         self.debug_console.set_open(opening);
     }
 
+    fn set_bsp_diagnostic_focus(&mut self, focus: BspDiagnosticFocus) {
+        if !self.bsp_diagnostic_enabled || self.bsp_diagnostic_focus == focus {
+            return;
+        }
+        self.bsp_diagnostic_focus = focus;
+        let message = format!("BSP diagnostic focus={}", focus.label());
+        eprintln!("E1M1 {message}; membership=unchanged-global-full");
+        self.debug_console.append(message);
+    }
+
     fn submit_debug_console(&mut self) {
         let Some(command) = self.debug_console.take_submission() else {
             return;
         };
         eprintln!("[doom-console] > {command}");
         let response = match parse_debug_command(&command) {
-            DebugCommand::Help => "commands: HELP | CLEAR | STATUS | CAMERA | COLLISION | LOOK | USE <linedef> | NOCLIP [ON|OFF|TOGGLE]".to_owned(),
+            DebugCommand::Help => "commands: HELP | CLEAR | STATUS | CAMERA | COLLISION | LOOK [PIXEL x y|NDC x y] | SCAN [columns rows] | USE <linedef> | NOCLIP [ON|OFF|TOGGLE]".to_owned(),
             DebugCommand::Clear => {
                 self.debug_console.clear();
                 eprintln!("[doom-console] [doom] transcript cleared");
@@ -292,8 +340,14 @@ impl App {
                     });
                     let (source_position, source_angle) =
                         observer_doom_source_pose(observer, look, self.comparative_embedding);
+                    let (source_origin, source_height) = self
+                        .comparative_embedding
+                        .lower_direction(observer.position);
+                    let (source_direction, source_direction_height) = self
+                        .comparative_embedding
+                        .lower_direction(observer_direction(look.yaw, look.pitch));
                     format!(
-                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={} source_pose=({},{};{:.1}deg) sector={} floor={} ceiling={}",
+                        "camera: position=({:.2},{:.2},{:.2}) yaw={:.4} pitch={:.4} source_thing={} source_pose=({},{};{:.1}deg) sector={} floor={} ceiling={} headless_scan_replay=--bsp-diagnostic-scan-report={:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.0},{:.0},{DEFAULT_SCAN_COLUMNS},{DEFAULT_SCAN_ROWS}",
                         observer.position.x,
                         observer.position.y,
                         observer.position.z,
@@ -306,6 +360,14 @@ impl App {
                         observer.sector,
                         observer.floor,
                         observer.ceiling,
+                        source_origin[0],
+                        source_origin[1],
+                        source_height,
+                        source_direction[0],
+                        source_direction[1],
+                        source_direction_height,
+                        self.size[0],
+                        self.size[1],
                     )
                 },
             ),
@@ -349,7 +411,8 @@ impl App {
                     )
                 },
             ),
-            DebugCommand::Look => self.inspect_center_ray(),
+            DebugCommand::Look(command) => self.resolve_look_command(&command),
+            DebugCommand::Scan(command) => self.resolve_scan_command(&command),
             DebugCommand::Use(command) => self.resolve_use_command(&command),
             DebugCommand::Noclip(NoclipAction::Toggle) => {
                 self.noclip = !self.noclip;
@@ -1249,11 +1312,157 @@ impl App {
         self.refresh_active_dynamic_wall_meshes()
     }
 
-    fn inspect_center_ray(&self) -> String {
+    fn resolve_look_command(&self, command: &str) -> String {
+        let arguments = command.split_whitespace().skip(1).collect::<Vec<_>>();
+        let (ndc, sample) = match arguments.as_slice() {
+            [] => ([0.0, 0.0], None),
+            [space, x, y] if *space == "pixel" => {
+                let (Ok(x), Ok(y)) = (x.parse::<f32>(), y.parse::<f32>()) else {
+                    return "look: expected LOOK PIXEL <x> <y> with finite client-area coordinates"
+                        .to_owned();
+                };
+                if !x.is_finite()
+                    || !y.is_finite()
+                    || x < 0.0
+                    || y < 0.0
+                    || x > self.size[0]
+                    || y > self.size[1]
+                {
+                    return format!(
+                        "look: pixel must be inside client area 0..{:.0},0..{:.0}",
+                        self.size[0], self.size[1]
+                    );
+                }
+                (
+                    [2.0 * x / self.size[0] - 1.0, 1.0 - 2.0 * y / self.size[1]],
+                    Some(format!("pixel=({x:.3},{y:.3})")),
+                )
+            }
+            [space, x, y] if *space == "ndc" => {
+                let (Ok(x), Ok(y)) = (x.parse::<f32>(), y.parse::<f32>()) else {
+                    return "look: expected LOOK NDC <x> <y> with finite values from -1 through 1"
+                        .to_owned();
+                };
+                if !x.is_finite()
+                    || !y.is_finite()
+                    || !(-1.0..=1.0).contains(&x)
+                    || !(-1.0..=1.0).contains(&y)
+                {
+                    return "look: NDC x and y must be finite values from -1 through 1".to_owned();
+                }
+                ([x, y], Some(format!("ndc=({x:.6},{y:.6})")))
+            }
+            _ => {
+                return "look: expected LOOK, LOOK PIXEL <x> <y>, or LOOK NDC <x> <y>".to_owned();
+            }
+        };
+        let Some(look) = self.observer_look else {
+            return "look: source-spawn observer unavailable".to_owned();
+        };
+        let direction = self.inspection_direction(look, ndc);
+        let observation = self.inspect_ray(direction);
+        match sample {
+            None => observation,
+            Some(sample) => {
+                let center_direction = observer_direction(look.yaw, look.pitch);
+                let (source_center, _) =
+                    self.comparative_embedding.lower_direction(center_direction);
+                let (source_sample, _) = self.comparative_embedding.lower_direction(direction);
+                let center_heading = source_center[1].atan2(source_center[0]).to_degrees();
+                let sample_heading = source_sample[1].atan2(source_sample[0]).to_degrees();
+                let mut heading_offset = sample_heading - center_heading;
+                while heading_offset > 180.0 {
+                    heading_offset -= 360.0;
+                }
+                while heading_offset < -180.0 {
+                    heading_offset += 360.0;
+                }
+                format!(
+                    "look_sample={sample},ndc=({:.6},{:.6}),client=({:.0},{:.0}),bsp-view-heading-degrees={center_heading:.3},sample-ray-heading-degrees={sample_heading:.3},sample-minus-view-heading-degrees={heading_offset:.3} meaning=classification-uses-frozen-camera-view-while-classic-source-trace-follows-sample-ray\n{observation}",
+                    ndc[0], ndc[1], self.size[0], self.size[1]
+                )
+            }
+        }
+    }
+
+    fn inspection_direction(&self, look: ObserverLook, ndc: [f32; 2]) -> Vec3 {
+        viewport_inspection_direction(observer_direction(look.yaw, look.pitch), self.size, ndc)
+    }
+
+    fn resolve_scan_command(&self, command: &str) -> String {
+        if !self.bsp_diagnostic_enabled {
+            return "scan: requires --bsp-diagnostic-full".to_owned();
+        }
+        let arguments = command.split_whitespace().skip(1).collect::<Vec<_>>();
+        let (columns, rows) = match arguments.as_slice() {
+            [] => (DEFAULT_SCAN_COLUMNS, DEFAULT_SCAN_ROWS),
+            [columns, rows] => {
+                let (Ok(columns), Ok(rows)) = (columns.parse::<usize>(), rows.parse::<usize>())
+                else {
+                    return "scan: expected SCAN or SCAN <columns> <rows>".to_owned();
+                };
+                (columns, rows)
+            }
+            _ => return "scan: expected SCAN or SCAN <columns> <rows>".to_owned(),
+        };
+        if columns < 4
+            || rows < 4
+            || columns > 128
+            || rows > 128
+            || columns.saturating_mul(rows) > MAX_SCAN_SAMPLES
+        {
+            return format!(
+                "scan: grid axes must be 4..128 and contain at most {MAX_SCAN_SAMPLES} samples"
+            );
+        }
+        let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
+            return "scan: source-spawn observer unavailable".to_owned();
+        };
+        let map = match self.current_doom_visibility_map() {
+            Ok(map) => map,
+            Err(error) => {
+                return format!("scan: current runtime-height snapshot unavailable:{error}")
+            }
+        };
+        let manifest = match observe_bsp_diagnostic_manifest(
+            &map,
+            &self.draws,
+            &self.cutout_draws,
+            observer,
+            look,
+            self.comparative_embedding,
+            {
+                let camera = scene_camera(
+                    self.size,
+                    self.center,
+                    self.radius,
+                    Some(observer),
+                    Some(look),
+                );
+                camera.projection * camera.view
+            },
+        ) {
+            Ok(manifest) => manifest,
+            Err(error) => return format!("scan: BSP manifest unavailable:{error}"),
+        };
+        scan_bsp_viewport(
+            observer.position,
+            observer_direction(look.yaw, look.pitch),
+            self.size,
+            columns,
+            rows,
+            &self.draws,
+            &self.cutout_draws,
+            self.include_cutouts,
+            &manifest,
+        )
+        .report()
+    }
+
+    fn inspect_ray(&self, direction: Vec3) -> String {
         let (Some(observer), Some(look)) = (self.spawn_observer, self.observer_look) else {
             return "look: source-spawn observer unavailable".to_owned();
         };
-        let direction = observer_direction(look.yaw, look.pitch).normalize_or_zero();
         let hit = nearest_prepared_ray_hit(
             observer.position,
             direction,
@@ -1276,7 +1485,7 @@ impl App {
                 &self.diagnostic_sky_draws,
             ),
         );
-        let (source_xy, _) = self
+        let (source_xy, source_eye_height) = self
             .comparative_embedding
             .lower_direction(observer.position);
         let (source_direction, _) = self.comparative_embedding.lower_direction(direction);
@@ -1286,7 +1495,63 @@ impl App {
             source_direction,
             hit,
         );
-        format!("{ordinary}\n{classic}")
+        let center_direction = observer_direction(look.yaw, look.pitch);
+        let (source_center_direction, _) =
+            self.comparative_embedding.lower_direction(center_direction);
+        let plane_occurrence = match self.current_doom_visibility_map() {
+            Ok(map) => format_source_classic_plane_span_support(
+                &map,
+                &self.door_geometry_source.wall_extents,
+                source_xy,
+                source_center_direction,
+                source_eye_height,
+                hit,
+            ),
+            Err(error) => format!("classic_plane_occurrence=unavailable:map:{error}"),
+        };
+        let bsp = if !self.bsp_diagnostic_enabled {
+            "bsp_shadow_classification=disabled".to_owned()
+        } else {
+            match self.current_doom_visibility_map().and_then(|map| {
+                observe_bsp_diagnostic_manifest(
+                    &map,
+                    &self.draws,
+                    &self.cutout_draws,
+                    observer,
+                    look,
+                    self.comparative_embedding,
+                    {
+                        let camera = scene_camera(
+                            self.size,
+                            self.center,
+                            self.radius,
+                            Some(observer),
+                            Some(look),
+                        );
+                        camera.projection * camera.view
+                    },
+                )
+            }) {
+                Ok(manifest) => hit.map_or_else(
+                    || "bsp_shadow_classification=no-ordinary-hit".to_owned(),
+                    |hit| {
+                        let classification = describe_bsp_diagnostic_hit(
+                            &manifest,
+                            hit.draw,
+                            hit.family == "cutout",
+                            &self.draws,
+                            &self.cutout_draws,
+                        );
+                        format!(
+                            "{classification},source:{}",
+                            compact_draw_source(&hit.draw.source)
+                        )
+                    },
+                ),
+                Err(error) => format!("bsp_shadow_classification=unavailable:{error}"),
+            }
+        };
+        format!("{ordinary}\n{classic}\n{plane_occurrence}\n{bsp}")
     }
 
     fn rebuild_debug_console(&mut self, renderer: &mut WgpuBackend) -> PlatformResult<()> {
@@ -1505,6 +1770,14 @@ impl PlatformEventHandler for App {
                 renderer.create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)?;
                 renderer.upload_material(upload.material, &upload.material_value)?;
             }
+        }
+        if self.bsp_diagnostic_enabled {
+            upload_bsp_diagnostic_materials(&mut renderer)?;
+            eprintln!(
+                "E1M1 BSP shadow diagnostic enabled: focus={}; {}; membership=unchanged-global-full; classification-authority=appearance-only; focus-controls=Z-all,X-accepted,M-rejected,Q-unresolved",
+                self.bsp_diagnostic_focus.label(),
+                bsp_diagnostic_legend(),
+            );
         }
         if self.diagnostic_sky_enabled {
             // AR-0027 Alternative A: this corpus chooses a checked-in Purple
@@ -1751,7 +2024,7 @@ impl PlatformEventHandler for App {
         }
         self.upload_static_meshes(&mut renderer);
         eprintln!(
-            "E1M1 native first-frame metadata: strategy={}; stages={}; topology_inventory_records={}; topology_inventory_hash={:016x}; opaque_draws={}; cutout_draws={}; cutouts_enabled={}; camera={}; candidate_selection={}; walk_collision={}; noclip={}; backend={}; device={}; adapter={}",
+            "E1M1 native first-frame metadata: strategy={}; stages={}; topology_inventory_records={}; topology_inventory_hash={:016x}; opaque_draws={}; cutout_draws={}; cutouts_enabled={}; bsp_diagnostic={}; bsp_focus={}; camera={}; candidate_selection={}; walk_collision={}; noclip={}; backend={}; device={}; adapter={}",
             self.render_strategy_name,
             self.render_strategy_stages,
             self.topology_inventory.records.len(),
@@ -1759,6 +2032,8 @@ impl PlatformEventHandler for App {
             self.draws.len(),
             self.cutout_draws.len(),
             self.include_cutouts,
+            self.bsp_diagnostic_enabled,
+            self.bsp_diagnostic_focus.label(),
             if self.spawn_observer.is_some() { "source-spawn-observer" } else { "overview" },
             candidate_selection_label(
                 self.candidate_selection,
@@ -1835,6 +2110,20 @@ impl PlatformEventHandler for App {
             if key == KeyCode::Escape && pressed {
                 self.set_mouse_captured(false);
                 self.release_walk_keys();
+            } else if pressed
+                && self.bsp_diagnostic_enabled
+                && matches!(
+                    key,
+                    KeyCode::KeyZ | KeyCode::KeyX | KeyCode::KeyM | KeyCode::KeyQ
+                )
+            {
+                match key {
+                    KeyCode::KeyZ => self.set_bsp_diagnostic_focus(BspDiagnosticFocus::All),
+                    KeyCode::KeyX => self.set_bsp_diagnostic_focus(BspDiagnosticFocus::Accepted),
+                    KeyCode::KeyM => self.set_bsp_diagnostic_focus(BspDiagnosticFocus::Rejected),
+                    KeyCode::KeyQ => self.set_bsp_diagnostic_focus(BspDiagnosticFocus::Unresolved),
+                    _ => {}
+                }
             } else if key == KeyCode::KeyR && pressed {
                 self.reset_spawn_observer();
             } else if key == KeyCode::KeyE && pressed {
@@ -2001,7 +2290,7 @@ impl PlatformEventHandler for App {
                     self.frame_index == 0,
                 );
             }
-            if let Some(observer) = self.spawn_observer {
+            if let Some(observer) = self.spawn_observer.filter(|_| !self.bsp_diagnostic_enabled) {
                 select_masked_middle_owning_sides(
                     &self.cutout_draws,
                     observer.position,
@@ -2013,6 +2302,31 @@ impl PlatformEventHandler for App {
             }
         }
         let cutout_submitted = selection.submitted - opaque_submitted;
+        let bsp_diagnostic = if self.bsp_diagnostic_enabled {
+            let visibility_map = self.current_doom_visibility_map()?;
+            let manifest = observe_bsp_diagnostic_manifest(
+                &visibility_map,
+                &self.draws,
+                &self.cutout_draws,
+                self.spawn_observer
+                    .expect("BSP diagnostic requires a source observer"),
+                self.observer_look
+                    .expect("BSP diagnostic requires observer look"),
+                self.comparative_embedding,
+                view_projection,
+            )?;
+            if self.frame_index == 0 {
+                eprintln!(
+                    "E1M1 BSP shadow diagnostic manifest: focus={}; {}; original-submitted={}; renderer-removals=0; reasons=retained-per-draw",
+                    self.bsp_diagnostic_focus.label(),
+                    manifest.report(),
+                    self.draws.len() + self.cutout_draws.len(),
+                );
+            }
+            Some(manifest)
+        } else {
+            None
+        };
         let selection_time = selection_started.elapsed();
         let command_started = Instant::now();
         self.commands.clear();
@@ -2023,14 +2337,27 @@ impl PlatformEventHandler for App {
             let pipeline = self
                 .doom_sky_pipeline
                 .ok_or_else(|| io::Error::other("Doom sky pipeline missing"))?;
-            self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+            let sky_draw = DrawMeshCommand {
                 mesh: DOOM_SKY_MESH,
                 material: DOOM_SKY_MATERIAL,
                 pipeline,
                 instance: Instance2d::identity(),
                 camera: Some(CAMERA),
                 viewport: None,
-            }));
+            };
+            if self.bsp_diagnostic_enabled {
+                self.commands.push(bsp_diagnostic_command(
+                    sky_draw,
+                    BspDiagnosticDraw {
+                        family: BspDiagnosticFamily::Skybox,
+                        disposition: BspDiagnosticDisposition::UnresolvedFailOpen,
+                        reason: BspDiagnosticReason::PresentationGlobal,
+                    },
+                    self.bsp_diagnostic_focus,
+                )?);
+            } else {
+                self.commands.push(RenderCommand::DrawMesh(sky_draw));
+            }
             let boundary_pipeline = self
                 .doom_sky_boundary_pipeline
                 .ok_or_else(|| io::Error::other("Doom sky boundary pipeline missing"))?;
@@ -2075,14 +2402,26 @@ impl PlatformEventHandler for App {
                 .get(&index)
                 .copied()
                 .unwrap_or(MeshHandle(index as u64 + 1));
-            self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+            let draw_command = DrawMeshCommand {
                 mesh,
                 material: draw.material,
                 pipeline: self.pipeline,
                 instance: Instance2d::identity(),
                 camera: Some(CAMERA),
                 viewport: None,
-            }));
+            };
+            if let Some(diagnostic) = bsp_diagnostic
+                .as_ref()
+                .map(|manifest| manifest.opaque[index])
+            {
+                self.commands.push(bsp_diagnostic_command(
+                    draw_command,
+                    diagnostic,
+                    self.bsp_diagnostic_focus,
+                )?);
+            } else {
+                self.commands.push(RenderCommand::DrawMesh(draw_command));
+            }
         }
         if self.include_cutouts {
             let cutout_pipeline = self
@@ -2093,14 +2432,26 @@ impl PlatformEventHandler for App {
                     continue;
                 }
                 let mesh = MeshHandle(self.cutout_mesh_base + offset as u64);
-                self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                let draw_command = DrawMeshCommand {
                     mesh,
                     material: draw.material,
                     pipeline: cutout_pipeline,
                     instance: Instance2d::identity(),
                     camera: Some(CAMERA),
                     viewport: None,
-                }));
+                };
+                if let Some(diagnostic) = bsp_diagnostic
+                    .as_ref()
+                    .map(|manifest| manifest.cutouts[offset])
+                {
+                    self.commands.push(bsp_diagnostic_command(
+                        draw_command,
+                        diagnostic,
+                        self.bsp_diagnostic_focus,
+                    )?);
+                } else {
+                    self.commands.push(RenderCommand::DrawMesh(draw_command));
+                }
             }
         }
         if self.diagnostic_sky_enabled {
