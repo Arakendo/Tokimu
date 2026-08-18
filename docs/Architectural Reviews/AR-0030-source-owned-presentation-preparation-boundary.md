@@ -1992,6 +1992,31 @@ The review moves away from shared admission when:
   render-subsector/render-sector and explicit compatibility-hack practice may
   inform a new study, but no stable or live strategy is authorized here.
 
+### Cycle 51 -- 2026-08-18
+
+- Maintainer discussion proposes a new free-look realization hypothesis over
+  complete global-full geometry: ordered, oriented semantic sky transitions
+  may place each actual camera ray in alternating World/Sky state before its
+  nearest ordinary target.
+- The proposal is stricter than raw intersection parity. Doom does not provide
+  a guaranteed watertight skybox, so only source-proven `Enter` and `Exit`
+  events may change state. Duplicate triangles, tangencies, malformed
+  sequences, unknown initial state and unproved closure remain explicit and
+  fail open to World.
+- AABB/frustum/BVH mechanisms may accelerate conservative candidate and exact
+  intersection queries only. They do not infer transition roles or acquire
+  presentation authority.
+- The frozen first gate contrasts the five original far-field resurrection
+  rays, expected to be Sky before the unwanted hit, with the five newly
+  retained ordinary floor/ceiling holes, expected to remain World. Classic
+  ordered solid coverage remains the historical cause; parity is tested only
+  as an implementation-equivalence hypothesis.
+- The proposed study requires a genuine Enter/Exit specimen before parity can
+  claim value beyond a one-way sky mask. It authorizes no implementation,
+  live candidate, renderer mutation or stable contract by itself.
+- Proposed study:
+  `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -2005,6 +2030,7 @@ The review moves away from shared admission when:
 - `docs/Plans/DOOM/Tokimu BSP capability setup plan.md`
 - `docs/Plans/DOOM/Studies/Doom authoritative sky coverage delta realization.md`
 - `docs/Plans/DOOM/Studies/Doom source-authorized relational contribution classification.md`
+- `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom renderer dataflow and Tokimu preparation seam.md`
 - `docs/Plans/DOOM/Evidence/Doom authoritative sky-depth realization seam evidence.md`
