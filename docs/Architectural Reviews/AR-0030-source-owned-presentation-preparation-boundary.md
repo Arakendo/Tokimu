@@ -1930,6 +1930,27 @@ The review moves away from shared admission when:
   leaks return exact replay evidence to this review; they do not authorize
   source-cell, BSP, sky, or portal semantics in `tokimu-render`.
 
+### Cycle 49 -- 2026-08-18
+
+- The first maintainer walkabout falsifies the
+  `source-occurrence-supported` candidate as a coherent live presentation:
+  it is visually worse than the global control and exposes many holes.
+- The `15/15` exact matrix remains valid for its local claims, but is now
+  explicitly insufficient as a whole-view acceptance gate. Conservation also
+  remains balanced and therefore demonstrates accounting rather than
+  watertight screen coverage.
+- A new non-authoritative four-pose `32x20` complete-shell comparison records
+  seven complete-shell nearest hits with no candidate hit and two nearest-hit
+  displacements over `2,560` rays. Broad-grid fingerprint:
+  `d049a8b79f7404c8`. This bounded matrix does not claim to reproduce every
+  hole seen on the maintainer's wider walk path.
+- Architectural disposition: the strategy remains opt-in diagnostic evidence
+  and is rejected for default promotion. Do not broaden source-cell admission
+  to make the image whole. Retain exact failing camera/pixel replays next and
+  distinguish lowering/fragment coverage defects from limits of lifting
+  Classic view-conditioned occurrences into ordinary world geometry before
+  deciding whether this line of study continues.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

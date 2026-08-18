@@ -814,11 +814,120 @@ pub(crate) fn report_source_occurrence_live_candidate(scene: &SceneInput) -> Pla
         ))
         .into());
     }
+    let (coverage_rows, coverage_fingerprint) = source_occurrence_candidate_grid_delta(scene)?;
     println!(
-        "E1M1 source-occurrence live candidate acceptance: passed={passed}/{total}; fingerprint={fingerprint:016x}; historical-ceiling-104=object-positive-exact-ray-negative; renderer-mutation=false; rows=[{}]",
+        "E1M1 source-occurrence live candidate acceptance: passed={passed}/{total}; fingerprint={fingerprint:016x}; historical-ceiling-104=object-positive-exact-ray-negative; broad-grid-authority=diagnostic-delta-not-correctness-proof; broad-grid-fingerprint={coverage_fingerprint:016x}; renderer-mutation=false; rows=[{}]; broad-grid=[{}]",
         rows.join(" | "),
+        coverage_rows.join(" | "),
     );
     Ok(())
+}
+
+/// Measures how much complete-shell nearest-hit coverage the candidate removes
+/// over a broad neutral-view grid. A delta is not automatically a defect: some
+/// removed complete-shell hits are exactly the unsupported geometry under
+/// study. The report exists to make a visually hole-filled walkabout
+/// quantitatively reproducible instead of expanding admission to make it pass.
+fn source_occurrence_candidate_grid_delta(
+    scene: &SceneInput,
+) -> PlatformResult<(Vec<String>, u64)> {
+    const GRID_COLUMNS: usize = 32;
+    const GRID_ROWS: usize = 20;
+
+    let mut rows = Vec::new();
+    let mut fingerprint = fnv_offset();
+    for pose in NEUTRAL_PITCH_POSES {
+        let heading = pose.heading_degrees.to_radians();
+        let prepared = crate::render_strategies::source_occurrence_supported::prepare(
+            scene,
+            &scene.door_geometry_source.map,
+            pose.viewer,
+            heading,
+            pose.eye_height,
+        )?;
+        let mut complete_hits = 0usize;
+        let mut candidate_hits = 0usize;
+        let mut complete_hit_candidate_misses = 0usize;
+        let mut nearest_hit_disagreements = 0usize;
+        let mut missing_sources = BTreeMap::<String, (usize, usize, usize)>::new();
+        let mut displaced_sources = BTreeMap::<String, (usize, usize, usize)>::new();
+
+        for grid_row in 0..GRID_ROWS {
+            let row = grid_row * SOURCE_ROWS / GRID_ROWS + SOURCE_ROWS / GRID_ROWS / 2;
+            for grid_column in 0..GRID_COLUMNS {
+                let column =
+                    grid_column * SOURCE_COLUMNS / GRID_COLUMNS + SOURCE_COLUMNS / GRID_COLUMNS / 2;
+                let source_direction = source_cell_center_direction(column, row, heading);
+                let (origin, direction) = source_ray_vectors(
+                    [
+                        f64::from(pose.viewer[0]),
+                        f64::from(pose.viewer[1]),
+                        f64::from(pose.eye_height),
+                    ],
+                    source_direction,
+                );
+                let complete_hit = nearest_prepared_ray_hit(
+                    origin,
+                    direction,
+                    &scene.opaque_draws,
+                    Some(&scene.cutout_draws),
+                );
+                let candidate_hit = nearest_prepared_ray_hit(
+                    origin,
+                    direction,
+                    &prepared.opaque_draws,
+                    Some(&prepared.cutout_draws),
+                );
+                complete_hits += usize::from(complete_hit.is_some());
+                candidate_hits += usize::from(candidate_hit.is_some());
+                match (complete_hit, candidate_hit) {
+                    (Some(complete_hit), None) => {
+                        complete_hit_candidate_misses += 1;
+                        missing_sources
+                            .entry(complete_hit.draw.source_label.clone())
+                            .and_modify(|entry| entry.0 += 1)
+                            .or_insert((1, column, row));
+                    }
+                    (Some(complete_hit), Some(candidate_hit))
+                        if complete_hit.draw.source != candidate_hit.draw.source
+                            || (complete_hit.distance - candidate_hit.distance).abs() > 0.05 =>
+                    {
+                        nearest_hit_disagreements += 1;
+                        let key = format!(
+                            "{}->{}",
+                            complete_hit.draw.source_label, candidate_hit.draw.source_label
+                        );
+                        displaced_sources
+                            .entry(key)
+                            .and_modify(|entry| entry.0 += 1)
+                            .or_insert((1, column, row));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let missing = missing_sources
+            .iter()
+            .map(|(source, (samples, column, row))| format!("{source}:{samples}@({column},{row})"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let displaced = displaced_sources
+            .iter()
+            .map(|(sources, (samples, column, row))| {
+                format!("{sources}:{samples}@({column},{row})")
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let report = format!(
+            "pose={}:samples={}:complete-hits={complete_hits}:candidate-hits={candidate_hits}:complete-hit-candidate-misses={complete_hit_candidate_misses}:nearest-hit-disagreements={nearest_hit_disagreements}:missing-sources=[{missing}]:displaced-sources=[{displaced}]",
+            pose.name,
+            GRID_COLUMNS * GRID_ROWS,
+        );
+        hash_text(&mut fingerprint, &report);
+        rows.push(report);
+    }
+    Ok((rows, fingerprint))
 }
 
 fn replay_neutral_positive_plane_controls(

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Live corpus-private A/B authorized and implemented — awaiting adversarial E1M1 walkabout |
+| Status | Live A/B falsified by adversarial E1M1 walkabout — retained as diagnostic only |
 | Scope | Determine whether Doom's source-keyed, view-local wall and plane cells can authorize ordinary reconstructed geometry without whole-subsector or whole-key Boolean promotion |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Immediate falsifiers | [2026-08-18 Doom Source-Covered Walkabout Falsifiers](../../../Checkpoints/2026-08-18-doom-source-covered-walkabout-falsifiers.md) |
@@ -307,3 +307,33 @@ platform, green-room cutout, and representative `-15`/`+15` degree pitch.
 Visual failures must be replayed through `LOOK` and the complete-shell → final
 cell → ordered declaration → prepared world support → candidate chain before
 any policy expansion.
+
+## Live Walkabout Falsification — 2026-08-18
+
+The first maintainer walkabout reports that the opt-in candidate is worse than
+the control and contains many visible holes. This fails the live coherence
+gate even though all `15/15` hand-selected exact rays remain green. The
+candidate must not become the default and its exact support must not be
+broadened merely to conceal the result.
+
+The headless report now also measures nearest-hit deltas against the complete
+shell over four `32x20` neutral-view grids (`2,560` rays). It records seven
+complete-shell hits with no candidate hit and two more whose nearest candidate
+is a different, farther contribution. The affected samples include floors in
+sectors 37, 38 and 39 and a sector 38 ceiling. The deterministic broad-grid
+fingerprint is `d049a8b79f7404c8`.
+
+That bounded grid under-represents the visual failure because it covers only
+the earlier retained neutral poses, not the maintainer's complete walk path,
+but it demonstrates the important methodological failure: a sparse exact-ray
+matrix can validate local source-occurrence claims without establishing a
+watertight live presentation. Balanced declaration conservation likewise
+proves accounting, not screen coverage.
+
+The precise cause of each observed hole remains unresolved until one or more
+actual failing camera/pixel replays are retained. Plausible local causes
+include incomplete source-cell-to-world support reconstruction, cracks or
+coverage loss between finite cell fragments, or valid Classic occurrences
+that the current lowering fails to realize at modern raster resolution. Those
+possibilities must be distinguished with exact evidence; none authorizes a
+new renderer contract or generic BSP/BVH visibility policy.
