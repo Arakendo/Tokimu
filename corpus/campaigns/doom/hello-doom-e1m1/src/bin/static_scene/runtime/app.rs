@@ -1507,6 +1507,34 @@ impl App {
             &self.draws,
             self.include_cutouts.then_some(self.cutout_draws.as_slice()),
         );
+        let mut global_control_opaque = Vec::new();
+        let mut global_control_cutout = Vec::new();
+        if self.source_occurrence_support_filter {
+            if let Some(source) = self.ordered_coverage_source.as_ref() {
+                global_control_opaque = source.opaque_draws.clone();
+                global_control_cutout = source.cutout_draws.clone();
+                reembed_draws_for_comparison(
+                    &mut global_control_opaque,
+                    self.comparative_embedding,
+                );
+                reembed_draws_for_comparison(
+                    &mut global_control_cutout,
+                    self.comparative_embedding,
+                );
+            }
+        }
+        let global_control_hit = (!global_control_opaque.is_empty())
+            .then(|| {
+                nearest_prepared_ray_hit(
+                    observer.position,
+                    direction,
+                    &global_control_opaque,
+                    self.include_cutouts
+                        .then_some(global_control_cutout.as_slice()),
+                )
+            })
+            .flatten();
+        let diagnostic_target_hit = hit.or(global_control_hit);
         let ordinary = format_look_ray_observation(
             observer.position,
             direction,
@@ -1531,7 +1559,7 @@ impl App {
             &self.door_geometry_source.map,
             source_xy,
             source_direction,
-            hit,
+            diagnostic_target_hit,
         );
         let center_direction = observer_direction(look.yaw, look.pitch);
         let (source_center_direction, _) =
@@ -1543,7 +1571,7 @@ impl App {
                 source_xy,
                 source_center_direction,
                 source_eye_height,
-                hit,
+                diagnostic_target_hit,
             ),
             Err(error) => format!("classic_plane_occurrence=unavailable:map:{error}"),
         };
@@ -1589,7 +1617,30 @@ impl App {
                 Err(error) => format!("bsp_shadow_classification=unavailable:{error}"),
             }
         };
-        format!("{ordinary}\n{classic}\n{plane_occurrence}\n{bsp}")
+        let global_control = global_control_hit.map_or_else(
+            || {
+                if self.source_occurrence_support_filter {
+                    "global_full_control=no-hit".to_owned()
+                } else {
+                    "global_full_control=not-applicable".to_owned()
+                }
+            },
+            |control| {
+                format!(
+                    "global_full_control=hit:distance:{:.3}:family:{}:label:{}:source:{}; candidate-relation={}",
+                    control.distance,
+                    control.family,
+                    control.draw.source_label,
+                    compact_draw_source(&control.draw.source),
+                    if hit.is_some() {
+                        "candidate-also-hit"
+                    } else {
+                        "candidate-omitted-control-hit"
+                    },
+                )
+            },
+        );
+        format!("{ordinary}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}")
     }
 
     fn rebuild_debug_console(&mut self, renderer: &mut WgpuBackend) -> PlatformResult<()> {

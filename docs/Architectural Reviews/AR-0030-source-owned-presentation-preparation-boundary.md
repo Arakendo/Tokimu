@@ -1950,6 +1950,20 @@ The review moves away from shared admission when:
   distinguish lowering/fragment coverage defects from limits of lifting
   Classic view-conditioned occurrences into ordinary world geometry before
   deciding whether this line of study continues.
+- Five retained live `LOOK` rays subsequently prove that the visible panorama
+  is showing through omitted ordinary geometry rather than an authorized sky
+  aperture. Global-full hits one ceiling and four floors at distances from
+  `56.203` through `138.783`; all five rays have neither a source sky plane nor
+  a sky boundary.
+- Two spawn rays lie near `+/-40` degrees elevation, outside the Classic
+  source projection's roughly `+/-32` degree vertical window. Finite neutral
+  support cannot supply their nearby floor/ceiling under free pitch. Three
+  additional missing floors remain within the source window, proving that
+  pitch range alone does not explain the candidate's omissions.
+- The live `LOOK` diagnostic now retains and prints the global-full nearest
+  hit when this candidate misses, then uses it as the source trace/plane
+  occurrence target. Candidate removal can no longer make the diagnostic
+  misleadingly report an empty target set.
 
 ## References
 

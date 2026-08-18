@@ -337,3 +337,27 @@ coverage loss between finite cell fragments, or valid Classic occurrences
 that the current lowering fails to realize at modern raster resolution. Those
 possibilities must be distinguished with exact evidence; none authorizes a
 new renderer contract or generic BSP/BVH visibility policy.
+
+Five exact maintainer `LOOK` replays then resolved the apparent sky leakage.
+The live candidate misses every ray, but global-full hits ordinary local
+geometry on all five: sector 38/subsector 103 floor and ceiling at `56.365`
+and `56.203`; sector 38/subsector 114 floor at `114.443`; sector 2/subsector
+116 floor at `88.605`; and sector 12/subsector 29 floor at `138.783`. Every
+ray reports both `sky_boundary=none` and `source_sky_plane=none`. The panorama
+is therefore visible through missing ordinary geometry; it is not authorized
+sky presentation.
+
+The two spawn rays have approximately `-39.7` and `+39.8` degree elevation,
+outside the Classic source projection's approximately `+/-32` degree vertical
+window. They directly falsify the assumption that reprojecting a finite
+neutral-source support set is enough for arbitrary pitch: nearby floor and
+ceiling geometry outside that neutral window never enters the prepared set.
+The other three floor rays are approximately `-18.3`, `-24.0` and `-15.0`
+degrees and remain inside that source window, so extreme pitch is not the
+whole failure. At least one additional source-occurrence association or
+cell-to-world realization defect remains.
+
+Live `LOOK` now reports the retained global-full nearest hit alongside the
+candidate hit and uses that control hit as the diagnostic target when the
+candidate misses. This prevents a candidate omission from erasing the target
+subsector and plane evidence needed to explain itself.
