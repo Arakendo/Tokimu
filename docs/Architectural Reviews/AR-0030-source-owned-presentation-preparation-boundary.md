@@ -1965,6 +1965,33 @@ The review moves away from shared admission when:
   occurrence target. Candidate removal can no longer make the diagnostic
   misleadingly report an empty target set.
 
+### Cycle 50 -- 2026-08-18
+
+- Maintainer review separates Classic source participation from complete
+  arbitrary-camera world presentation and recommends retiring source cells as
+  the latter's authority. Global-full remains the geometry-completeness oracle
+  while ordered evidence may later supply only narrowly scoped, positively
+  proven exclusions.
+- The final bounded audit covers the three moderate-pitch floor holes. All
+  three exact pixels have populated matching plane-key cells, yet none has a
+  prepared hit. Sector 38/subsector 114 has two matching ordered declarations;
+  sector 2/subsector 116 and sector 12/subsector 29 have zero.
+- This result exposes an authority limit, not merely a missing Boolean. Doom's
+  retained plane cell key contains kind, height, texture and light but not
+  source sector. Cell presence proves merged visplane support at a source
+  pixel, not ownership by one exact reconstructed sector/subsector surface.
+- Architectural disposition: abandon Classic source-cell support as the
+  complete free-look representation. Preserve it as Classic-view, positive
+  merged-plane, partial-occurrence and diagnostic evidence. Cell absence may
+  not reject arbitrary-camera geometry; cell presence requires independent
+  source identity before it can authorize an exact world contribution.
+- Any successor must begin with persistent Doom-private geometry complete for
+  arbitrary Tokimu cameras, then shadow narrowly scoped positive causal
+  exclusions against global-full. The five original far-field exclusions are
+  retained falsifiers, not permission to install that policy. Hardware-port
+  render-subsector/render-sector and explicit compatibility-hack practice may
+  inform a new study, but no stable or live strategy is authorized here.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

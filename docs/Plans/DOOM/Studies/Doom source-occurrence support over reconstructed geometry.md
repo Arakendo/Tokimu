@@ -361,3 +361,54 @@ Live `LOOK` now reports the retained global-full nearest hit alongside the
 candidate hit and uses that control hit as the diagnostic target when the
 candidate misses. This prevents a candidate omission from erasing the target
 subsector and plane evidence needed to explain itself.
+
+## Final Bounded Moderate-Pitch Audit
+
+The three moderate-pitch floor rays were audited once more before parking the
+architecture. All three map inside the Classic projection and their sampled
+cells are populated for the matching `FLOOR4_8` plane key:
+
+| Global-full target | Elevation / cell | Plane-key cell | Matching ordered declarations | Exact prepared hit |
+| --- | --- | --- | --- | --- |
+| sector 38 / subsector 114 | `-18.335`, `(160,153)` | supported `[115,199]` | 2 | none |
+| sector 2 / subsector 116 | `-23.973`, `(160,171)` | supported `[111,199]` | 0 | none |
+| sector 12 / subsector 29 | `-15.034`, `(160,142)` | supported `[124,189]` | 0 | none |
+
+This is not three instances of one missing-cell defect. The retained Classic
+plane cell is keyed by plane kind, height, texture and light; it does not
+retain source-sector ownership. A populated cell therefore proves a merged
+visplane identity at that source pixel, not that one exact reconstructed
+sector/subsector surface owns it. The first case has same-source fragments but
+none covers the queried point. The second has one same-source candidate draw
+but no ordered declaration and still misses. The third has neither. Repairing
+one correlation rule cannot make that provenance loss into exact world
+authority.
+
+## Final Disposition
+
+Classic source-cell support is abandoned as the complete free-look
+presentation representation. It remains useful as a Classic-view oracle,
+positive merged-plane evidence, partial-occurrence evidence and diagnostic
+provenance. Its absence is not sufficient negative evidence for arbitrary
+free-look geometry, and its presence is not exact reconstructed-surface
+ownership unless independent source identity is retained.
+
+The next architectural question is deliberately separate:
+
+```text
+persistent Doom-private world/render geometry
+    complete for arbitrary Tokimu camera
+        +
+narrow source-specific exclusion evidence
+    only where the ordered protocol positively proves
+    non-participation of the exact occurrence it governs
+```
+
+Global-full remains the geometry-completeness oracle. Any successor omitting a
+nearby ordinary global-full hit must positively explain why that exact source
+occurrence is invalid; missing or ambiguous Classic plane cells fail open.
+The five original far-field causal exclusions remain evidence, but are not yet
+an authorized world-space exclusion policy. Render-subsector/render-sector
+practice in mature Doom hardware ports and their explicit compatibility hacks
+are relevant precedent for a successor study. No further live strategy is
+authorized by this disposition.

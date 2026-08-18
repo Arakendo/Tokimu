@@ -93,6 +93,31 @@ const NEUTRAL_POSITIVE_PLANE_CONTROLS: [NeutralPositivePlaneControl; 3] = [
     },
 ];
 
+#[derive(Clone, Copy, Debug)]
+struct ModeratePitchHoleRay {
+    name: &'static str,
+    origin: [f64; 3],
+    direction: [f64; 3],
+}
+
+const MODERATE_PITCH_HOLE_RAYS: [ModeratePitchHoleRay; 3] = [
+    ModeratePitchHoleRay {
+        name: "sector-38-subsector-114-floor",
+        origin: [1011.078_369_141, -3023.246_826_172, 36.0],
+        direction: [0.830_659_449, 0.459_405_005, -0.314_566_344],
+    },
+    ModeratePitchHoleRay {
+        name: "sector-2-subsector-116-floor",
+        origin: [1286.139_648_438, -2552.103_515_625, 36.0],
+        direction: [-0.152_104_899, -0.900_991_142, -0.406_299_144],
+    },
+    ModeratePitchHoleRay {
+        name: "sector-12-subsector-29-floor",
+        origin: [1741.810_791_016, -2522.975_341_797, 36.0],
+        direction: [0.860_694_408, -0.438_084_006, -0.259_398_639],
+    },
+];
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ExpectedCellSupport {
     Supported,
@@ -815,12 +840,129 @@ pub(crate) fn report_source_occurrence_live_candidate(scene: &SceneInput) -> Pla
         .into());
     }
     let (coverage_rows, coverage_fingerprint) = source_occurrence_candidate_grid_delta(scene)?;
+    let moderate_hole_rows = diagnose_moderate_pitch_holes(scene)?;
     println!(
-        "E1M1 source-occurrence live candidate acceptance: passed={passed}/{total}; fingerprint={fingerprint:016x}; historical-ceiling-104=object-positive-exact-ray-negative; broad-grid-authority=diagnostic-delta-not-correctness-proof; broad-grid-fingerprint={coverage_fingerprint:016x}; renderer-mutation=false; rows=[{}]; broad-grid=[{}]",
+        "E1M1 source-occurrence live candidate acceptance: passed={passed}/{total}; fingerprint={fingerprint:016x}; historical-ceiling-104=object-positive-exact-ray-negative; broad-grid-authority=diagnostic-delta-not-correctness-proof; broad-grid-fingerprint={coverage_fingerprint:016x}; renderer-mutation=false; rows=[{}]; broad-grid=[{}]; moderate-pitch-holes=[{}]",
         rows.join(" | "),
         coverage_rows.join(" | "),
+        moderate_hole_rows.join(" | "),
     );
     Ok(())
+}
+
+/// Performs the final bounded audit requested after the live strategy was
+/// falsified: for each moderate-pitch hole, distinguish absence of its exact
+/// final source cell from failure to realize support that actually exists.
+fn diagnose_moderate_pitch_holes(scene: &SceneInput) -> PlatformResult<Vec<String>> {
+    let wall_triangles = lower_doom_seg_textured_wall_triangles(
+        &scene.door_geometry_source.map,
+        &scene.door_geometry_source.wall_extents,
+    )?;
+    let cutout_materials = scene
+        .cutout_uploads
+        .iter()
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let mut rows = Vec::new();
+
+    for case in MODERATE_PITCH_HOLE_RAYS {
+        let heading = case.direction[1].atan2(case.direction[0]);
+        let (column, row) = source_projection_sample(case.direction, heading)
+            .map_err(|error| io::Error::other(format!("{}:{error}", case.name)))?;
+        let (origin, direction) = source_ray_vectors(case.origin, case.direction);
+        let global_hit = nearest_prepared_ray_hit(
+            origin,
+            direction,
+            &scene.opaque_draws,
+            Some(&scene.cutout_draws),
+        )
+        .ok_or_else(|| io::Error::other(format!("{} lost global-full hit", case.name)))?;
+        if !matches!(global_hit.draw.source, StaticDrawSource::Flat { .. }) {
+            return Err(io::Error::other(format!(
+                "{} expected a global-full plane, got {}",
+                case.name, global_hit.draw.source_label
+            ))
+            .into());
+        }
+
+        let viewer = [case.origin[0].round() as i16, case.origin[1].round() as i16];
+        let eye_height = case.origin[2].round() as i16;
+        let traversal = observe_doom_classic_bsp(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading,
+            &BTreeSet::new(),
+        )?;
+        let marks = observe_doom_seg_plane_marks(&scene.door_geometry_source.map, eye_height)?;
+        let vertical = observe_shared_doom_classic_vertical_clip_state(
+            &scene.door_geometry_source.map,
+            &wall_triangles,
+            &marks,
+            &traversal,
+            viewer,
+            heading,
+            f64::from(eye_height),
+        );
+        let exact_cell = source_cell_support(
+            &scene.door_geometry_source.map,
+            &vertical,
+            global_hit.draw,
+            column,
+            row,
+        );
+        let ordered = prepare_ordered_occurrence_submission(
+            &scene.door_geometry_source.map,
+            viewer,
+            heading,
+            eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &scene.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        ordered.verify_conservation().map_err(io::Error::other)?;
+        let matching_ordered_declarations = ordered
+            .plane_lowering
+            .prepared_declarations
+            .iter()
+            .filter(|declaration| same_flat_source(&declaration.draw, global_hit.draw))
+            .map(|declaration| declaration.draw.clone())
+            .collect::<Vec<_>>();
+        let ordered_target_hit =
+            nearest_prepared_ray_hit(origin, direction, &matching_ordered_declarations, None);
+        let prepared = crate::render_strategies::source_occurrence_supported::prepare(
+            scene,
+            &scene.door_geometry_source.map,
+            viewer,
+            heading,
+            eye_height,
+        )?;
+        let matching_candidate_draws = prepared
+            .opaque_draws
+            .iter()
+            .filter(|draw| same_flat_source(draw, global_hit.draw))
+            .cloned()
+            .collect::<Vec<_>>();
+        let candidate_target_hit =
+            nearest_prepared_ray_hit(origin, direction, &matching_candidate_draws, None);
+        let horizontal = case.direction[0].hypot(case.direction[1]);
+        let elevation = case.direction[2].atan2(horizontal).to_degrees();
+
+        rows.push(format!(
+            "case={}:elevation-degrees={elevation:.3}:cell=({column},{row}):global={}:distance={:.3}:exact-cell={}:detail={}:matching-ordered-declarations={}:ordered-target-hit={}:matching-candidate-draws={}:candidate-target-hit={}",
+            case.name,
+            global_hit.draw.source_label,
+            global_hit.distance,
+            exact_cell.label(),
+            exact_cell.detail(),
+            matching_ordered_declarations.len(),
+            if ordered_target_hit.is_some() { "hit" } else { "none" },
+            matching_candidate_draws.len(),
+            if candidate_target_hit.is_some() { "hit" } else { "none" },
+        ));
+    }
+    Ok(rows)
 }
 
 /// Measures how much complete-shell nearest-hit coverage the candidate removes
