@@ -43,7 +43,8 @@ rejected triangles emit no declaration. Cell intersections lower to ordinary
 triangles and are combined into one mesh per surviving source triangle; the
 renderer learns no Doom vocabulary.
 
-The retained ceiling-104 ray proves the direct representation is available:
+The retained ceiling-104 specimen proves the direct partial-object
+representation is available:
 
 ```text
 plane                         sector 40 / subsector 104 / CEIL3_5
@@ -55,6 +56,13 @@ final ordinary declarations    1
 ```
 
 The other five retained leak contributions still produce zero declarations.
+
+Correction recorded 2026-08-18: this specimen reaches subsector 104 and
+produces a partial ceiling declaration, but its exact BVH ray is not contained
+by the final source cells or by those prepared declarations. It is therefore a
+positive object-occurrence control, not a positive exact-ray presentation
+control. See
+`docs/Checkpoints/2026-08-18-doom-source-occurrence-support-shadow.md`.
 
 ## Source-Spawn Structural Result
 

@@ -5,6 +5,7 @@
 //! into engine crates.
 
 use super::super::*;
+use crate::render_strategies::source_covered_global_shell;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
@@ -59,22 +60,44 @@ impl App {
         // Activation and time progression remain in this application. The
         // preparer receives only their already-current sector-height facts.
         let runtime_map = self.current_doom_visibility_map()?;
-        let mut prepared = prepare_ordered_occurrence_declarations(
-            &runtime_map,
-            view.source_position,
-            view.source_heading_radians,
-            view.eye_height as i16,
-            &source.door_geometry_source.wall_extents,
-            &source.door_geometry_source.wall_materials,
-            &cutout_materials,
-            &source.opaque_uploads,
-        )
-        .map_err(io::Error::other)?;
-        reembed_draws_for_comparison(&mut prepared.opaque_draws, self.comparative_embedding);
-        reembed_draws_for_comparison(&mut prepared.cutout_draws, self.comparative_embedding);
+        let (mut opaque_draws, mut cutout_draws, conservation_report, preparation_mode) =
+            if self.source_covered_domain_filter {
+                let prepared = source_covered_global_shell::prepare(
+                    source,
+                    &runtime_map,
+                    view.source_position,
+                    view.source_heading_radians,
+                )?;
+                (
+                    prepared.opaque_draws,
+                    prepared.cutout_draws,
+                    prepared.observation.report(),
+                    "source-covered-global-shell",
+                )
+            } else {
+                let prepared = prepare_ordered_occurrence_declarations(
+                    &runtime_map,
+                    view.source_position,
+                    view.source_heading_radians,
+                    view.eye_height as i16,
+                    &source.door_geometry_source.wall_extents,
+                    &source.door_geometry_source.wall_materials,
+                    &cutout_materials,
+                    &source.opaque_uploads,
+                )
+                .map_err(io::Error::other)?;
+                (
+                    prepared.opaque_draws,
+                    prepared.cutout_draws,
+                    prepared.conservation_report,
+                    "ordered-occurrence",
+                )
+            };
+        reembed_draws_for_comparison(&mut opaque_draws, self.comparative_embedding);
+        reembed_draws_for_comparison(&mut cutout_draws, self.comparative_embedding);
 
-        self.draws = prepared.opaque_draws;
-        self.cutout_draws = prepared.cutout_draws;
+        self.draws = opaque_draws;
+        self.cutout_draws = cutout_draws;
         self.opaque_bounds = draw_bounds(&self.draws);
         self.cutout_bounds = draw_bounds(&self.cutout_draws);
         self.opaque_grid = self
@@ -98,7 +121,7 @@ impl App {
         }
         self.ordered_preparation_identity = Some(identity);
         eprintln!(
-            "E1M1 Slice 6B ordered preparation refreshed: source=({},{}); heading_degrees={:.3}; eye_height={:.3}; opaque_draws={}; cutout_draws={}; submission={}; {}",
+            "E1M1 live Doom preparation refreshed: mode={preparation_mode}; source=({},{}); heading_degrees={:.3}; eye_height={:.3}; opaque_draws={}; cutout_draws={}; submission={}; {}",
             view.source_position[0],
             view.source_position[1],
             view.source_heading_radians.to_degrees(),
@@ -106,7 +129,7 @@ impl App {
             self.draws.len(),
             self.cutout_draws.len(),
             candidate_selection_label(self.candidate_selection, true),
-            prepared.conservation_report,
+            conservation_report,
         );
         Ok(())
     }

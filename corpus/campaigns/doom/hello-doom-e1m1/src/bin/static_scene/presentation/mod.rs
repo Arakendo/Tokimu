@@ -36,10 +36,10 @@ pub(crate) use legacy_source_protocol::{
 pub(crate) use lowering::{doom_wall_role_key, lower_doom_seg_classic_plane_presentation};
 pub(crate) use ordered_occurrence::{
     format_ordered_occurrence_domain_trace, prepare_ordered_occurrence_submission,
-    OrderedOccurrenceTraceTarget, OrderedPlaneKind, OrderedPlaneLoweringObservation,
-    OrderedPlaneOccurrenceObservation, OrderedPreparedSubmissionObservation,
-    OrderedSourceDispositionKind, OrderedSourceOccurrenceObservation,
-    OrderedWallOccurrenceLoweringObservation,
+    prepare_plane_cell_geometry_support_shadow, OrderedOccurrenceTraceTarget, OrderedPlaneKind,
+    OrderedPlaneLoweringObservation, OrderedPlaneOccurrenceObservation,
+    OrderedPreparedSubmissionObservation, OrderedSourceDispositionKind,
+    OrderedSourceOccurrenceObservation, OrderedWallOccurrenceLoweringObservation,
 };
 
 pub(crate) use model::{

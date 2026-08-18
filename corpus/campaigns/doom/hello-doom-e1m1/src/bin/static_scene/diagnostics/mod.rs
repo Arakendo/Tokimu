@@ -10,9 +10,11 @@ mod candidate_reports;
 mod candidate_trace_reports;
 mod command;
 mod look;
+mod ordered_causality;
 mod render_subsector;
 mod screen_clip_report;
 mod seg_reports;
+mod source_occurrence_support;
 mod source_protocol_traces;
 mod source_reports;
 mod tokimu_spatial_bake;
@@ -38,12 +40,14 @@ pub(super) use look::{
     report_source_look_ray, report_source_viewport_scan, scan_bsp_viewport,
     viewport_inspection_direction, DEFAULT_SCAN_COLUMNS, DEFAULT_SCAN_ROWS, MAX_SCAN_SAMPLES,
 };
+pub(super) use ordered_causality::report_ordered_non_presentation_causality;
 pub(super) use render_subsector::{
     report_render_subsector_actual_camera_shadow, report_render_subsector_connectivity_shadow,
     report_render_subsector_inventory, report_render_subsector_prepared_view,
 };
 pub(super) use screen_clip_report::report_doom_seg_screen_clip;
 pub(super) use seg_reports::report_doom_seg_lowering;
+pub(super) use source_occurrence_support::report_source_occurrence_support;
 pub(super) use source_protocol_traces::{
     report_doom_seg_classic_admission_trace, report_doom_seg_classic_bsp_trace,
     report_doom_seg_classic_plane_identity_trace, report_doom_seg_classic_plane_span_trace,

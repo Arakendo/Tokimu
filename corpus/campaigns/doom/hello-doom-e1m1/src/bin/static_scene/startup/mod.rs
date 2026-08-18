@@ -173,6 +173,12 @@ pub(crate) fn run() -> PlatformResult<()> {
     let ordered_occurrence_six_ray_report = args
         .iter()
         .any(|argument| argument == "--ordered-occurrence-six-ray-report");
+    let ordered_non_presentation_causality_report = args
+        .iter()
+        .any(|argument| argument == "--ordered-non-presentation-causality-report");
+    let source_occurrence_support_report = args
+        .iter()
+        .any(|argument| argument == "--source-occurrence-support-report");
     let ordered_occurrence_live_refresh_report = args
         .iter()
         .any(|argument| argument == "--ordered-occurrence-live-refresh-report");
@@ -413,6 +419,8 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--ordered-occurrence-runtime-snapshot-report");
     args.retain(|argument| argument != "--ordered-occurrence-prepared-report");
     args.retain(|argument| argument != "--ordered-occurrence-six-ray-report");
+    args.retain(|argument| argument != "--ordered-non-presentation-causality-report");
+    args.retain(|argument| argument != "--source-occurrence-support-report");
     args.retain(|argument| argument != "--ordered-occurrence-live-refresh-report");
     args.retain(|argument| argument != "--moving-floor-resource-replay-report");
     args.retain(|argument| argument != "--door-resource-replay-report");
@@ -454,7 +462,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -494,8 +502,7 @@ pub(crate) fn run() -> PlatformResult<()> {
                     | TrialRenderStrategy::PreparedFrustumFiltered
             )
         )
-        || trial_render_strategy
-            .is_some_and(TrialRenderStrategy::is_ordered_occurrence_integration))
+        || trial_render_strategy.is_some_and(TrialRenderStrategy::uses_live_doom_preparation))
         && !spawn_observer
     {
         return Err(
@@ -589,6 +596,14 @@ pub(crate) fn run() -> PlatformResult<()> {
     }
     if ordered_occurrence_six_ray_report {
         report_ordered_occurrence_six_ray_handoff(&scene)?;
+        return Ok(());
+    }
+    if ordered_non_presentation_causality_report {
+        report_ordered_non_presentation_causality(&scene)?;
+        return Ok(());
+    }
+    if source_occurrence_support_report {
+        report_source_occurrence_support(&scene)?;
         return Ok(());
     }
     if ordered_occurrence_live_refresh_report {
@@ -725,7 +740,7 @@ pub(crate) fn run() -> PlatformResult<()> {
                 strategy,
                 TrialRenderStrategy::PreparedFullSubmission
                     | TrialRenderStrategy::PreparedFrustumFiltered
-            ) || strategy.is_ordered_occurrence_integration()
+            ) || strategy.uses_live_doom_preparation()
         })
         .map(|_| Box::new(scene.clone()));
     let ordered_coverage_camera_bounds = ordered_coverage_source.as_ref().map(|source| {
@@ -1030,7 +1045,7 @@ pub(crate) fn run() -> PlatformResult<()> {
             strategy,
             TrialRenderStrategy::PreparedFullSubmission
                 | TrialRenderStrategy::PreparedFrustumFiltered
-        ) || strategy.is_ordered_occurrence_integration()
+        ) || strategy.uses_live_doom_preparation()
     }) {
         ordered_coverage_source
     } else {
@@ -1169,6 +1184,8 @@ pub(crate) fn run() -> PlatformResult<()> {
         comparative_embedding,
         ordered_coverage_prepared: applied_trial_strategy
             .is_some_and(|applied| applied.ordered_coverage_prepared),
+        source_covered_domain_filter: applied_trial_strategy
+            .is_some_and(|applied| applied.source_covered_domain_filter),
         ordered_coverage_source: runtime_ordered_coverage_source,
         ordered_preparation_identity: None,
         fixed_reconstruction_camera: applied_trial_strategy

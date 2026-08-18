@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Authorized — diagnostic plan established; implementation pending |
+| Status | Experimental realization addendum complete and falsified — hut presentation improved, but exact plane false-retention and false-omission captures reject Boolean reached-domain authority |
 | Scope | Explain the exact causal chain by which Doom produces no presentation occurrence for selected E1M1 source contributions |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Authority input | [Doom Ordered Source-Occurrence Preparation](Doom%20ordered%20source%20occurrence%20preparation.md) |
@@ -10,8 +10,12 @@
 | Existing source evidence | [Classic Doom Visibility Clipping Evidence](../Evidence/Classic%20Doom%20visibility%20clipping%20evidence.md) |
 | Existing protocol ledger | [Doom E1M1 Ordered Source Protocol Ledger Evidence](../Evidence/Doom%20E1M1%20Ordered%20Source%20Protocol%20Ledger%20Evidence.md) |
 | Stable API authority | None |
-| Renderer changes authorized | None |
-| Next action | Freeze the six retained cases and add a headless target-specific causal-event ledger without changing source decisions or renderer submission |
+| Renderer changes authorized | No stable renderer/API change; one explicit corpus-private presentation strategy is authorized for walkabout evaluation |
+| Result checkpoint | [2026-08-18 Doom Non-Presentation Causality Slice 1](../../../Checkpoints/2026-08-18-doom-non-presentation-causality-slice1.md) |
+| Counterfactual checkpoint | [2026-08-18 Doom Non-Presentation Exact Counterfactuals](../../../Checkpoints/2026-08-18-doom-non-presentation-exact-counterfactuals.md) |
+| Walkabout checkpoint | [2026-08-18 Doom Source-Covered Walkabout Experiment](../../../Checkpoints/2026-08-18-doom-source-covered-walkabout-experiment.md) |
+| Falsifier checkpoint | [2026-08-18 Doom Source-Covered Walkabout Falsifiers](../../../Checkpoints/2026-08-18-doom-source-covered-walkabout-falsifiers.md) |
+| Next action | Return to AR-0030; correlate wall 241 with final wall-occurrence output, then decide whether to authorize a source-plane occurrence-support realization study |
 
 ## Question
 
@@ -327,12 +331,12 @@ alone.
 
 ### Slice 0 — Freeze Targets And Causal Contract
 
-- [ ] Reuse the six exact retained BVH/source rays and their expected ordered
+- [x] Reuse the six exact retained BVH/source rays and their expected ordered
       outcomes without changing their identities.
-- [ ] Define target wall-tier and plane-occurrence correlation explicitly.
-- [ ] Define the private causal event, covering-provenance and unresolved
+- [x] Define target wall-tier and plane-occurrence correlation explicitly.
+- [x] Define the private causal event, covering-provenance and unresolved
       ledgers.
-- [ ] Prove that enabling observation changes no ordered outcome, declaration
+- [x] Prove that enabling observation changes no ordered outcome, declaration
       fingerprint or renderer submission.
 
 Acceptance: all six final outcomes and existing fingerprints are unchanged;
@@ -340,15 +344,15 @@ every event is observation-only and source-correlated.
 
 ### Slice 1 — Horizontal BSP And SEG Causality
 
-- [ ] Record near/far BSP child traversal with projected bbox intervals and
+- [x] Record near/far BSP child traversal with projected bbox intervals and
       the exact accumulated solid ranges considered at each decision.
-- [ ] Add provenance to diagnostic solid-range union entries without changing
+- [x] Add provenance to diagnostic solid-range union entries without changing
       their coverage semantics.
-- [ ] Record `R_AddLine` admission, projection, solid/pass classification and
+- [x] Record `R_AddLine` admission, projection, solid/pass classification and
       every surviving `R_StoreWallRange` interval for target and covering SEGs.
-- [ ] Explain `hut-east-wall-230`, `wall-247-east` and `wall-247-west` through
+- [x] Explain `hut-east-wall-230`, `wall-247-east` and `wall-247-west` through
       their first decisive events and covering source chains.
-- [ ] Retain one nearby wall-positive control whose interval survives the same
+- [x] Retain one nearby wall-positive control whose interval survives the same
       stages.
 
 Acceptance: each absent wall has an exact target interval, exact covering
@@ -357,15 +361,15 @@ positive control. `behind sky` is not an accepted substitute.
 
 ### Slice 2 — Plane Non-Presentation Causality
 
-- [ ] Trace target subsector visitation and plane eligibility.
-- [ ] Attribute each relevant `ceilingclip` and `floorclip` mutation to its
+- [x] Trace target subsector visitation and plane eligibility.
+- [x] Attribute each relevant `ceilingclip` and `floorclip` mutation to its
       ordered wall-range event.
-- [ ] Trace target plane marks through source-keyed instance and span emission.
-- [ ] Explain `ceiling-149-rejected` and `ceiling-104-rejected` without treating
+- [x] Trace target plane marks through source-keyed instance and span emission.
+- [x] Explain `ceiling-149-rejected` and `ceiling-104-rejected` without treating
       a whole sector or reconstructed plane mesh as the unit of authority.
-- [ ] Compare both with `ceiling-104-reached` and identify the earliest causal
+- [x] Compare both with `ceiling-104-reached` and identify the earliest causal
       difference.
-- [ ] Produce a synchronized retained/rejected subsector 104 trace aligned by
+- [x] Produce a synchronized retained/rejected subsector 104 trace aligned by
       source identity and renderer stage where possible, then identify the
       first material divergence in traversal, wall range, clip state, plane
       marking or span emission.
@@ -378,10 +382,10 @@ only comparing final ledgers.
 
 ### Slice 3 — Paired-Sky Causal Audit
 
-- [ ] Identify every paired-sky event on the retained causal chains.
-- [ ] State whether it changes a wall tier, plane mark, plane key, terminal
+- [x] Identify every paired-sky event on the retained causal chains.
+- [x] State whether it changes a wall tier, plane mark, plane key, terminal
       coverage or only final sky presentation.
-- [ ] Prove which rejected cases would remain rejected without treating sky as
+- [x] Prove which rejected cases would remain rejected without treating sky as
       physical geometry.
 - [ ] Retain hut, far-left and single-sky positive controls against an overly
       broad `sky caused it` explanation.
@@ -389,34 +393,97 @@ only comparing final ledgers.
 Acceptance: sky's role is described by exact ordered source mutations. Cases
 where sky is merely correlated are labelled non-causal.
 
+The first six-ray ledger finds no paired-sky SEG in any of the five exact
+covering chains. The two rejected ceiling targets never enter plane eligibility
+or vertical clipping, so no target-relevant clip-array mutation exists to
+attribute in those views; their first decisive event is earlier BSP child
+pruning. This closes the target-specific clip question without claiming that
+generic vertical-clip provenance is complete. Hut, far-left and single-sky
+positive controls remain open against over-generalization.
+
 ### Slice 4 — Bounded Counterfactuals
 
-- [ ] Suppress one named covering mutation per rejected class in a shadow-only
+- [x] Suppress one named covering mutation per rejected class in a shadow-only
       replay.
-- [ ] Report whether the target becomes visited, gains a wall interval, gains
+- [x] Report whether the target becomes visited, gains a wall interval, gains
       plane marks or remains absent for another reason.
-- [ ] Record cascading changes and classify broad interventions as
+- [x] Record cascading changes and classify broad interventions as
       inconclusive.
-- [ ] Make no presentation-affecting submission change.
+- [x] Make no presentation-affecting submission change.
 
 Acceptance: counterfactuals corroborate or narrow the normal causal chains;
 they are never used as the desired rendering policy.
 
+The broad control disables all solid-range BSP pruning and reaches all five
+absent targets. The exact control additionally suppresses each of the 20
+focused covering SEG mutations independently. Twelve interventions reopen at
+least part of the target domain, and every absent case has at least one such
+event. Cascades are reported as newly/lost visited subsectors, newly/lost
+admitted SEGs and the before/after far-child prune count. The result proves
+event necessity for the original target-child decision where reopening occurs;
+it does not turn those SEGs into permanent occluder objects or a desired
+renderer policy.
+
 ### Slice 5 — Explanation And Realization Handoff
 
-- [ ] Produce one concise causal table for the six rays.
-- [ ] Separate direct Classic facts, replay observations and Tokimu inference.
-- [ ] Record which source-ordered invariants a free-look plane realization must
+- [x] Produce one concise causal table for the six rays.
+- [x] Separate direct Classic facts, replay observations and Tokimu inference.
+- [x] Record which source-ordered invariants a free-look plane realization must
       preserve.
-- [ ] If sky is non-causal for the retained leak cases, decide whether the
+- [x] If sky is non-causal for the retained leak cases, decide whether the
       evidence supports renaming the defect class from `skybox leak` to
       `source-invalid far-field resurrection` or another source-faithful term.
-- [ ] Return to AR-0030 before changing presentation authority or implementing
+- [x] Return to AR-0030 before changing presentation authority or implementing
       a new realization.
 
 Acceptance: a maintainer can answer “why does Doom not present this?” by
 naming the first decisive source event and its covering provenance, not by
 pointing at a final screenshot or spatial proxy.
+
+### Experimental Realization Addendum — Source-Covered Global Shell
+
+The maintainer authorized one presentation-affecting E1M1 test after the
+causal ledger established that the five retained leak specimens disappear
+before their source domains are traversed. This is an explicit, non-default
+corpus strategy named `source-covered-global-shell`; it does not alter
+`tokimu-render` or claim a stable Tokimu visibility contract.
+
+- [x] Begin from the original complete prepared E1M1 shell.
+- [x] Replay ordinary near-first Doom BSP coverage for the actual horizontal
+      camera position and heading.
+- [x] Retain each complete floor/ceiling draw whose owning subsector was
+      reached; never apply a SEG or child proxy bbox to the reconstructed
+      plane.
+- [x] Retain a wall draw when any resolved owning subsector was reached.
+- [x] Fail open when source ownership cannot be resolved.
+- [x] Prepare the complete next draw set before replacing the active set.
+- [x] Add exact headless controls for the five absent specimens, the reached
+      subsector 104 ceiling and the nearby SUPPORT2 wall.
+- [x] Smoke-test two native frames at the source spawn.
+- [x] Complete visual walkabout review far enough to decide the candidate:
+      the hut improves materially, but exact spawn-window and hut captures
+      falsify reached-subsector authority over complete planes.
+- [ ] Exercise door/platform runtime changes before treating the strategy as a
+      lifecycle-complete candidate.
+
+The plane policy is deliberately whole-source-owner geometry. The experiment
+uses ordered source traversal to decide whether a domain participates, while
+Tokimu continues to realize that participating domain as ordinary complete
+geometry. It does not attempt Classic visplane or screen-column reconstruction.
+
+Acceptance for the visual experiment is asymmetric: the five known
+source-covered far-field specimens must disappear, while the reached ceiling,
+nearby wall and complete local room remain present without stale or partial
+refresh frames. A visual failure is evidence about this candidate, not license
+to move Doom vocabulary into the renderer.
+
+The walkabout did fail that acceptance. Three reached subsectors retain whole
+ceilings for which the exact source plane key is absent, while one nearby floor
+is omitted because its subsector proxy is skipped even though the source plane
+key is present. A nearby alternate pose also shows that key presence cannot
+authorize every point of the complete correlated mesh. The next realization
+question is therefore view-local source-plane occurrence support over actual
+reconstructed support, not another Boolean whole-plane predicate.
 
 ## Required Summary Table
 
@@ -495,7 +562,9 @@ returns to AR-0030 before implementation.
 - No repair of the parked 365-draw or render-subsector candidates.
 - No arbitrary-pitch realization in the causal-ledger slices.
 - No source-column or visplane vocabulary in stable Tokimu APIs.
-- No renderer submission change.
+- No renderer implementation, stable API or default-strategy change; the
+  named corpus-private walkabout strategy is the sole presentation-affecting
+  addendum.
 - No assumption that the first nearby geometric object caused the exclusion.
 
 ## Parking And Escalation Criteria

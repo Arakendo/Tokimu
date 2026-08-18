@@ -1720,6 +1720,160 @@ The review moves away from shared admission when:
 - Controlling study:
   `docs/Plans/DOOM/Studies/Doom source-ordered non-presentation causality study.md`.
 
+### Cycle 41 -- 2026-08-18
+
+- The first source-ordered non-presentation causal slice now reports the six
+  retained exact rays with deterministic target and covering provenance.
+- All five absent targets first disappear at near-first BSP child pruning:
+  accumulated ordinary solid SEG ranges fully cover the target child's
+  projected horizontal interval before the target wall or plane occurrence is
+  eligible to be produced.
+- Focused provenance resolves all five covering chains. A broad shadow replay
+  with solid-range child pruning disabled reaches all five targets; this is
+  class-level corroboration, not yet a one-event necessity proof.
+- The paired subsector 104 control is decisive. The retained view reaches the
+  subsector and produces three associations and one partial destination. In
+  the rejected view, SEG 125 / linedef 37 supplies the final `[136,155]`
+  coverage needed to skip node 101's target child, so plane eligibility and
+  vertical clipping are never entered.
+- None of the five focused covering chains contains a paired-sky SEG. Sky is
+  therefore non-causal for these exact exclusions; `skybox leak` describes the
+  visual symptom, while `source-invalid far-field resurrection` describes the
+  evidenced defect class more precisely.
+- The diagnostic provenance sidecar is observation-only, mirrors the existing
+  solid-range union and leaves ordered results, conservation and renderer
+  submission unchanged. No stable contract or presentation authority changed.
+- Result checkpoint:
+  `docs/Checkpoints/2026-08-18-doom-non-presentation-causality-slice1.md`.
+
+### Cycle 42 -- 2026-08-18
+
+- The exact counterfactual follow-up independently suppressed all 20 focused
+  covering SEG mutations across the five absent E1M1 cases. Twelve
+  interventions reopen at least part of the target domain, and every absent
+  case has at least one individually necessary event for its original
+  target-child prune.
+- The result is not a permanent occluder classification. Eight focused events
+  can be removed without reopening the target because later or overlapping
+  coverage remains. The reusable source fact is the accumulated ordered solid
+  coverage union; SEG identity is its causal provenance.
+- A nearby positive wall control now traverses the same stages:
+  `wall:135:SUPPORT2`, SEG 270 / linedef 135, reaches subsector 88, is admitted
+  over projected interval `[150,184]` and produces two ordinary declarations.
+- The evidence separates source-covered far-field resurrection from free-look
+  plane realization. The former is decided before the target domain is
+  traversed; the latter begins only after a source domain participates.
+- Paired sky remains absent from all five focused covering chains. Existing
+  positive sky controls remain final-presentation evidence, not authority for
+  these exclusions.
+- No renderer submission, stable contract or ownership boundary changed.
+  Live source-domain exclusion remains gated on AR-0030 after E1M1 positive
+  control correlation and direct reference-source cross-checking.
+- Result checkpoint:
+  `docs/Checkpoints/2026-08-18-doom-non-presentation-exact-counterfactuals.md`.
+
+### Cycle 43 -- 2026-08-18
+
+- Maintainer authorization added one presentation-affecting, corpus-private
+  E1M1 strategy for visual evaluation: `source-covered-global-shell`.
+- The candidate starts from the complete original prepared shell and replays
+  Doom's ordinary near-first solid coverage at the actual horizontal camera
+  pose. It suppresses only contributions whose resolved source ownership is
+  exclusively in unreached subsectors.
+- Participating floors and ceilings retain their whole original reconstructed
+  geometry. Child/SEG proxy boxes and Classic screen spans have no rejection
+  authority over those larger plane meshes. Walls are retained if any resolved
+  owning subsector participates; unresolved ownership fails open.
+- Live movement uses composition-local prepare-then-replace refresh. The
+  renderer continues to receive ordinary declarations and owns no Doom, BSP,
+  sky, portal or source-domain vocabulary.
+- Seven exact headless controls pass: all five source-covered far-field
+  specimens are absent, while the reached subsector 104 ceiling and nearby
+  wall 135 / SUPPORT2 remain. Conservation is balanced for every preparation.
+- A native two-frame spawn smoke run completed with 967 opaque and 24 cutout
+  draws after the runtime-camera refresh, from 1,823 opaque and 26 cutout input
+  draws. The reduction is experimental evidence, not a performance or
+  correctness claim.
+- The candidate remains non-default pending visual walkabout and dynamic
+  door/platform freshness review. A failure returns evidence to this review;
+  it does not grant Doom traversal concepts to the stable renderer boundary.
+- Result checkpoint:
+  `docs/Checkpoints/2026-08-18-doom-source-covered-walkabout-experiment.md`.
+
+### Cycle 44 -- 2026-08-18
+
+- Maintainer walkabout reports that `source-covered-global-shell` materially
+  improves the hut area, but exact captures falsify it as a sufficient
+  presentation policy.
+- Three reconstructed ceilings are retained because their subsectors are
+  reached even though the exact source sector/plane key has no occurrence in
+  the frozen-view source replay. These are reached-domain false positives.
+- A nearby sector 5 floor provides the complementary false negative. The
+  filtered scene has no ray hit, while the complete shell hits the floor only
+  132.480 source units away. Its subsector is skipped by an `outside-fov`
+  source child proxy even though the exact sector/plane key has populated
+  source spans.
+- An alternate hut-area pose reports the suspect ceiling key present while
+  suspicious whole-plane geometry remains. Replacing “subsector reached” with
+  “plane key exists” would therefore be another invalid Boolean promotion:
+  plane-key occurrence does not authorize every point of every correlated
+  reconstructed polygon.
+- Wall 241 is separately retained after its target subsector and SEG are
+  reached/admitted, but the captured hit lies behind an earlier sky boundary.
+  Horizontal admission is not final wall-fragment proof; exact final wall
+  occurrence correlation remains required before changing wall policy.
+- Architectural disposition: retain the strategy as a corpus A/B diagnostic,
+  do not make it default, and do not silently tighten it. A successor must be
+  reviewed as a Doom-private source-occurrence realization over actual
+  reconstructed support, with no Doom, sky, BSP or span vocabulary entering
+  the renderer.
+- Falsifier checkpoint:
+  `docs/Checkpoints/2026-08-18-doom-source-covered-walkabout-falsifiers.md`.
+
+### Cycle 45 -- 2026-08-18
+
+- Maintainer authorization opens a diagnostic-first successor study relating
+  Doom's final source-keyed wall/plane cells to actual reconstructed geometry.
+- The study explicitly tests exact plane-key plus source-sector cell support
+  against the current same-subsector association. It does not grant a complete
+  source key Boolean authority over a complete mesh.
+- The five walkabout captures and prior seven controls are mandatory
+  falsifiers. Wall 241 must be correlated with final vertical wall-cell
+  support rather than horizontal BSP admission alone.
+- Shadow slices may add Doom-private ray/cell diagnostics and ordinary clipped
+  geometry observations. Renderer changes, stable API changes and live
+  presentation installation remain unauthorized until the shadow result
+  returns to this review.
+- Controlling study:
+  `docs/Plans/DOOM/Studies/Doom source-occurrence support over reconstructed geometry.md`.
+
+### Cycle 46 -- 2026-08-18
+
+- The source-occurrence support shadow maps frozen exact rays into final Doom
+  wall/plane cells and clips reconstructed planes by exact plane key, source
+  sector and finite cell support. The five new capture expectations pass
+  `5/5`; all four plane capture rays agree with clipped geometry.
+- Wall 241 is absent from the final sampled middle-tier cell and has zero
+  ordered declarations. Wall 135 remains supported. This resolves the wall
+  comparison without making sky a generic occluder.
+- The historical `ceiling-104-reached` specimen was found to be positive only
+  at whole-object occurrence granularity. Its exact BVH ray maps to source
+  cell `(160,62)`, where the matching plane-key instance has no interval. The
+  existing ordered declarations and the new geometry shadow both miss that
+  exact ray.
+- This corrects, rather than overturns, the earlier causal result: subsector
+  104 is reached and contributes a partial ceiling somewhere in the view, but
+  the selected BVH point was never proved source-present.
+- Broadening association from exact key plus source sector to plane key alone
+  did not restore the ray and increased representative fragment output from
+  `3,966` to `5,497` and `3,325` to `5,528`; the broadening was removed.
+- The shadow remains non-presentational and the exact-cell gate deliberately
+  reports `6/7`. Presentation installation is paused pending an independently
+  justified positive plane oracle and a decision on fixed Classic rows under
+  arbitrary pitch.
+- Result checkpoint:
+  `docs/Checkpoints/2026-08-18-doom-source-occurrence-support-shadow.md`.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

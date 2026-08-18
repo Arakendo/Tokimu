@@ -15,7 +15,8 @@ use doom_geometry_provider::{
     clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
     locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
     lower_doom_seg_textured_wall_triangles, lower_doom_textured_wall_triangles,
-    observe_doom_classic_bsp,
+    observe_doom_classic_bsp, observe_doom_classic_bsp_suppressing_solid_range_source_seg,
+    observe_doom_classic_bsp_without_solid_range_pruning,
     observe_doom_classic_vertical_clip_state as observe_shared_doom_classic_vertical_clip_state,
     observe_doom_seg_occluders, observe_doom_seg_plane_marks, project_doom_sector_runtime_heights,
     reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
@@ -288,6 +289,9 @@ struct App {
     /// by the Slice 4B ordered source preparation rather than the global map
     /// shell. Candidate filtering, if any, is a later and separate stage.
     ordered_coverage_prepared: bool,
+    /// Experimental Doom-private walkabout mode that retains complete global
+    /// contributions only for source owners reached by ordered coverage.
+    source_covered_domain_filter: bool,
     /// Immutable decoded/source preparation input retained by strategies B/C.
     /// The runtime changes only the explicit viewer pose passed to the Doom
     /// preparation; it does not mutate this source snapshot or teach the

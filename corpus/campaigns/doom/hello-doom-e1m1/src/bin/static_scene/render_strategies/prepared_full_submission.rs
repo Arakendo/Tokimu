@@ -9,6 +9,7 @@ pub(super) fn apply(scene: &mut SceneInput) -> PlatformResult<AppliedRenderStrat
     Ok(AppliedRenderStrategy {
         candidate_selection: CandidateSelection::FullSubmission,
         ordered_coverage_prepared: true,
+        source_covered_domain_filter: false,
         fixed_reconstruction_camera: false,
     })
 }

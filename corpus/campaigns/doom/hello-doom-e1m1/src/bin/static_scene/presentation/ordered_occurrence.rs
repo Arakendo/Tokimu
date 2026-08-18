@@ -34,14 +34,95 @@ const CLASSIC_ROWS: usize = 200;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OrderedPlaneDomainCell {
-    kind: OrderedPlaneKind,
-    source_sector: u32,
-    source_subsector: u32,
-    source_height: i16,
-    texture: String,
-    light_level: i16,
-    source_seg: u32,
-    source_corners: [[f64; 2]; 4],
+    pub(crate) kind: OrderedPlaneKind,
+    pub(crate) source_sector: u32,
+    pub(crate) source_subsector: u32,
+    pub(crate) source_height: i16,
+    pub(crate) texture: String,
+    pub(crate) light_level: i16,
+    pub(crate) source_seg: u32,
+    pub(crate) source_corners: [[f64; 2]; 4],
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct PlaneCellGeometrySupportShadow {
+    pub(crate) draws: Vec<StaticDrawPlanEntry>,
+    pub(crate) source_cells: usize,
+    pub(crate) source_surfaces: usize,
+    pub(crate) sky_background_surfaces: usize,
+    pub(crate) supported_source_surfaces: usize,
+    pub(crate) unsupported_source_surfaces: usize,
+    pub(crate) unresolved_source_surfaces: usize,
+    pub(crate) cell_surface_pairs: usize,
+    pub(crate) clipped_fragments: usize,
+    pub(crate) exact_duplicate_fragments: usize,
+    pub(crate) degenerate_omissions: usize,
+    pub(crate) unresolved_fragments: usize,
+    pub(crate) output_triangles: usize,
+    pub(crate) structural_fingerprint: u64,
+    pub(crate) unresolved_samples: Vec<String>,
+}
+
+impl PlaneCellGeometrySupportShadow {
+    pub(crate) fn verify_conservation(&self) -> Result<(), String> {
+        if self.source_surfaces
+            != self.sky_background_surfaces
+                + self.supported_source_surfaces
+                + self.unsupported_source_surfaces
+                + self.unresolved_source_surfaces
+        {
+            return Err(format!(
+                "plane-cell geometry source conservation failed: input={} sky={} supported={} unsupported={} unresolved={}",
+                self.source_surfaces,
+                self.sky_background_surfaces,
+                self.supported_source_surfaces,
+                self.unsupported_source_surfaces,
+                self.unresolved_source_surfaces,
+            ));
+        }
+        if self.clipped_fragments
+            != self.output_triangles
+                + self.exact_duplicate_fragments
+                + self.degenerate_omissions
+                + self.unresolved_fragments
+        {
+            return Err(format!(
+                "plane-cell geometry fragment conservation failed: clipped={} output={} duplicates={} degenerate={} unresolved={}",
+                self.clipped_fragments,
+                self.output_triangles,
+                self.exact_duplicate_fragments,
+                self.degenerate_omissions,
+                self.unresolved_fragments,
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn report(&self) -> String {
+        format!(
+            "source-cells={}; source-surfaces={}; sky-background-surfaces={}; supported-source-surfaces={}; unsupported-source-surfaces={}; unresolved-source-surfaces={}; cell-surface-pairs={}; clipped-fragments={}; exact-duplicate-fragments={}; degenerate-omissions={}; unresolved-fragments={}; output-draws={}; output-triangles={}; amplification={:.3}; structural-fingerprint={:016x}; conservation=balanced; association=exact-doom-plane-key-plus-source-sector-spatial-cell-intersection; cell-subsector=provenance-not-exclusive-authority; unresolved-samples=[{}]",
+            self.source_cells,
+            self.source_surfaces,
+            self.sky_background_surfaces,
+            self.supported_source_surfaces,
+            self.unsupported_source_surfaces,
+            self.unresolved_source_surfaces,
+            self.cell_surface_pairs,
+            self.clipped_fragments,
+            self.exact_duplicate_fragments,
+            self.degenerate_omissions,
+            self.unresolved_fragments,
+            self.draws.len(),
+            self.output_triangles,
+            if self.source_surfaces == 0 {
+                0.0
+            } else {
+                self.output_triangles as f64 / self.source_surfaces as f64
+            },
+            self.structural_fingerprint,
+            self.unresolved_samples.join(" | "),
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -2016,6 +2097,215 @@ fn observe_ordered_plane_domain_cells(
         }
     }
     Ok(cells)
+}
+
+/// Applies exact source-plane cells to every reconstructed source surface with
+/// the same runtime Doom plane key and source sector. The cell's contributing
+/// SEG and subsector remain provenance rather than exclusive support authority.
+/// Finite spatial cell intersection still decides which reconstructed support
+/// receives fragments.
+pub(crate) fn prepare_plane_cell_geometry_support_shadow(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    eye_height: i16,
+    extents: &[DoomTextureExtent],
+    opaque_uploads: &[StaticTextureUpload],
+) -> Result<PlaneCellGeometrySupportShadow, String> {
+    type PlaneCellKey = (OrderedPlaneKind, u32, i16, String, i16);
+
+    let cells = observe_ordered_plane_domain_cells(map, viewer, heading, eye_height, extents)?;
+    let mut cells_by_key = BTreeMap::<PlaneCellKey, Vec<&OrderedPlaneDomainCell>>::new();
+    for cell in &cells {
+        cells_by_key
+            .entry((
+                cell.kind,
+                cell.source_sector,
+                cell.source_height,
+                cell.texture.clone(),
+                cell.light_level,
+            ))
+            .or_default()
+            .push(cell);
+    }
+    let paths = resolve_doom_subsector_bsp_paths(map).map_err(|error| error.to_string())?;
+    let surfaces = lower_doom_subsector_surfaces(map, &paths).map_err(|error| error.to_string())?;
+    let sectors = map
+        .sectors
+        .iter()
+        .map(|sector| (sector.source.record_index, sector))
+        .collect::<BTreeMap<_, _>>();
+    let materials = opaque_uploads
+        .iter()
+        .filter(|upload| upload.source_kind == StaticTextureSourceKind::Flat)
+        .map(|upload| (upload.source_name.as_str(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let mut observation = PlaneCellGeometrySupportShadow {
+        source_cells: cells.len(),
+        source_surfaces: surfaces.len(),
+        structural_fingerprint: 0xcbf2_9ce4_8422_2325,
+        ..PlaneCellGeometrySupportShadow::default()
+    };
+    let mut emitted_triangles = BTreeSet::<[u32; 9]>::new();
+
+    for (surface_ordinal, surface) in surfaces.iter().enumerate() {
+        let Some(sector) = sectors.get(&surface.source_sector.record_index).copied() else {
+            observation.unresolved_source_surfaces += 1;
+            if observation.unresolved_samples.len() < 12 {
+                observation.unresolved_samples.push(format!(
+                    "surface={surface_ordinal}:sector={}:source-sector-missing",
+                    surface.source_sector.record_index,
+                ));
+            }
+            continue;
+        };
+        let (kind, height, texture) = match surface.plane {
+            DoomSurfacePlane::Floor => (
+                OrderedPlaneKind::Floor,
+                sector.floor_height,
+                sector.floor_texture.clone(),
+            ),
+            DoomSurfacePlane::Ceiling => (
+                OrderedPlaneKind::Ceiling,
+                sector.ceiling_height,
+                sector.ceiling_texture.clone(),
+            ),
+        };
+        if kind == OrderedPlaneKind::Ceiling && texture == "F_SKY1" {
+            observation.sky_background_surfaces += 1;
+            continue;
+        }
+        let key = (
+            kind,
+            sector.source.record_index,
+            height,
+            texture.clone(),
+            sector.light_level,
+        );
+        let Some(matching_cells) = cells_by_key.get(&key) else {
+            observation.unsupported_source_surfaces += 1;
+            continue;
+        };
+        let Some(&material) = materials.get(texture.as_str()) else {
+            observation.unresolved_source_surfaces += 1;
+            if observation.unresolved_samples.len() < 12 {
+                observation.unresolved_samples.push(format!(
+                    "surface={surface_ordinal}:sector={}:flat={texture}:material-unavailable",
+                    sector.source.record_index,
+                ));
+            }
+            continue;
+        };
+        observation.cell_surface_pairs += matching_cells.len();
+        let fragments = matching_cells
+            .iter()
+            .flat_map(|cell| clip_plane_triangle_to_domain_cell(surface, cell))
+            .collect::<Vec<_>>();
+        observation.clipped_fragments += fragments.len();
+        if fragments.is_empty() {
+            observation.unsupported_source_surfaces += 1;
+            continue;
+        }
+
+        // Preserve atomic source-surface preparation: a non-degenerate
+        // lowering error commits none of this surface's fragments.
+        let mut pending_draw = None::<StaticDrawPlanEntry>;
+        let mut pending_keys = BTreeSet::new();
+        let mut pending_duplicates = 0usize;
+        let mut pending_degenerate = 0usize;
+        let mut pending_error = None;
+        for fragment in &fragments {
+            match lower_static_flat_triangle(fragment, FlatExtent::E1M1) {
+                Ok(flat) => {
+                    let triangle_key = flat_triangle_bits(&flat.mesh.positions);
+                    if emitted_triangles.contains(&triangle_key)
+                        || !pending_keys.insert(triangle_key)
+                    {
+                        pending_duplicates += 1;
+                        continue;
+                    }
+                    if let Some(draw) = pending_draw.as_mut() {
+                        draw.mesh.positions.extend(flat.mesh.positions);
+                        draw.mesh.normals.extend(flat.mesh.normals);
+                        draw.mesh
+                            .texture_coordinates
+                            .extend(flat.mesh.texture_coordinates);
+                    } else {
+                        pending_draw = Some(StaticDrawPlanEntry {
+                            source_label: String::new(),
+                            source: StaticDrawSource::Flat {
+                                source_subsector: flat.source.subsector,
+                                source_sector: flat.source.sector,
+                                plane: flat.source.plane,
+                            },
+                            mesh: flat.mesh,
+                            material,
+                        });
+                    }
+                }
+                Err(StaticFlatLoweringError::DegenerateTriangle) => {
+                    pending_degenerate += 1;
+                }
+                Err(error) => {
+                    pending_error = Some(error);
+                    break;
+                }
+            }
+        }
+        if let Some(error) = pending_error {
+            observation.unresolved_source_surfaces += 1;
+            observation.unresolved_fragments += fragments.len();
+            if observation.unresolved_samples.len() < 12 {
+                observation.unresolved_samples.push(format!(
+                    "surface={surface_ordinal}:sector={}:subsector={}:lowering-failed:{error}",
+                    sector.source.record_index, surface.source_subsector.record_index,
+                ));
+            }
+            continue;
+        }
+
+        observation.supported_source_surfaces += 1;
+        observation.exact_duplicate_fragments += pending_duplicates;
+        observation.degenerate_omissions += pending_degenerate;
+        emitted_triangles.extend(pending_keys);
+        if let Some(mut draw) = pending_draw {
+            let output_triangles = draw.mesh.positions.len() / 3;
+            observation.output_triangles += output_triangles;
+            draw.source_label = format!(
+                "source-cell-plane:{kind:?}:sector:{}:subsector:{}:{texture}:{}",
+                sector.source.record_index,
+                surface.source_subsector.record_index,
+                observation.draws.len(),
+            );
+            fingerprint_plane_cell_draw(&mut observation.structural_fingerprint, &draw);
+            observation.draws.push(draw);
+        }
+    }
+    observation.verify_conservation()?;
+    Ok(observation)
+}
+
+fn flat_triangle_bits(positions: &[[f32; 3]]) -> [u32; 9] {
+    let mut bits = [0u32; 9];
+    for (destination, coordinate) in bits.iter_mut().zip(positions.iter().flatten()) {
+        *destination = coordinate.to_bits();
+    }
+    bits
+}
+
+fn fingerprint_plane_cell_draw(fingerprint: &mut u64, draw: &StaticDrawPlanEntry) {
+    for value in std::iter::once(draw.material.0).chain(
+        draw.mesh
+            .positions
+            .iter()
+            .flatten()
+            .map(|coordinate| u64::from(coordinate.to_bits())),
+    ) {
+        for byte in value.to_le_bytes() {
+            *fingerprint ^= u64::from(byte);
+            *fingerprint = fingerprint.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
 }
 
 /// Lowers the exact source-region destinations retained by the ordered plane

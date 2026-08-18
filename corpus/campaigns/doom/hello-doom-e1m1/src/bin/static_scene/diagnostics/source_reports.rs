@@ -4,6 +4,9 @@
 //! lifecycle, renderer state, or source mutation policy.
 
 use super::super::*;
+use super::ordered_causality::{
+    ordered_six_ray_cases, OrderedSixRayExpectedTarget as ExpectedTarget,
+};
 use super::tokimu_spatial_bake::SpatialRayShadow;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
@@ -77,84 +80,6 @@ pub(crate) fn report_ordered_occurrence_live_refresh(scene: &SceneInput) -> Plat
 /// five rejected wall/plane contributions must have no final declaration,
 /// while the reached ceiling may survive only through partial-plane output.
 pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> PlatformResult<()> {
-    #[derive(Clone, Copy)]
-    enum ExpectedTarget {
-        RejectedWallSegs(&'static [u32]),
-        RejectedPlane {
-            subsector: u32,
-            kind: OrderedPlaneKind,
-        },
-        PartialPlane {
-            subsector: u32,
-            kind: OrderedPlaneKind,
-        },
-    }
-
-    #[derive(Clone, Copy)]
-    struct RayCase {
-        name: &'static str,
-        origin: [f64; 3],
-        direction: [f64; 3],
-        expected_global_label: &'static str,
-        expected: ExpectedTarget,
-    }
-
-    const WALL_230_SEGS: &[u32] = &[415, 423];
-    const WALL_247_SEGS: &[u32] = &[559, 567];
-    let cases = [
-        RayCase {
-            name: "hut-east-wall-230",
-            origin: [2076.0, -3560.0, 36.0],
-            direction: [0.905568898, -0.424199343, 0.0],
-            expected_global_label: "wall:230:BROWN1",
-            expected: ExpectedTarget::RejectedWallSegs(WALL_230_SEGS),
-        },
-        RayCase {
-            name: "wall-247-east",
-            origin: [1306.508666992, -3272.168457031, 21.432840347],
-            direction: [0.939651787, -0.338751376, 0.047981590],
-            expected_global_label: "wall:247:BROWN96",
-            expected: ExpectedTarget::RejectedWallSegs(WALL_247_SEGS),
-        },
-        RayCase {
-            name: "ceiling-104-reached",
-            origin: [1477.330444336, -3594.213134766, 8.994521141],
-            direction: [-0.792175531, -0.565008104, 0.230702817],
-            expected_global_label: "flat:40:CEIL3_5",
-            expected: ExpectedTarget::PartialPlane {
-                subsector: 104,
-                kind: OrderedPlaneKind::Ceiling,
-            },
-        },
-        RayCase {
-            name: "wall-247-west",
-            origin: [2115.047851562, -3569.925048828, 8.994521141],
-            direction: [0.928815067, -0.358562857, 0.093463443],
-            expected_global_label: "wall:247:BROWN96",
-            expected: ExpectedTarget::RejectedWallSegs(WALL_247_SEGS),
-        },
-        RayCase {
-            name: "ceiling-149-rejected",
-            origin: [2139.683349609, -3196.036376953, 8.994521141],
-            direction: [0.180356100, 0.780082107, 0.599119186],
-            expected_global_label: "flat:7:CEIL3_5",
-            expected: ExpectedTarget::RejectedPlane {
-                subsector: 149,
-                kind: OrderedPlaneKind::Ceiling,
-            },
-        },
-        RayCase {
-            name: "ceiling-104-rejected",
-            origin: [2902.150878906, -3206.857421875, 8.994521141],
-            direction: [-0.952072978, -0.304107845, 0.032795019],
-            expected_global_label: "flat:40:CEIL3_5",
-            expected: ExpectedTarget::RejectedPlane {
-                subsector: 104,
-                kind: OrderedPlaneKind::Ceiling,
-            },
-        },
-    ];
-
     let cutout_materials = scene
         .cutout_uploads
         .iter()
@@ -162,7 +87,7 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
         .collect::<BTreeMap<_, _>>();
     let spatial_shadow = SpatialRayShadow::build(scene)?;
     let mut reports = Vec::new();
-    for case in cases {
+    for case in ordered_six_ray_cases() {
         let spatial_hit = spatial_shadow
             // Headless reports run before the optional comparative re-embed;
             // the prepared inventory is still in its source-aligned frame.
@@ -206,7 +131,7 @@ pub(crate) fn report_ordered_occurrence_six_ray_handoff(scene: &SceneInput) -> P
             .map_err(io::Error::other)?;
 
         let result = match case.expected {
-            ExpectedTarget::RejectedWallSegs(source_segs) => {
+            ExpectedTarget::RejectedWallSegs { source_segs, .. } => {
                 let declaration_count = observation
                     .walls
                     .prepared_declarations

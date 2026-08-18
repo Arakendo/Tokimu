@@ -555,7 +555,62 @@ pub struct DoomClassicBspObservation {
     pub hut_linedef_segs_visited: usize,
     pub hut_linedef_segs_admitted: usize,
     pub watched_subsector_elisions: Vec<String>,
+    /// Structured target-specific elisions with provenance for the nearer
+    /// solid source events that established the covering range. This is
+    /// diagnostic history, not historical Doom storage or renderer policy.
+    pub watched_elision_provenance: Vec<DoomClassicWatchedElisionProvenance>,
+    /// Ordered solid-range mutations retained for causal replay. The ordinary
+    /// `solidsegs`-equivalent union remains the decision input.
+    pub solid_range_events: Vec<DoomClassicSolidRangeEvent>,
+    /// Exact solid mutations suppressed by a diagnostic counterfactual. An
+    /// ordinary replay leaves this empty.
+    pub suppressed_solid_range_mutations: Vec<DoomClassicSuppressedSolidRangeMutation>,
     pub samples: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomClassicWatchedElisionProvenance {
+    pub event_ordinal: usize,
+    pub node: u16,
+    pub reason: String,
+    pub subsectors: Vec<u16>,
+    pub projected_interval: Option<[usize; 2]>,
+    pub covering_range: Option<[usize; 2]>,
+    pub covering_source_segs: BTreeSet<u32>,
+    pub covering_source_linedefs: BTreeSet<u32>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomClassicSolidRangeEvent {
+    pub event_ordinal: usize,
+    pub source_seg: u32,
+    pub source_linedef: u32,
+    pub input_interval: [usize; 2],
+    pub fully_covered_before: bool,
+    pub merged_range: [usize; 2],
+    pub contributing_source_segs: BTreeSet<u32>,
+    pub contributing_source_linedefs: BTreeSet<u32>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomClassicSuppressedSolidRangeMutation {
+    pub source_seg: u32,
+    pub source_linedef: u32,
+    pub input_interval: [usize; 2],
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DoomClassicSolidRangeProvenance {
+    interval: [usize; 2],
+    source_segs: BTreeSet<u32>,
+    source_linedefs: BTreeSet<u32>,
+}
+
+#[derive(Default)]
+struct DoomClassicSolidRangeState {
+    intervals: Vec<[usize; 2]>,
+    provenance: Vec<DoomClassicSolidRangeProvenance>,
+    suppressed_source_seg: Option<u32>,
 }
 
 /// Bounded Doom-source observation of per-column vertical clip state after
@@ -733,7 +788,7 @@ pub fn observe_doom_classic_bsp(
         heading,
         watched_subsectors,
         DoomClassicBspTraversalOrder::NearFirst,
-        DoomClassicBspPruning::SolidRanges,
+        DoomClassicBspReplayControl::ordinary(),
     )
 }
 
@@ -753,7 +808,27 @@ pub fn observe_doom_classic_bsp_without_solid_range_pruning(
         heading,
         watched_subsectors,
         DoomClassicBspTraversalOrder::NearFirst,
-        DoomClassicBspPruning::OutsideFovOnly,
+        DoomClassicBspReplayControl::without_solid_range_pruning(),
+    )
+}
+
+/// Diagnostic intervention that suppresses only the named source SEG's solid
+/// range mutation while retaining its traversal and admission. This is a
+/// causal shadow, not a selectable presentation policy.
+pub fn observe_doom_classic_bsp_suppressing_solid_range_source_seg(
+    map: &DoomMapCore,
+    viewer: [i16; 2],
+    heading: f64,
+    watched_subsectors: &BTreeSet<u16>,
+    source_seg: u32,
+) -> Result<DoomClassicBspObservation, DoomGeometryError> {
+    observe_doom_classic_bsp_with_order(
+        map,
+        viewer,
+        heading,
+        watched_subsectors,
+        DoomClassicBspTraversalOrder::NearFirst,
+        DoomClassicBspReplayControl::suppressing(source_seg),
     )
 }
 
@@ -772,13 +847,42 @@ enum DoomClassicBspPruning {
     OutsideFovOnly,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DoomClassicBspReplayControl {
+    pruning: DoomClassicBspPruning,
+    suppressed_solid_range_source_seg: Option<u32>,
+}
+
+impl DoomClassicBspReplayControl {
+    const fn ordinary() -> Self {
+        Self {
+            pruning: DoomClassicBspPruning::SolidRanges,
+            suppressed_solid_range_source_seg: None,
+        }
+    }
+
+    const fn without_solid_range_pruning() -> Self {
+        Self {
+            pruning: DoomClassicBspPruning::OutsideFovOnly,
+            suppressed_solid_range_source_seg: None,
+        }
+    }
+
+    const fn suppressing(source_seg: u32) -> Self {
+        Self {
+            pruning: DoomClassicBspPruning::SolidRanges,
+            suppressed_solid_range_source_seg: Some(source_seg),
+        }
+    }
+}
+
 fn observe_doom_classic_bsp_with_order(
     map: &DoomMapCore,
     viewer: [i16; 2],
     heading: f64,
     watched_subsectors: &BTreeSet<u16>,
     traversal_order: DoomClassicBspTraversalOrder,
-    pruning: DoomClassicBspPruning,
+    control: DoomClassicBspReplayControl,
 ) -> Result<DoomClassicBspObservation, DoomGeometryError> {
     let root = map
         .nodes
@@ -792,7 +896,10 @@ fn observe_doom_classic_bsp_with_order(
         .map(|observation| (observation.source_seg.record_index, observation))
         .collect::<BTreeMap<_, _>>();
     let mut observation = DoomClassicBspObservation::default();
-    let mut solid_ranges = Vec::new();
+    let mut solid_ranges = DoomClassicSolidRangeState {
+        suppressed_source_seg: control.suppressed_solid_range_source_seg,
+        ..DoomClassicSolidRangeState::default()
+    };
     let mut ancestors = Vec::new();
     visit_doom_classic_bsp_child(
         map,
@@ -805,9 +912,10 @@ fn observe_doom_classic_bsp_with_order(
         watched_subsectors,
         &mut observation,
         traversal_order,
-        pruning,
+        control,
     )?;
     observation.solid_range_covered_columns = solid_ranges
+        .intervals
         .iter()
         .map(|[first, last]| last - first + 1)
         .sum();
@@ -827,7 +935,7 @@ fn observe_doom_classic_bsp_far_first_control(
         heading,
         watched_subsectors,
         DoomClassicBspTraversalOrder::FarFirstControl,
-        DoomClassicBspPruning::SolidRanges,
+        DoomClassicBspReplayControl::ordinary(),
     )
 }
 
@@ -1550,12 +1658,12 @@ fn visit_doom_classic_bsp_child(
     viewer: [i16; 2],
     heading: f64,
     occluders: &BTreeMap<u32, DoomSegOccluderObservation>,
-    solid_ranges: &mut Vec<[usize; 2]>,
+    solid_ranges: &mut DoomClassicSolidRangeState,
     ancestors: &mut Vec<u16>,
     watched_subsectors: &BTreeSet<u16>,
     observation: &mut DoomClassicBspObservation,
     traversal_order: DoomClassicBspTraversalOrder,
-    pruning: DoomClassicBspPruning,
+    control: DoomClassicBspReplayControl,
 ) -> Result<(), DoomGeometryError> {
     match child {
         DoomBspChild::Subsector(index) => {
@@ -1627,7 +1735,7 @@ fn visit_doom_classic_bsp_child(
                 watched_subsectors,
                 observation,
                 traversal_order,
-                pruning,
+                control,
             )?;
             let watched_far = watched_subsectors
                 .iter()
@@ -1651,16 +1759,18 @@ fn visit_doom_classic_bsp_child(
                         &watched_far,
                         None,
                         None,
+                        None,
                     );
                 }
                 SourceBBoxProjection::Interval(interval) => {
-                    if let Some(covering_range) = (pruning == DoomClassicBspPruning::SolidRanges)
-                        .then(|| {
-                            solid_ranges
-                                .iter()
-                                .find(|[first, last]| *first <= interval[0] && interval[1] <= *last)
-                        })
-                        .flatten()
+                    if let Some(covering_range) =
+                        (control.pruning == DoomClassicBspPruning::SolidRanges)
+                            .then(|| {
+                                solid_ranges.intervals.iter().find(|[first, last]| {
+                                    *first <= interval[0] && interval[1] <= *last
+                                })
+                            })
+                            .flatten()
                     {
                         observation.far_children_pruned += 1;
                         record_watched_subsector_elision(
@@ -1670,6 +1780,10 @@ fn visit_doom_classic_bsp_child(
                             &watched_far,
                             Some(interval),
                             Some(*covering_range),
+                            solid_ranges.provenance.iter().find(|provenance| {
+                                provenance.interval[0] <= interval[0]
+                                    && interval[1] <= provenance.interval[1]
+                            }),
                         );
                     } else {
                         visit_doom_classic_bsp_child(
@@ -1683,7 +1797,7 @@ fn visit_doom_classic_bsp_child(
                             watched_subsectors,
                             observation,
                             traversal_order,
-                            pruning,
+                            control,
                         )?;
                     }
                 }
@@ -1700,7 +1814,7 @@ fn visit_doom_classic_bsp_child(
                         watched_subsectors,
                         observation,
                         traversal_order,
-                        pruning,
+                        control,
                     )?;
                 }
             }
@@ -1717,11 +1831,29 @@ fn record_watched_subsector_elision(
     subsectors: &[u16],
     interval: Option<[usize; 2]>,
     covering_range: Option<[usize; 2]>,
+    covering_provenance: Option<&DoomClassicSolidRangeProvenance>,
 ) {
     if !subsectors.is_empty() {
+        let event_ordinal = observation.watched_elision_provenance.len();
         observation.watched_subsector_elisions.push(format!(
             "node={node}:reason={reason}:subsectors={subsectors:?}:interval={interval:?}:covering-range={covering_range:?}"
         ));
+        observation
+            .watched_elision_provenance
+            .push(DoomClassicWatchedElisionProvenance {
+                event_ordinal,
+                node,
+                reason: reason.to_owned(),
+                subsectors: subsectors.to_vec(),
+                projected_interval: interval,
+                covering_range,
+                covering_source_segs: covering_provenance
+                    .map(|provenance| provenance.source_segs.clone())
+                    .unwrap_or_default(),
+                covering_source_linedefs: covering_provenance
+                    .map(|provenance| provenance.source_linedefs.clone())
+                    .unwrap_or_default(),
+            });
     }
 }
 
@@ -1767,7 +1899,7 @@ fn admit_doom_classic_seg(
     viewer: [i16; 2],
     heading: f64,
     occluders: &BTreeMap<u32, DoomSegOccluderObservation>,
-    solid_ranges: &mut Vec<[usize; 2]>,
+    solid_ranges: &mut DoomClassicSolidRangeState,
     observation: &mut DoomClassicBspObservation,
 ) {
     const HALF_FOV: f64 = std::f64::consts::FRAC_PI_4;
@@ -1821,7 +1953,44 @@ fn admit_doom_classic_seg(
     if solid && start_depth > 0.0 && end_depth > 0.0 {
         observation.solid_admitted += 1;
         let interval = source_fov_column_interval(start_angle, end_angle, HALF_FOV, 320);
-        if merge_solid_range(solid_ranges, interval) {
+        if solid_ranges.suppressed_source_seg == Some(seg.source.record_index) {
+            observation.suppressed_solid_range_mutations.push(
+                DoomClassicSuppressedSolidRangeMutation {
+                    source_seg: seg.source.record_index,
+                    source_linedef: u32::from(seg.linedef),
+                    input_interval: interval,
+                },
+            );
+            return;
+        }
+        let fully_covered = merge_solid_range(&mut solid_ranges.intervals, interval);
+        let merged = merge_solid_range_provenance(
+            &mut solid_ranges.provenance,
+            interval,
+            seg.source.record_index,
+            u32::from(seg.linedef),
+        );
+        debug_assert_eq!(
+            solid_ranges.intervals,
+            solid_ranges
+                .provenance
+                .iter()
+                .map(|provenance| provenance.interval)
+                .collect::<Vec<_>>()
+        );
+        observation
+            .solid_range_events
+            .push(DoomClassicSolidRangeEvent {
+                event_ordinal: observation.solid_range_events.len(),
+                source_seg: seg.source.record_index,
+                source_linedef: u32::from(seg.linedef),
+                input_interval: interval,
+                fully_covered_before: fully_covered,
+                merged_range: merged.interval,
+                contributing_source_segs: merged.source_segs.clone(),
+                contributing_source_linedefs: merged.source_linedefs.clone(),
+            });
+        if fully_covered {
             observation.solid_range_fully_covered += 1;
         } else {
             observation.solid_range_contributors += 1;
@@ -1967,6 +2136,36 @@ fn merge_solid_range(ranges: &mut Vec<[usize; 2]>, interval: [usize; 2]) -> bool
     }
     ranges.insert(index, merged);
     fully_covered
+}
+
+fn merge_solid_range_provenance(
+    ranges: &mut Vec<DoomClassicSolidRangeProvenance>,
+    interval: [usize; 2],
+    source_seg: u32,
+    source_linedef: u32,
+) -> DoomClassicSolidRangeProvenance {
+    let mut merged = DoomClassicSolidRangeProvenance {
+        interval,
+        source_segs: BTreeSet::from([source_seg]),
+        source_linedefs: BTreeSet::from([source_linedef]),
+    };
+    let mut index = 0;
+    while index < ranges.len() {
+        let candidate = &ranges[index];
+        if candidate.interval[1].saturating_add(1) < merged.interval[0]
+            || merged.interval[1].saturating_add(1) < candidate.interval[0]
+        {
+            index += 1;
+            continue;
+        }
+        let candidate = ranges.remove(index);
+        merged.interval[0] = merged.interval[0].min(candidate.interval[0]);
+        merged.interval[1] = merged.interval[1].max(candidate.interval[1]);
+        merged.source_segs.extend(candidate.source_segs);
+        merged.source_linedefs.extend(candidate.source_linedefs);
+    }
+    ranges.insert(index, merged.clone());
+    merged
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -4048,14 +4247,17 @@ mod tests {
         lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles,
         lower_doom_two_sided_middle_walls, lower_doom_two_sided_wall_bands,
         observe_doom_classic_bsp, observe_doom_classic_bsp_far_first_control,
-        observe_doom_seg_occluders, observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
+        observe_doom_classic_bsp_suppressing_solid_range_source_seg,
+        observe_doom_classic_bsp_without_solid_range_pruning, observe_doom_seg_occluders,
+        observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
         observe_doom_two_sided_middle_textures, observe_doom_wall_texture_axes,
         reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
         resolve_doom_subsector_bsp_paths, resolve_doom_subsector_loops,
         resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
         resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates,
         resolve_doom_wall_texture_bindings, tokimu_direction_to_doom, tokimu_point_to_doom,
-        DoomBspSide, DoomGeometryError, DoomLinedefSubsectorMembership, DoomOrderedWallInterval,
+        DoomBspSide, DoomClassicSuppressedSolidRangeMutation, DoomGeometryError,
+        DoomLinedefSubsectorMembership, DoomOrderedWallInterval,
         DoomSegClassicVerticalClipObservation, DoomSurfacePlane, DoomTextureExtent, DoomWallBand,
         DoomWallSideKind, DoomWallTextureRole,
     };
@@ -5144,9 +5346,59 @@ mod tests {
         // renderer or application policy.
         assert_eq!(near_first.admitted_seg_order, vec![0]);
         assert_eq!(near_first.far_children_pruned, 1);
+        assert_eq!(near_first.solid_range_events.len(), 1);
+        let covering_event = &near_first.solid_range_events[0];
+        assert_eq!(covering_event.event_ordinal, 0);
+        assert_eq!(covering_event.source_seg, 0);
+        assert_eq!(covering_event.source_linedef, 0);
+        assert!(!covering_event.fully_covered_before);
+        assert_eq!(covering_event.contributing_source_segs, BTreeSet::from([0]));
+        assert_eq!(
+            covering_event.contributing_source_linedefs,
+            BTreeSet::from([0])
+        );
+
+        assert_eq!(near_first.watched_elision_provenance.len(), 1);
+        let watched_elision = &near_first.watched_elision_provenance[0];
+        assert_eq!(watched_elision.event_ordinal, 0);
+        assert_eq!(watched_elision.reason, "solid-range");
+        assert_eq!(watched_elision.subsectors, vec![1]);
+        assert_eq!(watched_elision.covering_source_segs, BTreeSet::from([0]));
+        assert_eq!(
+            watched_elision.covering_source_linedefs,
+            BTreeSet::from([0])
+        );
+
         assert_eq!(far_first.admitted_seg_order, vec![1, 0]);
         assert_eq!(far_first.far_children_pruned, 0);
         assert!(far_first.admitted_seg_records.contains(&1));
+
+        let without_solid_pruning = observe_doom_classic_bsp_without_solid_range_pruning(
+            &map,
+            [0, -96],
+            std::f64::consts::FRAC_PI_2,
+            &watched,
+        )
+        .unwrap();
+        assert!(without_solid_pruning.visited_subsectors.contains(&1));
+
+        let suppressed_near_solid = observe_doom_classic_bsp_suppressing_solid_range_source_seg(
+            &map,
+            [0, -96],
+            std::f64::consts::FRAC_PI_2,
+            &watched,
+            0,
+        )
+        .unwrap();
+        assert!(suppressed_near_solid.visited_subsectors.contains(&1));
+        assert_eq!(
+            suppressed_near_solid.suppressed_solid_range_mutations,
+            vec![DoomClassicSuppressedSolidRangeMutation {
+                source_seg: 0,
+                source_linedef: 0,
+                input_interval: [0, 319],
+            }]
+        );
     }
 
     #[test]
