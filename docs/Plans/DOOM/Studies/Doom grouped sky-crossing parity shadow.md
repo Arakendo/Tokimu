@@ -149,7 +149,8 @@ actual-camera presentation over the complete world.
       paired-skywall crossings, seam-collapsed source identities, parity, and
       the predicted retain/mask result.
 - [x] Refine reconstructed plane support from validated closed subsector SEG
-      loops, with BSP-path regions retained as an explicit fail-open fallback.
+      loops or compatible SEG half-planes plus implicit BSP boundaries, with
+      BSP-path regions retained as an explicit fail-open fallback.
 - [ ] Conduct the adversarial E1M1 walkabout.
 
 Run:
@@ -219,6 +220,32 @@ wall-205 positive control remains an exact hit after two grouped crossings and
 is retained by even parity. Ordinary planes and diagnostic source sky planes
 are derived from the same refined surface set, preventing the parity mask and
 world geometry from silently using different plane boundaries.
+
+The first walkabout after this closed-loop-only pass still exposed broad
+fallback planes. That was expected from the audit: 182 leaves did not have a
+standalone closed SEG cycle. A second refinement now starts with each finite
+BSP-path region and clips it by the owning/right half-plane of every decoded
+SEG in that leaf. This recovers leaves whose boundary is intentionally split
+between explicit map lines and implicit BSP partitions. It rejects the result
+if the SEG constraints contradict one another, become degenerate, or stop
+containing the leaf's decoded SEG endpoints.
+
+Canonical E1M1 now reports:
+
+```text
+validated closed loops             55
+loop refinements                    32
+compatible SEG-half-plane regions 179
+SEG-half-plane refinements          92
+BSP-path fallbacks                   3  (subsectors 59, 137, 173)
+surface triangles                 1020
+```
+
+The original subsector-104 negative replay remains absent. The required wall
+205 remains exact and retains its source-sky-plane plus paired-skywall even
+sequence. In that same elevated negative replay, the oversized source sky
+plane 49 is now absent too; only its legitimate paired skywall crossing
+remains before empty space.
 
 ## Binding Invariants
 

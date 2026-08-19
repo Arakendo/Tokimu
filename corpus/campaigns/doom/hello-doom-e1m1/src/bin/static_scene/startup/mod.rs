@@ -594,13 +594,20 @@ pub(crate) fn run() -> PlatformResult<()> {
         doom_bsp_bounds_audit_report,
         skywall_parity,
     )?;
-    if let Some(audit) = scene.source_bounded_surface_audit {
+    if let Some(audit) = scene.source_bounded_surface_audit.as_ref() {
         eprintln!(
-            "E1M1 source-boundary surface trim: subsectors={} stitched-loops={} refinements={} bsp-path-fallbacks={} triangles={} authority=validated-convex-seg-cycle-contained-by-bsp-leaf",
+            "E1M1 source-boundary surface trim: subsectors={} stitched-loops={} loop-refinements={} seg-half-plane-regions={} seg-half-plane-refinements={} bsp-path-fallbacks={} fallback-subsectors={:?} triangles={} authority=validated-seg-boundaries-contained-by-bsp-leaf",
             audit.subsectors,
             audit.stitched_seg_loops,
             audit.stitched_loop_refinements,
+            audit.seg_half_plane_regions,
+            audit.seg_half_plane_refinements,
             audit.bsp_path_fallbacks,
+            audit
+                .bsp_path_fallback_subsectors
+                .iter()
+                .map(|source| source.record_index)
+                .collect::<Vec<_>>(),
             audit.surface_triangles,
         );
     }

@@ -2176,6 +2176,27 @@ The review moves away from shared admission when:
   derived from that loop. Incomplete leaf boundaries retain the prior region;
   neither player reachability nor BSP visibility is inferred from this bake.
 
+### Cycle 59 -- 2026-08-18
+
+- The first closed-loop walkabout showed that its 182 conservative fallbacks
+  still included conspicuously broad planes. The missing representation was
+  not another visibility rule: many Doom leaves divide their finite boundary
+  between explicit SEGs and implicit BSP partition lines.
+- The provider refinement now clips the already finite BSP-path polygon by the
+  owning/right half-plane of every decoded leaf SEG. It accepts this combined
+  boundary only when all SEG endpoints satisfy all constraints and the result
+  remains convex and nondegenerate; disagreement still fails open.
+- Canonical E1M1 adds 179 compatible SEG-half-plane regions. Ninety-two
+  materially shrink their prior polygons. Only subsectors 59, 137 and 173
+  retain untouched BSP-path fallback geometry.
+- The resulting 1,020 plane triangles continue to feed both ordinary flats and
+  source-sky parity planes. The subsector-104 excess floor and excess sky plane
+  49 are absent on their exact replay, while wall 205 remains exact and is
+  retained after its legitimate two-crossing sequence.
+- This is still source-boundary geometry preparation, not visibility,
+  reachability, collision trimming, a generic BSP contract, or permission to
+  reject a plane from source occurrence alone.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

@@ -223,12 +223,15 @@ pub struct DoomSurfaceTriangle {
 /// loop is used only when the decoded SEG endpoints form one convex cycle
 /// contained by the owning BSP leaf. Every other subsector retains the
 /// existing BSP-path region as a conservative fallback.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoomSourceBoundedSurfaceAudit {
     pub subsectors: usize,
     pub stitched_seg_loops: usize,
     pub stitched_loop_refinements: usize,
+    pub seg_half_plane_regions: usize,
+    pub seg_half_plane_refinements: usize,
     pub bsp_path_fallbacks: usize,
+    pub bsp_path_fallback_subsectors: Vec<DoomSourceRecord>,
     pub surface_triangles: usize,
 }
 
@@ -2888,7 +2891,10 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
     let mut surfaces = Vec::new();
     let mut stitched_seg_loops = 0;
     let mut stitched_loop_refinements = 0;
+    let mut seg_half_plane_regions = 0;
+    let mut seg_half_plane_refinements = 0;
     let mut bsp_path_fallbacks = 0;
+    let mut bsp_path_fallback_subsectors = Vec::new();
 
     for (subsector_index, ((subsector, region), ownership)) in map
         .subsectors
@@ -2915,8 +2921,20 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
                 stitched_loop_refinements += 1;
             }
             vertices
+        } else if let Some(vertices) =
+            clip_subsector_region_to_seg_half_planes(map, subsector, &region.vertices)
+        {
+            seg_half_plane_regions += 1;
+            if (polygon_signed_area(&vertices).abs() - polygon_signed_area(&region.vertices).abs())
+                .abs()
+                > AREA_EPSILON
+            {
+                seg_half_plane_refinements += 1;
+            }
+            vertices
         } else {
             bsp_path_fallbacks += 1;
+            bsp_path_fallback_subsectors.push(region.source_subsector);
             region.vertices.clone()
         };
 
@@ -2939,11 +2957,70 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
             subsectors: map.subsectors.len(),
             stitched_seg_loops,
             stitched_loop_refinements,
+            seg_half_plane_regions,
+            seg_half_plane_refinements,
             bsp_path_fallbacks,
+            bsp_path_fallback_subsectors,
             surface_triangles: surfaces.len(),
         },
         surfaces,
     })
+}
+
+fn clip_subsector_region_to_seg_half_planes(
+    map: &DoomMapCore,
+    subsector: &doom_map_provider::DoomSubsector,
+    bsp_region: &[[f64; 2]],
+) -> Option<Vec<[f64; 2]>> {
+    let first = usize::from(subsector.first_seg);
+    let end = first.checked_add(usize::from(subsector.seg_count))?;
+    let segs = map.segs.get(first..end)?;
+    if segs.is_empty() {
+        return None;
+    }
+
+    // Decoded Doom SEGs face along their stored start/end direction with the
+    // owning subsector on the right. Their supporting lines can therefore
+    // complete a leaf whose other edges exist only in its BSP path. The
+    // finite BSP region remains the initial domain, so these constraints can
+    // shrink but never expand the established leaf.
+    let mut steps = Vec::with_capacity(segs.len());
+    for seg in segs {
+        let start = point_for_vertex(map, seg.start_vertex);
+        let end = point_for_vertex(map, seg.end_vertex);
+        steps.push(DoomBspPathStep {
+            source_node: seg.source,
+            side: DoomBspSide::Right,
+            origin: start,
+            delta: [end[0].checked_sub(start[0])?, end[1].checked_sub(start[1])?],
+        });
+    }
+
+    // Reject contradictory orientation instead of allowing clipping order to
+    // manufacture a plausible polygon. Every decoded endpoint belonging to
+    // this convex leaf must satisfy every retained boundary half-plane.
+    if segs.iter().any(|seg| {
+        [seg.start_vertex, seg.end_vertex]
+            .into_iter()
+            .map(|vertex| point_for_vertex(map, vertex).map(f64::from))
+            .any(|point| {
+                steps.iter().any(|step| {
+                    !is_inside_partition(partition_distance(point, step), step.side, 1.0e-7)
+                })
+            })
+    }) {
+        return None;
+    }
+
+    let mut vertices = bsp_region.to_vec();
+    for step in &steps {
+        vertices = clip_convex_region(&vertices, step);
+        if vertices.len() < 3 {
+            return None;
+        }
+    }
+    (polygon_signed_area(&vertices).abs() > 1.0e-9 && is_convex_polygon(&vertices))
+        .then_some(vertices)
 }
 
 fn stitch_subsector_seg_loop(
@@ -4738,6 +4815,55 @@ mod tests {
         assert_eq!(bake.audit.stitched_seg_loops, 0);
         assert_eq!(bake.audit.bsp_path_fallbacks, 1);
         assert_eq!(bake.surfaces.len(), 4);
+    }
+
+    #[test]
+    fn source_bounded_surfaces_combine_seg_and_implicit_bsp_boundaries() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: 64,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 0,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(2),
+                x: 64,
+                y: 32,
+            },
+            DoomVertex {
+                source: source(3),
+                x: 256,
+                y: 256,
+            },
+        ];
+        map.segs = vec![seg(0, 0, 1), seg(1, 2, 0)];
+        map.subsectors = vec![DoomSubsector {
+            source: source(0),
+            seg_count: 2,
+            first_seg: 0,
+        }];
+        let paths = vec![super::DoomSubsectorBspPath {
+            source_subsector: source(0),
+            steps: Vec::new(),
+        }];
+
+        let bake = lower_doom_source_bounded_subsector_surfaces(&map, &paths).unwrap();
+
+        assert_eq!(bake.audit.stitched_seg_loops, 0);
+        assert_eq!(bake.audit.seg_half_plane_regions, 1);
+        assert_eq!(bake.audit.seg_half_plane_refinements, 1);
+        assert_eq!(bake.audit.bsp_path_fallbacks, 0);
+        assert!(bake
+            .surfaces
+            .iter()
+            .flat_map(|surface| surface.positions)
+            .all(|position| position[0] <= 64.0));
     }
 
     #[test]
