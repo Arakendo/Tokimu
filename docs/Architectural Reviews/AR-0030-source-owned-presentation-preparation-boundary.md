@@ -2299,6 +2299,35 @@ The review moves away from shared admission when:
   (`621 µs`, `227,219 µs`). The increase over the unsplit controls is
   retained as candidate fragmentation evidence, not accepted performance.
 
+### Cycle 64 -- 2026-08-18
+
+- A live E1M1 walkabout exposed a narrow, tapering black seam in the sector 60
+  floor. The frozen ray intersected the floor plane at approximately
+  `(3021.35, -3026.81, -24)` exactly between source subsectors 168 and 172.
+  Small ray offsets hit either leaf. The exact ray missed the sector-boundary
+  candidate, its unchanged source-boundary control, and the older finite-BSP
+  global-full surface bake. This acquits grouped sky parity and the new sector
+  trim: no contribution was rejected at this pixel.
+- The retained cause is coplanar BSP-leaf edge nonconformance. One independently
+  clipped convex leaf can retain a long edge while adjacent leaves terminate
+  vertices along that edge. Their mathematical support is continuous, but
+  independent fan triangulation followed by `f64` to `f32` conversion creates
+  a raster T-junction which can open into a visible seam.
+- Doom-private plane lowering now inserts existing neighboring region vertices
+  into every collinear longer region edge before triangulation. This changes
+  neither plane support nor polygon area and does not merge source identities;
+  it only makes finite edge segmentation conform across independently lowered
+  leaves and sector fragments. A synthetic three-region T-junction proves one
+  insertion and exact area conservation.
+- Canonical E1M1's opt-in sector-boundary candidate records 202 conformance
+  insertions and grows from 1,464 to 1,868 plane triangles. Native Vulkan
+  two-frame realization completes with 5,076 draws and nine pipeline switches
+  (`415 us` warm command construction, `145,867 us` warm frame CPU). The exact
+  boundary-directed CPU ray remains an inappropriate visual oracle because
+  its single-precision Moller-Trumbore predicate can reject a hit lying exactly
+  on the shared edge; live raster inspection remains the visual acceptance
+  gate.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

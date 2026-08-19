@@ -293,6 +293,23 @@ accepted the additional pipeline and completed with 3,787 draws, nine pipeline
 switches, `466 µs` warm command construction and `113,726 µs` warm frame CPU
 time. These are observations, not accepted budgets.
 
+### Coplanar leaf-edge conformance
+
+A later E1M1 walkabout found a narrow black seam in sector 60. The reported
+ray landed on the floor-height boundary shared by subsectors 168 and 172;
+nearby rays hit either side. The same exact miss reproduced with the
+sector-boundary candidate, the source-boundary control, and the older finite
+BSP global-full bake. It is therefore a plane triangulation defect, not a sky
+crossing or trimming decision.
+
+The plane bake now conforms T-junctions before triangulation. Existing vertices
+from shorter neighboring edges are inserted into a collinear longer edge, so
+both independently triangulated leaves use identical finite edge segmentation
+after renderer-precision conversion. This preserves polygon area, source
+identity, and the candidate's sector-support decisions. Canonical E1M1 records
+202 insertions and 1,868 plane triangles under `--sector-boundary-trim`; a
+synthetic three-region fixture proves exact area conservation.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.
@@ -309,6 +326,8 @@ time. These are observations, not accepted budgets.
    or generic spatial-query semantics.
 10. Source one-sidedness may select double-sided containment depth, but it does
     not make the wall back color-visible or turn that wall into a sky crossing.
+11. Coplanar edge conformance may subdivide a retained polygon edge but may not
+    change its support, area, source identity or admission decision.
 
 ## Stop Conditions
 

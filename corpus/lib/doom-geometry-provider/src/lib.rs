@@ -243,6 +243,10 @@ pub struct DoomSourceBoundedSurfaceAudit {
     pub sector_boundary_unavailable_subsectors: Vec<DoomSourceRecord>,
     pub degenerate_region_omissions: usize,
     pub degenerate_region_subsectors: Vec<DoomSourceRecord>,
+    /// Collinear vertices inserted into longer neighboring region edges so
+    /// independently triangulated coplanar leaves share the same edge
+    /// segmentation after conversion to renderer precision.
+    pub edge_conformance_insertions: usize,
     pub surface_triangles: usize,
 }
 
@@ -2830,7 +2834,13 @@ pub fn lower_doom_subsector_surfaces(
     map: &DoomMapCore,
     paths: &[DoomSubsectorBspPath],
 ) -> Result<Vec<DoomSurfaceTriangle>, DoomGeometryError> {
-    let regions = resolve_doom_subsector_regions(map, paths)?;
+    let mut regions = resolve_doom_subsector_regions(map, paths)?;
+    conform_coplanar_region_edges(
+        &mut regions
+            .iter_mut()
+            .map(|region| &mut region.vertices)
+            .collect::<Vec<_>>(),
+    );
     let ownership = resolve_doom_subsector_sector_ownership(map)?;
     let mut triangles = Vec::new();
     for (subsector_index, (region, ownership)) in regions.iter().zip(&ownership).enumerate() {
@@ -2839,45 +2849,13 @@ pub fn lower_doom_subsector_surfaces(
                 subsector_index: subsector_index as u32,
             });
         }
-        let sector = &map.sectors[usize::from(ownership.sector_index)];
-        for (plane, height, texture_name, reverse_winding) in [
-            (
-                DoomSurfacePlane::Floor,
-                sector.floor_height,
-                sector.floor_texture.as_str(),
-                true,
-            ),
-            (
-                DoomSurfacePlane::Ceiling,
-                sector.ceiling_height,
-                sector.ceiling_texture.as_str(),
-                false,
-            ),
-        ] {
-            for index in 1..region.vertices.len() - 1 {
-                let points = [
-                    region.vertices[0],
-                    region.vertices[index],
-                    region.vertices[index + 1],
-                ];
-                let positions = if reverse_winding {
-                    [
-                        [points[0][0], f64::from(height), points[0][1]],
-                        [points[2][0], f64::from(height), points[2][1]],
-                        [points[1][0], f64::from(height), points[1][1]],
-                    ]
-                } else {
-                    points.map(|point| doom_point_to_tokimu(point, f64::from(height)))
-                };
-                triangles.push(DoomSurfaceTriangle {
-                    source_subsector: region.source_subsector,
-                    source_sector: ownership.source_sector,
-                    plane,
-                    texture_name: texture_name.to_owned(),
-                    positions,
-                });
-            }
-        }
+        append_subsector_surface_triangles(
+            &mut triangles,
+            &region.vertices,
+            region.source_subsector,
+            ownership,
+            &map.sectors[usize::from(ownership.sector_index)],
+        );
     }
     Ok(triangles)
 }
@@ -3145,6 +3123,7 @@ fn lower_doom_bounded_subsector_surfaces(
     let ownership = resolve_doom_subsector_sector_ownership(map)?;
     let sector_boundaries = sector_boundary_trim.then(|| resolve_doom_sector_boundary_support(map));
     let mut surfaces = Vec::new();
+    let mut prepared_surface_regions = Vec::new();
     let mut stitched_seg_loops = 0;
     let mut stitched_loop_refinements = 0;
     let mut seg_half_plane_regions = 0;
@@ -3242,15 +3221,27 @@ fn lower_doom_bounded_subsector_surfaces(
             }
             None => vec![vertices],
         };
-        for prepared_region in prepared_regions {
-            append_subsector_surface_triangles(
-                &mut surfaces,
-                &prepared_region,
-                region.source_subsector,
-                ownership,
-                &map.sectors[usize::from(ownership.sector_index)],
-            );
-        }
+        prepared_surface_regions.extend(
+            prepared_regions
+                .into_iter()
+                .map(|vertices| (vertices, region.source_subsector, ownership)),
+        );
+    }
+
+    let edge_conformance_insertions = conform_coplanar_region_edges(
+        &mut prepared_surface_regions
+            .iter_mut()
+            .map(|(vertices, _, _)| vertices)
+            .collect::<Vec<_>>(),
+    );
+    for (vertices, source_subsector, ownership) in prepared_surface_regions {
+        append_subsector_surface_triangles(
+            &mut surfaces,
+            &vertices,
+            source_subsector,
+            ownership,
+            &map.sectors[usize::from(ownership.sector_index)],
+        );
     }
 
     Ok(DoomSourceBoundedSurfaceBake {
@@ -3270,10 +3261,75 @@ fn lower_doom_bounded_subsector_surfaces(
             sector_boundary_unavailable_subsectors,
             degenerate_region_omissions,
             degenerate_region_subsectors,
+            edge_conformance_insertions,
             surface_triangles: surfaces.len(),
         },
         surfaces,
     })
+}
+
+/// Makes independently clipped coplanar regions conform at T-junctions.
+///
+/// BSP leaves form a closed mathematical partition, but one leaf can retain a
+/// long edge while neighboring leaves terminate vertices along that edge.
+/// Triangulating those polygons independently and converting them to `f32`
+/// lets raster interpolation open a visible seam. Inserting the existing
+/// neighboring vertices into the long edge changes neither support nor area;
+/// it only gives both triangle sets identical finite edge segmentation.
+fn conform_coplanar_region_edges(regions: &mut [&mut Vec<[f64; 2]>]) -> usize {
+    const LINE_DISTANCE_EPSILON: f64 = 1.0e-7;
+    const ENDPOINT_EPSILON: f64 = 1.0e-9;
+
+    let candidate_vertices = regions
+        .iter()
+        .flat_map(|region| region.iter().copied())
+        .collect::<Vec<_>>();
+    let mut insertions = 0;
+
+    for region in regions {
+        let original = region.clone();
+        let mut conformed = Vec::with_capacity(original.len());
+        for (start, end) in original
+            .iter()
+            .copied()
+            .zip(original.iter().copied().cycle().skip(1))
+            .take(original.len())
+        {
+            conformed.push(start);
+            let delta = [end[0] - start[0], end[1] - start[1]];
+            let length_squared = delta[0] * delta[0] + delta[1] * delta[1];
+            if length_squared <= f64::EPSILON {
+                continue;
+            }
+            let length = length_squared.sqrt();
+            let mut interior = candidate_vertices
+                .iter()
+                .copied()
+                .filter_map(|point| {
+                    let relative = [point[0] - start[0], point[1] - start[1]];
+                    let t = (relative[0] * delta[0] + relative[1] * delta[1]) / length_squared;
+                    if t <= ENDPOINT_EPSILON || t >= 1.0 - ENDPOINT_EPSILON {
+                        return None;
+                    }
+                    let perpendicular =
+                        (delta[0] * relative[1] - delta[1] * relative[0]).abs() / length;
+                    (perpendicular <= LINE_DISTANCE_EPSILON).then_some((t, point))
+                })
+                .collect::<Vec<_>>();
+            interior.sort_by(|left, right| left.0.total_cmp(&right.0));
+            for (_, point) in interior {
+                if conformed.last().is_none_or(|previous| {
+                    (previous[0] - point[0]).abs() > ENDPOINT_EPSILON
+                        || (previous[1] - point[1]).abs() > ENDPOINT_EPSILON
+                }) {
+                    conformed.push(point);
+                    insertions += 1;
+                }
+            }
+        }
+        **region = conformed;
+    }
+    insertions
 }
 
 fn clip_subsector_region_to_seg_half_planes(
@@ -3442,8 +3498,7 @@ fn append_subsector_surface_triangles(
             false,
         ),
     ] {
-        for index in 1..vertices.len() - 1 {
-            let points = [vertices[0], vertices[index], vertices[index + 1]];
+        for points in triangulate_convex_region(vertices) {
             let reverse = face_up == counter_clockwise;
             let positions = if reverse {
                 [
@@ -3463,6 +3518,44 @@ fn append_subsector_surface_triangles(
             });
         }
     }
+}
+
+/// Triangulates a convex region without discarding collinear boundary
+/// subdivisions. A simple fan can span across an inserted T-junction when the
+/// subdivided edge touches the fan anchor; strict-convex ear removal retains
+/// every finite boundary segment while still emitting exactly `n - 2`
+/// triangles.
+fn triangulate_convex_region(vertices: &[[f64; 2]]) -> Vec<[[f64; 2]; 3]> {
+    const AREA_EPSILON: f64 = 1.0e-12;
+
+    let orientation = polygon_signed_area(vertices).signum();
+    let mut remaining = (0..vertices.len()).collect::<Vec<_>>();
+    let mut triangles = Vec::with_capacity(vertices.len().saturating_sub(2));
+    while remaining.len() > 3 {
+        let ear = (0..remaining.len()).find(|&index| {
+            let previous = vertices[remaining[(index + remaining.len() - 1) % remaining.len()]];
+            let current = vertices[remaining[index]];
+            let next = vertices[remaining[(index + 1) % remaining.len()]];
+            orientation * cross_2d(previous, current, next) > AREA_EPSILON
+        });
+        let Some(ear) = ear else {
+            debug_assert!(false, "validated convex region has no strict convex ear");
+            return triangles;
+        };
+        let previous = remaining[(ear + remaining.len() - 1) % remaining.len()];
+        let current = remaining[ear];
+        let next = remaining[(ear + 1) % remaining.len()];
+        triangles.push([vertices[previous], vertices[current], vertices[next]]);
+        remaining.remove(ear);
+    }
+    if remaining.len() == 3 {
+        triangles.push([
+            vertices[remaining[0]],
+            vertices[remaining[1]],
+            vertices[remaining[2]],
+        ]);
+    }
+    triangles
 }
 
 /// Lowers one-sided walls as full-height, untextured triangle candidates.
@@ -4876,26 +4969,27 @@ mod tests {
         audit_doom_pegging_flags, audit_doom_subsector_bsp_paths,
         audit_doom_subsector_loop_closure, audit_doom_vertical_topology, audit_doom_wall_topology,
         classic_ceiling_after_mark_without_upper, classic_ceiling_plane_rows, classic_open_rows,
-        clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_direction_to_tokimu,
-        doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_one_sided_walls,
-        lower_doom_paired_sky_boundary_triangles, lower_doom_sector_bounded_subsector_surfaces,
-        lower_doom_seg_textured_wall_triangles, lower_doom_source_bounded_subsector_surfaces,
-        lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles,
-        lower_doom_two_sided_middle_walls, lower_doom_two_sided_wall_bands,
-        observe_doom_classic_bsp, observe_doom_classic_bsp_far_first_control,
+        clip_doom_seg_textured_wall_triangle_to_linedef_interval, conform_coplanar_region_edges,
+        doom_direction_to_tokimu, doom_point_to_tokimu, locate_doom_point_subsector,
+        lower_doom_one_sided_walls, lower_doom_paired_sky_boundary_triangles,
+        lower_doom_sector_bounded_subsector_surfaces, lower_doom_seg_textured_wall_triangles,
+        lower_doom_source_bounded_subsector_surfaces, lower_doom_subsector_surfaces,
+        lower_doom_textured_wall_triangles, lower_doom_two_sided_middle_walls,
+        lower_doom_two_sided_wall_bands, observe_doom_classic_bsp,
+        observe_doom_classic_bsp_far_first_control,
         observe_doom_classic_bsp_suppressing_solid_range_source_seg,
         observe_doom_classic_bsp_without_solid_range_pruning, observe_doom_seg_occluders,
         observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
         observe_doom_two_sided_middle_textures, observe_doom_wall_texture_axes,
-        reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
-        resolve_doom_subsector_bsp_paths, resolve_doom_subsector_loops,
-        resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
-        resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates,
-        resolve_doom_wall_texture_bindings, tokimu_direction_to_doom, tokimu_point_to_doom,
-        DoomBspSide, DoomClassicSuppressedSolidRangeMutation, DoomGeometryError,
-        DoomLinedefSubsectorMembership, DoomOrderedWallInterval,
-        DoomSegClassicVerticalClipObservation, DoomSurfacePlane, DoomTextureExtent, DoomWallBand,
-        DoomWallSideKind, DoomWallTextureRole,
+        polygon_signed_area, reconstruct_doom_ordered_wall_fragments,
+        resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
+        resolve_doom_subsector_loops, resolve_doom_subsector_regions,
+        resolve_doom_subsector_sector_ownership, resolve_doom_viewer_subsector_order,
+        resolve_doom_wall_candidates, resolve_doom_wall_texture_bindings, tokimu_direction_to_doom,
+        tokimu_point_to_doom, triangulate_convex_region, DoomBspSide,
+        DoomClassicSuppressedSolidRangeMutation, DoomGeometryError, DoomLinedefSubsectorMembership,
+        DoomOrderedWallInterval, DoomSegClassicVerticalClipObservation, DoomSurfacePlane,
+        DoomTextureExtent, DoomWallBand, DoomWallSideKind, DoomWallTextureRole,
     };
 
     #[test]
@@ -5676,6 +5770,40 @@ mod tests {
                 DoomSurfacePlane::Ceiling => assert!(normal_y < 0.0),
             }
         }
+    }
+
+    #[test]
+    fn conforms_coplanar_leaf_edges_at_t_junctions_without_changing_area() {
+        let mut left = vec![[0.0, 0.0], [1.0, 0.0], [1.0, 2.0], [0.0, 2.0]];
+        let mut lower_right = vec![[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0]];
+        let mut upper_right = vec![[1.0, 1.0], [2.0, 1.0], [2.0, 2.0], [1.0, 2.0]];
+        let area_before = [&left, &lower_right, &upper_right]
+            .into_iter()
+            .map(|region| polygon_signed_area(region).abs())
+            .sum::<f64>();
+
+        let insertions =
+            conform_coplanar_region_edges(&mut [&mut left, &mut lower_right, &mut upper_right]);
+
+        assert_eq!(insertions, 1);
+        assert!(left.contains(&[1.0, 1.0]));
+        let triangles = triangulate_convex_region(&left);
+        assert_eq!(triangles.len(), left.len() - 2);
+        for expected_edge in [([1.0, 0.0], [1.0, 1.0]), ([1.0, 1.0], [1.0, 2.0])] {
+            assert!(triangles.iter().any(|triangle| {
+                triangle
+                    .iter()
+                    .copied()
+                    .zip(triangle.iter().copied().cycle().skip(1))
+                    .take(3)
+                    .any(|edge| edge == expected_edge || edge == (expected_edge.1, expected_edge.0))
+            }));
+        }
+        let area_after = [&left, &lower_right, &upper_right]
+            .into_iter()
+            .map(|region| polygon_signed_area(region).abs())
+            .sum::<f64>();
+        assert!((area_after - area_before).abs() <= f64::EPSILON);
     }
 
     #[test]
