@@ -81,6 +81,29 @@ enum SourceResult {
     Absent,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum GroupParity {
+    Even,
+    Odd,
+}
+
+impl GroupParity {
+    const fn from_count(count: usize) -> Self {
+        if count.is_multiple_of(2) {
+            Self::Even
+        } else {
+            Self::Odd
+        }
+    }
+
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Even => "even-world-candidate",
+            Self::Odd => "odd-sky-candidate",
+        }
+    }
+}
+
 impl SourceResult {
     const fn label(self) -> &'static str {
         match self {
@@ -283,6 +306,227 @@ pub(crate) fn report_one_way_sky_occlusion_correlation(scene: &SceneInput) -> Pl
     Ok(())
 }
 
+/// Reclassifies the exact deterministic 36-ray sky-hit corpus retained by the
+/// one-way study. This is a correlation shadow, not proof that the open Doom
+/// sky surfaces form a globally closed volume or authority to omit geometry.
+pub(crate) fn report_grouped_sky_crossing_parity(scene: &SceneInput) -> PlatformResult<()> {
+    let candidates = candidate_triangles(scene);
+    let cutout_materials = scene
+        .cutout_uploads
+        .iter()
+        .map(|upload| (upload.source_name.clone(), upload.material))
+        .collect::<BTreeMap<_, _>>();
+    let mut rows = Vec::new();
+    let mut matrix = BTreeMap::<(GroupParity, SourceResult), usize>::new();
+    let mut family_sequences = BTreeMap::<String, usize>::new();
+    let mut raw_hits = 0usize;
+    let mut grouped_hits = 0usize;
+    let mut paired_groups = 0usize;
+    let mut source_plane_groups = 0usize;
+    let mut semantically_presenting = 0usize;
+    let mut semantically_backside = 0usize;
+    let mut semantically_unresolved = 0usize;
+
+    for pose in SEARCH_POSES {
+        let heading = pose.heading_degrees.to_radians();
+        let ordered = prepare_ordered_occurrence_submission(
+            &scene.door_geometry_source.map,
+            pose.viewer,
+            heading,
+            pose.eye_height,
+            &scene.door_geometry_source.wall_extents,
+            &scene.door_geometry_source.wall_materials,
+            &cutout_materials,
+            &scene.opaque_uploads,
+        )
+        .map_err(io::Error::other)?;
+        ordered.verify_conservation().map_err(io::Error::other)?;
+        let ordered_draws = ordered_draws(&ordered);
+
+        for grid_row in 0..GRID_ROWS {
+            let row = grid_row * SOURCE_ROWS / GRID_ROWS + SOURCE_ROWS / GRID_ROWS / 2;
+            for grid_column in 0..GRID_COLUMNS {
+                let column =
+                    grid_column * SOURCE_COLUMNS / GRID_COLUMNS + SOURCE_COLUMNS / GRID_COLUMNS / 2;
+                let source_origin = [
+                    f64::from(pose.viewer[0]),
+                    f64::from(pose.viewer[1]),
+                    f64::from(pose.eye_height),
+                ];
+                let source_direction = source_cell_center_direction(column, row, heading);
+                let (origin, direction) = source_ray_vectors(source_origin, source_direction);
+                let Some(ordinary) = nearest_prepared_ray_hit(
+                    origin,
+                    direction,
+                    &scene.opaque_draws,
+                    Some(&scene.cutout_draws),
+                ) else {
+                    continue;
+                };
+                let hits = candidate_hits_before(&candidates, origin, direction, ordinary.distance);
+                let groups = collapse_hits(&hits);
+                if groups.is_empty() {
+                    continue;
+                }
+
+                let matching_draws = ordered_draws
+                    .iter()
+                    .filter(|draw| draw.source == ordinary.draw.source)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let exact_hit = nearest_prepared_ray_hit(origin, direction, &matching_draws, None);
+                let source_result = if exact_hit.is_some() {
+                    SourceResult::ExactPresent
+                } else if matching_draws.is_empty() {
+                    SourceResult::Absent
+                } else {
+                    SourceResult::SourcePartial
+                };
+                let parity = GroupParity::from_count(groups.len());
+                *matrix.entry((parity, source_result)).or_default() += 1;
+                raw_hits += hits.len();
+                grouped_hits += groups.len();
+
+                let sequence = groups
+                    .iter()
+                    .map(|group| group[0].family)
+                    .collect::<Vec<_>>()
+                    .join(">");
+                *family_sequences.entry(sequence.clone()).or_default() += 1;
+                let observations = groups
+                    .iter()
+                    .map(|group| {
+                        let hit = &group[0];
+                        let semantic_side = if hit.family == "source-sky-open-plane" {
+                            source_plane_groups += 1;
+                            if source_direction[2] > f64::EPSILON {
+                                semantically_presenting += 1;
+                                "presenting:source-ceiling-underside"
+                            } else if source_direction[2] < -f64::EPSILON {
+                                semantically_backside += 1;
+                                "backside:source-ceiling-topside"
+                            } else {
+                                semantically_unresolved += 1;
+                                "unresolved:tangent-source-ceiling"
+                            }
+                        } else {
+                            paired_groups += 1;
+                            semantically_unresolved += 1;
+                            "unresolved:paired-sky-both-adjacent-ceilings-sky"
+                        };
+                        let orientations = group
+                            .iter()
+                            .map(|member| format!("{:.6}", member.orientation))
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        format!(
+                            "distance:{:.3},identity:{},family:{},raw-members:{},raw-orientations:[{}],semantic-side:{}",
+                            hit.distance,
+                            hit.identity,
+                            hit.family,
+                            group.len(),
+                            orientations,
+                            semantic_side,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(";");
+                rows.push(format!(
+                    "case={}:cell=({},{}):origin=({:.3},{:.3},{:.3}):direction=({:.9},{:.9},{:.9}):target={}:target-distance={:.3}:source-result={}:matching-source-declarations={}:exact-source-distance={}:group-count={}:parity={}:family-sequence={}:groups=[{}]",
+                    pose.name,
+                    column,
+                    row,
+                    source_origin[0],
+                    source_origin[1],
+                    source_origin[2],
+                    source_direction[0],
+                    source_direction[1],
+                    source_direction[2],
+                    ordinary.draw.source_label,
+                    ordinary.distance,
+                    source_result.label(),
+                    matching_draws.len(),
+                    exact_hit
+                        .map(|hit| format!("{:.3}", hit.distance))
+                        .unwrap_or_else(|| "none".to_owned()),
+                    groups.len(),
+                    parity.label(),
+                    sequence,
+                    observations,
+                ));
+            }
+        }
+    }
+
+    let exact_present = matrix
+        .iter()
+        .filter(|((_, result), _)| *result == SourceResult::ExactPresent)
+        .map(|(_, count)| count)
+        .sum::<usize>();
+    let non_exact = rows.len() - exact_present;
+    if rows.len() != 36 || exact_present != 8 || non_exact != 28 {
+        return Err(io::Error::other(format!(
+            "retained sky-hit corpus drifted: expected 36/8/28 rays, got {}/{}/{}",
+            rows.len(),
+            exact_present,
+            non_exact
+        ))
+        .into());
+    }
+    if raw_hits < grouped_hits
+        || grouped_hits != paired_groups + source_plane_groups
+        || grouped_hits != semantically_presenting + semantically_backside + semantically_unresolved
+    {
+        return Err(io::Error::other("grouped sky-crossing conservation failed").into());
+    }
+
+    let odd_exact = matrix
+        .get(&(GroupParity::Odd, SourceResult::ExactPresent))
+        .copied()
+        .unwrap_or_default();
+    let even_absent = matrix
+        .get(&(GroupParity::Even, SourceResult::Absent))
+        .copied()
+        .unwrap_or_default();
+    let mut fingerprint = 0xcbf29ce484222325u64;
+    for row in &rows {
+        hash_text(&mut fingerprint, row);
+    }
+    let mut matrix_cells = Vec::new();
+    for parity in [GroupParity::Even, GroupParity::Odd] {
+        for result in [
+            SourceResult::ExactPresent,
+            SourceResult::SourcePartial,
+            SourceResult::Absent,
+        ] {
+            matrix_cells.push(format!(
+                "{}+{}:{}",
+                parity.label(),
+                result.label(),
+                matrix.get(&(parity, result)).copied().unwrap_or_default()
+            ));
+        }
+    }
+    let matrix_text = matrix_cells.join(",");
+    let family_text = family_sequences
+        .iter()
+        .map(|(sequence, count)| format!("{}:{}", sequence, count))
+        .collect::<Vec<_>>()
+        .join(",");
+    let disposition = if odd_exact == 0 && even_absent == 0 {
+        "existing-36-correlation-gate-survives-broader-shadow-authorized"
+    } else {
+        "existing-36-correlation-gate-has-counterexamples-inspect-before-broadening"
+    };
+    println!(
+        "E1M1 grouped sky-crossing parity reclassification Slice 1: retained-rays={}; exact-present={exact_present}; partial-or-absent={non_exact}; raw-hits={raw_hits}; grouped-hits={grouped_hits}; duplicate-collapses={}; paired-groups={paired_groups}; source-plane-groups={source_plane_groups}; semantic-sides=[presenting:{semantically_presenting},backside:{semantically_backside},unresolved:{semantically_unresolved}]; matrix=[{matrix_text}]; family-sequences=[{family_text}]; parity-errors=[odd+exact-present:{odd_exact},even+absent:{even_absent}]; source-result-authority=ordered-frozen-view-correlation-not-free-look-pixel-or-canonical-world-proof; raw-winding-authority=diagnostic-only; renderer-mutation=false; conservation=balanced; fingerprint={fingerprint:016x}; disposition={disposition}; rows=[{}]",
+        rows.len(),
+        raw_hits - grouped_hits,
+        rows.join(" | "),
+    );
+    Ok(())
+}
+
 fn observe_ray(
     scene: &SceneInput,
     candidates: &[CandidateTriangle],
@@ -425,5 +669,13 @@ mod tests {
             Quadrant::SkyExactPresent.label(),
             "sky-before+exact-present-critical-falsifier"
         );
+    }
+
+    #[test]
+    fn grouped_crossing_parity_is_even_world_odd_sky() {
+        assert_eq!(GroupParity::from_count(0), GroupParity::Even);
+        assert_eq!(GroupParity::from_count(2), GroupParity::Even);
+        assert_eq!(GroupParity::from_count(1), GroupParity::Odd);
+        assert_eq!(GroupParity::from_count(3), GroupParity::Odd);
     }
 }

@@ -2092,6 +2092,25 @@ The review moves away from shared admission when:
   walkabout. It is evidence about wall-family preparation only and grants no
   plane, sky or provider-neutral visibility decision.
 
+### Cycle 55 -- 2026-08-18
+
+- Review of the one-way report corrected its scope: the eight
+  `sky-before + exact-present` cases each had two grouped hits, so they did not
+  falsify a separate grouped-crossing parity hypothesis.
+- A renderer-neutral reclassification reproduced the exact retained 36-ray
+  corpus and preserved every ordered group, family, distance, raw winding and
+  locally provable source-ceiling side.
+- The matrix is strongly correlated but not complete: `26` odd/absent, `8`
+  even/exact-present, `0` odd/exact-present, and `2` even/absent.
+- Both adverse rays use the same paired-boundary then source-sky-plane family
+  sequence as six successful hut rays. All eight source-plane hits are from
+  the ceiling backside; paired-sky orientation remains unresolved. Parity,
+  family sequence and locally proved ceiling side therefore do not distinguish
+  the results.
+- Two runs produced fingerprint `26afe710bce75ebc`; conservation is balanced
+  and renderer mutation is false. The full 5,120-ray expansion and live A/B
+  are parked before inventing a new semantic discriminator.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -2106,6 +2125,7 @@ The review moves away from shared admission when:
 - `docs/Plans/DOOM/Studies/Doom authoritative sky coverage delta realization.md`
 - `docs/Plans/DOOM/Studies/Doom source-authorized relational contribution classification.md`
 - `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`
+- `docs/Plans/DOOM/Studies/Doom grouped sky-crossing parity shadow.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom renderer dataflow and Tokimu preparation seam.md`
 - `docs/Plans/DOOM/Evidence/Doom authoritative sky-depth realization seam evidence.md`

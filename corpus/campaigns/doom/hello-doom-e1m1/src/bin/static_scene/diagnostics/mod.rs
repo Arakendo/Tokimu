@@ -51,7 +51,9 @@ pub(super) use render_subsector::{
 };
 pub(super) use screen_clip_report::report_doom_seg_screen_clip;
 pub(super) use seg_reports::report_doom_seg_lowering;
-pub(super) use sky_occlusion_correlation::report_one_way_sky_occlusion_correlation;
+pub(super) use sky_occlusion_correlation::{
+    report_grouped_sky_crossing_parity, report_one_way_sky_occlusion_correlation,
+};
 pub(super) use sky_transition_parity::report_oriented_sky_transition_parity_shadow;
 pub(super) use source_occurrence_support::{
     report_neutral_pitch_positive_planes, report_source_occurrence_live_candidate,
