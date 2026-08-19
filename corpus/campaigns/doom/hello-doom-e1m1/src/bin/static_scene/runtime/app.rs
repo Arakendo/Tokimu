@@ -1269,7 +1269,7 @@ impl App {
             // after the initial scene adapter has run. Apply the same explicit
             // embedding and wall-U migration before they join that scene.
             reembed_comparative_mesh(&mut mesh, self.comparative_embedding, true);
-            dynamic_meshes
+            let entry = dynamic_meshes
                 .entry(dynamic_wall_triangle_key(
                     triangle.source_linedef,
                     triangle.source_sidedef,
@@ -1277,16 +1277,24 @@ impl App {
                     triangle.role,
                     &triangle.texture_name,
                 ))
-                .or_default()
-                .push(DynamicDoorWallMesh {
+                .or_default();
+            if let Some(existing) = entry.first_mut() {
+                existing.mesh.positions.extend_from_slice(&mesh.positions);
+                existing.mesh.normals.extend_from_slice(&mesh.normals);
+                existing
+                    .mesh
+                    .texture_coordinates
+                    .extend_from_slice(&mesh.texture_coordinates);
+            } else {
+                entry.push(DynamicDoorWallMesh {
                     mesh,
                     source_linedef: triangle.source_linedef,
                     source_sidedef: triangle.source_sidedef,
                     source_sector: triangle.source_sector,
                     role: triangle.role,
-
                     texture_name: triangle.texture_name,
                 });
+            }
         }
 
         let mut existing = std::collections::BTreeMap::<String, Vec<usize>>::new();

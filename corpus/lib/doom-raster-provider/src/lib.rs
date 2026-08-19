@@ -589,7 +589,7 @@ pub fn decode_doom_texture_catalog(
     }
     let mut names = std::collections::BTreeSet::new();
     for texture in &textures {
-        if !names.insert(texture.name.clone()) {
+        if !names.insert(texture.name.to_ascii_uppercase()) {
             return Err(DoomRasterDecodeError::DuplicateTextureName {
                 name: "TEXTURE1/TEXTURE2",
                 texture_name: texture.name.clone(),
@@ -618,7 +618,7 @@ pub fn compose_doom_texture(
     let texture = catalog
         .textures
         .iter()
-        .find(|texture| texture.name == name)
+        .find(|texture| texture.name.eq_ignore_ascii_case(name))
         .ok_or_else(|| DoomRasterDecodeError::MissingTexture {
             name: name.to_owned(),
         })?;
@@ -1524,6 +1524,22 @@ mod tests {
         assert_eq!(&image.color_indices[64..66], [2, 4]);
         assert!(image.coverage[..2].iter().all(|covered| *covered));
         assert!(!image.coverage[2]);
+
+        let case_folded = compose_doom_texture(
+            &bytes,
+            &manifest,
+            &catalog,
+            "tex1",
+            patch_limits(),
+            DoomTextureComposeLimits {
+                max_width: 128,
+                max_height: 128,
+                max_pixels: 16_384,
+            },
+        )
+        .expect("Doom texture lookup should be ASCII-case-insensitive");
+        assert_eq!(case_folded.texture_name, "TEX1");
+        assert_eq!(case_folded.color_indices, image.color_indices);
     }
 
     #[test]

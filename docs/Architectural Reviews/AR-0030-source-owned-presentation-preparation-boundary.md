@@ -2365,6 +2365,36 @@ The review moves away from shared admission when:
   nine pipeline switches (`242 us` warm command construction, `125,397 us`
   warm frame CPU). Live seam inspection remains the final visual gate.
 
+### Cycle 66 -- 2026-08-18
+
+- Map rotation from E1M3 to E1M4 exposed `MissingTexture { name: "Bigdoor2" }`.
+  The asset exists in the canonical catalog as `BIGDOOR2`; the failure was a
+  case-sensitive composition lookup, not absent WAD content. Doom texture
+  catalog duplicate detection, composition lookup and caller-side selected-name
+  deduplication now use ASCII-case-insensitive Doom name semantics while the
+  provider retains the catalog's canonical spelling. E1M4 subsequently
+  completes native preparation and rendering.
+- Larger maps also made the triangle-per-mesh realization cost visible. The
+  grouped sky path rendered every ordinary world draw in both depth and color;
+  E1M3 therefore issued 11,622 draws and measured about 190 ms on its warm
+  frame. This is realization amplification, not evidence for more visibility
+  rejection.
+- The Doom composition now joins triangle-list meshes only when source and
+  material ownership are exactly identical: plane meshes require the same
+  subsector, sector, plane and material; wall meshes require the same linedef,
+  sidedef, sector, tier and material. Positions, winding, normals and UVs are
+  appended unchanged. `LOOK` can still test every triangle, moving floors keep
+  sector/plane ownership, and runtime wall refresh performs the same grouping.
+- With this application-private realization change, E1M3 falls from 11,622 to
+  4,102 draws and its measured warm frame falls from about 190 ms to 94 ms.
+  E1M4 completes with 3,195 draws and a 75 ms warm frame, versus 9,125 draws
+  and 203 ms before batching. Door and moving-floor resource replays retain
+  stable replacement handles and complete height updates.
+- No renderer API, source geometry, sky-parity rule or admission authority
+  changed. These timings remain observations rather than accepted budgets;
+  the remaining cost is still high enough to justify later renderer-command
+  and cutout realization study, but not more source-geometry rejection.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

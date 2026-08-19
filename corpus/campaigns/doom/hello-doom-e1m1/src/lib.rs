@@ -249,6 +249,20 @@ pub struct StaticDrawPlanEntry {
     pub source: StaticDrawSource,
 }
 
+fn append_ordinary_triangle_mesh(destination: &mut Mesh, source: &Mesh) {
+    debug_assert_eq!(destination.positions.len(), destination.normals.len());
+    debug_assert_eq!(source.positions.len(), source.normals.len());
+    debug_assert_eq!(
+        destination.texture_coordinates.is_empty(),
+        source.texture_coordinates.is_empty()
+    );
+    destination.positions.extend_from_slice(&source.positions);
+    destination.normals.extend_from_slice(&source.normals);
+    destination
+        .texture_coordinates
+        .extend_from_slice(&source.texture_coordinates);
+}
+
 /// Corpus-local conservative bounds for one prepared static-scene draw. The
 /// bounds are evidence used by AR-0025 candidate selection; they are neither a
 /// renderer resource nor a source identity.
@@ -821,13 +835,36 @@ pub fn build_static_draw_plan(
                 source_name: name.to_owned(),
             })
     };
-    let mut draws = Vec::with_capacity(
+    let mut draws: Vec<StaticDrawPlanEntry> = Vec::with_capacity(
         flats.flat_assembly.opaque_flats.len() + walls.wall_assembly.opaque_walls.len(),
     );
+    let mut flat_draws = std::collections::BTreeMap::<(u32, u32, u32, u32, u8, u64), usize>::new();
     for flat in &flats.flat_assembly.opaque_flats {
+        let material = material_for(StaticTextureSourceKind::Flat, &flat.source.flat_name)?;
+        let plane = match flat.source.plane {
+            DoomSurfacePlane::Floor => 0,
+            DoomSurfacePlane::Ceiling => 1,
+        };
+        let key = (
+            flat.source.subsector.lump_index,
+            flat.source.subsector.record_index,
+            flat.source.sector.lump_index,
+            flat.source.sector.record_index,
+            plane,
+            material.0,
+        );
+        if let Some(index) = flat_draws.get(&key).copied() {
+            // The provider deliberately retains triangle-list geometry. The
+            // application may realize triangles with identical source and
+            // material ownership as one ordinary mesh without changing their
+            // positions, winding, UVs, or runtime-height authority.
+            append_ordinary_triangle_mesh(&mut draws[index].mesh, &flat.mesh);
+            continue;
+        }
+        let index = draws.len();
         draws.push(StaticDrawPlanEntry {
             mesh: flat.mesh.clone(),
-            material: material_for(StaticTextureSourceKind::Flat, &flat.source.flat_name)?,
+            material,
             source_label: format!(
                 "flat:{}:{}",
                 flat.source.sector.record_index, flat.source.flat_name
@@ -838,11 +875,35 @@ pub fn build_static_draw_plan(
                 plane: flat.source.plane,
             },
         });
+        flat_draws.insert(key, index);
     }
+    let mut wall_draws =
+        std::collections::BTreeMap::<(u32, u32, u32, u32, u32, u32, u8, u64), usize>::new();
     for wall in &walls.wall_assembly.opaque_walls {
+        let material = material_for(StaticTextureSourceKind::Wall, &wall.texture_name)?;
+        let role = match wall.role {
+            DoomWallTextureRole::Upper => 0,
+            DoomWallTextureRole::Lower => 1,
+            DoomWallTextureRole::Middle => 2,
+        };
+        let key = (
+            wall.source_linedef.lump_index,
+            wall.source_linedef.record_index,
+            wall.source_sidedef.lump_index,
+            wall.source_sidedef.record_index,
+            wall.source_sector.lump_index,
+            wall.source_sector.record_index,
+            role,
+            material.0,
+        );
+        if let Some(index) = wall_draws.get(&key).copied() {
+            append_ordinary_triangle_mesh(&mut draws[index].mesh, &wall.mesh);
+            continue;
+        }
+        let index = draws.len();
         draws.push(StaticDrawPlanEntry {
             mesh: wall.mesh.clone(),
-            material: material_for(StaticTextureSourceKind::Wall, &wall.texture_name)?,
+            material,
             source_label: format!(
                 "wall:{}:{}",
                 wall.source_linedef.record_index, wall.texture_name
@@ -854,6 +915,7 @@ pub fn build_static_draw_plan(
                 role: wall.role,
             },
         });
+        wall_draws.insert(key, index);
     }
     Ok(draws)
 }
@@ -1041,8 +1103,8 @@ pub fn opaque_texture_names(textures: &[PreparedStaticTexture]) -> Vec<String> {
             StaticTextureEligibility::DeferredAlpha { .. } => None,
         })
         .collect::<Vec<_>>();
-    names.sort();
-    names.dedup();
+    names.sort_by_key(|name| name.to_ascii_uppercase());
+    names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
     names
 }
 
@@ -2452,7 +2514,7 @@ mod tests {
         let walls = PreparedE1m1Walls {
             map_name: "E1M1".into(),
             wall_assembly: assemble_static_opaque_walls(
-                &[wall],
+                &[wall.clone(), wall],
                 &[],
                 &[DoomTextureExtent {
                     name: "STARTAN3".into(),
@@ -2485,6 +2547,7 @@ mod tests {
             }
         );
         assert_eq!(draws[1].material, MaterialHandle(2));
+        assert_eq!(draws[1].mesh.positions.len(), 6);
         assert_eq!(draws[1].source_label, "wall:7:STARTAN3");
         assert_eq!(
             draws[1].source,
@@ -2504,5 +2567,34 @@ mod tests {
                 role: DoomWallTextureRole::Middle,
             }
         );
+    }
+
+    #[test]
+    fn draw_plan_coalesces_exact_source_plane_triangles() {
+        let first = candidate();
+        let mut second = candidate();
+        second.positions = [[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 0.0, 2.0]];
+        let flats = PreparedE1m1Flats {
+            map_name: "E1M1".into(),
+            flat_assembly: assemble_static_opaque_flats(&[first, second], &[], FlatExtent::E1M1)
+                .unwrap(),
+        };
+        let walls = PreparedE1m1Walls {
+            map_name: "E1M1".into(),
+            wall_assembly: StaticWallAssembly {
+                opaque_walls: Vec::new(),
+                omitted_masked_middles: Vec::new(),
+                omitted_degenerate: Vec::new(),
+            },
+        };
+        let uploads = build_static_texture_uploads(&[opaque_prepared("FLOOR0_1")], &[]);
+
+        let draws = build_static_draw_plan(&flats, &walls, &uploads).unwrap();
+
+        assert_eq!(draws.len(), 1);
+        assert_eq!(draws[0].mesh.positions.len(), 6);
+        assert_eq!(draws[0].mesh.normals.len(), 6);
+        assert_eq!(draws[0].mesh.texture_coordinates.len(), 6);
+        assert_eq!(draws[0].source_label, "flat:3:FLOOR0_1");
     }
 }

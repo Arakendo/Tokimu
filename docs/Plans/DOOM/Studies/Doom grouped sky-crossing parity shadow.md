@@ -338,6 +338,21 @@ offsets from `-0.004` through `+0.008` now hit `FLOOR5_2`; the local control
 retains its earlier miss band. Canonical E1M1 now records 169 sector
 refinements, 339 fragments, 201 conformance insertions and 1,920 triangles.
 
+### Exact-source realization batching
+
+Cross-map walkabout exposed a separate realization cost: grouped parity draws
+the complete world in both its depth and color stages, while the composition
+had allocated one ordinary mesh and draw per prepared triangle. This was not a
+reason to reject more geometry. The composition now concatenates triangle-list
+streams only within an identical source/material owner (subsector plane or wall
+tier). No triangle, UV, winding or provenance is removed, and dynamic wall
+refresh uses the same grouping.
+
+The retained native comparison is E1M3: 11,622 draws and about 190 ms warm
+before grouping; 4,102 draws and about 94 ms warm afterward. E1M4 loads after
+the independent Doom texture-name case-fold fix and measures 3,195 draws and
+about 75 ms warm. These are diagnostic observations, not performance budgets.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.
