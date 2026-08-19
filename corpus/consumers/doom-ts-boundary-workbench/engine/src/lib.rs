@@ -599,6 +599,10 @@ impl BrowserIntakeSession {
 
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
+        // CPU preparation above can coexist with the currently presented map,
+        // but two WGPU surface backends must not own the same canvas. Release
+        // the previous GPU realization before requesting its replacement.
+        drop(self.working_model.take());
         let mut renderer = WgpuBackend::for_window(canvas, width, height)
             .await
             .map_err(|error| error.to_string())?;

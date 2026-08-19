@@ -161,8 +161,11 @@ animation frames do not resubmit the scene. Live input is coalesced behind an
 adaptive recovery interval based on the preceding synchronous presentation
 cost; this keeps heavier maps from continuously saturating the browser renderer
 process. Map replacement disables the loop until a complete replacement has
-been prepared and presented. Retained WebGPU provider diagnostics are checked
-before and after each inspection presentation and stop the loop visibly.
+been prepared and presented. CPU preparation may coexist with the previous
+map, but the previous WGPU backend is explicitly released before a replacement
+surface is requested for the same canvas; two live backends never overlap on
+that canvas. Retained WebGPU provider diagnostics are checked before and after
+each inspection presentation and stop the loop visibly.
 
 This is a visual inspection camera, not Doom player simulation. It does not
 provide collision, doors/platforms, Things, or audio. The initial observation

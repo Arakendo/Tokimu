@@ -2571,6 +2571,24 @@ The review moves away from shared admission when:
   not change preparation, grouped sky semantics, or renderer contracts. E1M3
   sustained movement remains an explicit live retest gate.
 
+### Cycle 76 -- 2026-08-19
+
+- A second isolated Edge trace starts with GPU process 29020 and later starts
+  replacement GPU process 34248 without a page-level WGPU diagnostic or
+  Crashpad artifact. The replacement follows an E1M2-to-E1M3 test session and
+  makes a below-WGPU GPU reset the strongest current inference, though Edge
+  does not state the termination cause directly.
+- Repository inspection found a concrete lifecycle defect in the browser map
+  switch: `render_working_map` constructed a second WGPU backend and surface
+  for the same canvas while the preceding map's backend remained retained.
+  Assignment dropped the old backend only after the new backend's first frame.
+- The replacement now performs all Rust CPU preparation while the old frame is
+  retained, explicitly drops the old GPU realization before requesting another
+  backend for the canvas, and installs the new model only after its first frame
+  succeeds. This corrects consumer-local surface ownership without changing
+  renderer contracts or Doom preparation semantics. The E1M2-to-E1M3 switch
+  and sustained movement remain the live acceptance test.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
