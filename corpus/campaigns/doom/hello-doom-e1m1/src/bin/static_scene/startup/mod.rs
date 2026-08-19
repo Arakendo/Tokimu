@@ -588,7 +588,22 @@ pub(crate) fn run() -> PlatformResult<()> {
                 .into(),
         );
     }
-    let mut scene = prepare_scene(package, member, doom_bsp_bounds_audit_report)?;
+    let mut scene = prepare_scene(
+        package,
+        member,
+        doom_bsp_bounds_audit_report,
+        skywall_parity,
+    )?;
+    if let Some(audit) = scene.source_bounded_surface_audit {
+        eprintln!(
+            "E1M1 source-boundary surface trim: subsectors={} stitched-loops={} refinements={} bsp-path-fallbacks={} triangles={} authority=validated-convex-seg-cycle-contained-by-bsp-leaf",
+            audit.subsectors,
+            audit.stitched_seg_loops,
+            audit.stitched_loop_refinements,
+            audit.bsp_path_fallbacks,
+            audit.surface_triangles,
+        );
+    }
     let ordered_prepared_observation = trial_render_strategy
         .filter(|strategy| strategy.is_ordered_occurrence_integration())
         .map(|_| {

@@ -219,6 +219,27 @@ pub struct DoomSurfaceTriangle {
     pub positions: [[f64; 3]; 3],
 }
 
+/// Audit for the Doom-private source-loop-refined plane bake. A stitched SEG
+/// loop is used only when the decoded SEG endpoints form one convex cycle
+/// contained by the owning BSP leaf. Every other subsector retains the
+/// existing BSP-path region as a conservative fallback.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomSourceBoundedSurfaceAudit {
+    pub subsectors: usize,
+    pub stitched_seg_loops: usize,
+    pub stitched_loop_refinements: usize,
+    pub bsp_path_fallbacks: usize,
+    pub surface_triangles: usize,
+}
+
+/// Renderer-neutral plane triangles plus evidence for the boundary source
+/// selected for each subsector.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DoomSourceBoundedSurfaceBake {
+    pub surfaces: Vec<DoomSurfaceTriangle>,
+    pub audit: DoomSourceBoundedSurfaceAudit,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DoomWallSideKind {
     /// WAD sidedef slot 0: the original Doom linedef's front side.
@@ -2847,6 +2868,207 @@ pub fn lower_doom_subsector_surfaces(
     Ok(triangles)
 }
 
+/// Lowers Doom floor and ceiling surfaces from the narrowest validated source
+/// boundary available for each subsector.
+///
+/// A subsector's `SEGS` may be stored in an order or direction other than
+/// boundary order. This bake therefore joins decoded endpoints by identity.
+/// A joined cycle is authoritative only when it consumes every SEG exactly
+/// once, is convex, and remains inside the BSP path for that leaf. Otherwise
+/// the existing BSP-path region is retained. This is finite surface-support
+/// recovery, not visibility, reachability, or source BSP pruning.
+pub fn lower_doom_source_bounded_subsector_surfaces(
+    map: &DoomMapCore,
+    paths: &[DoomSubsectorBspPath],
+) -> Result<DoomSourceBoundedSurfaceBake, DoomGeometryError> {
+    const AREA_EPSILON: f64 = 1.0e-9;
+
+    let regions = resolve_doom_subsector_regions(map, paths)?;
+    let ownership = resolve_doom_subsector_sector_ownership(map)?;
+    let mut surfaces = Vec::new();
+    let mut stitched_seg_loops = 0;
+    let mut stitched_loop_refinements = 0;
+    let mut bsp_path_fallbacks = 0;
+
+    for (subsector_index, ((subsector, region), ownership)) in map
+        .subsectors
+        .iter()
+        .zip(&regions)
+        .zip(&ownership)
+        .enumerate()
+    {
+        let path = &paths[subsector_index];
+        let stitched = stitch_subsector_seg_loop(map, subsector).filter(|vertices| {
+            is_convex_polygon(vertices)
+                && vertices.iter().all(|point| {
+                    path.steps.iter().all(|step| {
+                        is_inside_partition(partition_distance(*point, step), step.side, 1.0e-9)
+                    })
+                })
+        });
+        let vertices = if let Some(vertices) = stitched {
+            stitched_seg_loops += 1;
+            if (polygon_signed_area(&vertices).abs() - polygon_signed_area(&region.vertices).abs())
+                .abs()
+                > AREA_EPSILON
+            {
+                stitched_loop_refinements += 1;
+            }
+            vertices
+        } else {
+            bsp_path_fallbacks += 1;
+            region.vertices.clone()
+        };
+
+        if polygon_signed_area(&vertices).abs() <= AREA_EPSILON {
+            return Err(DoomGeometryError::DegenerateSubsectorRegion {
+                subsector_index: subsector_index as u32,
+            });
+        }
+        append_subsector_surface_triangles(
+            &mut surfaces,
+            &vertices,
+            region.source_subsector,
+            ownership,
+            &map.sectors[usize::from(ownership.sector_index)],
+        );
+    }
+
+    Ok(DoomSourceBoundedSurfaceBake {
+        audit: DoomSourceBoundedSurfaceAudit {
+            subsectors: map.subsectors.len(),
+            stitched_seg_loops,
+            stitched_loop_refinements,
+            bsp_path_fallbacks,
+            surface_triangles: surfaces.len(),
+        },
+        surfaces,
+    })
+}
+
+fn stitch_subsector_seg_loop(
+    map: &DoomMapCore,
+    subsector: &doom_map_provider::DoomSubsector,
+) -> Option<Vec<[f64; 2]>> {
+    let first = usize::from(subsector.first_seg);
+    let end = first.checked_add(usize::from(subsector.seg_count))?;
+    let segs = map.segs.get(first..end)?;
+    if segs.len() < 3 {
+        return None;
+    }
+
+    let mut adjacency = BTreeMap::<u16, Vec<(u16, usize)>>::new();
+    for (edge_index, seg) in segs.iter().enumerate() {
+        if seg.start_vertex == seg.end_vertex {
+            return None;
+        }
+        adjacency
+            .entry(seg.start_vertex)
+            .or_default()
+            .push((seg.end_vertex, edge_index));
+        adjacency
+            .entry(seg.end_vertex)
+            .or_default()
+            .push((seg.start_vertex, edge_index));
+    }
+    if adjacency.len() < 3 || adjacency.values().any(|neighbors| neighbors.len() != 2) {
+        return None;
+    }
+
+    let start = *adjacency.keys().next()?;
+    let mut current = start;
+    let mut used_edges = BTreeSet::new();
+    let mut vertices = Vec::with_capacity(adjacency.len());
+    loop {
+        let vertex = map.vertices.get(usize::from(current))?;
+        vertices.push([f64::from(vertex.x), f64::from(vertex.y)]);
+        let mut candidates = adjacency
+            .get(&current)?
+            .iter()
+            .copied()
+            .filter(|(_, edge_index)| !used_edges.contains(edge_index))
+            .collect::<Vec<_>>();
+        candidates.sort_unstable();
+        if vertices.len() > 1 && candidates.len() != 1 {
+            return None;
+        }
+        let (next, edge_index) = *candidates.first()?;
+        used_edges.insert(edge_index);
+        current = next;
+        if current == start {
+            return (used_edges.len() == segs.len() && vertices.len() == adjacency.len())
+                .then_some(vertices);
+        }
+    }
+}
+
+fn is_convex_polygon(vertices: &[[f64; 2]]) -> bool {
+    const EPSILON: f64 = 1.0e-9;
+    if vertices.len() < 3 {
+        return false;
+    }
+    let mut sign = 0.0_f64;
+    for index in 0..vertices.len() {
+        let a = vertices[index];
+        let b = vertices[(index + 1) % vertices.len()];
+        let c = vertices[(index + 2) % vertices.len()];
+        let cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+        if cross.abs() <= EPSILON {
+            continue;
+        }
+        if sign != 0.0 && cross.signum() != sign.signum() {
+            return false;
+        }
+        sign = cross;
+    }
+    sign != 0.0
+}
+
+fn append_subsector_surface_triangles(
+    triangles: &mut Vec<DoomSurfaceTriangle>,
+    vertices: &[[f64; 2]],
+    source_subsector: DoomSourceRecord,
+    ownership: &DoomSubsectorSectorOwnership,
+    sector: &DoomSector,
+) {
+    let counter_clockwise = polygon_signed_area(vertices) > 0.0;
+    for (plane, height, texture_name, face_up) in [
+        (
+            DoomSurfacePlane::Floor,
+            sector.floor_height,
+            sector.floor_texture.as_str(),
+            true,
+        ),
+        (
+            DoomSurfacePlane::Ceiling,
+            sector.ceiling_height,
+            sector.ceiling_texture.as_str(),
+            false,
+        ),
+    ] {
+        for index in 1..vertices.len() - 1 {
+            let points = [vertices[0], vertices[index], vertices[index + 1]];
+            let reverse = face_up == counter_clockwise;
+            let positions = if reverse {
+                [
+                    doom_point_to_tokimu(points[0], f64::from(height)),
+                    doom_point_to_tokimu(points[2], f64::from(height)),
+                    doom_point_to_tokimu(points[1], f64::from(height)),
+                ]
+            } else {
+                points.map(|point| doom_point_to_tokimu(point, f64::from(height)))
+            };
+            triangles.push(DoomSurfaceTriangle {
+                source_subsector,
+                source_sector: ownership.source_sector,
+                plane,
+                texture_name: texture_name.to_owned(),
+                positions,
+            });
+        }
+    }
+}
+
 /// Lowers one-sided walls as full-height, untextured triangle candidates.
 ///
 /// This admits neither middle/upper/lower texture semantics nor two-sided
@@ -4244,9 +4466,10 @@ mod tests {
         clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_direction_to_tokimu,
         doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_one_sided_walls,
         lower_doom_paired_sky_boundary_triangles, lower_doom_seg_textured_wall_triangles,
-        lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles,
-        lower_doom_two_sided_middle_walls, lower_doom_two_sided_wall_bands,
-        observe_doom_classic_bsp, observe_doom_classic_bsp_far_first_control,
+        lower_doom_source_bounded_subsector_surfaces, lower_doom_subsector_surfaces,
+        lower_doom_textured_wall_triangles, lower_doom_two_sided_middle_walls,
+        lower_doom_two_sided_wall_bands, observe_doom_classic_bsp,
+        observe_doom_classic_bsp_far_first_control,
         observe_doom_classic_bsp_suppressing_solid_range_source_seg,
         observe_doom_classic_bsp_without_solid_range_pruning, observe_doom_seg_occluders,
         observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
@@ -4429,6 +4652,92 @@ mod tests {
                 next_seg_index: 0,
             })
         );
+    }
+
+    #[test]
+    fn source_bounded_surfaces_stitch_shuffled_directed_segs() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: 0,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 64,
+                y: 0,
+            },
+            DoomVertex {
+                source: source(2),
+                x: 64,
+                y: 32,
+            },
+            DoomVertex {
+                source: source(3),
+                x: 0,
+                y: 32,
+            },
+            // Expands the old map-bounds/BSP-path fallback without becoming
+            // part of this subsector's source boundary.
+            DoomVertex {
+                source: source(4),
+                x: 256,
+                y: 256,
+            },
+        ];
+        map.segs = vec![seg(0, 0, 1), seg(1, 1, 2), seg(2, 3, 0), seg(3, 2, 3)];
+        map.subsectors = vec![DoomSubsector {
+            source: source(0),
+            seg_count: 4,
+            first_seg: 0,
+        }];
+        let paths = vec![super::DoomSubsectorBspPath {
+            source_subsector: source(0),
+            steps: Vec::new(),
+        }];
+
+        let bake = lower_doom_source_bounded_subsector_surfaces(&map, &paths).unwrap();
+
+        assert_eq!(bake.audit.subsectors, 1);
+        assert_eq!(bake.audit.stitched_seg_loops, 1);
+        assert_eq!(bake.audit.stitched_loop_refinements, 1);
+        assert_eq!(bake.audit.bsp_path_fallbacks, 0);
+        assert_eq!(bake.surfaces.len(), 4);
+        assert!(bake
+            .surfaces
+            .iter()
+            .flat_map(|surface| surface.positions)
+            .all(|position| (0.0..=64.0).contains(&position[0])
+                && (0.0..=32.0).contains(&position[2])));
+        assert_normal_direction(bake.surfaces[0].positions, [0.0, 1.0, 0.0]);
+        assert_normal_direction(bake.surfaces[2].positions, [0.0, -1.0, 0.0]);
+    }
+
+    #[test]
+    fn source_bounded_surfaces_fail_open_to_bsp_region_for_open_segs() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.vertices.push(DoomVertex {
+            source: source(2),
+            x: 10,
+            y: 40,
+        });
+        map.segs = vec![seg(0, 0, 1), seg(1, 1, 2), seg(2, 2, 1)];
+        map.subsectors = vec![DoomSubsector {
+            source: source(0),
+            seg_count: 3,
+            first_seg: 0,
+        }];
+        let paths = vec![super::DoomSubsectorBspPath {
+            source_subsector: source(0),
+            steps: Vec::new(),
+        }];
+
+        let bake = lower_doom_source_bounded_subsector_surfaces(&map, &paths).unwrap();
+
+        assert_eq!(bake.audit.stitched_seg_loops, 0);
+        assert_eq!(bake.audit.bsp_path_fallbacks, 1);
+        assert_eq!(bake.surfaces.len(), 4);
     }
 
     #[test]

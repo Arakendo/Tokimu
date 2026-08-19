@@ -14,18 +14,20 @@ use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
 use doom_geometry_provider::{
     clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
     locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
-    lower_doom_seg_textured_wall_triangles, lower_doom_textured_wall_triangles,
-    observe_doom_classic_bsp, observe_doom_classic_bsp_suppressing_solid_range_source_seg,
+    lower_doom_seg_textured_wall_triangles, lower_doom_source_bounded_subsector_surfaces,
+    lower_doom_textured_wall_triangles, observe_doom_classic_bsp,
+    observe_doom_classic_bsp_suppressing_solid_range_source_seg,
     observe_doom_classic_bsp_without_solid_range_pruning,
     observe_doom_classic_vertical_clip_state as observe_shared_doom_classic_vertical_clip_state,
-    observe_doom_seg_occluders, observe_doom_seg_plane_marks, project_doom_sector_runtime_heights,
-    reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
-    resolve_doom_subsector_bsp_paths, resolve_doom_subsector_regions,
-    resolve_doom_subsector_sector_ownership, resolve_doom_viewer_subsector_order,
-    resolve_doom_wall_candidates, DoomClassicBspObservation, DoomSectorRuntimeHeightSnapshot,
-    DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
+    observe_doom_seg_occluders, observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
+    project_doom_sector_runtime_heights, reconstruct_doom_ordered_wall_fragments,
+    resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
+    resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
+    resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomClassicBspObservation,
+    DoomSectorRuntimeHeightSnapshot, DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
     DoomSegClassicVerticalClipObservation, DoomSegPlaneMarkObservation,
-    DoomSegTexturedWallTriangle, DoomSurfacePlane, DoomTextureExtent, DoomWallTextureRole,
+    DoomSegTexturedWallTriangle, DoomSourceBoundedSurfaceAudit, DoomSurfacePlane,
+    DoomTextureExtent, DoomWallTextureRole,
 };
 #[cfg(test)]
 use doom_geometry_provider::{DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey};
@@ -52,8 +54,9 @@ use hello_doom_e1m1::specials::{
     DoomTurboLowerFloorPolicy, DoomTurboLowerFloorRuntime,
 };
 pub use hello_doom_e1m1::{
-    build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
-    build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
+    assemble_static_opaque_flats, build_experimental_cutout_draw_plan,
+    build_experimental_cutout_texture_uploads, build_static_draw_plan,
+    build_static_texture_uploads, classify_static_draw_frustum_rejection,
     classify_static_draw_sphere_frustum_rejection, doom_heading_forward,
     lower_static_seg_wall_triangle, lower_static_wall_triangle,
     observe_doom_ground_frame_with_embedding, observer_direction, observer_right,
@@ -61,9 +64,9 @@ pub use hello_doom_e1m1::{
     prepare_e1m1_masked_middle_cutouts, prepare_e1m1_sky_diagnostic_flats,
     prepare_e1m1_static_sky_panorama_texture, prepare_e1m1_wall_texture_extents,
     prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
-    reembed_comparative_mesh, DoomComparativeEmbedding, PreparedStaticTexture, StaticDrawAabb,
-    StaticDrawPlanEntry, StaticDrawSource, StaticFlatLoweringError, StaticTextureEligibility,
-    StaticTextureUpload,
+    reembed_comparative_mesh, DoomComparativeEmbedding, PreparedE1m1Flats, PreparedStaticTexture,
+    StaticDrawAabb, StaticDrawPlanEntry, StaticDrawSource, StaticFlatLoweringError,
+    StaticTextureEligibility, StaticTextureUpload,
 };
 pub use hello_doom_e1m1::{lower_static_flat_triangle, FlatExtent, StaticTextureSourceKind};
 use hello_doom_visibility_conformance::{
@@ -344,6 +347,7 @@ struct SceneInput {
     reject_report: DoomRejectReport,
     topology_report: DoomTopologyReport,
     bsp_bounds_audit: Option<DoomBspBoundsAudit>,
+    source_bounded_surface_audit: Option<DoomSourceBoundedSurfaceAudit>,
     membership_selection: DoomMembershipSelectionInput,
     activation_source: DoomLineActivationSource,
     door_geometry_source: DoomDynamicDoorGeometrySource,
@@ -448,6 +452,7 @@ fn prepare_scene(
     package: &str,
     member: &str,
     audit_bsp_bounds: bool,
+    source_boundary_trim: bool,
 ) -> PlatformResult<SceneInput> {
     let bytes = fs::read(package)?;
     let mut space =
@@ -614,7 +619,23 @@ fn prepare_scene(
         floor: vertical.floor_height,
         ceiling: vertical.ceiling_height,
     };
-    let flats = prepare_e1m1_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)?;
+    let source_bounded_surface_bake = source_boundary_trim
+        .then(|| lower_doom_source_bounded_subsector_surfaces(&map, &paths))
+        .transpose()?;
+    let sky_surfaces = source_bounded_surface_bake
+        .as_ref()
+        .map(|_| observe_doom_sky_surfaces(&map, &paths))
+        .transpose()?;
+    let flats = if let (Some(bake), Some(sky)) =
+        (source_bounded_surface_bake.as_ref(), sky_surfaces.as_ref())
+    {
+        PreparedE1m1Flats {
+            map_name: map.map_name.clone(),
+            flat_assembly: assemble_static_opaque_flats(&bake.surfaces, sky, FlatExtent::E1M1)?,
+        }
+    } else {
+        prepare_e1m1_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)?
+    };
     let walls = prepare_e1m1_walls(
         &read.bytes,
         &read.observation.wad,
@@ -668,25 +689,46 @@ fn prepare_scene(
         .map(|upload| (upload.source_name.clone(), upload.material))
         .collect();
     let draws = build_static_draw_plan(&flats, &walls, &uploads)?;
-    let diagnostic_sky_draws =
+    let diagnostic_sky_flats = if let (Some(bake), Some(sky)) =
+        (source_bounded_surface_bake.as_ref(), sky_surfaces.as_ref())
+    {
+        let mut lowered = Vec::new();
+        for surface in &bake.surfaces {
+            if !sky.iter().any(|observation| {
+                observation.source_subsector == surface.source_subsector
+                    && observation.source_sector == surface.source_sector
+                    && observation.plane == surface.plane
+            }) {
+                continue;
+            }
+            match lower_static_flat_triangle(surface, FlatExtent::E1M1) {
+                Ok(flat) => lowered.push(flat),
+                Err(StaticFlatLoweringError::DegenerateTriangle) => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        lowered
+    } else {
         prepare_e1m1_sky_diagnostic_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)?
-            .into_iter()
-            .map(|flat| StaticDrawPlanEntry {
-                source_label: format!(
-                    "diagnostic-sky:{}:{}:{:?}",
-                    flat.source.subsector.record_index,
-                    flat.source.sector.record_index,
-                    flat.source.plane
-                ),
-                source: StaticDrawSource::Flat {
-                    source_subsector: flat.source.subsector,
-                    source_sector: flat.source.sector,
-                    plane: flat.source.plane,
-                },
-                mesh: flat.mesh,
-                material: DIAGNOSTIC_SKY_MATERIAL,
-            })
-            .collect::<Vec<_>>();
+    };
+    let diagnostic_sky_draws = diagnostic_sky_flats
+        .into_iter()
+        .map(|flat| StaticDrawPlanEntry {
+            source_label: format!(
+                "diagnostic-sky:{}:{}:{:?}",
+                flat.source.subsector.record_index,
+                flat.source.sector.record_index,
+                flat.source.plane
+            ),
+            source: StaticDrawSource::Flat {
+                source_subsector: flat.source.subsector,
+                source_sector: flat.source.sector,
+                plane: flat.source.plane,
+            },
+            mesh: flat.mesh,
+            material: DIAGNOSTIC_SKY_MATERIAL,
+        })
+        .collect::<Vec<_>>();
     let diagnostic_sky_records = diagnostic_sky_draws
         .iter()
         .map(|draw| {
@@ -724,6 +766,7 @@ fn prepare_scene(
         reject_report,
         topology_report,
         bsp_bounds_audit,
+        source_bounded_surface_audit: source_bounded_surface_bake.map(|bake| bake.audit),
         membership_selection,
         activation_source,
         door_geometry_source: DoomDynamicDoorGeometrySource {

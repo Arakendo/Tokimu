@@ -2150,6 +2150,32 @@ The review moves away from shared admission when:
   Human walkabout remains the acceptance/falsification step, and the prior
   two even/absent grouped-correlation counterexamples remain unresolved.
 
+### Cycle 58 -- 2026-08-18
+
+- An elevated noclip replay separated a geometry-support defect from the live
+  grouped-parity mechanism. Even parity retained floor subsector 104 only
+  because its BSP-path-inferred plane extended well beyond the leaf's four
+  decoded SEG endpoints.
+- The Doom provider now offers a corpus-private source-boundary surface bake.
+  It joins SEG endpoints independent of record order/direction and accepts a
+  loop only when it consumes every leaf SEG, is convex and nondegenerate, and
+  remains inside the decoded BSP path. All other leaves fail open to the
+  established BSP-path region.
+- Canonical E1M1 yields 55 validated loops over 237 subsectors. Thirty-two
+  materially refine their prior region; 182 retain fallback geometry. The
+  complete result contains 998 renderer-neutral floor/ceiling triangles.
+- The exact subsector-104 ray no longer intersects prepared ordinary geometry.
+  The wall-205 positive replay remains exact and remains visible after its
+  source-sky-plane plus paired-skywall even crossing sequence.
+- The refinement is enabled only with the reversible
+  `--skywall-parity-full` experiment. Ordinary and source-sky diagnostic
+  planes share the same surface bake. Collision, walls, Doom membership,
+  global-full control behavior, renderer contracts and generic spatial-query
+  contracts are unchanged.
+- Architectural disposition: a validated closed SEG loop may bound the plane
+  derived from that loop. Incomplete leaf boundaries retain the prior region;
+  neither player reachability nor BSP visibility is inferred from this bake.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

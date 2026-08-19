@@ -148,6 +148,8 @@ actual-camera presentation over the complete world.
 - [x] Extend interactive `LOOK` and headless `--look-ray-report` with ordered
       paired-skywall crossings, seam-collapsed source identities, parity, and
       the predicted retain/mask result.
+- [x] Refine reconstructed plane support from validated closed subsector SEG
+      loops, with BSP-path regions retained as an explicit fail-open fallback.
 - [ ] Conduct the adversarial E1M1 walkabout.
 
 Run:
@@ -182,6 +184,42 @@ is an exact CPU-ray prediction over the same prepared geometry, not a GPU
 stencil-buffer readback; raster-edge and precision differences therefore
 remain possible at boundary pixels.
 
+### Source-boundary surface refinement
+
+The first broad noclip walkabout exposed a different defect from parity. At an
+eye height above ordinary play, one ray crossed paired skywall 252 and source
+sky ceiling 49, then hit floor subsector 104 far outside its finite SEG
+boundary. Even parity correctly retained the target it was given; the target
+itself was an oversized BSP-path reconstruction:
+
+```text
+subsector 104 SEG boundary: x=1024..1088, y=-3680..-3648
+reported reconstructed hit: x=1298.917, y=-3738.395
+distance outside SEG envelope: 218.852
+```
+
+The opt-in live experiment now performs a Doom-private source-boundary bake
+before ordinary flat and source-sky-plane lowering. It joins SEG endpoints by
+identity regardless of record order or direction. A recovered loop is used
+only when it:
+
+- consumes every subsector SEG exactly once;
+- forms one convex cycle;
+- has nonzero area; and
+- remains contained by the decoded BSP leaf path.
+
+Failure retains the existing BSP-path region. This is deliberately not
+player-reachability trimming, visibility filtering, or a claim that all Doom
+subsectors have explicit closed SEG loops. On canonical E1M1, 55 of 237 leaves
+produce validated loops, 32 materially refine their BSP-path regions, and 182
+retain the fallback. The resulting bake contains 998 floor/ceiling triangles.
+
+The exact subsector-104 replay now reports no prepared ordinary hit, while the
+wall-205 positive control remains an exact hit after two grouped crossings and
+is retained by even parity. Ordinary planes and diagnostic source sky planes
+are derived from the same refined surface set, preventing the parity mask and
+world geometry from silently using different plane boundaries.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.
@@ -193,6 +231,9 @@ remain possible at boundary pixels.
 6. Every adverse specimen remains replayable.
 7. Doom vocabulary remains corpus/provider-private.
 8. No BSP, BVH or provider-neutral contract follows from parity correlation.
+9. SEG-loop refinement has authority only over the plane geometry baked from
+   that validated loop; it does not alter collision, source membership, walls,
+   or generic spatial-query semantics.
 
 ## Stop Conditions
 
