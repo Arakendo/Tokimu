@@ -67,7 +67,7 @@ use tokimu::{
 };
 
 #[test]
-fn thing_sprite_billboard_applies_patch_offsets_mirroring_and_world_vertical_policy() {
+fn thing_sprite_billboard_applies_offsets_floor_clearance_mirroring_and_vertical_policy() {
     let thing = DoomThingSprite {
         source: DoomSourceRecord {
             lump_index: 1,
@@ -89,7 +89,7 @@ fn thing_sprite_billboard_applies_patch_offsets_mirroring_and_world_vertical_pol
         texture: TextureHandle(3),
         material: MaterialHandle(4),
         descriptor: Rgba8TextureDescriptor::new(16, 32, Rgba8TextureColorSpace::Srgb),
-        rgba8: vec![0; 16 * 32 * 4],
+        rgba8: vec![255; 16 * 32 * 4],
         material_value: Material::new("test", Color::rgb(1.0, 1.0, 1.0)),
     };
     let mesh = build_doom_thing_sprite_mesh(
@@ -101,14 +101,24 @@ fn thing_sprite_billboard_applies_patch_offsets_mirroring_and_world_vertical_pol
     )
     .expect("billboard mesh");
 
-    assert_eq!(mesh.positions[0], [-6.0, 56.0, 20.0]);
-    assert_eq!(mesh.positions[2], [-22.0, 24.0, 20.0]);
+    // The patch extends eight covered texels below its Thing origin. The
+    // physical billboard is lifted by exactly eight so floor depth cannot
+    // remove those pixels as it did for PLAYN/PLAYW corpses.
+    assert_eq!(upload.floor_clearance_lift(), 8.0);
+    assert_eq!(mesh.positions[0], [-6.0, 64.0, 20.0]);
+    assert_eq!(mesh.positions[2], [-22.0, 32.0, 20.0]);
     assert!(mesh
         .positions
         .iter()
-        .all(|position| { position[1] == 24.0 || position[1] == 56.0 }));
+        .all(|position| { position[1] == 32.0 || position[1] == 64.0 }));
     assert_eq!(mesh.texture_coordinates[0], [1.0, 0.0]);
     assert_eq!(mesh.texture_coordinates[2], [0.0, 1.0]);
+
+    let mut transparent_padding = upload.clone();
+    for rgba in transparent_padding.rgba8.chunks_exact_mut(4).skip(16 * 20) {
+        rgba[3] = 0;
+    }
+    assert_eq!(transparent_padding.floor_clearance_lift(), 0.0);
 }
 
 #[test]

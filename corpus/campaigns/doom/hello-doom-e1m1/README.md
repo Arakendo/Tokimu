@@ -233,9 +233,12 @@ source patches (including paired-lump mirroring) for the source-spawn view. The
 report creates no actors or renderer declarations. The live walkabout lowers
 the 129 sprite-bearing records through 36 decoded source patches into
 actual-camera cylindrical vertical billboards. Classic patch offsets determine
-placement, categorical coverage retains transparent pixels, ordinary depth is
-preserved, and grouped-sky mode includes sprites in both its cutout-aware depth
-prepass and even-parity color pass. Pitch reprojects world-vertical sprites;
+placement. Where covered patch texels extend below the Thing origin, the
+physical quad receives only enough floor clearance to prevent ordinary floor
+depth from clipping Doom's formerly screen-composited pixels; transparent
+padding does not move a sprite. Categorical coverage retains transparent
+pixels, ordinary depth is preserved, and grouped-sky mode includes sprites in
+both its cutout-aware depth prepass and even-parity color pass. Pitch reprojects world-vertical sprites;
 player/deathmatch starts remain non-rendered source markers. Difficulty/network
 flags are retained but deliberately unapplied until gameplay policy is
 admitted. Projectiles are reported separately as runtime-created objects, not

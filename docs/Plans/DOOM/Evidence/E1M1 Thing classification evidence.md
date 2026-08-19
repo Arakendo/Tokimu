@@ -59,6 +59,16 @@ retained pixels use ordinary depth testing and writing. The billboards remain
 world-vertical under pitch; free-look changes their projection, not their
 vertical axis.
 
+The first physical-quad walkabout exposed a representation difference for
+corpses and several standing sprites: Doom can composite covered sprite pixels
+below the Thing origin over a floor visplane, whereas a 3D billboard extending
+below the floor is removed by ordinary floor depth. The lowering now measures
+the last covered row and adds only the clearance needed to place that texel's
+lower edge on the owning floor. Transparent bottom padding causes no lift and
+already aligned sprites remain unchanged. At the E1M1 spawn selection, 103 of
+129 sprites need between one and five map units of clearance; the maximum is
+five. This is presentation lowering, not a mutation of Thing position.
+
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.
 This prevents the new draw family from bypassing the established sky mask while

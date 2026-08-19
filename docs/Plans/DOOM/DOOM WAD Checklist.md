@@ -1190,9 +1190,13 @@ Acceptance criteria:
         three mirrored selections and no missing frame/rotation.
   - [x] Realize the 129 sprite-bearing E1M1 source records as actual-camera
         cylindrical vertical billboards. Classic patch `left_offset` and
-        `top_offset` define their finite quads; transparent patch pixels use
-        categorical coverage with ordinary depth. Pitched views reproject the
-        same world-vertical quads rather than tilting them toward the camera.
+        `top_offset` define their finite quads. Because Doom's screen-space
+        sprite composition may cover pixels below a Thing origin while a
+        physical billboard would intersect the floor depth, lift only patches
+        whose lowest covered texel would fall below the owning floor; ignore
+        transparent bottom padding. Transparent patch pixels use categorical
+        coverage with ordinary depth. Pitched views reproject the same
+        world-vertical quads rather than tilting them toward the camera.
         Grouped-sky presentation includes sprites in its cutout-aware depth
         prepass and even-parity color pass. Player/deathmatch starts remain
         non-rendered spawn markers, and source difficulty/network flags remain

@@ -2527,8 +2527,23 @@ impl PlatformEventHandler for App {
             for (handle, mesh) in initial_sprite_meshes {
                 renderer.upload_mesh(handle, &mesh);
             }
+            let selected_floor_lifts = self
+                .sprite_selected_materials
+                .iter()
+                .filter_map(|material| {
+                    self.sprite_uploads
+                        .iter()
+                        .find(|upload| upload.material == *material)
+                        .map(DoomSpriteTextureUpload::floor_clearance_lift)
+                })
+                .collect::<Vec<_>>();
+            let lifted_sprites = selected_floor_lifts
+                .iter()
+                .filter(|lift| **lift > 0.0)
+                .count();
+            let maximum_floor_lift = selected_floor_lifts.iter().copied().fold(0.0_f32, f32::max);
             eprintln!(
-                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
+                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; floor-clearance-lifts={lifted_sprites}; maximum-floor-clearance-lift={maximum_floor_lift}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top-plus-covered-texel-floor-clearance; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
                 self.map_name,
                 self.thing_sprites.len(),
                 self.sprite_uploads.len(),

@@ -418,6 +418,34 @@ struct DoomSpriteTextureUpload {
     material_value: Material,
 }
 
+impl DoomSpriteTextureUpload {
+    fn opaque_row_bounds(&self) -> Option<[usize; 2]> {
+        let width = usize::from(self.width);
+        let mut first = None;
+        let mut last = None;
+        for (pixel, rgba) in self.rgba8.chunks_exact(4).enumerate() {
+            if rgba[3] == 0 {
+                continue;
+            }
+            let row = pixel / width;
+            first.get_or_insert(row);
+            last = Some(row);
+        }
+        first.zip(last).map(|(first, last)| [first, last])
+    }
+
+    /// A software-rendered Doom sprite may cover pixels below its Thing
+    /// origin and still be composited over a floor visplane. A physical GPU
+    /// billboard would instead intersect the floor depth. Lift only enough to
+    /// put the lowest covered texel edge on the owning floor; transparent
+    /// patch padding and already floor-aligned sprites do not move.
+    fn floor_clearance_lift(&self) -> f32 {
+        self.opaque_row_bounds().map_or(0.0, |[_, last]| {
+            ((last + 1) as f32 - f32::from(self.top_offset)).max(0.0)
+        })
+    }
+}
+
 fn build_doom_thing_sprite_mesh(
     thing: &DoomThingSprite,
     upload: &DoomSpriteTextureUpload,
@@ -439,7 +467,8 @@ fn build_doom_thing_sprite_mesh(
     let source_right = Vec3::new(toward_viewer.z, 0.0, -toward_viewer.x);
     let left = -f32::from(upload.left_offset);
     let right = f32::from(upload.width) - f32::from(upload.left_offset);
-    let top = f32::from(thing.floor_height) + f32::from(upload.top_offset);
+    let floor_lift = upload.floor_clearance_lift();
+    let top = f32::from(thing.floor_height) + f32::from(upload.top_offset) + floor_lift;
     let bottom = top - f32::from(upload.height);
     let source_center = Vec3::new(thing_source[0], 0.0, thing_source[1]);
     let source_positions = [
