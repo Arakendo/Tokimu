@@ -3,16 +3,36 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
-    build_doom_sky_cylinder, carry_observer_with_floor, finalize_doom_seg_classic_plane_spans,
-    merge_solid_range, mesh_owning_side_visible, nearest_mesh_ray_hit, ray_triangle_distance,
-    retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
-    source_fov_column_interval, source_motion_special_crossings,
+    arguments_for_rotated_map, build_doom_sky_cylinder, carry_observer_with_floor,
+    finalize_doom_seg_classic_plane_spans, merge_solid_range, mesh_owning_side_visible,
+    nearest_mesh_ray_hit, ray_triangle_distance, retain_doom_seg_classic_plane_range,
+    source_bbox_fov_column_interval, source_fov_column_interval, source_motion_special_crossings,
     source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
     source_segment_outside_horizontal_fov, source_sky_sectors, visible_column_runs,
     within_classic_use_range, DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey,
     DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation, SourceBBoxProjection,
     SourceSegFacing, SpawnObserver,
 };
+
+#[test]
+fn map_rotation_arguments_replace_or_append_exactly_one_map_selector() {
+    assert_eq!(
+        arguments_for_rotated_map(&["package.zip".into(), "DOOM1.WAD".into()], "E1M2"),
+        vec!["package.zip", "DOOM1.WAD", "--map=E1M2"]
+    );
+    assert_eq!(
+        arguments_for_rotated_map(
+            &[
+                "package.zip".into(),
+                "DOOM1.WAD".into(),
+                "--map=E1M1".into(),
+                "--noclip".into(),
+            ],
+            "E1M2",
+        ),
+        vec!["package.zip", "DOOM1.WAD", "--map=E1M2", "--noclip"]
+    );
+}
 use doom_geometry_provider::doom_point_to_tokimu;
 use doom_map_provider::{DoomLinedef, DoomSourceRecord, DoomVertex};
 use hello_doom_e1m1::{

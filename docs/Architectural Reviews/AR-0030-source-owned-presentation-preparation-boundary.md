@@ -2223,6 +2223,25 @@ The review moves away from shared admission when:
   cull, depth-write and color-write states realize the rule; source one-sided
   identity and pipeline selection remain corpus-private.
 
+### Cycle 61 -- 2026-08-18
+
+- The native Doom walkabout now accepts an explicit episode-map marker and
+  rotates through the WAD's map catalog with `[` / `]`. Rotation launches a
+  completely prepared replacement application instance with the original
+  options before the old instance exits. It does not mutate a partial map into
+  a live renderer or establish a generic renderer map-lifecycle contract.
+- Generalizing the preparation input exposed two ordinary provider defects:
+  authored Doom texture names require case-insensitive extent/material lookup,
+  and upper/lower texture fields on one-sided linedefs are not presentable wall
+  tiers. Both were repaired at their source/provider boundaries.
+- Canonical E1M2 contains one BSP-path-derived zero-area subsector region
+  (subsector 45). Source-boundary plane preparation now records and omits such
+  a region instead of fabricating triangles or aborting the entire map. The
+  E1M2 audit retains 447 other leaves and emits 1,946 plane triangles.
+- A native Vulkan two-frame E1M2 grouped-parity proof completed with 7,803
+  draws and seven pipeline switches. E1M2 remains exploratory walkabout
+  evidence; E1M1 remains the accepted grouped-parity visual corpus.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

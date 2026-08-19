@@ -6,6 +6,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     env, fs, io,
+    process::Command,
     sync::Arc,
     time::Instant,
 };
@@ -15,16 +16,17 @@ use doom_geometry_provider::{
     clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
     locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
     lower_doom_seg_textured_wall_triangles, lower_doom_source_bounded_subsector_surfaces,
-    lower_doom_textured_wall_triangles, observe_doom_classic_bsp,
+    lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles, observe_doom_classic_bsp,
     observe_doom_classic_bsp_suppressing_solid_range_source_seg,
     observe_doom_classic_bsp_without_solid_range_pruning,
     observe_doom_classic_vertical_clip_state as observe_shared_doom_classic_vertical_clip_state,
     observe_doom_seg_occluders, observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
-    project_doom_sector_runtime_heights, reconstruct_doom_ordered_wall_fragments,
-    resolve_doom_linedef_subsector_membership, resolve_doom_subsector_bsp_paths,
-    resolve_doom_subsector_regions, resolve_doom_subsector_sector_ownership,
-    resolve_doom_viewer_subsector_order, resolve_doom_wall_candidates, DoomClassicBspObservation,
-    DoomSectorRuntimeHeightSnapshot, DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
+    observe_doom_two_sided_middle_textures, project_doom_sector_runtime_heights,
+    reconstruct_doom_ordered_wall_fragments, resolve_doom_linedef_subsector_membership,
+    resolve_doom_subsector_bsp_paths, resolve_doom_subsector_regions,
+    resolve_doom_subsector_sector_ownership, resolve_doom_viewer_subsector_order,
+    resolve_doom_wall_candidates, DoomClassicBspObservation, DoomSectorRuntimeHeightSnapshot,
+    DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
     DoomSegClassicVerticalClipObservation, DoomSegPlaneMarkObservation,
     DoomSegTexturedWallTriangle, DoomSourceBoundedSurfaceAudit, DoomSurfacePlane,
     DoomTextureExtent, DoomWallTextureRole,
@@ -54,19 +56,20 @@ use hello_doom_e1m1::specials::{
     DoomTurboLowerFloorPolicy, DoomTurboLowerFloorRuntime,
 };
 pub use hello_doom_e1m1::{
-    assemble_static_opaque_flats, build_experimental_cutout_draw_plan,
+    assemble_experimental_masked_middle_cutouts, assemble_static_opaque_flats,
+    assemble_static_opaque_walls, build_experimental_cutout_draw_plan,
     build_experimental_cutout_texture_uploads, build_static_draw_plan,
     build_static_texture_uploads, classify_static_draw_frustum_rejection,
     classify_static_draw_sphere_frustum_rejection, doom_heading_forward,
     lower_static_seg_wall_triangle, lower_static_wall_triangle,
     observe_doom_ground_frame_with_embedding, observer_direction, observer_right,
-    observer_yaw_from_forward, prepare_e1m1_flat_textures, prepare_e1m1_flats,
-    prepare_e1m1_masked_middle_cutouts, prepare_e1m1_sky_diagnostic_flats,
+    observer_yaw_from_forward, prepare_e1m1_flat_textures,
     prepare_e1m1_static_sky_panorama_texture, prepare_e1m1_wall_texture_extents,
-    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
-    reembed_comparative_mesh, DoomComparativeEmbedding, PreparedE1m1Flats, PreparedStaticTexture,
-    StaticDrawAabb, StaticDrawPlanEntry, StaticDrawSource, StaticFlatLoweringError,
-    StaticTextureEligibility, StaticTextureUpload,
+    prepare_e1m1_wall_textures, prepared_e1m1_masked_middle_texture_names,
+    reembed_comparative_mesh, DoomComparativeEmbedding, PreparedE1m1Flats,
+    PreparedE1m1MaskedMiddleCutouts, PreparedE1m1Walls, PreparedStaticTexture, StaticDrawAabb,
+    StaticDrawPlanEntry, StaticDrawSource, StaticFlatLoweringError, StaticTextureEligibility,
+    StaticTextureUpload,
 };
 pub use hello_doom_e1m1::{lower_static_flat_triangle, FlatExtent, StaticTextureSourceKind};
 use hello_doom_visibility_conformance::{
@@ -209,6 +212,10 @@ const CLASSIC_USE_RANGE: f32 = 64.0;
 const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
 
 struct App {
+    map_name: String,
+    available_maps: Vec<String>,
+    launch_arguments: Vec<String>,
+    map_rotation_exit_requested: bool,
     renderer: Option<WgpuBackend>,
     render_strategy_name: &'static str,
     render_strategy_stages: &'static str,
@@ -334,6 +341,8 @@ struct OrderedPreparationIdentity {
 
 #[derive(Clone)]
 struct SceneInput {
+    map_name: String,
+    available_maps: Vec<String>,
     opaque_draws: Vec<StaticDrawPlanEntry>,
     opaque_uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
@@ -416,6 +425,25 @@ fn main() -> PlatformResult<()> {
     startup::run()
 }
 
+fn arguments_for_rotated_map(arguments: &[String], map_name: &str) -> Vec<String> {
+    let mut replaced = false;
+    let mut rotated = arguments
+        .iter()
+        .map(|argument| {
+            if argument.starts_with("--map=") {
+                replaced = true;
+                format!("--map={map_name}")
+            } else {
+                argument.clone()
+            }
+        })
+        .collect::<Vec<_>>();
+    if !replaced {
+        rotated.push(format!("--map={map_name}"));
+    }
+    rotated
+}
+
 fn select_masked_middle_owning_sides(
     draws: &[StaticDrawPlanEntry],
     observer_position: Vec3,
@@ -450,10 +478,7 @@ fn mesh_owning_side_visible(mesh: &Mesh, observer_position: Vec3) -> bool {
 }
 
 fn is_source_one_sided_wall(draw: &StaticDrawPlanEntry, map: &DoomMapCore) -> bool {
-    let StaticDrawSource::Wall {
-        source_linedef, ..
-    } = draw.source
-    else {
+    let StaticDrawSource::Wall { source_linedef, .. } = draw.source else {
         return false;
     };
     map.linedefs
@@ -465,6 +490,7 @@ fn is_source_one_sided_wall(draw: &StaticDrawPlanEntry, map: &DoomMapCore) -> bo
 fn prepare_scene(
     package: &str,
     member: &str,
+    map_name: &str,
     audit_bsp_bounds: bool,
     source_boundary_trim: bool,
 ) -> PlatformResult<SceneInput> {
@@ -500,8 +526,17 @@ fn prepare_scene(
         },
         &ZipArchiveProvider,
     )?;
-    let selection = select_doom_episode_map(&read.observation.wad, "E1M1")?;
+    let selection = select_doom_episode_map(&read.observation.wad, map_name)?;
     let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)?;
+    let available_maps = read
+        .observation
+        .wad
+        .lumps
+        .iter()
+        .map(|lump| lump.name.as_str())
+        .filter(|name| matches!(name.as_bytes(), [b'E', b'1'..=b'9', b'M', b'1'..=b'9']))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
     let doom_sky_boundary_draws = lower_doom_paired_sky_boundary_triangles(&map)?
         .into_iter()
         .map(|triangle| DoomSkyBoundaryDepthDraw {
@@ -633,9 +668,20 @@ fn prepare_scene(
         floor: vertical.floor_height,
         ceiling: vertical.ceiling_height,
     };
-    let source_bounded_surface_bake = source_boundary_trim
-        .then(|| lower_doom_source_bounded_subsector_surfaces(&map, &paths))
-        .transpose()?;
+    let source_bounded_surface_bake = if source_boundary_trim {
+        match lower_doom_source_bounded_subsector_surfaces(&map, &paths) {
+            Ok(bake) => Some(bake),
+            Err(error) => {
+                eprintln!(
+                    "{} source-boundary surface trim unavailable: {error}; fallback=finite-bsp-path-subsector-surfaces",
+                    map.map_name
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
     let sky_surfaces = source_bounded_surface_bake
         .as_ref()
         .map(|_| observe_doom_sky_surfaces(&map, &paths))
@@ -648,20 +694,29 @@ fn prepare_scene(
             flat_assembly: assemble_static_opaque_flats(&bake.surfaces, sky, FlatExtent::E1M1)?,
         }
     } else {
-        prepare_e1m1_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)?
+        let surfaces = lower_doom_subsector_surfaces(&map, &paths)?;
+        let sky = observe_doom_sky_surfaces(&map, &paths)?;
+        PreparedE1m1Flats {
+            map_name: map.map_name.clone(),
+            flat_assembly: assemble_static_opaque_flats(&surfaces, &sky, FlatExtent::E1M1)?,
+        }
     };
-    let walls = prepare_e1m1_walls(
-        &read.bytes,
-        &read.observation.wad,
-        MAP_LIMITS,
-        TEXTURE_LIMITS,
-    )?;
-    let cutouts = prepare_e1m1_masked_middle_cutouts(
-        &read.bytes,
-        &read.observation.wad,
-        MAP_LIMITS,
-        TEXTURE_LIMITS,
-    )?;
+    let wall_extents =
+        prepare_e1m1_wall_texture_extents(&read.bytes, &read.observation.wad, TEXTURE_LIMITS)?;
+    let source_walls = lower_doom_textured_wall_triangles(&map, &wall_extents)?;
+    let masked_middles = observe_doom_two_sided_middle_textures(&map)?;
+    let walls = PreparedE1m1Walls {
+        map_name: map.map_name.clone(),
+        wall_assembly: assemble_static_opaque_walls(&source_walls, &masked_middles, &wall_extents)?,
+    };
+    let cutouts = PreparedE1m1MaskedMiddleCutouts {
+        map_name: map.map_name.clone(),
+        assembly: assemble_experimental_masked_middle_cutouts(
+            &source_walls,
+            &masked_middles,
+            &wall_extents,
+        )?,
+    };
     let flat_textures = prepare_e1m1_flat_textures(
         &read.bytes,
         &read.observation.wad,
@@ -669,8 +724,6 @@ fn prepare_scene(
         RASTER_LIMITS,
         FLAT_LIMITS,
     )?;
-    let wall_extents =
-        prepare_e1m1_wall_texture_extents(&read.bytes, &read.observation.wad, TEXTURE_LIMITS)?;
     let mut names = hello_doom_e1m1::prepared_e1m1_wall_texture_names(&walls);
     names.extend(manual_door_dynamic_wall_texture_names(
         &map,
@@ -723,7 +776,24 @@ fn prepare_scene(
         }
         lowered
     } else {
-        prepare_e1m1_sky_diagnostic_flats(&read.bytes, &read.observation.wad, MAP_LIMITS)?
+        let surfaces = lower_doom_subsector_surfaces(&map, &paths)?;
+        let sky = observe_doom_sky_surfaces(&map, &paths)?;
+        let mut lowered = Vec::new();
+        for surface in &surfaces {
+            if !sky.iter().any(|observation| {
+                observation.source_subsector == surface.source_subsector
+                    && observation.source_sector == surface.source_sector
+                    && observation.plane == surface.plane
+            }) {
+                continue;
+            }
+            match lower_static_flat_triangle(surface, FlatExtent::E1M1) {
+                Ok(flat) => lowered.push(flat),
+                Err(StaticFlatLoweringError::DegenerateTriangle) => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        lowered
     };
     let diagnostic_sky_draws = diagnostic_sky_flats
         .into_iter()
@@ -766,6 +836,8 @@ fn prepare_scene(
         build_experimental_cutout_texture_uploads(&masked_textures, uploads.len() as u64 + 1);
     let cutout_draws = build_experimental_cutout_draw_plan(&cutouts, &cutout_uploads)?;
     Ok(SceneInput {
+        map_name: map.map_name.clone(),
+        available_maps,
         opaque_draws: draws,
         opaque_uploads: uploads,
         cutout_draws,

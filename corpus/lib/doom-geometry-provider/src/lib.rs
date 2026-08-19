@@ -222,7 +222,9 @@ pub struct DoomSurfaceTriangle {
 /// Audit for the Doom-private source-loop-refined plane bake. A stitched SEG
 /// loop is used only when the decoded SEG endpoints form one convex cycle
 /// contained by the owning BSP leaf. Every other subsector retains the
-/// existing BSP-path region as a conservative fallback.
+/// existing nondegenerate BSP-path region as a conservative fallback. A leaf
+/// for which every candidate region has zero area emits no plane triangles and
+/// is retained explicitly in the audit.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoomSourceBoundedSurfaceAudit {
     pub subsectors: usize,
@@ -232,6 +234,8 @@ pub struct DoomSourceBoundedSurfaceAudit {
     pub seg_half_plane_refinements: usize,
     pub bsp_path_fallbacks: usize,
     pub bsp_path_fallback_subsectors: Vec<DoomSourceRecord>,
+    pub degenerate_region_omissions: usize,
+    pub degenerate_region_subsectors: Vec<DoomSourceRecord>,
     pub surface_triangles: usize,
 }
 
@@ -2895,6 +2899,8 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
     let mut seg_half_plane_refinements = 0;
     let mut bsp_path_fallbacks = 0;
     let mut bsp_path_fallback_subsectors = Vec::new();
+    let mut degenerate_region_omissions = 0;
+    let mut degenerate_region_subsectors = Vec::new();
 
     for (subsector_index, ((subsector, region), ownership)) in map
         .subsectors
@@ -2905,7 +2911,8 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
     {
         let path = &paths[subsector_index];
         let stitched = stitch_subsector_seg_loop(map, subsector).filter(|vertices| {
-            is_convex_polygon(vertices)
+            polygon_signed_area(vertices).abs() > AREA_EPSILON
+                && is_convex_polygon(vertices)
                 && vertices.iter().all(|point| {
                     path.steps.iter().all(|step| {
                         is_inside_partition(partition_distance(*point, step), step.side, 1.0e-9)
@@ -2939,9 +2946,9 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
         };
 
         if polygon_signed_area(&vertices).abs() <= AREA_EPSILON {
-            return Err(DoomGeometryError::DegenerateSubsectorRegion {
-                subsector_index: subsector_index as u32,
-            });
+            degenerate_region_omissions += 1;
+            degenerate_region_subsectors.push(region.source_subsector);
+            continue;
         }
         append_subsector_surface_triangles(
             &mut surfaces,
@@ -2961,6 +2968,8 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
             seg_half_plane_refinements,
             bsp_path_fallbacks,
             bsp_path_fallback_subsectors,
+            degenerate_region_omissions,
+            degenerate_region_subsectors,
             surface_triangles: surfaces.len(),
         },
         surfaces,
@@ -4174,16 +4183,28 @@ pub fn observe_doom_sky_surfaces(
     map: &DoomMapCore,
     paths: &[DoomSubsectorBspPath],
 ) -> Result<Vec<DoomSkySurfaceObservation>, DoomGeometryError> {
-    Ok(lower_doom_subsector_surfaces(map, paths)?
-        .into_iter()
-        .filter(|triangle| triangle.texture_name == "F_SKY1")
-        .map(|triangle| DoomSkySurfaceObservation {
-            source_subsector: triangle.source_subsector,
-            source_sector: triangle.source_sector,
-            plane: triangle.plane,
-            texture_name: triangle.texture_name,
-        })
-        .collect())
+    let regions = resolve_doom_subsector_regions(map, paths)?;
+    let ownership = resolve_doom_subsector_sector_ownership(map)?;
+    let mut observations = Vec::new();
+    for ((subsector, region), ownership) in map.subsectors.iter().zip(regions).zip(ownership) {
+        let sector = &map.sectors[usize::from(ownership.sector_index)];
+        for (plane, texture_name) in [
+            (DoomSurfacePlane::Floor, sector.floor_texture.as_str()),
+            (DoomSurfacePlane::Ceiling, sector.ceiling_texture.as_str()),
+        ] {
+            if texture_name == "F_SKY1" {
+                for _ in 1..region.vertices.len().saturating_sub(1) {
+                    observations.push(DoomSkySurfaceObservation {
+                        source_subsector: subsector.source,
+                        source_sector: ownership.source_sector,
+                        plane,
+                        texture_name: texture_name.to_owned(),
+                    });
+                }
+            }
+        }
+    }
+    Ok(observations)
 }
 
 /// Retains raw sidedef texture axes before any Doom pegging policy is applied.
@@ -4193,6 +4214,7 @@ pub fn observe_doom_wall_texture_axes(
     let candidates = resolve_doom_wall_candidates(map)?;
     let mut observations = Vec::new();
     for candidate in candidates {
+        let two_sided = candidate.right.is_some() && candidate.left.is_some();
         for (side, ownership) in [
             (DoomWallSideKind::Right, candidate.right.as_ref()),
             (DoomWallSideKind::Left, candidate.left.as_ref()),
@@ -4207,7 +4229,8 @@ pub fn observe_doom_wall_texture_axes(
                     ownership.middle_texture.as_str(),
                 ),
             ] {
-                if texture_name != "-" {
+                let role_can_present = role == DoomWallTextureRole::Middle || two_sided;
+                if role_can_present && texture_name != "-" {
                     observations.push(DoomWallTextureAxisObservation {
                         source_linedef: candidate.source_linedef,
                         linedef_flags: candidate.linedef_flags,
@@ -4240,7 +4263,10 @@ pub fn resolve_doom_wall_texture_bindings(
 ) -> Result<Vec<DoomWallTextureBinding>, DoomGeometryError> {
     let mut by_name = BTreeMap::new();
     for extent in extents {
-        if by_name.insert(extent.name.as_str(), extent).is_some() {
+        if by_name
+            .insert(extent.name.to_ascii_uppercase(), extent)
+            .is_some()
+        {
             return Err(DoomGeometryError::DuplicateTextureExtent {
                 name: extent.name.clone(),
             });
@@ -4249,7 +4275,7 @@ pub fn resolve_doom_wall_texture_bindings(
     observe_doom_wall_texture_axes(map)?
         .into_iter()
         .map(|axis| {
-            let extent = by_name.get(axis.texture_name.as_str()).ok_or(
+            let extent = by_name.get(&axis.texture_name.to_ascii_uppercase()).ok_or(
                 DoomGeometryError::MissingTextureExtent {
                     name: axis.texture_name.clone(),
                     linedef_index: axis.source_linedef.record_index,
@@ -5497,6 +5523,32 @@ mod tests {
         // stored linedef direction, preserving its horizontal screen axis.
         assert_eq!(texture_u_at([10.0, 0.0, 20.0]), 7.0);
         assert_eq!(texture_u_at([30.0, 0.0, 40.0]), 7.0 + line_length);
+    }
+
+    #[test]
+    fn one_sided_wall_ignores_inactive_tiers_and_resolves_texture_case_insensitively() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.sidedefs[0].upper_texture = "INACTIVE_UPPER".to_owned();
+        map.sidedefs[0].lower_texture = "INACTIVE_LOWER".to_owned();
+        map.sidedefs[0].middle_texture = "wall".to_owned();
+
+        let axes = observe_doom_wall_texture_axes(&map).unwrap();
+        assert_eq!(axes.len(), 1);
+        assert_eq!(axes[0].role, DoomWallTextureRole::Middle);
+
+        let triangles = lower_doom_textured_wall_triangles(
+            &map,
+            &[DoomTextureExtent {
+                name: "WALL".to_owned(),
+                width: 64,
+                height: 128,
+            }],
+        )
+        .unwrap();
+        assert_eq!(triangles.len(), 2);
+        assert!(triangles
+            .iter()
+            .all(|triangle| triangle.texture_name == "wall"));
     }
 
     #[test]

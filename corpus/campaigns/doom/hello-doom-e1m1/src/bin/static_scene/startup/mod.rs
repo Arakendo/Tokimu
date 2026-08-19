@@ -7,6 +7,16 @@ use super::*;
 
 pub(crate) fn run() -> PlatformResult<()> {
     let mut args = env::args().skip(1).collect::<Vec<_>>();
+    let launch_arguments = args.clone();
+    let requested_maps = args
+        .iter()
+        .filter_map(|argument| argument.strip_prefix("--map="))
+        .collect::<Vec<_>>();
+    let map_name = match requested_maps.as_slice() {
+        [] => "E1M1".to_owned(),
+        [map_name] => (*map_name).to_owned(),
+        _ => return Err("choose only one --map=E#M# value".into()),
+    };
     let preserve_east = args.iter().any(|argument| argument == "--embedding-east");
     let preserve_north = args.iter().any(|argument| argument == "--embedding-north");
     let current_reflected = args
@@ -487,6 +497,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--moving-floor-resource-replay-report");
     args.retain(|argument| argument != "--door-resource-replay-report");
     args.retain(|argument| argument != "--measure-two-frames");
+    args.retain(|argument| !argument.starts_with("--map="));
     args.retain(|argument| argument != "--spatial-orientation-report");
     args.retain(|argument| argument != "--spatial-landmark-candidates-report");
     args.retain(|argument| argument != "--spatial-flat-uv-report");
@@ -524,7 +535,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -591,12 +602,14 @@ pub(crate) fn run() -> PlatformResult<()> {
     let mut scene = prepare_scene(
         package,
         member,
+        &map_name,
         doom_bsp_bounds_audit_report,
         skywall_parity,
     )?;
     if let Some(audit) = scene.source_bounded_surface_audit.as_ref() {
         eprintln!(
-            "E1M1 source-boundary surface trim: subsectors={} stitched-loops={} loop-refinements={} seg-half-plane-regions={} seg-half-plane-refinements={} bsp-path-fallbacks={} fallback-subsectors={:?} triangles={} authority=validated-seg-boundaries-contained-by-bsp-leaf",
+            "{} source-boundary surface trim: subsectors={} stitched-loops={} loop-refinements={} seg-half-plane-regions={} seg-half-plane-refinements={} bsp-path-fallbacks={} fallback-subsectors={:?} degenerate-region-omissions={} degenerate-subsectors={:?} triangles={} authority=validated-seg-boundaries-contained-by-bsp-leaf",
+            scene.map_name,
             audit.subsectors,
             audit.stitched_seg_loops,
             audit.stitched_loop_refinements,
@@ -605,6 +618,12 @@ pub(crate) fn run() -> PlatformResult<()> {
             audit.bsp_path_fallbacks,
             audit
                 .bsp_path_fallback_subsectors
+                .iter()
+                .map(|source| source.record_index)
+                .collect::<Vec<_>>(),
+            audit.degenerate_region_omissions,
+            audit
+                .degenerate_region_subsectors
                 .iter()
                 .map(|source| source.record_index)
                 .collect::<Vec<_>>(),
@@ -1205,6 +1224,10 @@ pub(crate) fn run() -> PlatformResult<()> {
             }
     };
     let mut app = App {
+        map_name: scene.map_name.clone(),
+        available_maps: scene.available_maps.clone(),
+        launch_arguments,
+        map_rotation_exit_requested: false,
         renderer: None,
         render_strategy_name,
         render_strategy_stages,
@@ -1336,7 +1359,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     run_window_with_app(
         WindowConfig {
             title: format!(
-                "Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}{}{}{}",
+                "Tokimu DOOM {map_name} | {draw_count} draws | {comparative_embedding:?}{}{}{}",
                 if app.fixed_reconstruction_camera {
                     " | fixed-source-spawn"
                 } else {

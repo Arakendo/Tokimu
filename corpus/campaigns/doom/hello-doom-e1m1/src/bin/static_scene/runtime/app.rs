@@ -11,6 +11,46 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
+    fn rotate_map(&mut self, offset: isize) -> PlatformResult<()> {
+        if self.map_rotation_exit_requested {
+            return Ok(());
+        }
+        let Some(current) = self
+            .available_maps
+            .iter()
+            .position(|map| map == &self.map_name)
+        else {
+            return Err(io::Error::other(format!(
+                "current map {} is absent from the WAD map catalog",
+                self.map_name
+            ))
+            .into());
+        };
+        if self.available_maps.len() <= 1 {
+            let diagnostic = format!(
+                "map rotation unavailable: WAD contains only {}",
+                self.map_name
+            );
+            eprintln!("{diagnostic}");
+            self.debug_console.append(diagnostic);
+            return Ok(());
+        }
+        let target_index =
+            (current as isize + offset).rem_euclid(self.available_maps.len() as isize) as usize;
+        let target = self.available_maps[target_index].clone();
+        let executable = env::current_exe()?;
+        let arguments = arguments_for_rotated_map(&self.launch_arguments, &target);
+        Command::new(executable).args(arguments).spawn()?;
+        self.map_rotation_exit_requested = true;
+        eprintln!(
+            "DOOM map rotation: {} -> {}; control={}; replacement-process=spawned",
+            self.map_name,
+            target,
+            if offset < 0 { "[" } else { "]" }
+        );
+        Ok(())
+    }
+
     fn refresh_ordered_coverage_for_observer(&mut self) -> PlatformResult<()> {
         let (Some(source), Some(observer), Some(look)) = (
             self.ordered_coverage_source.as_ref(),
@@ -2075,7 +2115,8 @@ impl PlatformEventHandler for App {
         }
         if let Some(collision) = &self.walk_collision {
             eprintln!(
-                "E1M1 Slice 6 walk proof: radius={WALK_RADIUS}; walk-speed={WALK_SPEED}; run-speed={}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-shift-run-E-use-click-capture-escape-release-R-reset-noclip-space-up-left-control-down",
+                "{} Slice 6 walk proof: radius={WALK_RADIUS}; walk-speed={WALK_SPEED}; run-speed={}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-shift-run-E-use-click-capture-escape-release-R-reset-[-previous-map-]-next-map-noclip-space-up-left-control-down",
+                self.map_name,
                 WALK_SPEED * RUN_SPEED_MULTIPLIER,
                 collision.blocking_wall_count(),
 
@@ -2311,6 +2352,10 @@ impl PlatformEventHandler for App {
                 }
             } else if key == KeyCode::KeyR && pressed {
                 self.reset_spawn_observer();
+            } else if key == KeyCode::BracketLeft && pressed {
+                self.rotate_map(-1)?;
+            } else if key == KeyCode::BracketRight && pressed {
+                self.rotate_map(1)?;
             } else if key == KeyCode::KeyE && pressed {
                 let outcome = self.try_use_center_wall();
                 eprintln!("E1M1 {outcome}");
@@ -2866,11 +2911,15 @@ impl PlatformEventHandler for App {
             }
         }
         self.frame_index = self.frame_index.saturating_add(1);
-        Ok(if self.exit_after_two_frames && self.frame_index >= 2 {
-            FrameOutcome::Exit
-        } else {
-            FrameOutcome::Continue
-        })
+        Ok(
+            if self.map_rotation_exit_requested
+                || (self.exit_after_two_frames && self.frame_index >= 2)
+            {
+                FrameOutcome::Exit
+            } else {
+                FrameOutcome::Continue
+            },
+        )
     }
 }
 

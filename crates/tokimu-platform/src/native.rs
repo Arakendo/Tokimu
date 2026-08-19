@@ -284,6 +284,8 @@ fn map_key_code(key: PhysicalKey) -> Option<KeyCode> {
         PhysicalKey::Code(winit::keyboard::KeyCode::Home) => Some(KeyCode::Home),
         PhysicalKey::Code(winit::keyboard::KeyCode::End) => Some(KeyCode::End),
         PhysicalKey::Code(winit::keyboard::KeyCode::Backquote) => Some(KeyCode::Backquote),
+        PhysicalKey::Code(winit::keyboard::KeyCode::BracketLeft) => Some(KeyCode::BracketLeft),
+        PhysicalKey::Code(winit::keyboard::KeyCode::BracketRight) => Some(KeyCode::BracketRight),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => Some(KeyCode::KeyE),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => Some(KeyCode::KeyA),
         PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => Some(KeyCode::KeyD),
@@ -336,6 +338,14 @@ mod tests {
         assert_eq!(
             map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::Backquote)),
             Some(KeyCode::Backquote)
+        );
+        assert_eq!(
+            map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::BracketLeft)),
+            Some(KeyCode::BracketLeft)
+        );
+        assert_eq!(
+            map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::BracketRight)),
+            Some(KeyCode::BracketRight)
         );
         assert_eq!(
             map_key_code(PhysicalKey::Code(winit::keyboard::KeyCode::ControlLeft)),

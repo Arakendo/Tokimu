@@ -48,7 +48,8 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   --no-walk-collision
 
 # For interactive B inspection, click the window to capture mouse look, use
-# WASD to move (Shift runs), and press Escape to release the mouse. `~` opens
+# WASD to move (Shift runs), `[` / `]` select the previous / next WAD map,
+# and press Escape to release the mouse. `~` opens
 # the debug console; LOOK reports the source-labelled surface under the center
 # ray. The live preparation currently consumes immutable decoded source state,
 # so this is evidence for static floor/wall joins rather than runtime door or
@@ -191,6 +192,19 @@ panorama are enabled. Use `--overview-camera`, `--no-walk-collision`,
 `--no-masked-cutouts`, `--no-doom-sky`, or `--embedding-current-reflected` for
 explicit comparison controls. `--diagnostic-sky-omissions` replaces the normal
 sky panorama with the purple AR-0027 omission presentation.
+
+The native walkabout accepts `--map=E#M#` (default `E1M1`). While the debug
+console is closed, `[` selects the previous map marker and `]` selects the next
+one in WAD source order, wrapping at either end. Map rotation starts a
+replacement instance with the same package, render strategy and diagnostic
+options, then closes the old window; this keeps complete map preparation
+atomic and does not make map lifecycle renderer state.
+
+The first E1M2 preparation audit retains one explicit zero-area BSP-leaf plane
+omission (subsector 45). Walls and the remaining 447 leaves are prepared; no
+plane is fabricated for that degenerate derived region. E1M2 is available for
+walkabout comparison, but E1M1 remains the acceptance corpus for the grouped
+sky-parity result.
 
 The SKY1 panorama remains corpus-local: it uses the real `SKY1` raster, but
 does not claim the original view-dependent sky projection or admit a generic

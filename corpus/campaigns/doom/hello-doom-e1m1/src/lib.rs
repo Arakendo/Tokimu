@@ -812,7 +812,9 @@ pub fn build_static_draw_plan(
     let material_for = |kind, name: &str| {
         uploads
             .iter()
-            .find(|upload| upload.source_kind == kind && upload.source_name == name)
+            .find(|upload| {
+                upload.source_kind == kind && upload.source_name.eq_ignore_ascii_case(name)
+            })
             .map(|upload| upload.material)
             .ok_or_else(|| StaticDrawPlanError::MissingMaterial {
                 source_kind: kind,
@@ -870,7 +872,11 @@ pub fn build_experimental_cutout_draw_plan(
         .map(|candidate| {
             let material = uploads
                 .iter()
-                .find(|upload| upload.source_name == candidate.wall.texture_name)
+                .find(|upload| {
+                    upload
+                        .source_name
+                        .eq_ignore_ascii_case(&candidate.wall.texture_name)
+                })
                 .map(|upload| upload.material)
                 .ok_or_else(|| StaticDrawPlanError::MissingMaterial {
                     source_kind: StaticTextureSourceKind::Wall,
@@ -1635,7 +1641,7 @@ pub fn assemble_static_opaque_walls(
         }
         let extent = extents
             .iter()
-            .find(|extent| extent.name == wall.texture_name)
+            .find(|extent| extent.name.eq_ignore_ascii_case(&wall.texture_name))
             .cloned()
             .ok_or_else(|| StaticFlatLoweringError::MissingWallTextureExtent {
                 name: wall.texture_name.clone(),
@@ -1678,7 +1684,7 @@ pub fn assemble_experimental_masked_middle_cutouts(
         };
         let extent = extents
             .iter()
-            .find(|extent| extent.name == wall.texture_name)
+            .find(|extent| extent.name.eq_ignore_ascii_case(&wall.texture_name))
             .cloned()
             .ok_or_else(|| StaticFlatLoweringError::MissingWallTextureExtent {
                 name: wall.texture_name.clone(),

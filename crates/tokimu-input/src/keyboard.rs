@@ -13,6 +13,8 @@ pub enum KeyCode {
     Home,
     End,
     Backquote,
+    BracketLeft,
+    BracketRight,
     KeyE,
     KeyA,
     KeyD,
