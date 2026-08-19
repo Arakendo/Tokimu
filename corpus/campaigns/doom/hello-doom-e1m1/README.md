@@ -193,8 +193,12 @@ panorama are enabled. Use `--overview-camera`, `--no-walk-collision`,
 explicit comparison controls. `--diagnostic-sky-omissions` replaces the normal
 sky panorama with solid purple AR-0027 geometry for both retained source-sky
 planes and paired skywall boundaries. It may be combined with
-`--bsp-diagnostic-full` so ordinary geometry retains its family/classification
-colors while both sky contribution families remain unmistakably solid.
+`--bsp-diagnostic-full`; that combined overview gives ordinary geometry one
+fixed color per semantic family (including distinct green floors and yellow
+ceilings), while the focus keys still isolate classification states. Both sky
+contribution families remain unmistakably solid purple. Paired skywall
+boundaries receive diagnostic planar UVs so the texture does not collapse to
+one sampled texel.
 
 The native walkabout accepts `--map=E#M#` (default `E1M1`). While the debug
 console is closed, `[` selects the previous map marker and `]` selects the next

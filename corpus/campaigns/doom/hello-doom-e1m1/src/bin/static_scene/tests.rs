@@ -4,15 +4,32 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
     arguments_for_rotated_map, build_doom_sky_cylinder, carry_observer_with_floor,
-    finalize_doom_seg_classic_plane_spans, merge_solid_range, mesh_owning_side_visible,
-    nearest_mesh_ray_hit, ray_triangle_distance, retain_doom_seg_classic_plane_range,
-    source_bbox_fov_column_interval, source_fov_column_interval, source_motion_special_crossings,
+    diagnostic_skywall_mesh, finalize_doom_seg_classic_plane_spans, merge_solid_range,
+    mesh_owning_side_visible, nearest_mesh_ray_hit, ray_triangle_distance,
+    retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
+    source_fov_column_interval, source_motion_special_crossings,
     source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
     source_segment_outside_horizontal_fov, source_sky_sectors, visible_column_runs,
     within_classic_use_range, DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey,
     DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation, SourceBBoxProjection,
     SourceSegFacing, SpawnObserver,
 };
+
+#[test]
+fn diagnostic_skywall_mesh_supplies_repeating_planar_texture_coordinates() {
+    let mesh = diagnostic_skywall_mesh(vec![
+        [64.0, 0.0, 32.0],
+        [128.0, 64.0, 32.0],
+        [128.0, 0.0, 32.0],
+    ])
+    .expect("diagnostic skywall mesh");
+
+    assert!(mesh.has_texture_coordinates());
+    assert_eq!(
+        mesh.texture_coordinates,
+        vec![[1.0, -0.0], [2.0, -1.0], [2.0, -0.0]]
+    );
+}
 
 #[test]
 fn map_rotation_arguments_replace_or_append_exactly_one_map_selector() {

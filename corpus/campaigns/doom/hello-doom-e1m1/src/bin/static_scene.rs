@@ -374,6 +374,42 @@ struct DoomSkyBoundaryDepthDraw {
     mesh: Mesh,
 }
 
+fn diagnostic_skywall_mesh(positions: Vec<[f32; 3]>) -> PlatformResult<Mesh> {
+    let mut horizontal_axis = None;
+    'vertices: for (index, start) in positions.iter().enumerate() {
+        for end in positions.iter().skip(index + 1) {
+            let mut dx = end[0] - start[0];
+            let mut dz = end[2] - start[2];
+            let length = (dx * dx + dz * dz).sqrt();
+            if length <= f32::EPSILON {
+                continue;
+            }
+            dx /= length;
+            dz /= length;
+            if dx < 0.0 || (dx.abs() <= f32::EPSILON && dz < 0.0) {
+                dx = -dx;
+                dz = -dz;
+            }
+            horizontal_axis = Some([dx, dz]);
+            break 'vertices;
+        }
+    }
+    let [dx, dz] = horizontal_axis.unwrap_or([1.0, 0.0]);
+    let texture_coordinates = positions
+        .iter()
+        .map(|position| {
+            [
+                (position[0] * dx + position[2] * dz) / 64.0,
+                -position[1] / 64.0,
+            ]
+        })
+        .collect();
+    Mesh::uniform_normal(positions, [0.0, 1.0, 0.0])
+        .with_texture_coordinates(texture_coordinates)
+        .map_err(io::Error::other)
+        .map_err(Into::into)
+}
+
 /// Immutable source geometry retained only so Slice 8 can re-lower the
 /// affected Doom wall spans from runtime-owned sector heights. It does not
 /// become renderer or generic world state.
@@ -543,20 +579,21 @@ fn prepare_scene(
         .collect::<Vec<_>>();
     let doom_sky_boundary_draws = lower_doom_paired_sky_boundary_triangles(&map)?
         .into_iter()
-        .map(|triangle| DoomSkyBoundaryDepthDraw {
-            source_linedef: triangle.source_linedef,
-            source_sidedef: triangle.source_sidedef,
-            source_sector: triangle.source_sector,
-            mesh: Mesh::uniform_normal(
-                triangle
-                    .positions
-                    .into_iter()
-                    .map(|position| position.map(|component| component as f32))
-                    .collect(),
-                [0.0, 1.0, 0.0],
-            ),
+        .map(|triangle| {
+            Ok(DoomSkyBoundaryDepthDraw {
+                source_linedef: triangle.source_linedef,
+                source_sidedef: triangle.source_sidedef,
+                source_sector: triangle.source_sector,
+                mesh: diagnostic_skywall_mesh(
+                    triangle
+                        .positions
+                        .into_iter()
+                        .map(|position| position.map(|component| component as f32))
+                        .collect(),
+                )?,
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<PlatformResult<Vec<_>>>()?;
     let walk_collision = DoomWalkCollisionWorld::from_map(&map);
     let walk_floors = DoomWalkFloorWorld::from_map(&map)?;
     let start = resolve_doom_player_one_start(&map.things)?;

@@ -1943,9 +1943,14 @@ impl PlatformEventHandler for App {
         if self.bsp_diagnostic_enabled {
             upload_bsp_diagnostic_materials(&mut renderer)?;
             eprintln!(
-                "E1M1 BSP shadow diagnostic enabled: focus={}; {}; membership=unchanged-global-full; classification-authority=appearance-only; focus-controls=Z-all,X-accepted,M-rejected,Q-unresolved",
+                "E1M1 BSP shadow diagnostic enabled: focus={}; {}; color-policy={}; membership=unchanged-global-full; classification-authority=appearance-only; focus-controls=Z-all,X-accepted,M-rejected,Q-unresolved",
                 self.bsp_diagnostic_focus.label(),
                 bsp_diagnostic_legend(),
+                if self.diagnostic_sky_enabled {
+                    "fixed-semantic-family-colors-with-classification-focus"
+                } else {
+                    "family-plus-disposition"
+                },
             );
         }
         if self.diagnostic_sky_enabled {
@@ -2614,6 +2619,7 @@ impl PlatformEventHandler for App {
                         reason: BspDiagnosticReason::PresentationGlobal,
                     },
                     self.bsp_diagnostic_focus,
+                    false,
                 )?);
             } else {
                 self.commands.push(RenderCommand::DrawMesh(sky_draw));
@@ -2753,6 +2759,7 @@ impl PlatformEventHandler for App {
                     draw_command,
                     diagnostic,
                     self.bsp_diagnostic_focus,
+                    self.diagnostic_sky_enabled,
                 )?);
             } else {
                 self.commands.push(RenderCommand::DrawMesh(draw_command));
@@ -2783,6 +2790,7 @@ impl PlatformEventHandler for App {
                         draw_command,
                         diagnostic,
                         self.bsp_diagnostic_focus,
+                        self.diagnostic_sky_enabled,
                     )?);
                 } else {
                     self.commands.push(RenderCommand::DrawMesh(draw_command));

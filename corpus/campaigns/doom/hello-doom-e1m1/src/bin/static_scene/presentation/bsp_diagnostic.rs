@@ -401,6 +401,7 @@ pub(crate) fn bsp_diagnostic_command(
     draw: DrawMeshCommand,
     diagnostic: BspDiagnosticDraw,
     focus: BspDiagnosticFocus,
+    family_colors_only: bool,
 ) -> PlatformResult<RenderCommand> {
     let draw = DrawMeshCommand {
         material: diagnostic.family.material(),
@@ -411,7 +412,11 @@ pub(crate) fn bsp_diagnostic_command(
             draw,
             material_override: MaterialOverride::with_replacement_color(
                 if focus.emphasizes(diagnostic.disposition) {
-                    diagnostic.disposition.tint(diagnostic.family)
+                    if family_colors_only {
+                        diagnostic.family.category_tint()
+                    } else {
+                        diagnostic.disposition.tint(diagnostic.family)
+                    }
                 } else {
                     Color::rgb(0.08, 0.08, 0.08)
                 },
