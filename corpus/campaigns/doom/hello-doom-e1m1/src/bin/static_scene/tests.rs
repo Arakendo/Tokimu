@@ -3,16 +3,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
-    arguments_for_rotated_map, build_doom_sky_cylinder, carry_observer_with_floor,
-    diagnostic_skywall_mesh, finalize_doom_seg_classic_plane_spans, merge_solid_range,
-    mesh_owning_side_visible, nearest_mesh_ray_hit, ray_triangle_distance,
-    retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
-    source_fov_column_interval, source_motion_special_crossings,
+    advance_scrolling_wall_uvs, arguments_for_rotated_map, build_doom_sky_cylinder,
+    carry_observer_with_floor, diagnostic_skywall_mesh, discover_secret_sector,
+    finalize_doom_seg_classic_plane_spans, merge_solid_range, mesh_owning_side_visible,
+    nearest_mesh_ray_hit, ray_triangle_distance, retain_doom_seg_classic_plane_range,
+    source_bbox_fov_column_interval, source_fov_column_interval, source_motion_special_crossings,
     source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
-    source_segment_outside_horizontal_fov, source_sky_sectors, visible_column_runs,
-    within_classic_use_range, DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey,
-    DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation, SourceBBoxProjection,
-    SourceSegFacing, SpawnObserver,
+    source_segment_outside_horizontal_fov, source_sky_sectors, switch_material_for_draw,
+    visible_column_runs, within_classic_use_range, DoomSegClassicPlaneInstance,
+    DoomSegClassicPlaneKey, DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
+    SourceBBoxProjection, SourceSegFacing, SpawnObserver,
 };
 
 #[test]
@@ -51,14 +51,115 @@ fn map_rotation_arguments_replace_or_append_exactly_one_map_selector() {
     );
 }
 use doom_geometry_provider::doom_point_to_tokimu;
-use doom_map_provider::{DoomLinedef, DoomSourceRecord, DoomVertex};
+use doom_map_provider::{DoomLinedef, DoomSector, DoomSourceRecord, DoomVertex};
+use hello_doom_e1m1::specials::{DoomSwitchTextureChange, DoomSwitchTextureSlot};
 use hello_doom_e1m1::{
     classify_static_draw_frustum_rejection, classify_static_draw_sphere_frustum_rejection,
     doom_heading_degrees_to_observer_yaw, doom_heading_forward, observer_direction, observer_right,
     observer_yaw_from_forward, observer_yaw_to_doom_heading_degrees, reembed_comparative_mesh,
-    DoomComparativeEmbedding, StaticDrawAabb, StaticDrawFrustumRejection, StaticDrawSphere,
+    DoomComparativeEmbedding, StaticDrawAabb, StaticDrawFrustumRejection, StaticDrawPlanEntry,
+    StaticDrawSource, StaticDrawSphere,
 };
-use tokimu::Mesh;
+use tokimu::{MaterialHandle, Mesh};
+
+#[test]
+fn switch_material_override_matches_exact_source_wall_and_slot() {
+    let source = |record_index| DoomSourceRecord {
+        lump_index: 8,
+        record_index,
+    };
+    let draw = StaticDrawPlanEntry {
+        mesh: Mesh::triangle(),
+        material: MaterialHandle(10),
+        source_label: "wall:7:SW1EXIT".to_owned(),
+        source: StaticDrawSource::Wall {
+            source_linedef: source(7),
+            source_sidedef: source(9),
+            source_sector: source(11),
+            role: doom_geometry_provider::DoomWallTextureRole::Middle,
+        },
+    };
+    let change = DoomSwitchTextureChange {
+        source_linedef: source(7),
+        source_sidedef: source(9),
+        slot: DoomSwitchTextureSlot::Middle,
+        before_texture: "SW1EXIT".to_owned(),
+        after_texture: "SW2EXIT".to_owned(),
+    };
+    let materials = BTreeMap::from([("SW2EXIT".to_owned(), MaterialHandle(20))]);
+
+    assert_eq!(
+        switch_material_for_draw(&draw, &[change.clone()], &materials),
+        Some(MaterialHandle(20))
+    );
+    let mut wrong_slot = change;
+    wrong_slot.slot = DoomSwitchTextureSlot::Upper;
+    assert_eq!(
+        switch_material_for_draw(&draw, &[wrong_slot], &materials),
+        None
+    );
+}
+
+#[test]
+fn scrolling_wall_uvs_advance_one_source_texel_per_tick_on_selected_sidedefs() {
+    let source = |record_index| DoomSourceRecord {
+        lump_index: 9,
+        record_index,
+    };
+    let wall = |sidedef, material| StaticDrawPlanEntry {
+        mesh: Mesh::triangle()
+            .with_texture_coordinates(vec![[0.0, 0.0], [0.5, 0.0], [1.0, 1.0]])
+            .expect("aligned wall UVs"),
+        material,
+        source_label: "scrolling-wall".to_owned(),
+        source: StaticDrawSource::Wall {
+            source_linedef: source(4),
+            source_sidedef: source(sidedef),
+            source_sector: source(12),
+            role: doom_geometry_provider::DoomWallTextureRole::Middle,
+        },
+    };
+    let mut draws = vec![wall(7, MaterialHandle(20)), wall(8, MaterialHandle(20))];
+    let changed = advance_scrolling_wall_uvs(
+        &mut draws,
+        &BTreeSet::from([7]),
+        &BTreeMap::from([(20, 1.0 / 64.0)]),
+        2,
+    );
+
+    assert_eq!(changed, vec![0]);
+    assert_eq!(draws[0].mesh.texture_coordinates[0], [2.0 / 64.0, 0.0]);
+    assert_eq!(
+        draws[0].mesh.texture_coordinates[2],
+        [1.0 + 2.0 / 64.0, 1.0]
+    );
+    assert_eq!(draws[1].mesh.texture_coordinates[0], [0.0, 0.0]);
+}
+
+#[test]
+fn secret_sector_progress_is_first_entry_only_and_source_indexed() {
+    let sector = |record_index, special| DoomSector {
+        source: DoomSourceRecord {
+            lump_index: 14,
+            record_index,
+        },
+        floor_height: 0,
+        ceiling_height: 128,
+        floor_texture: "FLOOR0_1".to_owned(),
+        ceiling_texture: "CEIL1_1".to_owned(),
+        light_level: 160,
+        special,
+        tag: 0,
+    };
+    let sectors = vec![sector(0, 0), sector(1, 9)];
+    let mut discovered = BTreeSet::new();
+
+    assert!(!discover_secret_sector(&sectors, 0, &mut discovered));
+    assert!(discover_secret_sector(&sectors, 1, &mut discovered));
+    assert!(!discover_secret_sector(&sectors, 1, &mut discovered));
+    assert!(!discover_secret_sector(&sectors, 99, &mut discovered));
+    assert_eq!(discovered, BTreeSet::from([1]));
+}
 
 #[test]
 fn masked_middle_ownership_is_visible_only_from_the_supplied_normal_side() {

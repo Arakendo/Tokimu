@@ -1050,8 +1050,8 @@ composition under AR-0013.
   - [x] Make no-special, unknown-linedef, wrong-activation, and unsupported
         special outcomes explicit. Code 11 is retained as a front-side `Use`
         exit switch; code 36/88 remain `Cross` behavior; and code-48 periodic
-        scrolling remains unimplemented rather than being coerced into an
-        activation request.
+        scrolling remains outside activation requests because it is admitted
+        separately as application-owned periodic texture state.
   - [x] Record that E1M1's code-1 manual-door lines have tag `0`; resolve their
         candidate target through the opposite sidedef's retained sector rather
         than treating the line tag as target identity. Player reach and side
@@ -1131,16 +1131,31 @@ composition under AR-0013.
           handle seam, and carry a source-sector-matched observer.
   - [x] Retain native traversal and visual observations for both E1M1 effects
         before calling either progression path complete.
-- [ ] Implement switches and texture-state changes.
+- [x] Implement switches and texture-state changes required by E1M1.
+  - [x] Resolve the released shareware switch pairs against the line's
+        front/right sidedef in upper/middle/lower slot order without mutating
+        imported sidedefs. E1M1 linedef 330 resolves middle texture
+        `SW1STRTN -> SW2STRTN` on sidedef 452.
+  - [x] Prepare the paired texture even though the initial static scene does
+        not reference it, retain the active switch choice in application
+        state, and lower it to an ordinary material handle at draw submission.
+  - [x] Advance all eight code-48 front-sidedef wall UVs by one source texel
+        per 35 Hz Doom tic and refresh only those ordinary meshes. This is a
+        corpus-local realization, not a Doom-aware renderer contract or an
+        admission of a generic material-transform feature.
 - [x] Implement teleports if required by the admitted map slice. E1M1's
       reviewed nonzero-linedef inventory contains no teleport special, so the
       admitted map slice requires no teleport implementation.
-- [ ] Track secrets, exits, and map transitions as application semantics.
+- [x] Track secrets, exits, and map transitions as application semantics.
   - [x] Correct E1M1 code 11 to a front-side `Use` exit switch and connect an
         accepted physical or console use to the next bounded WAD-catalog map
         through the corpus application's existing replacement-process
-        lifecycle. Switch texture state and secret-sector progression remain
-        separate unfinished semantics.
+        lifecycle. Switch texture state remains a separate application-owned
+        presentation choice.
+  - [x] Count the three immutable E1M1 code-9 source sectors and record each
+        sector's first grounded player entry in application state. Repeat
+        entry is idempotent, noclip inspection cannot discover secrets, and
+        neither source sectors nor renderer state carry progression truth.
 - [x] Keep unsupported specials explicit. Unadmitted line and sector codes
       remain retained source observations or explicit request failures; none
       silently execute as a nearby admitted effect.

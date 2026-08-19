@@ -207,6 +207,18 @@ replacement instance with the same package, render strategy and diagnostic
 options, then closes the old window; this keeps complete map preparation
 atomic and does not make map lifecycle renderer state.
 
+The admitted E1M1 texture-state path resolves the code-11 exit switch from
+`SW1STRTN` to `SW2STRTN` in application state and advances the eight code-48
+front-sidedef wall UVs by one source texel per 35 Hz tick. Both arrive at the
+renderer as ordinary material selection or refreshed mesh data; decoded WAD
+records remain immutable.
+
+Grounded entry into an E1M1 sector-special 9 records that retained source
+sector once in application progression state and reports secret progress in
+the console. Noclip inspection is excluded, repeated entry is idempotent, and
+accepted code-11 exit use remains the separate application-owned transition
+to the next bounded WAD map.
+
 The first E1M2 preparation audit retains one explicit zero-area BSP-leaf plane
 omission (subsector 45). Walls and the remaining 447 leaves are prepared; no
 plane is fabricated for that degenerate derived region. E1M2 is available for

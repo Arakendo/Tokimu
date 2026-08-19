@@ -163,6 +163,15 @@ impl App {
             };
         reembed_draws_for_comparison(&mut opaque_draws, self.comparative_embedding);
         reembed_draws_for_comparison(&mut cutout_draws, self.comparative_embedding);
+        // A camera-conditioned preparation produces fresh baseline meshes.
+        // Reapply the application-owned cumulative scroll state so an atomic
+        // refresh does not make special-48 walls jump back to tick zero.
+        advance_scrolling_wall_uvs(
+            &mut opaque_draws,
+            &self.scrolling_wall_sidedefs,
+            &self.wall_material_inverse_widths,
+            self.scrolling_wall_total_ticks,
+        );
 
         self.draws = opaque_draws;
         self.cutout_draws = cutout_draws;
@@ -389,6 +398,31 @@ impl App {
         eprintln!("E1M1 source-spawn observer reset");
     }
 
+    fn observe_current_secret_sector(&mut self) {
+        // Free-flight is an inspection affordance, not grounded Doom player
+        // progression, so it cannot discover sector-special secrets.
+        if self.noclip {
+            return;
+        }
+        let Some(source_sector) = self.spawn_observer.map(|observer| observer.sector) else {
+            return;
+        };
+        if !discover_secret_sector(
+            &self.activation_source.sectors,
+            source_sector,
+            &mut self.discovered_secret_sectors,
+        ) {
+            return;
+        }
+        let diagnostic = format!(
+            "secret: discovered sector={source_sector}; progress={}/{}",
+            self.discovered_secret_sectors.len(),
+            self.secret_sector_total,
+        );
+        eprintln!("E1M1 {diagnostic}");
+        self.debug_console.append(diagnostic);
+    }
+
     fn toggle_debug_console(&mut self) {
         let opening = !self.debug_console.is_open();
         if opening {
@@ -561,10 +595,12 @@ impl App {
                 special: 11,
                 intent: DoomLineActivationIntent::ExitLevel { .. },
             } => {
+                let switch = self.activate_switch_texture(source_linedef);
                 self.source_exit_level_requested = true;
                 format!(
-                    "use: exit accepted linedef={} special=11 transition=next-catalog-map-requested",
+                    "use: exit accepted linedef={} special=11 {}; transition=next-catalog-map-requested",
                     source_linedef.record_index,
+                    switch,
                 )
             }
             DoomLineActivationResolution::Accepted {
@@ -620,6 +656,57 @@ impl App {
                 source_linedef.record_index, sidedef_index, sector_index,
             ),
         }
+    }
+
+    fn activate_switch_texture(
+        &mut self,
+        source_linedef: doom_map_provider::DoomSourceRecord,
+    ) -> String {
+        let (resolution, change) =
+            resolve_doom_shareware_switch_texture(&self.activation_source, source_linedef);
+        let Some(change) = change else {
+            return format!("switch-texture={resolution:?}");
+        };
+        if !self
+            .door_geometry_source
+            .wall_materials
+            .contains_key(&change.after_texture)
+        {
+            return format!(
+                "switch-texture=target-material-unavailable:{}",
+                change.after_texture
+            );
+        }
+        self.active_switch_textures.retain(|active| {
+            active.source_linedef != change.source_linedef
+                || active.source_sidedef != change.source_sidedef
+                || active.slot != change.slot
+        });
+        let report = format!(
+            "switch-texture={:?}:{}->{}:sidedef={}",
+            change.slot,
+            change.before_texture,
+            change.after_texture,
+            change.source_sidedef.record_index,
+        );
+        self.active_switch_textures.push(change);
+        report
+    }
+
+    fn advance_scrolling_walls(&mut self, delta_seconds: f64) {
+        self.scrolling_wall_tick_accumulator += delta_seconds;
+        let ticks = (self.scrolling_wall_tick_accumulator / DOOM_TIC_SECONDS).floor() as u64;
+        if ticks == 0 {
+            return;
+        }
+        self.scrolling_wall_tick_accumulator -= ticks as f64 * DOOM_TIC_SECONDS;
+        self.scrolling_wall_total_ticks = self.scrolling_wall_total_ticks.saturating_add(ticks);
+        self.dirty_opaque_meshes.extend(advance_scrolling_wall_uvs(
+            &mut self.draws,
+            &self.scrolling_wall_sidedefs,
+            &self.wall_material_inverse_widths,
+            ticks,
+        ));
     }
 
     fn try_use_center_wall(&mut self) -> String {
@@ -1893,6 +1980,76 @@ pub(crate) fn compact_activation_target(intent: DoomLineActivationIntent) -> Str
     }
 }
 
+pub(crate) fn switch_material_for_draw(
+    draw: &StaticDrawPlanEntry,
+    changes: &[DoomSwitchTextureChange],
+    wall_materials: &BTreeMap<String, MaterialHandle>,
+) -> Option<MaterialHandle> {
+    let StaticDrawSource::Wall {
+        source_linedef,
+        source_sidedef,
+        role,
+        ..
+    } = draw.source
+    else {
+        return None;
+    };
+    let slot = match role {
+        DoomWallTextureRole::Upper => DoomSwitchTextureSlot::Upper,
+        DoomWallTextureRole::Middle => DoomSwitchTextureSlot::Middle,
+        DoomWallTextureRole::Lower => DoomSwitchTextureSlot::Lower,
+    };
+    changes
+        .iter()
+        .rev()
+        .find(|change| {
+            change.source_linedef == source_linedef
+                && change.source_sidedef == source_sidedef
+                && change.slot == slot
+        })
+        .and_then(|change| wall_materials.get(&change.after_texture).copied())
+}
+
+pub(crate) fn discover_secret_sector(
+    sectors: &[DoomSector],
+    source_sector: u32,
+    discovered: &mut BTreeSet<u32>,
+) -> bool {
+    let Some(sector) = sectors.get(source_sector as usize) else {
+        return false;
+    };
+    sector.special == 9 && discovered.insert(source_sector)
+}
+
+pub(crate) fn advance_scrolling_wall_uvs(
+    draws: &mut [StaticDrawPlanEntry],
+    scrolling_sidedefs: &BTreeSet<u32>,
+    material_inverse_widths: &BTreeMap<u64, f32>,
+    ticks: u64,
+) -> Vec<usize> {
+    if ticks == 0 {
+        return Vec::new();
+    }
+    let mut changed = Vec::new();
+    for (index, draw) in draws.iter_mut().enumerate() {
+        let StaticDrawSource::Wall { source_sidedef, .. } = draw.source else {
+            continue;
+        };
+        if !scrolling_sidedefs.contains(&source_sidedef.record_index) {
+            continue;
+        }
+        let Some(inverse_width) = material_inverse_widths.get(&draw.material.0).copied() else {
+            continue;
+        };
+        let normalized_offset = ticks as f32 * inverse_width;
+        for coordinates in &mut draw.mesh.texture_coordinates {
+            coordinates[0] += normalized_offset;
+        }
+        changed.push(index);
+    }
+    changed
+}
+
 pub(crate) fn compact_draw_source(source: &StaticDrawSource) -> String {
     match source {
         StaticDrawSource::Wall {
@@ -2418,8 +2575,10 @@ impl PlatformEventHandler for App {
         if !self.fixed_reconstruction_camera {
             self.apply_inspection_movement(delta_seconds);
         }
+        self.observe_current_secret_sector();
         self.advance_active_manual_doors(delta_seconds);
         self.advance_active_moving_floors(delta_seconds);
+        self.advance_scrolling_walls(delta_seconds);
         self.refresh_ordered_coverage_for_observer()?;
         let frame_started = Instant::now();
         let mut camera = scene_camera(
@@ -2745,7 +2904,12 @@ impl PlatformEventHandler for App {
                 .unwrap_or(MeshHandle(index as u64 + 1));
             let draw_command = DrawMeshCommand {
                 mesh,
-                material: draw.material,
+                material: switch_material_for_draw(
+                    draw,
+                    &self.active_switch_textures,
+                    &self.door_geometry_source.wall_materials,
+                )
+                .unwrap_or(draw.material),
                 pipeline: self.pipeline,
                 instance: Instance2d::identity(),
                 camera: Some(CAMERA),
@@ -2776,7 +2940,12 @@ impl PlatformEventHandler for App {
                 let mesh = MeshHandle(self.cutout_mesh_base + offset as u64);
                 let draw_command = DrawMeshCommand {
                     mesh,
-                    material: draw.material,
+                    material: switch_material_for_draw(
+                        draw,
+                        &self.active_switch_textures,
+                        &self.door_geometry_source.wall_materials,
+                    )
+                    .unwrap_or(draw.material),
                     pipeline: cutout_pipeline,
                     instance: Instance2d::identity(),
                     camera: Some(CAMERA),

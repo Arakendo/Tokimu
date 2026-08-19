@@ -7,9 +7,12 @@ mod app;
 mod dynamic_geometry;
 mod replay_reports;
 
-pub(crate) use app::{compact_activation_intent, compact_activation_target, compact_draw_source};
 #[cfg(test)]
-pub(crate) use app::{source_motion_special_crossings, within_classic_use_range};
+pub(crate) use app::{
+    advance_scrolling_wall_uvs, discover_secret_sector, source_motion_special_crossings,
+    switch_material_for_draw, within_classic_use_range,
+};
+pub(crate) use app::{compact_activation_intent, compact_activation_target, compact_draw_source};
 
 pub(crate) use dynamic_geometry::{
     apply_door_ceiling_flat_height, apply_sector_flat_height, carry_observer_with_floor,

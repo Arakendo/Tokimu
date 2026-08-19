@@ -831,6 +831,80 @@ pub(crate) fn report_doom_use_activation(source: &DoomLineActivationSource) {
     );
 }
 
+pub(crate) fn report_doom_switch_textures(
+    source: &DoomLineActivationSource,
+    wall_materials: &BTreeMap<String, MaterialHandle>,
+) {
+    let mut details = Vec::new();
+    for linedef in source.linedefs.iter().filter(|line| line.special == 11) {
+        let (resolution, change) = resolve_doom_shareware_switch_texture(source, linedef.source);
+        let detail = change.map_or_else(
+            || {
+                format!(
+                    "linedef={}:resolution={resolution:?}",
+                    linedef.source.record_index
+                )
+            },
+            |change| {
+                format!(
+                    "linedef={}:sidedef={}:slot={:?}:{}->{}:target-material-prepared={}",
+                    change.source_linedef.record_index,
+                    change.source_sidedef.record_index,
+                    change.slot,
+                    change.before_texture,
+                    change.after_texture,
+                    wall_materials.contains_key(&change.after_texture),
+                )
+            },
+        );
+        details.push(detail);
+    }
+    let scrolling = source
+        .linedefs
+        .iter()
+        .filter(|line| line.special == 48)
+        .map(|line| {
+            let sidedef = line
+                .right_sidedef
+                .and_then(|index| source.sidedefs.get(usize::from(index)))
+                .map_or_else(
+                    || "front-sidedef-unavailable".to_owned(),
+                    |sidedef| format!("front-sidedef={}", sidedef.source.record_index),
+                );
+            format!("linedef={}:{sidedef}", line.source.record_index)
+        })
+        .collect::<Vec<_>>();
+    println!(
+        "E1M1 Slice 8 texture-state observation: exit-switch-lines={}; scrolling-lines={}; scrolling-rule=front-sidedef-u-plus-one-source-texel-per-tic; source-map-mutated=false; renderer-doom-vocabulary=false; switch-details={}; scrolling-details={}",
+        details.len(),
+        scrolling.len(),
+        details.join(" | "),
+        scrolling.join(" | "),
+    );
+}
+
+pub(crate) fn report_doom_progression_sources(source: &DoomLineActivationSource) {
+    let secret_sectors = source
+        .sectors
+        .iter()
+        .filter(|sector| sector.special == 9)
+        .map(|sector| sector.source.record_index.to_string())
+        .collect::<Vec<_>>();
+    let exit_lines = source
+        .linedefs
+        .iter()
+        .filter(|line| line.special == 11)
+        .map(|line| line.source.record_index.to_string())
+        .collect::<Vec<_>>();
+    println!(
+        "E1M1 Slice 8 progression-source observation: secret-sectors={}; secret-sector-indices=[{}]; exit-lines={}; exit-linedef-indices=[{}]; secret-policy=first-player-entry-per-source-sector; exit-policy=accepted-front-use-to-next-bounded-wad-map; source-map-mutated=false; renderer-doom-vocabulary=false",
+        secret_sectors.len(),
+        secret_sectors.join(","),
+        exit_lines.len(),
+        exit_lines.join(","),
+    );
+}
+
 /// Runs each E1M1 manual-door intent through the corpus-local, deterministic
 /// moving-sector state machine. It reports height transitions only: no mesh,
 /// collision, input reach, or renderer state is changed by this evidence path.

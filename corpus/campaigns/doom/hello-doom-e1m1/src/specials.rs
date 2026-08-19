@@ -94,6 +94,114 @@ pub enum DoomLineActivationResolution {
     },
 }
 
+/// Source sidedef slot changed by classic two-state switch presentation.
+/// This stays Doom-private and is translated to an ordinary material by the
+/// corpus application.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomSwitchTextureSlot {
+    Upper,
+    Middle,
+    Lower,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DoomSwitchTextureChange {
+    pub source_linedef: DoomSourceRecord,
+    pub source_sidedef: DoomSourceRecord,
+    pub slot: DoomSwitchTextureSlot,
+    pub before_texture: String,
+    pub after_texture: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomSwitchTextureResolution {
+    Change,
+    UnknownLinedef,
+    MissingFrontSidedef,
+    InvalidFrontSidedef,
+    NoKnownSwitchTexture,
+}
+
+/// Doom shareware episode-one switch pairs from the released `p_switch.c`.
+/// Later registered/commercial pairs require their own admitted corpus.
+const DOOM_SHAREWARE_SWITCH_PAIRS: [(&str, &str); 19] = [
+    ("SW1BRCOM", "SW2BRCOM"),
+    ("SW1BRN1", "SW2BRN1"),
+    ("SW1BRN2", "SW2BRN2"),
+    ("SW1BRNGN", "SW2BRNGN"),
+    ("SW1BROWN", "SW2BROWN"),
+    ("SW1COMM", "SW2COMM"),
+    ("SW1COMP", "SW2COMP"),
+    ("SW1DIRT", "SW2DIRT"),
+    ("SW1EXIT", "SW2EXIT"),
+    ("SW1GRAY", "SW2GRAY"),
+    ("SW1GRAY1", "SW2GRAY1"),
+    ("SW1METAL", "SW2METAL"),
+    ("SW1PIPE", "SW2PIPE"),
+    ("SW1SLAD", "SW2SLAD"),
+    ("SW1STARG", "SW2STARG"),
+    ("SW1STON1", "SW2STON1"),
+    ("SW1STON2", "SW2STON2"),
+    ("SW1STONE", "SW2STONE"),
+    ("SW1STRTN", "SW2STRTN"),
+];
+
+fn paired_shareware_switch_texture(texture: &str) -> Option<&'static str> {
+    DOOM_SHAREWARE_SWITCH_PAIRS
+        .iter()
+        .find_map(|(first, second)| {
+            if texture.eq_ignore_ascii_case(first) {
+                Some(*second)
+            } else if texture.eq_ignore_ascii_case(second) {
+                Some(*first)
+            } else {
+                None
+            }
+        })
+}
+
+/// Resolves the first upper/middle/lower switch texture on the line's
+/// front/right sidedef, matching the released source's slot order. The source
+/// map remains immutable and absence is explicit.
+pub fn resolve_doom_shareware_switch_texture(
+    source: &DoomLineActivationSource,
+    source_linedef: DoomSourceRecord,
+) -> (DoomSwitchTextureResolution, Option<DoomSwitchTextureChange>) {
+    let Some(linedef) = source
+        .linedefs
+        .iter()
+        .find(|linedef| linedef.source == source_linedef)
+    else {
+        return (DoomSwitchTextureResolution::UnknownLinedef, None);
+    };
+    let Some(sidedef_index) = linedef.right_sidedef else {
+        return (DoomSwitchTextureResolution::MissingFrontSidedef, None);
+    };
+    let Some(sidedef) = source.sidedefs.get(usize::from(sidedef_index)) else {
+        return (DoomSwitchTextureResolution::InvalidFrontSidedef, None);
+    };
+    for (slot, texture) in [
+        (DoomSwitchTextureSlot::Upper, &sidedef.upper_texture),
+        (DoomSwitchTextureSlot::Middle, &sidedef.middle_texture),
+        (DoomSwitchTextureSlot::Lower, &sidedef.lower_texture),
+    ] {
+        let Some(after_texture) = paired_shareware_switch_texture(texture) else {
+            continue;
+        };
+        return (
+            DoomSwitchTextureResolution::Change,
+            Some(DoomSwitchTextureChange {
+                source_linedef,
+                source_sidedef: sidedef.source,
+                slot,
+                before_texture: texture.clone(),
+                after_texture: after_texture.to_owned(),
+            }),
+        );
+    }
+    (DoomSwitchTextureResolution::NoKnownSwitchTexture, None)
+}
+
 /// Corpus-local timing and clearance policy for the observed manual-door
 /// special. These are map units and simulation ticks, not renderer units or a
 /// generic animation profile. The defaults mirror the released Doom source's
@@ -720,6 +828,51 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn shareware_switch_resolution_uses_front_side_and_source_slot_order() {
+        let mut source_data = source_with(line(5, 11, 0));
+        source_data.linedefs[0].right_sidedef = Some(0);
+        source_data.sidedefs[0].upper_texture = "SW1EXIT".to_owned();
+        source_data.sidedefs[0].middle_texture = "SW1BRCOM".to_owned();
+
+        assert_eq!(
+            resolve_doom_shareware_switch_texture(&source_data, source(5)),
+            (
+                DoomSwitchTextureResolution::Change,
+                Some(DoomSwitchTextureChange {
+                    source_linedef: source(5),
+                    source_sidedef: source(8),
+                    slot: DoomSwitchTextureSlot::Upper,
+                    before_texture: "SW1EXIT".to_owned(),
+                    after_texture: "SW2EXIT".to_owned(),
+                })
+            )
+        );
+        assert_eq!(source_data.sidedefs[0].upper_texture, "SW1EXIT");
+    }
+
+    #[test]
+    fn switch_resolution_is_bidirectional_and_reports_missing_evidence() {
+        let mut source_data = source_with(line(5, 11, 0));
+        assert_eq!(
+            resolve_doom_shareware_switch_texture(&source_data, source(5)),
+            (DoomSwitchTextureResolution::MissingFrontSidedef, None)
+        );
+
+        source_data.linedefs[0].right_sidedef = Some(0);
+        source_data.sidedefs[0].middle_texture = "SW2STON2".to_owned();
+        let (_, change) = resolve_doom_shareware_switch_texture(&source_data, source(5));
+        let change = change.expect("known SW2 texture should resolve back to SW1");
+        assert_eq!(change.slot, DoomSwitchTextureSlot::Middle);
+        assert_eq!(change.after_texture, "SW1STON2");
+
+        source_data.sidedefs[0].middle_texture = "STARTAN3".to_owned();
+        assert_eq!(
+            resolve_doom_shareware_switch_texture(&source_data, source(5)),
+            (DoomSwitchTextureResolution::NoKnownSwitchTexture, None)
+        );
     }
 
     #[test]

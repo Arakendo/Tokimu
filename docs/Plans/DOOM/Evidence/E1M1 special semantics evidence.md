@@ -91,18 +91,74 @@ The deterministic `Use` report found 19 nonzero E1M1 lines:
 - 2 lines (codes 36 and 88) explicitly require `Cross` rather than silently
   acting as use lines; and
 - 8 code-48 scrolling lines remain explicitly unsupported by the activation
-  resolver.
+  resolver because they are periodic state rather than `Use`/`Cross`
+  requests. Their texture progression is admitted separately below.
 
-Accepted intent reports `execution=deferred-to-future-runtime-owner`. No door,
-floor, platform, exit, or texture offset changes in this slice.
+The source-only report retains `accepted_effects_are_not_executed=true`: the
+resolver itself changes no door, floor, platform, exit, or texture state. The
+later application consumers described below own those admitted effects.
 
 The later native application now consumes the accepted code-11 intent as an
 application-owned map transition. A successful front-side physical or console
 use requests the next map in the bounded WAD catalog through the same
 replacement-process lifecycle as the explicit `]` diagnostic control. The
 renderer receives no exit or map identity. Switch-texture mutation remains
-unimplemented and explicit; the transition does not pretend that presentation
-state has been completed.
+application-owned: the source switch resolver and ordinary material lowering
+are described below.
+
+### E1M1 texture-state evidence
+
+The source resolver retains the 19 shareware episode-one `SW1`/`SW2` pairs
+listed by the released `p_switch.c`. It searches only the source line's
+front/right sidedef and preserves the original upper, middle, then lower slot
+order. Resolution returns an immutable before/after observation; it does not
+edit the decoded sidedef.
+
+The canonical `--special-activation-report` resolves E1M1's single exit line
+as:
+
+```text
+linedef=330 sidedef=452 slot=Middle
+SW1STRTN -> SW2STRTN
+target-material-prepared=true
+```
+
+The paired `SW2STRTN` raster/material is prepared even though the initial
+static walls reference only the first state. Accepted code-11 use stores the
+change in corpus-application state. Matching source-linedef, sidedef, and wall
+slot identity selects the paired ordinary material during draw construction;
+the WAD, prepared source material, and renderer vocabulary remain unchanged.
+
+Code 48 is kept out of the activation resolver. The application identifies
+the eight retained front sidedefs (486, 488, 490, 492, 494, 496, 498, and 500)
+and advances their existing horizontal UV coordinates by one source texel per
+35 Hz Doom tic. A focused test proves two ticks on a 64-pixel texture produce
+an exact normalized `2/64` shift and leave an unselected sidedef unchanged.
+The native two-frame Vulkan observation replaced exactly eight meshes on each
+frame (`lifetime_mesh_replacements=8`, then `16`) while retaining ordinary
+materials and pipelines. This narrow mesh-refresh mechanism is sufficient for
+the E1M1 corpus; it does not by itself earn a generic renderer UV-transform
+contract.
+
+### E1M1 progression-state evidence
+
+The same canonical `--special-activation-report` identifies immutable source
+sectors 68, 69, and 70 as E1M1's three code-9 secrets, plus linedef 330 as its
+single code-11 exit. The live application records the first grounded player
+entry into each retained secret-sector identity and emits bounded progress
+such as `secret: discovered sector=68; progress=1/3`. Re-entry is idempotent,
+and noclip/free-flight inspection does not advance progression.
+
+This differs deliberately from the released implementation's mutation of the
+sector special after discovery: Tokimu keeps decoded WAD records immutable and
+stores discovered identities in application state. Map transition likewise
+remains application-owned; accepted front-side use of linedef 330 requests the
+next bounded WAD-catalog map through complete replacement-process startup.
+Neither progression path adds Doom vocabulary or mutable truth to rendering.
+
+A focused regression covers ordinary-sector entry, first secret entry, repeat
+entry, and an invalid source-sector index. The canonical report retains
+`source-map-mutated=false` and `renderer-doom-vocabulary=false`.
 
 The source resolver follows classic front-side manual-door targeting: it uses
 the line's opposite/left sidedef sector as the candidate target. Actual player
@@ -240,9 +296,9 @@ The native walk path now compares each accepted source-space movement segment
 against retained code-36/88 lines and handles intersections in movement order.
 A successful code-36 start consumes that one-shot line; code 88 refuses to
 duplicate an active platform but can start again after completion. Code 11 is
-retained through the front-side use path and reports that map transition
-remains unimplemented. A deterministic local fixture proves crossing order and
-excludes ordinary `Use` specials from this path. Active runtime floor heights
+excluded from crossing and is consumed through the separate front-side use,
+switch-state, and map-transition path. A deterministic local fixture proves
+crossing order and excludes ordinary `Use` specials from this path. Active runtime floor heights
 now overlay the matching retained sector
 after BSP ownership resolution, alongside but separate from active door
 ceiling overrides.

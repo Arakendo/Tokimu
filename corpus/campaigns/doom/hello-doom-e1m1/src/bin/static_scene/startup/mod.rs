@@ -1079,6 +1079,11 @@ pub(crate) fn run() -> PlatformResult<()> {
     }
     if special_activation_report {
         report_doom_use_activation(&scene.activation_source);
+        report_doom_switch_textures(
+            &scene.activation_source,
+            &scene.door_geometry_source.wall_materials,
+        );
+        report_doom_progression_sources(&scene.activation_source);
         return Ok(());
     }
     if door_runtime_report {
@@ -1138,6 +1143,27 @@ pub(crate) fn run() -> PlatformResult<()> {
     let opaque_selected = vec![true; scene.opaque_draws.len()];
     let cutout_selected = vec![true; scene.cutout_draws.len()];
     let source_sky_plane_selected = vec![false; scene.diagnostic_sky_draws.len()];
+    let scrolling_wall_sidedefs = scene
+        .activation_source
+        .linedefs
+        .iter()
+        .filter(|linedef| linedef.special == 48)
+        .filter_map(|linedef| linedef.right_sidedef)
+        .filter_map(|index| scene.activation_source.sidedefs.get(usize::from(index)))
+        .map(|sidedef| sidedef.source.record_index)
+        .collect::<BTreeSet<_>>();
+    let wall_material_inverse_widths = scene
+        .opaque_uploads
+        .iter()
+        .filter(|upload| upload.source_kind == StaticTextureSourceKind::Wall)
+        .map(|upload| (upload.material.0, 1.0 / upload.descriptor.width as f32))
+        .collect::<BTreeMap<_, _>>();
+    let secret_sector_total = scene
+        .activation_source
+        .sectors
+        .iter()
+        .filter(|sector| sector.special == 9)
+        .count();
     let cutout_mesh_base = if ordered_coverage_source.is_some() {
         ORDERED_COVERAGE_CUTOUT_MESH_BASE
     } else {
@@ -1268,6 +1294,8 @@ pub(crate) fn run() -> PlatformResult<()> {
         launch_arguments,
         map_rotation_exit_requested: false,
         source_exit_level_requested: false,
+        discovered_secret_sectors: BTreeSet::new(),
+        secret_sector_total,
         renderer: None,
         render_strategy_name,
         render_strategy_stages,
@@ -1335,6 +1363,11 @@ pub(crate) fn run() -> PlatformResult<()> {
         door_tick_accumulator: 0.0,
         active_turbo_floors: Vec::new(),
         active_down_wait_up_platforms: Vec::new(),
+        active_switch_textures: Vec::new(),
+        scrolling_wall_sidedefs,
+        wall_material_inverse_widths,
+        scrolling_wall_tick_accumulator: 0.0,
+        scrolling_wall_total_ticks: 0,
         consumed_one_shot_cross_lines: BTreeSet::new(),
         moving_floor_tick_accumulator: 0.0,
         dirty_opaque_meshes: HashSet::new(),

@@ -36,7 +36,9 @@ use doom_geometry_provider::{
 use doom_geometry_provider::{DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey};
 #[cfg(test)]
 use doom_map_provider::DoomBspChild;
-use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore};
+use doom_map_provider::{
+    decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore, DoomSector,
+};
 use doom_raster_provider::{
     DoomFlatDecodeLimits, DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomTextureComposeLimits,
     DoomTextureDecodeLimits,
@@ -50,10 +52,11 @@ use hello_doom_e1m1::collision::{
 };
 use hello_doom_e1m1::debug_console::DoomDebugConsole;
 use hello_doom_e1m1::specials::{
-    resolve_doom_line_activation, DoomDownWaitUpStayPhase, DoomDownWaitUpStayPolicy,
-    DoomDownWaitUpStayRuntime, DoomLineActivation, DoomLineActivationIntent,
-    DoomLineActivationRequest, DoomLineActivationResolution, DoomLineActivationSource,
-    DoomManualDoorPhase, DoomManualDoorPolicy, DoomManualDoorRuntime, DoomTurboLowerFloorPhase,
+    resolve_doom_line_activation, resolve_doom_shareware_switch_texture, DoomDownWaitUpStayPhase,
+    DoomDownWaitUpStayPolicy, DoomDownWaitUpStayRuntime, DoomLineActivation,
+    DoomLineActivationIntent, DoomLineActivationRequest, DoomLineActivationResolution,
+    DoomLineActivationSource, DoomManualDoorPhase, DoomManualDoorPolicy, DoomManualDoorRuntime,
+    DoomSwitchTextureChange, DoomSwitchTextureSlot, DoomTurboLowerFloorPhase,
     DoomTurboLowerFloorPolicy, DoomTurboLowerFloorRuntime,
 };
 pub use hello_doom_e1m1::{
@@ -218,6 +221,8 @@ struct App {
     launch_arguments: Vec<String>,
     map_rotation_exit_requested: bool,
     source_exit_level_requested: bool,
+    discovered_secret_sectors: BTreeSet<u32>,
+    secret_sector_total: usize,
     renderer: Option<WgpuBackend>,
     render_strategy_name: &'static str,
     render_strategy_stages: &'static str,
@@ -281,6 +286,11 @@ struct App {
     door_tick_accumulator: f64,
     active_turbo_floors: Vec<DoomTurboLowerFloorRuntime>,
     active_down_wait_up_platforms: Vec<DoomDownWaitUpStayRuntime>,
+    active_switch_textures: Vec<DoomSwitchTextureChange>,
+    scrolling_wall_sidedefs: BTreeSet<u32>,
+    wall_material_inverse_widths: BTreeMap<u64, f32>,
+    scrolling_wall_tick_accumulator: f64,
+    scrolling_wall_total_ticks: u64,
     consumed_one_shot_cross_lines: BTreeSet<u32>,
     moving_floor_tick_accumulator: f64,
     dirty_opaque_meshes: HashSet<usize>,
@@ -776,6 +786,17 @@ fn prepare_scene(
         &activation_source,
         &wall_extents,
     )?);
+    names.extend(
+        activation_source
+            .linedefs
+            .iter()
+            .filter(|linedef| linedef.special == 11)
+            .filter_map(|linedef| {
+                resolve_doom_shareware_switch_texture(&activation_source, linedef.source)
+                    .1
+                    .map(|change| change.after_texture)
+            }),
+    );
     names.sort();
     names.dedup();
     let wall_textures = prepare_e1m1_wall_textures(
