@@ -428,6 +428,8 @@ struct DoomMonsterRuntimeState {
     look_tics: u16,
     chase_tics: u16,
     chase_state_index: u8,
+    escape_heading_degrees: Option<f32>,
+    escape_steps_remaining: u8,
 }
 
 /// Corpus-private mutable gameplay payload. Imported WAD/map records and

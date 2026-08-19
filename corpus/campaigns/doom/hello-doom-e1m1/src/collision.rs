@@ -94,6 +94,30 @@ pub fn doom_chase_heading_candidates(direct_heading_degrees: f32) -> [f32; 8] {
     OFFSETS.map(|offset| (direct + offset).rem_euclid(360.0))
 }
 
+/// Keeps a previously successful escape heading ahead of direct pursuit.
+/// This lets an actor commit long enough to clear a local pinch instead of
+/// immediately steering back into the obstacle on its next chase action.
+pub fn doom_chase_heading_candidates_with_escape(
+    direct_heading_degrees: f32,
+    escape_heading_degrees: Option<f32>,
+) -> [f32; 8] {
+    let direct = doom_chase_heading_candidates(direct_heading_degrees);
+    let Some(escape) = escape_heading_degrees else {
+        return direct;
+    };
+    let escape = ((escape / 45.0).round() * 45.0).rem_euclid(360.0);
+    let mut candidates = [0.0; 8];
+    candidates[0] = escape;
+    let mut output = 1;
+    for heading in direct {
+        if heading != escape {
+            candidates[output] = heading;
+            output += 1;
+        }
+    }
+    candidates
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DoomWalkMoveObservation {
     pub requested_delta: [f32; 2],
@@ -460,7 +484,7 @@ impl DoomActorMovementWorld {
                         actor.floor_height,
                         actor.height,
                     )
-                    && length(subtract(resolved, actor.position)) < radius + actor.radius
+                    && actor_overlap_blocks_move(start, resolved, radius, actor)
             })
             .min_by_key(|actor| actor.source_thing)
         {
@@ -476,6 +500,20 @@ impl DoomActorMovementWorld {
             contacted_linedefs: collision.contacted_linedefs,
         }
     }
+}
+
+fn actor_overlap_blocks_move(
+    start: [f32; 2],
+    resolved: [f32; 2],
+    moving_radius: f32,
+    actor: &DoomActorBody,
+) -> bool {
+    let contact_distance = moving_radius + actor.radius;
+    let start_distance = length(subtract(start, actor.position));
+    let resolved_distance = length(subtract(resolved, actor.position));
+    resolved_distance < contact_distance
+        && (start_distance >= contact_distance
+            || resolved_distance <= start_distance + PUSH_EPSILON)
 }
 
 fn actor_line_blocks(
@@ -903,5 +941,46 @@ mod tests {
             [0.0, 45.0, 315.0, 90.0, 270.0, 135.0, 225.0, 180.0]
         );
         assert_eq!(doom_chase_heading_candidates(181.0)[0], 180.0);
+    }
+
+    #[test]
+    fn chase_escape_heading_stays_first_without_duplicate_candidates() {
+        assert_eq!(
+            doom_chase_heading_candidates_with_escape(12.0, Some(91.0)),
+            [90.0, 0.0, 45.0, 315.0, 270.0, 135.0, 225.0, 180.0]
+        );
+        assert_eq!(
+            doom_chase_heading_candidates_with_escape(12.0, None),
+            doom_chase_heading_candidates(12.0)
+        );
+    }
+
+    #[test]
+    fn actor_overlap_allows_only_motion_that_resolves_existing_penetration() {
+        let actor = DoomActorBody {
+            source_thing: 7,
+            position: [0.0, 0.0],
+            floor_height: 0,
+            radius: 20.0,
+            height: 56,
+        };
+        assert!(!actor_overlap_blocks_move(
+            [30.0, 0.0],
+            [34.0, 0.0],
+            20.0,
+            &actor
+        ));
+        assert!(actor_overlap_blocks_move(
+            [30.0, 0.0],
+            [26.0, 0.0],
+            20.0,
+            &actor
+        ));
+        assert!(actor_overlap_blocks_move(
+            [42.0, 0.0],
+            [38.0, 0.0],
+            20.0,
+            &actor
+        ));
     }
 }

@@ -62,7 +62,7 @@ pub(crate) fn report_gameplay_snapshot_replay(app: &mut App) -> PlatformResult<(
         .count();
     app.restore_gameplay_snapshot(&baseline);
     println!(
-        "E1M1 Slice 9 gameplay snapshot replay: mutable-payload=[player-inventory,thing-active,thing-state-clocks,combat-health,play-random,monster-runtime-poses]; first-damage={first_damage}; target-thing={first_target}; replay-identical=true; restored-baseline=true; replay-awake-monsters={awake}; replay-inactive-things={inactive}; imported-things-mutated=false; wad-bytes-owned=false; renderer-resources-owned=false; persistence-format=none; renderer-initialized=false"
+        "E1M1 Slice 9 gameplay snapshot replay: mutable-payload=[player-inventory,thing-active,thing-state-clocks,combat-health,play-random,monster-runtime-poses-and-escape-policy]; first-damage={first_damage}; target-thing={first_target}; replay-identical=true; restored-baseline=true; replay-awake-monsters={awake}; replay-inactive-things={inactive}; imported-things-mutated=false; wad-bytes-owned=false; renderer-resources-owned=false; persistence-format=none; renderer-initialized=false"
     );
     Ok(())
 }
@@ -101,6 +101,8 @@ fn apply_bounded_gameplay_script(app: &mut App) -> PlatformResult<(i32, u32)> {
     monster.source_position[0] += 8.0;
     monster.source_angle_degrees = 0.0;
     monster.chase_state_index = 1;
+    monster.escape_heading_degrees = Some(90.0);
+    monster.escape_steps_remaining = 7;
     Ok((damage, target_source))
 }
 

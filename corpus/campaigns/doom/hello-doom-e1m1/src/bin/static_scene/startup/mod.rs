@@ -1346,6 +1346,8 @@ pub(crate) fn run() -> PlatformResult<()> {
                     chase_tics: hello_doom_e1m1::things::e1m1_monster_chase_tics(thing.kind)
                         .expect("classified E1M1 monster must retain chase cadence"),
                     chase_state_index: 0,
+                    escape_heading_degrees: None,
+                    escape_steps_remaining: 0,
                 })
         })
         .collect();

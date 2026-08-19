@@ -189,9 +189,13 @@ Accepted positions, source sectors, floor heights, and headings rebuild
 ordinary sprite billboards. Source-Thing order is the deterministic update
 order, and each accepted pose updates the actor-body snapshot before the next
 monster moves. A blocked direct step tries a bounded deterministic set of the
-other seven eight-direction headings. This prevents another actor or a local
-wall corner from permanently pinning the chase without claiming exact
-`P_NewChaseDir` parity. E1M1's former human uses its retained four-tic run
+other seven eight-direction headings. A successful alternative is retained for
+one 64-unit escape run so the next chase action does not immediately steer back
+into the same pinch. Existing actor-body penetration may be reduced in bounded
+steps, but new or increasing penetration remains blocked. This prevents a
+barrel, another actor, or a local wall corner from permanently pinning the
+chase without claiming exact `P_NewChaseDir` parity. E1M1's former human uses
+its retained four-tic run
 cadence, while the sergeant and imp use three tics; all use the source
 A-A-B-B-C-C-D-D run-frame sequence retained from released
 [`info.c`](https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/info.c).

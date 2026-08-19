@@ -334,11 +334,18 @@ impl App {
                 continue;
             }
             let direct_heading = toward_player[1].atan2(toward_player[0]).to_degrees();
-            state.source_angle_degrees =
+            let direct_heading =
                 hello_doom_e1m1::collision::doom_chase_heading_candidates(direct_heading)[0];
+            let escape_heading = (state.escape_steps_remaining > 0)
+                .then_some(state.escape_heading_degrees)
+                .flatten();
+            state.source_angle_degrees = escape_heading.unwrap_or(direct_heading);
             let mut accepted_move = None;
             for candidate_heading in
-                hello_doom_e1m1::collision::doom_chase_heading_candidates(direct_heading)
+                hello_doom_e1m1::collision::doom_chase_heading_candidates_with_escape(
+                    direct_heading,
+                    escape_heading,
+                )
             {
                 let radians = candidate_heading.to_radians();
                 let outcome = self.actor_movement_world.probe_move(
@@ -370,6 +377,22 @@ impl App {
             }
             if let Some((heading, position, source_sector, floor_height)) = accepted_move {
                 state.source_angle_degrees = heading;
+                if escape_heading == Some(heading) {
+                    state.escape_steps_remaining = state.escape_steps_remaining.saturating_sub(1);
+                    if state.escape_steps_remaining == 0 {
+                        state.escape_heading_degrees = None;
+                    }
+                } else if heading != direct_heading {
+                    // One successful sidestep is not enough to clear a barrel,
+                    // pillar, or another actor. Commit to seven more eight-unit
+                    // chase actions: one full 64-unit escape run before
+                    // steering directly at the player again.
+                    state.escape_heading_degrees = Some(heading);
+                    state.escape_steps_remaining = 7;
+                } else {
+                    state.escape_heading_degrees = None;
+                    state.escape_steps_remaining = 0;
+                }
                 state.source_position = position;
                 state.source_sector = source_sector.record_index;
                 state.floor_height = floor_height;
@@ -916,6 +939,8 @@ impl App {
                     chase_tics: hello_doom_e1m1::things::e1m1_monster_chase_tics(thing.kind)
                         .expect("classified E1M1 monster must retain chase cadence"),
                     chase_state_index: 0,
+                    escape_heading_degrees: None,
+                    escape_steps_remaining: 0,
                 });
             }
         }
