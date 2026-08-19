@@ -2499,6 +2499,20 @@ The review moves away from shared admission when:
   plane-specific sector fragments, 907 conformance insertions and 4,173 plane
   triangles. The nine-map visual gate requires one more confirmation pass.
 
+### Cycle 72 -- 2026-08-18
+
+- Live E1M7 inspection confirmed that plane-specific boundary reconciliation
+  removes the final reported diagonal parity seam without reopening either
+  retained floor seam.
+- The complete E1M1-through-E1M9 walkabout now has no known rendering defect.
+  This closes the current shareware-corpus visual gate for grouped sky parity
+  plus sector-boundary trim. The statement remains deliberately observational:
+  it is not Classic pixel parity, exhaustive camera-space proof, or evidence
+  for other WADs and games.
+- Panorama-carrier pitch behavior is the next independent presentation study;
+  it does not reopen the accepted sky mask or source-plane support result unless
+  that work reveals a new parity or world-support falsifier.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

@@ -418,6 +418,12 @@ covered, while the differing sky ceilings retain the authored LINEDEF boundary
 and the diagonal replay remains ordinary world color. This correction does not
 alter the grouped crossing rule or paired skywall geometry.
 
+The subsequent E1M7 visual check confirmed the diagonal seam is gone and the
+earlier floor repairs remain intact. E1M1 through E1M9 now have no known defect
+from the completed walkabout. The corpus-private grouped-parity and
+sector-boundary candidate therefore meets this study's current human visual
+gate, without claiming Classic pixel parity or general WAD coverage.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.
