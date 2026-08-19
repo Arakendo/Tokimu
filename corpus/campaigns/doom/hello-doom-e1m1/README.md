@@ -503,6 +503,13 @@ clocks, and play RNG. `W`/`A`/`S`/`D` move; accepted source-sector floor
 transitions adjust observer height. These controls remain corpus-local: they do
 not establish a generic Tokimu player, physics, or weapon contract.
 
+Add `--monster-chase-live` for the reversible gameplay candidate. It keeps
+mutable monster positions beside, rather than inside, imported WAD Things;
+samples current door/platform heights for sight and movement; and rebuilds
+ordinary billboards from accepted positions. Look and chase run on retained
+35 Hz source cadences. Attacks, sound wake-up, and alternate blocked-direction
+search are not enabled.
+
 Press the physical backquote/tilde key (`~`) to open the bounded Doom debug
 console. Opening it releases mouse capture and suppresses movement input. The
 native proof currently accepts `HELP`, `CLEAR`, `STATUS`, `CAMERA`, `COLLISION`, `LOOK`,
@@ -535,8 +542,8 @@ The report keeps `REJECT` prefilter decisions, exact source-linedef/opening
 blocks, front-arc results, near-front positive controls, and non-mutating
 eight-unit actor movement probes distinct. Movement probes evaluate dynamic
 opening inputs, step/drop limits, vertical clearance, and actor bodies. This is
-gameplay observation rather than renderer visibility; live chase movement is
-not enabled.
+gameplay observation rather than renderer visibility; the separate opt-in live
+candidate consumes the same results without changing the report.
 
 The headless report prepares the same canonical scene and returns the nearest
 prepared triangle with its hit source coordinate and retained draw identity.

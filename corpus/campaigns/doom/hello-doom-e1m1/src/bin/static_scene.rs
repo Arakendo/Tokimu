@@ -251,6 +251,10 @@ struct App {
     thing_sprite_tick_accumulator: f64,
     thing_sprite_total_ticks: u64,
     thing_sprite_active: Vec<bool>,
+    monster_chase_live: bool,
+    monster_runtime_states: Vec<Option<DoomMonsterRuntimeState>>,
+    monster_sight_world: hello_doom_e1m1::perception::DoomMonsterSightWorld,
+    actor_movement_world: hello_doom_e1m1::collision::DoomActorMovementWorld,
     player_inventory: hello_doom_e1m1::things::DoomPlayerInventory,
     thing_combat_states: Vec<Option<hello_doom_e1m1::combat::DoomCombatActorState>>,
     play_random: hello_doom_e1m1::combat::DoomPlayRandom,
@@ -414,6 +418,18 @@ struct DoomThingSprite {
     initial_frame: char,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct DoomMonsterRuntimeState {
+    source_position: [f32; 2],
+    source_angle_degrees: f32,
+    floor_height: i16,
+    source_sector: u32,
+    awake: bool,
+    look_tics: u16,
+    chase_tics: u16,
+    chase_state_index: u8,
+}
+
 #[derive(Clone, Debug)]
 struct DoomSpriteTextureUpload {
     source_lump_index: u32,
@@ -458,13 +474,14 @@ impl DoomSpriteTextureUpload {
 }
 
 fn build_doom_thing_sprite_mesh(
-    thing: &DoomThingSprite,
     upload: &DoomSpriteTextureUpload,
     mirrored: bool,
     viewer_source_position: [f32; 2],
+    source_position: [f32; 2],
+    floor_height: i16,
     embedding: DoomComparativeEmbedding,
 ) -> PlatformResult<Mesh> {
-    let thing_source = thing.source_position.map(f32::from);
+    let thing_source = source_position;
     let mut toward_viewer = Vec3::new(
         viewer_source_position[0] - thing_source[0],
         0.0,
@@ -479,7 +496,7 @@ fn build_doom_thing_sprite_mesh(
     let left = -f32::from(upload.left_offset);
     let right = f32::from(upload.width) - f32::from(upload.left_offset);
     let floor_lift = upload.floor_clearance_lift();
-    let top = f32::from(thing.floor_height) + f32::from(upload.top_offset) + floor_lift;
+    let top = f32::from(floor_height) + f32::from(upload.top_offset) + floor_lift;
     let bottom = top - f32::from(upload.height);
     let source_center = Vec3::new(thing_source[0], 0.0, thing_source[1]);
     let source_positions = [

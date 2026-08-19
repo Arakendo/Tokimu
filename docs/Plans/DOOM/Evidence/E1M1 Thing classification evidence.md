@@ -177,8 +177,24 @@ linedef and tests one-sided boundaries, current two-sided opening height,
 actor bodies. It does not reuse the narrower player walk helper as an implicit
 authority. The E1M1 report records 27 successful eight-unit forward probes and
 2 explicit vertical refusals across the 29 source monsters, with no unresolved
-outcome and no source mutation. Live chase clocks and mutable runtime positions
-remain the next gate.
+outcome and no source mutation.
+
+The reversible live candidate is now available through
+`--monster-chase-live`. The application owns one optional runtime pose per
+source monster and leaves decoded `THINGS` records unchanged. Sleeping monsters
+evaluate the retained sight observation on their 10-tic look cadence; an
+acquired monster turns toward the player on an eight-direction source grid and
+submits an eight-unit move through the same dynamic-height actor oracle.
+Accepted positions, source sectors, floor heights, and headings rebuild
+ordinary sprite billboards. Source-Thing order is the deterministic update
+order, and each accepted pose updates the actor-body snapshot before the next
+monster moves. E1M1's former human uses its retained four-tic run
+cadence, while the sergeant and imp use three tics; all use the source
+A-A-B-B-C-C-D-D run-frame sequence retained from released
+[`info.c`](https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/info.c).
+`R` discards this mutable state and
+recreates it from source placements. Attacks, sound activation, and alternate
+direction search after a blocked move are explicitly absent.
 
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.

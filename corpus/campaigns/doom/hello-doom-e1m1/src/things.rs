@@ -280,12 +280,29 @@ impl DoomThingStateProgram {
     }
 
     pub fn required_frames(self, initial_frame: char) -> Vec<char> {
+        if self == Self::MonsterIdle {
+            // The opt-in corpus chase candidate reuses the same source sprite
+            // family after A_Look succeeds. Load the complete A-D run cycle
+            // up front without mutating the imported Thing or stabilizing a
+            // generic animation contract.
+            return vec!['A', 'B', 'C', 'D'];
+        }
         let mut frames = (0..self.state_count())
             .map(|state_index| self.frame(initial_frame, state_index).frame)
             .collect::<Vec<_>>();
         frames.sort_unstable();
         frames.dedup();
         frames
+    }
+}
+
+/// Retained E1M1 run-state cadence from Doom's generated `info.c` table.
+/// The former human uses four tics; the sergeant and imp use three.
+pub const fn e1m1_monster_chase_tics(kind: u16) -> Option<u16> {
+    match kind {
+        3004 => Some(4),
+        9 | 3001 => Some(3),
+        _ => None,
     }
 }
 
@@ -675,9 +692,12 @@ mod tests {
     #[test]
     fn source_state_programs_preserve_reviewed_frame_cadence() {
         let monster = e1m1_thing_state_program(3004);
-        assert_eq!(monster.required_frames('A'), vec!['A', 'B']);
+        assert_eq!(monster.required_frames('A'), vec!['A', 'B', 'C', 'D']);
         assert_eq!(monster.frame('A', 0).tics, Some(10));
         assert!(monster.frame('A', 0).gameplay_action_deferred);
+        assert_eq!(e1m1_monster_chase_tics(3004), Some(4));
+        assert_eq!(e1m1_monster_chase_tics(9), Some(3));
+        assert_eq!(e1m1_monster_chase_tics(3001), Some(3));
 
         let bonus = e1m1_thing_state_program(2014);
         let frames = (0..bonus.state_count())

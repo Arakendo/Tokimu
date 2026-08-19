@@ -116,6 +116,12 @@ pub(crate) fn run() -> PlatformResult<()> {
     let monster_perception_report = args
         .iter()
         .any(|argument| argument == "--monster-perception-report");
+    let monster_chase_live = args
+        .iter()
+        .any(|argument| argument == "--monster-chase-live");
+    if monster_chase_live && !spawn_observer {
+        return Err("--monster-chase-live requires the source-spawn observer".into());
+    }
     let doom_topology_report = args
         .iter()
         .any(|argument| argument == "--doom-topology-report");
@@ -482,6 +488,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| !argument.starts_with("--bsp-diagnostic-focus="));
     args.retain(|argument| argument != "--doom-reject-report");
     args.retain(|argument| argument != "--monster-perception-report");
+    args.retain(|argument| argument != "--monster-chase-live");
     args.retain(|argument| argument != "--doom-topology-report");
     args.retain(|argument| argument != "--doom-bsp-bounds-audit-report");
     args.retain(|argument| argument != "--render-subsector-inventory-report");
@@ -551,7 +558,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full [--sector-boundary-trim]] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report|--monster-perception-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--thing-classification-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full [--sector-boundary-trim]] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--monster-chase-live] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report|--monster-perception-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--thing-classification-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -1319,6 +1326,25 @@ pub(crate) fn run() -> PlatformResult<()> {
         })
         .collect();
     let thing_sprite_active = vec![true; scene.thing_sprites.len()];
+    let monster_runtime_states = scene
+        .thing_sprites
+        .iter()
+        .map(|thing| {
+            (hello_doom_e1m1::things::e1m1_thing_state_program(thing.kind)
+                == hello_doom_e1m1::things::DoomThingStateProgram::MonsterIdle)
+                .then(|| DoomMonsterRuntimeState {
+                    source_position: thing.source_position.map(f32::from),
+                    source_angle_degrees: f32::from(thing.source_angle),
+                    floor_height: thing.floor_height,
+                    source_sector: thing.source_sector,
+                    awake: false,
+                    look_tics: 10,
+                    chase_tics: hello_doom_e1m1::things::e1m1_monster_chase_tics(thing.kind)
+                        .expect("classified E1M1 monster must retain chase cadence"),
+                    chase_state_index: 0,
+                })
+        })
+        .collect();
     let thing_combat_states = scene
         .thing_sprites
         .iter()
@@ -1357,6 +1383,10 @@ pub(crate) fn run() -> PlatformResult<()> {
         thing_sprite_tick_accumulator: 0.0,
         thing_sprite_total_ticks: 0,
         thing_sprite_active,
+        monster_chase_live,
+        monster_runtime_states,
+        monster_sight_world: scene.monster_sight_world,
+        actor_movement_world: scene.actor_movement_world,
         player_inventory: hello_doom_e1m1::things::DoomPlayerInventory::default(),
         thing_combat_states,
         play_random: hello_doom_e1m1::combat::DoomPlayRandom::default(),

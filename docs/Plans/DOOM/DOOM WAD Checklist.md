@@ -1265,7 +1265,7 @@ Acceptance criteria:
         reset state and prove identical RNG, damage, and killed state. Death
         sprites/pain states, drops, barrel explosions, monster attacks, and a
         general level restart remain explicit later work.
-- [ ] Add monster perception and movement only after observation boundaries are
+- [x] Add monster perception and movement only after observation boundaries are
       useful enough to diagnose behavior.
   - [x] Separate gameplay sight from rendering: use `REJECT` only as a negative
         sector-pair prefilter, then trace the source segment through one-sided
@@ -1285,10 +1285,15 @@ Acceptance criteria:
         without promoting the narrower first-walk helper. At E1M1 spawn, 27/29
         eight-unit source-direction probes move and 2/29 retain explicit
         vertical blocks; none mutates a Thing.
-  - [ ] Add chase clocks and application-owned mutable monster positions behind
+  - [x] Add chase clocks and application-owned mutable monster positions behind
         an opt-in live candidate. Rebuild ordinary sprite declarations from the
         resulting positions; do not mutate imported Things. Attack selection,
         sound wake-up, and alternate blocked-direction search remain separate.
+        `--monster-chase-live` evaluates retained `A_Look` every 10 tics, uses
+        source three/four-tic A-D run cadences, quantizes pursuit to eight
+        source directions, and submits each accepted application-owned pose as
+        an ordinary billboard. A two-frame native smoke run retains the grouped
+        sky and sector-boundary preparation unchanged.
 - [ ] Add save/replay evidence without treating WAD bytes as mutable world
       state.
 

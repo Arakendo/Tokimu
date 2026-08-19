@@ -11,6 +11,24 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
+    fn thing_source_pose(&self, index: usize) -> ([f32; 2], i16, f32, u32) {
+        if let Some(state) = self.monster_runtime_states[index] {
+            return (
+                state.source_position,
+                state.floor_height,
+                state.source_angle_degrees,
+                state.source_sector,
+            );
+        }
+        let thing = &self.thing_sprites[index];
+        (
+            thing.source_position.map(f32::from),
+            thing.floor_height,
+            f32::from(thing.source_angle),
+            thing.source_sector,
+        )
+    }
+
     fn fire_center_hitscan(&mut self) {
         const HITSCAN_RANGE: f32 = 2048.0;
         let Some(observer) = self.spawn_observer else {
@@ -46,13 +64,14 @@ impl App {
             .iter()
             .zip(self.thing_sprite_active.iter().copied())
             .filter(|(_, active)| *active)
-            .filter_map(|(thing, _)| {
+            .enumerate()
+            .filter_map(|(index, (thing, _))| {
                 let [radius, height] =
                     hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)?;
-                let position = self.comparative_embedding.lift_direction(
-                    thing.source_position.map(f32::from),
-                    f32::from(thing.floor_height),
-                );
+                let (source_position, floor_height, _, _) = self.thing_source_pose(index);
+                let position = self
+                    .comparative_embedding
+                    .lift_direction(source_position, f32::from(floor_height));
                 Some(hello_doom_e1m1::combat::DoomCombatActor {
                     source_thing: thing.source.record_index,
                     kind: thing.kind,
@@ -127,6 +146,196 @@ impl App {
         if visible_frame_changed {
             self.sprite_last_viewer_source_position = None;
         }
+        self.advance_live_monsters(ticks);
+    }
+
+    fn runtime_height_overrides(
+        &self,
+    ) -> (
+        Vec<(doom_map_provider::DoomSourceRecord, i16)>,
+        Vec<(doom_map_provider::DoomSourceRecord, i16)>,
+    ) {
+        let floor_overrides = self
+            .active_turbo_floors
+            .iter()
+            .map(|floor| (floor.target_sector, floor.current_floor_height))
+            .chain(
+                self.active_down_wait_up_platforms
+                    .iter()
+                    .map(|platform| (platform.target_sector, platform.current_floor_height)),
+            )
+            .collect();
+        let ceiling_overrides = self
+            .active_manual_doors
+            .iter()
+            .map(|door| (door.target_sector, door.current_ceiling_height))
+            .collect();
+        (floor_overrides, ceiling_overrides)
+    }
+
+    fn live_actor_bodies(
+        &self,
+        player_position: [f32; 2],
+        player_floor: i16,
+    ) -> Vec<hello_doom_e1m1::collision::DoomActorBody> {
+        let mut actors = self
+            .thing_sprites
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| self.thing_sprite_active[*index])
+            .filter_map(|(index, thing)| {
+                let [radius, height] =
+                    hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)?;
+                let (position, floor_height, _, _) = self.thing_source_pose(index);
+                Some(hello_doom_e1m1::collision::DoomActorBody {
+                    source_thing: thing.source.record_index,
+                    position,
+                    floor_height,
+                    radius,
+                    height: height as i16,
+                })
+            })
+            .collect::<Vec<_>>();
+        actors.push(hello_doom_e1m1::collision::DoomActorBody {
+            source_thing: u32::MAX,
+            position: player_position,
+            floor_height: player_floor,
+            radius: WALK_RADIUS,
+            height: 56,
+        });
+        actors
+    }
+
+    fn advance_live_monsters(&mut self, ticks: u64) {
+        if !self.monster_chase_live {
+            return;
+        }
+        for _ in 0..ticks {
+            self.advance_live_monsters_one_tic();
+        }
+    }
+
+    fn advance_live_monsters_one_tic(&mut self) {
+        let Some(observer) = self.spawn_observer else {
+            return;
+        };
+        let (player_position, _) = self
+            .comparative_embedding
+            .lower_direction(observer.position);
+        let player_position = [player_position[0], player_position[1]];
+        let (floor_overrides, ceiling_overrides) = self.runtime_height_overrides();
+        let mut actors = self.live_actor_bodies(player_position, observer.floor);
+        let mut presentation_changed = false;
+        for index in 0..self.monster_runtime_states.len() {
+            if !self.thing_sprite_active[index] {
+                continue;
+            }
+            let Some(mut state) = self.monster_runtime_states[index] else {
+                continue;
+            };
+            let thing = &self.thing_sprites[index];
+            let [radius, height] =
+                hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)
+                    .expect("live monster must retain combat dimensions");
+            if !state.awake {
+                state.look_tics = state.look_tics.saturating_sub(1);
+                if state.look_tics == 0 {
+                    state.look_tics = 10;
+                    let observation = self.monster_sight_world.observe_with_runtime_heights(
+                        hello_doom_e1m1::perception::DoomMonsterPerceptionQuery {
+                            monster_sector: state.source_sector as usize,
+                            monster_position: state.source_position,
+                            monster_floor: f32::from(state.floor_height),
+                            monster_height: height,
+                            monster_angle_degrees: state.source_angle_degrees,
+                            player_sector: observer.sector as usize,
+                            player_position,
+                            player_floor: f32::from(observer.floor),
+                            player_height: 56.0,
+                            player_alive: self.player_inventory.health > 0,
+                            all_around: false,
+                        },
+                        &floor_overrides,
+                        &ceiling_overrides,
+                    );
+                    if matches!(
+                        observation,
+                        hello_doom_e1m1::perception::DoomMonsterPerception::Acquired { .. }
+                    ) {
+                        state.awake = true;
+                        presentation_changed = true;
+                        let diagnostic = format!(
+                            "{} monster wake: thing={} kind={} sector={} observation={observation:?}",
+                            self.map_name,
+                            thing.source.record_index,
+                            thing.kind,
+                            state.source_sector,
+                        );
+                        eprintln!("{diagnostic}");
+                        self.debug_console.append(diagnostic);
+                    }
+                }
+                self.monster_runtime_states[index] = Some(state);
+                continue;
+            }
+
+            state.chase_tics = state.chase_tics.saturating_sub(1);
+            if state.chase_tics != 0 {
+                self.monster_runtime_states[index] = Some(state);
+                continue;
+            }
+            state.chase_tics = hello_doom_e1m1::things::e1m1_monster_chase_tics(thing.kind)
+                .expect("live monster must retain chase cadence");
+            state.chase_state_index = (state.chase_state_index + 1) % 8;
+            presentation_changed = true;
+            let toward_player = [
+                player_position[0] - state.source_position[0],
+                player_position[1] - state.source_position[1],
+            ];
+            let distance =
+                (toward_player[0] * toward_player[0] + toward_player[1] * toward_player[1]).sqrt();
+            if distance <= f32::EPSILON {
+                self.monster_runtime_states[index] = Some(state);
+                continue;
+            }
+            let heading = toward_player[1].atan2(toward_player[0]).to_degrees();
+            let quantized_heading = (heading / 45.0).round() * 45.0;
+            let radians = quantized_heading.to_radians();
+            state.source_angle_degrees = quantized_heading.rem_euclid(360.0);
+            let outcome = self.actor_movement_world.probe_move(
+                thing.source.record_index,
+                state.source_position,
+                state.floor_height,
+                [radians.cos() * 8.0, radians.sin() * 8.0],
+                radius,
+                height as i16,
+                &floor_overrides,
+                &ceiling_overrides,
+                &actors,
+            );
+            if let hello_doom_e1m1::collision::DoomActorMoveOutcome::Moved {
+                position,
+                source_sector,
+                floor_height,
+                ..
+            } = outcome
+            {
+                state.source_position = position;
+                state.source_sector = source_sector.record_index;
+                state.floor_height = floor_height;
+                if let Some(actor) = actors
+                    .iter_mut()
+                    .find(|actor| actor.source_thing == thing.source.record_index)
+                {
+                    actor.position = position;
+                    actor.floor_height = floor_height;
+                }
+            }
+            self.monster_runtime_states[index] = Some(state);
+        }
+        if presentation_changed {
+            self.sprite_last_viewer_source_position = None;
+        }
     }
 
     fn collect_touching_thing_pickups(&mut self) {
@@ -192,15 +401,28 @@ impl App {
             .zip(self.thing_sprite_states.iter())
             .enumerate()
         {
+            let (source_position, floor_height, source_angle_degrees, _) =
+                self.thing_source_pose(index);
             let rotation = hello_doom_e1m1::things::select_doom_sprite_view_rotation(
                 viewer_source.map(f64::from),
-                thing.source_position.map(|value| f64::from(value)),
-                f64::from(thing.source_angle),
+                source_position.map(f64::from),
+                f64::from(source_angle_degrees),
+            );
+            let frame = self.monster_runtime_states[index].map_or_else(
+                || state.frame(thing.initial_frame).frame,
+                |monster| {
+                    if monster.awake {
+                        const RUN_FRAMES: [char; 8] = ['A', 'A', 'B', 'B', 'C', 'C', 'D', 'D'];
+                        RUN_FRAMES[usize::from(monster.chase_state_index) % RUN_FRAMES.len()]
+                    } else {
+                        state.frame(thing.initial_frame).frame
+                    }
+                },
             );
             let selection = hello_doom_e1m1::things::resolve_doom_sprite_patch(
                 &self.sprite_frames,
                 thing.sprite,
-                state.frame(thing.initial_frame).frame,
+                frame,
                 rotation,
             )
             .map_err(|error| {
@@ -220,10 +442,11 @@ impl App {
                     ))
                 })?;
             let mesh = build_doom_thing_sprite_mesh(
-                thing,
                 upload,
                 selection.mirrored,
                 viewer_source,
+                source_position,
+                floor_height,
                 self.comparative_embedding,
             )?;
             let handle = MeshHandle(DOOM_THING_SPRITE_MESH_BASE + index as u64);
@@ -627,6 +850,25 @@ impl App {
         self.thing_sprite_tick_accumulator = 0.0;
         self.thing_sprite_total_ticks = 0;
         self.sprite_last_viewer_source_position = None;
+        for (state, thing) in self
+            .monster_runtime_states
+            .iter_mut()
+            .zip(&self.thing_sprites)
+        {
+            if state.is_some() {
+                *state = Some(DoomMonsterRuntimeState {
+                    source_position: thing.source_position.map(f32::from),
+                    source_angle_degrees: f32::from(thing.source_angle),
+                    floor_height: thing.floor_height,
+                    source_sector: thing.source_sector,
+                    awake: false,
+                    look_tics: 10,
+                    chase_tics: hello_doom_e1m1::things::e1m1_monster_chase_tics(thing.kind)
+                        .expect("classified E1M1 monster must retain chase cadence"),
+                    chase_state_index: 0,
+                });
+            }
+        }
         for state in self.thing_combat_states.iter_mut().flatten() {
             state.respawn();
         }
@@ -634,8 +876,9 @@ impl App {
         self.last_collision_contacts.clear();
         self.last_floor_transition = None;
         eprintln!(
-            "{} source-spawn respawn: observer=true inventory=true Things=true thing-clocks=true play-random-index=0",
-            self.map_name
+            "{} source-spawn respawn: observer=true inventory=true Things=true thing-clocks=true monster-runtime={} play-random-index=0",
+            self.map_name,
+            if self.monster_chase_live { "reset" } else { "disabled" },
         );
     }
 
@@ -738,13 +981,19 @@ impl App {
                 },
             ),
             DebugCommand::Status => format!(
-                "status: frame={} draws={} cutouts={} selection={:?} mouse_capture={} noclip={} active_manual_doors={} details={}",
+                "status: frame={} draws={} cutouts={} selection={:?} mouse_capture={} noclip={} monster_chase_live={} awake_monsters={} active_manual_doors={} details={}",
                 self.frame_index,
                 self.draws.len(),
                 self.cutout_draws.len(),
                 self.candidate_selection,
                 self.mouse_captured,
                 self.noclip,
+                self.monster_chase_live,
+                self.monster_runtime_states
+                    .iter()
+                    .flatten()
+                    .filter(|monster| monster.awake)
+                    .count(),
                 self.active_manual_doors
                     .iter()
                     .filter(|door| door.phase != DoomManualDoorPhase::Closed)
@@ -2737,11 +2986,12 @@ impl PlatformEventHandler for App {
                 .filter(|state| state.frame('A').gameplay_action_deferred)
                 .count();
             eprintln!(
-                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; deterministic-state-clocks={animated_states}; deferred-monster-look-actions={deferred_look_states}; state-rate-hz=35; state-storage=application-owned-separate-from-WAD; floor-clearance-lifts={lifted_sprites}; maximum-floor-clearance-lift={maximum_floor_lift}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top-plus-covered-texel-floor-clearance; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
+                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; deterministic-state-clocks={animated_states}; monster-look-capable-states={deferred_look_states}; monster-chase-live={}; state-rate-hz=35; state-storage=application-owned-separate-from-WAD; floor-clearance-lifts={lifted_sprites}; maximum-floor-clearance-lift={maximum_floor_lift}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top-plus-covered-texel-floor-clearance; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
                 self.map_name,
                 self.thing_sprites.len(),
                 self.sprite_uploads.len(),
                 self.sprite_uploads.first().map_or("none", |upload| upload.source_name.as_str()),
+                self.monster_chase_live,
                 if self.skywall_parity_enabled {
                     "depth-prepass-plus-even-parity-color"
                 } else {

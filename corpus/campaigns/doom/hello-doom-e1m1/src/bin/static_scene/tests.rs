@@ -95,10 +95,11 @@ fn thing_sprite_billboard_applies_offsets_floor_clearance_mirroring_and_vertical
         material_value: Material::new("test", Color::rgb(1.0, 1.0, 1.0)),
     };
     let mesh = build_doom_thing_sprite_mesh(
-        &thing,
         &upload,
         true,
         [10.0, 40.0],
+        thing.source_position.map(f32::from),
+        thing.floor_height,
         DoomComparativeEmbedding::PreserveNorth,
     )
     .expect("billboard mesh");
