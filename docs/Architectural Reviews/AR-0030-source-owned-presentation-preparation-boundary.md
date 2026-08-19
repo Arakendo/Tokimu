@@ -2589,6 +2589,31 @@ The review moves away from shared admission when:
   renderer contracts or Doom preparation semantics. The E1M2-to-E1M3 switch
   and sustained movement remain the live acceptance test.
 
+### Cycle 77 -- 2026-08-19
+
+- Eliminating simultaneous WGPU surfaces allowed E1M3 to survive the next
+  live map-switch and walkabout, but continued rotation later closed the Edge
+  window around E1M5 or E1M6. The retained log still contains no explicit OOM,
+  device-loss, or WGPU validation record; an empty Crashpad `watson_metadata`
+  artifact appeared at 13:48. Memory pressure is therefore plausible but not
+  yet proven.
+- A concrete lifetime pressure remains: every working-map replacement creates
+  a fresh WGPU backend, surface and device. Rust drops the preceding backend
+  before replacement, but browser/GPU resource reclamation is not established
+  as synchronous. Repeated rotation can therefore accumulate retired device
+  work outside the consumer's observable lifetime.
+- Reusing the retained backend is not an ordinary local edit under current
+  contracts. Sampleable texture creation rejects existing handles, materials
+  bind concrete texture views, and the backend exposes neither individual
+  scene-resource release nor a bounded scene-resource arena reset. Adding any
+  such operation changes renderer resource lifetime semantics and must be
+  decided deliberately rather than hidden in the Doom consumer.
+- Browser map rotation remains parked at this architectural decision: admit an
+  adapter-scoped scene-resource reset/release contract, define a replaceable
+  resource arena with explicit invalidation evidence, or accept a heavier
+  whole-session/page replacement boundary. No Doom preparation or grouped-sky
+  semantic change is implicated by the current evidence.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

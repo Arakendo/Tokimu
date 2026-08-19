@@ -1441,6 +1441,13 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
           it now completes CPU preparation, drops the old canvas backend, and
           only then creates the replacement. Input pacing and retained provider
           diagnostics remain additional containment.
+      - [ ] Resolve repeated-map GPU lifetime before treating rotation as
+            accepted. E1M3 survived after eliminating simultaneous canvas
+            surfaces, but a later E1M5/E1M6 switch still closed the Edge test
+            window. Each switch currently creates a fresh WGPU device/backend;
+            reusing one backend requires an explicit renderer resource-lifetime
+            decision because sampleable texture creation rejects an existing
+            handle and no scene-resource release/reset operation exists.
   - [ ] Retain a real WebGPU observation and capture for at least E1M1 plus one
         swapped map. WASM compilation and strict TypeScript checking are only
         readiness evidence until the browser executes the stencil path.
