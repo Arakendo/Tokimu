@@ -1294,8 +1294,13 @@ Acceptance criteria:
         source directions, and submits each accepted application-owned pose as
         an ordinary billboard. A two-frame native smoke run retains the grouped
         sky and sector-boundary preparation unchanged.
-- [ ] Add save/replay evidence without treating WAD bytes as mutable world
+- [x] Add save/replay evidence without treating WAD bytes as mutable world
       state.
+  - [x] `--gameplay-snapshot-replay-report` captures only admitted mutable
+        gameplay state (inventory, Thing activity/state clocks, combat health,
+        play RNG, and monster runtime poses), restores the baseline, and proves
+        an identical bounded replay. Imported Things and renderer resources are
+        excluded; this is an in-memory evidence shape, not a persistence format.
 
 Acceptance criteria:
 

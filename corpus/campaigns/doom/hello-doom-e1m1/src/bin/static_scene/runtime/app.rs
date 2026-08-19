@@ -11,6 +11,34 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
+    pub(super) fn capture_gameplay_snapshot(&self) -> DoomGameplaySnapshot {
+        DoomGameplaySnapshot {
+            player_inventory: self.player_inventory,
+            thing_sprite_states: self.thing_sprite_states.clone(),
+            thing_sprite_total_ticks: self.thing_sprite_total_ticks,
+            thing_sprite_active: self.thing_sprite_active.clone(),
+            thing_combat_states: self.thing_combat_states.clone(),
+            play_random: self.play_random,
+            monster_runtime_states: self.monster_runtime_states.clone(),
+        }
+    }
+
+    pub(super) fn restore_gameplay_snapshot(&mut self, snapshot: &DoomGameplaySnapshot) {
+        self.player_inventory = snapshot.player_inventory;
+        self.thing_sprite_states
+            .clone_from(&snapshot.thing_sprite_states);
+        self.thing_sprite_total_ticks = snapshot.thing_sprite_total_ticks;
+        self.thing_sprite_active
+            .clone_from(&snapshot.thing_sprite_active);
+        self.thing_combat_states
+            .clone_from(&snapshot.thing_combat_states);
+        self.play_random = snapshot.play_random;
+        self.monster_runtime_states
+            .clone_from(&snapshot.monster_runtime_states);
+        self.thing_sprite_tick_accumulator = 0.0;
+        self.sprite_last_viewer_source_position = None;
+    }
+
     fn thing_source_pose(&self, index: usize) -> ([f32; 2], i16, f32, u32) {
         if let Some(state) = self.monster_runtime_states[index] {
             return (

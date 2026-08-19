@@ -20,4 +20,7 @@ pub(crate) use dynamic_geometry::{
     manual_door_boundary_linedefs, manual_door_dynamic_wall_texture_names,
     static_wall_triangle_key,
 };
-pub(crate) use replay_reports::{report_door_resource_replay, report_moving_floor_resource_replay};
+pub(crate) use replay_reports::{
+    report_door_resource_replay, report_gameplay_snapshot_replay,
+    report_moving_floor_resource_replay,
+};

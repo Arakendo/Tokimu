@@ -366,7 +366,7 @@ struct App {
     fixed_reconstruction_camera: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct OrderedPreparationIdentity {
     source_position: [i16; 2],
     source_heading_bits: u64,
@@ -428,6 +428,19 @@ struct DoomMonsterRuntimeState {
     look_tics: u16,
     chase_tics: u16,
     chase_state_index: u8,
+}
+
+/// Corpus-private mutable gameplay payload. Imported WAD/map records and
+/// renderer resources are deliberately absent from this snapshot.
+#[derive(Clone, Debug, PartialEq)]
+struct DoomGameplaySnapshot {
+    player_inventory: hello_doom_e1m1::things::DoomPlayerInventory,
+    thing_sprite_states: Vec<hello_doom_e1m1::things::DoomThingRuntimeState>,
+    thing_sprite_total_ticks: u64,
+    thing_sprite_active: Vec<bool>,
+    thing_combat_states: Vec<Option<hello_doom_e1m1::combat::DoomCombatActorState>>,
+    play_random: hello_doom_e1m1::combat::DoomPlayRandom,
+    monster_runtime_states: Vec<Option<DoomMonsterRuntimeState>>,
 }
 
 #[derive(Clone, Debug)]

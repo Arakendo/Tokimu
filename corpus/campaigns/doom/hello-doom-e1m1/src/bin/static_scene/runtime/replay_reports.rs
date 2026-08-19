@@ -2,6 +2,108 @@
 
 use super::super::*;
 
+pub(crate) fn report_gameplay_snapshot_replay(app: &mut App) -> PlatformResult<()> {
+    let source_before = app
+        .thing_sprites
+        .iter()
+        .map(|thing| {
+            (
+                thing.source,
+                thing.kind,
+                thing.source_position,
+                thing.source_angle,
+                thing.floor_height,
+                thing.source_sector,
+            )
+        })
+        .collect::<Vec<_>>();
+    let baseline = app.capture_gameplay_snapshot();
+    let (first_damage, first_target) = apply_bounded_gameplay_script(app)?;
+    let expected = app.capture_gameplay_snapshot();
+    if expected == baseline {
+        return Err("bounded gameplay script did not change snapshot state".into());
+    }
+    app.restore_gameplay_snapshot(&baseline);
+    if app.capture_gameplay_snapshot() != baseline {
+        return Err("gameplay snapshot did not restore the baseline exactly".into());
+    }
+    let (replay_damage, replay_target) = apply_bounded_gameplay_script(app)?;
+    let replay = app.capture_gameplay_snapshot();
+    if replay != expected || replay_damage != first_damage || replay_target != first_target {
+        return Err("gameplay snapshot replay diverged after baseline restoration".into());
+    }
+    let source_after = app
+        .thing_sprites
+        .iter()
+        .map(|thing| {
+            (
+                thing.source,
+                thing.kind,
+                thing.source_position,
+                thing.source_angle,
+                thing.floor_height,
+                thing.source_sector,
+            )
+        })
+        .collect::<Vec<_>>();
+    if source_after != source_before {
+        return Err("gameplay snapshot replay mutated imported Thing data".into());
+    }
+    let awake = replay
+        .monster_runtime_states
+        .iter()
+        .flatten()
+        .filter(|monster| monster.awake)
+        .count();
+    let inactive = replay
+        .thing_sprite_active
+        .iter()
+        .filter(|active| !**active)
+        .count();
+    app.restore_gameplay_snapshot(&baseline);
+    println!(
+        "E1M1 Slice 9 gameplay snapshot replay: mutable-payload=[player-inventory,thing-active,thing-state-clocks,combat-health,play-random,monster-runtime-poses]; first-damage={first_damage}; target-thing={first_target}; replay-identical=true; restored-baseline=true; replay-awake-monsters={awake}; replay-inactive-things={inactive}; imported-things-mutated=false; wad-bytes-owned=false; renderer-resources-owned=false; persistence-format=none; renderer-initialized=false"
+    );
+    Ok(())
+}
+
+fn apply_bounded_gameplay_script(app: &mut App) -> PlatformResult<(i32, u32)> {
+    app.player_inventory.ammo[0] = app.player_inventory.ammo[0].saturating_sub(1);
+    let damage = app.play_random.pistol_damage();
+    let target = app
+        .thing_combat_states
+        .iter_mut()
+        .flatten()
+        .find(|state| state.kind == 3004)
+        .ok_or("E1M1 snapshot replay requires a source zombieman")?;
+    target.apply_damage(damage);
+    let target_source = target.source_thing;
+    app.player_inventory.apply_damage(7);
+    for (state, thing) in app.thing_sprite_states.iter_mut().zip(&app.thing_sprites) {
+        state.advance(thing.initial_frame, 17);
+    }
+    app.thing_sprite_total_ticks = app.thing_sprite_total_ticks.saturating_add(17);
+    if let Some((index, _)) = app
+        .thing_combat_states
+        .iter()
+        .enumerate()
+        .find(|(_, state)| state.is_none())
+    {
+        app.thing_sprite_active[index] = false;
+    }
+    let monster = app
+        .monster_runtime_states
+        .iter_mut()
+        .flatten()
+        .next()
+        .ok_or("E1M1 snapshot replay requires a monster runtime record")?;
+    monster.awake = true;
+    monster.source_position[0] += 8.0;
+    monster.source_angle_degrees = 0.0;
+    monster.chase_state_index = 1;
+    Ok((damage, target_source))
+}
+
 /// Replays E1M1's two moving-floor lifetimes through the application-owned
 /// presentation seam without initializing a renderer.
 pub(crate) fn report_moving_floor_resource_replay(app: &mut App) -> PlatformResult<()> {

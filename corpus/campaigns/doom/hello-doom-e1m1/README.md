@@ -545,6 +545,19 @@ opening inputs, step/drop limits, vertical clearance, and actor bodies. This is
 gameplay observation rather than renderer visibility; the separate opt-in live
 candidate consumes the same results without changing the report.
 
+The mutable gameplay boundary also has a renderer-free in-memory snapshot
+replay:
+
+```powershell
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --map=E1M1 --gameplay-snapshot-replay-report
+```
+
+It restores and repeats a bounded gameplay script exactly while proving that
+imported Things remain unchanged. This is save/replay evidence, not a proposed
+serialization format or ownership of WAD bytes.
+
 The headless report prepares the same canonical scene and returns the nearest
 prepared triangle with its hit source coordinate and retained draw identity.
 It also reports the nearest paired-sky depth boundary and omitted source

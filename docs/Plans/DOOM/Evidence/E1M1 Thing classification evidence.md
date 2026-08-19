@@ -196,6 +196,23 @@ A-A-B-B-C-C-D-D run-frame sequence retained from released
 recreates it from source placements. Attacks, sound activation, and alternate
 direction search after a blocked move are explicitly absent.
 
+The Slice 9 save/replay boundary is exercised independently:
+
+```powershell
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --map=E1M1 --gameplay-snapshot-replay-report
+```
+
+The report captures mutable inventory, Thing activity and state clocks, combat
+health, play RNG, and monster runtime poses. It runs a bounded damage/state/
+pose script, restores the baseline, reruns the script, and observes the same
+15 damage against source Thing 10 and an identical final snapshot. The retained
+source Thing identity/placement tuples remain exactly equal at the application boundary.
+Renderer resources, imported WAD bytes, and any persistence encoding are not
+members of the snapshot. This proves separation and deterministic restoration;
+it deliberately does not establish a stable save-file contract.
+
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.
 This prevents the new draw family from bypassing the established sky mask while
