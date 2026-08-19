@@ -382,6 +382,16 @@ pub fn e1m1_pickup_touches_player(
         && (-8.0..=56.0).contains(&vertical_delta)
 }
 
+/// Source dimensions for the shootable actors present in E1M1. These are
+/// collision facts, not billboard extents.
+pub const fn e1m1_combat_actor_dimensions(kind: u16) -> Option<[f32; 2]> {
+    match kind {
+        9 | 3001 | 3004 => Some([20.0, 56.0]),
+        2035 => Some([10.0, 42.0]),
+        _ => None,
+    }
+}
+
 impl DoomPlayerInventory {
     fn give_ammo(&mut self, ammo_index: usize, clip_loads: u16) -> bool {
         const CLIP_AMMO: [u16; 4] = [10, 4, 1, 20];
@@ -724,6 +734,9 @@ mod tests {
         assert!(e1m1_pickup_touches_player([0.0, 0.0], 0.0, [36, 0], 56));
         assert!(!e1m1_pickup_touches_player([0.0, 0.0], 0.0, [37, 0], 56));
         assert!(!e1m1_pickup_touches_player([0.0, 0.0], 0.0, [0, 0], -9));
+        assert_eq!(e1m1_combat_actor_dimensions(3001), Some([20.0, 56.0]));
+        assert_eq!(e1m1_combat_actor_dimensions(2035), Some([10.0, 42.0]));
+        assert_eq!(e1m1_combat_actor_dimensions(2014), None);
     }
 
     #[test]

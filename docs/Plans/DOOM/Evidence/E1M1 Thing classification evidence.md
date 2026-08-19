@@ -106,6 +106,27 @@ Thing. A pickup which cannot change a full inventory remains present. Sounds,
 messages, dropped-item policy, difficulty ammo doubling, and automatic weapon
 selection remain deliberately unapplied.
 
+The first combat-collision increment adds no engine physics API. A
+corpus-private deterministic kernel traces a finite ray against source-backed
+vertical actor cylinders and accepts an independently supplied nearest
+world-surface distance. It selects the nearest result, uses source Thing index
+as the actor tie-break, and lets a world surface win an equal-distance tie.
+The E1M1 dimensions admitted here are 20 by 56 map units for its three monster
+kinds and 10 by 42 for barrels; billboard dimensions remain unrelated.
+
+Projectile collision uses the same ordering after expanding actor radius and
+vertical support by a finite projectile cylinder over one caller-owned
+movement delta. Tests retain actor/world occlusion, deterministic actor ties,
+pitched vertical misses, and swept-volume contact. Runtime projectile creation,
+tic scheduling, effects, and damage are still deferred.
+
+In the native corpus, the first click captures the pointer and later left
+clicks issue a 2,048-unit ray along the actual yaw/pitch camera direction. The
+application supplies active monsters/barrels plus the nearest active prepared
+opaque surface and prints `actor`, `world`, or `miss`; it deliberately reports
+`damage=deferred`. This use of prepared geometry is a corpus-local live probe,
+not a decision that render declarations own general gameplay collision.
+
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.
 This prevents the new draw family from bypassing the established sky mask while

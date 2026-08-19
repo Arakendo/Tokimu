@@ -11,6 +11,83 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
+    fn fire_center_hitscan(&mut self) {
+        const HITSCAN_RANGE: f32 = 2048.0;
+        let Some(observer) = self.spawn_observer else {
+            return;
+        };
+        let direction = self
+            .observer_look
+            .map_or(observer.forward, |look| {
+                observer_direction(look.yaw, look.pitch)
+            })
+            .normalize_or_zero();
+        if direction == Vec3::ZERO {
+            return;
+        }
+        let world_distance = self
+            .draws
+            .iter()
+            .zip(self.opaque_draw_enabled.iter().copied())
+            .filter(|(_, enabled)| *enabled)
+            .filter_map(|(draw, _)| nearest_mesh_ray_hit(observer.position, direction, &draw.mesh))
+            .filter(|distance| *distance <= HITSCAN_RANGE)
+            .min_by(f32::total_cmp);
+        let actors = self
+            .thing_sprites
+            .iter()
+            .zip(self.thing_sprite_active.iter().copied())
+            .filter(|(_, active)| *active)
+            .filter_map(|(thing, _)| {
+                let [radius, height] =
+                    hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)?;
+                let position = self.comparative_embedding.lift_direction(
+                    thing.source_position.map(f32::from),
+                    f32::from(thing.floor_height),
+                );
+                Some(hello_doom_e1m1::combat::DoomCombatActor {
+                    source_thing: thing.source.record_index,
+                    kind: thing.kind,
+                    position: position.to_array(),
+                    radius,
+                    height,
+                })
+            })
+            .collect::<Vec<_>>();
+        let hit = hello_doom_e1m1::combat::trace_hitscan(
+            observer.position.to_array(),
+            direction.to_array(),
+            HITSCAN_RANGE,
+            world_distance,
+            &actors,
+        );
+        let diagnostic = match hit {
+            Some(hello_doom_e1m1::combat::DoomCombatHit::Actor {
+                source_thing,
+                distance,
+            }) => {
+                let kind = actors
+                    .iter()
+                    .find(|actor| actor.source_thing == source_thing)
+                    .map_or(0, |actor| actor.kind);
+                format!(
+                    "{} hitscan: result=actor source-thing={source_thing} kind={kind} distance={distance:.3} damage=deferred",
+                    self.map_name
+                )
+            }
+            Some(hello_doom_e1m1::combat::DoomCombatHit::World { distance }) => format!(
+                "{} hitscan: result=world distance={distance:.3} damage=not-applicable",
+                self.map_name
+            ),
+            None => format!(
+                "{} hitscan: result=miss maximum-distance={HITSCAN_RANGE} damage=not-applicable",
+                self.map_name
+            ),
+        };
+        eprintln!("{diagnostic}");
+        self.debug_console.append(diagnostic);
+    }
+
     fn advance_thing_sprite_states(&mut self, delta_seconds: f64) {
         self.thing_sprite_tick_accumulator += delta_seconds.max(0.0);
         let ticks = (self.thing_sprite_tick_accumulator / DOOM_TIC_SECONDS).floor() as u64;
@@ -2423,7 +2500,7 @@ impl PlatformEventHandler for App {
         }
         if let Some(collision) = &self.walk_collision {
             eprintln!(
-                "{} Slice 6 walk proof: radius={WALK_RADIUS}; walk-speed={WALK_SPEED}; run-speed={}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-shift-run-E-use-click-capture-escape-release-R-reset-[-previous-map-]-next-map-noclip-space-up-left-control-down",
+                "{} Slice 6 walk proof: radius={WALK_RADIUS}; walk-speed={WALK_SPEED}; run-speed={}; blocking_linedefs={}; broad_phase=source-blockmap-with-full-wall-fallback; noclip={}; controls=WASD-move-shift-run-E-use-first-click-capture-later-left-click-hitscan-escape-release-R-reset-[-previous-map-]-next-map-noclip-space-up-left-control-down",
                 self.map_name,
                 WALK_SPEED * RUN_SPEED_MULTIPLIER,
                 collision.blocking_wall_count(),
@@ -2715,7 +2792,11 @@ impl PlatformEventHandler for App {
         } = event
         {
             if !self.fixed_reconstruction_camera {
-                self.set_mouse_captured(true);
+                if self.mouse_captured {
+                    self.fire_center_hitscan();
+                } else {
+                    self.set_mouse_captured(true);
+                }
             }
             return Ok(());
         }

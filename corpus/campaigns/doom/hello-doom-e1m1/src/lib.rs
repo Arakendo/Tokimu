@@ -4,6 +4,7 @@
 //! resulting ordinary mesh with supplied texture coordinates.
 
 pub mod collision;
+pub mod combat;
 pub mod debug_console;
 /// Doom-private ordered source-occurrence preparation shared by native and
 /// browser corpus hosts.  It produces ordinary Tokimu declarations but does

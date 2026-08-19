@@ -1234,7 +1234,22 @@ Acceptance criteria:
         present.
   - [x] Keep difficulty-based ammo doubling, dropped-item policy, pickup
         sounds/messages, and automatic weapon switching explicit later work.
-- [ ] Add hitscan and projectile collision.
+- [x] Add hitscan and projectile collision.
+  - [x] Add a deterministic nearest-hit kernel over finite vertical actor
+        cylinders, with source-record tie-breaking and a caller-supplied
+        nearest world-surface distance. World wins equal-distance ties so an
+        actor cannot leak through its occluder.
+  - [x] Add finite projectile-cylinder sweep by expanding target radius and
+        vertical support by the projectile volume, then resolving actor versus
+        world collision over exactly one caller-owned movement delta.
+  - [x] Wire captured left-click to a 2,048-unit actual-camera hitscan probe.
+        The corpus application supplies active source-backed monster/barrel
+        cylinders and the nearest active prepared opaque surface, then reports
+        actor/world/miss without applying damage.
+  - [x] Keep prepared-surface distance explicitly corpus-private rather than
+        making presentation geometry generic gameplay authority. Masked-middle
+        declarations do not block this first trace. Projectile creation,
+        movement scheduling, impact effects, and damage remain separate work.
 - [ ] Add damage, death, and respawn policy.
 - [ ] Add monster perception and movement only after observation boundaries are
       useful enough to diagnose behavior.

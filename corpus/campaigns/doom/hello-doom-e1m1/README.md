@@ -492,9 +492,12 @@ recurrence is retained by the separate G2 conformance fixture. Neither command
 enables AABB/frustum selection, and Candidate 1 adds no persistent mesh identity.
 
 For native inspection, click the scene to capture the mouse; press `Escape` to
-release it. `W`/`A`/`S`/`D` move; accepted source-sector floor transitions
-adjust observer height. These controls are presentation-only corpus navigation:
-they do not add a complete Doom player, physics, or a Tokimu input contract.
+release it. Once captured, later left clicks run the current center-view
+hitscan collision probe and print whether the nearest result is a source Thing,
+finite world surface, or miss. It does not apply damage yet. `W`/`A`/`S`/`D`
+move; accepted source-sector floor transitions adjust observer height. These
+controls remain corpus-local: they do not establish a generic Tokimu player,
+physics, or weapon contract.
 
 Press the physical backquote/tilde key (`~`) to open the bounded Doom debug
 console. Opening it releases mouse capture and suppresses movement input. The
