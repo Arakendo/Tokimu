@@ -3156,7 +3156,7 @@ fn lower_doom_bounded_subsector_surfaces(
                     })
                 })
         });
-        let vertices = if let Some(vertices) = stitched {
+        let local_vertices = if let Some(vertices) = stitched {
             stitched_seg_loops += 1;
             if (polygon_signed_area(&vertices).abs() - polygon_signed_area(&region.vertices).abs())
                 .abs()
@@ -3180,6 +3180,17 @@ fn lower_doom_bounded_subsector_surfaces(
             bsp_path_fallbacks += 1;
             bsp_path_fallback_subsectors.push(region.source_subsector);
             region.vertices.clone()
+        };
+        // The sector candidate has complete authored sector-boundary support.
+        // Its BSP leaf supplies internal partitioning; local SEGs must not
+        // narrow that leaf first because node-builder-quantized SEG lines on
+        // opposite sides of an internal same-sector boundary can disagree and
+        // manufacture a plane gap. The local source-bounded result remains the
+        // unchanged control when sector topology is not enabled.
+        let vertices = if sector_boundary_trim {
+            region.vertices.clone()
+        } else {
+            local_vertices
         };
 
         if polygon_signed_area(&vertices).abs() <= AREA_EPSILON {
@@ -3313,7 +3324,15 @@ fn conform_coplanar_region_edges(regions: &mut [&mut Vec<[f64; 2]>]) -> usize {
                     }
                     let perpendicular =
                         (delta[0] * relative[1] - delta[1] * relative[0]).abs() / length;
-                    (perpendicular <= LINE_DISTANCE_EPSILON).then_some((t, point))
+                    let projected = [start[0] + delta[0] * t, start[1] + delta[1] * t];
+                    // The inserted endpoint and the neighboring source point
+                    // must become the same renderer-precision vertex. Retain
+                    // the exact point on this edge only when that projection
+                    // is observationally identical after the eventual f32
+                    // lowering; otherwise this is not a safe T-junction weld.
+                    (perpendicular <= LINE_DISTANCE_EPSILON
+                        && projected.map(|value| value as f32) == point.map(|value| value as f32))
+                    .then_some((t, projected))
                 })
                 .collect::<Vec<_>>();
             interior.sort_by(|left, right| left.0.total_cmp(&right.0));
@@ -3483,7 +3502,6 @@ fn append_subsector_surface_triangles(
     ownership: &DoomSubsectorSectorOwnership,
     sector: &DoomSector,
 ) {
-    let counter_clockwise = polygon_signed_area(vertices) > 0.0;
     for (plane, height, texture_name, face_up) in [
         (
             DoomSurfacePlane::Floor,
@@ -3499,6 +3517,7 @@ fn append_subsector_surface_triangles(
         ),
     ] {
         for points in triangulate_convex_region(vertices) {
+            let counter_clockwise = polygon_signed_area(&points) > 0.0;
             let reverse = face_up == counter_clockwise;
             let positions = if reverse {
                 [
@@ -5439,6 +5458,46 @@ mod tests {
         // The clockwise L shell has area 3,072. Floor and ceiling each own
         // that finite support; the missing upper-right quadrant stays empty.
         assert!((surface_area - 6144.0).abs() <= 1.0e-7);
+
+        // A node-builder-local SEG proxy can disagree with the authored
+        // sector shell. It remains valid evidence for the local control but
+        // must not narrow the sector candidate before that complete shell is
+        // applied to the BSP leaf.
+        map.vertices.extend([
+            DoomVertex {
+                source: source(6),
+                x: 16,
+                y: 64,
+            },
+            DoomVertex {
+                source: source(7),
+                x: 16,
+                y: 0,
+            },
+        ]);
+        map.segs = vec![DoomSeg {
+            source: source(6),
+            start_vertex: 6,
+            end_vertex: 7,
+            angle: 0,
+            linedef: 0,
+            direction: 0,
+            offset: 0,
+        }];
+        map.subsectors[0].seg_count = 1;
+        let local = lower_doom_source_bounded_subsector_surfaces(&map, &paths).unwrap();
+        let sector = lower_doom_sector_bounded_subsector_surfaces(&map, &paths).unwrap();
+        let area = |bake: &super::DoomSourceBoundedSurfaceBake| {
+            bake.surfaces
+                .iter()
+                .map(|triangle| {
+                    let [a, b, c] = triangle.positions;
+                    ((b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])).abs() * 0.5
+                })
+                .sum::<f64>()
+        };
+        assert!(area(&local) < 6144.0);
+        assert!((area(&sector) - 6144.0).abs() <= 1.0e-7);
     }
 
     #[test]
@@ -5856,6 +5915,22 @@ mod tests {
                     .any(|edge| edge == expected_edge || edge == (expected_edge.1, expected_edge.0))
             }));
         }
+    }
+
+    #[test]
+    fn projects_a_renderer_equivalent_weld_onto_the_long_edge() {
+        let mut long = vec![[2999.0, 0.0], [3000.0, 0.0], [3000.0, 2.0], [2999.0, 2.0]];
+        let offset = 3000.0 + 5.0e-8;
+        let mut neighbor = vec![[offset, 0.0], [3001.0, 0.0], [3001.0, 1.0], [offset, 1.0]];
+
+        let insertions = conform_coplanar_region_edges(&mut [&mut long, &mut neighbor]);
+
+        assert_eq!(insertions, 1);
+        assert!(long.contains(&[3000.0, 1.0]));
+        assert_eq!(3000.0_f64 as f32, offset as f32);
+        assert!(triangulate_convex_region(&long)
+            .iter()
+            .all(|triangle| polygon_signed_area(triangle) > 0.0));
     }
 
     #[test]

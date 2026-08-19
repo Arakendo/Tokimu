@@ -2333,6 +2333,38 @@ The review moves away from shared admission when:
   on the shared edge; live raster inspection remains the visual acceptance
   gate.
 
+### Cycle 65 -- 2026-08-18
+
+- Live inspection falsified Cycle 64's T-junction diagnosis as sufficient: the
+  seam remained after edge conformance. A local ray sweep then separated the
+  two preparation layers. With sector refinement disabled, offsets from
+  `-0.002` through `+0.004` around the retained ray all missed sector 60's
+  floor. Enabling sector refinement produced the identical miss band because
+  the candidate was still seeded from that already-gapped local result.
+- The defect was local SEG authority over an internal same-sector plane
+  partition. Node-builder-quantized SEG supporting lines from neighboring
+  leaves do not necessarily meet, even though the BSP leaf partition and the
+  authored sector shell are complete. Applying the sector graph after local
+  SEG clipping cannot recover support already removed by those proxies.
+- The sector candidate now starts each plane fragment from the finite BSP leaf.
+  BSP paths own internal partitioning; the complete directed LINEDEF/SIDEDEF
+  sector graph owns authored exterior trimming. The local SEG-refined leaf
+  remains unchanged as the explicit control and is still audited, but no
+  longer narrows the sector candidate first.
+- The same local sweep now hits `flat:60:FLOOR5_2` at every tested offset from
+  `-0.004` through `+0.008` with sector refinement enabled, while the control
+  preserves its prior miss band. A synthetic concave-sector regression also
+  proves that a deliberately conflicting local SEG proxy narrows the control
+  but not the BSP-plus-sector candidate; the authored 3,072-square-unit shell
+  remains exact for both floor and ceiling.
+- Canonical E1M1 now reports 169 sector refinements, 339 fragments, 201 edge
+  conformance insertions and 1,920 plane triangles. All three neutral-pitch
+  positive controls survive. The retained E1M2 oversized-plane falsifier
+  remains absent; E1M2 reports 352 refinements, 644 fragments and 3,594 plane
+  triangles. Native E1M1 Vulkan realization completes with 5,485 draws and
+  nine pipeline switches (`242 us` warm command construction, `125,397 us`
+  warm frame CPU). Live seam inspection remains the final visual gate.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

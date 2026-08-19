@@ -313,6 +313,31 @@ chooses a fan anchor away from subdivided incident edges and uses an interior
 centroid fan only when every corner touches a subdivision; it does not depend
 on a strict-ear removal order for collinearly subdivided polygons.
 
+That conformance pass did not remove the reported E1M1 seam. A local ray sweep
+showed why: both the sector candidate and its local-SEG control inherited the
+same finite miss band before sector refinement ran. The sector candidate had
+been applying its complete authored boundary graph to an already-gapped local
+SEG result.
+
+The corrected candidate separates authority by representation:
+
+```text
+BSP leaf paths
+    own internal plane partitioning
+
+directed LINEDEF/SIDEDEF sector graph
+    owns authored exterior sector support
+
+local SEG half-planes
+    remain the unchanged comparison control
+```
+
+The sector candidate therefore starts from the finite BSP leaf and applies the
+sector graph directly. Around the retained sector 60 seam ray, all tested
+offsets from `-0.004` through `+0.008` now hit `FLOOR5_2`; the local control
+retains its earlier miss band. Canonical E1M1 now records 169 sector
+refinements, 339 fragments, 201 conformance insertions and 1,920 triangles.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.

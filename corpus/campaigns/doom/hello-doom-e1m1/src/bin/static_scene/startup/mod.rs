@@ -616,7 +616,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     )?;
     if let Some(audit) = scene.source_bounded_surface_audit.as_ref() {
         eprintln!(
-            "{} source-boundary surface trim: subsectors={} stitched-loops={} loop-refinements={} seg-half-plane-regions={} seg-half-plane-refinements={} bsp-path-fallbacks={} fallback-subsectors={:?} sector-supported-subsectors={} sector-refinements={} sector-fragments={} sector-empty-fail-open={} sector-empty-subsectors={:?} sector-unavailable-subsectors={:?} degenerate-region-omissions={} degenerate-subsectors={:?} edge-conformance-insertions={} triangles={} sector-boundary-mode={} authority=validated-seg-boundaries-plus-optional-balanced-linedef-sector-boundaries-contained-by-bsp-leaf-with-coplanar-edge-conformance",
+            "{} source-boundary surface trim: subsectors={} stitched-loops={} loop-refinements={} seg-half-plane-regions={} seg-half-plane-refinements={} bsp-path-fallbacks={} fallback-subsectors={:?} sector-supported-subsectors={} sector-refinements={} sector-fragments={} sector-empty-fail-open={} sector-empty-subsectors={:?} sector-unavailable-subsectors={:?} degenerate-region-omissions={} degenerate-subsectors={:?} edge-conformance-insertions={} triangles={} sector-boundary-mode={} plane-seed={} authority={}",
             scene.map_name,
             audit.subsectors,
             audit.stitched_seg_loops,
@@ -655,6 +655,16 @@ pub(crate) fn run() -> PlatformResult<()> {
                 "enabled-candidate"
             } else {
                 "disabled-control"
+            },
+            if sector_boundary_trim {
+                "finite-bsp-leaf"
+            } else {
+                "local-seg-refined-leaf"
+            },
+            if sector_boundary_trim {
+                "bsp-leaf-internal-partition-plus-balanced-linedef-sector-boundaries-with-coplanar-edge-conformance"
+            } else {
+                "validated-local-seg-boundaries-with-coplanar-edge-conformance"
             },
         );
     }
