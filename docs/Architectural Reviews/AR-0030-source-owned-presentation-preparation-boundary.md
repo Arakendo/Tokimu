@@ -2395,6 +2395,23 @@ The review moves away from shared admission when:
   the remaining cost is still high enough to justify later renderer-command
   and cutout realization study, but not more source-geometry rejection.
 
+### Cycle 67 -- 2026-08-18
+
+- Live rotation reached E1M6 with grouped sky parity and sector-boundary trim.
+  The walkabout reported the sky presentation as visually intact across the
+  inspected map area, extending the positive corpus beyond E1M1. This remains
+  human visual evidence rather than pixel parity with the Classic renderer.
+- A moving door appeared as a normal door texture from one side and an
+  electronics panel from the other. Source inspection acquitted runtime
+  material binding: E1M6 manual-door target sector 30 is bounded by linedefs
+  614 and 615; their non-door sidedefs explicitly author `EXITDOOR`, while the
+  door-sector sidedefs explicitly author `COMPUTE2`. The composition therefore
+  preserves intentionally asymmetric source faces as the ceiling moves.
+- No texture substitution or door-specific normalization was added. A future
+  report from `LOOK` can identify the exact visible linedef, but the only
+  accepted E1M6 manual-door pair with this `EXITDOOR` / `COMPUTE2` source
+  asymmetry already matches the observed electronics artwork.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

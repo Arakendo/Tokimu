@@ -353,6 +353,12 @@ before grouping; 4,102 draws and about 94 ms warm afterward. E1M4 loads after
 the independent Doom texture-name case-fold fix and measures 3,195 draws and
 about 75 ms warm. These are diagnostic observations, not performance budgets.
 
+E1M6 subsequently supplied a positive live walkabout: no sky defect was found
+in the inspected areas. An apparently wrong electronics-faced moving door was
+traced separately to authored asymmetric sidedefs (`EXITDOOR` outside and
+`COMPUTE2` inside on the sector-30 door bounded by linedefs 614/615), not to
+sky parity or runtime material corruption.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.
