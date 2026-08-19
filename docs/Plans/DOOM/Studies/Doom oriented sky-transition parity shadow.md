@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Reviewed proposal; Slices 0–2 recommended for authorization, awaiting maintainer start instruction |
+| Status | Parked at Slice 1 semantic gate — Doom evidence supplies open one-way sky surfaces, not a closed transition volume |
 | Scope | Test whether ordered, source-proven sky-transition events can reproduce the desired E1M1 sky/world presentation over complete persistent geometry |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Geometry oracle | `global-full-submission` |
@@ -311,14 +311,14 @@ Nothing may disappear because an acceleration proxy omitted or reordered it.
 
 ## Slice 0 — Freeze Vocabulary And Exact Controls
 
-- [ ] Freeze all ten replay rays, expected targets, distances and expected
+- [x] Freeze all ten replay rays, expected targets, distances and expected
       states in one corpus-private table.
-- [ ] Name semantic boundary identities independently of triangle identity.
-- [ ] Inventory existing paired-sky boundary and source-sky-plane diagnostics
+- [x] Name semantic boundary identities independently of triangle identity.
+- [x] Inventory existing paired-sky boundary and source-sky-plane diagnostics
       that may supply candidate observations.
-- [ ] Define initial-state, orientation, duplicate-collapse and ambiguity
+- [x] Define initial-state, orientation, duplicate-collapse and ambiguity
       rules before executing parity.
-- [ ] Preserve global-full and the source-cell live candidate only as controls;
+- [x] Preserve global-full and the source-cell live candidate only as controls;
       neither is mutated.
 
 Acceptance: all inputs and expected outcomes are deterministic, and no raw
@@ -326,12 +326,16 @@ triangle hit has acquired transition authority merely by being sky-related.
 
 ## Slice 1 — Boundary And Closure Audit
 
-- [ ] Build a shadow-only semantic boundary inventory with source provenance.
-- [ ] Audit whether each boundary has a proved World side, Sky side and usable
+- [x] Build a shadow-only semantic boundary inventory with source provenance.
+- [x] Audit whether each boundary has a proved World side, Sky side and usable
       orientation.
-- [ ] Report disconnected, open, overlapping, coplanar and non-manifold cases.
-- [ ] Compare brute-force and BVH exact intersections over identical members.
-- [ ] Determine whether conventional closed-volume parity is actually
+- [x] Report the decisive open-edge and non-manifold closure counts. Broader
+      disconnected/overlap classification stopped when the semantic-side gate
+      had already failed.
+- [ ] Compare brute-force and BVH exact intersections over identical semantic
+      members. Not executed: the audit admitted zero semantic transition
+      members, so there is no transition BVH to query.
+- [x] Determine whether conventional closed-volume parity is actually
       supported or whether Doom only supplies one-way presentation apertures.
 
 Acceptance: every candidate event has an explicit authority disposition. If
@@ -350,6 +354,10 @@ parity.
 Acceptance: the first gate is `10/10`, with no ambiguous event used as Sky and
 no renderer mutation. A lower score falsifies the hypothesis in its current
 form; it does not authorize exceptions per ray.
+
+Slice 2 was not executed. Slice 1 proved neither an `Enter` nor an `Exit`, so
+running a parity state machine would violate the study's primary semantic
+fence.
 
 ## Slice 3 — Adversarial Exit And Initial-State Search
 
@@ -378,6 +386,77 @@ surviving hypothesis as a bounded one-way sky mask instead.
 
 Passing this Doom shadow alone cannot admit a provider-neutral renderer
 primitive. Independent corpus pressure would still be required.
+
+## Implemented Result — Slices 0–1
+
+The headless command is:
+
+```text
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- \
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD \
+  --sky-transition-parity-report
+```
+
+The frozen inventory contains `89` candidate triangles:
+
+```text
+paired-sky height-discontinuity triangles   16
+paired semantic linedef groups               8
+source-sky open-plane triangles             73
+source-sky plane groups                     35
+```
+
+All eight paired groups have `F_SKY1` ceilings on both source sides. None
+separates a World side from a Sky side. They are valid paired-sky height
+discontinuity observations, but not semantic transitions.
+
+The combined surface topology reports:
+
+```text
+unique edges       199
+manifold edges      68
+open edges         131
+non-manifold edges   0
+```
+
+The source-sky ceiling planes have a local below/above orientation, but their
+finite open caps do not prove a closed sky domain or any corresponding Exit.
+The resulting semantic inventory therefore has:
+
+```text
+proved Enter   0
+proved Exit    0
+```
+
+The exact ten-ray observations are still informative. Each of the five
+far-field resurrection rays has exactly one sky-related raw hit before its
+unwanted ordinary target. Four hit paired-sky height discontinuities (linedef
+250 for three rays and linedef 252 for one); one hits a source-sky open plane.
+All five required nearby floor/ceiling controls have zero raw hits.
+
+Consequently a non-semantic rule of “any raw sky-related hit before the target”
+correlates `10/10` with this frozen matrix. That result has
+`authority=correlation-only-not-semantic-transition`. It cannot be called
+parity, Enter/Exit, a closed skybox, or a Classic causal explanation.
+
+The conservative semantic result remains World for all rays and therefore
+matches only the five required-world controls (`5/10`). Slice 2 was correctly
+not executed. Conservation is balanced, renderer mutation is false, and two
+runs produced fingerprint `864b11fc73f28f2c`.
+
+## Disposition
+
+Real oriented parity is parked. Doom's retained source evidence describes open
+sky-presentation surfaces and paired-sky discontinuities, not a closed
+World/Sky volume. Inventing missing lateral closure or promoting both-sky
+boundaries into World/Sky transitions would violate the study.
+
+The surviving observation may justify a separately reviewed **bounded one-way
+sky-hit mask shadow** over complete global-full geometry. Such a successor
+would have to admit honestly that it is testing positive one-way presentation
+evidence, aggressively search for valid ordinary geometry behind one raw hit,
+and retain the ten rays only as its first controls. No such successor or live
+candidate is authorized by this result.
 
 ## Parking And Escalation
 

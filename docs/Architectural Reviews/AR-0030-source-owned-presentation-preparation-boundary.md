@@ -2022,6 +2022,35 @@ The review moves away from shared admission when:
 - Proposed study:
   `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`.
 
+### Cycle 52 -- 2026-08-18
+
+- Maintainer authorization opened shadow-only Slices 0–2 with the binding
+  instruction to stop before parity if Slice 1 could not prove semantic
+  `Enter` and `Exit` events.
+- Slice 0 freezes five far-field expected-Sky rays and five newly retained
+  required-World floor/ceiling rays. Global-full targets remain unchanged and
+  renderer mutation is false.
+- The Slice 1 inventory contains 16 paired-sky triangles in eight linedef
+  groups and 73 source-sky ceiling triangles in 35 source groups. All eight
+  paired groups have `F_SKY1` ceilings on both sides; zero separates World from
+  Sky.
+- Combined topology has 199 unique edges, of which 131 are open and 68 are
+  manifold; no non-manifold edge was observed. Source-sky ceiling planes are
+  locally oriented open caps but establish neither closed-domain initial state
+  nor an Exit.
+- The semantic inventory consequently proves zero Enter and zero Exit events.
+  Slice 2 parity was not executed, exactly as required by the gate. The
+  conservative World result matches the five required-world controls only.
+- Every far-field ray nevertheless has one raw sky-related hit before its
+  unwanted target, while every required-world control has none. Raw any-hit
+  correlation is `10/10`, but is retained explicitly as correlation-only
+  one-way-mask evidence, not parity, transition authority, or Classic causal
+  explanation.
+- Conservation is balanced and two runs produce fingerprint
+  `864b11fc73f28f2c`. Real oriented parity is parked. A bounded one-way sky-hit
+  mask would require a new review and adversarial controls before any live or
+  renderer-affecting work.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
