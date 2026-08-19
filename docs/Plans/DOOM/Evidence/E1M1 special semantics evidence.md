@@ -26,6 +26,9 @@ The original implementation’s crossing dispatch identifies code 88 as a
 retriggerable platform operation, its periodic special update explicitly
 advances code 48 texture offset, and its event dispatch names code 36 as turbo
 floor lowering. See [id Software `p_spec.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_spec.c).
+The released [`p_switch.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_switch.c)
+places code 11 in `P_UseSpecialLine`, changes its switch texture, and requests
+level exit. It is therefore a front-side `Use` special, not a crossing special.
 
 ## Observed Sector Codes
 
@@ -84,13 +87,22 @@ The deterministic `Use` report found 19 nonzero E1M1 lines:
 - 8 code-1 lines accepted as retained `raise-door-from-interacting-side`
   intent; all have tag `0`, and each target is instead resolved from the
   opposite sidedef's retained sector identity;
-- 3 lines (codes 11, 36, and 88) explicitly require `Cross` rather than
-  silently acting as use lines; and
+- 1 code-11 line accepted as a retained `exit-level` use intent;
+- 2 lines (codes 36 and 88) explicitly require `Cross` rather than silently
+  acting as use lines; and
 - 8 code-48 scrolling lines remain explicitly unsupported by the activation
   resolver.
 
 Accepted intent reports `execution=deferred-to-future-runtime-owner`. No door,
 floor, platform, exit, or texture offset changes in this slice.
+
+The later native application now consumes the accepted code-11 intent as an
+application-owned map transition. A successful front-side physical or console
+use requests the next map in the bounded WAD catalog through the same
+replacement-process lifecycle as the explicit `]` diagnostic control. The
+renderer receives no exit or map identity. Switch-texture mutation remains
+unimplemented and explicit; the transition does not pretend that presentation
+state has been completed.
 
 The source resolver follows classic front-side manual-door targeting: it uses
 the line's opposite/left sidedef sector as the candidate target. Actual player
@@ -225,12 +237,13 @@ The report explicitly retains `source_map_mutated=false` and
 lifetime behavior only.
 
 The native walk path now compares each accepted source-space movement segment
-against retained code-11/36/88 lines and handles intersections in movement
-order. A successful code-36 start consumes that one-shot line; code 88 refuses
-to duplicate an active platform but can start again after completion. Code 11
-reports that map transition remains unimplemented. A deterministic local
-fixture proves crossing order and excludes ordinary `Use` specials from this
-path. Active runtime floor heights now overlay the matching retained sector
+against retained code-36/88 lines and handles intersections in movement order.
+A successful code-36 start consumes that one-shot line; code 88 refuses to
+duplicate an active platform but can start again after completion. Code 11 is
+retained through the front-side use path and reports that map transition
+remains unimplemented. A deterministic local fixture proves crossing order and
+excludes ordinary `Use` specials from this path. Active runtime floor heights
+now overlay the matching retained sector
 after BSP ownership resolution, alongside but separate from active door
 ceiling overrides.
 

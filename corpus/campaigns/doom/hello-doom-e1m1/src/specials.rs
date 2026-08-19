@@ -565,7 +565,7 @@ pub fn resolve_doom_line_activation(
             )
         }
         11 => (
-            DoomLineActivation::Cross,
+            DoomLineActivation::Use,
             DoomLineActivationIntent::ExitLevel { tag: linedef.tag },
         ),
         36 => (
@@ -687,6 +687,39 @@ mod tests {
                 required: DoomLineActivation::Cross,
             }
         );
+    }
+
+    #[test]
+    fn exit_switch_is_a_use_special_not_a_crossing_special() {
+        let source_data = source_with(line(5, 11, 0));
+        assert_eq!(
+            resolve_doom_line_activation(
+                &source_data,
+                DoomLineActivationRequest {
+                    source_linedef: source(5),
+                    activation: DoomLineActivation::Use,
+                },
+            ),
+            DoomLineActivationResolution::Accepted {
+                source_linedef: source(5),
+                special: 11,
+                intent: DoomLineActivationIntent::ExitLevel { tag: 0 },
+            }
+        );
+        assert!(matches!(
+            resolve_doom_line_activation(
+                &source_data,
+                DoomLineActivationRequest {
+                    source_linedef: source(5),
+                    activation: DoomLineActivation::Cross,
+                },
+            ),
+            DoomLineActivationResolution::WrongActivation {
+                requested: DoomLineActivation::Cross,
+                required: DoomLineActivation::Use,
+                ..
+            }
+        ));
     }
 
     #[test]

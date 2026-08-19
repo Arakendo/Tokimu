@@ -1396,6 +1396,25 @@ mod tests {
     }
 
     #[test]
+    fn raster_global_decoded_bytes_are_bounded_before_allocation() {
+        let bytes = vec![0_u8; PALETTE_BYTES + COLORMAP_BYTES];
+        let mut bounded = limits();
+        bounded.max_total_decoded_bytes = bytes.len() - 1;
+
+        assert!(matches!(
+            decode_doom_raster_globals(
+                &bytes,
+                &manifest(PALETTE_BYTES, COLORMAP_BYTES),
+                bounded,
+            ),
+            Err(DoomRasterDecodeError::TotalDecodedBytesLimitExceeded {
+                actual_bytes,
+                limit_bytes,
+            }) if actual_bytes == bytes.len() && limit_bytes == bytes.len() - 1
+        ));
+    }
+
+    #[test]
     fn malformed_palette_and_colormap_lengths_are_rejected() {
         let palette_bytes = vec![0; PALETTE_BYTES - 1 + COLORMAP_BYTES];
         assert!(matches!(

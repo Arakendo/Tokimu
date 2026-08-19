@@ -131,7 +131,12 @@ fn source_motion_crossings_are_ordered_and_ignore_non_cross_specials() {
         right_sidedef: None,
         left_sidedef: None,
     };
-    let lines = vec![line(20, 0, 1, 88), line(21, 2, 3, 36), line(22, 4, 5, 1)];
+    let lines = vec![
+        line(20, 0, 1, 88),
+        line(21, 2, 3, 36),
+        line(22, 4, 5, 1),
+        line(23, 6, 7, 11),
+    ];
     assert_eq!(
         source_motion_special_crossings(&vertices, &lines, [0, 0], [10, 0]),
         vec![source(20), source(21)]

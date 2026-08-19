@@ -11,7 +11,7 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
-    fn rotate_map(&mut self, offset: isize) -> PlatformResult<()> {
+    fn rotate_map(&mut self, offset: isize, control: &'static str) -> PlatformResult<()> {
         if self.map_rotation_exit_requested {
             return Ok(());
         }
@@ -44,9 +44,7 @@ impl App {
         self.map_rotation_exit_requested = true;
         eprintln!(
             "DOOM map rotation: {} -> {}; control={}; replacement-process=spawned",
-            self.map_name,
-            target,
-            if offset < 0 { "[" } else { "]" }
+            self.map_name, target, control
         );
         Ok(())
     }
@@ -560,6 +558,17 @@ impl App {
             } => self.start_manual_door(source_linedef.record_index, special, target_sector),
             DoomLineActivationResolution::Accepted {
                 source_linedef,
+                special: 11,
+                intent: DoomLineActivationIntent::ExitLevel { .. },
+            } => {
+                self.source_exit_level_requested = true;
+                format!(
+                    "use: exit accepted linedef={} special=11 transition=next-catalog-map-requested",
+                    source_linedef.record_index,
+                )
+            }
+            DoomLineActivationResolution::Accepted {
+                source_linedef,
                 special,
                 intent,
             } => format!(
@@ -802,14 +811,6 @@ impl App {
                         source_linedef.record_index
                     ),
                 },
-                DoomLineActivationResolution::Accepted {
-                    special: 11,
-                    intent: DoomLineActivationIntent::ExitLevel { .. },
-                    ..
-                } => format!(
-                    "cross: exit linedef={} retained; map transition not implemented",
-                    source_linedef.record_index
-                ),
                 other => format!(
                     "cross: linedef={} unexpected-resolution={other:?}",
                     source_linedef.record_index
@@ -1807,7 +1808,7 @@ pub(crate) fn source_motion_special_crossings(
     let cross = |left: [f64; 2], right: [f64; 2]| left[0] * right[1] - left[1] * right[0];
     let mut crossings = linedefs
         .iter()
-        .filter(|linedef| matches!(linedef.special, 11 | 36 | 88))
+        .filter(|linedef| matches!(linedef.special, 36 | 88))
         .filter_map(|linedef| {
             let start = vertices.get(usize::from(linedef.start_vertex))?;
             let end = vertices.get(usize::from(linedef.end_vertex))?;
@@ -1977,8 +1978,8 @@ impl PlatformEventHandler for App {
                     }),
             )?;
             eprintln!(
-                "E1M1 AR-0027 diagnostic sky stand-in enabled: draws={}; asset=corpus/assets/PNG/Purple/texture_01.png; records={}",
-                self.diagnostic_sky_draws.len(),
+                "E1M1 AR-0027 diagnostic sky stand-in enabled: plane-draws={}; skywall-draws={}; asset=corpus/assets/PNG/Purple/texture_01.png; records={}",
+                self.diagnostic_sky_draws.len(), self.doom_sky_boundary_draws.len(),
                 self.diagnostic_sky_records.len(),
             );
             for record in self.diagnostic_sky_records.iter().take(8) {
@@ -2083,6 +2084,12 @@ impl PlatformEventHandler for App {
             }
         }
         if self.diagnostic_sky_enabled {
+            for (index, draw) in self.doom_sky_boundary_draws.iter().enumerate() {
+                renderer.upload_mesh(
+                    MeshHandle(DOOM_SKY_BOUNDARY_MESH_BASE + index as u64),
+                    &draw.mesh,
+                );
+            }
             for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
                 renderer.upload_mesh(
                     MeshHandle(DIAGNOSTIC_SKY_MESH_BASE + index as u64),
@@ -2147,6 +2154,17 @@ impl PlatformEventHandler for App {
                     StencilMode::Disabled
                 }),
         )?;
+        if self.diagnostic_sky_enabled {
+            self.diagnostic_sky_pipeline = Some(
+                renderer.register_pipeline(
+                    &Pipeline::new("doom-diagnostic-solid-sky", PipelineKind::Textured3d)
+                        .with_render_state(PipelineRenderState {
+                            cull_mode: CullMode::None,
+                            ..opaque_state
+                        })?,
+                )?,
+            );
+        }
         if self.skywall_parity_enabled {
             self.opaque_depth_prepass_pipeline = Some(
                 renderer.register_pipeline(
@@ -2361,9 +2379,9 @@ impl PlatformEventHandler for App {
             } else if key == KeyCode::KeyR && pressed {
                 self.reset_spawn_observer();
             } else if key == KeyCode::BracketLeft && pressed {
-                self.rotate_map(-1)?;
+                self.rotate_map(-1, "[")?;
             } else if key == KeyCode::BracketRight && pressed {
-                self.rotate_map(1)?;
+                self.rotate_map(1, "]")?;
             } else if key == KeyCode::KeyE && pressed {
                 let outcome = self.try_use_center_wall();
                 eprintln!("E1M1 {outcome}");
@@ -2388,6 +2406,10 @@ impl PlatformEventHandler for App {
     }
 
     fn on_frame(&mut self, delta_seconds: f64) -> PlatformResult<FrameOutcome> {
+        if self.source_exit_level_requested {
+            self.source_exit_level_requested = false;
+            self.rotate_map(1, "source-exit-special-11")?;
+        }
         if !self.fixed_reconstruction_camera {
             self.apply_inspection_movement(delta_seconds);
         }
@@ -2768,11 +2790,24 @@ impl PlatformEventHandler for App {
             }
         }
         if self.diagnostic_sky_enabled {
+            let diagnostic_sky_pipeline = self
+                .diagnostic_sky_pipeline
+                .ok_or_else(|| io::Error::other("diagnostic solid-sky pipeline missing"))?;
+            for (index, _) in self.doom_sky_boundary_draws.iter().enumerate() {
+                self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(DOOM_SKY_BOUNDARY_MESH_BASE + index as u64),
+                    material: DIAGNOSTIC_SKY_MATERIAL,
+                    pipeline: diagnostic_sky_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CAMERA),
+                    viewport: None,
+                }));
+            }
             for (index, _) in self.diagnostic_sky_draws.iter().enumerate() {
                 self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                     mesh: MeshHandle(DIAGNOSTIC_SKY_MESH_BASE + index as u64),
                     material: DIAGNOSTIC_SKY_MATERIAL,
-                    pipeline: self.pipeline,
+                    pipeline: diagnostic_sky_pipeline,
                     instance: Instance2d::identity(),
                     camera: Some(CAMERA),
                     viewport: None,

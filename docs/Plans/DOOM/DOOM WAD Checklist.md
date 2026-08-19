@@ -2,8 +2,11 @@
 
 ## Status
 
-Proposed on 2026-08-06. No WAD importer, Doom world provider, or Doom gameplay
-compatibility capability is currently admitted to Tokimu.
+Proposed on 2026-08-06; reconciled with the implemented corpus on 2026-08-19.
+The bounded WAD, map, raster, geometry, native presentation, movement, and
+selected E1M1 runtime-special proofs now exist as corpus-owned providers and
+consumers. No Doom gameplay-compatibility capability or Doom-specific renderer
+or trusted-core contract is admitted to Tokimu.
 
 The work should begin as corpus evidence. It must not make `tokimu-core`, the
 renderer, or the Resource Space understand Doom-specific concepts.
@@ -80,6 +83,15 @@ expand this plan into Heretic compatibility. Both WAD directories contain
 `E1M1` through `E1M9`; an initial bounded inventory found no negative or
 out-of-file lump ranges. The importer must still validate those facts
 independently on every load.
+
+On 2026-08-19 the native Doom corpus path also loaded `HERETIC1.WAD` E1M1 from
+its reviewed ZIP. That is useful container/map/raster portability evidence,
+not Heretic presentation admission. The maintainer observed a structurally
+coherent scene and sky but materially brighter surfaces. The current consumer
+uses palette zero with sRGB upload and decodes `COLORMAP` without applying
+classic sector/colormap lighting, so resolving that observation crosses the
+still-open presentation-lighting ownership question below; it is not licensed
+as an implicit Heretic compatibility fix by this checklist.
 
 The licensing review also establishes a boundary that must remain explicit:
 Doom and Heretic engine source licensing is separate from game-data licensing.
@@ -173,8 +185,15 @@ means.
       and lump ranges.
 - [x] Bound WAD input bytes, lump count, individual lump size, and total
       declared lump bytes through explicit provider inputs.
-- [ ] Bound map counts and decoded allocation totals when map/asset decoding is
+- [x] Bound map counts and decoded allocation totals when map/asset decoding is
       introduced; the container provider does not decode those formats.
+  - [x] Decode one explicitly selected map block at a time; the WAD provider's
+        bounded lump count limits the source map-marker scan.
+  - [x] Require per-table record limits, auxiliary byte/reference limits, and
+        an aggregate map-record byte limit before map record allocation.
+  - [x] Require raster source-byte, record/reference, dimension, pixel, post,
+        and aggregate decoded-byte limits; retain focused rejection tests for
+        the map record-count/total-byte and raster aggregate-byte boundaries.
 
 Acceptance criteria:
 
@@ -254,8 +273,12 @@ Acceptance criteria:
 - [x] Resolve map-local lump sets using the reviewed classic Doom map-block
       contract, bounded by the next `E#M#` marker or directory end.
 - [x] Diagnose missing, duplicated, or reordered required map lumps.
-- [ ] Exercise WAD contents through Resource Space without changing Resource
+- [x] Exercise WAD contents through Resource Space without changing Resource
       Space semantics to fit Doom.
+  - [x] The native `static_scene`, headless preflight, and browser workbench
+        retain the reviewed ZIP at the Resource Space edge and derive the WAD
+        member through the corpus-only package bridge; Resource Space receives
+        no WAD namespace, lump, map, or Doom lookup rule.
 
 Acceptance criteria:
 
@@ -613,7 +636,7 @@ renderer. It is also a direct consumer of the orientation evidence tracked by
       culling for Doom walls. The shared fixture's native and browser/WASM
       captures agree; any later binding public renderer contract remains an
       AR-0021 decision.
-- [ ] Select and document a material representation for indexed Doom textures,
+- [x] Select and document a material representation for indexed Doom textures,
       palette choice, wrapping, filtering, and masked-middle alpha behavior.
   - [x] Record the existing honest inputs: palette-selected, top-down RGBA8
         pixels with source coverage; source-traceable wall texel coordinates;
@@ -818,7 +841,7 @@ Acceptance criteria:
 
 ## Slice 6: Camera, Movement, And Collision
 
-- [ ] Spawn from a reviewed player-start thing.
+- [x] Spawn from a reviewed player-start thing.
   - [x] Resolve exactly one classic player-one start (`THING` type `1`) as a
         source-traceable import observation; missing or duplicate starts fail
         explicitly. E1M1 resolves `THINGS` record 0 at `(1056, -3616)`, angle
@@ -1025,9 +1048,10 @@ composition under AR-0013.
         canonical-package report in
         [`E1M1 special semantics evidence.md`](Evidence/E1M1%20special%20semantics%20evidence.md).
   - [x] Make no-special, unknown-linedef, wrong-activation, and unsupported
-        special outcomes explicit; code-11/36/88 `Cross` behavior and code-48
-        periodic scrolling remain unimplemented rather than being coerced into
-        a `Use` request.
+        special outcomes explicit. Code 11 is retained as a front-side `Use`
+        exit switch; code 36/88 remain `Cross` behavior; and code-48 periodic
+        scrolling remains unimplemented rather than being coerced into an
+        activation request.
   - [x] Record that E1M1's code-1 manual-door lines have tag `0`; resolve their
         candidate target through the opposite sidedef's retained sector rather
         than treating the line tag as target identity. Player reach and side
@@ -1086,13 +1110,13 @@ composition under AR-0013.
   - [x] Detect eligible physical line crossings in source order and start the
         tagged runtime exactly once for code 36 or when inactive for reusable
         code 88.
-    - [x] Filter accepted source-space movement against retained code-11/36/88
+    - [x] Filter accepted source-space movement against retained code-36/88
           linedefs, preserve intersection order, and cover ordered crossing
           independently from camera rays or prepared geometry.
     - [x] Consume code 36 only after successful runtime creation; keep code 88
           inactive while its platform is moving and permit a new runtime only
           after the prior cycle completes. Code 11 remains an explicit
-          unimplemented map-transition observation.
+          front-side-use map-transition observation.
   - [x] Overlay active floor heights into walk clearance and re-lower affected
         flats/wall spans without reparsing WAD bytes.
     - [x] Overlay active code-36/code-88 floor heights by retained sector
@@ -1108,9 +1132,18 @@ composition under AR-0013.
   - [x] Retain native traversal and visual observations for both E1M1 effects
         before calling either progression path complete.
 - [ ] Implement switches and texture-state changes.
-- [ ] Implement teleports if required by the admitted map slice.
+- [x] Implement teleports if required by the admitted map slice. E1M1's
+      reviewed nonzero-linedef inventory contains no teleport special, so the
+      admitted map slice requires no teleport implementation.
 - [ ] Track secrets, exits, and map transitions as application semantics.
-- [ ] Keep unsupported specials explicit.
+  - [x] Correct E1M1 code 11 to a front-side `Use` exit switch and connect an
+        accepted physical or console use to the next bounded WAD-catalog map
+        through the corpus application's existing replacement-process
+        lifecycle. Switch texture state and secret-sector progression remain
+        separate unfinished semantics.
+- [x] Keep unsupported specials explicit. Unadmitted line and sector codes
+      remain retained source observations or explicit request failures; none
+      silently execute as a nearby admitted effect.
 
 Acceptance criteria:
 
@@ -1158,7 +1191,11 @@ Acceptance criteria:
 
 ## Slice 11: Consumer And WASM Proof
 
-- [ ] Add a native `hello-doom-walk` corpus consumer.
+- [x] Add a native walkable Doom corpus consumer. The existing
+      `hello-doom-e1m1 --bin static_scene` target now owns source-start spawn,
+      normalized keyboard/mouse input, collision, runtime doors/platforms,
+      diagnostics, map rotation, and the reviewed E1M1-E1M9 walkabout; a
+      cosmetic binary rename to `hello-doom-walk` is not a separate milestone.
 - [ ] Add drag-and-drop WAD inspection to the Asset Workbench.
 - [ ] Add a bounded WASM map viewer only after native static rendering is
       stable.
@@ -1196,17 +1233,18 @@ silently widen the initial Doom-format contract.
 
 ## First Milestone Definition Of Done
 
-- [ ] A user can select or mount the reviewed Doom shareware ZIP.
-- [ ] Resource Space resolves its `DOOM1.WAD` member without separating the
+- [x] A user can select or mount the reviewed Doom shareware ZIP.
+- [x] Resource Space resolves its `DOOM1.WAD` member without separating the
       canonical package from its documentation and provenance.
-- [ ] Tokimu validates and inspects the WAD directory.
-- [ ] `E1M1` map and visual assets decode through Rust-owned providers.
-- [ ] Tokimu renders a recognizable textured static scene.
-- [ ] A player can walk through the start area with collision.
+- [x] Tokimu validates and inspects the WAD directory.
+- [x] `E1M1` map and visual assets decode through Rust-owned providers.
+- [x] Tokimu renders a recognizable textured static scene.
+- [x] A player can walk through the start area with collision.
 - [ ] Headless structural artifacts and a deterministic screenshot are saved.
-- [ ] Unsupported map, asset, and gameplay semantics are listed explicitly.
-- [ ] No Doom-specific type appears in renderer or trusted-core public APIs.
-- [ ] No unreviewed WAD data is committed or deployed.
+- [x] Unsupported map, asset, and gameplay semantics are listed explicitly in
+      the slice deferrals and surfaced by bounded importer/runtime diagnostics.
+- [x] No Doom-specific type appears in renderer or trusted-core public APIs.
+- [x] No unreviewed WAD data is committed or deployed.
 
 ## Open Questions
 

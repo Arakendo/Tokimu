@@ -191,7 +191,10 @@ spawn, collision proof, admitted masked-middle cutouts, and the bounded SKY1
 panorama are enabled. Use `--overview-camera`, `--no-walk-collision`,
 `--no-masked-cutouts`, `--no-doom-sky`, or `--embedding-current-reflected` for
 explicit comparison controls. `--diagnostic-sky-omissions` replaces the normal
-sky panorama with the purple AR-0027 omission presentation.
+sky panorama with solid purple AR-0027 geometry for both retained source-sky
+planes and paired skywall boundaries. It may be combined with
+`--bsp-diagnostic-full` so ordinary geometry retains its family/classification
+colors while both sky contribution families remain unmistakably solid.
 
 The native walkabout accepts `--map=E#M#` (default `E1M1`). While the debug
 console is closed, `[` selects the previous map marker and `]` selects the next

@@ -1311,6 +1311,35 @@ mod tests {
     }
 
     #[test]
+    fn map_record_counts_and_total_bytes_are_bounded_before_decoding() {
+        let mut thing = Vec::new();
+        thing.extend_from_slice(&10_i16.to_le_bytes());
+        thing.extend_from_slice(&20_i16.to_le_bytes());
+        thing.extend_from_slice(&90_u16.to_le_bytes());
+        thing.extend_from_slice(&1_u16.to_le_bytes());
+        thing.extend_from_slice(&7_u16.to_le_bytes());
+        let (wad, selection) = selected_fixture(0, thing);
+
+        let mut count_limited = limits();
+        count_limited.max_things = 0;
+        assert!(matches!(
+            decode_doom_map_core(&wad, &selection, count_limited),
+            Err(DoomMapDecodeError::RecordCountLimitExceeded {
+                table: "THINGS",
+                actual_records: 1,
+                limit_records: 0,
+            })
+        ));
+
+        let mut byte_limited = limits();
+        byte_limited.max_total_record_bytes = 0;
+        assert!(matches!(
+            decode_doom_map_core(&wad, &selection, byte_limited),
+            Err(DoomMapDecodeError::TotalRecordBytesLimitExceeded { limit_bytes: 0, .. })
+        ));
+    }
+
+    #[test]
     fn partial_records_and_invalid_cross_references_are_rejected() {
         let (partial_wad, selection) = selected_fixture(0, vec![0]);
         assert!(matches!(

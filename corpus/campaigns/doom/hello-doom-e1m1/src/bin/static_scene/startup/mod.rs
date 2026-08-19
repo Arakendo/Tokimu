@@ -315,10 +315,11 @@ pub(crate) fn run() -> PlatformResult<()> {
                 .into(),
         );
     }
-    if bsp_diagnostic_enabled && (!include_cutouts || !doom_sky || doom_membership_union) {
+    if bsp_diagnostic_enabled
+        && (!include_cutouts || (!doom_sky && !diagnostic_sky) || doom_membership_union)
+    {
         return Err(
-            "--bsp-diagnostic-full requires cutouts, the skybox, and unchanged full submission"
-                .into(),
+            "--bsp-diagnostic-full requires cutouts, a normal or diagnostic sky presentation, and unchanged full submission".into(),
         );
     }
     if candidate1_sky_depth && trial_render_strategy.is_some() {
@@ -1108,7 +1109,7 @@ pub(crate) fn run() -> PlatformResult<()> {
             0
         }
         + if diagnostic_sky {
-            scene.diagnostic_sky_draws.len()
+            scene.diagnostic_sky_draws.len() + scene.doom_sky_boundary_draws.len()
         } else {
             0
         }
@@ -1266,6 +1267,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         available_maps: scene.available_maps.clone(),
         launch_arguments,
         map_rotation_exit_requested: false,
+        source_exit_level_requested: false,
         renderer: None,
         render_strategy_name,
         render_strategy_stages,
@@ -1297,6 +1299,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         cutout_depth_prepass_pipeline: None,
         doom_sky_pipeline: None,
         doom_sky_boundary_pipeline: None,
+        diagnostic_sky_pipeline: None,
         candidate1_sky_depth_pipeline: None,
         debug_pipeline: None,
         debug_font: None,
