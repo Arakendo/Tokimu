@@ -2981,6 +2981,8 @@ fn clip_subsector_region_to_seg_half_planes(
     subsector: &doom_map_provider::DoomSubsector,
     bsp_region: &[[f64; 2]],
 ) -> Option<Vec<[f64; 2]>> {
+    const NODE_BUILDER_VERTEX_TOLERANCE: f64 = 1.0;
+
     let first = usize::from(subsector.first_seg);
     let end = first.checked_add(usize::from(subsector.seg_count))?;
     let segs = map.segs.get(first..end)?;
@@ -3006,15 +3008,23 @@ fn clip_subsector_region_to_seg_half_planes(
     }
 
     // Reject contradictory orientation instead of allowing clipping order to
-    // manufacture a plausible polygon. Every decoded endpoint belonging to
-    // this convex leaf must satisfy every retained boundary half-plane.
+    // manufacture a plausible polygon. Doom node builders store split
+    // vertices at integer coordinates, so two supporting lines which meet at
+    // the same conceptual leaf corner can miss by less than one map unit.
+    // Admit only that bounded perpendicular quantization error; the exact
+    // half-planes still clip the result inside the finite BSP-path region.
     if segs.iter().any(|seg| {
         [seg.start_vertex, seg.end_vertex]
             .into_iter()
             .map(|vertex| point_for_vertex(map, vertex).map(f64::from))
             .any(|point| {
                 steps.iter().any(|step| {
-                    !is_inside_partition(partition_distance(point, step), step.side, 1.0e-7)
+                    let length = f64::from(step.delta[0]).hypot(f64::from(step.delta[1]));
+                    !is_inside_partition(
+                        partition_distance(point, step),
+                        step.side,
+                        length * NODE_BUILDER_VERTEX_TOLERANCE + 1.0e-7,
+                    )
                 })
             })
     }) {
@@ -4890,6 +4900,66 @@ mod tests {
             .iter()
             .flat_map(|surface| surface.positions)
             .all(|position| position[0] <= 64.0));
+    }
+
+    #[test]
+    fn source_bounded_surfaces_admit_one_unit_node_builder_corner_quantization() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.vertices = vec![
+            DoomVertex {
+                source: source(0),
+                x: 1568,
+                y: 1657,
+            },
+            DoomVertex {
+                source: source(1),
+                x: 2560,
+                y: 1616,
+            },
+            DoomVertex {
+                source: source(2),
+                x: 2560,
+                y: 1467,
+            },
+            DoomVertex {
+                source: source(3),
+                x: 2304,
+                y: 1488,
+            },
+            DoomVertex {
+                source: source(4),
+                x: 1568,
+                y: 1546,
+            },
+            // Reproduces the oversized untrimmed extent without becoming a
+            // source SEG endpoint.
+            DoomVertex {
+                source: source(5),
+                x: 1800,
+                y: 2752,
+            },
+        ];
+        map.segs = vec![seg(0, 0, 1), seg(1, 1, 2), seg(2, 3, 4)];
+        map.subsectors = vec![DoomSubsector {
+            source: source(0),
+            seg_count: 3,
+            first_seg: 0,
+        }];
+        let paths = vec![super::DoomSubsectorBspPath {
+            source_subsector: source(0),
+            steps: Vec::new(),
+        }];
+
+        let bake = lower_doom_source_bounded_subsector_surfaces(&map, &paths).unwrap();
+
+        assert_eq!(bake.audit.stitched_seg_loops, 0);
+        assert_eq!(bake.audit.seg_half_plane_regions, 1);
+        assert_eq!(bake.audit.bsp_path_fallbacks, 0);
+        assert!(bake
+            .surfaces
+            .iter()
+            .flat_map(|surface| surface.positions)
+            .all(|position| position[2] <= 1657.0));
     }
 
     #[test]

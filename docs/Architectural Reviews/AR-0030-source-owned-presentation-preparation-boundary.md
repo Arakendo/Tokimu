@@ -2242,6 +2242,28 @@ The review moves away from shared admission when:
   draws and seven pipeline switches. E1M2 remains exploratory walkabout
   evidence; E1M1 remains the accepted grouped-parity visual corpus.
 
+### Cycle 62 -- 2026-08-18
+
+- E1M2 live walkabout found an oversized floor from subsector 36 beyond a sky
+  transition. The leaf's explicit SEG envelope ended near source `y=1657`,
+  while fallback to its BSP-path polygon extended the prepared floor to
+  `y=2752`.
+- The three useful SEG supporting lines missed one conceptual corner by about
+  `0.82` map units. This is bounded integer node-builder vertex quantization,
+  not evidence that the source boundary is contradictory. The prior near-zero
+  endpoint agreement test consequently discarded valid finite support.
+- SEG half-plane validation now admits at most one map unit of perpendicular
+  endpoint disagreement. Exact half-planes still clip only within the finite
+  BSP leaf, so the tolerance cannot expand prepared support.
+- The E1M2 audit improves from eight BSP-path fallbacks to the sole zero-area
+  subsector 45 omission: 299 SEG half-plane regions, 169 refinements, one
+  fallback/degenerate omission and 1,954 plane triangles. Exact replay of the
+  reported subsector 36 leak now has no ordinary prepared-triangle hit after
+  its first skywall crossing.
+- A native Vulkan two-frame proof completed with 7,815 draws and seven
+  pipeline switches. Warm command construction was `413 µs`; warm frame CPU
+  time was `179,591 µs`. No performance requirement is inferred.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

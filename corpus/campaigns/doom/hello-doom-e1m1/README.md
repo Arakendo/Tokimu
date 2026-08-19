@@ -206,6 +206,13 @@ plane is fabricated for that degenerate derived region. E1M2 is available for
 walkabout comparison, but E1M1 remains the acceptance corpus for the grouped
 sky-parity result.
 
+E1M2 source-boundary preparation admits up to one map unit of perpendicular
+SEG-endpoint disagreement caused by integer node-builder quantization. The
+supporting lines still only shrink their finite BSP leaf. This recovers seven
+otherwise oversized fallback leaves, including the subsector 36 floor beyond
+the first outdoor sky transition, while retaining subsector 45 as an explicit
+zero-area omission.
+
 The SKY1 panorama remains corpus-local: it uses the real `SKY1` raster, but
 does not claim the original view-dependent sky projection or admit a generic
 sky contract. Masked cutouts use the admitted generic categorical-coverage
