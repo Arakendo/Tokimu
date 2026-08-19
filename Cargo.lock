@@ -195,6 +195,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "audio-tools"
+version = "0.1.0"
+dependencies = [
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -835,6 +842,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "doom-audio-provider"
+version = "0.1.0"
+dependencies = [
+ "audio-tools",
+ "doom-wad-provider",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "doom-geometry-provider"
 version = "0.1.0"
 dependencies = [
@@ -1373,6 +1389,8 @@ name = "hello-doom-e1m1"
 version = "0.1.0"
 dependencies = [
  "archive-provider",
+ "audio-tools",
+ "doom-audio-provider",
  "doom-geometry-provider",
  "doom-map-provider",
  "doom-raster-provider",

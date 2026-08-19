@@ -1315,14 +1315,30 @@ Acceptance criteria:
 
 ## Slice 10: Sound And Music
 
-- [ ] Decode Doom sound-effect lump metadata and PCM semantics.
-- [ ] Map game events to provider-neutral sound requests.
+- [x] Decode Doom sound-effect lump metadata and PCM semantics.
+  - [x] `doom-audio-provider` performs replacement-friendly last-match lookup,
+        validates the eight-byte format-3 header and explicit decode limits,
+        retains unsigned eight-bit mono samples, and lowers them to bounded
+        finite normalized `audio_tools::PcmClip` values.
+  - [x] The headless `doom_sound_report` corpus proof decodes canonical
+        `DSPISTOL` (11,025 Hz, 5,661 samples) and `DSPOSACT` (11,025 Hz,
+        10,774 samples) without initializing a device, renderer, or window.
+- [x] Map game events to provider-neutral sound requests.
+  - [x] Pistol-fire and zombieman-alert events first produce logical
+        `SoundRequest` values; the corpus-private Doom mapping resolves their
+        clip keys to `DSPISTOL` and `DSPOSACT` only afterward.
 - [ ] Parse MUS or lower it through an optional reviewed MUS-to-MIDI provider.
 - [ ] Exercise the planned MIDI sequencing/synthesis provider without making
       Doom music define Tokimu's audio contracts.
-- [ ] Add positional sound requirements separately from decoder mechanisms.
-- [ ] Add deterministic event observations even when live audio output is
+- [x] Add positional sound requirements separately from decoder mechanisms.
+  - [x] `SoundEmission` distinguishes listener-relative playback from a finite
+        world-space source position and contains no Doom or backend vocabulary.
+- [x] Add deterministic event observations even when live audio output is
       unavailable.
+  - [x] `doom_sound_report` records logical requests, emission, resolved source,
+        metadata, normalized extrema, duration, and source-sample fingerprint;
+        it explicitly reports `audio-device=false`, `playback=false`, and
+        `clock=none`.
 
 Acceptance criteria:
 

@@ -235,6 +235,8 @@ The evidence does not establish:
 
 Incubating. Keep audio analysis, visualizer-input, and MilkDrop subset
 contracts in `corpus/lib/visualizer-tools` and `corpus/lib/milkdrop-tools`.
+Keep bounded decoded-clip and logical-request evidence in
+`corpus/lib/audio-tools`, with source decoding in concrete corpus providers.
 The second headless analysis consumer and native/WASM visualizer consumers
 validate the present seams, but do not establish a capture provider, a
 provider-neutral multipass executor, a general preset capability, or stable
@@ -390,6 +392,25 @@ Reopen or advance this review when:
   boundary, and texture requirement evidence before it can inform capability
   admission.
 
+### Cycle 7 -- 2026-08-19
+
+- Status entering review: Incubating
+- New evidence: `audio-tools` supplies bounded normalized `PcmClip` values and
+  logical `SoundRequest`/`SoundEmission` values; `doom-audio-provider` decodes
+  canonical format-3 WAD sound effects; and the headless `doom_sound_report`
+  observes one listener-relative and one spatial gameplay request without a
+  device, playback backend, renderer, window, or clock.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: complete decoded clips and application sound requests are distinct
+  from analysis windows and from playback execution. Source-format lookup and
+  decoding remain provider responsibilities, while the application chooses
+  semantic events and logical clip keys. Device, mixer, resampling, voice
+  lifecycle, clock, and native/WASM behavior remain unproven.
+- Disposition: Incubating; stable audio capability admission remains deferred.
+- Resulting ADR or documentation change: no ADR or engine-crate admission.
+  The corpus-local audio values and Doom provider may gather playback evidence
+  without moving Doom vocabulary into runtime or renderer contracts.
+
 ## References
 
 - `docs/Plans/Standalone/audio-reactive-visualizers-and-milkdrop-compatibility.md`
@@ -398,6 +419,9 @@ Reopen or advance this review when:
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`
 - `corpus/lib/visualizer-tools/src/audio_analysis.rs`
 - `corpus/lib/visualizer-tools/src/lib.rs`
+- `corpus/lib/audio-tools/src/lib.rs`
+- `corpus/lib/doom-audio-provider/src/lib.rs`
+- `corpus/campaigns/doom/hello-doom-e1m1/src/bin/doom_sound_report.rs`
 - `corpus/focused/audio/hello-audio-analysis/src/main.rs`
 - `corpus/focused/audio/hello-audio-visualizer/src/main.rs`
 - https://github.com/projectM-visualizer/projectm

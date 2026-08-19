@@ -690,6 +690,12 @@ Deferred early, but eventually owns:
 * spatial audio
 * mixer state
 
+`corpus/lib/audio-tools` currently incubates bounded provider-neutral PCM clips
+and logical sound requests for corpus evidence. Concrete adapters such as
+`corpus/lib/doom-audio-provider` own source-format decoding. This does not admit
+a stable `tokimu-audio` crate: device selection, playback, mixing, voice
+lifecycle, clocks, and native/WASM provider behavior remain unproven.
+
 ### 5.9 tokimu-tools
 
 Optional future tooling:

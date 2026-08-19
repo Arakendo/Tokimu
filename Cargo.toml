@@ -128,6 +128,7 @@ members = [
     "corpus/ui/hello-ui-dashboard",
 
     # Incubating shared corpus libraries.
+    "corpus/lib/audio-tools",
     "corpus/lib/screenshot",
     "corpus/lib/resource-space",
     "corpus/lib/resource-space-assets",
@@ -145,6 +146,7 @@ members = [
     "corpus/lib/doom-wad-package",
     "corpus/lib/doom-map-provider",
     "corpus/lib/doom-geometry-provider",
+    "corpus/lib/doom-audio-provider",
     "corpus/lib/doom-raster-provider",
     "corpus/lib/diff-tools",
     "corpus/lib/fbx-corpus",

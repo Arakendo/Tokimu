@@ -7,6 +7,8 @@ repository.workspace = true
 
 [dependencies]
 archive-provider = { path = "../../../lib/archive-provider" }
+audio-tools = { path = "../../../lib/audio-tools" }
+doom-audio-provider = { path = "../../../lib/doom-audio-provider" }
 doom-geometry-provider = { path = "../../../lib/doom-geometry-provider" }
 doom-map-provider = { path = "../../../lib/doom-map-provider" }
 doom-raster-provider = { path = "../../../lib/doom-raster-provider" }
