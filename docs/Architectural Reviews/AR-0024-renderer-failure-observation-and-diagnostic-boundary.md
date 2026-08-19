@@ -426,3 +426,38 @@ demonstrated a second rendering API.
 - Resulting plan/evidence:
   `docs/Plans/Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md`
   and its baseline/inventory evidence record.
+
+### Cycle 12 -- 2026-08-19
+
+- Status entering review: resource-lifetime question reopened; Alternative-A
+  browser execution pending.
+- New evidence: the automated Doom control completed all 27 replacements in
+  19,657.4 ms. The final record retained 27 fresh backend/device/surface
+  creations and 26 logically retired sets. The page and Edge window survived;
+  the log contains no new GPU-process start during the run and no device-loss,
+  OOM, WGPU validation, fatal, or Crashpad record.
+- Findings: whole-backend replacement can survive this bounded automated
+  workload, so the prior E1M3/E1M5/E1M6 closure is not a deterministic map-
+  replacement failure. This does not prove synchronous reclamation or acquit
+  movement/timing pressure. The lifetime counters correctly remain logical
+  evidence rather than a physical-memory claim.
+- Disposition: retain Alternative A as the successful Doom baseline. Run the
+  independent non-Doom control and adversarial manual walkabout before the
+  B-first gate. No stable renderer lifetime contract is admitted.
+
+### Cycle 13 -- 2026-08-19
+
+- Status entering review: Doom Alternative-A automation passed; independent
+  browser control pending.
+- New evidence: the non-Doom resource-rich control completed all 27 fresh
+  backend/device/surface replacements in 1,644.4 ms, with a 46.92 ms mean and
+  no returned diagnostic. The page/window survived.
+- Findings: both automated callers tolerate bounded repeated provider-session
+  replacement. The earlier movement/map-switch closure is therefore retained
+  as timing or interaction-conditioned pressure rather than a deterministic
+  E1M3/E1M5/E1M6 or Doom-only failure. OOM and physical reclamation remain
+  unproven.
+- Disposition: accept Slice 1 and authorize only the feature-gated,
+  corpus-private Alternative B prototype. Preserve Cycle 10's rejection of a
+  stable renderer allocator/lifetime contract until B passes its sufficiency
+  gate.

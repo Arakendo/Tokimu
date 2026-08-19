@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- Slices 1 and 2 instrumented; live browser rotation pending |
+| Status | In progress -- Slices 1 and 2 accepted; Alternative B authorized |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024 and AR-0030 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007 |
@@ -192,7 +192,9 @@ Initial implementation and the current ownership inventory are retained in
   - [x] estimated CPU-side and provider-submitted resource bytes where those
         estimates are honest;
   - [x] frame/replacement timings and bounded provider diagnostics;
-  - [ ] page, renderer-process, and GPU-process survival where observable.
+  - [x] page, renderer-process, and GPU-process survival where observable for
+        the first successful Doom Alternative-A run; retain the same evidence
+        for the independent control.
 - [x] Label browser process memory or GPU-memory observations by source and
       availability. Absence of a measurement must not be reported as zero.
 - [x] Add a smaller non-Doom resource-rich replacement fixture so any proposed
@@ -201,18 +203,18 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Validation
 
-- [ ] The harness distinguishes a returned Rust/WASM error, device loss,
+- [x] The harness distinguishes a returned Rust/WASM error, device loss,
       renderer-process termination, GPU-process restart, and whole-window exit
       when the host exposes those facts.
-- [ ] A successful cycle does not become proof of synchronous reclamation.
-- [ ] The E1M3 overlap repair remains in force: no replacement creates two live
+- [x] A successful cycle does not become proof of synchronous reclamation.
+- [x] The E1M3 overlap repair remains in force: no replacement creates two live
       WGPU surfaces for the same canvas.
 
 ### Acceptance Criteria
 
-- [ ] The current lifecycle and its observable limits are reproducible without
+- [x] The current lifecycle and its observable limits are reproducible without
       relying on the remembered E1M5/E1M6 failure location.
-- [ ] Evidence can distinguish cumulative replacement pressure from a
+- [x] Evidence can distinguish cumulative replacement pressure from a
       deterministic map-specific preparation defect.
 
 ## Slice 2: Inventory Resource Ownership And Dependencies

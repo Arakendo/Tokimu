@@ -2633,6 +2633,35 @@ The review moves away from shared admission when:
   repeated-rotation gate, and no reset/arena prototype is authorized by the
   current baseline alone.
 
+### Cycle 79 -- 2026-08-19
+
+- The Doom Alternative-A control completed three E1M1-through-E1M9 rounds: 27
+  of 27 fresh backend/device/surface replacements in 19,657.4 ms. All three
+  E1M3, E1M5, and E1M6 occurrences presented successfully.
+- The Edge page/window survived, no new GPU process began during the run, and
+  the retained log contains no device-loss, OOM, WGPU validation, fatal, or
+  Crashpad record. Physical reclamation remains explicitly unobserved.
+- This is positive bounded lifecycle evidence, not a change to Doom source
+  preparation or grouped-sky semantics. It rules out a deterministic failure
+  tied solely to one of the previously suspected maps, but does not reproduce
+  the movement-conditioned closure.
+- The independent non-Doom replacement control and manual walkabout remain the
+  next gates before Alternative B receives implementation authority.
+
+### Cycle 80 -- 2026-08-19
+
+- The independent non-Doom control also completed 27 of 27 fresh
+  backend/device/surface replacements, in 1,644.4 ms, without a returned
+  diagnostic or page/window loss.
+- Slice 1 now has two successful automated Alternative-A callers and the
+  earlier adverse manual Doom walkabout. This separates deterministic map
+  preparation from interaction/timing-conditioned provider-lifetime pressure
+  without claiming OOM.
+- The renderer lifetime plan may advance to its feature-gated Alternative B
+  prototype. That authority covers provider-session/resource-lifetime
+  mechanics only; it does not broaden Doom preparation or AR-0030's renderer
+  boundary.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

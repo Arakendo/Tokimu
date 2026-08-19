@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-19 |
 | Plan | [Renderer Scene-Resource Lifetime And Replacement](../renderer-scene-resource-lifetime-and-replacement.md) |
-| Status | Slices 1 and 2 implementation evidence; live browser rotation still required |
+| Status | Slice 1 accepted; Slice 2 inventory retained |
 | Callers | Doom TypeScript boundary workbench and `hello-render-resource-identity-web` |
 
 ## Evidence Boundary
@@ -162,6 +162,78 @@ physical allocations synchronously in that order.
 6. The current consumer estimates are adequate for comparing logical growth
    and submitted payloads, but cannot establish GPU residency or reclamation.
 
+## Live Doom Alternative-A Observation
+
+The maintainer ran the three-round control in Microsoft Edge on 2026-08-19.
+The page returned:
+
+```text
+kind=map-rotation-complete
+requested-replacements=27
+completed-replacements=27
+elapsed-ms=19657.4
+physical-gpu-reclamation=unobserved
+```
+
+All nine maps completed three times. Replacement timing was:
+
+| Map | Runs | Minimum ms | Mean ms | Maximum ms |
+| --- | ---: | ---: | ---: | ---: |
+| E1M1 | 3 | 422.0 | 493.7 | 632.1 |
+| E1M2 | 3 | 741.5 | 765.1 | 801.9 |
+| E1M3 | 3 | 787.3 | 918.8 | 1,143.8 |
+| E1M4 | 3 | 597.5 | 624.5 | 673.6 |
+| E1M5 | 3 | 651.9 | 743.3 | 892.7 |
+| E1M6 | 3 | 1,072.6 | 1,178.9 | 1,357.1 |
+| E1M7 | 3 | 778.6 | 794.7 | 827.0 |
+| E1M8 | 3 | 369.4 | 454.9 | 536.7 |
+| E1M9 | 3 | 464.1 | 561.8 | 754.2 |
+
+The final E1M9 record reported 27 backend/device/surface creations and 26
+logically retired sets comprising 46,762 meshes, 1,644 textures, 1,670
+materials, 182 pipelines, 26 cameras, and 88,199 commands. The submitted
+payload estimates accumulated to 12,252,864 mesh-vertex bytes and 54,255,104
+source-texture bytes across those retired sets. These are cumulative logical
+facts, not simultaneously live counts.
+
+The page and Edge window survived. The retained Edge log contains no new GPU
+process start during this run and no device-loss, OOM, WGPU validation, fatal,
+or Crashpad record. Its repeated fallback-task-provider warning remains an
+Edge task-manager warning and does not identify a Tokimu or WebGPU failure.
+
+This successful run falsifies a deterministic E1M3/E1M5/E1M6 replacement
+crash under the automated no-movement workload. It does not falsify movement-
+conditioned pressure, timing-sensitive reclamation, or the need for a retained
+provider session. The separate manual walkabout and non-Doom 27-replacement
+control remain required.
+
+## Live Independent Alternative-A Observation
+
+The maintainer then ran the corrected port-4177 non-Doom control in the same
+Edge session. It returned:
+
+```text
+status=complete
+replacements=27
+elapsed-ms=1644.4
+minimum-replacement-ms=15.0
+mean-replacement-ms=46.92
+maximum-replacement-ms=381.7
+physical-gpu-reclamation=unobserved
+```
+
+Every replacement presented 64 meshes, 64 textures, 64 materials, one
+pipeline, one camera, and 64 draws. The final record retained 27 fresh
+backend/device/surface creations and 26 logically retired sets. No diagnostic
+was returned and the page/window survived.
+
+Together, the two automated controls show that repeated whole-backend creation
+is not deterministically fatal either for the nine Doom maps or for a smaller
+independent resource-rich caller. The earlier adversarial movement/map-switch
+walkabout remains the retained negative baseline. The evidence therefore
+separates a deterministic map defect from timing/movement/provider-lifetime
+pressure without identifying physical memory exhaustion as the cause.
+
 ## Validation Retained So Far
 
 - `cargo check -p doom-ts-boundary-workbench-engine --target wasm32-unknown-unknown`
@@ -170,6 +242,7 @@ physical allocations synchronously in that order.
 - `cargo test -p hello-render-resource-identity` (18 passed)
 - `cargo fmt --all`
 
-Live browser execution of both 27-replacement controls remains required before
-Slice 1 acceptance. No B/C prototype or shared renderer contract is admitted
-by this evidence.
+Slice 1 is accepted with both automated controls plus the earlier adverse
+manual Doom walkabout. No shared renderer contract is admitted by this
+evidence. The plan may now advance to the feature-gated, corpus-private
+Alternative B prototype.

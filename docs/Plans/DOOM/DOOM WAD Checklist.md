@@ -1452,8 +1452,10 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
             handle and no scene-resource release/reset operation exists.
         - [x] Add the deterministic Alternative-A browser harness: E1M1 through
               E1M9 for three rounds, with one bounded lifetime record per map.
-        - [ ] Execute the 27 replacements and join any missing browser
-              completion record with Edge/GPU-process evidence.
+        - [x] Execute the 27 replacements and join browser completion with
+              Edge/GPU-process evidence: all 27 completed in 19,657.4 ms with
+              no new GPU-process start or retained device-loss/OOM/fatal
+              record. Physical reclamation remains unobserved.
   - [ ] Retain a real WebGPU observation and capture for at least E1M1 plus one
         swapped map. WASM compilation and strict TypeScript checking are only
         readiness evidence until the browser executes the stencil path.
