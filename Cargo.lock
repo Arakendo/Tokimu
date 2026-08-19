@@ -1401,6 +1401,7 @@ dependencies = [
  "render-orientation-conformance",
  "resource-space",
  "resource-space-archive",
+ "simple-audio-synth-provider",
  "thiserror 1.0.69",
  "tokimu",
  "tokimu-core",
@@ -3469,6 +3470,14 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "simple-audio-synth-provider"
+version = "0.1.0"
+dependencies = [
+ "audio-tools",
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "slab"

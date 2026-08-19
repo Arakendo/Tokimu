@@ -411,6 +411,31 @@ Reopen or advance this review when:
   The corpus-local audio values and Doom provider may gather playback evidence
   without moving Doom vocabulary into runtime or renderer contracts.
 
+### Cycle 8 -- 2026-08-19
+
+- Status entering review: Incubating
+- New evidence: `audio-tools` now retains bounded ordered note sequences and a
+  caller-clocked transport; `doom-audio-provider` lowers canonical MUS scores
+  into that model at the source's explicit 140 Hz timebase; and
+  `simple-audio-synth-provider` renders bounded stereo PCM without a device.
+  The canonical shareware corpus supplies 13 successful music-lump decodes,
+  while the absent `D_BUNNY` lookup fails explicitly.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: imported music bytes, provider-neutral musical time/events,
+  application transport policy, synthesis, PCM, and device playback remain
+  distinct owners. `D_E1M1` conserves all 5,825 events through fixed-step
+  dispatch, and a five-second synthesis preview is finite and non-silent. The
+  preview can be serialized as canonical PCM16 WAVE for listening without
+  making WAVE the runtime handoff.
+  Generic instrument resolution, looping, production synthesis, device
+  lifecycle, and cross-target numeric equivalence remain missing evidence.
+- Disposition: Incubating; headless sequencing and synthesis are admitted only
+  as corpus evidence. A stable audio capability and live output provider remain
+  deferred.
+- Resulting ADR or documentation change: the standalone MIDI plan and Doom
+  checklist record their completed headless portions; no engine crate or
+  platform dependency is admitted.
+
 ## References
 
 - `docs/Plans/Standalone/audio-reactive-visualizers-and-milkdrop-compatibility.md`
@@ -421,7 +446,9 @@ Reopen or advance this review when:
 - `corpus/lib/visualizer-tools/src/lib.rs`
 - `corpus/lib/audio-tools/src/lib.rs`
 - `corpus/lib/doom-audio-provider/src/lib.rs`
+- `corpus/lib/simple-audio-synth-provider/src/lib.rs`
 - `corpus/campaigns/doom/hello-doom-e1m1/src/bin/doom_sound_report.rs`
+- `corpus/campaigns/doom/hello-doom-e1m1/src/bin/doom_music_report.rs`
 - `corpus/focused/audio/hello-audio-analysis/src/main.rs`
 - `corpus/focused/audio/hello-audio-visualizer/src/main.rs`
 - https://github.com/projectM-visualizer/projectm

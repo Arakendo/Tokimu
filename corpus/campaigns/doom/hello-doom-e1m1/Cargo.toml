@@ -19,6 +19,7 @@ resource-space = { path = "../../../lib/resource-space" }
 resource-space-archive = { path = "../../../lib/resource-space-archive" }
 raster-image-corpus = { path = "../../../lib/raster-image-corpus" }
 render-orientation-conformance = { path = "../../../lib/render-orientation-conformance" }
+simple-audio-synth-provider = { path = "../../../lib/simple-audio-synth-provider" }
 thiserror.workspace = true
 tokimu = { path = "../../../../crates/tokimu", features = ["platform", "render", "experimental-submission-local-geometry"] }
 tokimu-core = { path = "../../../../crates/tokimu-core" }

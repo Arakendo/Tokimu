@@ -129,6 +129,7 @@ members = [
 
     # Incubating shared corpus libraries.
     "corpus/lib/audio-tools",
+    "corpus/lib/simple-audio-synth-provider",
     "corpus/lib/screenshot",
     "corpus/lib/resource-space",
     "corpus/lib/resource-space-assets",

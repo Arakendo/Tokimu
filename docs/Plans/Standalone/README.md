@@ -16,7 +16,7 @@ document remains authoritative for its exact completed slices and next action.
 | Area | Plan | Portfolio status |
 | --- | --- | --- |
 | Audio | [Audio-Reactive Visualizers](audio-reactive-visualizers-and-milkdrop-compatibility.md) | Active |
-| Audio | [MIDI Sequencing And Synthesis](midi-sequencing-and-synthesis-provider.md) | Proposed |
+| Audio | [MIDI Sequencing And Synthesis](midi-sequencing-and-synthesis-provider.md) | In progress |
 | Consumer corpus | [Consumer Corpora](consumer-corpora.md) | Proposed |
 | Consumer corpus | [Particle Simulation And Presentation](particle-simulation-and-presentation.md) | Active |
 | Consumer corpus | [Tokimu Paint](tokimu-paint-consumer-corpus.md) | Active hardening |

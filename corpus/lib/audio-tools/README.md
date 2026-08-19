@@ -6,6 +6,7 @@ It currently proves two boundaries:
 ```text
 source decoder -> bounded provider-neutral PCM clip
 application event -> logical sound request + emission
+authored/imported score -> ordered note sequence -> application-clocked transport
 ```
 
 The library deliberately does not own an audio device, mixer, playback clock,
@@ -22,3 +23,8 @@ Current values:
   name or backend handle.
 - `SoundEmission` distinguishes listener-relative and world-spatial requests.
 - `SoundRequest` combines a logical clip with its emission requirement.
+- `NoteSequence` retains a bounded explicit timebase, channel count, duration,
+  simultaneous-event order, logical instrument requirements, and note/control
+  events without exposing a source parser.
+- `SequenceTransport` consumes only caller-supplied time units and makes
+  start, pause, resume, finish, and stop/reset transitions explicit.

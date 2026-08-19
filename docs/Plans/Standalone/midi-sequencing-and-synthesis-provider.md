@@ -2,9 +2,11 @@
 
 ## Status
 
-Proposed on 2026-08-02 and refined on 2026-08-06 around a first audible
-application milestone. No MIDI importer, sequencer, synthesizer, live MIDI
-provider, or audio-output capability is currently admitted.
+In progress. Proposed on 2026-08-02, refined on 2026-08-06 around a first
+audible application milestone, and given its first headless sequence,
+transport, MUS-import, and synthesis evidence on 2026-08-19. No Standard MIDI
+File importer, live MIDI provider, production synthesizer, or audio-output
+capability is currently admitted.
 
 The first implementation should incubate in focused corpus libraries and
 applications. This plan does not create `tokimu-midi`, `tokimu-audio`, or a
@@ -394,20 +396,21 @@ look tidy.
 
 Deliverables:
 
-- [ ] Open or extend an Architectural Review for MIDI sequencing, synthesis,
+- [x] Open or extend an Architectural Review for MIDI sequencing, synthesis,
       and audio-output ownership.
-- [ ] Record the relationship to AR-0008 without treating input analysis and
+- [x] Record the relationship to AR-0008 without treating input analysis and
       output playback as one capability.
-- [ ] Define one Tokimu-authored musical fixture and expected event trace.
-- [ ] Define explicit event, track, duration, and payload bounds.
-- [ ] Document the first synthesis provider and why it is sufficient evidence.
+- [x] Define one Tokimu-authored musical fixture and expected event trace.
+- [x] Define explicit event, channel, duration, timebase, and payload bounds.
+      Track identity remains a later multitrack refinement.
+- [x] Document the first synthesis provider and why it is sufficient evidence.
 
 Acceptance criteria:
 
-- [ ] Every proposed type has one named owner.
-- [ ] No platform audio, MIDI, or synthesis dependency enters `tokimu-core` or
+- [x] Every implemented type has one named owner.
+- [x] No platform audio, MIDI, or synthesis dependency enters `tokimu-core` or
       `tokimu-runtime`.
-- [ ] The fixture can be inspected without a window, GPU, or audio device.
+- [x] The fixture can be inspected without a window, GPU, or audio device.
 
 ### Slice 1: Provider-Neutral Note Event Model
 
@@ -415,9 +418,9 @@ Deliverables:
 
 - [ ] Add bounded sequence, track, event, instrument-requirement, and timing
       types in a corpus incubation library.
-- [ ] Represent simultaneous-event ordering explicitly.
-- [ ] Add validation for finite values, legal ranges, and sequence bounds.
-- [ ] Add structured diagnostics for unsupported or invalid events.
+- [x] Represent simultaneous-event ordering explicitly.
+- [x] Add validation for finite values, legal ranges, and sequence bounds.
+- [x] Add structured diagnostics for unsupported or invalid events.
 - [ ] Serialize a stable structural observation artifact.
 
 Acceptance criteria:
@@ -439,6 +442,11 @@ Deliverables:
 - [ ] Implement explicit loop-region semantics.
 - [ ] Flush or restore active notes deterministically across discontinuities.
 - [ ] Record due, late, skipped, and rejected event observations.
+
+Current refinement: fixed-rate sequence time, start/stop/pause/resume/reset,
+bounded advance, and exact dispatch conservation are implemented. Tempo
+changes, seek, looping, active-note restoration, and lateness observations
+remain open.
 
 Acceptance criteria:
 
@@ -470,13 +478,18 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Implement one small corpus-side oscillator or PSG-style provider.
+- [x] Implement one small corpus-side oscillator or PSG-style provider.
 - [ ] Support bounded polyphony, envelopes, volume, pan, and pitch bend.
-- [ ] Produce normalized finite PCM in explicit sample-rate/channel blocks.
+- [x] Produce normalized finite PCM in explicit sample-rate/channel blocks.
 - [ ] Diagnose voice stealing, missing instruments, and non-finite output.
-- [ ] Emit bounded PCM statistics and a deterministic artifact fingerprint.
-- [ ] Write one canonical PCM result as a simple WAVE artifact for listening
+- [x] Emit bounded PCM statistics and a deterministic artifact fingerprint.
+- [x] Write one canonical PCM result as a simple WAVE artifact for listening
       and inspection without making WAVE the runtime audio contract.
+
+Current refinement: bounded polyphony, deterministic oldest-voice stealing,
+volume, expression, pan, pitch bend, finite-output validation, explicit
+instrument substitution, and optional canonical PCM16 WAVE output are
+implemented. Envelopes and missing-instrument rejection remain open.
 
 Acceptance criteria:
 

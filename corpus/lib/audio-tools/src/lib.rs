@@ -6,6 +6,15 @@
 
 use thiserror::Error;
 
+mod sequence;
+mod transport;
+
+pub use sequence::{
+    InstrumentKey, NoteSequence, NoteSequenceLimits, SequenceControl, SequenceEvent,
+    SequenceEventKind, SequenceTimebase,
+};
+pub use transport::{SequenceTransport, TransportState};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PcmClipLimits {
     pub maximum_frames: usize,
@@ -150,6 +159,40 @@ pub enum AudioValueError {
     InvalidClipKey { value: String },
     #[error("spatial sound position contains a non-finite component")]
     InvalidSpatialPosition,
+    #[error("sequence timebase {units_per_second} is zero or exceeds {maximum_units_per_second}")]
+    InvalidSequenceTimebase {
+        units_per_second: u32,
+        maximum_units_per_second: u32,
+    },
+    #[error("sequence contains {events} events, exceeding {maximum_events}")]
+    SequenceEventLimitExceeded {
+        events: usize,
+        maximum_events: usize,
+    },
+    #[error("sequence duration {duration_units} exceeds {maximum_time_units} time units")]
+    SequenceDurationLimitExceeded {
+        duration_units: u64,
+        maximum_time_units: u64,
+    },
+    #[error(
+        "sequence event {event_index} uses channel {channel}, exceeding channel count {channels}"
+    )]
+    InvalidSequenceChannel {
+        event_index: usize,
+        channel: u8,
+        channels: u8,
+    },
+    #[error("sequence event {event_index} has invalid note or control value {value}")]
+    InvalidSequenceValue { event_index: usize, value: i32 },
+    #[error("sequence event {event_index} occurs after the declared duration")]
+    SequenceEventAfterDuration { event_index: usize },
+    #[error("sequence events are not ordered at event {event_index}")]
+    UnorderedSequenceEvent { event_index: usize },
+    #[error("sequence transport cannot {operation} while {state}")]
+    InvalidTransportTransition {
+        operation: &'static str,
+        state: &'static str,
+    },
 }
 
 #[cfg(test)]

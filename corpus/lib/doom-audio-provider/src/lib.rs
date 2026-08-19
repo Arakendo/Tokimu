@@ -8,6 +8,10 @@ use audio_tools::{AudioValueError, PcmClip, PcmClipLimits};
 use doom_wad_provider::WadManifest;
 use thiserror::Error;
 
+mod mus;
+
+pub use mus::{decode_doom_mus_score, DoomMusDecodeError, DoomMusDecodeLimits, DoomMusScore};
+
 const SOUND_HEADER_BYTES: usize = 8;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

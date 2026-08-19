@@ -1327,9 +1327,25 @@ Acceptance criteria:
   - [x] Pistol-fire and zombieman-alert events first produce logical
         `SoundRequest` values; the corpus-private Doom mapping resolves their
         clip keys to `DSPISTOL` and `DSPOSACT` only afterward.
-- [ ] Parse MUS or lower it through an optional reviewed MUS-to-MIDI provider.
-- [ ] Exercise the planned MIDI sequencing/synthesis provider without making
+- [x] Parse MUS or lower it through an optional reviewed MUS-to-MIDI provider.
+  - [x] `doom-audio-provider` parses MUS directly into the provider-neutral
+        `NoteSequence` model at its explicit 140 Hz timebase; no MIDI file or
+        Doom parser object crosses the provider boundary.
+  - [x] All 13 music lumps present in the canonical shareware WAD decode under
+        the same bounds. The unavailable retail-only `D_BUNNY` name reports an
+        explicit missing-lump failure.
+- [x] Exercise the planned MIDI sequencing/synthesis provider without making
       Doom music define Tokimu's audio contracts.
+  - [x] `audio-tools::SequenceTransport` dispatches all 5,825 `D_E1M1` events
+        exactly under application-supplied 35-unit steps and an explicit
+        start/pause/resume/finish/stop lifecycle.
+  - [x] `simple-audio-synth-provider` produces a bounded five-second,
+        22,050-Hz stereo preview from the same generic sequence. Its triangle
+        oscillator and instrument substitution are corpus-provider behavior,
+        not Doom or stable Tokimu semantics.
+  - [x] The canonical preview contains 110,250 stereo frames, peaks at
+        `0.160282` without clipping, and encodes as a 441,044-byte PCM16 WAVE
+        artifact with fingerprint `40b890766bb076a3`.
 - [x] Add positional sound requirements separately from decoder mechanisms.
   - [x] `SoundEmission` distinguishes listener-relative playback from a finite
         world-space source position and contains no Doom or backend vocabulary.
@@ -1346,6 +1362,15 @@ Acceptance criteria:
   do not parse Doom audio formats.
 - Audio-disabled and headless runs retain useful event evidence.
 - Music timing follows an explicit clock and lifecycle.
+
+Headless reproduction:
+
+```text
+cargo run -p hello-doom-e1m1 --bin doom_music_report -- corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD D_E1M1
+```
+
+Append an output path to write the five-second PCM16 listening artifact; WAVE
+is evidence output, not the runtime audio contract.
 
 ## Slice 11: Consumer And WASM Proof
 
