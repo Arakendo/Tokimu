@@ -307,8 +307,11 @@ from shorter neighboring edges are inserted into a collinear longer edge, so
 both independently triangulated leaves use identical finite edge segmentation
 after renderer-precision conversion. This preserves polygon area, source
 identity, and the candidate's sector-support decisions. Canonical E1M1 records
-202 insertions and 1,868 plane triangles under `--sector-boundary-trim`; a
-synthetic three-region fixture proves exact area conservation.
+202 insertions and 1,968 plane triangles under `--sector-boundary-trim`; a
+synthetic three-region fixture proves exact area conservation. Triangulation
+chooses a fan anchor away from subdivided incident edges and uses an interior
+centroid fan only when every corner touches a subdivision; it does not depend
+on a strict-ear removal order for collinearly subdivided polygons.
 
 ## Binding Invariants
 

@@ -2319,10 +2319,15 @@ The review moves away from shared admission when:
   it only makes finite edge segmentation conform across independently lowered
   leaves and sector fragments. A synthetic three-region T-junction proves one
   insertion and exact area conservation.
+- Boundary-preserving triangulation first selects a fan anchor whose incident
+  edges have no collinear subdivisions. A centroid fan is used when every
+  corner touches a subdivided edge. This avoids both spanning across a retained
+  T-junction and assuming every collinearly subdivided convex polygon has a
+  usable strict-ear removal order.
 - Canonical E1M1's opt-in sector-boundary candidate records 202 conformance
-  insertions and grows from 1,464 to 1,868 plane triangles. Native Vulkan
-  two-frame realization completes with 5,076 draws and nine pipeline switches
-  (`415 us` warm command construction, `145,867 us` warm frame CPU). The exact
+  insertions and grows from 1,464 to 1,968 plane triangles. Native Vulkan
+  two-frame realization completes with 5,555 draws and nine pipeline switches
+  (`271 us` warm command construction, `143,245 us` warm frame CPU). The exact
   boundary-directed CPU ray remains an inappropriate visual oracle because
   its single-precision Moller-Trumbore predicate can reject a hit lying exactly
   on the shared edge; live raster inspection remains the visual acceptance

@@ -3522,40 +3522,50 @@ fn append_subsector_surface_triangles(
 
 /// Triangulates a convex region without discarding collinear boundary
 /// subdivisions. A simple fan can span across an inserted T-junction when the
-/// subdivided edge touches the fan anchor; strict-convex ear removal retains
-/// every finite boundary segment while still emitting exactly `n - 2`
-/// triangles.
+/// subdivided edge touches the fan anchor. Prefer a corner whose two incident
+/// edges are not subdivided; if every corner touches a subdivided edge, use an
+/// interior centroid fan which retains every finite boundary segment.
 fn triangulate_convex_region(vertices: &[[f64; 2]]) -> Vec<[[f64; 2]; 3]> {
-    const AREA_EPSILON: f64 = 1.0e-12;
+    const COLLINEAR_DISTANCE_EPSILON: f64 = 1.0e-7;
 
-    let orientation = polygon_signed_area(vertices).signum();
-    let mut remaining = (0..vertices.len()).collect::<Vec<_>>();
-    let mut triangles = Vec::with_capacity(vertices.len().saturating_sub(2));
-    while remaining.len() > 3 {
-        let ear = (0..remaining.len()).find(|&index| {
-            let previous = vertices[remaining[(index + remaining.len() - 1) % remaining.len()]];
-            let current = vertices[remaining[index]];
-            let next = vertices[remaining[(index + 1) % remaining.len()]];
-            orientation * cross_2d(previous, current, next) > AREA_EPSILON
-        });
-        let Some(ear) = ear else {
-            debug_assert!(false, "validated convex region has no strict convex ear");
-            return triangles;
-        };
-        let previous = remaining[(ear + remaining.len() - 1) % remaining.len()];
-        let current = remaining[ear];
-        let next = remaining[(ear + 1) % remaining.len()];
-        triangles.push([vertices[previous], vertices[current], vertices[next]]);
-        remaining.remove(ear);
+    let count = vertices.len();
+    let subdivides = |first: [f64; 2], middle: [f64; 2], last: [f64; 2]| {
+        let length = (last[0] - first[0]).hypot(last[1] - first[1]);
+        length > f64::EPSILON
+            && cross_2d(first, last, middle).abs() / length <= COLLINEAR_DISTANCE_EPSILON
+    };
+    let safe_anchor = (0..count).find(|&index| {
+        !subdivides(
+            vertices[index],
+            vertices[(index + 1) % count],
+            vertices[(index + 2) % count],
+        ) && !subdivides(
+            vertices[(index + count - 2) % count],
+            vertices[(index + count - 1) % count],
+            vertices[index],
+        )
+    });
+
+    if let Some(anchor) = safe_anchor {
+        let rotated = (0..count)
+            .map(|offset| vertices[(anchor + offset) % count])
+            .collect::<Vec<_>>();
+        return (1..count - 1)
+            .map(|index| [rotated[0], rotated[index], rotated[index + 1]])
+            .collect();
     }
-    if remaining.len() == 3 {
-        triangles.push([
-            vertices[remaining[0]],
-            vertices[remaining[1]],
-            vertices[remaining[2]],
-        ]);
-    }
-    triangles
+
+    let center = vertices.iter().fold([0.0, 0.0], |sum, point| {
+        [sum[0] + point[0], sum[1] + point[1]]
+    });
+    let center = [center[0] / count as f64, center[1] / count as f64];
+    vertices
+        .iter()
+        .copied()
+        .zip(vertices.iter().copied().cycle().skip(1))
+        .take(count)
+        .map(|(start, end)| [center, start, end])
+        .collect()
 }
 
 /// Lowers one-sided walls as full-height, untextured triangle candidates.
@@ -5804,6 +5814,48 @@ mod tests {
             .map(|region| polygon_signed_area(region).abs())
             .sum::<f64>();
         assert!((area_after - area_before).abs() <= f64::EPSILON);
+    }
+
+    #[test]
+    fn triangulates_a_region_with_every_boundary_edge_subdivided() {
+        let region = vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [3.0, 0.0],
+            [3.0, 1.0],
+            [3.0, 2.0],
+            [3.0, 3.0],
+            [2.0, 3.0],
+            [1.0, 3.0],
+            [0.0, 3.0],
+            [0.0, 2.0],
+            [0.0, 1.0],
+        ];
+
+        let triangles = triangulate_convex_region(&region);
+
+        assert_eq!(triangles.len(), region.len());
+        let triangle_area = triangles
+            .iter()
+            .map(|triangle| polygon_signed_area(triangle).abs())
+            .sum::<f64>();
+        assert!((triangle_area - polygon_signed_area(&region).abs()).abs() <= f64::EPSILON);
+        for expected_edge in region
+            .iter()
+            .copied()
+            .zip(region.iter().copied().cycle().skip(1))
+            .take(region.len())
+        {
+            assert!(triangles.iter().any(|triangle| {
+                triangle
+                    .iter()
+                    .copied()
+                    .zip(triangle.iter().copied().cycle().skip(1))
+                    .take(3)
+                    .any(|edge| edge == expected_edge || edge == (expected_edge.1, expected_edge.0))
+            }));
+        }
     }
 
     #[test]
