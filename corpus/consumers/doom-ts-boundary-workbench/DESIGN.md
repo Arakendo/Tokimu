@@ -130,3 +130,42 @@ python -m http.server 4176 --directory corpus/consumers/doom-ts-boundary-workben
 Select the reviewed ZIP, then use **Render E1M1 selected cutouts**. The
 returned observation must retain the candidate/rejected/submitted counts;
 the browser should not be treated as a timing benchmark.
+
+## Current Working-Model Browser Test
+
+`render_working_map(canvas, mapName)` is a separate browser/WASM test for the
+current native presentation candidate. Rust validates `mapName` as E1M1
+through E1M9, reopens the user-selected `DOOM1.WAD`, and owns map decoding,
+sector-boundary plane trimming, texture preparation, source-spawn camera
+selection, and the grouped sky sequence:
+
+```text
+sky panorama
+  -> full ordinary-world depth prepass
+  -> paired skywall plus source-sky-plane stencil inversion
+  -> ordinary world color where parity is even
+```
+
+The browser UI exposes **Render working model**, previous/next controls, and
+the same `[` / `]` keys as the native walkabout. Every switch prepares and
+presents a complete replacement frame before reporting the new map. The
+historical fixed E1M1 buttons remain intact as controls; this addition does not
+rewrite their retained evidence.
+
+The test intentionally remains one source-spawn frame per map. It does not yet
+provide a persistent browser walkabout, doors/platforms, Things, audio, or
+browser input ownership. Its observation reports the selected map, complete
+stage sequence, ordinary/cutout/sky contribution counts, boundary-trim audit,
+adapter, and canvas size.
+
+Build and serve it with:
+
+```powershell
+cd corpus/consumers/doom-ts-boundary-workbench
+npm install
+pwsh -NoProfile -File .\build.ps1
+python -m http.server 4176 --bind 127.0.0.1 --directory web
+```
+
+Then open `http://127.0.0.1:4176/`, select the reviewed local ZIP, choose
+**Render working model**, and use `[` / `]` to rotate maps.

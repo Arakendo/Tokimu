@@ -1421,6 +1421,15 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
 - [ ] Add drag-and-drop WAD inspection to the Asset Workbench.
 - [ ] Add a bounded WASM map viewer only after native static rendering is
       stable.
+  - [x] Add the browser working-model test surface. After explicit local ZIP
+        selection, Rust/WASM accepts only E1M1-E1M9 markers and prepares one
+        source-spawn frame with the sector-boundary plane bake and the current
+        grouped skywall-plus-source-sky-plane stencil sequence. Browser
+        previous/next buttons and `[` / `]` replace the complete map frame;
+        TypeScript never receives WAD geometry or presentation policy.
+  - [ ] Retain a real WebGPU observation and capture for at least E1M1 plus one
+        swapped map. WASM compilation and strict TypeScript checking are only
+        readiness evidence until the browser executes the stencil path.
 - [ ] Keep user-supplied WAD bytes in the browser session.
 - [ ] Avoid publishing unreviewed commercial or shareware data.
 - [ ] Record native/WASM importer and geometry parity.

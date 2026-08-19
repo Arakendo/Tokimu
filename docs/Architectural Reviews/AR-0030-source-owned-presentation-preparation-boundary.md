@@ -2513,6 +2513,25 @@ The review moves away from shared admission when:
   it does not reopen the accepted sky mask or source-plane support result unless
   that work reveals a new parity or world-support falsifier.
 
+### Cycle 73 -- 2026-08-19
+
+- The browser-selected-package workbench now exposes a separate
+  `render_working_map(canvas, mapName)` readiness path for E1M1 through E1M9.
+  Rust/WASM validates the marker and owns WAD decoding, the plane-specific
+  sector-boundary surface bake, texture preparation, source-spawn camera, and
+  the same grouped composition order used by the accepted native candidate:
+  panorama, full world depth, paired skywall plus source-sky-plane stencil
+  inversion, then even-parity world color.
+- TypeScript owns only the selected map UI and invokes complete replacement
+  frames through previous/next buttons or `[` / `]`; it receives no source
+  geometry, sky classification, or renderer policy. Historical fixed-E1M1
+  browser calls remain unchanged as controls.
+- The new engine compiles for `wasm32-unknown-unknown`, `wasm-bindgen` exposes
+  the promise-returning map call, and strict TypeScript compilation passes.
+  This is readiness evidence only. A real browser/WebGPU stencil execution and
+  retained E1M1-plus-swapped-map capture remain required before target parity
+  can be claimed.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

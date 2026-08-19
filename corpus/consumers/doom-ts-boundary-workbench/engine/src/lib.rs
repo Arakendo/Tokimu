@@ -16,8 +16,10 @@ use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 use doom_geometry_provider::{
-    locate_doom_point_subsector, resolve_doom_subsector_bsp_paths,
-    resolve_doom_subsector_sector_ownership,
+    locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
+    lower_doom_sector_bounded_subsector_surfaces, lower_doom_textured_wall_triangles,
+    observe_doom_sky_surfaces, observe_doom_two_sided_middle_textures,
+    resolve_doom_subsector_bsp_paths, resolve_doom_subsector_sector_ownership,
 };
 #[cfg(target_arch = "wasm32")]
 use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start};
@@ -25,13 +27,18 @@ use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start};
 use doom_wad_package::select_doom_episode_map;
 #[cfg(target_arch = "wasm32")]
 use hello_doom_e1m1::{
-    build_experimental_cutout_draw_plan, build_experimental_cutout_texture_uploads,
-    build_static_draw_plan, build_static_texture_uploads, classify_static_draw_frustum_rejection,
-    observer_direction, observer_yaw_from_forward, prepare_e1m1_flat_textures, prepare_e1m1_flats,
-    prepare_e1m1_masked_middle_cutouts, prepare_e1m1_sky_diagnostic_flats,
-    prepare_e1m1_wall_textures, prepare_e1m1_walls, prepared_e1m1_masked_middle_texture_names,
-    reembed_comparative_mesh, DoomComparativeEmbedding, StaticDrawAabb, StaticDrawPlanEntry,
-    StaticDrawSource,
+    assemble_experimental_masked_middle_cutouts, assemble_static_opaque_flats,
+    assemble_static_opaque_walls, build_experimental_cutout_draw_plan,
+    build_experimental_cutout_texture_uploads, build_static_draw_plan,
+    build_static_texture_uploads, classify_static_draw_frustum_rejection,
+    lower_static_flat_triangle, observer_direction, observer_yaw_from_forward,
+    prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
+    prepare_e1m1_sky_diagnostic_flats, prepare_e1m1_static_sky_panorama_texture,
+    prepare_e1m1_wall_texture_extents, prepare_e1m1_wall_textures, prepare_e1m1_walls,
+    prepared_e1m1_masked_middle_texture_names, prepared_e1m1_wall_texture_names,
+    reembed_comparative_mesh, DoomComparativeEmbedding, FlatExtent, PreparedE1m1Flats,
+    PreparedE1m1MaskedMiddleCutouts, PreparedE1m1Walls, StaticDrawAabb, StaticDrawPlanEntry,
+    StaticDrawSource, StaticTextureEligibility,
 };
 #[cfg(target_arch = "wasm32")]
 use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, TextureUse};
@@ -39,12 +46,12 @@ use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, Te
 use tokimu::{
     BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color, ColorWriteMask,
     CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d, Material,
-    MaterialHandle, MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand,
-    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureAddressMode, TextureFilter,
-    TextureHandle, TextureSampler, WgpuBackend,
+    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, StencilMode, TextureAddressMode,
+    TextureFilter, TextureHandle, TextureSampler, WgpuBackend,
 };
 #[cfg(target_arch = "wasm32")]
-use tokimu_core::math::{Mat4, Vec3};
+use tokimu_core::math::Vec3;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
 
@@ -83,6 +90,12 @@ const RASTER_LIMITS: doom_raster_provider::DoomRasterDecodeLimits =
 const DIAGNOSTIC_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_010);
 #[cfg(target_arch = "wasm32")]
 const DIAGNOSTIC_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_010);
+#[cfg(target_arch = "wasm32")]
+const WORKING_SKY_TEXTURE: TextureHandle = TextureHandle(9_100_000);
+#[cfg(target_arch = "wasm32")]
+const WORKING_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_100_000);
+#[cfg(target_arch = "wasm32")]
+const WORKING_SKY_BOUNDARY_MATERIAL: MaterialHandle = MaterialHandle(9_100_001);
 #[cfg(target_arch = "wasm32")]
 const FLAT_LIMITS: doom_raster_provider::DoomFlatDecodeLimits =
     doom_raster_provider::DoomFlatDecodeLimits {
@@ -225,6 +238,21 @@ impl BrowserIntakeSession {
             .await
             .map_err(js_error)
     }
+
+    /// Presents one source-spawn frame for an explicitly selected shareware
+    /// episode map using the current native working-model plane trim and
+    /// grouped sky parity sequence. TypeScript transports only the requested
+    /// marker and canvas; Rust validates the marker and owns all preparation.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn render_working_map(
+        &self,
+        canvas: HtmlCanvasElement,
+        map_name: &str,
+    ) -> Result<String, JsValue> {
+        self.render_working_map_inner(canvas, map_name)
+            .await
+            .map_err(js_error)
+    }
 }
 
 impl BrowserIntakeSession {
@@ -340,6 +368,445 @@ impl BrowserIntakeSession {
             "wadKind": format!("{:?}", read.observation.wad.kind), "wadBytes": read.bytes.len(),
             "lumpCount": read.observation.wad.lumps.len(), "retainedResources": self.space.summary().resources(),
         })).map_err(|error| error.to_string())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    async fn render_working_map_inner(
+        &self,
+        canvas: HtmlCanvasElement,
+        map_name: &str,
+    ) -> Result<String, String> {
+        if !matches!(map_name.as_bytes(), [b'E', b'1', b'M', b'1'..=b'9']) {
+            return Err(format!(
+                "working-model browser map must be E1M1 through E1M9; got {map_name}"
+            ));
+        }
+        let name = ResourceName::parse("selected-doom-package", AddressCasePolicy::Sensitive)
+            .map_err(|error| error.to_string())?;
+        let read = read_wad_package_member(
+            &self.space,
+            InspectWadPackageRequest {
+                archive: InspectArchiveResourceRequest {
+                    source_folder: self.folder,
+                    source_name: name,
+                    format: ArchiveFormat::Zip,
+                    limits: ArchiveReadLimits::new(
+                        64 * 1024 * 1024,
+                        2048,
+                        16 * 1024 * 1024,
+                        64 * 1024 * 1024,
+                        4096,
+                    ),
+                },
+                member_name: "DOOM1.WAD".into(),
+                wad_source_label: "browser-selected:DOOM1.WAD".into(),
+                wad_limits: WAD_LIMITS,
+            },
+            &ZipArchiveProvider,
+        )
+        .map_err(|error| error.to_string())?;
+        let selection = select_doom_episode_map(&read.observation.wad, map_name)
+            .map_err(|error| error.to_string())?;
+        let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)
+            .map_err(|error| error.to_string())?;
+        let paths = resolve_doom_subsector_bsp_paths(&map).map_err(|error| error.to_string())?;
+        let surface_bake = lower_doom_sector_bounded_subsector_surfaces(&map, &paths)
+            .map_err(|error| error.to_string())?;
+        let sky_surfaces =
+            observe_doom_sky_surfaces(&map, &paths).map_err(|error| error.to_string())?;
+        let flats = PreparedE1m1Flats {
+            map_name: map.map_name.clone(),
+            flat_assembly: assemble_static_opaque_flats(
+                &surface_bake.surfaces,
+                &sky_surfaces,
+                FlatExtent::E1M1,
+            )
+            .map_err(|error| error.to_string())?,
+        };
+        let wall_extents =
+            prepare_e1m1_wall_texture_extents(&read.bytes, &read.observation.wad, TEXTURE_LIMITS)
+                .map_err(|error| error.to_string())?;
+        let source_walls = lower_doom_textured_wall_triangles(&map, &wall_extents)
+            .map_err(|error| error.to_string())?;
+        let masked_middles =
+            observe_doom_two_sided_middle_textures(&map).map_err(|error| error.to_string())?;
+        let walls = PreparedE1m1Walls {
+            map_name: map.map_name.clone(),
+            wall_assembly: assemble_static_opaque_walls(
+                &source_walls,
+                &masked_middles,
+                &wall_extents,
+            )
+            .map_err(|error| error.to_string())?,
+        };
+        let cutouts = PreparedE1m1MaskedMiddleCutouts {
+            map_name: map.map_name.clone(),
+            assembly: assemble_experimental_masked_middle_cutouts(
+                &source_walls,
+                &masked_middles,
+                &wall_extents,
+            )
+            .map_err(|error| error.to_string())?,
+        };
+        let flat_textures = prepare_e1m1_flat_textures(
+            &read.bytes,
+            &read.observation.wad,
+            &flats,
+            RASTER_LIMITS,
+            FLAT_LIMITS,
+        )
+        .map_err(|error| error.to_string())?;
+        let wall_names = prepared_e1m1_wall_texture_names(&walls);
+        let wall_textures = prepare_e1m1_wall_textures(
+            &read.bytes,
+            &read.observation.wad,
+            &wall_names,
+            RASTER_LIMITS,
+            TEXTURE_LIMITS,
+            PATCH_LIMITS,
+            COMPOSE_LIMITS,
+        )
+        .map_err(|error| error.to_string())?;
+        let uploads = build_static_texture_uploads(&flat_textures, &wall_textures);
+        let mut draws =
+            build_static_draw_plan(&flats, &walls, &uploads).map_err(|error| error.to_string())?;
+        let masked_names = prepared_e1m1_masked_middle_texture_names(&walls);
+        let masked_textures = prepare_e1m1_wall_textures(
+            &read.bytes,
+            &read.observation.wad,
+            &masked_names,
+            RASTER_LIMITS,
+            TEXTURE_LIMITS,
+            PATCH_LIMITS,
+            COMPOSE_LIMITS,
+        )
+        .map_err(|error| error.to_string())?;
+        let cutout_uploads =
+            build_experimental_cutout_texture_uploads(&masked_textures, uploads.len() as u64 + 1);
+        let mut cutout_draws = build_experimental_cutout_draw_plan(&cutouts, &cutout_uploads)
+            .map_err(|error| error.to_string())?;
+
+        let mut sky_plane_meshes = Vec::new();
+        for surface in &surface_bake.surfaces {
+            if !sky_surfaces.iter().any(|sky| {
+                sky.source_subsector == surface.source_subsector
+                    && sky.source_sector == surface.source_sector
+                    && sky.plane == surface.plane
+            }) {
+                continue;
+            }
+            match lower_static_flat_triangle(surface, FlatExtent::E1M1) {
+                Ok(flat) => sky_plane_meshes.push(flat.mesh),
+                Err(hello_doom_e1m1::StaticFlatLoweringError::DegenerateTriangle) => {}
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        let mut skywall_meshes = lower_doom_paired_sky_boundary_triangles(&map)
+            .map_err(|error| error.to_string())?
+            .into_iter()
+            .map(|triangle| {
+                Mesh::uniform_normal(
+                    triangle
+                        .positions
+                        .into_iter()
+                        .map(|position| position.map(|component| component as f32))
+                        .collect(),
+                    [0.0, 1.0, 0.0],
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let embedding = DoomComparativeEmbedding::PreserveNorth;
+        reembed_browser_draws(&mut draws, embedding);
+        reembed_browser_draws(&mut cutout_draws, embedding);
+        for mesh in sky_plane_meshes.iter_mut().chain(skywall_meshes.iter_mut()) {
+            reembed_comparative_mesh(mesh, embedding, false);
+        }
+
+        let start =
+            resolve_doom_player_one_start(&map.things).map_err(|error| error.to_string())?;
+        let location = locate_doom_point_subsector(start.position, &paths)
+            .map_err(|error| error.to_string())?;
+        let ownership =
+            resolve_doom_subsector_sector_ownership(&map).map_err(|error| error.to_string())?;
+        let owner = ownership
+            .iter()
+            .find(|entry| entry.source_subsector == location.source_subsector)
+            .ok_or_else(|| "player-one start subsector has no sector ownership".to_owned())?;
+        let sector = &map.sectors[usize::from(owner.sector_index)];
+        let eye_height = (f32::from(sector.floor_height) + f32::from(sector.ceiling_height)) * 0.5;
+        let observer = embedding.lift_direction(start.position.map(f32::from), eye_height);
+        let forward = embedding.lift_heading_degrees(f32::from(start.angle));
+
+        let (center, radius) = working_scene_bounds(&draws, &cutout_draws)?;
+        let sky_mesh =
+            build_working_sky_cylinder(center, radius).map_err(|error| error.to_string())?;
+        let sky_texture = prepare_e1m1_static_sky_panorama_texture(
+            &read.bytes,
+            &read.observation.wad,
+            RASTER_LIMITS,
+            TEXTURE_LIMITS,
+            PATCH_LIMITS,
+            COMPOSE_LIMITS,
+        )
+        .map_err(|error| error.to_string())?;
+        let StaticTextureEligibility::Opaque(sky_info) = &sky_texture.eligibility else {
+            return Err("SKY1 working-model panorama was not opaque after bounded crop".into());
+        };
+
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        let mut renderer = WgpuBackend::for_window(canvas, width, height)
+            .await
+            .map_err(|error| error.to_string())?;
+        let adapter_name = renderer.adapter_name().to_owned();
+        let backend_api = renderer.backend_api();
+        let device_kind = renderer.device_kind();
+        for upload in uploads.iter().chain(&cutout_uploads) {
+            renderer
+                .create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)
+                .map_err(|error| error.to_string())?;
+            renderer
+                .upload_material(upload.material, &upload.material_value)
+                .map_err(|error| error.to_string())?;
+        }
+        renderer
+            .create_texture_rgba8(WORKING_SKY_TEXTURE, sky_info.descriptor, &sky_texture.rgba8)
+            .map_err(|error| error.to_string())?;
+        renderer
+            .upload_material(
+                WORKING_SKY_MATERIAL,
+                &Material::new("doom-browser-working-sky", Color::rgb(1.0, 1.0, 1.0))
+                    .with_texture(WORKING_SKY_TEXTURE)
+                    .with_texture_sampler(sky_info.sampler),
+            )
+            .map_err(|error| error.to_string())?;
+        renderer
+            .upload_material(
+                WORKING_SKY_BOUNDARY_MATERIAL,
+                &Material::new(
+                    "doom-browser-working-sky-boundary",
+                    Color::rgb(0.0, 0.0, 0.0),
+                ),
+            )
+            .map_err(|error| error.to_string())?;
+
+        const CAMERA: CameraHandle = CameraHandle(91);
+        const SKY_MESH: MeshHandle = MeshHandle(9_100_000);
+        const OPAQUE_MESH_BASE: u64 = 1;
+        let cutout_mesh_base = draws.len() as u64 + 1;
+        let skywall_mesh_base = cutout_mesh_base + cutout_draws.len() as u64;
+        let sky_plane_mesh_base = skywall_mesh_base + skywall_meshes.len() as u64;
+        renderer.upload_mesh(SKY_MESH, &sky_mesh);
+        for (index, draw) in draws.iter().enumerate() {
+            renderer.upload_mesh(MeshHandle(OPAQUE_MESH_BASE + index as u64), &draw.mesh);
+        }
+        for (index, draw) in cutout_draws.iter().enumerate() {
+            renderer.upload_mesh(MeshHandle(cutout_mesh_base + index as u64), &draw.mesh);
+        }
+        for (index, mesh) in skywall_meshes.iter().enumerate() {
+            renderer.upload_mesh(MeshHandle(skywall_mesh_base + index as u64), mesh);
+        }
+        for (index, mesh) in sky_plane_meshes.iter().enumerate() {
+            renderer.upload_mesh(MeshHandle(sky_plane_mesh_base + index as u64), mesh);
+        }
+
+        let opaque_state = PipelineRenderState {
+            blend: BlendMode::Opaque,
+            depth_test: DepthTest::LessEqual,
+            depth_write: true,
+            cull_mode: CullMode::Back,
+            color_write: ColorWriteMask::ALL,
+        };
+        let opaque_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::new("doom-browser-working-opaque", PipelineKind::Textured3d)
+                    .with_render_state(opaque_state)
+                    .map_err(|error| error.to_string())?
+                    .with_stencil_mode(StencilMode::RequireZero),
+            )
+            .map_err(|error| error.to_string())?;
+        let opaque_depth_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::new(
+                    "doom-browser-working-opaque-depth",
+                    PipelineKind::Textured3d,
+                )
+                .with_render_state(PipelineRenderState {
+                    color_write: ColorWriteMask::NONE,
+                    ..opaque_state
+                })
+                .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
+        let one_sided_depth_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::new(
+                    "doom-browser-working-one-sided-depth",
+                    PipelineKind::Textured3d,
+                )
+                .with_render_state(PipelineRenderState {
+                    cull_mode: CullMode::None,
+                    color_write: ColorWriteMask::NONE,
+                    ..opaque_state
+                })
+                .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
+        let sky_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::new("doom-browser-working-panorama", PipelineKind::Textured3d)
+                    .with_render_state(PipelineRenderState {
+                        blend: BlendMode::Opaque,
+                        depth_test: DepthTest::LessEqual,
+                        depth_write: false,
+                        cull_mode: CullMode::None,
+                        color_write: ColorWriteMask::ALL,
+                    })
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
+        let boundary_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::new(
+                    "doom-browser-working-sky-boundary",
+                    PipelineKind::LitColor3d,
+                )
+                .with_render_state(PipelineRenderState {
+                    blend: BlendMode::Opaque,
+                    depth_test: DepthTest::LessEqual,
+                    depth_write: false,
+                    cull_mode: CullMode::None,
+                    color_write: ColorWriteMask::NONE,
+                })
+                .map_err(|error| error.to_string())?
+                .with_stencil_mode(StencilMode::InvertOnDepthPass),
+            )
+            .map_err(|error| error.to_string())?;
+        let cutout = CategoricalCutout::new(
+            CutoutThreshold::new(0.0).map_err(|error| error.to_string())?,
+            CutoutComparison::DiscardAtOrBelow,
+        );
+        let cutout_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::textured_3d_cutout("doom-browser-working-cutout", cutout)
+                    .with_stencil_mode(StencilMode::RequireZero),
+            )
+            .map_err(|error| error.to_string())?;
+        let cutout_depth_pipeline = renderer
+            .register_pipeline(
+                &Pipeline::textured_3d_cutout("doom-browser-working-cutout-depth", cutout)
+                    .with_render_state(PipelineRenderState::categorical_cutout_depth_prepass_3d())
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
+
+        let mut camera = Camera::perspective_3d(width as f32, height as f32);
+        camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
+            60_f32.to_radians(),
+            width as f32 / height as f32,
+            0.1,
+            radius * 8.0,
+        )
+        .ok_or_else(|| "working-model camera projection is invalid".to_owned())?;
+        camera.view =
+            tokimu_core::math::try_view_look_at_rh(observer, observer + forward * 128.0, Vec3::Y)
+                .ok_or_else(|| "working-model source-spawn camera basis is invalid".to_owned())?;
+        renderer.upload_camera(CAMERA, camera);
+
+        let mut commands = vec![
+            RenderCommand::Clear(ClearCommand {
+                color: Color::rgb(0.015, 0.02, 0.025),
+            }),
+            RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: SKY_MESH,
+                material: WORKING_SKY_MATERIAL,
+                pipeline: sky_pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }),
+        ];
+        for (index, draw) in draws.iter().enumerate() {
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(OPAQUE_MESH_BASE + index as u64),
+                material: draw.material,
+                pipeline: if is_working_one_sided_wall(draw, &map) {
+                    one_sided_depth_pipeline
+                } else {
+                    opaque_depth_pipeline
+                },
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
+        for (index, draw) in cutout_draws.iter().enumerate() {
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(cutout_mesh_base + index as u64),
+                material: draw.material,
+                pipeline: cutout_depth_pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
+        for index in 0..skywall_meshes.len() {
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(skywall_mesh_base + index as u64),
+                material: WORKING_SKY_BOUNDARY_MATERIAL,
+                pipeline: boundary_pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
+        for index in 0..sky_plane_meshes.len() {
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(sky_plane_mesh_base + index as u64),
+                material: WORKING_SKY_BOUNDARY_MATERIAL,
+                pipeline: boundary_pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
+        for (index, draw) in draws.iter().enumerate() {
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(OPAQUE_MESH_BASE + index as u64),
+                material: draw.material,
+                pipeline: opaque_pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
+        for (index, draw) in cutout_draws.iter().enumerate() {
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(cutout_mesh_base + index as u64),
+                material: draw.material,
+                pipeline: cutout_pipeline,
+                instance: Instance2d::identity(),
+                camera: Some(CAMERA),
+                viewport: None,
+            }));
+        }
+        renderer.begin_frame();
+        renderer.submit(&commands);
+        renderer.present().map_err(|error| error.to_string())?;
+
+        Ok(format!(
+            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
+            map.map_name,
+            draws.len(),
+            cutout_draws.len(),
+            skywall_meshes.len(),
+            sky_plane_meshes.len(),
+            surface_bake.audit.surface_triangles,
+            surface_bake.audit.edge_conformance_insertions,
+            width,
+            height,
+        ))
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -749,6 +1216,83 @@ fn reembed_browser_draws(draws: &mut [StaticDrawPlanEntry], embedding: DoomCompa
             }
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn is_working_one_sided_wall(
+    draw: &StaticDrawPlanEntry,
+    map: &doom_map_provider::DoomMapCore,
+) -> bool {
+    let StaticDrawSource::Wall { source_linedef, .. } = draw.source else {
+        return false;
+    };
+    map.linedefs
+        .get(source_linedef.record_index as usize)
+        .filter(|linedef| linedef.source == source_linedef)
+        .is_some_and(|linedef| linedef.right_sidedef.is_some() ^ linedef.left_sidedef.is_some())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn working_scene_bounds(
+    opaque: &[StaticDrawPlanEntry],
+    cutouts: &[StaticDrawPlanEntry],
+) -> Result<(Vec3, f32), String> {
+    let mut minimum = Vec3::splat(f32::INFINITY);
+    let mut maximum = Vec3::splat(f32::NEG_INFINITY);
+    for position in opaque
+        .iter()
+        .chain(cutouts)
+        .flat_map(|draw| draw.mesh.positions.iter())
+    {
+        let point = Vec3::from_array(*position);
+        minimum = minimum.min(point);
+        maximum = maximum.max(point);
+    }
+    if !minimum.is_finite() || !maximum.is_finite() {
+        return Err("working-model map has no finite ordinary geometry".into());
+    }
+    let center = (minimum + maximum) * 0.5;
+    let radius = (maximum - minimum).max_element().max(1.0);
+    Ok((center, radius))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn build_working_sky_cylinder(
+    center: Vec3,
+    scene_radius: f32,
+) -> Result<Mesh, tokimu::MeshValidationError> {
+    const SEGMENTS: usize = 64;
+    let radius = scene_radius * 1.5;
+    let bottom = center.y - scene_radius * 3.0;
+    let top = center.y + scene_radius * 3.0;
+    let mut positions = Vec::with_capacity(SEGMENTS * 6);
+    let mut normals = Vec::with_capacity(SEGMENTS * 6);
+    let mut texture_coordinates = Vec::with_capacity(SEGMENTS * 6);
+    for segment in 0..SEGMENTS {
+        let u0 = segment as f32 / SEGMENTS as f32;
+        let u1 = (segment + 1) as f32 / SEGMENTS as f32;
+        let angle0 = u0 * std::f32::consts::TAU;
+        let angle1 = u1 * std::f32::consts::TAU;
+        let radial0 = Vec3::new(angle0.cos(), 0.0, angle0.sin());
+        let radial1 = Vec3::new(angle1.cos(), 0.0, angle1.sin());
+        let p0_bottom = center + radial0 * radius + Vec3::Y * (bottom - center.y);
+        let p0_top = center + radial0 * radius + Vec3::Y * (top - center.y);
+        let p1_bottom = center + radial1 * radius + Vec3::Y * (bottom - center.y);
+        let p1_top = center + radial1 * radius + Vec3::Y * (top - center.y);
+        for (position, normal, uv) in [
+            (p0_bottom, -radial0, [u0, 1.0]),
+            (p1_top, -radial1, [u1, 0.0]),
+            (p1_bottom, -radial1, [u1, 1.0]),
+            (p0_bottom, -radial0, [u0, 1.0]),
+            (p0_top, -radial0, [u0, 0.0]),
+            (p1_top, -radial1, [u1, 0.0]),
+        ] {
+            positions.push(position.to_array());
+            normals.push(normal.to_array());
+            texture_coordinates.push(uv);
+        }
+    }
+    Mesh::new(positions, normals).with_texture_coordinates(texture_coordinates)
 }
 
 #[cfg(target_arch = "wasm32")]

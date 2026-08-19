@@ -3,6 +3,10 @@ import { bindLocalPackagePicker, disposeIntake } from "./intake.js";
 const button = document.querySelector("#select");
 const inspect = document.querySelector("#inspect");
 const render = document.querySelector("#render");
+const renderWorking = document.querySelector("#render-working");
+const mapPrevious = document.querySelector("#map-previous");
+const mapNext = document.querySelector("#map-next");
+const workingMap = document.querySelector("#working-map");
 const renderCutouts = document.querySelector("#render-cutouts");
 const renderSelected = document.querySelector("#render-selected");
 const renderDiagnosticSky = document.querySelector("#render-diagnostic-sky");
@@ -12,12 +16,48 @@ const clear = document.querySelector("#clear");
 const input = document.querySelector("#package");
 const result = document.querySelector("#result");
 const canvas = document.querySelector("#scene");
-if (button === null || inspect === null || render === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
+if (button === null || inspect === null || render === null || renderWorking === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
     throw new Error("intake DOM is incomplete");
+const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"];
+let workingMapIndex = 0;
+let packageRetained = false;
+let workingMapRendering = false;
+function updateWorkingMapControls() {
+    const previous = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
+    const next = (workingMapIndex + 1) % episodeMaps.length;
+    workingMap.textContent = episodeMaps[workingMapIndex];
+    mapPrevious.textContent = `[ ${episodeMaps[previous]}`;
+    mapNext.textContent = `${episodeMaps[next]} ]`;
+    renderWorking.disabled = !packageRetained;
+    mapPrevious.disabled = !packageRetained;
+    mapNext.disabled = !packageRetained;
+}
+async function renderCurrentWorkingMap() {
+    if (workingMapRendering)
+        return;
+    workingMapRendering = true;
+    const mapName = episodeMaps[workingMapIndex];
+    renderWorking.disabled = true;
+    mapPrevious.disabled = true;
+    mapNext.disabled = true;
+    result.textContent = `Preparing ${mapName} with grouped sky parity and sector-boundary trim...`;
+    try {
+        result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas, mapName) }, null, 2);
+        download.disabled = false;
+    }
+    catch (error) {
+        result.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error), map: mapName }, null, 2);
+    }
+    finally {
+        workingMapRendering = false;
+        updateWorkingMapControls();
+    }
+}
 await init();
 const session = new BrowserIntakeSession();
 const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
     result.textContent = JSON.stringify(outcome, null, 2);
+    packageRetained = outcome.kind === "retained";
     inspect.disabled = outcome.kind !== "retained";
     render.disabled = outcome.kind !== "retained";
     renderCutouts.disabled = outcome.kind !== "retained";
@@ -26,9 +66,11 @@ const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
     renderExitsign.disabled = outcome.kind !== "retained";
     download.disabled = true;
     clear.disabled = outcome.kind !== "retained";
+    updateWorkingMapControls();
 });
 clear.addEventListener("click", () => {
     disposeIntake(session);
+    packageRetained = false;
     inspect.disabled = true;
     render.disabled = true;
     renderCutouts.disabled = true;
@@ -37,7 +79,25 @@ clear.addEventListener("click", () => {
     renderExitsign.disabled = true;
     download.disabled = true;
     clear.disabled = true;
+    updateWorkingMapControls();
     result.textContent = JSON.stringify({ kind: "disposed", retainedResources: 0, retainedBytes: 0 }, null, 2);
+});
+renderWorking.addEventListener("click", () => void renderCurrentWorkingMap());
+mapPrevious.addEventListener("click", () => {
+    workingMapIndex = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
+    void renderCurrentWorkingMap();
+});
+mapNext.addEventListener("click", () => {
+    workingMapIndex = (workingMapIndex + 1) % episodeMaps.length;
+    void renderCurrentWorkingMap();
+});
+document.addEventListener("keydown", (event) => {
+    if (!packageRetained || workingMapRendering || event.repeat || (event.key !== "[" && event.key !== "]"))
+        return;
+    workingMapIndex = event.key === "["
+        ? (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length
+        : (workingMapIndex + 1) % episodeMaps.length;
+    void renderCurrentWorkingMap();
 });
 inspect.addEventListener("click", () => {
     try {
