@@ -1231,6 +1231,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         include_cutouts,
         pipeline: PipelineHandle(0),
         opaque_depth_prepass_pipeline: None,
+        one_sided_wall_depth_prepass_pipeline: None,
         cutout_pipeline: None,
         cutout_depth_prepass_pipeline: None,
         doom_sky_pipeline: None,

@@ -383,6 +383,49 @@ pub(crate) fn format_look_ray_observation(
     format!("{ordinary} {boundary} {sky_plane}")
 }
 
+/// Describes the corpus-private containment behavior applied to an exact
+/// one-sided wall hit by the grouped-sky experiment. The wall's back remains
+/// color-culled, but both faces terminate the opaque depth prepass so a ray
+/// cannot escape through the back and re-enter through a later sky boundary.
+pub(crate) fn format_one_sided_wall_boundary_observation(
+    map: &DoomMapCore,
+    origin: Vec3,
+    hit: Option<PreparedRayHit<'_>>,
+    presentation_enabled: bool,
+) -> String {
+    let Some(hit) = hit else {
+        return "one_sided_wall_boundary=not-applicable:no-ordinary-hit".to_owned();
+    };
+    let StaticDrawSource::Wall { source_linedef, .. } = hit.draw.source else {
+        return "one_sided_wall_boundary=not-applicable:non-wall-hit".to_owned();
+    };
+    let Some(linedef) = map
+        .linedefs
+        .get(source_linedef.record_index as usize)
+        .filter(|linedef| linedef.source == source_linedef)
+    else {
+        return format!(
+            "one_sided_wall_boundary=unavailable:linedef:{}",
+            source_linedef.record_index
+        );
+    };
+    if linedef.right_sidedef.is_some() == linedef.left_sidedef.is_some() {
+        return "one_sided_wall_boundary=not-applicable:two-sided-wall-hit".to_owned();
+    }
+    let front_facing = crate::mesh_owning_side_visible(&hit.draw.mesh, origin);
+    let facing = if front_facing { "front" } else { "back" };
+    let color = if front_facing { "present" } else { "culled" };
+    let parity_depth = if presentation_enabled {
+        "terminating"
+    } else {
+        "shadow-only"
+    };
+    format!(
+        "one_sided_wall_boundary=linedef:{},facing:{facing},color:{color},parity-depth:{parity_depth},parity-toggle:none authority=source-one-sidedness+prepared-wall-facing",
+        source_linedef.record_index
+    )
+}
+
 pub(crate) fn nearest_sky_boundary_ray_hit<'a>(
     origin: Vec3,
     direction: Vec3,
@@ -1363,7 +1406,7 @@ pub(crate) fn report_source_look_ray(
         }
     };
     println!(
-        "{}\n{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}",
         format_look_ray_observation(
             origin,
             direction,
@@ -1378,6 +1421,12 @@ pub(crate) fn report_source_look_ray(
             hit.map(|hit| hit.distance),
             &scene.doom_sky_boundary_draws,
             &scene.diagnostic_sky_draws,
+            skywall_parity_enabled,
+        ),
+        format_one_sided_wall_boundary_observation(
+            &scene.door_geometry_source.map,
+            origin,
+            hit,
             skywall_parity_enabled,
         ),
         format_source_classic_ray_trace(

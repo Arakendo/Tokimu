@@ -2197,6 +2197,32 @@ The review moves away from shared admission when:
   reachability, collision trimming, a generic BSP contract, or permission to
   reject a plane from source occurrence alone.
 
+### Cycle 60 -- 2026-08-18
+
+- An elevated grouped-parity walkabout found a narrow view into valid tunnel
+  geometry after crossing skywall 251, the back of one-sided wall 203, and
+  skywall 254. The tunnel was not excess geometry and was therefore not a
+  candidate for further source-boundary trimming.
+- The causal defect was render-state-local: the parity opaque depth prepass
+  inherited back-face culling, so wall 203's non-owning side wrote neither
+  color nor containment depth. Skywall 254 could then invert the stencil before
+  farther tunnel geometry was tested.
+- The reversible Doom composition now selects a double-sided, depth-only
+  pipeline for source-proven one-sided wall draws. The ordinary color pipeline
+  remains back-face culled. The wall does not toggle sky parity, and all other
+  contribution families retain their prior pipeline behavior.
+- Exact replay reports
+  `one_sided_wall_boundary=linedef:203,facing:back,color:culled,parity-depth:terminating,parity-toggle:none`.
+  This is source/prepared-geometry evidence, not GPU depth-buffer readback;
+  native walkabout remains the acceptance gate.
+- A native Vulkan two-frame proof accepted the new pipeline and completed with
+  3,787 draws and nine pipeline switches. Warm command construction was
+  `466 µs`; warm frame CPU time was `113,726 µs`. No performance requirement is
+  inferred from this observation.
+- No renderer contract or Doom-neutral ownership boundary changed. Existing
+  cull, depth-write and color-write states realize the rule; source one-sided
+  identity and pipeline selection remain corpus-private.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

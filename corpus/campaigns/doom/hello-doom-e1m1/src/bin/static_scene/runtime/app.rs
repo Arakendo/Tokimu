@@ -1574,6 +1574,12 @@ impl App {
             &self.diagnostic_sky_draws,
             self.skywall_parity_enabled,
         );
+        let one_sided_wall_boundary = format_one_sided_wall_boundary_observation(
+            &self.door_geometry_source.map,
+            observer.position,
+            hit,
+            self.skywall_parity_enabled,
+        );
         let (source_xy, source_eye_height) = self
             .comparative_embedding
             .lower_direction(observer.position);
@@ -1664,7 +1670,7 @@ impl App {
             },
         );
         format!(
-            "{ordinary}\n{grouped_sky_parity}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
+            "{ordinary}\n{grouped_sky_parity}\n{one_sided_wall_boundary}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
         )
     }
 
@@ -2100,6 +2106,19 @@ impl PlatformEventHandler for App {
                             color_write: ColorWriteMask::NONE,
                             ..opaque_state
                         })?,
+                )?,
+            );
+            self.one_sided_wall_depth_prepass_pipeline = Some(
+                renderer.register_pipeline(
+                    &Pipeline::new(
+                        "doom-e1m1-parity-one-sided-wall-depth",
+                        PipelineKind::Textured3d,
+                    )
+                    .with_render_state(PipelineRenderState {
+                        cull_mode: CullMode::None,
+                        color_write: ColorWriteMask::NONE,
+                        ..opaque_state
+                    })?,
                 )?,
             );
         }
@@ -2558,6 +2577,12 @@ impl PlatformEventHandler for App {
                     self.opaque_depth_prepass_pipeline.ok_or_else(|| {
                         io::Error::other("grouped sky parity opaque depth-prepass pipeline missing")
                     })?;
+                let one_sided_wall_depth_pipeline =
+                    self.one_sided_wall_depth_prepass_pipeline.ok_or_else(|| {
+                        io::Error::other(
+                            "grouped sky parity one-sided-wall depth-prepass pipeline missing",
+                        )
+                    })?;
                 for (index, draw) in self.draws.iter().enumerate() {
                     if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
                         continue;
@@ -2569,7 +2594,12 @@ impl PlatformEventHandler for App {
                             .copied()
                             .unwrap_or(MeshHandle(index as u64 + 1)),
                         material: draw.material,
-                        pipeline: opaque_depth_pipeline,
+                        pipeline: if is_source_one_sided_wall(draw, &self.door_geometry_source.map)
+                        {
+                            one_sided_wall_depth_pipeline
+                        } else {
+                            opaque_depth_pipeline
+                        },
                         instance: Instance2d::identity(),
                         camera: Some(CAMERA),
                         viewport: None,

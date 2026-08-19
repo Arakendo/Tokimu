@@ -238,6 +238,7 @@ struct App {
     include_cutouts: bool,
     pipeline: PipelineHandle,
     opaque_depth_prepass_pipeline: Option<PipelineHandle>,
+    one_sided_wall_depth_prepass_pipeline: Option<PipelineHandle>,
     cutout_pipeline: Option<PipelineHandle>,
     cutout_depth_prepass_pipeline: Option<PipelineHandle>,
     doom_sky_pipeline: Option<PipelineHandle>,
@@ -446,6 +447,19 @@ fn mesh_owning_side_visible(mesh: &Mesh, observer_position: Vec3) -> bool {
     let position = Vec3::from_array(*position);
     let normal = Vec3::from_array(*normal);
     normal.dot(observer_position - position) >= 0.0
+}
+
+fn is_source_one_sided_wall(draw: &StaticDrawPlanEntry, map: &DoomMapCore) -> bool {
+    let StaticDrawSource::Wall {
+        source_linedef, ..
+    } = draw.source
+    else {
+        return false;
+    };
+    map.linedefs
+        .get(source_linedef.record_index as usize)
+        .filter(|linedef| linedef.source == source_linedef)
+        .is_some_and(|linedef| linedef.right_sidedef.is_some() ^ linedef.left_sidedef.is_some())
 }
 
 fn prepare_scene(

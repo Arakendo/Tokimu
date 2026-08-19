@@ -247,6 +247,52 @@ sequence. In that same elevated negative replay, the oversized source sky
 plane 49 is now absent too; only its legitimate paired skywall crossing
 remains before empty space.
 
+### One-sided wall-back containment refinement
+
+An elevated walkabout found a narrow view into the legitimate hut tunnel. The
+ray crossed paired skywall 251, hit the back of one-sided BROWN1 wall 203, and
+then crossed paired skywall 254 behind that wall. The tunnel is valid map
+geometry; trimming it would therefore misclassify the symptom. The leak
+occurred because the ordinary depth prepass used back-face culling: wall 203
+wrote neither color nor depth from its non-owning side, so the later skywall
+could toggle parity before farther tunnel geometry was depth-tested.
+
+The opt-in experiment now treats source-proven one-sided walls as containment
+boundaries in its depth prepass:
+
+```text
+front of one-sided wall
+    color normally + terminate depth
+
+back of one-sided wall
+    no color + terminate depth
+
+either face
+    no sky-parity toggle
+```
+
+This is implemented with ordinary provider-neutral pipeline state: only the
+Doom composition identifies one-sided source walls and selects a double-sided,
+depth-only pipeline for those draws. The normal color pass remains back-face
+culled. Two-sided walls, cutouts, sky crossings, collision and prepared
+geometry are unchanged.
+
+The retained exact replay is:
+
+```text
+skywall 251 at 25.476
+one-sided wall 203 backside at 108.856
+skywall 254 at 151.106
+```
+
+`LOOK` reports wall 203 as `facing:back,color:culled`, with
+`parity-depth:terminating` and `parity-toggle:none`. This is CPU/source evidence
+for the selected pipeline behavior, not a GPU depth-buffer readback. Human
+walkabout remains the visual acceptance step. A native Vulkan two-frame proof
+accepted the additional pipeline and completed with 3,787 draws, nine pipeline
+switches, `466 µs` warm command construction and `113,726 µs` warm frame CPU
+time. These are observations, not accepted budgets.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.
@@ -261,6 +307,8 @@ remains before empty space.
 9. SEG-loop refinement has authority only over the plane geometry baked from
    that validated loop; it does not alter collision, source membership, walls,
    or generic spatial-query semantics.
+10. Source one-sidedness may select double-sided containment depth, but it does
+    not make the wall back color-visible or turn that wall into a sky crossing.
 
 ## Stop Conditions
 
