@@ -10,7 +10,8 @@ use super::ordered_causality::{
 use super::tokimu_spatial_bake::SpatialRayShadow;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 use hello_doom_e1m1::things::{
-    classify_e1m1_thing_kind, resolve_doom_sprite_patch, select_doom_sprite_view_rotation,
+    classify_e1m1_thing_kind, e1m1_thing_state_program, resolve_doom_sprite_patch,
+    select_doom_sprite_view_rotation, DoomThingStateProgram,
 };
 
 pub(crate) fn report_doom_thing_classification(
@@ -63,6 +64,10 @@ pub(crate) fn report_doom_thing_classification(
     let mut rotation_zero = 0_usize;
     let mut mirrored = 0_usize;
     let mut sprite_errors = Vec::new();
+    let mut animated_things = 0_usize;
+    let mut deferred_look_things = 0_usize;
+    let mut state_frame_resolutions = 0_usize;
+    let mut state_frame_errors = Vec::new();
     for source in things {
         let Some(classification) = classify_e1m1_thing_kind(source.kind) else {
             continue;
@@ -89,13 +94,27 @@ pub(crate) fn report_doom_thing_classification(
                 source.source.record_index, source.kind
             )),
         }
+        let program = e1m1_thing_state_program(source.kind);
+        animated_things += usize::from(program != DoomThingStateProgram::Hold);
+        deferred_look_things += usize::from(program.frame(frame, 0).gameplay_action_deferred);
+        for state_frame in program.required_frames(frame) {
+            match resolve_doom_sprite_patch(frames, sprite, state_frame, rotation) {
+                Ok(_) => state_frame_resolutions += 1,
+                Err(error) => state_frame_errors.push(format!(
+                    "thing={}:kind={}:frame={state_frame}:error={error:?}",
+                    source.source.record_index, source.kind
+                )),
+            }
+        }
     }
     println!(
-        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; sprite-bearing={sprite_bearing}; sprite-patches-resolved={sprite_resolved}; rotation-zero={rotation_zero}; view-rotated={}; mirrored-selections={mirrored}; sprite-errors=[{}]; billboard-policy=live-consumer-actual-camera-cylindrical-world-vertical; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
+        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; sprite-bearing={sprite_bearing}; sprite-patches-resolved={sprite_resolved}; rotation-zero={rotation_zero}; view-rotated={}; mirrored-selections={mirrored}; sprite-errors=[{}]; animated-state-clocks={animated_things}; held-state-clocks={}; deferred-monster-look-actions={deferred_look_things}; required-state-frame-resolutions={state_frame_resolutions}; state-frame-errors=[{}]; state-rate-hz=35; billboard-policy=live-consumer-actual-camera-cylindrical-world-vertical; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
         things.len(),
         things.len() - unknown,
         sprite_resolved - rotation_zero,
         sprite_errors.join(" | "),
+        sprite_bearing - animated_things,
+        state_frame_errors.join(" | "),
     );
 }
 

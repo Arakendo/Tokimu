@@ -69,6 +69,43 @@ already aligned sprites remain unchanged. At the E1M1 spawn selection, 103 of
 129 sprites need between one and five map units of clearance; the maximum is
 five. This is presentation lowering, not a mutation of Thing position.
 
+The first deterministic Thing-state increment follows the released `states`
+table at an integer 35 Hz application-owned clock. Of the 129 sprite-bearing
+E1M1 records, 75 now have animated visual state programs and 54 hold their
+exact initial frame indefinitely. The animated set covers the three present
+monster kinds' A/B idle cadence, barrel A/B, health/armor-bonus
+A/B/C/D/C/B, and green/blue armor A/B. The headless report resolves all 280
+Thing/frame occurrences required by those programs with zero state-frame
+errors; the live E1M1 consumer uploads 60 unique source patches.
+
+Runtime state stores the program, current state index, remaining tics, and
+elapsed tics separately from the decoded WAD records. A chunking regression
+proves that advancing the same total tick count in one call or several calls
+produces the same state. Frame transitions invalidate billboard realization
+even for a stationary camera. The 29 monster clocks retain their source
+`A_Look` action as explicitly deferred: this increment animates the idle frame
+but does not quietly introduce perception, movement, or combat. Armor
+full-bright bits are retained in the state observation but are not yet applied,
+because Doom `COLORMAP`/lighting realization remains a separate concern.
+
+The next runtime increment adds a deterministic player inventory separately
+from the WAD: health, armor points/type, bullets/shells/rockets/cells, five
+currently relevant weapon slots, six Classic key slots, and item count. The
+present E1M1 weapon, ammunition, health, and armor kinds now apply the released
+`p_inter.c` capacities and single-player pickup amounts. Key transitions are
+retained, although the E1M1 source inventory contains no key Thing. See id
+Software's released
+[`p_inter.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_inter.c).
+
+The live consumer tests pickup contact with the already-admitted 16-unit
+player radius, the reviewed 20-unit E1M1 pickup radius, and Classic's vertical
+touch interval from eight units below the player floor through the 56-unit
+player height. A successful transition disables that runtime sprite occurrence
+and reports the resulting inventory; it does not erase or mutate the imported
+Thing. A pickup which cannot change a full inventory remains present. Sounds,
+messages, dropped-item policy, difficulty ammo doubling, and automatic weapon
+selection remain deliberately unapplied.
+
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.
 This prevents the new draw family from bypassing the established sky mask while
@@ -95,6 +132,9 @@ general locator retains its ambiguity diagnostic.
 - Classification creates no runtime truth. Live realization lowers the result
   to ordinary meshes, RGBA textures, materials, categorical coverage, and draw
   commands, adding no Doom vocabulary to the renderer.
+- The new clock creates application-owned mutable state from the immutable
+  classification at startup. It does not mutate the imported Thing record, and
+  gameplay actions remain deferred until their owning systems are admitted.
 
 Two focused regressions preserve the sorted unique selected table and replay
 the complete canonical kind/count inventory into the nine family totals.

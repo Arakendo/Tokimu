@@ -1205,8 +1205,35 @@ Acceptance criteria:
         rule (left child on a partition tie). Do not weaken the existing
         collision/topology locator, which continues to diagnose non-unique
         partition-boundary points.
-- [ ] Add deterministic thing state machines.
-- [ ] Add pickups, inventory, health, armor, ammo, and keys.
+- [x] Add deterministic thing state machines.
+  - [x] Keep the mutable state index, remaining tics, and elapsed-tic count in
+        application-owned runtime records separate from immutable WAD Things.
+        Advance them on an integer 35 Hz clock so different frame-time
+        chunking produces the same resulting state.
+  - [x] Admit the source-authored E1M1 visual loops needed by the current
+        corpus: monster A/B idle, barrel A/B idle, health/armor-bonus
+        A/B/C/D/C/B, and green/blue armor A/B. Static Things hold their exact
+        initial frame indefinitely. Resolve and upload every reachable source
+        patch before live presentation.
+  - [x] Retain monster idle `A_Look` as a deferred gameplay action rather than
+        silently executing perception or activation from a presentation clock.
+        Retain source full-bright state bits as state evidence; applying
+        `COLORMAP`/lighting remains separately unadmitted.
+- [x] Add pickups, inventory, health, armor, ammo, and keys.
+  - [x] Keep player health, armor/type, four ammo pools, weapon ownership,
+        six key slots, and item count in application-owned mutable state rather
+        than rewriting decoded `THINGS` records.
+  - [x] Apply the admitted E1M1 health, armor, ammo, and weapon pickup
+        transitions with bounded Classic capacities. Retain all six Classic
+        key transitions in the same deterministic inventory model; E1M1 has no
+        authored key Thing to exercise live.
+  - [x] Use the admitted 16-unit player and 20-unit pickup radii plus Classic's
+        `-8..=player-height` vertical touch interval. A successful pickup
+        disables only that runtime sprite occurrence and emits the resulting
+        inventory diagnostic. Full inventory leaves the source occurrence
+        present.
+  - [x] Keep difficulty-based ammo doubling, dropped-item policy, pickup
+        sounds/messages, and automatic weapon switching explicit later work.
 - [ ] Add hitscan and projectile collision.
 - [ ] Add damage, death, and respawn policy.
 - [ ] Add monster perception and movement only after observation boundaries are

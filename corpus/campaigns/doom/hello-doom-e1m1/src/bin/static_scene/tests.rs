@@ -73,11 +73,12 @@ fn thing_sprite_billboard_applies_offsets_floor_clearance_mirroring_and_vertical
             lump_index: 1,
             record_index: 7,
         },
+        kind: 2001,
         source_position: [10, 20],
         source_angle: 0,
         floor_height: 32,
         sprite: "TEST",
-        frame: 'A',
+        initial_frame: 'A',
     };
     let upload = DoomSpriteTextureUpload {
         source_lump_index: 2,

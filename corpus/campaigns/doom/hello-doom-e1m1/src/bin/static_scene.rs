@@ -247,6 +247,11 @@ struct App {
     sprite_meshes: Vec<Mesh>,
     sprite_selected_materials: Vec<MaterialHandle>,
     sprite_last_viewer_source_position: Option<[f32; 2]>,
+    thing_sprite_states: Vec<hello_doom_e1m1::things::DoomThingRuntimeState>,
+    thing_sprite_tick_accumulator: f64,
+    thing_sprite_total_ticks: u64,
+    thing_sprite_active: Vec<bool>,
+    player_inventory: hello_doom_e1m1::things::DoomPlayerInventory,
     diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
     diagnostic_sky_enabled: bool,
     diagnostic_sky_records: Vec<String>,
@@ -396,11 +401,12 @@ struct SceneInput {
 #[derive(Clone, Debug)]
 struct DoomThingSprite {
     source: doom_map_provider::DoomSourceRecord,
+    kind: u16,
     source_position: [i16; 2],
     source_angle: u16,
     floor_height: i16,
     sprite: &'static str,
-    frame: char,
+    initial_frame: char,
 }
 
 #[derive(Clone, Debug)]
@@ -805,19 +811,22 @@ fn prepare_scene(
         let floor_height = map.sectors[usize::from(owner.sector_index)].floor_height;
         thing_sprites.push(DoomThingSprite {
             source: thing.source,
+            kind: thing.kind,
             source_position: [thing.x, thing.y],
             source_angle: thing.angle,
             floor_height,
             sprite,
-            frame,
+            initial_frame: frame,
         });
     }
     let required_sprite_lumps = thing_sprites
         .iter()
         .flat_map(|thing| {
+            let program = hello_doom_e1m1::things::e1m1_thing_state_program(thing.kind);
+            let required_frames = program.required_frames(thing.initial_frame);
             sprite_frames.iter().filter(move |candidate| {
                 candidate.sprite.eq_ignore_ascii_case(thing.sprite)
-                    && candidate.frame == thing.frame
+                    && required_frames.contains(&candidate.frame)
             })
         })
         .map(|candidate| candidate.source_lump_index)

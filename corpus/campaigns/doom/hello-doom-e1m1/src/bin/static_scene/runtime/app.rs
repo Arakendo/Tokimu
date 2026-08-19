@@ -11,6 +11,69 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
+    fn advance_thing_sprite_states(&mut self, delta_seconds: f64) {
+        self.thing_sprite_tick_accumulator += delta_seconds.max(0.0);
+        let ticks = (self.thing_sprite_tick_accumulator / DOOM_TIC_SECONDS).floor() as u64;
+        if ticks == 0 {
+            return;
+        }
+        self.thing_sprite_tick_accumulator -= ticks as f64 * DOOM_TIC_SECONDS;
+        self.thing_sprite_total_ticks = self.thing_sprite_total_ticks.saturating_add(ticks);
+        let mut visible_frame_changed = false;
+        for (thing, state) in self
+            .thing_sprites
+            .iter()
+            .zip(self.thing_sprite_states.iter_mut())
+        {
+            visible_frame_changed |= state.advance(thing.initial_frame, ticks);
+        }
+        if visible_frame_changed {
+            self.sprite_last_viewer_source_position = None;
+        }
+    }
+
+    fn collect_touching_thing_pickups(&mut self) {
+        let Some(observer) = self.spawn_observer else {
+            return;
+        };
+        let (player_xy, player_eye_z) = self
+            .comparative_embedding
+            .lower_direction(observer.position);
+        let player_floor_z = player_eye_z - 36.0;
+        for (index, thing) in self.thing_sprites.iter().enumerate() {
+            if !self.thing_sprite_active[index] {
+                continue;
+            }
+            if !hello_doom_e1m1::things::e1m1_pickup_touches_player(
+                player_xy,
+                player_floor_z,
+                thing.source_position,
+                thing.floor_height,
+            ) {
+                continue;
+            }
+            let outcome = self.player_inventory.try_collect_e1m1_kind(thing.kind);
+            if outcome != hello_doom_e1m1::things::DoomPickupOutcome::Collected {
+                continue;
+            }
+            self.thing_sprite_active[index] = false;
+            let diagnostic = format!(
+                "{} pickup: thing={} kind={} health={} armor={}/type{} ammo={:?} weapons={:?} item-count={}",
+                self.map_name,
+                thing.source.record_index,
+                thing.kind,
+                self.player_inventory.health,
+                self.player_inventory.armor_points,
+                self.player_inventory.armor_type,
+                self.player_inventory.ammo,
+                self.player_inventory.weapons,
+                self.player_inventory.item_count,
+            );
+            eprintln!("{diagnostic}");
+            self.debug_console.append(diagnostic);
+        }
+    }
+
     fn refresh_thing_sprite_billboards(&mut self) -> PlatformResult<Vec<(MeshHandle, Mesh)>> {
         let Some(observer) = self.spawn_observer else {
             return Ok(Vec::new());
@@ -26,7 +89,12 @@ impl App {
         let mut replacements = Vec::with_capacity(self.thing_sprites.len());
         self.sprite_meshes.clear();
         self.sprite_selected_materials.clear();
-        for (index, thing) in self.thing_sprites.iter().enumerate() {
+        for (index, (thing, state)) in self
+            .thing_sprites
+            .iter()
+            .zip(self.thing_sprite_states.iter())
+            .enumerate()
+        {
             let rotation = hello_doom_e1m1::things::select_doom_sprite_view_rotation(
                 viewer_source.map(f64::from),
                 thing.source_position.map(|value| f64::from(value)),
@@ -35,7 +103,7 @@ impl App {
             let selection = hello_doom_e1m1::things::resolve_doom_sprite_patch(
                 &self.sprite_frames,
                 thing.sprite,
-                thing.frame,
+                state.frame(thing.initial_frame).frame,
                 rotation,
             )
             .map_err(|error| {
@@ -2542,8 +2610,20 @@ impl PlatformEventHandler for App {
                 .filter(|lift| **lift > 0.0)
                 .count();
             let maximum_floor_lift = selected_floor_lifts.iter().copied().fold(0.0_f32, f32::max);
+            let animated_states = self
+                .thing_sprite_states
+                .iter()
+                .filter(|state| {
+                    state.program != hello_doom_e1m1::things::DoomThingStateProgram::Hold
+                })
+                .count();
+            let deferred_look_states = self
+                .thing_sprite_states
+                .iter()
+                .filter(|state| state.frame('A').gameplay_action_deferred)
+                .count();
             eprintln!(
-                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; floor-clearance-lifts={lifted_sprites}; maximum-floor-clearance-lift={maximum_floor_lift}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top-plus-covered-texel-floor-clearance; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
+                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; deterministic-state-clocks={animated_states}; deferred-monster-look-actions={deferred_look_states}; state-rate-hz=35; state-storage=application-owned-separate-from-WAD; floor-clearance-lifts={lifted_sprites}; maximum-floor-clearance-lift={maximum_floor_lift}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top-plus-covered-texel-floor-clearance; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
                 self.map_name,
                 self.thing_sprites.len(),
                 self.sprite_uploads.len(),
@@ -2694,10 +2774,12 @@ impl PlatformEventHandler for App {
         if !self.fixed_reconstruction_camera {
             self.apply_inspection_movement(delta_seconds);
         }
+        self.collect_touching_thing_pickups();
         self.observe_current_secret_sector();
         self.advance_active_manual_doors(delta_seconds);
         self.advance_active_moving_floors(delta_seconds);
         self.advance_scrolling_walls(delta_seconds);
+        self.advance_thing_sprite_states(delta_seconds);
         self.refresh_ordered_coverage_for_observer()?;
         let sprite_mesh_uploads = self.refresh_thing_sprite_billboards()?;
         let frame_started = Instant::now();
@@ -2996,6 +3078,9 @@ impl PlatformEventHandler for App {
                     for (index, material) in
                         self.sprite_selected_materials.iter().copied().enumerate()
                     {
+                        if !self.thing_sprite_active[index] {
+                            continue;
+                        }
                         self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                             mesh: MeshHandle(DOOM_THING_SPRITE_MESH_BASE + index as u64),
                             material,
@@ -3111,6 +3196,9 @@ impl PlatformEventHandler for App {
                 .sprite_pipeline
                 .ok_or_else(|| io::Error::other("Thing sprite pipeline missing"))?;
             for (index, material) in self.sprite_selected_materials.iter().copied().enumerate() {
+                if !self.thing_sprite_active[index] {
+                    continue;
+                }
                 self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                     mesh: MeshHandle(DOOM_THING_SPRITE_MESH_BASE + index as u64),
                     material,
