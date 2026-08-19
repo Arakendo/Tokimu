@@ -25,11 +25,11 @@ impl ExpectedState {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct FrozenRay {
-    name: &'static str,
-    origin: [f64; 3],
-    direction: [f64; 3],
-    expected_label: &'static str,
+pub(super) struct FrozenRay {
+    pub(super) name: &'static str,
+    pub(super) origin: [f64; 3],
+    pub(super) direction: [f64; 3],
+    pub(super) expected_label: &'static str,
     expected_state: ExpectedState,
 }
 
@@ -72,18 +72,18 @@ const ORDINARY_HOLE_RAYS: [FrozenRay; 5] = [
 ];
 
 #[derive(Clone, Debug)]
-struct CandidateTriangle {
-    identity: String,
-    family: &'static str,
-    vertices: [Vec3; 3],
+pub(super) struct CandidateTriangle {
+    pub(super) identity: String,
+    pub(super) family: &'static str,
+    pub(super) vertices: [Vec3; 3],
 }
 
 #[derive(Clone, Debug)]
-struct RawHit {
-    identity: String,
-    family: &'static str,
-    distance: f32,
-    orientation: f32,
+pub(super) struct RawHit {
+    pub(super) identity: String,
+    pub(super) family: &'static str,
+    pub(super) distance: f32,
+    pub(super) orientation: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -217,7 +217,7 @@ pub(crate) fn report_oriented_sky_transition_parity_shadow(
     Ok(())
 }
 
-fn frozen_rays() -> Vec<FrozenRay> {
+pub(super) fn frozen_rays() -> Vec<FrozenRay> {
     let mut rays = ordered_six_ray_cases()
         .iter()
         .filter(|case| {
@@ -238,7 +238,7 @@ fn frozen_rays() -> Vec<FrozenRay> {
     rays
 }
 
-fn candidate_triangles(scene: &SceneInput) -> Vec<CandidateTriangle> {
+pub(super) fn candidate_triangles(scene: &SceneInput) -> Vec<CandidateTriangle> {
     let mut triangles = scene
         .doom_sky_boundary_draws
         .iter()
@@ -322,7 +322,7 @@ fn audit_paired_boundary_semantics(
     (both_sky, world_sky, unresolved)
 }
 
-fn candidate_hits_before(
+pub(super) fn candidate_hits_before(
     candidates: &[CandidateTriangle],
     origin: Vec3,
     direction: Vec3,
@@ -360,7 +360,7 @@ fn candidate_hits_before(
     hits
 }
 
-fn collapse_hits(hits: &[RawHit]) -> Vec<Vec<RawHit>> {
+pub(super) fn collapse_hits(hits: &[RawHit]) -> Vec<Vec<RawHit>> {
     let mut groups: Vec<Vec<RawHit>> = Vec::new();
     for hit in hits {
         if let Some(group) = groups.iter_mut().find(|group| {
@@ -426,7 +426,7 @@ fn audit_closure(candidates: &[CandidateTriangle]) -> ClosureAudit {
     }
 }
 
-fn source_ray_vectors(origin: [f64; 3], direction: [f64; 3]) -> (Vec3, Vec3) {
+pub(super) fn source_ray_vectors(origin: [f64; 3], direction: [f64; 3]) -> (Vec3, Vec3) {
     let embedding = DoomComparativeEmbedding::CurrentReflected;
     let origin = embedding.lift_direction([origin[0] as f32, origin[1] as f32], origin[2] as f32);
     let direction = embedding

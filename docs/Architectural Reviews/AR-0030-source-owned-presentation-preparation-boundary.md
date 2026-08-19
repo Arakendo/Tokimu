@@ -2051,6 +2051,29 @@ The review moves away from shared admission when:
   mask would require a new review and adversarial controls before any live or
   renderer-affecting work.
 
+### Cycle 53 -- 2026-08-18
+
+- Maintainer authorization opened a bounded **one-way sky-occlusion
+  correlation shadow**, explicitly not a live mask, parity model or omission
+  rule. The first adversary was valid exact source geometry behind a preceding
+  sky-related hit.
+- The report sampled 5,120 rays across eight retained E1M1 trouble-area poses;
+  4,380 rays hit complete ordinary geometry and 36 had at least one
+  sky-related surface first.
+- Of those 36, 28 ended at a partial/absent ordered source target, but eight
+  ended at exact final ordered source geometry. Six retain walls 159/160 from
+  the hut-east pose behind paired-sky linedefs 250/254; two retain wall 203
+  from the far-left pose behind paired-sky linedef 250.
+- These are the binding `sky-before + exact-present` falsifiers. A first
+  sky-related hit cannot hide all farther geometry: the same kind of
+  observation precedes both source-absent and source-present targets.
+- The predecessor's ten controls remain stable, historical exclusion remains
+  attributed to ordered solid coverage, conservation is balanced, and two
+  runs produce fingerprint `b3435e035db5ab1d`.
+- Blanket one-way masking is parked before live work, BVH work or dynamic
+  expansion. Sky-before correlation may remain a diagnostic trigger for
+  independent ordered-source scrutiny, but has no omission authority.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
