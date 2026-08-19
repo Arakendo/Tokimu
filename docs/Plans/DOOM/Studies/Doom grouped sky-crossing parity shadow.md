@@ -389,6 +389,21 @@ sector-63 `TEKWALL2` face at linedef 997 and a sector-65 `BIGDOOR4` face at
 linedef 1238. The asymmetric artwork is authored, not sky-parity or runtime
 material corruption.
 
+### Shareware episode walkabout disposition
+
+After the E1M7 boundary reconciliation, live inspection completed E1M1 through
+E1M9 without another reported grouped-sky or world-support defect. This meets
+the study's current cross-map human visual gate for the corpus-private
+candidate. It does not claim Classic pixel parity or make the strategy a
+provider-neutral renderer contract.
+
+The remaining pitched-sky presentation issue belongs to the panorama carrier,
+not this mask. Cylinder, sphere and capsule realizations can be compared while
+holding global-full world input, sector trim, grouped parity and stencil stages
+constant. The comparison should judge panorama continuity and distortion at
+normal pitch, `+/-30` degrees, `+/-60` degrees, straight up/down, pitched yaw
+and seam-facing views.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.

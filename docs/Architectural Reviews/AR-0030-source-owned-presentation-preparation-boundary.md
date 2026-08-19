@@ -2459,6 +2459,23 @@ The review moves away from shared admission when:
   fragments, 457 conformance insertions and 4,270 plane triangles. Live visual
   confirmation remains required.
 
+### Cycle 70 -- 2026-08-18
+
+- The post-reconciliation live walkabout completed all nine shareware episode
+  maps, E1M1 through E1M9, without another reported world-support or grouped
+  sky-parity defect. This satisfies the current cross-map human visual gate for
+  the corpus-private candidate. It remains evidence over this corpus and camera
+  exercise, not pixel parity with the Classic renderer or a generic guarantee.
+- The next visible sky limitation is deliberately separated from admission:
+  the current cylindrical panorama carrier is naturally yaw-complete but can
+  expose its vertical ends under Tokimu free-look pitch. Sphere and capsule
+  carriers may be compared using the same sky mask without changing which
+  pixels present sky, the grouped crossing rule, or world geometry.
+- A carrier comparison should retain Doom's horizontal panorama semantics and
+  inspect normal pitch, `+/-30` degrees, `+/-60` degrees, vertical poles, pitched
+  yaw and the texture seam. Distortion and continuity are the acceptance
+  questions; skywall/parity correctness is held constant.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
