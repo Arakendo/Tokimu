@@ -157,8 +157,12 @@ commands, and camera for a corpus-private noclip inspection loop. Click the
 canvas for pointer-lock mouse look; use W/A/S/D to move, Space/Ctrl vertically,
 Shift to run, and Escape to release the mouse. TypeScript supplies normalized
 input deltas only. Rust owns camera mutation and frame submission, and idle
-animation frames do not resubmit the scene. Map replacement disables the loop
-until a complete replacement has been prepared and presented.
+animation frames do not resubmit the scene. Live input is coalesced behind an
+adaptive recovery interval based on the preceding synchronous presentation
+cost; this keeps heavier maps from continuously saturating the browser renderer
+process. Map replacement disables the loop until a complete replacement has
+been prepared and presented. Retained WebGPU provider diagnostics are checked
+before and after each inspection presentation and stop the loop visibly.
 
 This is a visual inspection camera, not Doom player simulation. It does not
 provide collision, doors/platforms, Things, or audio. The initial observation

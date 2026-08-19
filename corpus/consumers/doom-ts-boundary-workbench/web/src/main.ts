@@ -24,7 +24,8 @@ let workingMapIndex = 0;
 let packageRetained = false;
 let workingMapRendering = false;
 let workingWalkaboutActive = false;
-let previousFrameTime = performance.now();
+let previousWalkStepTime = performance.now();
+let nextWorkingPresentationTime = 0;
 let mouseDeltaX = 0;
 let mouseDeltaY = 0;
 const pressedKeys = new Set<string>();
@@ -59,7 +60,8 @@ async function renderCurrentWorkingMap(): Promise<void> {
   try {
     result!.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas!, mapName), controls: "Click canvas for mouse look; W/A/S/D move; Space/Ctrl vertical; Shift runs; Escape releases mouse." }, null, 2);
     workingWalkaboutActive = true;
-    previousFrameTime = performance.now();
+    previousWalkStepTime = performance.now();
+    nextWorkingPresentationTime = 0;
     download!.disabled = false;
   } catch (error) {
     result!.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error), map: mapName }, null, 2);
@@ -136,17 +138,21 @@ document.addEventListener("mousemove", (event) => {
 });
 
 function animateWorkingWalkabout(frameTime: number): void {
-  const deltaSeconds = Math.min(Math.max((frameTime - previousFrameTime) / 1000, 0), 0.05);
-  previousFrameTime = frameTime;
   if (workingWalkaboutActive && !workingMapRendering) {
     const forward = Number(pressedKeys.has("KeyW")) - Number(pressedKeys.has("KeyS"));
     const strafe = Number(pressedKeys.has("KeyD")) - Number(pressedKeys.has("KeyA"));
     const vertical = Number(pressedKeys.has("Space")) - Number(pressedKeys.has("ControlLeft") || pressedKeys.has("ControlRight"));
-    const yawDelta = -mouseDeltaX * 0.0025;
-    const pitchDelta = -mouseDeltaY * 0.0025;
-    mouseDeltaX = 0;
-    mouseDeltaY = 0;
-    if (forward !== 0 || strafe !== 0 || vertical !== 0 || yawDelta !== 0 || pitchDelta !== 0) {
+    const hasInput = forward !== 0 || strafe !== 0 || vertical !== 0 || mouseDeltaX !== 0 || mouseDeltaY !== 0;
+    if (!hasInput) {
+      previousWalkStepTime = frameTime;
+    } else if (frameTime >= nextWorkingPresentationTime) {
+      const deltaSeconds = Math.min(Math.max((frameTime - previousWalkStepTime) / 1000, 0), 0.25);
+      previousWalkStepTime = frameTime;
+      const yawDelta = -mouseDeltaX * 0.0025;
+      const pitchDelta = -mouseDeltaY * 0.0025;
+      mouseDeltaX = 0;
+      mouseDeltaY = 0;
+      const presentationStart = performance.now();
       try {
         session.step_working_model(
           deltaSeconds,
@@ -157,6 +163,12 @@ function animateWorkingWalkabout(frameTime: number): void {
           pitchDelta,
           pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight"),
         );
+        const presentationMilliseconds = performance.now() - presentationStart;
+        // E1M3 and later maps can require several thousand draws for each
+        // grouped-parity inspection frame. Coalesce input and leave a bounded
+        // recovery interval after each synchronous WASM/WebGPU submission
+        // instead of continuously saturating Edge's renderer process.
+        nextWorkingPresentationTime = performance.now() + Math.min(Math.max(presentationMilliseconds, 50), 250);
       } catch (error) {
         stopWorkingWalkabout();
         result!.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error), phase: "working-model-walkabout" }, null, 2);

@@ -2552,6 +2552,25 @@ The review moves away from shared admission when:
   renderer. E1M1 plus a live swapped-map walkabout capture remains required
   before the checklist's browser visual gate is complete.
 
+### Cycle 75 -- 2026-08-19
+
+- Sustained movement on E1M3 closed an isolated Edge test window while the
+  source-spawn preparation itself remained successful. The 6.2 MB retained
+  Edge log contains no WebGPU validation failure, device loss, OOM, GPU-process
+  crash, or Crashpad report; its final records describe orderly browser
+  shutdown. The two Edge renderer fallback-task warnings are therefore
+  correlation, not a demonstrated Tokimu or WebGPU cause.
+- The browser inspection loop had nevertheless been submitting the complete
+  grouped-parity scene whenever live mouse or keyboard input existed. The
+  candidate now coalesces those inputs and leaves a bounded recovery interval,
+  derived from the preceding synchronous presentation cost, before submitting
+  another frame. Idle frames continue to submit nothing.
+- The Rust consumer now drains retained WGPU diagnostics before and after live
+  presentation and fails visibly rather than continuing after a provider
+  error. This is an ordinary containment and diagnostic refinement; it does
+  not change preparation, grouped sky semantics, or renderer contracts. E1M3
+  sustained movement remains an explicit live retest gate.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

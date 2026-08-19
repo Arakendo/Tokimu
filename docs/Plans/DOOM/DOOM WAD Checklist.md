@@ -1433,6 +1433,12 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
         without claiming browser Doom player simulation or a public camera API.
         Idle animation frames do not resubmit the scene, and map replacement
         pauses input until the complete replacement is presented.
+    - [ ] Complete an E1M3 sustained-movement browser falsifier. The first live
+          attempt closed its isolated Edge window while moving toward an
+          outdoor area. Edge's retained log contained no WebGPU validation,
+          device-loss, OOM, or crash record and showed orderly shutdown, so the
+          candidate now coalesces input behind a presentation-cost recovery
+          interval and exposes retained provider diagnostics before continuing.
   - [ ] Retain a real WebGPU observation and capture for at least E1M1 plus one
         swapped map. WASM compilation and strict TypeScript checking are only
         readiness evidence until the browser executes the stencil path.

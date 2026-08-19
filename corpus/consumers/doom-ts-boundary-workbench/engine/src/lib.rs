@@ -842,6 +842,12 @@ impl BrowserIntakeSession {
         renderer.begin_frame();
         renderer.submit(&commands);
         renderer.present().map_err(|error| error.to_string())?;
+        if let Some(record) = renderer.drain_diagnostics().into_iter().next() {
+            return Err(format!(
+                "working-model initial WebGPU diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            ));
+        }
 
         self.working_model = Some(BrowserWorkingModel {
             renderer,
@@ -895,7 +901,13 @@ impl BrowserIntakeSession {
             .working_model
             .as_mut()
             .ok_or_else(|| "no browser working-model scene is retained".to_owned())?;
-        let delta_seconds = delta_seconds.clamp(0.0, 0.05);
+        if let Some(record) = model.renderer.drain_diagnostics().into_iter().next() {
+            return Err(format!(
+                "working-model retained WebGPU diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            ));
+        }
+        let delta_seconds = delta_seconds.clamp(0.0, 0.25);
         model.yaw += yaw_delta.clamp(-0.5, 0.5);
         model.pitch = (model.pitch + pitch_delta.clamp(-0.5, 0.5)).clamp(-1.5, 1.5);
 
@@ -931,7 +943,14 @@ impl BrowserIntakeSession {
             .renderer
             .present()
             .map(|_| ())
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        if let Some(record) = model.renderer.drain_diagnostics().into_iter().next() {
+            return Err(format!(
+                "working-model WebGPU diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            ));
+        }
+        Ok(())
     }
 
     #[cfg(target_arch = "wasm32")]
