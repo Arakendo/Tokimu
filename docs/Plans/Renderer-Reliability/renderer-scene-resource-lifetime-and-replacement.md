@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for execution |
+| Status | In progress -- Slices 1 and 2 instrumented; live browser rotation pending |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024 and AR-0030 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007 |
@@ -175,26 +175,29 @@ must be justified separately.
 
 ## Slice 1: Reproduce And Bound The Lifetime Pressure
 
+Initial implementation and the current ownership inventory are retained in
+[Renderer Scene-Resource Lifetime Baseline And Inventory Evidence](Evidence/renderer-scene-resource-lifetime-baseline-and-inventory-evidence.md).
+
 ### Deliverables
 
-- [ ] Add a repeatable browser rotation harness that cycles E1M1 through E1M9
+- [x] Add a repeatable browser rotation harness that cycles E1M1 through E1M9
       for at least three rounds without requiring manual button timing.
-- [ ] Retain manual walkabout as a separate visual/interaction test; automated
+- [x] Retain manual walkabout as a separate visual/interaction test; automated
       rotation must not claim to reproduce every movement-triggered failure.
 - [ ] Record per replacement:
-  - [ ] map and replacement sequence number;
-  - [ ] backend, device, and surface creation counts;
-  - [ ] logical uploads and same-handle replacements by resource family;
-  - [ ] active and retired logical resource counts;
-  - [ ] estimated CPU-side and provider-submitted resource bytes where those
+  - [x] map and replacement sequence number;
+  - [x] backend, device, and surface creation counts;
+  - [x] logical uploads and same-handle replacements by resource family;
+  - [x] active and retired logical resource counts;
+  - [x] estimated CPU-side and provider-submitted resource bytes where those
         estimates are honest;
-  - [ ] frame/replacement timings and bounded provider diagnostics;
+  - [x] frame/replacement timings and bounded provider diagnostics;
   - [ ] page, renderer-process, and GPU-process survival where observable.
-- [ ] Label browser process memory or GPU-memory observations by source and
+- [x] Label browser process memory or GPU-memory observations by source and
       availability. Absence of a measurement must not be reported as zero.
-- [ ] Add a smaller non-Doom resource-rich replacement fixture so any proposed
+- [x] Add a smaller non-Doom resource-rich replacement fixture so any proposed
       shared contract has an independent caller.
-- [ ] Preserve the current whole-backend replacement behavior as Alternative A.
+- [x] Preserve the current whole-backend replacement behavior as Alternative A.
 
 ### Validation
 
@@ -216,10 +219,10 @@ must be justified separately.
 
 ### Deliverables
 
-- [ ] Inventory every persistent renderer/WGPU resource collection and identify
+- [x] Inventory every persistent renderer/WGPU resource collection and identify
       its owner, creation operation, replacement behavior, reference edges, and
       current drop boundary.
-- [ ] Retain an explicit dependency graph covering at least:
+- [x] Retain an explicit dependency graph covering at least:
 
   ```text
   command -> mesh / material / pipeline / camera
@@ -228,11 +231,11 @@ must be justified separately.
   surface -> device configuration
   ```
 
-- [ ] Separate scene-replaceable resources from provider/session resources and
+- [x] Separate scene-replaceable resources from provider/session resources and
       immutable/shared caches demonstrated by current callers.
-- [ ] Identify which handles may be reused after retirement, which references
+- [x] Identify which handles may be reused after retirement, which references
       become stale, and how a stale command can be diagnosed deterministically.
-- [ ] Record what WGPU/Rust drop establishes and what it cannot establish about
+- [x] Record what WGPU/Rust drop establishes and what it cannot establish about
       submitted work or physical reclamation.
 
 ### Validation

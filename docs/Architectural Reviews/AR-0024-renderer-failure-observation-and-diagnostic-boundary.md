@@ -402,3 +402,27 @@ demonstrated a second rendering API.
   store, or shared terminal-record owner. Reopen only for independent lifecycle
   pressure or a supervisor/page-disposal case that caller ownership cannot
   satisfy. No ADR or SDD change results.
+
+### Cycle 11 -- 2026-08-19
+
+- Status entering review: Accepted; the dormant stronger cross-lifetime
+  reopening trigger is now active under the renderer scene-resource lifetime
+  plan.
+- New evidence: repeated Doom browser map replacement closed Edge only after
+  several fresh backend/device/surface lifetimes. The new deterministic
+  E1M1-through-E1M9 three-round harness reports logical current/retired
+  resource counts, creation counts, replacement timing, and narrowly scoped
+  submitted-byte estimates. An independent non-Doom browser fixture now
+  performs 27 equivalent whole-backend replacements with 64 meshes, textures,
+  and materials per scene.
+- Findings: the new pressure concerns physical renderer/provider lifetime, not
+  application allocation of logical handles. The Cycle 10 no-allocation
+  disposition therefore remains intact. Logical retirement remains distinct
+  from WGPU/driver reclamation, which neither harness can observe directly.
+- Disposition: reopen only the resource-lifetime question. Complete live
+  Alternative-A browser observations and the retained ownership inventory
+  before prototyping an adapter-private reset. Admit no reset, arena,
+  generation, release, or renderer allocator contract from instrumentation.
+- Resulting plan/evidence:
+  `docs/Plans/Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md`
+  and its baseline/inventory evidence record.

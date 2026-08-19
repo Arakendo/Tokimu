@@ -9,6 +9,15 @@ The returned DOM record remains caller-owned after the renderer returns. This
 does not admit a shared identity registry, terminal-record owner, diagnostic
 store, or renderer fallback policy.
 
+The separate **Run 27 whole-backend replacements** control is the independent
+Alternative-A baseline for the scene-resource lifetime study. It retains one
+Rust/WASM session, but each replacement drops the previous backend and creates
+a fresh device and surface for the same canvas before uploading 64 meshes, 64
+sampleable textures, 64 materials, one pipeline, and one camera. Its bounded
+record distinguishes logical retirement from physical GPU reclamation, which
+remains unobserved. This is deliberately not a reset, arena, generation, or
+release contract.
+
 Build and serve the fixture from the repository root:
 
 ```powershell

@@ -6,7 +6,8 @@ use hello_render_resource_identity::{
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
     Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, Instance2d, Material,
-    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand, Renderer, WgpuBackend,
+    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand, Renderer,
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend,
 };
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -20,6 +21,161 @@ fn main() {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {}
+
+/// Independent whole-backend replacement baseline for the renderer lifetime
+/// study. It deliberately retains application-owned handles and exposes no
+/// reset/arena/release contract.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub struct BrowserReplacementPressure {
+    renderer: Option<WgpuBackend>,
+    replacement_attempts: u32,
+    replacements_presented: u32,
+    backend_creations: u32,
+    retired_logical_sets: u32,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl BrowserReplacementPressure {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            renderer: None,
+            replacement_attempts: 0,
+            replacements_presented: 0,
+            backend_creations: 0,
+            retired_logical_sets: 0,
+        }
+    }
+
+    /// Replaces one small but resource-rich scene on the same canvas. Every
+    /// call intentionally creates a fresh backend/device/surface so this path
+    /// remains the non-Doom Alternative-A control.
+    pub async fn replace_scene(
+        &mut self,
+        canvas: HtmlCanvasElement,
+        scene_index: u32,
+    ) -> Result<String, JsValue> {
+        const RESOURCE_COUNT: u64 = 64;
+        const TEXTURE_WIDTH: u32 = 16;
+        const TEXTURE_HEIGHT: u32 = 16;
+        self.replacement_attempts = self.replacement_attempts.saturating_add(1);
+        if let Some(previous) = self.renderer.take() {
+            self.retired_logical_sets = self.retired_logical_sets.saturating_add(1);
+            drop(previous);
+        }
+
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        let mut renderer = WgpuBackend::for_window(canvas, width, height)
+            .await
+            .map_err(js_debug)?;
+        self.backend_creations = self.backend_creations.saturating_add(1);
+        let backend = renderer.backend_api();
+        let device = renderer.device_kind();
+        let adapter = renderer.adapter_name().to_owned();
+        let pipeline = renderer
+            .register_pipeline(&Pipeline::new(
+                "resource-lifetime-browser-pressure",
+                PipelineKind::LitColor3d,
+            ))
+            .map_err(js_debug)?;
+        renderer.upload_camera(CameraHandle(1), Camera::default());
+
+        let descriptor = Rgba8TextureDescriptor::new(
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+            Rgba8TextureColorSpace::Srgb,
+        );
+        let mut commands = Vec::with_capacity(RESOURCE_COUNT as usize + 1);
+        let mut mesh_vertex_bytes = 0_u64;
+        commands.push(RenderCommand::Clear(ClearCommand {
+            color: Color::rgb(0.01, 0.015, 0.02),
+        }));
+        for resource_index in 0..RESOURCE_COUNT {
+            let mesh = MeshHandle(resource_index + 1);
+            let texture = TextureHandle(resource_index + 1);
+            let material = MaterialHandle(resource_index + 1);
+            let shade = scene_index
+                .wrapping_mul(31)
+                .wrapping_add(resource_index as u32 * 17) as u8;
+            let mut rgba8 = vec![0_u8; (TEXTURE_WIDTH * TEXTURE_HEIGHT * 4) as usize];
+            for pixel in rgba8.chunks_exact_mut(4) {
+                pixel.copy_from_slice(&[shade, shade.wrapping_add(73), 255 - shade, 255]);
+            }
+            renderer
+                .create_texture_rgba8(texture, descriptor, &rgba8)
+                .map_err(js_debug)?;
+            renderer
+                .upload_material(
+                    material,
+                    &Material::new(
+                        format!("replacement-{scene_index}-material-{resource_index}"),
+                        Color::rgb(1.0, 1.0, 1.0),
+                    )
+                    .with_texture(texture),
+                )
+                .map_err(js_debug)?;
+            let mesh_value = if (scene_index + resource_index as u32) % 2 == 0 {
+                Mesh::triangle()
+            } else {
+                Mesh::diamond()
+            };
+            mesh_vertex_bytes =
+                mesh_vertex_bytes.saturating_add(mesh_value.positions.len() as u64 * 8 * 4);
+            renderer.upload_mesh(mesh, &mesh_value);
+            let column = (resource_index % 8) as f32;
+            let row = (resource_index / 8) as f32;
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh,
+                material,
+                pipeline,
+                instance: Instance2d::new(
+                    [-0.875 + column * 0.25, -0.875 + row * 0.25],
+                    [0.1, 0.1],
+                    0.0,
+                ),
+                camera: Some(CameraHandle(1)),
+                viewport: None,
+            }));
+        }
+        renderer.begin_frame();
+        renderer.submit(&commands);
+        let stats = renderer.present().map_err(js_debug)?;
+        if let Some(record) = renderer.drain_diagnostics().into_iter().next() {
+            return Err(JsValue::from_str(&format!(
+                "replacement-pressure WebGPU diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            )));
+        }
+        self.replacements_presented = self.replacements_presented.saturating_add(1);
+        self.renderer = Some(renderer);
+
+        Ok(format!(
+            "status=presented; caller=non-doom-resource-lifetime-pressure; lifetime-baseline=whole-backend-replacement; scene-index={scene_index}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; current-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{}]; current-logical-uploads=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; physical-gpu-reclamation=unobserved; draws={}; backend={backend}; device={device}; adapter={adapter}; canvas={}x{}",
+            self.replacement_attempts,
+            self.replacements_presented,
+            self.backend_creations,
+            self.backend_creations,
+            self.backend_creations,
+            commands.len(),
+            mesh_vertex_bytes,
+            RESOURCE_COUNT * u64::from(TEXTURE_WIDTH) * u64::from(TEXTURE_HEIGHT) * 4,
+            self.retired_logical_sets,
+            stats.frame.draw_calls,
+            width,
+            height,
+        ))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Default for BrowserReplacementPressure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Runs the same B/D/E identity pressure in browser WASM, then proves that the
 /// browser WGPU provider retains the existing same-handle replacement mechanic.

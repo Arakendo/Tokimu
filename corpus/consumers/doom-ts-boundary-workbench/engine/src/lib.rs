@@ -147,12 +147,77 @@ struct IntakeObservation {
 struct BrowserWorkingModel {
     renderer: WgpuBackend,
     commands: Vec<RenderCommand>,
+    logical_resources: WorkingLogicalResources,
     position: Vec3,
     yaw: f32,
     pitch: f32,
     width: u32,
     height: u32,
     far_plane: f32,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Copy, Debug, Default)]
+struct WorkingLogicalResources {
+    meshes: u64,
+    textures: u64,
+    materials: u64,
+    pipelines: u64,
+    cameras: u64,
+    commands: u64,
+    mesh_vertex_bytes: u64,
+    source_texture_payload_bytes: u64,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Copy, Debug, Default)]
+struct WorkingLifetimeObservation {
+    replacement_attempts: u64,
+    replacements_presented: u64,
+    backend_creations: u64,
+    device_creations: u64,
+    surface_creations: u64,
+    retired_sets: u64,
+    retired_resources: WorkingLogicalResources,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WorkingLifetimeObservation {
+    fn retire(&mut self, resources: WorkingLogicalResources) {
+        self.retired_sets = self.retired_sets.saturating_add(1);
+        self.retired_resources.meshes = self
+            .retired_resources
+            .meshes
+            .saturating_add(resources.meshes);
+        self.retired_resources.textures = self
+            .retired_resources
+            .textures
+            .saturating_add(resources.textures);
+        self.retired_resources.materials = self
+            .retired_resources
+            .materials
+            .saturating_add(resources.materials);
+        self.retired_resources.pipelines = self
+            .retired_resources
+            .pipelines
+            .saturating_add(resources.pipelines);
+        self.retired_resources.cameras = self
+            .retired_resources
+            .cameras
+            .saturating_add(resources.cameras);
+        self.retired_resources.commands = self
+            .retired_resources
+            .commands
+            .saturating_add(resources.commands);
+        self.retired_resources.mesh_vertex_bytes = self
+            .retired_resources
+            .mesh_vertex_bytes
+            .saturating_add(resources.mesh_vertex_bytes);
+        self.retired_resources.source_texture_payload_bytes = self
+            .retired_resources
+            .source_texture_payload_bytes
+            .saturating_add(resources.source_texture_payload_bytes);
+    }
 }
 
 /// One transient Rust-owned selection session. It exposes no browser path,
@@ -163,6 +228,8 @@ pub struct BrowserIntakeSession {
     folder: FolderId,
     #[cfg(target_arch = "wasm32")]
     working_model: Option<BrowserWorkingModel>,
+    #[cfg(target_arch = "wasm32")]
+    working_lifetime: WorkingLifetimeObservation,
 }
 
 #[wasm_bindgen]
@@ -322,6 +389,8 @@ impl BrowserIntakeSession {
             folder: FOLDER,
             #[cfg(target_arch = "wasm32")]
             working_model: None,
+            #[cfg(target_arch = "wasm32")]
+            working_lifetime: WorkingLifetimeObservation::default(),
         })
     }
 
@@ -419,6 +488,8 @@ impl BrowserIntakeSession {
         canvas: HtmlCanvasElement,
         map_name: &str,
     ) -> Result<String, String> {
+        self.working_lifetime.replacement_attempts =
+            self.working_lifetime.replacement_attempts.saturating_add(1);
         if !matches!(map_name.as_bytes(), [b'E', b'1', b'M', b'1'..=b'9']) {
             return Err(format!(
                 "working-model browser map must be E1M1 through E1M9; got {map_name}"
@@ -599,13 +670,48 @@ impl BrowserIntakeSession {
 
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
+        let logical_resources = WorkingLogicalResources {
+            meshes: (1
+                + draws.len()
+                + cutout_draws.len()
+                + skywall_meshes.len()
+                + sky_plane_meshes.len()) as u64,
+            textures: (uploads.len() + cutout_uploads.len() + 1) as u64,
+            materials: (uploads.len() + cutout_uploads.len() + 2) as u64,
+            pipelines: 7,
+            cameras: 1,
+            // Filled after the immutable command list is assembled.
+            commands: 0,
+            mesh_vertex_bytes: working_mesh_vertex_bytes(
+                &draws,
+                &cutout_draws,
+                &skywall_meshes,
+                &sky_plane_meshes,
+                &sky_mesh,
+            ),
+            source_texture_payload_bytes: uploads
+                .iter()
+                .chain(&cutout_uploads)
+                .map(|upload| upload.rgba8.len() as u64)
+                .sum::<u64>()
+                .saturating_add(sky_texture.rgba8.len() as u64),
+        };
         // CPU preparation above can coexist with the currently presented map,
         // but two WGPU surface backends must not own the same canvas. Release
         // the previous GPU realization before requesting its replacement.
-        drop(self.working_model.take());
+        if let Some(previous) = self.working_model.take() {
+            self.working_lifetime.retire(previous.logical_resources);
+            drop(previous);
+        }
         let mut renderer = WgpuBackend::for_window(canvas, width, height)
             .await
             .map_err(|error| error.to_string())?;
+        self.working_lifetime.backend_creations =
+            self.working_lifetime.backend_creations.saturating_add(1);
+        self.working_lifetime.device_creations =
+            self.working_lifetime.device_creations.saturating_add(1);
+        self.working_lifetime.surface_creations =
+            self.working_lifetime.surface_creations.saturating_add(1);
         let adapter_name = renderer.adapter_name().to_owned();
         let backend_api = renderer.backend_api();
         let device_kind = renderer.device_kind();
@@ -853,9 +959,19 @@ impl BrowserIntakeSession {
             ));
         }
 
+        let logical_resources = WorkingLogicalResources {
+            commands: commands.len() as u64,
+            ..logical_resources
+        };
+        self.working_lifetime.replacements_presented = self
+            .working_lifetime
+            .replacements_presented
+            .saturating_add(1);
+
         self.working_model = Some(BrowserWorkingModel {
             renderer,
             commands,
+            logical_resources,
             position: observer,
             yaw,
             pitch,
@@ -865,7 +981,7 @@ impl BrowserIntakeSession {
         });
 
         Ok(format!(
-            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
+            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-baseline=whole-backend-replacement; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; physical-gpu-reclamation=unobserved",
             map.map_name,
             draws.len(),
             cutout_draws.len(),
@@ -875,6 +991,35 @@ impl BrowserIntakeSession {
             surface_bake.audit.edge_conformance_insertions,
             width,
             height,
+            self.working_lifetime.replacement_attempts,
+            self.working_lifetime.replacements_presented,
+            self.working_lifetime.backend_creations,
+            self.working_lifetime.device_creations,
+            self.working_lifetime.surface_creations,
+            logical_resources.meshes,
+            logical_resources.textures,
+            logical_resources.materials,
+            logical_resources.pipelines,
+            logical_resources.cameras,
+            logical_resources.commands,
+            logical_resources.meshes,
+            logical_resources.textures,
+            logical_resources.materials,
+            logical_resources.pipelines,
+            logical_resources.cameras,
+            logical_resources.mesh_vertex_bytes,
+            logical_resources.source_texture_payload_bytes,
+            self.working_lifetime.retired_sets,
+            self.working_lifetime.retired_resources.meshes,
+            self.working_lifetime.retired_resources.textures,
+            self.working_lifetime.retired_resources.materials,
+            self.working_lifetime.retired_resources.pipelines,
+            self.working_lifetime.retired_resources.cameras,
+            self.working_lifetime.retired_resources.commands,
+            self.working_lifetime.retired_resources.mesh_vertex_bytes,
+            self.working_lifetime
+                .retired_resources
+                .source_texture_payload_bytes,
         ))
     }
 
@@ -1378,6 +1523,33 @@ fn is_working_one_sided_wall(
         .get(source_linedef.record_index as usize)
         .filter(|linedef| linedef.source == source_linedef)
         .is_some_and(|linedef| linedef.right_sidedef.is_some() ^ linedef.left_sidedef.is_some())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn working_mesh_vertex_bytes(
+    draws: &[StaticDrawPlanEntry],
+    cutout_draws: &[StaticDrawPlanEntry],
+    skywall_meshes: &[Mesh],
+    sky_plane_meshes: &[Mesh],
+    sky_mesh: &Mesh,
+) -> u64 {
+    // The current WGPU lowering stores position (3xf32), normal (3xf32), and
+    // texture coordinate (2xf32) for every vertex. This deliberately excludes
+    // buffer alignment, allocator/driver overhead, staging, and residency.
+    const GPU_VERTEX_BYTES: u64 = 8 * std::mem::size_of::<f32>() as u64;
+    draws
+        .iter()
+        .chain(cutout_draws)
+        .map(|draw| draw.mesh.positions.len() as u64)
+        .chain(
+            skywall_meshes
+                .iter()
+                .chain(sky_plane_meshes)
+                .map(|mesh| mesh.positions.len() as u64),
+        )
+        .chain(std::iter::once(sky_mesh.positions.len() as u64))
+        .fold(0_u64, u64::saturating_add)
+        .saturating_mul(GPU_VERTEX_BYTES)
 }
 
 #[cfg(target_arch = "wasm32")]

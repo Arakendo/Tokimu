@@ -4,6 +4,7 @@ const button = document.querySelector("#select");
 const inspect = document.querySelector("#inspect");
 const render = document.querySelector("#render");
 const renderWorking = document.querySelector("#render-working");
+const runRotation = document.querySelector("#run-rotation");
 const mapPrevious = document.querySelector("#map-previous");
 const mapNext = document.querySelector("#map-next");
 const workingMap = document.querySelector("#working-map");
@@ -16,12 +17,14 @@ const clear = document.querySelector("#clear");
 const input = document.querySelector("#package");
 const result = document.querySelector("#result");
 const canvas = document.querySelector("#scene");
-if (button === null || inspect === null || render === null || renderWorking === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
+if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
     throw new Error("intake DOM is incomplete");
 const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"];
 let workingMapIndex = 0;
 let packageRetained = false;
 let workingMapRendering = false;
+let workingRotationActive = false;
+let workingRotationCancellationRequested = false;
 let workingWalkaboutActive = false;
 let previousWalkStepTime = performance.now();
 let nextWorkingPresentationTime = 0;
@@ -41,8 +44,106 @@ function updateWorkingMapControls() {
     mapPrevious.textContent = `[ ${episodeMaps[previous]}`;
     mapNext.textContent = `${episodeMaps[next]} ]`;
     renderWorking.disabled = !packageRetained;
+    runRotation.disabled = !packageRetained;
+    runRotation.textContent = "Run 3x map rotation";
     mapPrevious.disabled = !packageRetained;
     mapNext.disabled = !packageRetained;
+}
+function nextAnimationFrame() {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+async function runWorkingMapRotation() {
+    if (workingRotationActive) {
+        workingRotationCancellationRequested = true;
+        runRotation.disabled = true;
+        runRotation.textContent = "Stopping after current map...";
+        return;
+    }
+    if (!packageRetained || workingMapRendering)
+        return;
+    stopWorkingWalkabout();
+    workingMapRendering = true;
+    workingRotationActive = true;
+    workingRotationCancellationRequested = false;
+    renderWorking.disabled = true;
+    button.disabled = true;
+    inspect.disabled = true;
+    render.disabled = true;
+    renderCutouts.disabled = true;
+    renderSelected.disabled = true;
+    renderDiagnosticSky.disabled = true;
+    renderExitsign.disabled = true;
+    download.disabled = true;
+    clear.disabled = true;
+    mapPrevious.disabled = true;
+    mapNext.disabled = true;
+    runRotation.textContent = "Stop rotation";
+    const records = [];
+    let diagnostic;
+    const started = performance.now();
+    outer: for (let round = 1; round <= 3; round += 1) {
+        for (let mapIndex = 0; mapIndex < episodeMaps.length; mapIndex += 1) {
+            if (workingRotationCancellationRequested)
+                break outer;
+            workingMapIndex = mapIndex;
+            workingMap.textContent = episodeMaps[mapIndex];
+            const sequence = records.length + 1;
+            result.textContent = JSON.stringify({
+                kind: "running-map-rotation",
+                round,
+                sequence,
+                total: episodeMaps.length * 3,
+                map: episodeMaps[mapIndex],
+                retainedRecords: records.length,
+            }, null, 2);
+            await nextAnimationFrame();
+            const replacementStarted = performance.now();
+            try {
+                const observation = await session.render_working_map(canvas, episodeMaps[mapIndex]);
+                records.push({
+                    sequence,
+                    round,
+                    map: episodeMaps[mapIndex],
+                    elapsedMilliseconds: performance.now() - replacementStarted,
+                    observation,
+                });
+            }
+            catch (error) {
+                diagnostic = String(error);
+                break outer;
+            }
+            // Let the browser present progress and service provider callbacks. This
+            // is deterministic replacement pressure, not a claim that one animation
+            // frame is enough for physical GPU reclamation.
+            await nextAnimationFrame();
+        }
+    }
+    const cancelled = workingRotationCancellationRequested;
+    workingRotationActive = false;
+    workingRotationCancellationRequested = false;
+    workingMapRendering = false;
+    workingWalkaboutActive = diagnostic === undefined && records.length > 0;
+    previousWalkStepTime = performance.now();
+    nextWorkingPresentationTime = 0;
+    updateWorkingMapControls();
+    button.disabled = false;
+    inspect.disabled = !packageRetained;
+    render.disabled = !packageRetained;
+    renderCutouts.disabled = !packageRetained;
+    renderSelected.disabled = !packageRetained;
+    renderDiagnosticSky.disabled = !packageRetained;
+    renderExitsign.disabled = !packageRetained;
+    download.disabled = records.length === 0;
+    clear.disabled = !packageRetained;
+    result.textContent = JSON.stringify({
+        kind: diagnostic === undefined ? (cancelled ? "map-rotation-cancelled" : "map-rotation-complete") : "map-rotation-rejected",
+        requestedReplacements: episodeMaps.length * 3,
+        completedReplacements: records.length,
+        elapsedMilliseconds: performance.now() - started,
+        physicalGpuReclamation: "unobserved",
+        diagnostic,
+        records,
+    }, null, 2);
 }
 async function renderCurrentWorkingMap() {
     if (workingMapRendering)
@@ -86,6 +187,7 @@ const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
     updateWorkingMapControls();
 });
 clear.addEventListener("click", () => {
+    workingRotationCancellationRequested = true;
     stopWorkingWalkabout();
     disposeIntake(session);
     packageRetained = false;
@@ -101,6 +203,7 @@ clear.addEventListener("click", () => {
     result.textContent = JSON.stringify({ kind: "disposed", retainedResources: 0, retainedBytes: 0 }, null, 2);
 });
 renderWorking.addEventListener("click", () => void renderCurrentWorkingMap());
+runRotation.addEventListener("click", () => void runWorkingMapRotation());
 mapPrevious.addEventListener("click", () => {
     workingMapIndex = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
     void renderCurrentWorkingMap();

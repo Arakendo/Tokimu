@@ -2614,6 +2614,25 @@ The review moves away from shared admission when:
   whole-session/page replacement boundary. No Doom preparation or grouped-sky
   semantic change is implicated by the current evidence.
 
+### Cycle 78 -- 2026-08-19
+
+- The renderer lifetime plan has started with instrumentation rather than a
+  reset implementation. The Doom browser now has a deterministic three-round
+  E1M1-through-E1M9 Alternative-A harness and reports logical resource counts,
+  retired sets, submitted payload estimates, and fresh backend/device/surface
+  counts while explicitly retaining physical reclamation as unobserved.
+- A non-Doom renderer-reliability fixture supplies the independent
+  whole-backend replacement control, so later shared-lifetime evidence need
+  not be inferred from Doom alone.
+- The resource inventory preserves this review's separate axis: AR-0030 asks
+  whether work is persistent or submission/view-local; the lifetime plan asks
+  whether a persistent provider session can host replaceable composition
+  resources. No owner or stable vocabulary is shared merely because both axes
+  meet inside the WGPU adapter.
+- Live browser execution remains open. Compilation does not satisfy the
+  repeated-rotation gate, and no reset/arena prototype is authorized by the
+  current baseline alone.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

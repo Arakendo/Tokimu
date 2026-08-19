@@ -183,3 +183,12 @@ python -m http.server 4176 --bind 127.0.0.1 --directory web
 
 Then open `http://127.0.0.1:4176/`, select the reviewed local ZIP, choose
 **Render working model**, and use `[` / `]` to rotate maps.
+
+The separate **Run 3x map rotation** control is the Alternative-A baseline for
+the renderer scene-resource lifetime plan. It deterministically renders E1M1
+through E1M9 three times and retains one bounded record per replacement. Rust
+reports logical current/retired resource counts, estimated mesh-vertex and
+source-texture payload bytes, and backend/device/surface creation counts.
+`physical-gpu-reclamation=unobserved` is deliberate: neither a Rust drop nor a
+browser animation-frame yield proves when provider or driver storage is freed.
+This automated replacement sequence does not replace the manual walkabout.
