@@ -152,11 +152,18 @@ presents a complete replacement frame before reporting the new map. The
 historical fixed E1M1 buttons remain intact as controls; this addition does not
 rewrite their retained evidence.
 
-The test intentionally remains one source-spawn frame per map. It does not yet
-provide a persistent browser walkabout, doors/platforms, Things, audio, or
-browser input ownership. Its observation reports the selected map, complete
-stage sequence, ordinary/cutout/sky contribution counts, boundary-trim audit,
-adapter, and canvas size.
+After the initial source-spawn frame, Rust retains the prepared renderer,
+commands, and camera for a corpus-private noclip inspection loop. Click the
+canvas for pointer-lock mouse look; use W/A/S/D to move, Space/Ctrl vertically,
+Shift to run, and Escape to release the mouse. TypeScript supplies normalized
+input deltas only. Rust owns camera mutation and frame submission, and idle
+animation frames do not resubmit the scene. Map replacement disables the loop
+until a complete replacement has been prepared and presented.
+
+This is a visual inspection camera, not Doom player simulation. It does not
+provide collision, doors/platforms, Things, or audio. The initial observation
+reports the selected map, complete stage sequence, ordinary/cutout/sky
+contribution counts, boundary-trim audit, adapter, and canvas size.
 
 Build and serve it with:
 

@@ -2532,6 +2532,26 @@ The review moves away from shared admission when:
   retained E1M1-plus-swapped-map capture remain required before target parity
   can be claimed.
 
+### Cycle 74 -- 2026-08-19
+
+- The readiness path executed successfully in a real browser. E1M2 presented
+  through `browser-webgpu` at 960x600 using the declared grouped-parity stages,
+  sector-boundary trim, 1,921 opaque draws, 20 paired skywalls, 242 source sky
+  planes, 3,635 surface triangles, and 642 edge-conformance insertions. The
+  captured source-spawn frame is the first direct browser execution evidence
+  for this working-model stencil composition; the adapter name was empty and
+  device classification reported `other`.
+- A fixed frame could not exercise the camera-dependent failure modes that
+  shaped the native candidate, so the same browser session now retains the
+  Rust-owned renderer, complete command sequence, and inspection camera after
+  atomic preparation. Pointer-lock mouse deltas and normalized movement axes
+  cross the TypeScript boundary; Rust mutates the camera and submits frames.
+  Idle animation frames perform no render submission.
+- This is corpus-private noclip inspection evidence. It does not promote Doom
+  movement, collision, sky semantics, or a browser camera contract into the
+  renderer. E1M1 plus a live swapped-map walkabout capture remains required
+  before the checklist's browser visual gate is complete.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

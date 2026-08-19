@@ -1427,9 +1427,20 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
         grouped skywall-plus-source-sky-plane stencil sequence. Browser
         previous/next buttons and `[` / `]` replace the complete map frame;
         TypeScript never receives WAD geometry or presentation policy.
+  - [x] Add a corpus-private browser walkabout over the retained working-model
+        scene. Rust owns the camera and WebGPU submissions; pointer-lock mouse
+        look plus W/A/S/D, Space/Ctrl, and Shift provide noclip inspection
+        without claiming browser Doom player simulation or a public camera API.
+        Idle animation frames do not resubmit the scene, and map replacement
+        pauses input until the complete replacement is presented.
   - [ ] Retain a real WebGPU observation and capture for at least E1M1 plus one
         swapped map. WASM compilation and strict TypeScript checking are only
         readiness evidence until the browser executes the stencil path.
+    - [x] Retain the first real execution: E1M2 presented through Browser
+          WebGPU at 960x600 with 1,921 opaque draws, 20 paired skywalls, 242
+          source sky planes, 3,635 surface triangles, and 642 edge-conformance
+          insertions. The user-observed frame showed the source-spawn interior;
+          E1M1 plus an explicit live map-swap/walkabout capture remains open.
 - [ ] Keep user-supplied WAD bytes in the browser session.
 - [ ] Avoid publishing unreviewed commercial or shareware data.
 - [ ] Record native/WASM importer and geometry parity.

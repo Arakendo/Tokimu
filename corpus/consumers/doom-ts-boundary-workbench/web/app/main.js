@@ -22,6 +22,17 @@ const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1
 let workingMapIndex = 0;
 let packageRetained = false;
 let workingMapRendering = false;
+let workingWalkaboutActive = false;
+let previousFrameTime = performance.now();
+let mouseDeltaX = 0;
+let mouseDeltaY = 0;
+const pressedKeys = new Set();
+function stopWorkingWalkabout() {
+    workingWalkaboutActive = false;
+    pressedKeys.clear();
+    mouseDeltaX = 0;
+    mouseDeltaY = 0;
+}
 function updateWorkingMapControls() {
     const previous = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
     const next = (workingMapIndex + 1) % episodeMaps.length;
@@ -35,6 +46,7 @@ function updateWorkingMapControls() {
 async function renderCurrentWorkingMap() {
     if (workingMapRendering)
         return;
+    stopWorkingWalkabout();
     workingMapRendering = true;
     const mapName = episodeMaps[workingMapIndex];
     renderWorking.disabled = true;
@@ -42,7 +54,9 @@ async function renderCurrentWorkingMap() {
     mapNext.disabled = true;
     result.textContent = `Preparing ${mapName} with grouped sky parity and sector-boundary trim...`;
     try {
-        result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas, mapName) }, null, 2);
+        result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas, mapName), controls: "Click canvas for mouse look; W/A/S/D move; Space/Ctrl vertical; Shift runs; Escape releases mouse." }, null, 2);
+        workingWalkaboutActive = true;
+        previousFrameTime = performance.now();
         download.disabled = false;
     }
     catch (error) {
@@ -56,6 +70,7 @@ async function renderCurrentWorkingMap() {
 await init();
 const session = new BrowserIntakeSession();
 const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
+    stopWorkingWalkabout();
     result.textContent = JSON.stringify(outcome, null, 2);
     packageRetained = outcome.kind === "retained";
     inspect.disabled = outcome.kind !== "retained";
@@ -69,6 +84,7 @@ const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
     updateWorkingMapControls();
 });
 clear.addEventListener("click", () => {
+    stopWorkingWalkabout();
     disposeIntake(session);
     packageRetained = false;
     inspect.disabled = true;
@@ -92,13 +108,57 @@ mapNext.addEventListener("click", () => {
     void renderCurrentWorkingMap();
 });
 document.addEventListener("keydown", (event) => {
-    if (!packageRetained || workingMapRendering || event.repeat || (event.key !== "[" && event.key !== "]"))
+    if (!packageRetained || workingMapRendering)
         return;
-    workingMapIndex = event.key === "["
-        ? (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length
-        : (workingMapIndex + 1) % episodeMaps.length;
-    void renderCurrentWorkingMap();
+    if (!event.repeat && (event.key === "[" || event.key === "]")) {
+        workingMapIndex = event.key === "["
+            ? (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length
+            : (workingMapIndex + 1) % episodeMaps.length;
+        void renderCurrentWorkingMap();
+        return;
+    }
+    if (workingWalkaboutActive) {
+        pressedKeys.add(event.code);
+        if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight"].includes(event.code))
+            event.preventDefault();
+    }
 });
+document.addEventListener("keyup", (event) => pressedKeys.delete(event.code));
+addEventListener("blur", () => pressedKeys.clear());
+canvas.addEventListener("click", () => {
+    if (workingWalkaboutActive)
+        void canvas.requestPointerLock();
+});
+document.addEventListener("mousemove", (event) => {
+    if (workingWalkaboutActive && document.pointerLockElement === canvas) {
+        mouseDeltaX += event.movementX;
+        mouseDeltaY += event.movementY;
+    }
+});
+function animateWorkingWalkabout(frameTime) {
+    const deltaSeconds = Math.min(Math.max((frameTime - previousFrameTime) / 1000, 0), 0.05);
+    previousFrameTime = frameTime;
+    if (workingWalkaboutActive && !workingMapRendering) {
+        const forward = Number(pressedKeys.has("KeyW")) - Number(pressedKeys.has("KeyS"));
+        const strafe = Number(pressedKeys.has("KeyD")) - Number(pressedKeys.has("KeyA"));
+        const vertical = Number(pressedKeys.has("Space")) - Number(pressedKeys.has("ControlLeft") || pressedKeys.has("ControlRight"));
+        const yawDelta = -mouseDeltaX * 0.0025;
+        const pitchDelta = -mouseDeltaY * 0.0025;
+        mouseDeltaX = 0;
+        mouseDeltaY = 0;
+        if (forward !== 0 || strafe !== 0 || vertical !== 0 || yawDelta !== 0 || pitchDelta !== 0) {
+            try {
+                session.step_working_model(deltaSeconds, forward, strafe, vertical, yawDelta, pitchDelta, pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight"));
+            }
+            catch (error) {
+                stopWorkingWalkabout();
+                result.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error), phase: "working-model-walkabout" }, null, 2);
+            }
+        }
+    }
+    requestAnimationFrame(animateWorkingWalkabout);
+}
+requestAnimationFrame(animateWorkingWalkabout);
 inspect.addEventListener("click", () => {
     try {
         result.textContent = JSON.stringify(JSON.parse(session.inspect_doom1_wad()), null, 2);
@@ -108,6 +168,7 @@ inspect.addEventListener("click", () => {
     }
 });
 render.addEventListener("click", async () => {
+    stopWorkingWalkabout();
     render.disabled = true;
     result.textContent = "Preparing and presenting the retained E1M1 package...";
     try {
@@ -122,6 +183,7 @@ render.addEventListener("click", async () => {
     }
 });
 renderCutouts.addEventListener("click", async () => {
+    stopWorkingWalkabout();
     renderCutouts.disabled = true;
     result.textContent = "Preparing and presenting retained E1M1 with corpus-local masked cutouts...";
     try {
@@ -136,6 +198,7 @@ renderCutouts.addEventListener("click", async () => {
     }
 });
 renderSelected.addEventListener("click", async () => {
+    stopWorkingWalkabout();
     renderSelected.disabled = true;
     result.textContent = "Preparing source-spawn E1M1 with corpus-local AABB/frustum selection...";
     try {
@@ -150,6 +213,7 @@ renderSelected.addEventListener("click", async () => {
     }
 });
 renderDiagnosticSky.addEventListener("click", async () => {
+    stopWorkingWalkabout();
     renderDiagnosticSky.disabled = true;
     result.textContent = "Preparing retained E1M1 sky omissions with the opt-in Purple diagnostic stand-in...";
     try {
@@ -164,6 +228,7 @@ renderDiagnosticSky.addEventListener("click", async () => {
     }
 });
 renderExitsign.addEventListener("click", async () => {
+    stopWorkingWalkabout();
     renderExitsign.disabled = true;
     result.textContent = "Preparing the canonical E1M1 EXITSIGN orientation view...";
     try {

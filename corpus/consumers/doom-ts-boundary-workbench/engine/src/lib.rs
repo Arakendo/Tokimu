@@ -31,7 +31,7 @@ use hello_doom_e1m1::{
     assemble_static_opaque_walls, build_experimental_cutout_draw_plan,
     build_experimental_cutout_texture_uploads, build_static_draw_plan,
     build_static_texture_uploads, classify_static_draw_frustum_rejection,
-    lower_static_flat_triangle, observer_direction, observer_yaw_from_forward,
+    lower_static_flat_triangle, observer_direction, observer_right, observer_yaw_from_forward,
     prepare_e1m1_flat_textures, prepare_e1m1_flats, prepare_e1m1_masked_middle_cutouts,
     prepare_e1m1_sky_diagnostic_flats, prepare_e1m1_static_sky_panorama_texture,
     prepare_e1m1_wall_texture_extents, prepare_e1m1_wall_textures, prepare_e1m1_walls,
@@ -97,6 +97,8 @@ const WORKING_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_100_000);
 #[cfg(target_arch = "wasm32")]
 const WORKING_SKY_BOUNDARY_MATERIAL: MaterialHandle = MaterialHandle(9_100_001);
 #[cfg(target_arch = "wasm32")]
+const WORKING_CAMERA: CameraHandle = CameraHandle(91);
+#[cfg(target_arch = "wasm32")]
 const FLAT_LIMITS: doom_raster_provider::DoomFlatDecodeLimits =
     doom_raster_provider::DoomFlatDecodeLimits {
         max_flat_bytes: 4096,
@@ -141,12 +143,26 @@ struct IntakeObservation {
     status: &'static str,
 }
 
+#[cfg(target_arch = "wasm32")]
+struct BrowserWorkingModel {
+    renderer: WgpuBackend,
+    commands: Vec<RenderCommand>,
+    position: Vec3,
+    yaw: f32,
+    pitch: f32,
+    width: u32,
+    height: u32,
+    far_plane: f32,
+}
+
 /// One transient Rust-owned selection session. It exposes no browser path,
 /// directory, fetch, storage, or Doom semantic API.
 #[wasm_bindgen]
 pub struct BrowserIntakeSession {
     space: InMemoryResourceSpace,
     folder: FolderId,
+    #[cfg(target_arch = "wasm32")]
+    working_model: Option<BrowserWorkingModel>,
 }
 
 #[wasm_bindgen]
@@ -245,13 +261,38 @@ impl BrowserIntakeSession {
     /// marker and canvas; Rust validates the marker and owns all preparation.
     #[cfg(target_arch = "wasm32")]
     pub async fn render_working_map(
-        &self,
+        &mut self,
         canvas: HtmlCanvasElement,
         map_name: &str,
     ) -> Result<String, JsValue> {
         self.render_working_map_inner(canvas, map_name)
             .await
             .map_err(js_error)
+    }
+
+    /// Advances and presents the retained working-model scene. This is an
+    /// explicit browser noclip inspection camera, not Doom player simulation.
+    #[cfg(target_arch = "wasm32")]
+    pub fn step_working_model(
+        &mut self,
+        delta_seconds: f32,
+        forward_axis: f32,
+        strafe_axis: f32,
+        vertical_axis: f32,
+        yaw_delta: f32,
+        pitch_delta: f32,
+        running: bool,
+    ) -> Result<(), JsValue> {
+        self.step_working_model_inner(
+            delta_seconds,
+            forward_axis,
+            strafe_axis,
+            vertical_axis,
+            yaw_delta,
+            pitch_delta,
+            running,
+        )
+        .map_err(js_error)
     }
 }
 
@@ -279,6 +320,8 @@ impl BrowserIntakeSession {
         Ok(Self {
             space,
             folder: FOLDER,
+            #[cfg(target_arch = "wasm32")]
+            working_model: None,
         })
     }
 
@@ -372,7 +415,7 @@ impl BrowserIntakeSession {
 
     #[cfg(target_arch = "wasm32")]
     async fn render_working_map_inner(
-        &self,
+        &mut self,
         canvas: HtmlCanvasElement,
         map_name: &str,
     ) -> Result<String, String> {
@@ -591,7 +634,6 @@ impl BrowserIntakeSession {
             )
             .map_err(|error| error.to_string())?;
 
-        const CAMERA: CameraHandle = CameraHandle(91);
         const SKY_MESH: MeshHandle = MeshHandle(9_100_000);
         const OPAQUE_MESH_BASE: u64 = 1;
         let cutout_mesh_base = draws.len() as u64 + 1;
@@ -701,18 +743,24 @@ impl BrowserIntakeSession {
             )
             .map_err(|error| error.to_string())?;
 
+        let far_plane = radius * 8.0;
+        let yaw = observer_yaw_from_forward(forward);
+        let pitch = 0.0;
         let mut camera = Camera::perspective_3d(width as f32, height as f32);
         camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
             60_f32.to_radians(),
             width as f32 / height as f32,
             0.1,
-            radius * 8.0,
+            far_plane,
         )
         .ok_or_else(|| "working-model camera projection is invalid".to_owned())?;
-        camera.view =
-            tokimu_core::math::try_view_look_at_rh(observer, observer + forward * 128.0, Vec3::Y)
-                .ok_or_else(|| "working-model source-spawn camera basis is invalid".to_owned())?;
-        renderer.upload_camera(CAMERA, camera);
+        camera.view = tokimu_core::math::try_view_look_at_rh(
+            observer,
+            observer + observer_direction(yaw, pitch) * 128.0,
+            Vec3::Y,
+        )
+        .ok_or_else(|| "working-model source-spawn camera basis is invalid".to_owned())?;
+        renderer.upload_camera(WORKING_CAMERA, camera);
 
         let mut commands = vec![
             RenderCommand::Clear(ClearCommand {
@@ -723,7 +771,7 @@ impl BrowserIntakeSession {
                 material: WORKING_SKY_MATERIAL,
                 pipeline: sky_pipeline,
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }),
         ];
@@ -737,7 +785,7 @@ impl BrowserIntakeSession {
                     opaque_depth_pipeline
                 },
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }));
         }
@@ -747,7 +795,7 @@ impl BrowserIntakeSession {
                 material: draw.material,
                 pipeline: cutout_depth_pipeline,
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }));
         }
@@ -757,7 +805,7 @@ impl BrowserIntakeSession {
                 material: WORKING_SKY_BOUNDARY_MATERIAL,
                 pipeline: boundary_pipeline,
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }));
         }
@@ -767,7 +815,7 @@ impl BrowserIntakeSession {
                 material: WORKING_SKY_BOUNDARY_MATERIAL,
                 pipeline: boundary_pipeline,
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }));
         }
@@ -777,7 +825,7 @@ impl BrowserIntakeSession {
                 material: draw.material,
                 pipeline: opaque_pipeline,
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }));
         }
@@ -787,13 +835,24 @@ impl BrowserIntakeSession {
                 material: draw.material,
                 pipeline: cutout_pipeline,
                 instance: Instance2d::identity(),
-                camera: Some(CAMERA),
+                camera: Some(WORKING_CAMERA),
                 viewport: None,
             }));
         }
         renderer.begin_frame();
         renderer.submit(&commands);
         renderer.present().map_err(|error| error.to_string())?;
+
+        self.working_model = Some(BrowserWorkingModel {
+            renderer,
+            commands,
+            position: observer,
+            yaw,
+            pitch,
+            width,
+            height,
+            far_plane,
+        });
 
         Ok(format!(
             "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}",
@@ -807,6 +866,72 @@ impl BrowserIntakeSession {
             width,
             height,
         ))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[allow(clippy::too_many_arguments)]
+    fn step_working_model_inner(
+        &mut self,
+        delta_seconds: f32,
+        forward_axis: f32,
+        strafe_axis: f32,
+        vertical_axis: f32,
+        yaw_delta: f32,
+        pitch_delta: f32,
+        running: bool,
+    ) -> Result<(), String> {
+        let values = [
+            delta_seconds,
+            forward_axis,
+            strafe_axis,
+            vertical_axis,
+            yaw_delta,
+            pitch_delta,
+        ];
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err("working-model input contains a non-finite value".into());
+        }
+        let model = self
+            .working_model
+            .as_mut()
+            .ok_or_else(|| "no browser working-model scene is retained".to_owned())?;
+        let delta_seconds = delta_seconds.clamp(0.0, 0.05);
+        model.yaw += yaw_delta.clamp(-0.5, 0.5);
+        model.pitch = (model.pitch + pitch_delta.clamp(-0.5, 0.5)).clamp(-1.5, 1.5);
+
+        let forward = observer_direction(model.yaw, 0.0);
+        let right = observer_right(forward);
+        let mut movement = forward * forward_axis.clamp(-1.0, 1.0)
+            + right * strafe_axis.clamp(-1.0, 1.0)
+            + Vec3::Y * vertical_axis.clamp(-1.0, 1.0);
+        if movement.length_squared() > 1.0 {
+            movement = movement.normalize();
+        }
+        let speed = if running { 480.0 } else { 240.0 };
+        model.position += movement * speed * delta_seconds;
+
+        let mut camera = Camera::perspective_3d(model.width as f32, model.height as f32);
+        camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
+            60_f32.to_radians(),
+            model.width as f32 / model.height as f32,
+            0.1,
+            model.far_plane,
+        )
+        .ok_or_else(|| "working-model camera projection is invalid".to_owned())?;
+        camera.view = tokimu_core::math::try_view_look_at_rh(
+            model.position,
+            model.position + observer_direction(model.yaw, model.pitch) * 128.0,
+            Vec3::Y,
+        )
+        .ok_or_else(|| "working-model inspection camera basis is invalid".to_owned())?;
+        model.renderer.upload_camera(WORKING_CAMERA, camera);
+        model.renderer.begin_frame();
+        model.renderer.submit(&model.commands);
+        model
+            .renderer
+            .present()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
     }
 
     #[cfg(target_arch = "wasm32")]
