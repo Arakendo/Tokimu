@@ -1275,11 +1275,20 @@ Acceptance criteria:
         all 29 source monsters with a specific outcome (5 REJECT-forbidden and
         24 source-linedef blocked), while 29/29 same-sector near-front positive
         controls acquire the player. The report moves no actor.
-  - [ ] Before enabling live chase, incorporate current door/platform height
-        overlays into sight and choose an application-owned actor movement
-        collision policy that handles two-sided clearance and actor contacts.
-        The existing first-walk disc helper explicitly does not provide those
-        semantics and must not be silently promoted into monster authority.
+  - [x] Let both sight and actor movement consume caller-owned current
+        door/platform floor and ceiling overlays. A regression proves the same
+        source sight line changes from blocked to acquired when its door
+        ceiling opens.
+  - [x] Add a separate application-edge actor movement oracle over all source
+        linedefs. It evaluates one-sided walls, dynamic two-sided openings,
+        24-unit steps/dropoffs, vertical clearance, and explicit actor bodies
+        without promoting the narrower first-walk helper. At E1M1 spawn, 27/29
+        eight-unit source-direction probes move and 2/29 retain explicit
+        vertical blocks; none mutates a Thing.
+  - [ ] Add chase clocks and application-owned mutable monster positions behind
+        an opt-in live candidate. Rebuild ordinary sprite declarations from the
+        resulting positions; do not mutate imported Things. Attack selection,
+        sound wake-up, and alternate blocked-direction search remain separate.
 - [ ] Add save/replay evidence without treating WAD bytes as mutable world
       state.
 

@@ -42,6 +42,49 @@ pub struct DoomWalkCollisionWorld {
     blockmap_cells: Vec<Vec<u32>>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DoomActorBody {
+    pub source_thing: u32,
+    pub position: [f32; 2],
+    pub floor_height: i16,
+    pub radius: f32,
+    pub height: i16,
+}
+
+#[derive(Clone, Debug)]
+pub struct DoomActorMovementWorld {
+    lines: Vec<DoomActorMoveLine>,
+    floors: DoomWalkFloorWorld,
+}
+
+#[derive(Clone, Debug)]
+struct DoomActorMoveLine {
+    wall: DoomWalkWall,
+    opening_sectors: Option<[DoomSector; 2]>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DoomActorMoveOutcome {
+    Moved {
+        position: [f32; 2],
+        source_sector: DoomSourceRecord,
+        floor_height: i16,
+        contacted_linedefs: Vec<u32>,
+    },
+    BlockedVertical {
+        position: [f32; 2],
+        contacted_linedefs: Vec<u32>,
+    },
+    BlockedDropoff {
+        position: [f32; 2],
+        candidate_floor_height: i16,
+    },
+    BlockedActor {
+        position: [f32; 2],
+        source_thing: u32,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DoomWalkMoveObservation {
     pub requested_delta: [f32; 2],
@@ -303,6 +346,155 @@ impl DoomWalkCollisionWorld {
         }
         Some([column as usize, row as usize])
     }
+}
+
+impl DoomActorMovementWorld {
+    pub fn from_map(map: &DoomMapCore) -> Result<Self, DoomGeometryError> {
+        let lines = map
+            .linedefs
+            .iter()
+            .filter_map(|line| {
+                let start = map.vertices.get(usize::from(line.start_vertex))?;
+                let end = map.vertices.get(usize::from(line.end_vertex))?;
+                let opening_sectors =
+                    line.right_sidedef
+                        .zip(line.left_sidedef)
+                        .and_then(|(right, left)| {
+                            let right = map.sidedefs.get(usize::from(right))?;
+                            let left = map.sidedefs.get(usize::from(left))?;
+                            Some([
+                                map.sectors.get(usize::from(right.sector))?.clone(),
+                                map.sectors.get(usize::from(left.sector))?.clone(),
+                            ])
+                        });
+                Some(DoomActorMoveLine {
+                    wall: DoomWalkWall {
+                        source_linedef: line.source.record_index,
+                        start: [f32::from(start.x), f32::from(start.y)],
+                        end: [f32::from(end.x), f32::from(end.y)],
+                    },
+                    opening_sectors,
+                })
+            })
+            .collect();
+        Ok(Self {
+            lines,
+            floors: DoomWalkFloorWorld::from_map(map)?,
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn probe_move(
+        &self,
+        source_thing: u32,
+        start: [f32; 2],
+        current_floor_height: i16,
+        requested_delta: [f32; 2],
+        radius: f32,
+        height: i16,
+        floor_overrides: &[(DoomSourceRecord, i16)],
+        ceiling_overrides: &[(DoomSourceRecord, i16)],
+        actors: &[DoomActorBody],
+    ) -> DoomActorMoveOutcome {
+        let walls = self
+            .lines
+            .iter()
+            .filter(|line| {
+                actor_line_blocks(
+                    line,
+                    current_floor_height,
+                    height,
+                    floor_overrides,
+                    ceiling_overrides,
+                )
+            })
+            .map(|line| line.wall)
+            .collect::<Vec<_>>();
+        let collision = DoomWalkCollisionWorld {
+            walls,
+            blockmap_origin: [0.0, 0.0],
+            blockmap_dimensions: [0, 0],
+            blockmap_cells: Vec::new(),
+        }
+        .move_disc(start, requested_delta, radius);
+        let resolved = collision.resolved_position;
+        let floor = self.floors.resolve_transition_with_runtime_overrides(
+            resolved,
+            current_floor_height,
+            floor_overrides,
+            ceiling_overrides,
+        );
+        let DoomWalkFloorResolution::Accepted {
+            source_sector,
+            floor_height,
+            ..
+        } = floor
+        else {
+            return DoomActorMoveOutcome::BlockedVertical {
+                position: start,
+                contacted_linedefs: collision.contacted_linedefs,
+            };
+        };
+        if current_floor_height - floor_height > CLASSIC_MAX_STEP_UP {
+            return DoomActorMoveOutcome::BlockedDropoff {
+                position: start,
+                candidate_floor_height: floor_height,
+            };
+        }
+        if let Some(actor) = actors
+            .iter()
+            .filter(|actor| {
+                actor.source_thing != source_thing
+                    && vertical_intervals_overlap(
+                        floor_height,
+                        height,
+                        actor.floor_height,
+                        actor.height,
+                    )
+                    && length(subtract(resolved, actor.position)) < radius + actor.radius
+            })
+            .min_by_key(|actor| actor.source_thing)
+        {
+            return DoomActorMoveOutcome::BlockedActor {
+                position: start,
+                source_thing: actor.source_thing,
+            };
+        }
+        DoomActorMoveOutcome::Moved {
+            position: resolved,
+            source_sector,
+            floor_height,
+            contacted_linedefs: collision.contacted_linedefs,
+        }
+    }
+}
+
+fn actor_line_blocks(
+    line: &DoomActorMoveLine,
+    current_floor_height: i16,
+    actor_height: i16,
+    floor_overrides: &[(DoomSourceRecord, i16)],
+    ceiling_overrides: &[(DoomSourceRecord, i16)],
+) -> bool {
+    let Some([right, left]) = &line.opening_sectors else {
+        return true;
+    };
+    let open_bottom =
+        source_floor_height(right, floor_overrides).max(source_floor_height(left, floor_overrides));
+    let open_top = source_ceiling_height(right, ceiling_overrides)
+        .min(source_ceiling_height(left, ceiling_overrides));
+    open_top - open_bottom < actor_height
+        || open_bottom - current_floor_height > CLASSIC_MAX_STEP_UP
+}
+
+fn vertical_intervals_overlap(
+    left_floor: i16,
+    left_height: i16,
+    right_floor: i16,
+    right_height: i16,
+) -> bool {
+    left_floor < right_floor.saturating_add(right_height)
+        && right_floor < left_floor.saturating_add(left_height)
 }
 
 impl DoomWalkFloorWorld {
@@ -651,5 +843,47 @@ mod tests {
             -40
         );
         assert_eq!(source_floor_height(&sector, &[(source_sector(5), -40)]), 0);
+    }
+
+    fn actor_line(right: DoomSector, left: DoomSector) -> DoomActorMoveLine {
+        DoomActorMoveLine {
+            wall: DoomWalkWall {
+                source_linedef: 12,
+                start: [0.0, -64.0],
+                end: [0.0, 64.0],
+            },
+            opening_sectors: Some([right, left]),
+        }
+    }
+
+    fn sector(record_index: u32, floor_height: i16, ceiling_height: i16) -> DoomSector {
+        DoomSector {
+            source: source_sector(record_index),
+            floor_height,
+            ceiling_height,
+            floor_texture: "FLOOR0_1".to_owned(),
+            ceiling_texture: "CEIL1_1".to_owned(),
+            light_level: 160,
+            special: 0,
+            tag: 0,
+        }
+    }
+
+    #[test]
+    fn actor_line_uses_runtime_opening_and_step_clearance() {
+        let door = sector(1, 0, 0);
+        let room = sector(2, 0, 128);
+        let line = actor_line(door.clone(), room);
+        assert!(actor_line_blocks(&line, 0, 56, &[], &[]));
+        assert!(!actor_line_blocks(&line, 0, 56, &[], &[(door.source, 128)]));
+
+        let high_step = actor_line(sector(3, 25, 128), sector(4, 0, 128));
+        assert!(actor_line_blocks(&high_step, 0, 56, &[], &[]));
+    }
+
+    #[test]
+    fn actor_vertical_contact_requires_height_overlap() {
+        assert!(vertical_intervals_overlap(0, 56, 32, 56));
+        assert!(!vertical_intervals_overlap(0, 56, 56, 56));
     }
 }

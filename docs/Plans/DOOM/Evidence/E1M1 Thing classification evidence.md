@@ -166,8 +166,19 @@ Software's released
 and the initial front-arc/close-range policy in
 [`p_enemy.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_enemy.c).
 It does not use rendered pixels or declarations, and it does not move an actor.
-Live chase remains parked until current door/platform openings and an honest
-two-sided/actor movement collision policy are supplied.
+At that observation checkpoint, live chase remained parked pending current
+door/platform openings and an honest two-sided/actor movement collision policy.
+
+That prerequisite now has a non-mutating oracle. Sight and movement accept the
+same caller-owned sector-height overlay shape already used by player floor
+transitions. The movement world is separately constructed from every source
+linedef and tests one-sided boundaries, current two-sided opening height,
+24-unit step/drop limits, destination-sector vertical clearance, and finite
+actor bodies. It does not reuse the narrower player walk helper as an implicit
+authority. The E1M1 report records 27 successful eight-unit forward probes and
+2 explicit vertical refusals across the 29 source monsters, with no unresolved
+outcome and no source mutation. Live chase clocks and mutable runtime positions
+remain the next gate.
 
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.

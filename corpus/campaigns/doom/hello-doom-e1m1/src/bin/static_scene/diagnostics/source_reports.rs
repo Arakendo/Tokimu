@@ -15,6 +15,7 @@ use hello_doom_e1m1::things::{
 };
 
 pub(crate) fn report_doom_monster_perception(scene: &SceneInput) {
+    use hello_doom_e1m1::collision::{DoomActorBody, DoomActorMoveOutcome};
     use hello_doom_e1m1::perception::{DoomMonsterPerception, DoomMonsterPerceptionQuery};
 
     let mut acquired = 0;
@@ -23,6 +24,25 @@ pub(crate) fn report_doom_monster_perception(scene: &SceneInput) {
     let mut behind = 0;
     let mut unavailable = 0;
     let mut positive_controls_acquired = 0;
+    let actor_bodies = scene
+        .thing_sprites
+        .iter()
+        .filter_map(|thing| {
+            let [radius, height] =
+                hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)?;
+            Some(DoomActorBody {
+                source_thing: thing.source.record_index,
+                position: thing.source_position.map(f32::from),
+                floor_height: thing.floor_height,
+                radius,
+                height: height as i16,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut movement_moved = 0;
+    let mut movement_vertical = 0;
+    let mut movement_dropoff = 0;
+    let mut movement_actor = 0;
     for thing in scene.thing_sprites.iter().filter(|thing| {
         classify_e1m1_thing_kind(thing.kind)
             .is_some_and(|classification| classification.family == DoomThingFamily::Monster)
@@ -75,13 +95,31 @@ pub(crate) fn report_doom_monster_perception(scene: &SceneInput) {
             positive_control,
             DoomMonsterPerception::Acquired { .. }
         ));
+        let [radius, height] = hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)
+            .expect("classified E1M1 monster has combat dimensions");
+        match scene.actor_movement_world.probe_move(
+            thing.source.record_index,
+            thing.source_position.map(f32::from),
+            thing.floor_height,
+            [angle.cos() * 8.0, angle.sin() * 8.0],
+            radius,
+            height as i16,
+            &[],
+            &[],
+            &actor_bodies,
+        ) {
+            DoomActorMoveOutcome::Moved { .. } => movement_moved += 1,
+            DoomActorMoveOutcome::BlockedVertical { .. } => movement_vertical += 1,
+            DoomActorMoveOutcome::BlockedDropoff { .. } => movement_dropoff += 1,
+            DoomActorMoveOutcome::BlockedActor { .. } => movement_actor += 1,
+        }
         println!(
             "monster-perception: source-thing={} kind={} sector={} outcome={outcome:?}",
             thing.source.record_index, thing.kind, thing.source_sector,
         );
     }
     println!(
-        "{} Slice 9 monster-perception observation: monsters={}; acquired={acquired}; reject-forbidden={rejected}; reject-unavailable={unavailable}; sight-blocked={blocked}; outside-front-arc={behind}; near-front-positive-controls={positive_controls_acquired}/{}; player-sector={}; authority=source-REJECT-prefilter-plus-finite-linedef-opening-slope-trace-not-render-visibility; movement=false",
+        "{} Slice 9 monster-perception observation: monsters={}; acquired={acquired}; reject-forbidden={rejected}; reject-unavailable={unavailable}; sight-blocked={blocked}; outside-front-arc={behind}; near-front-positive-controls={positive_controls_acquired}/{}; movement-probes=[moved:{movement_moved},vertical:{movement_vertical},dropoff:{movement_dropoff},actor:{movement_actor}]; player-sector={}; authority=source-REJECT-prefilter-plus-finite-linedef-opening-slope-trace-and-nonmutating-source-actor-movement; live-movement=false",
         scene.map_name,
         acquired + rejected + unavailable + blocked + behind,
         acquired + rejected + unavailable + blocked + behind,

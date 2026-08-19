@@ -392,6 +392,7 @@ struct SceneInput {
     walk_collision: DoomWalkCollisionWorld,
     walk_floors: DoomWalkFloorWorld,
     monster_sight_world: hello_doom_e1m1::perception::DoomMonsterSightWorld,
+    actor_movement_world: hello_doom_e1m1::collision::DoomActorMovementWorld,
     reject_report: DoomRejectReport,
     topology_report: DoomTopologyReport,
     bsp_bounds_audit: Option<DoomBspBoundsAudit>,
@@ -785,6 +786,7 @@ fn prepare_scene(
     let walk_collision = DoomWalkCollisionWorld::from_map(&map);
     let walk_floors = DoomWalkFloorWorld::from_map(&map)?;
     let monster_sight_world = hello_doom_e1m1::perception::DoomMonsterSightWorld::from_map(&map);
+    let actor_movement_world = hello_doom_e1m1::collision::DoomActorMovementWorld::from_map(&map)?;
     let start = resolve_doom_player_one_start(&map.things)?;
     let paths = resolve_doom_subsector_bsp_paths(&map)?;
     let location = locate_doom_point_subsector(start.position, &paths)?;
@@ -1203,6 +1205,7 @@ fn prepare_scene(
         walk_collision,
         walk_floors,
         monster_sight_world,
+        actor_movement_world,
         reject_report,
         topology_report,
         bsp_bounds_audit,

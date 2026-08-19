@@ -5,7 +5,7 @@
 //! openings. This module retains those decisions separately so later monster
 //! movement cannot confuse renderer visibility with gameplay sight.
 
-use doom_map_provider::{DoomMapCore, DoomRejectMatrix};
+use doom_map_provider::{DoomMapCore, DoomRejectMatrix, DoomSourceRecord};
 
 const INTERSECTION_EPSILON: f32 = 0.000_1;
 const CLASSIC_MELEE_RANGE: f32 = 64.0;
@@ -15,7 +15,14 @@ struct DoomSightLine {
     source_linedef: u32,
     start: [f32; 2],
     end: [f32; 2],
-    opening: Option<[f32; 2]>,
+    opening_sectors: Option<[DoomSightSector; 2]>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct DoomSightSector {
+    source: DoomSourceRecord,
+    floor_height: i16,
+    ceiling_height: i16,
 }
 
 #[derive(Clone, Debug)]
@@ -57,7 +64,7 @@ impl DoomMonsterSightWorld {
             .filter_map(|line| {
                 let start = map.vertices.get(usize::from(line.start_vertex))?;
                 let end = map.vertices.get(usize::from(line.end_vertex))?;
-                let opening =
+                let opening_sectors =
                     line.right_sidedef
                         .zip(line.left_sidedef)
                         .and_then(|(right, left)| {
@@ -66,15 +73,23 @@ impl DoomMonsterSightWorld {
                             let right = map.sectors.get(usize::from(right.sector))?;
                             let left = map.sectors.get(usize::from(left.sector))?;
                             Some([
-                                f32::from(right.floor_height.max(left.floor_height)),
-                                f32::from(right.ceiling_height.min(left.ceiling_height)),
+                                DoomSightSector {
+                                    source: right.source,
+                                    floor_height: right.floor_height,
+                                    ceiling_height: right.ceiling_height,
+                                },
+                                DoomSightSector {
+                                    source: left.source,
+                                    floor_height: left.floor_height,
+                                    ceiling_height: left.ceiling_height,
+                                },
                             ])
                         });
                 Some(DoomSightLine {
                     source_linedef: line.source.record_index,
                     start: [f32::from(start.x), f32::from(start.y)],
                     end: [f32::from(end.x), f32::from(end.y)],
-                    opening,
+                    opening_sectors,
                 })
             })
             .collect();
@@ -85,6 +100,15 @@ impl DoomMonsterSightWorld {
     }
 
     pub fn observe(&self, query: DoomMonsterPerceptionQuery) -> DoomMonsterPerception {
+        self.observe_with_runtime_heights(query, &[], &[])
+    }
+
+    pub fn observe_with_runtime_heights(
+        &self,
+        query: DoomMonsterPerceptionQuery,
+        floor_overrides: &[(DoomSourceRecord, i16)],
+        ceiling_overrides: &[(DoomSourceRecord, i16)],
+    ) -> DoomMonsterPerception {
         if !query.player_alive {
             return DoomMonsterPerception::PlayerDead;
         }
@@ -118,11 +142,21 @@ impl DoomMonsterSightWorld {
         });
         let mut crossed_openings = 0;
         for (fraction, line) in crossings {
-            let Some([open_bottom, open_top]) = line.opening else {
+            let Some([right, left]) = line.opening_sectors else {
                 return DoomMonsterPerception::SightBlocked {
                     source_linedef: line.source_linedef,
                 };
             };
+            let open_bottom = f32::from(
+                runtime_height(right.source, right.floor_height, floor_overrides).max(
+                    runtime_height(left.source, left.floor_height, floor_overrides),
+                ),
+            );
+            let open_top = f32::from(
+                runtime_height(right.source, right.ceiling_height, ceiling_overrides).min(
+                    runtime_height(left.source, left.ceiling_height, ceiling_overrides),
+                ),
+            );
             if open_bottom >= open_top {
                 return DoomMonsterPerception::SightBlocked {
                     source_linedef: line.source_linedef,
@@ -148,6 +182,18 @@ impl DoomMonsterSightWorld {
         }
         DoomMonsterPerception::Acquired { crossed_openings }
     }
+}
+
+fn runtime_height(
+    source: DoomSourceRecord,
+    base: i16,
+    overrides: &[(DoomSourceRecord, i16)],
+) -> i16 {
+    overrides
+        .iter()
+        .rev()
+        .find_map(|(candidate, height)| (*candidate == source).then_some(*height))
+        .unwrap_or(base)
 }
 
 fn segment_crossing_fraction(
@@ -218,6 +264,17 @@ mod tests {
         }
     }
 
+    fn sector(record_index: u32, floor_height: i16, ceiling_height: i16) -> DoomSightSector {
+        DoomSightSector {
+            source: DoomSourceRecord {
+                lump_index: 1,
+                record_index,
+            },
+            floor_height,
+            ceiling_height,
+        }
+    }
+
     #[test]
     fn one_sided_line_blocks_sight() {
         assert_eq!(
@@ -225,7 +282,7 @@ mod tests {
                 source_linedef: 7,
                 start: [50.0, -10.0],
                 end: [50.0, 10.0],
-                opening: None,
+                opening_sectors: None,
             }])
             .observe(query()),
             DoomMonsterPerception::SightBlocked { source_linedef: 7 }
@@ -241,7 +298,7 @@ mod tests {
                 source_linedef: 8,
                 start: [50.0, -10.0],
                 end: [50.0, 10.0],
-                opening: Some([0.0, 40.0]),
+                opening_sectors: Some([sector(0, 0, 40), sector(1, 0, 40)]),
             }])
             .observe(raised_player),
             DoomMonsterPerception::SightBlocked { source_linedef: 8 }
@@ -262,6 +319,28 @@ mod tests {
             empty.observe(behind),
             DoomMonsterPerception::Acquired {
                 crossed_openings: 0
+            }
+        );
+    }
+
+    #[test]
+    fn runtime_ceiling_height_can_open_a_previously_closed_sight_line() {
+        let right = sector(0, 0, 0);
+        let left = sector(1, 0, 128);
+        let sight = world(vec![DoomSightLine {
+            source_linedef: 9,
+            start: [50.0, -10.0],
+            end: [50.0, 10.0],
+            opening_sectors: Some([right, left]),
+        }]);
+        assert_eq!(
+            sight.observe(query()),
+            DoomMonsterPerception::SightBlocked { source_linedef: 9 }
+        );
+        assert_eq!(
+            sight.observe_with_runtime_heights(query(), &[], &[(right.source, 128)]),
+            DoomMonsterPerception::Acquired {
+                crossed_openings: 1,
             }
         );
     }

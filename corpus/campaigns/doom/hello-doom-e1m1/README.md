@@ -532,7 +532,9 @@ cargo run -q -p hello-doom-e1m1 --bin static_scene -- `
 ```
 
 The report keeps `REJECT` prefilter decisions, exact source-linedef/opening
-blocks, front-arc results, and near-front positive controls distinct. It is
+blocks, front-arc results, near-front positive controls, and non-mutating
+eight-unit actor movement probes distinct. Movement probes evaluate dynamic
+opening inputs, step/drop limits, vertical clearance, and actor bodies. This is
 gameplay observation rather than renderer visibility; live chase movement is
 not enabled.
 
