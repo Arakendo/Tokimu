@@ -129,6 +129,7 @@ members = [
 
     # Incubating shared corpus libraries.
     "corpus/lib/audio-tools",
+    "corpus/lib/cpal-audio-output-provider",
     "corpus/lib/simple-audio-synth-provider",
     "corpus/lib/screenshot",
     "corpus/lib/resource-space",
@@ -184,6 +185,7 @@ version = "0.1.0"
 [workspace.dependencies]
 anyhow = "1"
 blake3 = "1"
+cpal = "0.18.1"
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"

@@ -436,6 +436,31 @@ Reopen or advance this review when:
   checklist record their completed headless portions; no engine crate or
   platform dependency is admitted.
 
+### Cycle 9 -- 2026-08-19
+
+- Status entering review: Incubating
+- New evidence: the corpus-local `cpal-audio-output-provider` adapts bounded
+  PCM into a native CPAL stream through a fixed-capacity command queue and a
+  preallocated voice table. `doom_audio_playback` consumes the existing MUS,
+  synthesis, and sound-effect paths, then exercises looping music, an
+  independent cue, pause, resume, and stop. A 44.1-kHz stereo Windows run
+  observed 235 callbacks / 104,164 frames with no starvation, queue rejection,
+  xrun, device-unavailable, or other stream error, and manual listening
+  confirmed the pistol cue was audible.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: device selection, callback execution, sample-rate/channel
+  adaptation, nominal buffer latency, queue overflow, xruns, and disconnection
+  can remain provider-owned while application cue policy and source decoding
+  stay above it. CPAL is sufficient low-level corpus machinery and remains
+  absent from engine crates. The standard-library synchronous channel is
+  bounded and non-waiting at the callback API, but this evidence does not prove
+  a production lock-free or deallocation-free real-time handoff.
+- Disposition: Incubating; native playback evidence is accepted for the corpus,
+  while stable audio capability admission and browser parity remain deferred.
+- Resulting ADR or documentation change: the standalone MIDI plan completes
+  its native-output slice, the Doom checklist records audible reproduction,
+  and no ADR or engine-crate admission is created.
+
 ## References
 
 - `docs/Plans/Standalone/audio-reactive-visualizers-and-milkdrop-compatibility.md`
@@ -447,8 +472,10 @@ Reopen or advance this review when:
 - `corpus/lib/audio-tools/src/lib.rs`
 - `corpus/lib/doom-audio-provider/src/lib.rs`
 - `corpus/lib/simple-audio-synth-provider/src/lib.rs`
+- `corpus/lib/cpal-audio-output-provider/src/lib.rs`
 - `corpus/campaigns/doom/hello-doom-e1m1/src/bin/doom_sound_report.rs`
 - `corpus/campaigns/doom/hello-doom-e1m1/src/bin/doom_music_report.rs`
+- `corpus/campaigns/doom/hello-doom-e1m1/src/bin/doom_audio_playback.rs`
 - `corpus/focused/audio/hello-audio-analysis/src/main.rs`
 - `corpus/focused/audio/hello-audio-visualizer/src/main.rs`
 - https://github.com/projectM-visualizer/projectm

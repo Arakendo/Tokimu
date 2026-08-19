@@ -522,23 +522,54 @@ Acceptance criteria:
 
 Deliverables:
 
-- [ ] Select a bounded native output mechanism after dependency review.
-- [ ] Add explicit device-open, sample-rate, latency, underrun, and disconnect
+- [x] Select a bounded native output mechanism after dependency review.
+- [x] Add explicit device-open, sample-rate, latency, underrun, and disconnect
       observations.
-- [ ] Add a bounded producer/consumer queue with documented overflow policy.
-- [ ] Keep the device callback free of MIDI parsing and application policy.
-- [ ] Demonstrate a looping game-style track and interruptible cue.
-- [ ] Expose a minimal application adapter for play, pause, resume, stop, and
+- [x] Add a bounded producer/consumer queue with documented overflow policy.
+- [x] Keep the device callback free of MIDI parsing and application policy.
+- [x] Demonstrate a looping game-style track and interruptible cue.
+- [x] Expose a minimal application adapter for play, pause, resume, stop, and
       one-shot cue requests without exposing the device handle.
+
+Dependency decision and evidence (2026-08-19):
+
+- `cpal` 0.18 is admitted only to the corpus-local
+  `cpal-audio-output-provider`. It supplies low-level device discovery, stream
+  creation, callbacks, and typed samples without choosing a decoder,
+  synthesizer, mixer graph, or gameplay policy. No engine crate depends on it.
+- The provider uses a fixed-capacity standard-library synchronous command
+  channel. Overflow rejects the newest command and increments a bounded
+  observation. The callback drains commands without waiting, mixes through a
+  preallocated voice table, and uses stack scratch storage rather than a
+  per-block heap allocation.
+- Source PCM is adapted to the selected sample rate with a deliberately simple
+  nearest-frame policy and mapped into the device channel count. This proves
+  ownership and lifecycle, not production resampling quality.
+- The native Doom consumer opened `Line (2- Yamaha AG03MK2)` through the
+  default Windows host at 44,100 Hz, stereo `f32`, with a reported 441-frame
+  buffer (nominal 10,000 microseconds). It played a looping five-second
+  synthesis of `D_E1M1`, mixed an independent `DSPISTOL` cue, paused, resumed,
+  and stopped over 235 callbacks / 104,164 frames with zero content-starvation,
+  rejected-command, xrun, device-unavailable, or other device-error reports.
+  Manual listening confirmed that the independently queued pistol cue was
+  audible over the music path. The retained consumer also prepares and queues
+  a separate one-note cue through the same provider-neutral sequence and
+  synthesis path; neither cue is parsed in the device callback.
+- CPAL reports xruns and invalidated/unavailable devices through the error
+  callback. The provider counts those separately and retains the last error;
+  device-open/configuration/play/pause failures return typed errors.
+- This corpus does not yet claim that `std::sync::mpsc::sync_channel` is a
+  production lock-free or deallocation-free real-time queue. Replacement with
+  a reviewed real-time handoff remains a promotion concern, not a hidden claim.
 
 Acceptance criteria:
 
-- [ ] Live playback uses the same sequencer and synthesizer proven headlessly.
-- [ ] Device failure degrades into diagnostics rather than a panic or silent
+- [x] Live playback uses the same sequencer and synthesizer proven headlessly.
+- [x] Device failure degrades into diagnostics rather than a panic or silent
       fallback.
-- [ ] Warm playback does not allocate or create provider resources per sample
+- [x] Warm playback does not allocate or create provider resources per sample
       block without explicit evidence and review.
-- [ ] A basic corpus application can start music and trigger a note-driven
+- [x] A basic corpus application can start music and trigger a note-driven
       effect without parsing MIDI or managing PCM buffers itself.
 
 ### Slice 7: Game Cue And Transition Consumer

@@ -13,6 +13,8 @@ corpus/lib/
   compression-provider/            bounded byte-compression provider proofs
   archive-provider/                bounded archive manifest and entry proofs
   archive-file-adapter/            native-only bounded archive file adapter
+  audio-tools/                     bounded PCM and sequence semantics
+  cpal-audio-output-provider/      native output and callback evidence
   resource-space-archive/          explicit archive inspection and entry copies
   resource-space-compression/      explicit logical-resource transformations
   cgm-corpus/                     CGM acquisition and structural evidence

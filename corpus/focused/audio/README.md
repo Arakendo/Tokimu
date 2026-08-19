@@ -12,6 +12,9 @@ Shared incubation now also includes:
 - `corpus/lib/audio-tools` for bounded PCM, logical sound requests, ordered
   note sequences, and caller-clocked transport;
 - `corpus/lib/simple-audio-synth-provider` for headless oscillator and WAVE
-  artifact evidence; and
-- the Doom campaign's `doom_sound_report` and `doom_music_report` consumers for
-  real source-decoder pressure without a live device.
+  artifact evidence;
+- `corpus/lib/cpal-audio-output-provider` for corpus-local native device,
+  bounded callback queue, mixing, and loss-observation evidence; and
+- the Doom campaign's `doom_sound_report`, `doom_music_report`, and
+  `doom_audio_playback` consumers for source decoding, headless structure, and
+  native lifecycle pressure.

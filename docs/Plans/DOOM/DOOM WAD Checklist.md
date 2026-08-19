@@ -1355,6 +1355,22 @@ Acceptance criteria:
         metadata, normalized extrema, duration, and source-sample fingerprint;
         it explicitly reports `audio-device=false`, `playback=false`, and
         `clock=none`.
+- [x] Exercise native output without making the device or callback Doom-owned.
+  - [x] The corpus-local `cpal-audio-output-provider` consumes the same bounded
+        synthesized `D_E1M1` PCM and decoded `DSPISTOL` PCM used by the headless
+        proofs. Its callback owns sample-rate/channel adaptation and mixing but
+        contains no MUS parsing, Doom event selection, or application policy.
+  - [x] `doom_audio_playback` proves start, looping music, an independent
+        one-shot pistol cue, a separately synthesized one-note cue, pause,
+        resume, and stop through a private application adapter. The first
+        native observation recorded 235
+        callbacks and 104,164 frames with zero starvation, queue rejection,
+        xrun, device-unavailable, or other device errors; manual listening
+        confirmed the pistol cue was audible.
+  - [x] Queue overflow rejects the newest command explicitly. Device open,
+        configuration, stream lifecycle, nominal buffer latency, xruns, and
+        invalidation remain provider-attributed diagnostics. Production
+        lock-free callback behavior remains unclaimed.
 
 Acceptance criteria:
 
@@ -1371,6 +1387,12 @@ cargo run -p hello-doom-e1m1 --bin doom_music_report -- corpus/assets/DOOM/packa
 
 Append an output path to write the five-second PCM16 listening artifact; WAVE
 is evidence output, not the runtime audio contract.
+
+Native audible reproduction:
+
+```text
+cargo run -p hello-doom-e1m1 --bin doom_audio_playback -- corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD
+```
 
 ## Slice 11: Consumer And WASM Proof
 

@@ -1,0 +1,11 @@
+[package]
+name = "cpal-audio-output-provider"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+audio-tools = { path = "../audio-tools" }
+cpal.workspace = true
+thiserror.workspace = true
