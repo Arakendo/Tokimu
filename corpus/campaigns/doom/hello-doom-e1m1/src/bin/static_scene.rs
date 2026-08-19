@@ -34,15 +34,15 @@ use doom_geometry_provider::{
 };
 #[cfg(test)]
 use doom_geometry_provider::{DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey};
-#[cfg(test)]
-use doom_map_provider::DoomBspChild;
 use doom_map_provider::{
-    decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore, DoomSector, DoomThing,
+    decode_doom_map_core, resolve_doom_player_one_start, DoomBspChild, DoomMapCore, DoomSector,
+    DoomThing,
 };
 use doom_raster_provider::{
-    decode_doom_sprite_frame_rotations, DoomFlatDecodeLimits, DoomPatchDecodeLimits,
-    DoomRasterDecodeLimits, DoomSpriteFrameRotation, DoomTextureComposeLimits,
-    DoomTextureDecodeLimits,
+    decode_doom_raster_globals, decode_doom_sprite_frame_rotations, decode_doom_sprite_patch,
+    indexed_image_from_doom_patch, lower_doom_indexed_image, DoomFlatDecodeLimits,
+    DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomSpriteFrameRotation,
+    DoomTextureComposeLimits, DoomTextureDecodeLimits,
 };
 use doom_wad_package::{
     read_wad_package_member, select_doom_episode_map, InspectWadPackageRequest,
@@ -98,8 +98,9 @@ use tokimu::{
     ColorWriteMask, CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand,
     FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
     PipelineHandle, PipelineKind, PipelineRenderState, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderer, StencilMode, Texture, TextureAddressMode,
-    TextureFilter, TextureHandle, TextureSampler, WgpuBackend, WindowConfig,
+    PlatformResult, RenderCommand, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
+    StencilMode, Texture, TextureAddressMode, TextureFilter, TextureHandle, TextureSampler,
+    WgpuBackend, WindowConfig,
 };
 use tokimu_core::math::{Mat4, Vec3};
 use tokimu_input::{InputState, KeyCode, MouseButton};
@@ -207,6 +208,9 @@ const CANDIDATE1_SKY_DEPTH_MATERIAL: MaterialHandle = MaterialHandle(9_004_000);
 const CANDIDATE1_CLIP_CAMERA: CameraHandle = CameraHandle(9_004_000);
 const ORDERED_COVERAGE_CUTOUT_MESH_BASE: u64 = 8_000_000;
 const ORDERED_COVERAGE_DYNAMIC_MESH_BASE: u64 = 8_500_000;
+const DOOM_THING_SPRITE_TEXTURE_BASE: u64 = 9_100_000;
+const DOOM_THING_SPRITE_MATERIAL_BASE: u64 = 9_110_000;
+const DOOM_THING_SPRITE_MESH_BASE: u64 = 9_200_000;
 const WALK_SPEED: f32 = 240.0;
 const RUN_SPEED_MULTIPLIER: f32 = 2.0;
 const WALK_RADIUS: f32 = 16.0;
@@ -237,6 +241,12 @@ struct App {
     cutout_draws: Vec<StaticDrawPlanEntry>,
 
     cutout_uploads: Vec<StaticTextureUpload>,
+    thing_sprites: Vec<DoomThingSprite>,
+    sprite_frames: Vec<DoomSpriteFrameRotation>,
+    sprite_uploads: Vec<DoomSpriteTextureUpload>,
+    sprite_meshes: Vec<Mesh>,
+    sprite_selected_materials: Vec<MaterialHandle>,
+    sprite_last_viewer_source_position: Option<[f32; 2]>,
     diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
     diagnostic_sky_enabled: bool,
     diagnostic_sky_records: Vec<String>,
@@ -256,6 +266,8 @@ struct App {
     one_sided_wall_depth_prepass_pipeline: Option<PipelineHandle>,
     cutout_pipeline: Option<PipelineHandle>,
     cutout_depth_prepass_pipeline: Option<PipelineHandle>,
+    sprite_pipeline: Option<PipelineHandle>,
+    sprite_depth_prepass_pipeline: Option<PipelineHandle>,
     doom_sky_pipeline: Option<PipelineHandle>,
     doom_sky_boundary_pipeline: Option<PipelineHandle>,
     diagnostic_sky_pipeline: Option<PipelineHandle>,
@@ -359,6 +371,8 @@ struct SceneInput {
     available_maps: Vec<String>,
     things: Vec<DoomThing>,
     sprite_frames: Vec<DoomSpriteFrameRotation>,
+    thing_sprites: Vec<DoomThingSprite>,
+    sprite_uploads: Vec<DoomSpriteTextureUpload>,
     opaque_draws: Vec<StaticDrawPlanEntry>,
     opaque_uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
@@ -377,6 +391,88 @@ struct SceneInput {
     membership_selection: DoomMembershipSelectionInput,
     activation_source: DoomLineActivationSource,
     door_geometry_source: DoomDynamicDoorGeometrySource,
+}
+
+#[derive(Clone, Debug)]
+struct DoomThingSprite {
+    source: doom_map_provider::DoomSourceRecord,
+    source_position: [i16; 2],
+    source_angle: u16,
+    floor_height: i16,
+    sprite: &'static str,
+    frame: char,
+}
+
+#[derive(Clone, Debug)]
+struct DoomSpriteTextureUpload {
+    source_lump_index: u32,
+    source_name: String,
+    width: u16,
+    height: u16,
+    left_offset: i16,
+    top_offset: i16,
+    texture: TextureHandle,
+    material: MaterialHandle,
+    descriptor: Rgba8TextureDescriptor,
+    rgba8: Vec<u8>,
+    material_value: Material,
+}
+
+fn build_doom_thing_sprite_mesh(
+    thing: &DoomThingSprite,
+    upload: &DoomSpriteTextureUpload,
+    mirrored: bool,
+    viewer_source_position: [f32; 2],
+    embedding: DoomComparativeEmbedding,
+) -> PlatformResult<Mesh> {
+    let thing_source = thing.source_position.map(f32::from);
+    let mut toward_viewer = Vec3::new(
+        viewer_source_position[0] - thing_source[0],
+        0.0,
+        viewer_source_position[1] - thing_source[1],
+    );
+    if toward_viewer.length_squared() <= f32::EPSILON {
+        toward_viewer = Vec3::new(0.0, 0.0, 1.0);
+    } else {
+        toward_viewer = toward_viewer.normalize();
+    }
+    let source_right = Vec3::new(toward_viewer.z, 0.0, -toward_viewer.x);
+    let left = -f32::from(upload.left_offset);
+    let right = f32::from(upload.width) - f32::from(upload.left_offset);
+    let top = f32::from(thing.floor_height) + f32::from(upload.top_offset);
+    let bottom = top - f32::from(upload.height);
+    let source_center = Vec3::new(thing_source[0], 0.0, thing_source[1]);
+    let source_positions = [
+        source_center + source_right * left + Vec3::Y * top,
+        source_center + source_right * left + Vec3::Y * bottom,
+        source_center + source_right * right + Vec3::Y * bottom,
+        source_center + source_right * left + Vec3::Y * top,
+        source_center + source_right * right + Vec3::Y * bottom,
+        source_center + source_right * right + Vec3::Y * top,
+    ];
+    let positions = source_positions
+        .map(|position| {
+            embedding
+                .lift_direction([position.x, position.z], position.y)
+                .to_array()
+        })
+        .to_vec();
+    let normal = embedding
+        .lift_direction([toward_viewer.x, toward_viewer.z], 0.0)
+        .normalize_or_zero()
+        .to_array();
+    let (left_u, right_u) = if mirrored { (1.0, 0.0) } else { (0.0, 1.0) };
+    Mesh::uniform_normal(positions, normal)
+        .with_texture_coordinates(vec![
+            [left_u, 0.0],
+            [left_u, 1.0],
+            [right_u, 1.0],
+            [left_u, 0.0],
+            [right_u, 1.0],
+            [right_u, 0.0],
+        ])
+        .map_err(io::Error::other)
+        .map_err(Into::into)
 }
 
 #[derive(Clone, Debug)]
@@ -539,6 +635,45 @@ fn is_source_one_sided_wall(draw: &StaticDrawPlanEntry, map: &DoomMapCore) -> bo
         .is_some_and(|linedef| linedef.right_sidedef.is_some() ^ linedef.left_sidedef.is_some())
 }
 
+/// Classic-compatible placement lookup for map-authored Things only. The
+/// general collision/topology locator intentionally rejects points on a BSP
+/// partition; `R_PointOnSide` instead chooses the left child on equality.
+fn locate_doom_thing_subsector(
+    map: &DoomMapCore,
+    point: [i16; 2],
+) -> PlatformResult<doom_map_provider::DoomSourceRecord> {
+    let mut child = DoomBspChild::Node(
+        u16::try_from(map.nodes.len().saturating_sub(1))
+            .map_err(|_| io::Error::other("Doom node root does not fit u16"))?,
+    );
+    for _ in 0..=map.nodes.len() {
+        match child {
+            DoomBspChild::Subsector(index) => {
+                return map
+                    .subsectors
+                    .get(usize::from(index))
+                    .map(|subsector| subsector.source)
+                    .ok_or_else(|| io::Error::other("Thing BSP descent reached missing subsector"))
+                    .map_err(Into::into);
+            }
+            DoomBspChild::Node(index) => {
+                let node = map
+                    .nodes
+                    .get(usize::from(index))
+                    .ok_or_else(|| io::Error::other("Thing BSP descent reached missing node"))?;
+                let side = i64::from(node.delta_x) * i64::from(point[1] - node.y)
+                    - i64::from(node.delta_y) * i64::from(point[0] - node.x);
+                child = if side < 0 {
+                    node.right_child
+                } else {
+                    node.left_child
+                };
+            }
+        }
+    }
+    Err(io::Error::other("Thing BSP descent encountered a cycle").into())
+}
+
 fn prepare_scene(
     package: &str,
     member: &str,
@@ -614,6 +749,105 @@ fn prepare_scene(
     let paths = resolve_doom_subsector_bsp_paths(&map)?;
     let location = locate_doom_point_subsector(start.position, &paths)?;
     let ownership = resolve_doom_subsector_sector_ownership(&map)?;
+    let mut thing_sprites = Vec::new();
+    for thing in &map.things {
+        let Some(classification) = hello_doom_e1m1::things::classify_e1m1_thing_kind(thing.kind)
+        else {
+            continue;
+        };
+        let (Some(sprite), Some(frame)) =
+            (classification.initial_sprite, classification.initial_frame)
+        else {
+            continue;
+        };
+        let source_subsector = match locate_doom_point_subsector([thing.x, thing.y], &paths) {
+            Ok(location) => location.source_subsector,
+            Err(_) => locate_doom_thing_subsector(&map, [thing.x, thing.y])?,
+        };
+        let owner = ownership
+            .iter()
+            .find(|entry| entry.source_subsector == source_subsector)
+            .ok_or_else(|| {
+                io::Error::other(format!(
+                    "Thing {} has no source-sector ownership",
+                    thing.source.record_index
+                ))
+            })?;
+        let floor_height = map.sectors[usize::from(owner.sector_index)].floor_height;
+        thing_sprites.push(DoomThingSprite {
+            source: thing.source,
+            source_position: [thing.x, thing.y],
+            source_angle: thing.angle,
+            floor_height,
+            sprite,
+            frame,
+        });
+    }
+    let required_sprite_lumps = thing_sprites
+        .iter()
+        .flat_map(|thing| {
+            sprite_frames.iter().filter(move |candidate| {
+                candidate.sprite.eq_ignore_ascii_case(thing.sprite)
+                    && candidate.frame == thing.frame
+            })
+        })
+        .map(|candidate| candidate.source_lump_index)
+        .collect::<BTreeSet<_>>();
+    let raster_globals =
+        decode_doom_raster_globals(&read.bytes, &read.observation.wad, RASTER_LIMITS)?;
+    let mut sprite_uploads = Vec::with_capacity(required_sprite_lumps.len());
+    for (upload_index, source_lump_index) in required_sprite_lumps.into_iter().enumerate() {
+        let source_lump = read
+            .observation
+            .wad
+            .lumps
+            .get(source_lump_index as usize)
+            .ok_or_else(|| io::Error::other("sprite frame refers to missing source lump"))?;
+        let patch = decode_doom_sprite_patch(
+            &read.bytes,
+            &read.observation.wad,
+            &source_lump.name,
+            PATCH_LIMITS,
+        )?;
+        if patch.source_lump_index != source_lump_index {
+            return Err(io::Error::other(format!(
+                "sprite lump name {} resolves to {}, expected source lump {}",
+                source_lump.name, patch.source_lump_index, source_lump_index
+            ))
+            .into());
+        }
+        let indexed = indexed_image_from_doom_patch(&patch);
+        let lowered = lower_doom_indexed_image(&indexed, &raster_globals.palettes[0])?;
+        let texture = TextureHandle(DOOM_THING_SPRITE_TEXTURE_BASE + upload_index as u64);
+        let material = MaterialHandle(DOOM_THING_SPRITE_MATERIAL_BASE + upload_index as u64);
+        let descriptor = Rgba8TextureDescriptor::new(
+            u32::from(patch.width),
+            u32::from(patch.height),
+            Rgba8TextureColorSpace::Srgb,
+        );
+        sprite_uploads.push(DoomSpriteTextureUpload {
+            source_lump_index,
+            source_name: source_lump.name.clone(),
+            width: patch.width,
+            height: patch.height,
+            left_offset: patch.left_offset,
+            top_offset: patch.top_offset,
+            texture,
+            material,
+            descriptor,
+            rgba8: lowered.pixels,
+            material_value: Material::new(
+                format!("doom-thing-sprite:{}", source_lump.name),
+                Color::rgb(1.0, 1.0, 1.0),
+            )
+            .with_texture(texture)
+            .with_texture_sampler(TextureSampler {
+                filter: TextureFilter::Point,
+                address_u: TextureAddressMode::Clamp,
+                address_v: TextureAddressMode::Clamp,
+            }),
+        });
+    }
     let regions = resolve_doom_subsector_regions(&map, &paths)?;
     let inferred_region_bounds = regions
         .iter()
@@ -911,6 +1145,8 @@ fn prepare_scene(
         available_maps,
         things: map.things.clone(),
         sprite_frames,
+        thing_sprites,
+        sprite_uploads,
         opaque_draws: draws,
         opaque_uploads: uploads,
         cutout_draws,

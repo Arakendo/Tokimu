@@ -91,7 +91,7 @@ pub(crate) fn report_doom_thing_classification(
         }
     }
     println!(
-        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; sprite-bearing={sprite_bearing}; sprite-patches-resolved={sprite_resolved}; rotation-zero={rotation_zero}; view-rotated={}; mirrored-selections={mirrored}; sprite-errors=[{}]; billboard-policy=unrealized; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
+        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; sprite-bearing={sprite_bearing}; sprite-patches-resolved={sprite_resolved}; rotation-zero={rotation_zero}; view-rotated={}; mirrored-selections={mirrored}; sprite-errors=[{}]; billboard-policy=live-consumer-actual-camera-cylindrical-world-vertical; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
         things.len(),
         things.len() - unknown,
         sprite_resolved - rotation_zero,

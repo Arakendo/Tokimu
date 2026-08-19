@@ -1146,11 +1146,13 @@ pub(crate) fn run() -> PlatformResult<()> {
         + if skywall_parity {
             scene.opaque_draws.len()
                 + usize::from(include_cutouts) * scene.cutout_draws.len()
+                + scene.thing_sprites.len()
                 + scene.doom_sky_boundary_draws.len()
                 + scene.diagnostic_sky_draws.len()
         } else {
             0
-        };
+        }
+        + scene.thing_sprites.len();
 
     let opaque_selected = vec![true; scene.opaque_draws.len()];
     let cutout_selected = vec![true; scene.cutout_draws.len()];
@@ -1318,6 +1320,12 @@ pub(crate) fn run() -> PlatformResult<()> {
         uploads: scene.opaque_uploads,
         cutout_draws: scene.cutout_draws,
         cutout_uploads: scene.cutout_uploads,
+        thing_sprites: scene.thing_sprites,
+        sprite_frames: scene.sprite_frames,
+        sprite_uploads: scene.sprite_uploads,
+        sprite_meshes: Vec::new(),
+        sprite_selected_materials: Vec::new(),
+        sprite_last_viewer_source_position: None,
         diagnostic_sky_draws: scene.diagnostic_sky_draws,
         diagnostic_sky_enabled: diagnostic_sky,
         diagnostic_sky_records: scene.diagnostic_sky_records,
@@ -1337,6 +1345,8 @@ pub(crate) fn run() -> PlatformResult<()> {
         one_sided_wall_depth_prepass_pipeline: None,
         cutout_pipeline: None,
         cutout_depth_prepass_pipeline: None,
+        sprite_pipeline: None,
+        sprite_depth_prepass_pipeline: None,
         doom_sky_pipeline: None,
         doom_sky_boundary_pipeline: None,
         diagnostic_sky_pipeline: None,

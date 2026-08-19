@@ -50,21 +50,41 @@ rotation-zero frames, 29 select an eight-way rotation, three select mirrored
 pairs, and no frame or rotation is missing. See id Software's released
 [`r_things.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/r_things.c).
 
-This is still source-selection evidence. Actual-camera vertical billboard
-meshes, patch offsets, categorical coverage, depth interaction, and pitched
-view behavior remain the next implementation refinement.
+The live corpus consumer now decodes the 36 unique initial-frame source patches
+needed by those records and realizes all 129 selections as actual-camera
+cylindrical billboards. Patch width/height plus Classic `left_offset` and
+`top_offset` define the finite world-space quad. Mirroring changes U direction,
+transparent pixels use Tokimu's existing categorical cutout declaration, and
+retained pixels use ordinary depth testing and writing. The billboards remain
+world-vertical under pitch; free-look changes their projection, not their
+vertical axis.
+
+With grouped-sky parity enabled, the same categorically covered sprite quads
+participate in the full-world depth prepass and the even-parity color pass.
+This prevents the new draw family from bypassing the established sky mask while
+keeping Doom vocabulary out of the renderer.
+
+One source Thing at `(2752,-2640)` exposed a placement-specific boundary case:
+the conservative topology/collision locator correctly refuses points exactly
+on a BSP partition. Map-authored Thing placement now follows Classic's
+deterministic equality choice (left child), locally and explicitly; the
+general locator retains its ambiguity diagnostic.
 
 ## Boundaries established
 
 - The original `THINGS` flags remain attached to every source record. This
-  report does not silently choose a skill level or multiplayer policy.
+  report and first live realization do not silently choose a skill level or
+  multiplayer policy. The initial visual proof submits every classified
+  sprite-bearing source record; flag-conditioned actor admission belongs to
+  the later gameplay policy.
 - Map-placed weapon pickups are not player weapon state.
 - The shootable/explosive barrel is not collapsed into passive decoration.
 - E1M1 contains no map-authored projectile record. Released projectile object
   types have no map number and are created by runtime actions; projectile
   creation and collision therefore remain later gameplay work.
-- Classification creates no runtime truth and adds no Doom vocabulary to the
-  renderer.
+- Classification creates no runtime truth. Live realization lowers the result
+  to ordinary meshes, RGBA textures, materials, categorical coverage, and draw
+  commands, adding no Doom vocabulary to the renderer.
 
 Two focused regressions preserve the sorted unique selected table and replay
 the complete canonical kind/count inventory into the nine family totals.

@@ -4,15 +4,16 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
     advance_scrolling_wall_uvs, arguments_for_rotated_map, build_doom_sky_cylinder,
-    carry_observer_with_floor, diagnostic_skywall_mesh, discover_secret_sector,
-    finalize_doom_seg_classic_plane_spans, merge_solid_range, mesh_owning_side_visible,
-    nearest_mesh_ray_hit, ray_triangle_distance, retain_doom_seg_classic_plane_range,
-    source_bbox_fov_column_interval, source_fov_column_interval, source_motion_special_crossings,
+    build_doom_thing_sprite_mesh, carry_observer_with_floor, diagnostic_skywall_mesh,
+    discover_secret_sector, finalize_doom_seg_classic_plane_spans, merge_solid_range,
+    mesh_owning_side_visible, nearest_mesh_ray_hit, ray_triangle_distance,
+    retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
+    source_fov_column_interval, source_motion_special_crossings,
     source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
     source_segment_outside_horizontal_fov, source_sky_sectors, switch_material_for_draw,
     visible_column_runs, within_classic_use_range, DoomSegClassicPlaneInstance,
     DoomSegClassicPlaneKey, DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
-    SourceBBoxProjection, SourceSegFacing, SpawnObserver,
+    DoomSpriteTextureUpload, DoomThingSprite, SourceBBoxProjection, SourceSegFacing, SpawnObserver,
 };
 
 #[test]
@@ -60,7 +61,55 @@ use hello_doom_e1m1::{
     DoomComparativeEmbedding, StaticDrawAabb, StaticDrawFrustumRejection, StaticDrawPlanEntry,
     StaticDrawSource, StaticDrawSphere,
 };
-use tokimu::{MaterialHandle, Mesh};
+use tokimu::{
+    Color, Material, MaterialHandle, Mesh, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
+    TextureHandle,
+};
+
+#[test]
+fn thing_sprite_billboard_applies_patch_offsets_mirroring_and_world_vertical_policy() {
+    let thing = DoomThingSprite {
+        source: DoomSourceRecord {
+            lump_index: 1,
+            record_index: 7,
+        },
+        source_position: [10, 20],
+        source_angle: 0,
+        floor_height: 32,
+        sprite: "TEST",
+        frame: 'A',
+    };
+    let upload = DoomSpriteTextureUpload {
+        source_lump_index: 2,
+        source_name: "TESTA0".to_owned(),
+        width: 16,
+        height: 32,
+        left_offset: 4,
+        top_offset: 24,
+        texture: TextureHandle(3),
+        material: MaterialHandle(4),
+        descriptor: Rgba8TextureDescriptor::new(16, 32, Rgba8TextureColorSpace::Srgb),
+        rgba8: vec![0; 16 * 32 * 4],
+        material_value: Material::new("test", Color::rgb(1.0, 1.0, 1.0)),
+    };
+    let mesh = build_doom_thing_sprite_mesh(
+        &thing,
+        &upload,
+        true,
+        [10.0, 40.0],
+        DoomComparativeEmbedding::PreserveNorth,
+    )
+    .expect("billboard mesh");
+
+    assert_eq!(mesh.positions[0], [-6.0, 56.0, 20.0]);
+    assert_eq!(mesh.positions[2], [-22.0, 24.0, 20.0]);
+    assert!(mesh
+        .positions
+        .iter()
+        .all(|position| { position[1] == 24.0 || position[1] == 56.0 }));
+    assert_eq!(mesh.texture_coordinates[0], [1.0, 0.0]);
+    assert_eq!(mesh.texture_coordinates[2], [0.0, 1.0]);
+}
 
 #[test]
 fn switch_material_override_matches_exact_source_wall_and_slot() {

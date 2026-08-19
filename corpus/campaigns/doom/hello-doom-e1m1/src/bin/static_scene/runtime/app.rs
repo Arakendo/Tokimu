@@ -11,6 +11,65 @@ use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
 impl App {
+    fn refresh_thing_sprite_billboards(&mut self) -> PlatformResult<Vec<(MeshHandle, Mesh)>> {
+        let Some(observer) = self.spawn_observer else {
+            return Ok(Vec::new());
+        };
+        let (viewer_source, _) = self
+            .comparative_embedding
+            .lower_direction(observer.position);
+        let viewer_source = [viewer_source[0], viewer_source[1]];
+        if self.sprite_last_viewer_source_position == Some(viewer_source) {
+            return Ok(Vec::new());
+        }
+
+        let mut replacements = Vec::with_capacity(self.thing_sprites.len());
+        self.sprite_meshes.clear();
+        self.sprite_selected_materials.clear();
+        for (index, thing) in self.thing_sprites.iter().enumerate() {
+            let rotation = hello_doom_e1m1::things::select_doom_sprite_view_rotation(
+                viewer_source.map(f64::from),
+                thing.source_position.map(|value| f64::from(value)),
+                f64::from(thing.source_angle),
+            );
+            let selection = hello_doom_e1m1::things::resolve_doom_sprite_patch(
+                &self.sprite_frames,
+                thing.sprite,
+                thing.frame,
+                rotation,
+            )
+            .map_err(|error| {
+                io::Error::other(format!(
+                    "Thing {} sprite selection failed: {error:?}",
+                    thing.source.record_index
+                ))
+            })?;
+            let upload = self
+                .sprite_uploads
+                .iter()
+                .find(|upload| upload.source_lump_index == selection.source_lump_index)
+                .ok_or_else(|| {
+                    io::Error::other(format!(
+                        "Thing {} selected non-uploaded sprite lump {}",
+                        thing.source.record_index, selection.source_lump_index
+                    ))
+                })?;
+            let mesh = build_doom_thing_sprite_mesh(
+                thing,
+                upload,
+                selection.mirrored,
+                viewer_source,
+                self.comparative_embedding,
+            )?;
+            let handle = MeshHandle(DOOM_THING_SPRITE_MESH_BASE + index as u64);
+            replacements.push((handle, mesh.clone()));
+            self.sprite_meshes.push(mesh);
+            self.sprite_selected_materials.push(upload.material);
+        }
+        self.sprite_last_viewer_source_position = Some(viewer_source);
+        Ok(replacements)
+    }
+
     fn rotate_map(&mut self, offset: isize, control: &'static str) -> PlatformResult<()> {
         if self.map_rotation_exit_requested {
             return Ok(());
@@ -2097,6 +2156,10 @@ impl PlatformEventHandler for App {
                 renderer.upload_material(upload.material, &upload.material_value)?;
             }
         }
+        for upload in &self.sprite_uploads {
+            renderer.create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)?;
+            renderer.upload_material(upload.material, &upload.material_value)?;
+        }
         if self.bsp_diagnostic_enabled {
             upload_bsp_diagnostic_materials(&mut renderer)?;
             eprintln!(
@@ -2436,6 +2499,47 @@ impl PlatformEventHandler for App {
                 );
             }
         }
+        if !self.thing_sprites.is_empty() {
+            let cutout = CategoricalCutout::new(
+                CutoutThreshold::new(0.0)?,
+                CutoutComparison::DiscardAtOrBelow,
+            );
+            self.sprite_pipeline = Some(renderer.register_pipeline(
+                &Pipeline::textured_3d_cutout("doom-thing-sprite", cutout).with_stencil_mode(
+                    if self.skywall_parity_enabled {
+                        StencilMode::RequireZero
+                    } else {
+                        StencilMode::Disabled
+                    },
+                ),
+            )?);
+            if self.skywall_parity_enabled {
+                self.sprite_depth_prepass_pipeline = Some(
+                    renderer.register_pipeline(
+                        &Pipeline::textured_3d_cutout("doom-thing-sprite-parity-depth", cutout)
+                            .with_render_state(
+                                PipelineRenderState::categorical_cutout_depth_prepass_3d(),
+                            )?,
+                    )?,
+                );
+            }
+            let initial_sprite_meshes = self.refresh_thing_sprite_billboards()?;
+            for (handle, mesh) in initial_sprite_meshes {
+                renderer.upload_mesh(handle, &mesh);
+            }
+            eprintln!(
+                "{} Thing sprite presentation: things={}; source-patches={}; source-patch-sample={}; policy=actual-camera-cylindrical-vertical-billboard; patch-offsets=classic-left/top; coverage=categorical; pitched-view=world-vertical; grouped-sky-participation={}",
+                self.map_name,
+                self.thing_sprites.len(),
+                self.sprite_uploads.len(),
+                self.sprite_uploads.first().map_or("none", |upload| upload.source_name.as_str()),
+                if self.skywall_parity_enabled {
+                    "depth-prepass-plus-even-parity-color"
+                } else {
+                    "ordinary-depth"
+                },
+            );
+        }
         self.upload_static_meshes(&mut renderer);
         eprintln!(
             "E1M1 native first-frame metadata: strategy={}; stages={}; topology_inventory_records={}; topology_inventory_hash={:016x}; opaque_draws={}; cutout_draws={}; cutouts_enabled={}; bsp_diagnostic={}; bsp_focus={}; camera={}; candidate_selection={}; walk_collision={}; noclip={}; backend={}; device={}; adapter={}",
@@ -2580,6 +2684,7 @@ impl PlatformEventHandler for App {
         self.advance_active_moving_floors(delta_seconds);
         self.advance_scrolling_walls(delta_seconds);
         self.refresh_ordered_coverage_for_observer()?;
+        let sprite_mesh_uploads = self.refresh_thing_sprite_billboards()?;
         let frame_started = Instant::now();
         let mut camera = scene_camera(
             self.size,
@@ -2866,6 +2971,26 @@ impl PlatformEventHandler for App {
                         }));
                     }
                 }
+                if !self.thing_sprites.is_empty() {
+                    let sprite_depth_pipeline =
+                        self.sprite_depth_prepass_pipeline.ok_or_else(|| {
+                            io::Error::other(
+                                "grouped sky parity Thing sprite depth-prepass pipeline missing",
+                            )
+                        })?;
+                    for (index, material) in
+                        self.sprite_selected_materials.iter().copied().enumerate()
+                    {
+                        self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                            mesh: MeshHandle(DOOM_THING_SPRITE_MESH_BASE + index as u64),
+                            material,
+                            pipeline: sprite_depth_pipeline,
+                            instance: Instance2d::identity(),
+                            camera: Some(CAMERA),
+                            viewport: None,
+                        }));
+                    }
+                }
                 for (index, _) in self.doom_sky_boundary_draws.iter().enumerate() {
                     self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                         mesh: MeshHandle(DOOM_SKY_BOUNDARY_MESH_BASE + index as u64),
@@ -2966,6 +3091,21 @@ impl PlatformEventHandler for App {
                 }
             }
         }
+        if !self.thing_sprites.is_empty() {
+            let sprite_pipeline = self
+                .sprite_pipeline
+                .ok_or_else(|| io::Error::other("Thing sprite pipeline missing"))?;
+            for (index, material) in self.sprite_selected_materials.iter().copied().enumerate() {
+                self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(DOOM_THING_SPRITE_MESH_BASE + index as u64),
+                    material,
+                    pipeline: sprite_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(CAMERA),
+                    viewport: None,
+                }));
+            }
+        }
         if self.diagnostic_sky_enabled {
             let diagnostic_sky_pipeline = self
                 .diagnostic_sky_pipeline
@@ -3046,6 +3186,9 @@ impl PlatformEventHandler for App {
             .as_mut()
             .ok_or_else(|| io::Error::other("renderer missing"))?;
         for (handle, mesh) in dynamic_mesh_uploads {
+            renderer.upload_mesh(handle, &mesh);
+        }
+        for (handle, mesh) in sprite_mesh_uploads {
             renderer.upload_mesh(handle, &mesh);
         }
         if let Some(mesh) = source_sky_span_depth_mesh {

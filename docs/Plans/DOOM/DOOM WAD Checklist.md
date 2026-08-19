@@ -1179,7 +1179,7 @@ Acceptance criteria:
         the six shootable barrels separately from passive decorations, and
         record that projectiles are runtime-created rather than authored
         `THINGS` records in E1M1.
-- [ ] Render sprites with frame, rotation, and billboard policy.
+- [x] Render sprites with frame, rotation, and billboard policy.
   - [x] Retain the initial frame separately from the four-character sprite
         root, including E1M1's `PLAYW` bloody-mess and `PLAYN` dead-player
         records rather than assuming every Thing begins on frame A.
@@ -1188,9 +1188,19 @@ Acceptance criteria:
         rotation selection. The source-spawn report resolves all 129
         sprite-bearing E1M1 records: 100 rotation-zero, 29 view-rotated, with
         three mirrored selections and no missing frame/rotation.
-  - [ ] Realize those selections as actual-camera vertical billboards with
-        source patch offsets, categorical coverage, depth, and a documented
-        pitched-view policy; preserve starts as non-rendered spawn markers.
+  - [x] Realize the 129 sprite-bearing E1M1 source records as actual-camera
+        cylindrical vertical billboards. Classic patch `left_offset` and
+        `top_offset` define their finite quads; transparent patch pixels use
+        categorical coverage with ordinary depth. Pitched views reproject the
+        same world-vertical quads rather than tilting them toward the camera.
+        Grouped-sky presentation includes sprites in its cutout-aware depth
+        prepass and even-parity color pass. Player/deathmatch starts remain
+        non-rendered spawn markers, and source difficulty/network flags remain
+        retained but unapplied until gameplay policy is admitted.
+  - [x] Give map-authored Thing placement its own reviewed Classic BSP equality
+        rule (left child on a partition tie). Do not weaken the existing
+        collision/topology locator, which continues to diagnose non-unique
+        partition-boundary points.
 - [ ] Add deterministic thing state machines.
 - [ ] Add pickups, inventory, health, armor, ammo, and keys.
 - [ ] Add hitscan and projectile collision.

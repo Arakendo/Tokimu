@@ -229,10 +229,17 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
 
 It classifies all 138 E1M1 `THINGS` records with retained flags and exact
 initial sprite root/frame evidence, then resolves rotation-zero or eight-way
-source patches (including paired-lump mirroring) for the source-spawn view. It
-creates no actors or renderer declarations.
-Projectiles are reported separately as runtime-created objects, not invented
-as map-authored Things.
+source patches (including paired-lump mirroring) for the source-spawn view. The
+report creates no actors or renderer declarations. The live walkabout lowers
+the 129 sprite-bearing records through 36 decoded source patches into
+actual-camera cylindrical vertical billboards. Classic patch offsets determine
+placement, categorical coverage retains transparent pixels, ordinary depth is
+preserved, and grouped-sky mode includes sprites in both its cutout-aware depth
+prepass and even-parity color pass. Pitch reprojects world-vertical sprites;
+player/deathmatch starts remain non-rendered source markers. Difficulty/network
+flags are retained but deliberately unapplied until gameplay policy is
+admitted. Projectiles are reported separately as runtime-created objects, not
+invented as map-authored Things.
 
 The first E1M2 preparation audit retains one explicit zero-area BSP-leaf plane
 omission (subsector 45). Walls and the remaining 447 leaves are prepared; no
