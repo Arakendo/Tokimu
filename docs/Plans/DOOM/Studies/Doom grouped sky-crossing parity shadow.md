@@ -144,6 +144,9 @@ complete world.
 - [x] Keep source sky ceilings out of the parity count.
 - [x] Preserve the original full submission as the no-flag control.
 - [x] Complete a native two-frame mechanism proof.
+- [x] Extend interactive `LOOK` and headless `--look-ray-report` with ordered
+      paired-skywall crossings, seam-collapsed source identities, parity, and
+      the predicted retain/mask result.
 - [ ] Conduct the adversarial E1M1 walkabout.
 
 Run:
@@ -160,6 +163,13 @@ the panorama, depth prepass, parity mask, world color, and cursor. It completed
 both first and warm frames on Vulkan. Warm command construction was `224 µs`;
 warm whole-frame CPU time was `104,483 µs`. These are observations, not an
 accepted budget.
+
+`LOOK` now emits a separate `skywall_parity` line. It counts only paired
+skywalls before the nearest prepared world hit, collapses the two triangles of
+one source boundary at a shared seam, and reports `even/retained` or
+`odd/masked`. This is an exact CPU-ray prediction over the same prepared
+geometry, not a GPU stencil-buffer readback; raster-edge and precision
+differences therefore remain possible at boundary pixels.
 
 ## Binding Invariants
 

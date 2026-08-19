@@ -38,11 +38,12 @@ pub(super) use candidate_trace_reports::{
 pub(super) use command::{parse_debug_command, DebugCommand, NoclipAction};
 pub(super) use final_wall_occurrence::report_final_wall_occurrence_global_planes;
 pub(super) use look::{
-    format_look_ray_observation, format_source_classic_plane_span_support,
-    format_source_classic_ray_trace, nearest_prepared_ray_hit, nearest_sky_boundary_ray_hit,
-    nearest_source_sky_plane_ray_hit, parse_source_look_ray, parse_source_viewport_scan,
-    report_source_look_ray, report_source_viewport_scan, scan_bsp_viewport,
-    viewport_inspection_direction, DEFAULT_SCAN_COLUMNS, DEFAULT_SCAN_ROWS, MAX_SCAN_SAMPLES,
+    format_look_ray_observation, format_skywall_parity_observation,
+    format_source_classic_plane_span_support, format_source_classic_ray_trace,
+    nearest_prepared_ray_hit, nearest_sky_boundary_ray_hit, nearest_source_sky_plane_ray_hit,
+    parse_source_look_ray, parse_source_viewport_scan, report_source_look_ray,
+    report_source_viewport_scan, scan_bsp_viewport, viewport_inspection_direction,
+    DEFAULT_SCAN_COLUMNS, DEFAULT_SCAN_ROWS, MAX_SCAN_SAMPLES,
 };
 pub(super) use ordered_causality::report_ordered_non_presentation_causality;
 pub(super) use render_subsector::{

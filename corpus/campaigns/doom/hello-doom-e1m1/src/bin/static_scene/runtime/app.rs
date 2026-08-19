@@ -1566,6 +1566,13 @@ impl App {
                 &self.diagnostic_sky_draws,
             ),
         );
+        let skywall_parity = format_skywall_parity_observation(
+            observer.position,
+            direction,
+            hit.map(|hit| hit.distance),
+            &self.doom_sky_boundary_draws,
+            self.skywall_parity_enabled,
+        );
         let (source_xy, source_eye_height) = self
             .comparative_embedding
             .lower_direction(observer.position);
@@ -1655,7 +1662,9 @@ impl App {
                 )
             },
         );
-        format!("{ordinary}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}")
+        format!(
+            "{ordinary}\n{skywall_parity}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
+        )
     }
 
     fn rebuild_debug_console(&mut self, renderer: &mut WgpuBackend) -> PlatformResult<()> {

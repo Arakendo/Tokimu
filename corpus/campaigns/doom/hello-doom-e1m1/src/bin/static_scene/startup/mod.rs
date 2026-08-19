@@ -928,6 +928,7 @@ pub(crate) fn run() -> PlatformResult<()> {
             ray,
             include_cutouts,
             bsp_diagnostic_enabled,
+            skywall_parity,
         );
         return Ok(());
     }
