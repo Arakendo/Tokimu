@@ -32,6 +32,7 @@ impl WgpuBackend {
                 &surface_state.instance_bind_group_layout,
                 &surface_state.camera_bind_group_layout,
                 pipeline.render_state,
+                pipeline.stencil_mode,
             ),
             PipelineKind::Texture2d => create_custom_pipeline(
                 &self._device,
@@ -50,6 +51,7 @@ impl WgpuBackend {
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
                 pipeline.render_state,
+                pipeline.stencil_mode,
             ),
             PipelineKind::LitColor3d
             | PipelineKind::Textured3d
@@ -70,6 +72,7 @@ impl WgpuBackend {
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
                 pipeline.render_state,
+                pipeline.stencil_mode,
             ),
             PipelineKind::CustomWgsl2d => create_custom_pipeline(
                 &self._device,
@@ -87,6 +90,7 @@ impl WgpuBackend {
                 &pipeline.vertex_entry_point,
                 &pipeline.fragment_entry_point,
                 pipeline.render_state,
+                pipeline.stencil_mode,
             ),
         };
 

@@ -7,7 +7,7 @@
 | Last reviewed | 2026-08-17 |
 | Scope | Stable Tokimu render API / program preparation / renderer boundary |
 | Trigger | Doom synthetic and E1M1 evidence falsified both global static-shell rendering with sky depth patches and whole-source Boolean filtering as sufficient source-faithful presentation models. |
-| Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009, ADR-0013 |
+| Related ADRs | ADR-0001, ADR-0003, ADR-0008, ADR-0009, ADR-0013, ADR-0014 |
 | Related evidence | AR-0023, AR-0025, Doom viewer-relative presentation synthetic conformance campaign, completed Doom source-topology admission study, successor Doom ordered source-occurrence preparation study, planned Quake and independent non-BSP campaigns |
 | Admission exception | None |
 
@@ -2111,6 +2111,25 @@ The review moves away from shared admission when:
   and renderer mutation is false. The full 5,120-ray expansion and live A/B
   are parked before inventing a new semantic discriminator.
 
+### Cycle 56 -- 2026-08-18
+
+- The maintainer authorized a reversible live visual falsification despite the
+  failed grouped-parity/source-occurrence correlation gate. This authorization
+  does not promote parity to Doom source truth.
+- The experiment begins with the complete ordinary world, writes its nearest
+  opaque/cutout coverage into depth, inverts one stencil bit for every
+  double-sided paired-skywall fragment before that depth, and renders ordinary
+  color only where parity remains even. Source sky ceilings do not toggle it.
+- The required renderer mechanism is admitted generically by ADR-0014 as
+  `Disabled`, `InvertOnDepthPass`, and `RequireZero`; no Doom, sky, portal, BSP,
+  or volume vocabulary enters `tokimu-render`.
+- A native two-frame Vulkan proof completed with 1,823 opaque draws, 14 facing
+  cutout draws, 16 paired-skywall triangles, and 3,693 total draw calls. Warm
+  command construction was `224 µs`; warm frame CPU time was `104,483 µs`.
+- The opt-in control is `--skywall-parity-full`. The ordinary no-flag
+  global-full path remains the comparison. Human walkabout remains the
+  acceptance/falsification step.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -2126,6 +2145,7 @@ The review moves away from shared admission when:
 - `docs/Plans/DOOM/Studies/Doom source-authorized relational contribution classification.md`
 - `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`
 - `docs/Plans/DOOM/Studies/Doom grouped sky-crossing parity shadow.md`
+- `docs/ADR/ADR-0014-single-bit-stencil-mask-pipeline-state.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom renderer dataflow and Tokimu preparation seam.md`
 - `docs/Plans/DOOM/Evidence/Doom authoritative sky-depth realization seam evidence.md`

@@ -39,6 +39,10 @@ pub(crate) fn run() -> PlatformResult<()> {
         && args
             .iter()
             .any(|argument| argument == "--global-full-plus-view-local-sky-depth");
+    let skywall_parity_requested = args
+        .iter()
+        .any(|argument| argument == "--skywall-parity-full");
+    let skywall_parity = doom_sky && skywall_parity_requested;
     let exterior_hut_east_view = args.iter().any(|argument| {
         matches!(
             argument.as_str(),
@@ -318,6 +322,22 @@ pub(crate) fn run() -> PlatformResult<()> {
                 .into(),
         );
     }
+    if skywall_parity_requested && !doom_sky {
+        return Err("--skywall-parity-full requires the Doom sky presentation".into());
+    }
+    if skywall_parity
+        && (trial_render_strategy
+            .is_some_and(|strategy| strategy != TrialRenderStrategy::GlobalFullSubmission)
+            || candidate1_sky_depth
+            || source_sky_plane_depth
+            || source_sky_plane_depth_global_control
+            || bsp_diagnostic_enabled
+            || frustum_aabb
+            || frustum_grid
+            || doom_membership_union)
+    {
+        return Err("--skywall-parity-full requires unchanged full submission and cannot be combined with other sky-depth, diagnostic, or candidate-filter controls".into());
+    }
     let doom_seg_clip_presentation = args
         .iter()
         .any(|argument| argument == "--doom-seg-clip-presentation");
@@ -334,6 +354,23 @@ pub(crate) fn run() -> PlatformResult<()> {
         return Err(
             "--bsp-diagnostic-full cannot be combined with a presentation-affecting SEG selector"
                 .into(),
+        );
+    }
+    if skywall_parity
+        && [
+            doom_seg_clip_presentation,
+            doom_seg_per_column_presentation,
+            doom_seg_per_column_dynamic,
+            doom_seg_classic_dynamic,
+            doom_seg_classic_plane_presentation,
+            doom_seg_classic_context_presentation,
+            doom_seg_ordered_coverage_presentation,
+        ]
+        .iter()
+        .any(|enabled| *enabled)
+    {
+        return Err(
+            "--skywall-parity-full cannot be combined with legacy presentation selectors".into(),
         );
     }
     if [
@@ -398,6 +435,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--source-sky-plane-depth");
     args.retain(|argument| argument != "--source-sky-plane-depth-global-control");
     args.retain(|argument| argument != "--global-full-plus-view-local-sky-depth");
+    args.retain(|argument| argument != "--skywall-parity-full");
     args.retain(|argument| argument != "--exterior-hut-east-view");
     args.retain(|argument| argument != "--candidate1-sky-authority-view");
     args.retain(|argument| argument != "--spawn-observer");
@@ -486,7 +524,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -1006,6 +1044,14 @@ pub(crate) fn run() -> PlatformResult<()> {
             0
         }
         + usize::from(doom_sky);
+    let draw_count = draw_count
+        + if skywall_parity {
+            scene.opaque_draws.len()
+                + usize::from(include_cutouts) * scene.cutout_draws.len()
+                + scene.doom_sky_boundary_draws.len()
+        } else {
+            0
+        };
 
     let opaque_selected = vec![true; scene.opaque_draws.len()];
     let cutout_selected = vec![true; scene.cutout_draws.len()];
@@ -1039,6 +1085,11 @@ pub(crate) fn run() -> PlatformResult<()> {
         (
             "global-full-plus-view-local-sky-depth",
             "sky-panorama>doom-authoritative-sky-depth-delta>original-complete-geometry>renderer-full-submission",
+        )
+    } else if skywall_parity {
+        (
+            "global-full-plus-skywall-parity",
+            "sky-panorama>full-world-depth-prepass>paired-skywall-stencil-inversion>even-parity-world-color",
         )
     } else {
         trial_render_strategy.map_or(
@@ -1150,11 +1201,14 @@ pub(crate) fn run() -> PlatformResult<()> {
         source_sky_plane_depth_enabled: source_sky_plane_depth,
         source_sky_plane_depth_global_control,
         candidate1_sky_depth_enabled: candidate1_sky_depth,
+        skywall_parity_enabled: skywall_parity,
         source_sky_plane_selected,
         cutout_mesh_base,
         include_cutouts,
         pipeline: PipelineHandle(0),
+        opaque_depth_prepass_pipeline: None,
         cutout_pipeline: None,
+        cutout_depth_prepass_pipeline: None,
         doom_sky_pipeline: None,
         doom_sky_boundary_pipeline: None,
         candidate1_sky_depth_pipeline: None,
@@ -1257,7 +1311,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     run_window_with_app(
         WindowConfig {
             title: format!(
-                "Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}{}{}",
+                "Tokimu DOOM E1M1 | {draw_count} draws | {comparative_embedding:?}{}{}{}",
                 if app.fixed_reconstruction_camera {
                     " | fixed-source-spawn"
                 } else {
@@ -1265,6 +1319,11 @@ pub(crate) fn run() -> PlatformResult<()> {
                 },
                 if app.bsp_diagnostic_enabled {
                     " | BSP diagnostic"
+                } else {
+                    ""
+                },
+                if app.skywall_parity_enabled {
+                    " | skywall parity"
                 } else {
                     ""
                 }

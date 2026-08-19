@@ -87,8 +87,8 @@ use tokimu::{
     ColorWriteMask, CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand,
     FrameOutcome, Instance2d, Material, MaterialHandle, Mesh, MeshHandle, NativeWindow, Pipeline,
     PipelineHandle, PipelineKind, PipelineRenderState, PlatformEventHandler, PlatformInputEvent,
-    PlatformResult, RenderCommand, Renderer, Texture, TextureAddressMode, TextureFilter,
-    TextureHandle, TextureSampler, WgpuBackend, WindowConfig,
+    PlatformResult, RenderCommand, Renderer, StencilMode, Texture, TextureAddressMode,
+    TextureFilter, TextureHandle, TextureSampler, WgpuBackend, WindowConfig,
 };
 use tokimu_core::math::{Mat4, Vec3};
 use tokimu_input::{InputState, KeyCode, MouseButton};
@@ -189,6 +189,7 @@ const DOOM_SKY_TEXTURE: TextureHandle = TextureHandle(9_000_020);
 const DOOM_SKY_MATERIAL: MaterialHandle = MaterialHandle(9_000_020);
 const DOOM_SKY_MESH: MeshHandle = MeshHandle(9_000_020);
 const DOOM_SKY_BOUNDARY_MATERIAL: MaterialHandle = MaterialHandle(9_000_021);
+const DOOM_SKY_BOUNDARY_MESH_BASE: u64 = 9_001_000;
 const DOOM_SOURCE_SKY_PLANE_MESH_BASE: u64 = 9_002_000;
 const DOOM_VIEWER_SKY_SPAN_MESH: MeshHandle = MeshHandle(9_003_000);
 const CANDIDATE1_SKY_DEPTH_MATERIAL: MaterialHandle = MaterialHandle(9_004_000);
@@ -228,11 +229,14 @@ struct App {
     source_sky_plane_depth_enabled: bool,
     source_sky_plane_depth_global_control: bool,
     candidate1_sky_depth_enabled: bool,
+    skywall_parity_enabled: bool,
     source_sky_plane_selected: Vec<bool>,
     cutout_mesh_base: u64,
     include_cutouts: bool,
     pipeline: PipelineHandle,
+    opaque_depth_prepass_pipeline: Option<PipelineHandle>,
     cutout_pipeline: Option<PipelineHandle>,
+    cutout_depth_prepass_pipeline: Option<PipelineHandle>,
     doom_sky_pipeline: Option<PipelineHandle>,
     doom_sky_boundary_pipeline: Option<PipelineHandle>,
     candidate1_sky_depth_pipeline: Option<PipelineHandle>,

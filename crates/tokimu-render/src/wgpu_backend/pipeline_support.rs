@@ -1,7 +1,10 @@
-use crate::{BlendMode, ColorWriteMask, CullMode, DepthTest, PipelineKind, PipelineRenderState};
+use crate::{
+    BlendMode, ColorWriteMask, CullMode, DepthTest, PipelineKind, PipelineRenderState, StencilMode,
+};
 
 use super::{GpuVertex, DEPTH_FORMAT};
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn create_solid_color_pipeline(
     device: &wgpu::Device,
     surface_format: wgpu::TextureFormat,
@@ -10,6 +13,7 @@ pub(super) fn create_solid_color_pipeline(
     instance_bind_group_layout: &wgpu::BindGroupLayout,
     camera_bind_group_layout: &wgpu::BindGroupLayout,
     render_state: PipelineRenderState,
+    stencil_mode: StencilMode,
 ) -> wgpu::RenderPipeline {
     create_custom_pipeline(
         device,
@@ -24,6 +28,7 @@ pub(super) fn create_solid_color_pipeline(
         "vs_main",
         "fs_main",
         render_state,
+        stencil_mode,
     )
 }
 
@@ -41,6 +46,7 @@ pub(super) fn create_custom_pipeline(
     vertex_entry_point: &str,
     fragment_entry_point: &str,
     render_state: PipelineRenderState,
+    stencil_mode: StencilMode,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(shader_label),
@@ -94,7 +100,7 @@ pub(super) fn create_custom_pipeline(
             },
             ..wgpu::PrimitiveState::default()
         },
-        depth_stencil: depth_stencil_state(depth_format, render_state),
+        depth_stencil: depth_stencil_state(depth_format, render_state, stencil_mode),
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module: &shader,
@@ -129,17 +135,52 @@ pub(super) fn create_custom_pipeline(
 fn depth_stencil_state(
     depth_format: wgpu::TextureFormat,
     render_state: PipelineRenderState,
+    stencil_mode: StencilMode,
 ) -> Option<wgpu::DepthStencilState> {
-    match render_state.depth_test {
-        DepthTest::Disabled => None,
-        DepthTest::LessEqual => Some(wgpu::DepthStencilState {
-            format: depth_format,
-            depth_write_enabled: render_state.depth_write,
-            depth_compare: wgpu::CompareFunction::LessEqual,
-            stencil: wgpu::StencilState::default(),
-            bias: wgpu::DepthBiasState::default(),
-        }),
+    if render_state.depth_test == DepthTest::Disabled && stencil_mode == StencilMode::Disabled {
+        return None;
     }
+    let stencil = match stencil_mode {
+        StencilMode::Disabled => wgpu::StencilState::default(),
+        StencilMode::InvertOnDepthPass => wgpu::StencilState {
+            front: wgpu::StencilFaceState {
+                compare: wgpu::CompareFunction::Always,
+                fail_op: wgpu::StencilOperation::Keep,
+                depth_fail_op: wgpu::StencilOperation::Keep,
+                pass_op: wgpu::StencilOperation::Invert,
+            },
+            back: wgpu::StencilFaceState {
+                compare: wgpu::CompareFunction::Always,
+                fail_op: wgpu::StencilOperation::Keep,
+                depth_fail_op: wgpu::StencilOperation::Keep,
+                pass_op: wgpu::StencilOperation::Invert,
+            },
+            read_mask: 0x1,
+            write_mask: 0x1,
+        },
+        StencilMode::RequireZero => wgpu::StencilState {
+            front: wgpu::StencilFaceState {
+                compare: wgpu::CompareFunction::Equal,
+                ..wgpu::StencilFaceState::default()
+            },
+            back: wgpu::StencilFaceState {
+                compare: wgpu::CompareFunction::Equal,
+                ..wgpu::StencilFaceState::default()
+            },
+            read_mask: 0x1,
+            write_mask: 0x0,
+        },
+    };
+    Some(wgpu::DepthStencilState {
+        format: depth_format,
+        depth_write_enabled: render_state.depth_write,
+        depth_compare: match render_state.depth_test {
+            DepthTest::Disabled => wgpu::CompareFunction::Always,
+            DepthTest::LessEqual => wgpu::CompareFunction::LessEqual,
+        },
+        stencil,
+        bias: wgpu::DepthBiasState::default(),
+    })
 }
 
 fn color_write_mask(mask: ColorWriteMask) -> wgpu::ColorWrites {
@@ -239,4 +280,39 @@ pub(super) fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::
             },
         ],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stencil_modes_map_to_the_low_bit_only() {
+        let state = PipelineRenderState::depth_writing_3d();
+        let invert = depth_stencil_state(
+            wgpu::TextureFormat::Depth24PlusStencil8,
+            PipelineRenderState {
+                depth_write: false,
+                ..state
+            },
+            StencilMode::InvertOnDepthPass,
+        )
+        .expect("stencil mode requires an attachment");
+        assert_eq!(invert.stencil.read_mask, 0x1);
+        assert_eq!(invert.stencil.write_mask, 0x1);
+        assert_eq!(invert.stencil.front.pass_op, wgpu::StencilOperation::Invert);
+
+        let require_zero = depth_stencil_state(
+            wgpu::TextureFormat::Depth24PlusStencil8,
+            state,
+            StencilMode::RequireZero,
+        )
+        .expect("stencil mode requires an attachment");
+        assert_eq!(require_zero.stencil.read_mask, 0x1);
+        assert_eq!(require_zero.stencil.write_mask, 0x0);
+        assert_eq!(
+            require_zero.stencil.front.compare,
+            wgpu::CompareFunction::Equal
+        );
+    }
 }

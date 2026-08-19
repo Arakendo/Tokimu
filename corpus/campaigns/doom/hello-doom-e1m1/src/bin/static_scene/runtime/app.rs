@@ -1956,6 +1956,14 @@ impl PlatformEventHandler for App {
                     Color::rgb(0.0, 0.0, 0.0),
                 ),
             )?;
+            if self.skywall_parity_enabled {
+                for (index, draw) in self.doom_sky_boundary_draws.iter().enumerate() {
+                    renderer.upload_mesh(
+                        MeshHandle(DOOM_SKY_BOUNDARY_MESH_BASE + index as u64),
+                        &draw.mesh,
+                    );
+                }
+            }
             if self.source_sky_plane_depth_global_control {
                 for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
                     renderer.upload_mesh(
@@ -1984,9 +1992,14 @@ impl PlatformEventHandler for App {
                 sky.descriptor.height,
             );
             eprintln!(
-                "E1M1 paired-sky boundary evidence retained: triangles={}; linedefs={}; presentation=disabled-after-valid-hut-geometry-was-clipped",
+                "E1M1 paired-sky boundary evidence retained: triangles={}; linedefs={}; presentation={}",
                 self.doom_sky_boundary_draws.len(),
                 boundary_sources.len(),
+                if self.skywall_parity_enabled {
+                    "full-world-depth-prepass-then-double-sided-stencil-parity"
+                } else {
+                    "disabled-after-valid-hut-geometry-was-clipped"
+                },
             );
             if let Some(sample) = self.doom_sky_boundary_draws.first() {
                 eprintln!(
@@ -2045,17 +2058,33 @@ impl PlatformEventHandler for App {
                 self.noclip,
             );
         }
+        let opaque_state = PipelineRenderState {
+            blend: BlendMode::Opaque,
+            depth_test: DepthTest::LessEqual,
+            depth_write: true,
+            cull_mode: CullMode::Back,
+            color_write: ColorWriteMask::ALL,
+        };
         self.pipeline = renderer.register_pipeline(
-            &Pipeline::new("doom-e1m1-static-opaque", PipelineKind::Textured3d).with_render_state(
-                PipelineRenderState {
-                    blend: BlendMode::Opaque,
-                    depth_test: DepthTest::LessEqual,
-                    depth_write: true,
-                    cull_mode: CullMode::Back,
-                    color_write: ColorWriteMask::ALL,
-                },
-            )?,
+            &Pipeline::new("doom-e1m1-static-opaque", PipelineKind::Textured3d)
+                .with_render_state(opaque_state)?
+                .with_stencil_mode(if self.skywall_parity_enabled {
+                    StencilMode::RequireZero
+                } else {
+                    StencilMode::Disabled
+                }),
         )?;
+        if self.skywall_parity_enabled {
+            self.opaque_depth_prepass_pipeline = Some(
+                renderer.register_pipeline(
+                    &Pipeline::new("doom-e1m1-parity-opaque-depth", PipelineKind::Textured3d)
+                        .with_render_state(PipelineRenderState {
+                            color_write: ColorWriteMask::NONE,
+                            ..opaque_state
+                        })?,
+                )?,
+            );
+        }
         if self.doom_sky_enabled {
             self.doom_sky_pipeline = Some(
                 renderer.register_pipeline(
@@ -2069,27 +2098,27 @@ impl PlatformEventHandler for App {
                         })?,
                 )?,
             );
-            self.doom_sky_boundary_pipeline = Some(
-                renderer.register_pipeline(
-                    &Pipeline::new(
-                        "doom-e1m1-paired-sky-boundary-depth",
-                        PipelineKind::LitColor3d,
-                    )
-                    .with_render_state(PipelineRenderState {
-                        blend: BlendMode::Opaque,
-                        depth_test: DepthTest::LessEqual,
-                        depth_write: true,
-                        // The retained triangle winding faces the higher
-                        // source sector's owning sidedef. Sky-boundary depth
-                        // therefore has authority only from that source side;
-                        // making it double-sided hides legitimate geometry
-                        // (including the hut) when viewed through the same
-                        // boundary from the opposite sector.
-                        cull_mode: CullMode::Back,
-                        color_write: ColorWriteMask::NONE,
-                    })?,
-                )?,
-            );
+            let boundary_pipeline = Pipeline::new(
+                "doom-e1m1-paired-sky-boundary-depth",
+                PipelineKind::LitColor3d,
+            )
+            .with_render_state(PipelineRenderState {
+                blend: BlendMode::Opaque,
+                depth_test: DepthTest::LessEqual,
+                depth_write: !self.skywall_parity_enabled,
+                cull_mode: if self.skywall_parity_enabled {
+                    CullMode::None
+                } else {
+                    CullMode::Back
+                },
+                color_write: ColorWriteMask::NONE,
+            })?
+            .with_stencil_mode(if self.skywall_parity_enabled {
+                StencilMode::InvertOnDepthPass
+            } else {
+                StencilMode::Disabled
+            });
+            self.doom_sky_boundary_pipeline = Some(renderer.register_pipeline(&boundary_pipeline)?);
         }
         if self.candidate1_sky_depth_enabled {
             renderer.upload_material(
@@ -2117,14 +2146,29 @@ impl PlatformEventHandler for App {
             );
         }
         if self.include_cutouts {
-            self.cutout_pipeline =
-                Some(renderer.register_pipeline(&Pipeline::textured_3d_cutout(
-                    "doom-e1m1-masked-cutout",
-                    CategoricalCutout::new(
-                        CutoutThreshold::new(0.0)?,
-                        CutoutComparison::DiscardAtOrBelow,
-                    ),
-                ))?);
+            let cutout = CategoricalCutout::new(
+                CutoutThreshold::new(0.0)?,
+                CutoutComparison::DiscardAtOrBelow,
+            );
+            self.cutout_pipeline = Some(renderer.register_pipeline(
+                &Pipeline::textured_3d_cutout("doom-e1m1-masked-cutout", cutout).with_stencil_mode(
+                    if self.skywall_parity_enabled {
+                        StencilMode::RequireZero
+                    } else {
+                        StencilMode::Disabled
+                    },
+                ),
+            )?);
+            if self.skywall_parity_enabled {
+                self.cutout_depth_prepass_pipeline = Some(
+                    renderer.register_pipeline(
+                        &Pipeline::textured_3d_cutout("doom-e1m1-parity-cutout-depth", cutout)
+                            .with_render_state(
+                                PipelineRenderState::categorical_cutout_depth_prepass_3d(),
+                            )?,
+                    )?,
+                );
+            }
         }
         self.upload_static_meshes(&mut renderer);
         eprintln!(
@@ -2484,6 +2528,58 @@ impl PlatformEventHandler for App {
                         mesh: MeshHandle(DOOM_SOURCE_SKY_PLANE_MESH_BASE + index as u64),
                         material: DOOM_SKY_BOUNDARY_MATERIAL,
 
+                        pipeline: boundary_pipeline,
+                        instance: Instance2d::identity(),
+                        camera: Some(CAMERA),
+                        viewport: None,
+                    }));
+                }
+            }
+            if self.skywall_parity_enabled {
+                let opaque_depth_pipeline =
+                    self.opaque_depth_prepass_pipeline.ok_or_else(|| {
+                        io::Error::other("skywall parity opaque depth-prepass pipeline missing")
+                    })?;
+                for (index, draw) in self.draws.iter().enumerate() {
+                    if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
+                        continue;
+                    }
+                    self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: self
+                            .dynamic_door_mesh_handles
+                            .get(&index)
+                            .copied()
+                            .unwrap_or(MeshHandle(index as u64 + 1)),
+                        material: draw.material,
+                        pipeline: opaque_depth_pipeline,
+                        instance: Instance2d::identity(),
+                        camera: Some(CAMERA),
+                        viewport: None,
+                    }));
+                }
+                if self.include_cutouts {
+                    let cutout_depth_pipeline =
+                        self.cutout_depth_prepass_pipeline.ok_or_else(|| {
+                            io::Error::other("skywall parity cutout depth-prepass pipeline missing")
+                        })?;
+                    for (offset, draw) in self.cutout_draws.iter().enumerate() {
+                        if !self.cutout_selected[offset] {
+                            continue;
+                        }
+                        self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                            mesh: MeshHandle(self.cutout_mesh_base + offset as u64),
+                            material: draw.material,
+                            pipeline: cutout_depth_pipeline,
+                            instance: Instance2d::identity(),
+                            camera: Some(CAMERA),
+                            viewport: None,
+                        }));
+                    }
+                }
+                for (index, _) in self.doom_sky_boundary_draws.iter().enumerate() {
+                    self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: MeshHandle(DOOM_SKY_BOUNDARY_MESH_BASE + index as u64),
+                        material: DOOM_SKY_BOUNDARY_MATERIAL,
                         pipeline: boundary_pipeline,
                         instance: Instance2d::identity(),
                         camera: Some(CAMERA),

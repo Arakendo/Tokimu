@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Parked at Slice 1 — two even/absent counterexamples block broadening |
+| Status | Live visual falsification authorized after failed correlation gate |
 | Scope | Reclassify ordered, grouped sky intersections before complete-world targets |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Predecessor | [Doom One-Way Sky-Occlusion Correlation Shadow](Doom%20one-way%20sky-occlusion%20correlation%20shadow.md) |
@@ -130,14 +130,42 @@ Not executed: Slice 1 contains two unexplained even/absent counterexamples.
 
 ## Slice 3 — Conditional Live A/B
 
-No live mutation is authorized by this study. A reversible walkabout requires
-a separate AR-0030 review after the full headless corpus establishes which
-claims are correlation and which have an independent presentation oracle.
+The maintainer subsequently authorized a reversible visual experiment despite
+the failed source-correlation gate. This does not reinterpret either
+even/absent specimen or promote parity to source truth. It asks only whether
+paired-skywall parity produces a useful actual-camera presentation over the
+complete world.
+
+- [x] Preserve the complete ordinary world as the input declaration set.
+- [x] Render a complete-world opaque/cutout depth prepass.
+- [x] Invert one stencil bit for every double-sided paired-skywall fragment
+      that lies before the nearest world fragment.
+- [x] Render ordinary world color only where the crossing bit is even.
+- [x] Keep source sky ceilings out of the parity count.
+- [x] Preserve the original full submission as the no-flag control.
+- [x] Complete a native two-frame mechanism proof.
+- [ ] Conduct the adversarial E1M1 walkabout.
+
+Run:
+
+```text
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- \
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD \
+  --skywall-parity-full
+```
+
+The first native mechanism proof used 1,823 opaque and 14 currently-facing
+cutout draws, 16 paired-skywall triangles, and 3,693 total draw calls across
+the panorama, depth prepass, parity mask, world color, and cursor. It completed
+both first and warm frames on Vulkan. Warm command construction was `224 µs`;
+warm whole-frame CPU time was `104,483 µs`. These are observations, not an
+accepted budget.
 
 ## Binding Invariants
 
-1. Global-full geometry remains unchanged.
-2. No renderer declaration is removed, recolored or resubmitted.
+1. Global-full geometry remains the world input.
+2. The experiment suppresses color only through a per-pixel parity mask; it
+   does not source-filter world declarations.
 3. Raw triangle winding does not become Doom semantic authority.
 4. Paired-sky sheets do not acquire invented World/Sky orientation.
 5. Partial source participation remains separate.
@@ -147,7 +175,7 @@ claims are correlation and which have an independent presentation oracle.
 
 ## Stop Conditions
 
-Return to AR-0030 before live work if the retained matrix contains parity
-counterexamples, if resolving them requires a new semantic side or volume
-claim, or if ordered source absence would need to be treated as canonical
-free-look omission authority.
+Return to AR-0030 before promoting the experiment if visual inspection exposes
+required-world holes, unwanted leakage, unstable edges, or a need to invent a
+semantic side/volume claim. Ordered source absence remains diagnostic and may
+not become canonical free-look omission authority.

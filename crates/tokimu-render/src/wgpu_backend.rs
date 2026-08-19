@@ -179,7 +179,7 @@ struct GpuCameraBinding {
     bind_group: wgpu::BindGroup,
 }
 
-const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24PlusStencil8;
 
 pub struct WgpuBackend {
     stats: crate::renderer::RenderStatsTracker,

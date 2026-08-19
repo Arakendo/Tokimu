@@ -33,6 +33,7 @@ pub use pipeline::{
     BlendMode, CategoricalCutout, ColorWriteMask, CullMode, CutoutComparison, CutoutThreshold,
     CutoutThresholdError, DepthTest, Pipeline, PipelineDrawContractError, PipelineKind,
     PipelineRegistry, PipelineRenderState, PipelineRenderStateError, PipelineValidationError,
+    StencilMode,
 };
 pub use renderable::Renderable;
 pub use renderer::{

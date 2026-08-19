@@ -440,6 +440,15 @@ decoding, GLB/WAD meaning, continuous Blend ordering/depth semantics,
 renderer-owned sorting, PBR, and material graphs remain outside these
 contracts.
 
+ADR-0014 admits one additional bounded pipeline mechanism: a single low
+stencil bit may be inverted by fragments that pass depth, and later pipelines
+may require that bit to be zero. The WGPU backend owns the combined
+depth/stencil attachment and clears the bit per target. Callers continue to own
+pass ordering and mask geometry; Tokimu does not infer portals, volumes,
+crossings, sky, or source-domain meaning. Arbitrary stencil operations,
+reference values, masks, readback, and renderer-owned render graphs remain
+outside the contract.
+
 Reusable renderable resources may bundle mesh, material, and pipeline handles
 for convenience, but they should remain presentation-facing tuples rather than
 quietly becoming scene ownership, transform storage, or simulation truth.

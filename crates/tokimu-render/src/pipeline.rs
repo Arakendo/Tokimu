@@ -107,6 +107,17 @@ pub enum DepthTest {
     LessEqual,
 }
 
+/// Provider-neutral single-bit stencil behavior for bounded mask workflows.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum StencilMode {
+    #[default]
+    Disabled,
+    /// Invert the low stencil bit for every fragment that passes depth.
+    InvertOnDepthPass,
+    /// Retain fragments only where the low stencil bit equals zero.
+    RequireZero,
+}
+
 /// Provider-neutral face-culling policy for a render pipeline.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum CullMode {
@@ -183,6 +194,16 @@ impl PipelineRenderState {
             depth_write: true,
             cull_mode: CullMode::None,
             color_write: ColorWriteMask::ALL,
+        }
+    }
+
+    /// Categorical-cutout depth prepass state. The cutout shader still
+    /// resolves and discards uncovered fragments, but retained fragments write
+    /// only depth.
+    pub const fn categorical_cutout_depth_prepass_3d() -> Self {
+        Self {
+            color_write: ColorWriteMask::NONE,
+            ..Self::opaque_depth_writing_3d()
         }
     }
 
@@ -452,6 +473,7 @@ pub struct Pipeline {
     pub vertex_entry_point: String,
     pub fragment_entry_point: String,
     pub render_state: PipelineRenderState,
+    pub stencil_mode: StencilMode,
     cutout: Option<CategoricalCutout>,
     shader_module: Option<ShaderModuleDefinition>,
 }
@@ -471,6 +493,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: kind.default_render_state(),
+            stencil_mode: StencilMode::Disabled,
             cutout: None,
             shader_module: None,
         }
@@ -490,6 +513,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: kind.default_render_state(),
+            stencil_mode: StencilMode::Disabled,
             cutout: Some(cutout),
             shader_module: None,
         }
@@ -511,6 +535,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            stencil_mode: StencilMode::Disabled,
             cutout: None,
             shader_module: None,
         }
@@ -529,6 +554,7 @@ impl Pipeline {
             vertex_entry_point: vertex_entry_point.into(),
             fragment_entry_point: fragment_entry_point.into(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            stencil_mode: StencilMode::Disabled,
             cutout: None,
             shader_module: None,
         }
@@ -552,6 +578,7 @@ impl Pipeline {
             vertex_entry_point: shader_module.vertex_entry_point.clone(),
             fragment_entry_point: shader_module.fragment_entry_point.clone(),
             render_state: PipelineKind::CustomWgsl2d.default_render_state(),
+            stencil_mode: StencilMode::Disabled,
             cutout: None,
             shader_module: Some(shader_module),
         })
@@ -564,6 +591,13 @@ impl Pipeline {
         render_state.validate()?;
         self.render_state = render_state;
         Ok(self)
+    }
+
+    /// Selects a bounded stencil-mask operation without exposing backend
+    /// stencil objects or source-domain vocabulary.
+    pub const fn with_stencil_mode(mut self, stencil_mode: StencilMode) -> Self {
+        self.stencil_mode = stencil_mode;
+        self
     }
 
     /// Produces a provider-neutral shader declaration for this pipeline.
@@ -660,7 +694,9 @@ impl Pipeline {
                 });
             }
             (PipelineKind::Textured3dCutout, Some(_))
-                if self.render_state != PipelineRenderState::opaque_depth_writing_3d() =>
+                if self.render_state != PipelineRenderState::opaque_depth_writing_3d()
+                    && self.render_state
+                        != PipelineRenderState::categorical_cutout_depth_prepass_3d() =>
             {
                 return Err(PipelineValidationError::InvalidCutoutRenderState {
                     label: self.label.clone(),
@@ -822,6 +858,20 @@ mod tests {
             pipeline.render_state,
             PipelineRenderState::painter_ordered_2d()
         );
+        assert_eq!(pipeline.stencil_mode, StencilMode::Disabled);
+    }
+
+    #[test]
+    fn retains_provider_neutral_stencil_mask_modes() {
+        let invert = Pipeline::new("invert", PipelineKind::LitColor3d)
+            .with_stencil_mode(StencilMode::InvertOnDepthPass);
+        let require_zero = Pipeline::new("masked", PipelineKind::Textured3d)
+            .with_stencil_mode(StencilMode::RequireZero);
+
+        assert_eq!(invert.stencil_mode, StencilMode::InvertOnDepthPass);
+        assert_eq!(require_zero.stencil_mode, StencilMode::RequireZero);
+        assert!(invert.validate().is_ok());
+        assert!(require_zero.validate().is_ok());
     }
 
     #[test]
@@ -877,6 +927,21 @@ mod tests {
             .expect("cutout shader module must retain its generated source")
             .source
             .contains("discard;"));
+    }
+
+    #[test]
+    fn categorical_cutout_admits_depth_only_prepass_state() {
+        let cutout = CategoricalCutout::new(
+            CutoutThreshold::new(0.0).expect("zero is valid"),
+            CutoutComparison::DiscardAtOrBelow,
+        );
+        let pipeline = Pipeline::textured_3d_cutout("cutout-depth", cutout)
+            .with_render_state(PipelineRenderState::categorical_cutout_depth_prepass_3d())
+            .expect("depth prepass state is structurally valid");
+
+        assert_eq!(pipeline.render_state.color_write, ColorWriteMask::NONE);
+        assert!(pipeline.render_state.depth_write);
+        assert!(pipeline.validate().is_ok());
     }
 
     #[test]

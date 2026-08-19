@@ -146,13 +146,17 @@ impl WgpuBackend {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: wgpu::StoreOp::Store,
                     }),
-                    stencil_ops: None,
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: wgpu::StoreOp::Store,
+                    }),
                 }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
 
             if self.stats.has_frame_draws() {
+                render_pass.set_stencil_reference(0);
                 let mut active_pipeline = None;
                 for (index, draw) in self.queued_draws.iter().enumerate() {
                     let gpu_mesh = match draw.geometry {
