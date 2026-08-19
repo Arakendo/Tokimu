@@ -11,6 +11,7 @@ pub mod debug_console;
 /// not admit Doom semantics into the renderer boundary.
 #[path = "bin/static_scene/presentation/ordered_occurrence.rs"]
 pub mod ordered_occurrence;
+pub mod perception;
 pub mod specials;
 pub mod things;
 

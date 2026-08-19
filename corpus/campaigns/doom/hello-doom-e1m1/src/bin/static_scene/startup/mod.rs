@@ -113,6 +113,9 @@ pub(crate) fn run() -> PlatformResult<()> {
     let doom_reject_report = args
         .iter()
         .any(|argument| argument == "--doom-reject-report");
+    let monster_perception_report = args
+        .iter()
+        .any(|argument| argument == "--monster-perception-report");
     let doom_topology_report = args
         .iter()
         .any(|argument| argument == "--doom-topology-report");
@@ -478,6 +481,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--bsp-diagnostic-full");
     args.retain(|argument| !argument.starts_with("--bsp-diagnostic-focus="));
     args.retain(|argument| argument != "--doom-reject-report");
+    args.retain(|argument| argument != "--monster-perception-report");
     args.retain(|argument| argument != "--doom-topology-report");
     args.retain(|argument| argument != "--doom-bsp-bounds-audit-report");
     args.retain(|argument| argument != "--render-subsector-inventory-report");
@@ -547,7 +551,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full [--sector-boundary-trim]] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--thing-classification-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full [--sector-boundary-trim]] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report|--monster-perception-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--thing-classification-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -1058,6 +1062,10 @@ pub(crate) fn run() -> PlatformResult<()> {
     }
     if doom_reject_report {
         report_doom_reject(&scene.reject_report);
+        return Ok(());
+    }
+    if monster_perception_report {
+        report_doom_monster_perception(&scene);
         return Ok(());
     }
 

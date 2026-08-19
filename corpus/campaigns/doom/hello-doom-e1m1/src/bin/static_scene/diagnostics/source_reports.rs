@@ -11,8 +11,83 @@ use super::tokimu_spatial_bake::SpatialRayShadow;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 use hello_doom_e1m1::things::{
     classify_e1m1_thing_kind, e1m1_thing_state_program, resolve_doom_sprite_patch,
-    select_doom_sprite_view_rotation, DoomThingStateProgram,
+    select_doom_sprite_view_rotation, DoomThingFamily, DoomThingStateProgram,
 };
+
+pub(crate) fn report_doom_monster_perception(scene: &SceneInput) {
+    use hello_doom_e1m1::perception::{DoomMonsterPerception, DoomMonsterPerceptionQuery};
+
+    let mut acquired = 0;
+    let mut rejected = 0;
+    let mut blocked = 0;
+    let mut behind = 0;
+    let mut unavailable = 0;
+    let mut positive_controls_acquired = 0;
+    for thing in scene.thing_sprites.iter().filter(|thing| {
+        classify_e1m1_thing_kind(thing.kind)
+            .is_some_and(|classification| classification.family == DoomThingFamily::Monster)
+    }) {
+        let [_, monster_height] = hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)
+            .expect("classified E1M1 monster has combat dimensions");
+        let outcome = scene
+            .monster_sight_world
+            .observe(DoomMonsterPerceptionQuery {
+                monster_sector: thing.source_sector as usize,
+                monster_position: thing.source_position.map(f32::from),
+                monster_floor: f32::from(thing.floor_height),
+                monster_height,
+                monster_angle_degrees: f32::from(thing.source_angle),
+                player_sector: scene.spawn_observer.sector as usize,
+                player_position: scene.spawn_observer.source_position.map(f32::from),
+                player_floor: f32::from(scene.spawn_observer.floor),
+                player_height: 56.0,
+                player_alive: true,
+                all_around: false,
+            });
+        match outcome {
+            DoomMonsterPerception::Acquired { .. } => acquired += 1,
+            DoomMonsterPerception::RejectForbidden => rejected += 1,
+            DoomMonsterPerception::RejectUnavailable => unavailable += 1,
+            DoomMonsterPerception::SightBlocked { .. } => blocked += 1,
+            DoomMonsterPerception::OutsideFrontArc => behind += 1,
+            DoomMonsterPerception::PlayerDead => unreachable!("report player is alive"),
+        }
+        let angle = f32::from(thing.source_angle).to_radians();
+        let positive_control = scene
+            .monster_sight_world
+            .observe(DoomMonsterPerceptionQuery {
+                monster_sector: thing.source_sector as usize,
+                monster_position: thing.source_position.map(f32::from),
+                monster_floor: f32::from(thing.floor_height),
+                monster_height,
+                monster_angle_degrees: f32::from(thing.source_angle),
+                player_sector: thing.source_sector as usize,
+                player_position: [
+                    f32::from(thing.source_position[0]) + angle.cos() * 32.0,
+                    f32::from(thing.source_position[1]) + angle.sin() * 32.0,
+                ],
+                player_floor: f32::from(thing.floor_height),
+                player_height: 56.0,
+                player_alive: true,
+                all_around: false,
+            });
+        positive_controls_acquired += usize::from(matches!(
+            positive_control,
+            DoomMonsterPerception::Acquired { .. }
+        ));
+        println!(
+            "monster-perception: source-thing={} kind={} sector={} outcome={outcome:?}",
+            thing.source.record_index, thing.kind, thing.source_sector,
+        );
+    }
+    println!(
+        "{} Slice 9 monster-perception observation: monsters={}; acquired={acquired}; reject-forbidden={rejected}; reject-unavailable={unavailable}; sight-blocked={blocked}; outside-front-arc={behind}; near-front-positive-controls={positive_controls_acquired}/{}; player-sector={}; authority=source-REJECT-prefilter-plus-finite-linedef-opening-slope-trace-not-render-visibility; movement=false",
+        scene.map_name,
+        acquired + rejected + unavailable + blocked + behind,
+        acquired + rejected + unavailable + blocked + behind,
+        scene.spawn_observer.sector,
+    );
+}
 
 pub(crate) fn report_doom_thing_classification(
     things: &[DoomThing],

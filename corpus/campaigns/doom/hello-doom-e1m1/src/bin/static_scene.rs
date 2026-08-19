@@ -391,6 +391,7 @@ struct SceneInput {
     spawn_observer: SpawnObserver,
     walk_collision: DoomWalkCollisionWorld,
     walk_floors: DoomWalkFloorWorld,
+    monster_sight_world: hello_doom_e1m1::perception::DoomMonsterSightWorld,
     reject_report: DoomRejectReport,
     topology_report: DoomTopologyReport,
     bsp_bounds_audit: Option<DoomBspBoundsAudit>,
@@ -407,6 +408,7 @@ struct DoomThingSprite {
     source_position: [i16; 2],
     source_angle: u16,
     floor_height: i16,
+    source_sector: u32,
     sprite: &'static str,
     initial_frame: char,
 }
@@ -782,6 +784,7 @@ fn prepare_scene(
         .collect::<PlatformResult<Vec<_>>>()?;
     let walk_collision = DoomWalkCollisionWorld::from_map(&map);
     let walk_floors = DoomWalkFloorWorld::from_map(&map)?;
+    let monster_sight_world = hello_doom_e1m1::perception::DoomMonsterSightWorld::from_map(&map);
     let start = resolve_doom_player_one_start(&map.things)?;
     let paths = resolve_doom_subsector_bsp_paths(&map)?;
     let location = locate_doom_point_subsector(start.position, &paths)?;
@@ -817,6 +820,7 @@ fn prepare_scene(
             source_position: [thing.x, thing.y],
             source_angle: thing.angle,
             floor_height,
+            source_sector: owner.source_sector.record_index,
             sprite,
             initial_frame: frame,
         });
@@ -1198,6 +1202,7 @@ fn prepare_scene(
         spawn_observer,
         walk_collision,
         walk_floors,
+        monster_sight_world,
         reject_report,
         topology_report,
         bsp_bounds_audit,

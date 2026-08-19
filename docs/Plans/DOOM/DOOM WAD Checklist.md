@@ -1267,6 +1267,19 @@ Acceptance criteria:
         general level restart remain explicit later work.
 - [ ] Add monster perception and movement only after observation boundaries are
       useful enough to diagnose behavior.
+  - [x] Separate gameplay sight from rendering: use `REJECT` only as a negative
+        sector-pair prefilter, then trace the source segment through one-sided
+        blockers and finite two-sided vertical openings before applying the
+        initial 180-degree front arc and close-range exception.
+  - [x] Add `--monster-perception-report`. At the E1M1 source spawn it retains
+        all 29 source monsters with a specific outcome (5 REJECT-forbidden and
+        24 source-linedef blocked), while 29/29 same-sector near-front positive
+        controls acquire the player. The report moves no actor.
+  - [ ] Before enabling live chase, incorporate current door/platform height
+        overlays into sight and choose an application-owned actor movement
+        collision policy that handles two-sided clearance and actor contacts.
+        The existing first-walk disc helper explicitly does not provide those
+        semantics and must not be silently promoted into monster authority.
 - [ ] Add save/replay evidence without treating WAD bytes as mutable world
       state.
 

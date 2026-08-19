@@ -146,6 +146,29 @@ and terminal zero health from released
 Pain/death sprites, drops, barrel explosions, and monster-owned attacks remain
 unapplied.
 
+The first perception refinement is deliberately observational and can be
+replayed without a renderer:
+
+```powershell
+cargo run -q -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --map=E1M1 --monster-perception-report
+```
+
+At the source spawn, all 29 monsters receive an explicit result: 5 sector
+pairs are forbidden by `REJECT`, while 24 otherwise-permitted pairs are blocked
+by a named source linedef or its vertically clipped opening. No monster is
+acquired at that pose. A same-sector player placed 32 units in front of each
+monster provides 29/29 positive controls, demonstrating that the trace can
+authorize sight rather than merely reject it. This follows the division in id
+Software's released
+[`p_sight.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_sight.c)
+and the initial front-arc/close-range policy in
+[`p_enemy.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_enemy.c).
+It does not use rendered pixels or declarations, and it does not move an actor.
+Live chase remains parked until current door/platform openings and an honest
+two-sided/actor movement collision policy are supplied.
+
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.
 This prevents the new draw family from bypassing the established sky mask while

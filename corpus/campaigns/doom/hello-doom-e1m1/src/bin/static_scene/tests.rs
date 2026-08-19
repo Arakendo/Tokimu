@@ -77,6 +77,7 @@ fn thing_sprite_billboard_applies_offsets_floor_clearance_mirroring_and_vertical
         source_position: [10, 20],
         source_angle: 0,
         floor_height: 32,
+        source_sector: 0,
         sprite: "TEST",
         initial_frame: 'A',
     };
