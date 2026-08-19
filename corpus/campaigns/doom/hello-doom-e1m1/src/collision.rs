@@ -85,6 +85,15 @@ pub enum DoomActorMoveOutcome {
     },
 }
 
+/// Deterministic corpus-local direction search for a blocked chase step.
+/// The direct eight-way heading is tried first, followed by progressively
+/// wider right/left alternatives and finally the reverse direction.
+pub fn doom_chase_heading_candidates(direct_heading_degrees: f32) -> [f32; 8] {
+    const OFFSETS: [f32; 8] = [0.0, 45.0, -45.0, 90.0, -90.0, 135.0, -135.0, 180.0];
+    let direct = (direct_heading_degrees / 45.0).round() * 45.0;
+    OFFSETS.map(|offset| (direct + offset).rem_euclid(360.0))
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DoomWalkMoveObservation {
     pub requested_delta: [f32; 2],
@@ -885,5 +894,14 @@ mod tests {
     fn actor_vertical_contact_requires_height_overlap() {
         assert!(vertical_intervals_overlap(0, 56, 32, 56));
         assert!(!vertical_intervals_overlap(0, 56, 56, 56));
+    }
+
+    #[test]
+    fn chase_direction_search_is_direct_then_progressively_wider() {
+        assert_eq!(
+            doom_chase_heading_candidates(12.0),
+            [0.0, 45.0, 315.0, 90.0, 270.0, 135.0, 225.0, 180.0]
+        );
+        assert_eq!(doom_chase_heading_candidates(181.0)[0], 180.0);
     }
 }

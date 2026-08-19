@@ -188,13 +188,17 @@ submits an eight-unit move through the same dynamic-height actor oracle.
 Accepted positions, source sectors, floor heights, and headings rebuild
 ordinary sprite billboards. Source-Thing order is the deterministic update
 order, and each accepted pose updates the actor-body snapshot before the next
-monster moves. E1M1's former human uses its retained four-tic run
+monster moves. A blocked direct step tries a bounded deterministic set of the
+other seven eight-direction headings. This prevents another actor or a local
+wall corner from permanently pinning the chase without claiming exact
+`P_NewChaseDir` parity. E1M1's former human uses its retained four-tic run
 cadence, while the sergeant and imp use three tics; all use the source
 A-A-B-B-C-C-D-D run-frame sequence retained from released
 [`info.c`](https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/info.c).
-`R` discards this mutable state and
-recreates it from source placements. Attacks, sound activation, and alternate
-direction search after a blocked move are explicitly absent.
+`R` discards this mutable state and recreates it from source placements.
+Hitscan construction retains the original Thing index across inactive pickups
+and killed actors so a moving monster's runtime pose remains attached to its
+source identity. Monster attacks and sound activation remain explicitly absent.
 
 The Slice 9 save/replay boundary is exercised independently:
 

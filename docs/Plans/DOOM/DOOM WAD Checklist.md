@@ -1287,13 +1287,16 @@ Acceptance criteria:
         vertical blocks; none mutates a Thing.
   - [x] Add chase clocks and application-owned mutable monster positions behind
         an opt-in live candidate. Rebuild ordinary sprite declarations from the
-        resulting positions; do not mutate imported Things. Attack selection,
-        sound wake-up, and alternate blocked-direction search remain separate.
+        resulting positions; do not mutate imported Things. Attack selection
+        and sound wake-up remain separate.
         `--monster-chase-live` evaluates retained `A_Look` every 10 tics, uses
         source three/four-tic A-D run cadences, quantizes pursuit to eight
-        source directions, and submits each accepted application-owned pose as
-        an ordinary billboard. A two-frame native smoke run retains the grouped
-        sky and sector-boundary preparation unchanged.
+        source directions, tries the other bounded headings when a direct step
+        is blocked, and submits each accepted application-owned pose as an
+        ordinary billboard. Hitscan actor construction preserves source Thing
+        indices across inactive records, so damage follows a chasing monster's
+        runtime pose. A two-frame native smoke run retains the grouped sky and
+        sector-boundary preparation unchanged.
 - [x] Add save/replay evidence without treating WAD bytes as mutable world
       state.
   - [x] `--gameplay-snapshot-replay-report` captures only admitted mutable

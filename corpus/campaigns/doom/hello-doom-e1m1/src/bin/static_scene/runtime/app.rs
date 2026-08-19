@@ -10,6 +10,14 @@ use crate::render_strategies::source_covered_global_shell;
 use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
 
+fn active_thing_indices(active: &[bool]) -> impl Iterator<Item = usize> + '_ {
+    active
+        .iter()
+        .copied()
+        .enumerate()
+        .filter_map(|(index, active)| active.then_some(index))
+}
+
 impl App {
     pub(super) fn capture_gameplay_snapshot(&self) -> DoomGameplaySnapshot {
         DoomGameplaySnapshot {
@@ -87,13 +95,12 @@ impl App {
             .filter_map(|(draw, _)| nearest_mesh_ray_hit(observer.position, direction, &draw.mesh))
             .filter(|distance| *distance <= HITSCAN_RANGE)
             .min_by(f32::total_cmp);
-        let actors = self
-            .thing_sprites
-            .iter()
-            .zip(self.thing_sprite_active.iter().copied())
-            .filter(|(_, active)| *active)
-            .enumerate()
-            .filter_map(|(index, (thing, _))| {
+        let actors = active_thing_indices(&self.thing_sprite_active)
+            // Preserve the original Thing/sprite index. Enumerating after an
+            // activity filter shifts every later runtime pose when a pickup
+            // or killed actor becomes inactive.
+            .filter_map(|index| {
+                let thing = &self.thing_sprites[index];
                 let [radius, height] =
                     hello_doom_e1m1::things::e1m1_combat_actor_dimensions(thing.kind)?;
                 let (source_position, floor_height, _, _) = self.thing_source_pose(index);
@@ -326,28 +333,43 @@ impl App {
                 self.monster_runtime_states[index] = Some(state);
                 continue;
             }
-            let heading = toward_player[1].atan2(toward_player[0]).to_degrees();
-            let quantized_heading = (heading / 45.0).round() * 45.0;
-            let radians = quantized_heading.to_radians();
-            state.source_angle_degrees = quantized_heading.rem_euclid(360.0);
-            let outcome = self.actor_movement_world.probe_move(
-                thing.source.record_index,
-                state.source_position,
-                state.floor_height,
-                [radians.cos() * 8.0, radians.sin() * 8.0],
-                radius,
-                height as i16,
-                &floor_overrides,
-                &ceiling_overrides,
-                &actors,
-            );
-            if let hello_doom_e1m1::collision::DoomActorMoveOutcome::Moved {
-                position,
-                source_sector,
-                floor_height,
-                ..
-            } = outcome
+            let direct_heading = toward_player[1].atan2(toward_player[0]).to_degrees();
+            state.source_angle_degrees =
+                hello_doom_e1m1::collision::doom_chase_heading_candidates(direct_heading)[0];
+            let mut accepted_move = None;
+            for candidate_heading in
+                hello_doom_e1m1::collision::doom_chase_heading_candidates(direct_heading)
             {
+                let radians = candidate_heading.to_radians();
+                let outcome = self.actor_movement_world.probe_move(
+                    thing.source.record_index,
+                    state.source_position,
+                    state.floor_height,
+                    [radians.cos() * 8.0, radians.sin() * 8.0],
+                    radius,
+                    height as i16,
+                    &floor_overrides,
+                    &ceiling_overrides,
+                    &actors,
+                );
+                if let hello_doom_e1m1::collision::DoomActorMoveOutcome::Moved {
+                    position,
+                    source_sector,
+                    floor_height,
+                    ..
+                } = outcome
+                {
+                    let moved = (position[0] - state.source_position[0]).abs()
+                        + (position[1] - state.source_position[1]).abs();
+                    if moved > f32::EPSILON {
+                        accepted_move =
+                            Some((candidate_heading, position, source_sector, floor_height));
+                        break;
+                    }
+                }
+            }
+            if let Some((heading, position, source_sector, floor_height)) = accepted_move {
+                state.source_angle_degrees = heading;
                 state.source_position = position;
                 state.source_sector = source_sector.record_index;
                 state.floor_height = floor_height;
@@ -2346,6 +2368,19 @@ impl App {
                 .with_texture(DEBUG_TEXTURE),
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::active_thing_indices;
+
+    #[test]
+    fn active_thing_indices_retain_source_identity_across_inactive_records() {
+        assert_eq!(
+            active_thing_indices(&[false, true, false, true]).collect::<Vec<_>>(),
+            vec![1, 3]
+        );
     }
 }
 
