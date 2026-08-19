@@ -2402,15 +2402,17 @@ The review moves away from shared admission when:
   inspected map area, extending the positive corpus beyond E1M1. This remains
   human visual evidence rather than pixel parity with the Classic renderer.
 - A moving door appeared as a normal door texture from one side and an
-  electronics panel from the other. Source inspection acquitted runtime
-  material binding: E1M6 manual-door target sector 30 is bounded by linedefs
-  614 and 615; their non-door sidedefs explicitly author `EXITDOOR`, while the
-  door-sector sidedefs explicitly author `COMPUTE2`. The composition therefore
-  preserves intentionally asymmetric source faces as the ceiling moves.
-- No texture substitution or door-specific normalization was added. A future
-  report from `LOOK` can identify the exact visible linedef, but the only
-  accepted E1M6 manual-door pair with this `EXITDOOR` / `COMPUTE2` source
-  asymmetry already matches the observed electronics artwork.
+  electronics panel from the other. The exact `LOOK` hit identified linedef
+  997, sidedef 1271, sector 63 and `TEKWALL2`, correcting an earlier tentative
+  association with the separate sector-30 exit door. Linedef 997 bounds moving
+  door sector 66 from sector 63 and explicitly authors `TEKWALL2`; the opposite
+  boundary, activation linedef 1238 from sector 65, explicitly authors
+  `BIGDOOR4`. The door-sector sidedefs are blank. Runtime lowering therefore
+  preserves two intentionally different neighboring faces as sector 66's
+  ceiling moves.
+- No texture substitution or door-specific normalization was added. From
+  sector 63 the authored face is `TEKWALL2`; from sector 65 it is `BIGDOOR4`.
+  “Inside” and “outside” are not source semantics for this door.
 
 ## References
 

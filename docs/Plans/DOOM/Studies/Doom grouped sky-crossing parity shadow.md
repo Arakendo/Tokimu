@@ -355,9 +355,10 @@ about 75 ms warm. These are diagnostic observations, not performance budgets.
 
 E1M6 subsequently supplied a positive live walkabout: no sky defect was found
 in the inspected areas. An apparently wrong electronics-faced moving door was
-traced separately to authored asymmetric sidedefs (`EXITDOOR` outside and
-`COMPUTE2` inside on the sector-30 door bounded by linedefs 614/615), not to
-sky parity or runtime material corruption.
+traced separately by exact `LOOK`: moving sector 66 is bounded by a
+sector-63 `TEKWALL2` face at linedef 997 and a sector-65 `BIGDOOR4` face at
+linedef 1238. The asymmetric artwork is authored, not sky-parity or runtime
+material corruption.
 
 ## Binding Invariants
 
