@@ -397,22 +397,24 @@ pub(crate) fn nearest_sky_boundary_ray_hit<'a>(
         .min_by(|left, right| left.distance.total_cmp(&right.distance))
 }
 
-/// Reports the exact paired-skywall crossings used by the corpus-private
-/// stencil parity experiment. Triangle hits sharing one source boundary are
-/// collapsed so a ray on a quad's triangulation seam does not count twice.
-/// This predicts the low stencil bit from CPU geometry; it is not a rendered
-/// pixel or stencil-buffer readback.
-pub(crate) fn format_skywall_parity_observation(
+/// Reports the paired-skywall and source-sky-plane crossings used by the
+/// corpus-private grouped stencil parity experiment. Triangle hits sharing
+/// one source surface are collapsed so triangulation seams do not count
+/// twice. This predicts the low stencil bit from CPU geometry; it is not a
+/// rendered pixel or stencil-buffer readback.
+pub(crate) fn format_grouped_sky_parity_observation(
     origin: Vec3,
     direction: Vec3,
     ordinary_distance: Option<f32>,
-    draws: &[DoomSkyBoundaryDepthDraw],
+    skywall_draws: &[DoomSkyBoundaryDepthDraw],
+    sky_plane_draws: &[StaticDrawPlanEntry],
     presentation_enabled: bool,
 ) -> String {
     const CROSSING_EPSILON: f32 = 1.0e-3;
-    let mut crossings = BTreeMap::<(u32, u32, u32), (f32, usize)>::new();
-    for draw in draws {
-        let identity = (
+    let mut crossings = BTreeMap::<String, (&'static str, f32, usize)>::new();
+    for draw in skywall_draws {
+        let identity = format!(
+            "linedef:{},sidedef:{},sector:{}",
             draw.source_linedef.record_index,
             draw.source_sidedef.record_index,
             draw.source_sector.record_index,
@@ -428,25 +430,61 @@ pub(crate) fn format_skywall_parity_observation(
                 continue;
             };
             crossings
-                .entry(identity)
-                .and_modify(|(nearest, raw_hits)| {
+                .entry(identity.clone())
+                .and_modify(|(_, nearest, raw_hits)| {
                     *nearest = nearest.min(distance);
                     *raw_hits += 1;
                 })
-                .or_insert((distance, 1));
+                .or_insert(("skywall", distance, 1));
+        }
+    }
+    for draw in sky_plane_draws {
+        let StaticDrawSource::Flat {
+            source_subsector,
+            source_sector,
+            plane,
+        } = draw.source
+        else {
+            continue;
+        };
+        let plane = match plane {
+            DoomSurfacePlane::Floor => "Floor",
+            DoomSurfacePlane::Ceiling => "Ceiling",
+        };
+        let identity = format!(
+            "subsector:{},sector:{},plane:{plane}",
+            source_subsector.record_index, source_sector.record_index,
+        );
+        for triangle in draw.mesh.positions.chunks_exact(3) {
+            let Some(distance) = crate::ray_triangle_distance(
+                origin,
+                direction,
+                Vec3::from_array(triangle[0]),
+                Vec3::from_array(triangle[1]),
+                Vec3::from_array(triangle[2]),
+            ) else {
+                continue;
+            };
+            crossings
+                .entry(identity.clone())
+                .and_modify(|(_, nearest, raw_hits)| {
+                    *nearest = nearest.min(distance);
+                    *raw_hits += 1;
+                })
+                .or_insert(("sky-plane", distance, 1));
         }
     }
     let mut crossings = crossings.into_iter().collect::<Vec<_>>();
     crossings.sort_by(|left, right| {
-        let left_distance = (left.1).0;
-        let right_distance = (right.1).0;
+        let left_distance = (left.1).1;
+        let right_distance = (right.1).1;
         left_distance
             .total_cmp(&right_distance)
             .then_with(|| left.0.cmp(&right.0))
     });
     let ordered = crossings
         .iter()
-        .map(|((linedef, sidedef, sector), (distance, raw_hits))| {
+        .map(|(identity, (family, distance, raw_hits))| {
             let relation = ordinary_distance.map_or("no-ordinary-hit", |ordinary_distance| {
                 if *distance <= ordinary_distance + CROSSING_EPSILON {
                     "before-ordinary-hit"
@@ -455,11 +493,16 @@ pub(crate) fn format_skywall_parity_observation(
                 }
             });
             format!(
-                "distance:{distance:.3},linedef:{linedef},sidedef:{sidedef},sector:{sector},raw-triangle-hits:{raw_hits},relation:{relation}"
+                "distance:{distance:.3},family:{family},{identity},raw-triangle-hits:{raw_hits},relation:{relation}"
             )
         })
         .collect::<Vec<_>>()
         .join(";");
+    let skywall_crossings = crossings
+        .iter()
+        .filter(|(_, (family, _, _))| *family == "skywall")
+        .count();
+    let sky_plane_crossings = crossings.len() - skywall_crossings;
     let presentation = if presentation_enabled {
         "enabled"
     } else {
@@ -467,13 +510,13 @@ pub(crate) fn format_skywall_parity_observation(
     };
     let Some(ordinary_distance) = ordinary_distance else {
         return format!(
-            "skywall_parity=paired-skywalls-only,presentation:{presentation},ray-crossings={},crossings-before-ordinary:not-applicable,parity:not-applicable,rule-world-color:no-ordinary-fragment,crossings:[{ordered}] authority=cpu-ray-prediction-not-rendered-stencil-readback",
+            "grouped_sky_parity=families:paired-skywalls+source-sky-planes,presentation:{presentation},ray-crossings={},skywall-crossings:{skywall_crossings},sky-plane-crossings:{sky_plane_crossings},crossings-before-ordinary:not-applicable,parity:not-applicable,rule-world-color:no-ordinary-fragment,crossings:[{ordered}] authority=cpu-ray-prediction-not-rendered-stencil-readback",
             crossings.len(),
         );
     };
     let before = crossings
         .iter()
-        .filter(|(_, (distance, _))| *distance <= ordinary_distance + CROSSING_EPSILON)
+        .filter(|(_, (_, distance, _))| *distance <= ordinary_distance + CROSSING_EPSILON)
         .count();
     let (parity, world_color) = if before % 2 == 0 {
         ("even", "retained")
@@ -481,7 +524,7 @@ pub(crate) fn format_skywall_parity_observation(
         ("odd", "masked")
     };
     format!(
-        "skywall_parity=paired-skywalls-only,presentation:{presentation},ray-crossings={},crossings-before-ordinary:{before},parity:{parity},rule-world-color:{world_color},crossings:[{ordered}] authority=cpu-ray-prediction-not-rendered-stencil-readback",
+        "grouped_sky_parity=families:paired-skywalls+source-sky-planes,presentation:{presentation},ray-crossings={},skywall-crossings:{skywall_crossings},sky-plane-crossings:{sky_plane_crossings},crossings-before-ordinary:{before},parity:{parity},rule-world-color:{world_color},crossings:[{ordered}] authority=cpu-ray-prediction-not-rendered-stencil-readback",
         crossings.len(),
     )
 }
@@ -1129,11 +1172,12 @@ pub(crate) fn report_source_viewport_scan(
         );
         println!(
             "{}",
-            format_skywall_parity_observation(
+            format_grouped_sky_parity_observation(
                 origin,
                 direction,
                 hit.map(|hit| hit.distance),
                 &scene.doom_sky_boundary_draws,
+                &scene.diagnostic_sky_draws,
                 false,
             )
         );
@@ -1328,11 +1372,12 @@ pub(crate) fn report_source_look_ray(
             nearest_sky_boundary_ray_hit(origin, direction, &scene.doom_sky_boundary_draws),
             nearest_source_sky_plane_ray_hit(origin, direction, &scene.diagnostic_sky_draws),
         ),
-        format_skywall_parity_observation(
+        format_grouped_sky_parity_observation(
             origin,
             direction,
             hit.map(|hit| hit.distance),
             &scene.doom_sky_boundary_draws,
+            &scene.diagnostic_sky_draws,
             skywall_parity_enabled,
         ),
         format_source_classic_ray_trace(
@@ -1357,14 +1402,16 @@ pub(crate) fn report_source_look_ray(
 #[cfg(test)]
 mod tests {
     use super::{
-        format_look_ray_observation, format_skywall_parity_observation, parse_source_look_ray,
+        format_grouped_sky_parity_observation, format_look_ray_observation, parse_source_look_ray,
         parse_source_viewport_scan, summarize_classic_plane_span_support,
         viewport_inspection_direction, DEFAULT_SCAN_COLUMNS, DEFAULT_SCAN_ROWS,
     };
-    use crate::{DoomSkyBoundaryDepthDraw, Mesh};
+    use crate::{
+        DoomSkyBoundaryDepthDraw, MaterialHandle, Mesh, StaticDrawPlanEntry, StaticDrawSource,
+    };
     use doom_geometry_provider::{
         DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey, DoomSegClassicPlaneKind,
-        DoomSegClassicPlaneSpanObservation,
+        DoomSegClassicPlaneSpanObservation, DoomSurfacePlane,
     };
     use doom_map_provider::DoomSourceRecord;
     use hello_doom_e1m1::DoomComparativeEmbedding;
@@ -1381,6 +1428,30 @@ mod tests {
             source_sidedef: source(9),
             source_sector: source(14),
             mesh: Mesh::uniform_normal(positions.to_vec(), [0.0, 1.0, 0.0]),
+        }
+    }
+
+    fn sky_plane_triangle(identity: u32, distance: f32) -> StaticDrawPlanEntry {
+        let source = |lump_index| DoomSourceRecord {
+            lump_index,
+            record_index: identity,
+        };
+        StaticDrawPlanEntry {
+            mesh: Mesh::uniform_normal(
+                vec![
+                    [-1.0, -1.0, distance],
+                    [1.0, -1.0, distance],
+                    [0.0, 1.0, distance],
+                ],
+                [0.0, 0.0, -1.0],
+            ),
+            material: MaterialHandle(1),
+            source_label: format!("sky-plane:{identity}"),
+            source: StaticDrawSource::Flat {
+                source_subsector: source(13),
+                source_sector: source(14),
+                plane: DoomSurfacePlane::Ceiling,
+            },
         }
     }
 
@@ -1452,19 +1523,57 @@ mod tests {
             skywall_triangle(20, [[-1.0, -1.0, 4.0], [1.0, -1.0, 4.0], [0.0, 1.0, 4.0]]),
         ];
 
-        let even = format_skywall_parity_observation(Vec3::ZERO, Vec3::Z, Some(5.0), &draws, true);
+        let even = format_grouped_sky_parity_observation(
+            Vec3::ZERO,
+            Vec3::Z,
+            Some(5.0),
+            &draws,
+            &[],
+            true,
+        );
         assert!(even.contains("presentation:enabled,ray-crossings=2"));
         assert!(even.contains("crossings-before-ordinary:2,parity:even"));
         assert!(even.contains("rule-world-color:retained"));
         assert!(even.contains("linedef:10,sidedef:10,sector:10,raw-triangle-hits:2"));
 
-        let odd = format_skywall_parity_observation(Vec3::ZERO, Vec3::Z, Some(3.0), &draws, false);
+        let odd = format_grouped_sky_parity_observation(
+            Vec3::ZERO,
+            Vec3::Z,
+            Some(3.0),
+            &draws,
+            &[],
+            false,
+        );
         assert!(odd.contains("presentation:shadow-only,ray-crossings=2"));
         assert!(odd.contains("crossings-before-ordinary:1,parity:odd"));
         assert!(odd.contains("rule-world-color:masked"));
         assert!(odd.contains(
             "linedef:20,sidedef:20,sector:20,raw-triangle-hits:1,relation:behind-ordinary-hit"
         ));
+    }
+
+    #[test]
+    fn grouped_sky_parity_counts_planes_and_walls_together() {
+        let walls = vec![skywall_triangle(
+            253,
+            [[-1.0, -1.0, 2.0], [1.0, -1.0, 2.0], [0.0, 1.0, 2.0]],
+        )];
+        let planes = vec![sky_plane_triangle(48, 1.0)];
+
+        let observation = format_grouped_sky_parity_observation(
+            Vec3::ZERO,
+            Vec3::Z,
+            Some(3.0),
+            &walls,
+            &planes,
+            true,
+        );
+
+        assert!(observation.contains("skywall-crossings:1,sky-plane-crossings:1"));
+        assert!(observation.contains("crossings-before-ordinary:2,parity:even"));
+        assert!(observation.contains("rule-world-color:retained"));
+        assert!(observation.contains("family:sky-plane,subsector:48,sector:48,plane:Ceiling"));
+        assert!(observation.contains("family:skywall,linedef:253"));
     }
 
     #[test]

@@ -1566,11 +1566,12 @@ impl App {
                 &self.diagnostic_sky_draws,
             ),
         );
-        let skywall_parity = format_skywall_parity_observation(
+        let grouped_sky_parity = format_grouped_sky_parity_observation(
             observer.position,
             direction,
             hit.map(|hit| hit.distance),
             &self.doom_sky_boundary_draws,
+            &self.diagnostic_sky_draws,
             self.skywall_parity_enabled,
         );
         let (source_xy, source_eye_height) = self
@@ -1663,7 +1664,7 @@ impl App {
             },
         );
         format!(
-            "{ordinary}\n{skywall_parity}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
+            "{ordinary}\n{grouped_sky_parity}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
         )
     }
 
@@ -1973,17 +1974,25 @@ impl PlatformEventHandler for App {
                     );
                 }
             }
-            if self.source_sky_plane_depth_global_control {
+            if self.source_sky_plane_depth_global_control || self.skywall_parity_enabled {
                 for (index, draw) in self.diagnostic_sky_draws.iter().enumerate() {
                     renderer.upload_mesh(
                         MeshHandle(DOOM_SOURCE_SKY_PLANE_MESH_BASE + index as u64),
                         &draw.mesh,
                     );
                 }
-                eprintln!(
-                    "E1M1 experimental source-sky-plane depth coverage: triangles={}; policy=global-exact-retained-F_SKY1-source-flat-meshes; scope=corpus-local-falsification-control",
-                    self.diagnostic_sky_draws.len(),
-                );
+                if self.source_sky_plane_depth_global_control {
+                    eprintln!(
+                        "E1M1 experimental source-sky-plane depth coverage: triangles={}; policy=global-exact-retained-F_SKY1-source-flat-meshes; scope=corpus-local-falsification-control",
+                        self.diagnostic_sky_draws.len(),
+                    );
+                }
+                if self.skywall_parity_enabled {
+                    eprintln!(
+                        "E1M1 grouped sky parity source planes: triangles={}; policy=source-F_SKY1-planes-toggle-with-paired-skywalls; scope=corpus-local-falsification-control",
+                        self.diagnostic_sky_draws.len(),
+                    );
+                }
             }
             if self.source_sky_plane_depth_enabled {
                 eprintln!(
@@ -2005,7 +2014,7 @@ impl PlatformEventHandler for App {
                 self.doom_sky_boundary_draws.len(),
                 boundary_sources.len(),
                 if self.skywall_parity_enabled {
-                    "full-world-depth-prepass-then-double-sided-stencil-parity"
+                    "full-world-depth-prepass-then-grouped-skywall-and-sky-plane-stencil-parity"
                 } else {
                     "disabled-after-valid-hut-geometry-was-clipped"
                 },
@@ -2547,7 +2556,7 @@ impl PlatformEventHandler for App {
             if self.skywall_parity_enabled {
                 let opaque_depth_pipeline =
                     self.opaque_depth_prepass_pipeline.ok_or_else(|| {
-                        io::Error::other("skywall parity opaque depth-prepass pipeline missing")
+                        io::Error::other("grouped sky parity opaque depth-prepass pipeline missing")
                     })?;
                 for (index, draw) in self.draws.iter().enumerate() {
                     if !self.opaque_selected[index] || !self.opaque_draw_enabled[index] {
@@ -2569,7 +2578,9 @@ impl PlatformEventHandler for App {
                 if self.include_cutouts {
                     let cutout_depth_pipeline =
                         self.cutout_depth_prepass_pipeline.ok_or_else(|| {
-                            io::Error::other("skywall parity cutout depth-prepass pipeline missing")
+                            io::Error::other(
+                                "grouped sky parity cutout depth-prepass pipeline missing",
+                            )
                         })?;
                     for (offset, draw) in self.cutout_draws.iter().enumerate() {
                         if !self.cutout_selected[offset] {
@@ -2588,6 +2599,16 @@ impl PlatformEventHandler for App {
                 for (index, _) in self.doom_sky_boundary_draws.iter().enumerate() {
                     self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
                         mesh: MeshHandle(DOOM_SKY_BOUNDARY_MESH_BASE + index as u64),
+                        material: DOOM_SKY_BOUNDARY_MATERIAL,
+                        pipeline: boundary_pipeline,
+                        instance: Instance2d::identity(),
+                        camera: Some(CAMERA),
+                        viewport: None,
+                    }));
+                }
+                for (index, _) in self.diagnostic_sky_draws.iter().enumerate() {
+                    self.commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                        mesh: MeshHandle(DOOM_SOURCE_SKY_PLANE_MESH_BASE + index as u64),
                         material: DOOM_SKY_BOUNDARY_MATERIAL,
                         pipeline: boundary_pipeline,
                         instance: Instance2d::identity(),

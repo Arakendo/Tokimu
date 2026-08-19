@@ -2130,6 +2130,26 @@ The review moves away from shared admission when:
   global-full path remains the comparison. Human walkabout remains the
   acceptance/falsification step.
 
+### Cycle 57 -- 2026-08-18
+
+- The first live skywall-only walkabout produced an exact required-world
+  falsifier: admitted wall 205 was masked after one paired-skywall crossing,
+  while an earlier source `F_SKY1` ceiling crossing was retained in the same
+  ray evidence but excluded from the live parity count.
+- The ordered ray is source sky ceiling subsector 48 at distance `139.203`,
+  paired skywall linedef 253 at `170.985`, then ordinary wall 205 at `201.929`.
+  Classic source tracing reaches and admits the wall.
+- Maintainer authorization expands the reversible experiment to toggle the
+  same low stencil bit for either source family. The corrected replay has two
+  crossings, even parity, and retains wall 205.
+- The renderer capability remains unchanged and provider-neutral. Source sky
+  identity, grouping, and the decision to submit 73 plane triangles remain in
+  the Doom corpus composition.
+- A native two-frame Vulkan proof completed with 3,766 draw calls. Warm
+  command construction was `325 µs`; warm frame CPU time was `87,929 µs`.
+  Human walkabout remains the acceptance/falsification step, and the prior
+  two even/absent grouped-correlation counterexamples remain unresolved.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

@@ -1050,6 +1050,7 @@ pub(crate) fn run() -> PlatformResult<()> {
             scene.opaque_draws.len()
                 + usize::from(include_cutouts) * scene.cutout_draws.len()
                 + scene.doom_sky_boundary_draws.len()
+                + scene.diagnostic_sky_draws.len()
         } else {
             0
         };
@@ -1089,8 +1090,8 @@ pub(crate) fn run() -> PlatformResult<()> {
         )
     } else if skywall_parity {
         (
-            "global-full-plus-skywall-parity",
-            "sky-panorama>full-world-depth-prepass>paired-skywall-stencil-inversion>even-parity-world-color",
+            "global-full-plus-grouped-sky-parity",
+            "sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color",
         )
     } else {
         trial_render_strategy.map_or(
@@ -1324,7 +1325,7 @@ pub(crate) fn run() -> PlatformResult<()> {
                     ""
                 },
                 if app.skywall_parity_enabled {
-                    " | skywall parity"
+                    " | grouped sky parity"
                 } else {
                     ""
                 }

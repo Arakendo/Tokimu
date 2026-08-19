@@ -133,15 +133,16 @@ Not executed: Slice 1 contains two unexplained even/absent counterexamples.
 The maintainer subsequently authorized a reversible visual experiment despite
 the failed source-correlation gate. This does not reinterpret either
 even/absent specimen or promote parity to source truth. It asks only whether
-paired-skywall parity produces a useful actual-camera presentation over the
-complete world.
+grouped paired-skywall and source-sky-plane parity produces a useful
+actual-camera presentation over the complete world.
 
 - [x] Preserve the complete ordinary world as the input declaration set.
 - [x] Render a complete-world opaque/cutout depth prepass.
 - [x] Invert one stencil bit for every double-sided paired-skywall fragment
       that lies before the nearest world fragment.
+- [x] Invert the same stencil bit for every source `F_SKY1` plane fragment
+      that lies before the nearest world fragment.
 - [x] Render ordinary world color only where the crossing bit is even.
-- [x] Keep source sky ceilings out of the parity count.
 - [x] Preserve the original full submission as the no-flag control.
 - [x] Complete a native two-frame mechanism proof.
 - [x] Extend interactive `LOOK` and headless `--look-ray-report` with ordered
@@ -164,12 +165,22 @@ both first and warm frames on Vulkan. Warm command construction was `224 µs`;
 warm whole-frame CPU time was `104,483 µs`. These are observations, not an
 accepted budget.
 
-`LOOK` now emits a separate `skywall_parity` line. It counts only paired
-skywalls before the nearest prepared world hit, collapses the two triangles of
-one source boundary at a shared seam, and reports `even/retained` or
-`odd/masked`. This is an exact CPU-ray prediction over the same prepared
-geometry, not a GPU stencil-buffer readback; raster-edge and precision
-differences therefore remain possible at boundary pixels.
+The first skywall-only walkabout exposed admitted wall 205 behind a source sky
+ceiling at distance `139.203` and paired skywall 253 at `170.985`. Counting
+only the wall produced odd parity and masked the wall incorrectly. The grouped
+rule counts both crossings, produces even parity, and retains wall 205.
+
+The revised native proof adds 73 source-sky-plane triangles to the stencil
+pass and produces 3,766 total draw calls. Its warm command construction was
+`325 µs`; warm frame CPU time was `87,929 µs`. These remain observations, not
+an accepted budget.
+
+`LOOK` now emits a separate `grouped_sky_parity` line. It orders both source
+families before the nearest prepared world hit, collapses triangles sharing
+one source-surface identity, and reports `even/retained` or `odd/masked`. This
+is an exact CPU-ray prediction over the same prepared geometry, not a GPU
+stencil-buffer readback; raster-edge and precision differences therefore
+remain possible at boundary pixels.
 
 ## Binding Invariants
 
