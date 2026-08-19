@@ -2014,6 +2014,11 @@ The review moves away from shared admission when:
 - The proposed study requires a genuine Enter/Exit specimen before parity can
   claim value beyond a one-way sky mask. It authorizes no implementation,
   live candidate, renderer mutation or stable contract by itself.
+- Monday review recommends shadow-only Slices 0–2 and emphasizes that the
+  boundary/closure audit may terminate the study before parity execution.
+  Slice 3 remains conditional on a strict `10/10` result and is not
+  pre-authorized by that recommendation. A maintainer start instruction is
+  still required.
 - Proposed study:
   `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`.
 

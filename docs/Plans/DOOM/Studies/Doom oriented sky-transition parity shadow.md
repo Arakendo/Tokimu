@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Proposed for maintainer review; no implementation authorized by this writeup |
+| Status | Reviewed proposal; Slices 0–2 recommended for authorization, awaiting maintainer start instruction |
 | Scope | Test whether ordered, source-proven sky-transition events can reproduce the desired E1M1 sky/world presentation over complete persistent geometry |
 | Parent review | [AR-0030](../../../Architectural%20Reviews/AR-0030-source-owned-presentation-preparation-boundary.md) |
 | Geometry oracle | `global-full-submission` |
@@ -36,6 +36,33 @@ Sky   + Exit  → World
 
 This is a parity hypothesis only after semantic entry/exit events have been
 proved. It is explicitly **not** raw `sky triangle intersections % 2`.
+
+## Review Disposition
+
+Monday review endorses the hard falsifiers, ambiguity policy, complete-world
+baseline and historical-causality fence, and recommends authorizing shadow-only
+Slices 0–2 exactly as written. This review does not itself start implementation.
+
+The operational decision tree is binding:
+
+```text
+Slice 1: can semantic Enter and Exit be proved?
+    no  → park parity or rename the surviving one-way hypothesis
+    yes ↓
+
+Slice 2: do all ten exact controls agree?
+    no  → falsified; do not add per-ray exceptions
+    yes ↓
+
+Slice 3: can a genuine Exit and adversarial controls survive?
+    no  → bounded one-way mask at best
+    yes → return complete evidence to AR-0030
+```
+
+Slice 3 is conditional work, not pre-authorized by the recommendation. Slice
+1 may terminate the study before the ten-ray parity gate if Doom cannot supply
+honest oriented transitions. Unknown initial state remains `Ambiguous → World`;
+it cannot be selected merely to improve a screenshot.
 
 ## Why This Study Exists
 
