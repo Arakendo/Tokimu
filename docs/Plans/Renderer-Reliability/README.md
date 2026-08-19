@@ -2,11 +2,17 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete |
-| Controlling plan | [Renderer Resource Identity And Failure Presentation](renderer-resource-identity-and-failure-presentation.md) |
-| Related reviews | AR-0024 and AR-0027 |
-| Current disposition | Application-local identity, recovery, and diagnostic presentation retained; no shared contract admitted |
-| Next action | Reopen on an independent caller or stronger cross-lifetime requirement |
+| Status | Reopened -- scene-resource lifetime study ready |
+| Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
+| Related reviews | AR-0024, AR-0027, and AR-0030 |
+| Current disposition | Earlier identity/failure plan remains complete with no shared allocation contract; repeated browser composition replacement now supplies stronger cross-lifetime pressure |
+| Next action | Execute lifetime-plan Slices 1 and 2 before admitting reset, release, arena, or generation vocabulary |
+
+The completed
+[resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)
+retains its no-admission disposition. The new lifetime plan does not reopen
+application-owned handle allocation by default; it separates logical identity
+from physical renderer/provider residency.
 
 Alternative designs live in [Studies](Studies/). Native/browser lifecycle,
 containment, and diagnostic observations live in [Evidence](Evidence/).

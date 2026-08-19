@@ -1441,7 +1441,9 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
           it now completes CPU preparation, drops the old canvas backend, and
           only then creates the replacement. Input pacing and retained provider
           diagnostics remain additional containment.
-      - [ ] Resolve repeated-map GPU lifetime before treating rotation as
+      - [ ] Resolve repeated-map GPU lifetime through the
+            [renderer scene-resource lifetime and replacement plan](../Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md)
+            before treating rotation as
             accepted. E1M3 survived after eliminating simultaneous canvas
             surfaces, but a later E1M5/E1M6 switch still closed the Edge test
             window. Each switch currently creates a fresh WGPU device/backend;
