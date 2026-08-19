@@ -295,6 +295,9 @@ struct App {
     /// Experimental live realization of exact final source-cell support as
     /// finite ordinary world-space declarations.
     source_occurrence_support_filter: bool,
+    /// Experimental family-isolated preparation: final ordered wall
+    /// fragments over untouched global-full planes.
+    final_wall_occurrence_filter: bool,
     /// Immutable decoded/source preparation input retained by strategies B/C.
     /// The runtime changes only the explicit viewer pose passed to the Doom
     /// preparation; it does not mutate this source snapshot or teach the

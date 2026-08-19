@@ -5,6 +5,7 @@
 //! into engine crates.
 
 use super::super::*;
+use crate::render_strategies::final_wall_occurrence_global_planes;
 use crate::render_strategies::source_covered_global_shell;
 use crate::render_strategies::source_occurrence_supported;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
@@ -62,7 +63,21 @@ impl App {
         // preparer receives only their already-current sector-height facts.
         let runtime_map = self.current_doom_visibility_map()?;
         let (mut opaque_draws, mut cutout_draws, conservation_report, preparation_mode) =
-            if self.source_occurrence_support_filter {
+            if self.final_wall_occurrence_filter {
+                let prepared = final_wall_occurrence_global_planes::prepare(
+                    source,
+                    &runtime_map,
+                    view.source_position,
+                    view.source_heading_radians,
+                    view.eye_height as i16,
+                )?;
+                (
+                    prepared.opaque_draws,
+                    prepared.cutout_draws,
+                    prepared.report,
+                    "final-wall-occurrence-global-planes",
+                )
+            } else if self.source_occurrence_support_filter {
                 let prepared = source_occurrence_supported::prepare(
                     source,
                     &runtime_map,
@@ -1509,7 +1524,7 @@ impl App {
         );
         let mut global_control_opaque = Vec::new();
         let mut global_control_cutout = Vec::new();
-        if self.source_occurrence_support_filter {
+        if self.source_occurrence_support_filter || self.final_wall_occurrence_filter {
             if let Some(source) = self.ordered_coverage_source.as_ref() {
                 global_control_opaque = source.opaque_draws.clone();
                 global_control_cutout = source.cutout_draws.clone();
@@ -1619,7 +1634,7 @@ impl App {
         };
         let global_control = global_control_hit.map_or_else(
             || {
-                if self.source_occurrence_support_filter {
+                if self.source_occurrence_support_filter || self.final_wall_occurrence_filter {
                     "global_full_control=no-hit".to_owned()
                 } else {
                     "global_full_control=not-applicable".to_owned()

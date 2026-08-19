@@ -9,6 +9,7 @@ pub(super) fn apply(_scene: &mut SceneInput) -> PlatformResult<AppliedRenderStra
         ordered_coverage_prepared: false,
         source_covered_domain_filter: false,
         source_occurrence_support_filter: false,
+        final_wall_occurrence_filter: false,
         fixed_reconstruction_camera: false,
     })
 }

@@ -9,6 +9,7 @@ mod candidate_policy_reports;
 mod candidate_reports;
 mod candidate_trace_reports;
 mod command;
+mod final_wall_occurrence;
 mod look;
 mod ordered_causality;
 mod render_subsector;
@@ -35,6 +36,7 @@ pub(super) use candidate_trace_reports::{
     report_candidate_position_trace, report_candidate_turn_trace,
 };
 pub(super) use command::{parse_debug_command, DebugCommand, NoclipAction};
+pub(super) use final_wall_occurrence::report_final_wall_occurrence_global_planes;
 pub(super) use look::{
     format_look_ray_observation, format_source_classic_plane_span_support,
     format_source_classic_ray_trace, nearest_prepared_ray_hit, nearest_sky_boundary_ray_hit,

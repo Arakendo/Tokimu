@@ -191,6 +191,9 @@ pub(crate) fn run() -> PlatformResult<()> {
     let sky_occlusion_correlation_report = args
         .iter()
         .any(|argument| argument == "--sky-occlusion-correlation-report");
+    let final_wall_occurrence_report = args
+        .iter()
+        .any(|argument| argument == "--final-wall-occurrence-report");
     let ordered_occurrence_live_refresh_report = args
         .iter()
         .any(|argument| argument == "--ordered-occurrence-live-refresh-report");
@@ -437,6 +440,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--source-occurrence-live-report");
     args.retain(|argument| argument != "--sky-transition-parity-report");
     args.retain(|argument| argument != "--sky-occlusion-correlation-report");
+    args.retain(|argument| argument != "--final-wall-occurrence-report");
     args.retain(|argument| argument != "--ordered-occurrence-live-refresh-report");
     args.retain(|argument| argument != "--moving-floor-resource-replay-report");
     args.retain(|argument| argument != "--door-resource-replay-report");
@@ -636,6 +640,10 @@ pub(crate) fn run() -> PlatformResult<()> {
     }
     if sky_occlusion_correlation_report {
         report_one_way_sky_occlusion_correlation(&scene)?;
+        return Ok(());
+    }
+    if final_wall_occurrence_report {
+        report_final_wall_occurrence_global_planes(&scene)?;
         return Ok(());
     }
     if ordered_occurrence_live_refresh_report {
@@ -1220,6 +1228,8 @@ pub(crate) fn run() -> PlatformResult<()> {
             .is_some_and(|applied| applied.source_covered_domain_filter),
         source_occurrence_support_filter: applied_trial_strategy
             .is_some_and(|applied| applied.source_occurrence_support_filter),
+        final_wall_occurrence_filter: applied_trial_strategy
+            .is_some_and(|applied| applied.final_wall_occurrence_filter),
         ordered_coverage_source: runtime_ordered_coverage_source,
         ordered_preparation_identity: None,
         fixed_reconstruction_camera: applied_trial_strategy

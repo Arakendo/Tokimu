@@ -2074,6 +2074,24 @@ The review moves away from shared admission when:
   expansion. Sky-before correlation may remain a diagnostic trigger for
   independent ordered-source scrutiny, but has no omission authority.
 
+### Cycle 54 -- 2026-08-18
+
+- After closing sky-derived rejection, the next corpus-private A/B isolates
+  the contribution family with exact final provenance: ordered wall fragments
+  over untouched global-full planes.
+- The preparer consumes the actual view/runtime map snapshot, lowers only
+  final ordered wall declarations, and retains all 853 global-full plane
+  declarations identically. Any unresolved wall preparation fails open to the
+  complete global opaque/cutout sets before atomic replacement.
+- The exact headless gate passes `5/5`: wall 241 remains absent; wall 135
+  remains present; and walls 159, 160 and 203 from the sky-correlation
+  falsifiers remain present at their exact rays.
+- Two runs produce fingerprint `cb3ed7d517e1b942`; family conservation is
+  balanced and the renderer continues to receive ordinary declarations only.
+- The opt-in `final-wall-occurrence-global-planes` strategy is ready for human
+  walkabout. It is evidence about wall-family preparation only and grants no
+  plane, sky or provider-neutral visibility decision.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
