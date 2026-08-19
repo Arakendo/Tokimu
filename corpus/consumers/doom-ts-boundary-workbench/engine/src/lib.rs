@@ -45,10 +45,11 @@ use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, Te
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
     BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color, ColorWriteMask,
-    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d, Material,
-    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand,
-    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, StencilMode, TextureAddressMode,
-    TextureFilter, TextureHandle, TextureSampler, WgpuBackend,
+    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand,
+    ExperimentalSceneResourceResetObservation, Instance2d, Material, MaterialHandle, Mesh,
+    MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand, Renderer,
+    Rgba8TextureColorSpace, Rgba8TextureDescriptor, StencilMode, TextureAddressMode, TextureFilter,
+    TextureHandle, TextureSampler, WgpuBackend,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu_core::math::Vec3;
@@ -177,6 +178,7 @@ struct WorkingLifetimeObservation {
     backend_creations: u64,
     device_creations: u64,
     surface_creations: u64,
+    scene_resets: u64,
     retired_sets: u64,
     retired_resources: WorkingLogicalResources,
 }
@@ -332,7 +334,21 @@ impl BrowserIntakeSession {
         canvas: HtmlCanvasElement,
         map_name: &str,
     ) -> Result<String, JsValue> {
-        self.render_working_map_inner(canvas, map_name)
+        self.render_working_map_inner(canvas, map_name, false)
+            .await
+            .map_err(js_error)
+    }
+
+    /// Presents the same corpus-private working model while replacing its
+    /// logical resources inside one retained WGPU provider session. This is
+    /// Alternative-B evidence, not an admitted browser renderer contract.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn render_working_map_retained_session(
+        &mut self,
+        canvas: HtmlCanvasElement,
+        map_name: &str,
+    ) -> Result<String, JsValue> {
+        self.render_working_map_inner(canvas, map_name, true)
             .await
             .map_err(js_error)
     }
@@ -487,6 +503,7 @@ impl BrowserIntakeSession {
         &mut self,
         canvas: HtmlCanvasElement,
         map_name: &str,
+        retain_provider_session: bool,
     ) -> Result<String, String> {
         self.working_lifetime.replacement_attempts =
             self.working_lifetime.replacement_attempts.saturating_add(1);
@@ -696,22 +713,48 @@ impl BrowserIntakeSession {
                 .sum::<u64>()
                 .saturating_add(sky_texture.rgba8.len() as u64),
         };
-        // CPU preparation above can coexist with the currently presented map,
-        // but two WGPU surface backends must not own the same canvas. Release
-        // the previous GPU realization before requesting its replacement.
+        // CPU preparation above coexists with the current map. Alternative A
+        // then replaces the whole backend; the private Alternative-B path
+        // keeps its provider session but retires the old logical scene before
+        // uploading the successor. The latter is intentionally not claimed to
+        // preserve the last-known-good scene if GPU staging fails.
+        let mut retained_renderer = None;
+        let mut reset_observation: Option<ExperimentalSceneResourceResetObservation> = None;
         if let Some(previous) = self.working_model.take() {
             self.working_lifetime.retire(previous.logical_resources);
-            drop(previous);
+            if retain_provider_session && previous.width == width && previous.height == height {
+                let BrowserWorkingModel {
+                    mut renderer,
+                    logical_resources: _,
+                    commands: _,
+                    position: _,
+                    yaw: _,
+                    pitch: _,
+                    width: _,
+                    height: _,
+                    far_plane: _,
+                } = previous;
+                let observation = renderer.experimental_reset_scene_resources();
+                self.working_lifetime.scene_resets =
+                    self.working_lifetime.scene_resets.saturating_add(1);
+                reset_observation = Some(observation);
+                retained_renderer = Some(renderer);
+            }
         }
-        let mut renderer = WgpuBackend::for_window(canvas, width, height)
-            .await
-            .map_err(|error| error.to_string())?;
-        self.working_lifetime.backend_creations =
-            self.working_lifetime.backend_creations.saturating_add(1);
-        self.working_lifetime.device_creations =
-            self.working_lifetime.device_creations.saturating_add(1);
-        self.working_lifetime.surface_creations =
-            self.working_lifetime.surface_creations.saturating_add(1);
+        let mut renderer = if let Some(renderer) = retained_renderer {
+            renderer
+        } else {
+            let renderer = WgpuBackend::for_window(canvas, width, height)
+                .await
+                .map_err(|error| error.to_string())?;
+            self.working_lifetime.backend_creations =
+                self.working_lifetime.backend_creations.saturating_add(1);
+            self.working_lifetime.device_creations =
+                self.working_lifetime.device_creations.saturating_add(1);
+            self.working_lifetime.surface_creations =
+                self.working_lifetime.surface_creations.saturating_add(1);
+            renderer
+        };
         let adapter_name = renderer.adapter_name().to_owned();
         let backend_api = renderer.backend_api();
         let device_kind = renderer.device_kind();
@@ -980,8 +1023,13 @@ impl BrowserIntakeSession {
             far_plane,
         });
 
+        let lifetime_alternative = if retain_provider_session {
+            "adapter-private-scene-reset"
+        } else {
+            "whole-backend-replacement"
+        };
         Ok(format!(
-            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-baseline=whole-backend-replacement; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; physical-gpu-reclamation=unobserved",
+            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-alternative={}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; scene-resets={}; reset-observation={:?}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retained-provider-session={}; physical-gpu-reclamation=unobserved",
             map.map_name,
             draws.len(),
             cutout_draws.len(),
@@ -991,11 +1039,14 @@ impl BrowserIntakeSession {
             surface_bake.audit.edge_conformance_insertions,
             width,
             height,
+            lifetime_alternative,
             self.working_lifetime.replacement_attempts,
             self.working_lifetime.replacements_presented,
             self.working_lifetime.backend_creations,
             self.working_lifetime.device_creations,
             self.working_lifetime.surface_creations,
+            self.working_lifetime.scene_resets,
+            reset_observation,
             logical_resources.meshes,
             logical_resources.textures,
             logical_resources.materials,
@@ -1020,6 +1071,7 @@ impl BrowserIntakeSession {
             self.working_lifetime
                 .retired_resources
                 .source_texture_payload_bytes,
+            retain_provider_session,
         ))
     }
 

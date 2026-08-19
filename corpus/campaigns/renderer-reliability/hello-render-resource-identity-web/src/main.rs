@@ -140,6 +140,10 @@ impl BrowserReplacementPressure {
                 viewport: None,
             }));
         }
+        // Preserve the existing meaning of same-handle replacement inside one
+        // live set. This is distinct from reusing the same numeric handle in a
+        // successor set after reset.
+        renderer.upload_mesh(MeshHandle(1), &Mesh::diamond());
         renderer.begin_frame();
         renderer.submit(&commands);
         let stats = renderer.present().map_err(js_debug)?;
@@ -166,6 +170,208 @@ impl BrowserReplacementPressure {
             stats.frame.draw_calls,
             width,
             height,
+        ))
+    }
+
+    /// Replaces one scene's logical resource set while retaining the WGPU
+    /// adapter/device/queue/surface session. This is the private Alternative-B
+    /// prototype, not a stable renderer lifecycle contract.
+    pub async fn replace_scene_retained(
+        &mut self,
+        canvas: HtmlCanvasElement,
+        scene_index: u32,
+    ) -> Result<String, JsValue> {
+        const RESOURCE_COUNT: u64 = 64;
+        const TEXTURE_WIDTH: u32 = 16;
+        const TEXTURE_HEIGHT: u32 = 16;
+        self.replacement_attempts = self.replacement_attempts.saturating_add(1);
+
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        let (mut renderer, reset) = if let Some(mut retained) = self.renderer.take() {
+            self.retired_logical_sets = self.retired_logical_sets.saturating_add(1);
+            let reset = retained.experimental_reset_scene_resources();
+            (retained, Some(reset))
+        } else {
+            let renderer = WgpuBackend::for_window(canvas, width, height)
+                .await
+                .map_err(js_debug)?;
+            self.backend_creations = self.backend_creations.saturating_add(1);
+            (renderer, None)
+        };
+        let backend = renderer.backend_api();
+        let device = renderer.device_kind();
+        let adapter = renderer.adapter_name().to_owned();
+        let pipeline = renderer
+            .register_pipeline(&Pipeline::new(
+                "resource-lifetime-browser-pressure",
+                PipelineKind::LitColor3d,
+            ))
+            .map_err(js_debug)?;
+        renderer.upload_camera(CameraHandle(1), Camera::default());
+
+        let descriptor = Rgba8TextureDescriptor::new(
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+            Rgba8TextureColorSpace::Srgb,
+        );
+        let mut commands = Vec::with_capacity(RESOURCE_COUNT as usize + 1);
+        let mut mesh_vertex_bytes = 0_u64;
+        commands.push(RenderCommand::Clear(ClearCommand {
+            color: Color::rgb(0.01, 0.015, 0.02),
+        }));
+        for resource_index in 0..RESOURCE_COUNT {
+            let mesh = MeshHandle(resource_index + 1);
+            let texture = TextureHandle(resource_index + 1);
+            let material = MaterialHandle(resource_index + 1);
+            let shade = scene_index
+                .wrapping_mul(31)
+                .wrapping_add(resource_index as u32 * 17) as u8;
+            let mut rgba8 = vec![0_u8; (TEXTURE_WIDTH * TEXTURE_HEIGHT * 4) as usize];
+            for pixel in rgba8.chunks_exact_mut(4) {
+                pixel.copy_from_slice(&[shade, shade.wrapping_add(73), 255 - shade, 255]);
+            }
+            renderer
+                .create_texture_rgba8(texture, descriptor, &rgba8)
+                .map_err(js_debug)?;
+            renderer
+                .upload_material(
+                    material,
+                    &Material::new(
+                        format!("replacement-{scene_index}-material-{resource_index}"),
+                        Color::rgb(1.0, 1.0, 1.0),
+                    )
+                    .with_texture(texture),
+                )
+                .map_err(js_debug)?;
+            let mesh_value = if (scene_index + resource_index as u32) % 2 == 0 {
+                Mesh::triangle()
+            } else {
+                Mesh::diamond()
+            };
+            mesh_vertex_bytes =
+                mesh_vertex_bytes.saturating_add(mesh_value.positions.len() as u64 * 8 * 4);
+            renderer.upload_mesh(mesh, &mesh_value);
+            let column = (resource_index % 8) as f32;
+            let row = (resource_index / 8) as f32;
+            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh,
+                material,
+                pipeline,
+                instance: Instance2d::new(
+                    [-0.875 + column * 0.25, -0.875 + row * 0.25],
+                    [0.1, 0.1],
+                    0.0,
+                ),
+                camera: Some(CameraHandle(1)),
+                viewport: None,
+            }));
+        }
+        renderer.begin_frame();
+        renderer.submit(&commands);
+        let stats = renderer.present().map_err(js_debug)?;
+        if let Some(record) = renderer.drain_diagnostics().into_iter().next() {
+            return Err(JsValue::from_str(&format!(
+                "replacement-pressure WebGPU diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            )));
+        }
+        self.replacements_presented = self.replacements_presented.saturating_add(1);
+        self.renderer = Some(renderer);
+
+        Ok(format!(
+            "status=presented; caller=non-doom-resource-lifetime-pressure; lifetime-alternative=adapter-private-scene-reset; scene-index={scene_index}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; current-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{}]; retired-logical-sets={}; reset-observation={reset:?}; retained-provider-session=true; retained-instance-bindings={}; in-set-same-handle-replacements={}; physical-gpu-reclamation=unobserved; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; draws={}; backend={backend}; device={device}; adapter={adapter}; canvas={}x{}",
+            self.replacement_attempts,
+            self.replacements_presented,
+            self.backend_creations,
+            self.backend_creations,
+            self.backend_creations,
+            commands.len(),
+            self.retired_logical_sets,
+            reset.map_or(0, |value| value.retained_instance_bindings),
+            stats.lifetime.mesh_replacements,
+            mesh_vertex_bytes,
+            RESOURCE_COUNT * u64::from(TEXTURE_WIDTH) * u64::from(TEXTURE_HEIGHT) * 4,
+            stats.frame.draw_calls,
+            width,
+            height,
+        ))
+    }
+
+    /// Submits a command whose bare handles are indistinguishable from an old
+    /// scene's handles after those numeric values have been reused by the
+    /// current scene. Successful presentation is the B stale-identity
+    /// falsifier: the backend cannot reject the old command as old.
+    pub fn probe_retained_cross_set_aliasing(&mut self) -> Result<String, JsValue> {
+        if self.retired_logical_sets == 0 {
+            return Err(JsValue::from_str(
+                "run at least two retained-session replacements before probing aliasing",
+            ));
+        }
+        let renderer = self
+            .renderer
+            .as_mut()
+            .ok_or_else(|| JsValue::from_str("no retained scene is available"))?;
+        renderer.begin_frame();
+        renderer.submit(&[
+            RenderCommand::Clear(ClearCommand {
+                color: Color::rgb(0.01, 0.015, 0.02),
+            }),
+            RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(1),
+                material: MaterialHandle(1),
+                pipeline: tokimu::PipelineHandle(0),
+                instance: Instance2d::identity(),
+                camera: Some(CameraHandle(1)),
+                viewport: None,
+            }),
+        ]);
+        let stats = renderer.present().map_err(js_debug)?;
+
+        Ok(format!(
+            "status=falsified; lifetime-alternative=adapter-private-scene-reset; requirement=deterministic-cross-set-stale-handle-rejection; old-command-handles=[mesh:1,material:1,pipeline:0,camera:1]; successor-handles=[mesh:1,material:1,pipeline:0,camera:1]; result=old-command-resolved-successor-resources; draws={}; cross-set-aliasing=true; generation-evidence=absent",
+            stats.frame.draw_calls,
+        ))
+    }
+
+    /// Demonstrates Alternative B's atomicity limit by forcing staging to fail
+    /// after the old logical set has already been retired, then attempting to
+    /// resolve an old-scene draw.
+    pub fn probe_retained_reset_atomicity(&mut self) -> Result<String, JsValue> {
+        let mut renderer = self
+            .renderer
+            .take()
+            .ok_or_else(|| JsValue::from_str("render a retained scene before probing atomicity"))?;
+        let reset = renderer.experimental_reset_scene_resources();
+        let descriptor = Rgba8TextureDescriptor::new(1, 1, Rgba8TextureColorSpace::Srgb);
+        renderer
+            .create_texture_rgba8(TextureHandle(1), descriptor, &[255, 0, 255, 255])
+            .map_err(js_debug)?;
+        let staging_failure = renderer
+            .create_texture_rgba8(TextureHandle(1), descriptor, &[0, 0, 0, 255])
+            .expect_err("duplicate texture must force successor staging failure");
+
+        renderer.begin_frame();
+        renderer.submit(&[
+            RenderCommand::Clear(ClearCommand {
+                color: Color::rgb(0.01, 0.015, 0.02),
+            }),
+            RenderCommand::DrawMesh(DrawMeshCommand {
+                mesh: MeshHandle(1),
+                material: MaterialHandle(1),
+                pipeline: tokimu::PipelineHandle(0),
+                instance: Instance2d::identity(),
+                camera: Some(CameraHandle(1)),
+                viewport: None,
+            }),
+        ]);
+        let old_scene_resolution = renderer
+            .present()
+            .expect_err("retired old-scene handles must not resolve");
+        self.renderer = Some(renderer);
+
+        Ok(format!(
+            "status=falsified; lifetime-alternative=adapter-private-scene-reset; requirement=atomic-last-known-good-replacement; reset-observation={reset:?}; forced-successor-staging-failure={staging_failure:?}; old-scene-after-failure={old_scene_resolution:?}; stale-handle-rejection=deterministic; last-known-good-preserved=false; physical-gpu-reclamation=unobserved"
         ))
     }
 }

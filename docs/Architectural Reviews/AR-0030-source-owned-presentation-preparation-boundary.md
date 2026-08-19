@@ -2662,6 +2662,19 @@ The review moves away from shared admission when:
   mechanics only; it does not broaden Doom preparation or AR-0030's renderer
   boundary.
 
+### Cycle 81 -- 2026-08-19
+
+- The feature-gated Alternative-B reset retains one WGPU provider session and
+  replaces only logical presentation resources. Doom preparation, grouped-sky
+  parity, commands, and application-owned map selection remain unchanged.
+- The reset inventory confirms the axis separation: submission/view-local
+  preparation is not the same lifetime as composition resources, and
+  composition resources are not the same lifetime as the provider session.
+- B nevertheless fails the planned atomicity and cross-set stale-identity
+  requirements by construction. This does not move either problem into Doom
+  preparation or authorize the renderer to own scene membership. It earns a
+  bounded candidate/current resource-set comparison under the lifetime plan.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

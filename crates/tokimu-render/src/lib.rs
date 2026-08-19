@@ -51,6 +51,8 @@ pub use shader::{
 pub use texture::{
     Rgba8TextureColorSpace, Rgba8TextureDescriptor, Texture, TextureValidationError,
 };
+#[cfg(feature = "experimental-scene-resource-reset")]
+pub use wgpu_backend::ExperimentalSceneResourceResetObservation;
 pub use wgpu_backend::{
     RenderTargetReplacement, RenderTargetResourceObservation, WgpuBackend, WgpuBackendError,
 };

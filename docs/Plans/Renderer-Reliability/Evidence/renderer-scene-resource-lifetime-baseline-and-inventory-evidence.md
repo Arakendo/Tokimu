@@ -246,3 +246,64 @@ Slice 1 is accepted with both automated controls plus the earlier adverse
 manual Doom walkabout. No shared renderer contract is admitted by this
 evidence. The plan may now advance to the feature-gated, corpus-private
 Alternative B prototype.
+
+## Alternative-B Prototype Boundary
+
+The feature-gated `experimental-scene-resource-reset` seam now clears the
+complete logical scene graph in dependency order while retaining the WGPU
+instance/device/queue/surface, diagnostics, statistics, and the draw-indexed
+instance-binding high-water cache:
+
+```text
+queued draws / renderables
+    -> derived materials / materials
+    -> textures
+
+meshes / compiled pipelines / pipeline-label registry
+cameras / camera bindings / active camera
+submission-local meshes when enabled
+    -> cleared
+
+instance / device / queue / surface
+diagnostic sink / statistics / instance-binding high-water cache
+    -> retained
+```
+
+The returned observation reports the logical counts removed and the retained
+instance-binding count. It explicitly reports no physical GPU reclamation.
+Both the Doom workbench and the independent fixture can run 27 replacements
+through this retained session without changing their preparation or draw
+declarations.
+
+Static inspection already identifies two exact Alternative-B sufficiency-gate
+falsifiers, both exposed as live browser probes:
+
+1. Reset retires the preceding logical set before successor GPU staging. If
+   staging fails, the previous scene is no longer addressable; B therefore
+   cannot provide atomic last-known-good replacement.
+2. Mesh, material, pipeline, and camera commands contain bare numeric handles.
+   Once a successor set reuses those values, an old command is
+   indistinguishable from a current command and resolves successor resources;
+   B therefore cannot provide cross-set stale-handle rejection.
+
+Immediate post-reset missing-handle errors remain deterministic, but they are
+not generation safety. The browser probes are retained to confirm the actual
+provider path and to distinguish these semantic failures from a reset crash.
+Alternative C is earned only by these two concrete failures, not by a general
+preference for arena vocabulary.
+
+Validation retained for this increment:
+
+- `cargo test -p tokimu-render --features experimental-scene-resource-reset`
+  (64 passed)
+- native `tokimu-render` clippy with the experimental feature and warnings
+  denied
+- independent fixture release WASM build and generated-binding refresh
+- Doom workbench WASM build, generated-binding refresh, TypeScript build, and
+  strict typecheck
+- JavaScript syntax checks for both browser fixtures
+
+WASM-target clippy remains blocked by the pre-existing
+`arc_with_non_send_sync` findings for WGPU texture views and samplers. The
+feature compiles for WASM; this increment neither introduced nor suppresses
+those findings.

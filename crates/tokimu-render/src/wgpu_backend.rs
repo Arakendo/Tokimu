@@ -39,6 +39,29 @@ pub struct RenderTargetReplacement {
     pub invalidated_derived_materials: u32,
 }
 
+/// Adapter-private evidence from the experimental whole-scene logical reset.
+///
+/// This does not promise immediate physical GPU reclamation. WGPU may retain
+/// submitted resources until its own completion boundary. The experiment only
+/// proves that the backend no longer resolves the retired scene's logical
+/// handles while retaining its provider session and surface.
+#[cfg(feature = "experimental-scene-resource-reset")]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ExperimentalSceneResourceResetObservation {
+    pub queued_draws: u32,
+    pub renderables: u32,
+    pub derived_materials: u32,
+    pub materials: u32,
+    pub textures: u32,
+    pub meshes: u32,
+    pub pipelines: u32,
+    pub pipeline_labels: u32,
+    pub cameras: u32,
+    pub camera_bindings: u32,
+    pub submission_local_meshes: u32,
+    pub retained_instance_bindings: u32,
+}
+
 /// A backend-local snapshot of renderer-owned offscreen target storage.
 ///
 /// The estimates count the RGBA8 color image and matching `Depth32Float`
@@ -216,6 +239,56 @@ impl WgpuBackend {
 
     pub fn set_active_camera(&mut self, handle: crate::resources::CameraHandle) {
         self.active_camera = handle;
+    }
+
+    /// Retires all logical resources owned by the current scene while keeping
+    /// this backend's adapter, device, queue, surface, diagnostics, and
+    /// provider-session instance-binding cache.
+    ///
+    /// This is a corpus-only experiment. In particular, it is not an atomic
+    /// replacement contract: callers cannot stage a successor scene here
+    /// before the current scene is retired.
+    #[cfg(feature = "experimental-scene-resource-reset")]
+    #[doc(hidden)]
+    pub fn experimental_reset_scene_resources(
+        &mut self,
+    ) -> ExperimentalSceneResourceResetObservation {
+        let observation = ExperimentalSceneResourceResetObservation {
+            queued_draws: self.queued_draws.len() as u32,
+            renderables: self.renderables.len() as u32,
+            derived_materials: self.derived_materials.len() as u32,
+            materials: self.materials.len() as u32,
+            textures: self.textures.len() as u32,
+            meshes: self.meshes.len() as u32,
+            pipelines: self.pipelines.len() as u32,
+            pipeline_labels: self.pipeline_registry.label_count() as u32,
+            cameras: self.cameras.len() as u32,
+            camera_bindings: self.camera_bindings.len() as u32,
+            #[cfg(feature = "experimental-submission-local-geometry")]
+            submission_local_meshes: self.submission_local_meshes.len() as u32,
+            #[cfg(not(feature = "experimental-submission-local-geometry"))]
+            submission_local_meshes: 0,
+            retained_instance_bindings: self.instance_bindings.len() as u32,
+        };
+
+        // Clear owners before dependencies. Materials retain texture views,
+        // queued draws retain logical handles, and the registry owns pipeline
+        // label identity independently from compiled provider pipelines.
+        self.queued_draws.clear();
+        self.renderables.clear();
+        self.derived_materials.clear();
+        self.materials.clear();
+        self.textures.clear();
+        self.meshes.clear();
+        self.pipelines.clear();
+        self.pipeline_registry = PipelineRegistry::new();
+        self.cameras.clear();
+        self.camera_bindings.clear();
+        #[cfg(feature = "experimental-submission-local-geometry")]
+        self.submission_local_meshes.clear();
+        self.active_camera = CameraHandle::default();
+
+        observation
     }
 }
 

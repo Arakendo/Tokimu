@@ -461,3 +461,23 @@ demonstrated a second rendering API.
   corpus-private Alternative B prototype. Preserve Cycle 10's rejection of a
   stable renderer allocator/lifetime contract until B passes its sufficiency
   gate.
+
+### Cycle 14 -- 2026-08-19
+
+- Status entering review: Alternative B authorized privately after both
+  Alternative-A browser controls passed.
+- New evidence: `experimental-scene-resource-reset` now retires every
+  inventoried scene-owned WGPU collection in dependency order while retaining
+  the adapter/device/queue/surface session. Its bounded observation reports
+  logical removals and retained session-cache counts without claiming physical
+  reclamation. Doom and the independent fixture both expose 27-replacement
+  retained-session harnesses.
+- Findings: B has two exact sufficiency-gate falsifiers. Reset precedes GPU
+  staging and therefore cannot preserve the last-known-good scene after a
+  staging failure. Bare numeric handles reused by the successor also make an
+  old command indistinguishable from a current one; immediate missing-handle
+  rejection is not cross-set stale-identity safety.
+- Disposition: retain B as a feature-gated falsification fixture, not an
+  admitted lifecycle contract. These concrete atomicity and identity failures
+  earn investigation of Alternative C. Live browser execution remains needed
+  to confirm bounded retained-session operation and the provider-path probes.

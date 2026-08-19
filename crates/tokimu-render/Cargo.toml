@@ -7,6 +7,7 @@ repository.workspace = true
 
 [features]
 default = []
+experimental-scene-resource-reset = []
 experimental-submission-local-geometry = []
 
 [dependencies]

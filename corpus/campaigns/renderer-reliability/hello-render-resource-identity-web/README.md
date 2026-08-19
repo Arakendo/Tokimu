@@ -18,6 +18,20 @@ record distinguishes logical retirement from physical GPU reclamation, which
 remains unobserved. This is deliberately not a reset, arena, generation, or
 release contract.
 
+The feature-gated **Run 27 retained-session replacements** path is the private
+Alternative-B comparison. It retains one adapter/device/queue/surface while
+clearing and rebuilding the complete logical resource set. Two deliberately
+adversarial probes follow it:
+
+- **Probe retained-session stale aliasing** submits handles originating in the
+  earlier set after the successor reused the same numeric values;
+- **Probe retained-session atomicity** forces successor staging to fail after
+  reset, then asks whether the preceding scene can still resolve.
+
+These are falsification instruments. A successful reset cycle does not make
+the experimental reset seam stable, generational, atomic, or proof of physical
+GPU reclamation.
+
 Build and serve the fixture from the repository root:
 
 ```powershell
@@ -26,4 +40,6 @@ wasm-bindgen target/wasm32-unknown-unknown/release/hello-render-resource-identit
 python -m http.server 4177 --directory corpus/campaigns/renderer-reliability/hello-render-resource-identity-web/web
 ```
 
-Open `http://127.0.0.1:4177`, then select **Run browser identity fixture**.
+Open `http://127.0.0.1:4177`. Run the whole-backend and retained-session
+sequences on fresh pressure objects, then run the stale-aliasing probe before
+the destructive atomicity probe.

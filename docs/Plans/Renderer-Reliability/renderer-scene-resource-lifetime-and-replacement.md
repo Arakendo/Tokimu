@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- Slices 1 and 2 accepted; Alternative B authorized |
+| Status | In progress -- Slices 1 and 2 accepted; Alternative B implemented and under live falsification |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024 and AR-0030 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007 |
@@ -242,13 +242,13 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Validation
 
-- [ ] Every resource removed by a prototype is reachable from the inventory.
-- [ ] No material, bind group, command, or cached provider object retains an
+- [x] Every resource removed by a prototype is reachable from the inventory.
+- [x] No material, bind group, command, or cached provider object retains an
       undocumented reference into a retired resource set.
 
 ### Acceptance Criteria
 
-- [ ] A reviewer can identify the exact safe reset boundary without treating
+- [x] A reviewer can identify the exact safe reset boundary without treating
       `HashMap::clear`, Rust `Drop`, queue completion, and GPU-memory release as
       synonyms.
 
@@ -256,7 +256,7 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Deliverables
 
-- [ ] Prototype Alternative B first behind a private/experimental seam.
+- [x] Prototype Alternative B first behind a private/experimental seam.
 - [ ] Apply the B-first sufficiency gate before implementing C. Alternative B
       survives only if it demonstrates all of:
   - [ ] atomic last-known-good replacement;

@@ -5,6 +5,7 @@ const inspect = document.querySelector("#inspect");
 const render = document.querySelector("#render");
 const renderWorking = document.querySelector("#render-working");
 const runRotation = document.querySelector("#run-rotation");
+const runRetainedRotation = document.querySelector("#run-retained-rotation");
 const mapPrevious = document.querySelector("#map-previous");
 const mapNext = document.querySelector("#map-next");
 const workingMap = document.querySelector("#working-map");
@@ -17,7 +18,7 @@ const clear = document.querySelector("#clear");
 const input = document.querySelector("#package");
 const result = document.querySelector("#result");
 const canvas = document.querySelector("#scene");
-if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
+if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
     throw new Error("intake DOM is incomplete");
 const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"];
 let workingMapIndex = 0;
@@ -46,16 +47,19 @@ function updateWorkingMapControls() {
     renderWorking.disabled = !packageRetained;
     runRotation.disabled = !packageRetained;
     runRotation.textContent = "Run 3x map rotation";
+    runRetainedRotation.disabled = !packageRetained;
+    runRetainedRotation.textContent = "Run 3x retained-session rotation";
     mapPrevious.disabled = !packageRetained;
     mapNext.disabled = !packageRetained;
 }
 function nextAnimationFrame() {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
-async function runWorkingMapRotation() {
+async function runWorkingMapRotation(retainedSession = false) {
     if (workingRotationActive) {
         workingRotationCancellationRequested = true;
         runRotation.disabled = true;
+        runRetainedRotation.disabled = true;
         runRotation.textContent = "Stopping after current map...";
         return;
     }
@@ -78,6 +82,7 @@ async function runWorkingMapRotation() {
     mapPrevious.disabled = true;
     mapNext.disabled = true;
     runRotation.textContent = "Stop rotation";
+    runRetainedRotation.disabled = true;
     const records = [];
     let diagnostic;
     const started = performance.now();
@@ -99,7 +104,9 @@ async function runWorkingMapRotation() {
             await nextAnimationFrame();
             const replacementStarted = performance.now();
             try {
-                const observation = await session.render_working_map(canvas, episodeMaps[mapIndex]);
+                const observation = retainedSession
+                    ? await session.render_working_map_retained_session(canvas, episodeMaps[mapIndex])
+                    : await session.render_working_map(canvas, episodeMaps[mapIndex]);
                 records.push({
                     sequence,
                     round,
@@ -141,6 +148,7 @@ async function runWorkingMapRotation() {
         completedReplacements: records.length,
         elapsedMilliseconds: performance.now() - started,
         physicalGpuReclamation: "unobserved",
+        lifetimeAlternative: retainedSession ? "B-adapter-private-reset" : "A-whole-backend",
         diagnostic,
         records,
     }, null, 2);
@@ -204,6 +212,7 @@ clear.addEventListener("click", () => {
 });
 renderWorking.addEventListener("click", () => void renderCurrentWorkingMap());
 runRotation.addEventListener("click", () => void runWorkingMapRotation());
+runRetainedRotation.addEventListener("click", () => void runWorkingMapRotation(true));
 mapPrevious.addEventListener("click", () => {
     workingMapIndex = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
     void renderCurrentWorkingMap();
