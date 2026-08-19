@@ -19,6 +19,21 @@ fn active_thing_indices(active: &[bool]) -> impl Iterator<Item = usize> + '_ {
 }
 
 impl App {
+    fn emit_audio_event(&mut self, event: hello_doom_e1m1::sound::DoomGameplaySoundEvent) {
+        let Some(audio) = self.live_audio.as_mut() else {
+            return;
+        };
+        let diagnostic = match audio.emit(event) {
+            Ok(observation) => format!("{} {observation}", self.map_name),
+            Err(error) => format!(
+                "{} audio cue failed: {error}; gameplay-continues=true",
+                self.map_name
+            ),
+        };
+        eprintln!("{diagnostic}");
+        self.debug_console.append(diagnostic);
+    }
+
     pub(super) fn capture_gameplay_snapshot(&self) -> DoomGameplaySnapshot {
         DoomGameplaySnapshot {
             player_inventory: self.player_inventory,
@@ -86,6 +101,7 @@ impl App {
             return;
         }
         self.player_inventory.ammo[0] -= 1;
+        self.emit_audio_event(hello_doom_e1m1::sound::DoomGameplaySoundEvent::PlayerPistolFired);
         let damage = self.play_random.pistol_damage();
         let world_distance = self
             .draws
@@ -308,6 +324,16 @@ impl App {
                         );
                         eprintln!("{diagnostic}");
                         self.debug_console.append(diagnostic);
+                        self.emit_audio_event(
+                            hello_doom_e1m1::sound::DoomGameplaySoundEvent::MonsterAlert {
+                                source_thing: thing.source.record_index,
+                                source_position: [
+                                    state.source_position[0],
+                                    state.source_position[1],
+                                    f32::from(state.floor_height),
+                                ],
+                            },
+                        );
                     }
                 }
                 self.monster_runtime_states[index] = Some(state);
@@ -3236,6 +3262,15 @@ impl PlatformEventHandler for App {
         self.advance_active_moving_floors(delta_seconds);
         self.advance_scrolling_walls(delta_seconds);
         self.advance_thing_sprite_states(delta_seconds);
+        if let Some(diagnostic) = self
+            .live_audio
+            .as_mut()
+            .and_then(DoomLiveAudio::poll_diagnostic)
+        {
+            let diagnostic = format!("{} {diagnostic}", self.map_name);
+            eprintln!("{diagnostic}");
+            self.debug_console.append(diagnostic);
+        }
         self.refresh_ordered_coverage_for_observer()?;
         let sprite_mesh_uploads = self.refresh_thing_sprite_billboards()?;
         let frame_started = Instant::now();

@@ -114,6 +114,8 @@ use winit::window::CursorGrabMode;
 #[path = "static_scene/observer.rs"]
 mod observer;
 
+#[path = "static_scene/audio.rs"]
+mod audio;
 #[path = "static_scene/candidate_selection/mod.rs"]
 mod candidate_selection;
 #[path = "static_scene/controls/mod.rs"]
@@ -129,6 +131,7 @@ mod runtime;
 #[path = "static_scene/startup/mod.rs"]
 mod startup;
 
+use audio::*;
 use candidate_selection::*;
 use controls::{inspection_movement_delta, release_navigation_keys};
 use diagnostics::*;
@@ -226,6 +229,7 @@ struct App {
     launch_arguments: Vec<String>,
     map_rotation_exit_requested: bool,
     source_exit_level_requested: bool,
+    live_audio: Option<DoomLiveAudio>,
     discovered_secret_sectors: BTreeSet<u32>,
     secret_sector_total: usize,
     renderer: Option<WgpuBackend>,
@@ -379,6 +383,7 @@ struct OrderedPreparationIdentity {
 #[derive(Clone)]
 struct SceneInput {
     map_name: String,
+    audio_assets: Option<DoomLiveAudioAssets>,
     available_maps: Vec<String>,
     things: Vec<DoomThing>,
     sprite_frames: Vec<DoomSpriteFrameRotation>,
@@ -753,6 +758,7 @@ fn prepare_scene(
     audit_bsp_bounds: bool,
     source_boundary_trim: bool,
     sector_boundary_trim: bool,
+    prepare_audio: bool,
 ) -> PlatformResult<SceneInput> {
     let bytes = fs::read(package)?;
     let mut space =
@@ -786,6 +792,19 @@ fn prepare_scene(
         },
         &ZipArchiveProvider,
     )?;
+    let audio_assets = if prepare_audio {
+        match prepare_doom_live_audio_assets(&read.bytes, &read.observation.wad, map_name) {
+            Ok(assets) => Some(assets),
+            Err(error) => {
+                eprintln!(
+                    "{map_name} live audio preparation unavailable: {error}; gameplay-continues=true"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
     let selection = select_doom_episode_map(&read.observation.wad, map_name)?;
     let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)?;
     let sprite_frames = decode_doom_sprite_frame_rotations(&read.observation.wad)?;
@@ -1220,6 +1239,7 @@ fn prepare_scene(
     let cutout_draws = build_experimental_cutout_draw_plan(&cutouts, &cutout_uploads)?;
     Ok(SceneInput {
         map_name: map.map_name.clone(),
+        audio_assets,
         available_maps,
         things: map.things.clone(),
         sprite_frames,

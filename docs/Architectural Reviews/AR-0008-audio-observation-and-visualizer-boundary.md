@@ -461,6 +461,27 @@ Reopen or advance this review when:
   its native-output slice, the Doom checklist records audible reproduction,
   and no ADR or engine-crate admission is created.
 
+### Cycle 10 -- 2026-08-19
+
+- Status entering review: Incubating
+- New evidence: the native Doom walkabout accepts opt-in `--audio`, prepares a
+  bounded loop from the selected map score, and maps existing ammo-consuming
+  pistol and successful monster-wake events through logical `SoundRequest`
+  values into predecoded clips. A two-frame E1M1 smoke run opened the same
+  44.1-kHz stereo device, resolved both cues, and started `D_E1M1` while the
+  established grouped-sky/sector-boundary render composition remained active.
+- Participants or reviewers: Arakendo, Codex working review
+- Findings: an application can own when gameplay events become cues while the
+  provider owns device and callback execution. Audio-disabled startup remains
+  unchanged, and audio preparation/device/cue failure reports
+  `gameplay-continues=true`. The first mixer realizes spatial requests as
+  listener-relative and says so explicitly; it is not spatial-audio evidence.
+- Disposition: Incubating; opt-in Doom composition is accepted as consumer
+  pressure. Music replacement, deterministic cue-command replay, spatial
+  realization, browser playback, and stable capability admission remain open.
+- Resulting ADR or documentation change: the Doom checklist records the live
+  flag and reproduction command; no engine ownership or stable API changes.
+
 ## References
 
 - `docs/Plans/Standalone/audio-reactive-visualizers-and-milkdrop-compatibility.md`

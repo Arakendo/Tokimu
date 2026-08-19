@@ -1371,6 +1371,17 @@ Acceptance criteria:
         configuration, stream lifecycle, nominal buffer latency, xruns, and
         invalidation remain provider-attributed diagnostics. Production
         lock-free callback behavior remains unclaimed.
+  - [x] The native walkabout accepts opt-in `--audio`. It prepares a bounded
+        30-second loop from the selected map's `D_E#M#` score, then routes an
+        ammo-consuming pistol shot and a successful opt-in monster wake through
+        the existing logical Doom sound requests. Audio preparation/device/cue
+        failure is diagnosed while gameplay continues; omitting `--audio`
+        preserves the previous audio-free path.
+  - [x] The first E1M1 two-frame composition opened the 44.1-kHz stereo device,
+        resolved both admitted cues, started `D_E1M1`, and retained the grouped
+        sky and sector-boundary presentation. Spatial monster requests are
+        explicitly mixed listener-relative pending a separate spatial-audio
+        slice; this implementation does not imply positional realization.
 
 Acceptance criteria:
 
@@ -1392,6 +1403,12 @@ Native audible reproduction:
 
 ```text
 cargo run -p hello-doom-e1m1 --bin doom_audio_playback -- corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD
+```
+
+Opt-in walkabout with map music and gameplay cues:
+
+```text
+cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD --map=E1M1 --skywall-parity-full --sector-boundary-trim --monster-chase-live --audio
 ```
 
 ## Slice 11: Consumer And WASM Proof

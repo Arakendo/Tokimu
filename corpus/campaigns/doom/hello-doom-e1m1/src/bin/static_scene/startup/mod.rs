@@ -83,6 +83,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         .iter()
         .any(|argument| argument == "--walk-collision-report");
     let noclip = args.iter().any(|argument| argument == "--noclip");
+    let live_audio_requested = args.iter().any(|argument| argument == "--audio");
     let frustum_aabb = args.iter().any(|argument| argument == "--frustum-aabb");
     let frustum_grid = args
         .iter()
@@ -478,6 +479,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--no-walk-collision");
     args.retain(|argument| argument != "--walk-collision-report");
     args.retain(|argument| argument != "--noclip");
+    args.retain(|argument| argument != "--audio");
     args.retain(|argument| argument != "--frustum-aabb");
     args.retain(|argument| argument != "--frustum-grid-8x4x8");
     args.retain(|argument| argument != "--candidate-report");
@@ -562,7 +564,7 @@ pub(crate) fn run() -> PlatformResult<()> {
     args.retain(|argument| argument != "--embedding-current-reflected");
     let [package, member] = args.as_slice() else {
         return Err(
-            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full [--sector-boundary-trim]] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--monster-chase-live|--gameplay-snapshot-replay-report] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report|--monster-perception-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--thing-classification-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
+            "usage: static_scene <canonical-doom-zip> <WAD-member-name> [--map=E#M#] [--audio] [--render-strategy=a|b|c|global-full-submission|prepared-full-submission|prepared-frustum-filtered|ordered-occurrence-prepared-full|source-covered-global-shell|source-occurrence-supported] [--render-subsector-inventory-report|--render-subsector-shadow-report|--render-subsector-prepared-report|--render-subsector-connectivity-report] [--bsp-diagnostic-full] [--bsp-diagnostic-focus=all|accepted|rejected|unresolved] [--bsp-diagnostic-scan-report=<source-x,source-y,source-z,center-dx,center-dy,center-dz,width,height[,columns,rows]>] [--doom-bsp-bounds-audit-report] [--tokimu-spatial-bake-report|--tokimu-spatial-query-report] [--global-full-plus-view-local-sky-depth|--skywall-parity-full [--sector-boundary-trim]] [--exterior-hut-east-view --no-walk-collision] [--no-masked-cutouts] [--no-doom-sky|--diagnostic-sky-omissions] [--source-sky-plane-depth|--source-sky-plane-depth-global-control] [--overview-camera] [--spawn-yaw-plus-90] [--embedding-current-reflected|--embedding-east|--embedding-north] [--no-walk-collision] [--walk-collision-report] [--noclip] [--monster-chase-live|--gameplay-snapshot-replay-report] [--frustum-aabb] [--frustum-grid-8x4x8] [--doom-membership-union] [--doom-seg-per-column-dynamic|--doom-seg-classic-dynamic] [--candidate-report] [--candidate-turn-trace] [--candidate-position-trace] [--candidate-pathological-report] [--candidate-grid-report] [--candidate-temporal-report] [--doom-reject-report|--monster-perception-report] [--doom-topology-report] [--doom-membership-report] [--doom-seg-report] [--doom-seg-classic-admission-trace|--doom-seg-classic-bsp-trace|--doom-seg-classic-vertical-clip-trace|--doom-seg-classic-plane-identity-trace|--doom-seg-classic-plane-span-trace|--doom-seg-ordered-coverage-report|--doom-seg-ordered-coverage-pose-matrix|--doom-seg-ordered-coverage-presentation] [--flat-normal-report] [--special-activation-report] [--thing-classification-report] [--door-runtime-report] [--moving-floor-runtime-report|--moving-floor-resource-replay-report] [--ordered-occurrence-runtime-snapshot-report|--ordered-occurrence-prepared-report|--ordered-occurrence-six-ray-report|--ordered-occurrence-live-refresh-report|--ordered-non-presentation-causality-report|--source-occurrence-support-report|--source-occurrence-live-report|--neutral-pitch-positive-plane-report|--sky-transition-parity-report|--sky-occlusion-correlation-report|--grouped-sky-crossing-parity-report] [--door-resource-replay-report] [--spatial-orientation-report] [--spatial-landmark-candidates-report] [--spatial-flat-uv-report] [--hut-wall-candidates-report] [--wall-source-report=<linedef>] [--look-ray-report=<source-x,source-y,source-z,direction-x,direction-y,direction-z>] [--measure-two-frames]".into(),
         );
     };
     if (walk_collision || walk_collision_report) && !spawn_observer {
@@ -633,6 +635,7 @@ pub(crate) fn run() -> PlatformResult<()> {
         doom_bsp_bounds_audit_report,
         skywall_parity,
         sector_boundary_trim,
+        live_audio_requested,
     )?;
     if let Some(audit) = scene.source_bounded_surface_audit.as_ref() {
         eprintln!(
@@ -1367,6 +1370,21 @@ pub(crate) fn run() -> PlatformResult<()> {
         launch_arguments,
         map_rotation_exit_requested: false,
         source_exit_level_requested: false,
+        live_audio: scene.audio_assets.take().and_then(|assets| {
+            match DoomLiveAudio::open(assets) {
+                Ok((audio, diagnostic)) => {
+                    eprintln!("{} live {diagnostic}", scene.map_name);
+                    Some(audio)
+                }
+                Err(error) => {
+                    eprintln!(
+                        "{} live audio unavailable: {error}; gameplay-continues=true",
+                        scene.map_name
+                    );
+                    None
+                }
+            }
+        }),
         discovered_secret_sectors: BTreeSet::new(),
         secret_sector_total,
         renderer: None,

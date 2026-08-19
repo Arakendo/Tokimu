@@ -584,6 +584,13 @@ Deliverables:
       as distinct observations.
 - [ ] Add deterministic replay of the command sequence without live playback.
 
+Current refinement: the Doom walkabout now provides an opt-in live consumer.
+It selects the current map's music, requests decoded pistol and monster-alert
+cues from existing gameplay events, and keeps device/cue failure
+non-authoritative. The standalone audible proof exercises pause, resume, and
+stop. Music replacement across map rotation, application-command replay, and a
+fully provider-neutral cue catalog remain open, so this slice is not complete.
+
 Acceptance criteria:
 
 - [ ] Gameplay meaning remains application-owned.
