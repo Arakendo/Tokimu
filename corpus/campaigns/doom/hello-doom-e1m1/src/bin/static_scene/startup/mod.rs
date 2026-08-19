@@ -1091,7 +1091,11 @@ pub(crate) fn run() -> PlatformResult<()> {
         return Ok(());
     }
     if thing_classification_report {
-        report_doom_thing_classification(&scene.things);
+        report_doom_thing_classification(
+            &scene.things,
+            &scene.sprite_frames,
+            scene.spawn_observer.source_position,
+        );
         return Ok(());
     }
     if door_runtime_report {

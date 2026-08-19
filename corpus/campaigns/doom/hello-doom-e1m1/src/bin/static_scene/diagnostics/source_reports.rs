@@ -9,9 +9,15 @@ use super::ordered_causality::{
 };
 use super::tokimu_spatial_bake::SpatialRayShadow;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
-use hello_doom_e1m1::things::classify_e1m1_thing_kind;
+use hello_doom_e1m1::things::{
+    classify_e1m1_thing_kind, resolve_doom_sprite_patch, select_doom_sprite_view_rotation,
+};
 
-pub(crate) fn report_doom_thing_classification(things: &[DoomThing]) {
+pub(crate) fn report_doom_thing_classification(
+    things: &[DoomThing],
+    frames: &[DoomSpriteFrameRotation],
+    viewer: [i16; 2],
+) {
     let mut family_counts = BTreeMap::new();
     let mut kind_counts = BTreeMap::new();
     let mut unknown_counts = BTreeMap::new();
@@ -37,11 +43,14 @@ pub(crate) fn report_doom_thing_classification(things: &[DoomThing]) {
             classify_e1m1_thing_kind(*kind).map_or_else(
                 || format!("{kind}:unknown:{count}"),
                 |classification| {
+                    let sprite = match (classification.initial_sprite, classification.initial_frame)
+                    {
+                        (Some(root), Some(frame)) => format!("{root}{frame}"),
+                        _ => "none".to_owned(),
+                    };
                     format!(
-                        "{kind}:{}:{:?}:sprite={}:count={count}",
-                        classification.name,
-                        classification.family,
-                        classification.initial_sprite.unwrap_or("none"),
+                        "{kind}:{}:{:?}:sprite={sprite}:count={count}",
+                        classification.name, classification.family,
                     )
                 },
             )
@@ -49,10 +58,44 @@ pub(crate) fn report_doom_thing_classification(things: &[DoomThing]) {
         .collect::<Vec<_>>()
         .join(" | ");
     let unknown = unknown_counts.values().sum::<usize>();
+    let mut sprite_bearing = 0_usize;
+    let mut sprite_resolved = 0_usize;
+    let mut rotation_zero = 0_usize;
+    let mut mirrored = 0_usize;
+    let mut sprite_errors = Vec::new();
+    for source in things {
+        let Some(classification) = classify_e1m1_thing_kind(source.kind) else {
+            continue;
+        };
+        let (Some(sprite), Some(frame)) =
+            (classification.initial_sprite, classification.initial_frame)
+        else {
+            continue;
+        };
+        sprite_bearing += 1;
+        let rotation = select_doom_sprite_view_rotation(
+            [f64::from(viewer[0]), f64::from(viewer[1])],
+            [f64::from(source.x), f64::from(source.y)],
+            f64::from(source.angle),
+        );
+        match resolve_doom_sprite_patch(frames, sprite, frame, rotation) {
+            Ok(selection) => {
+                sprite_resolved += 1;
+                rotation_zero += usize::from(selection.source_rotation == 0);
+                mirrored += usize::from(selection.mirrored);
+            }
+            Err(error) => sprite_errors.push(format!(
+                "thing={}:kind={}:error={error:?}",
+                source.source.record_index, source.kind
+            )),
+        }
+    }
     println!(
-        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
+        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; sprite-bearing={sprite_bearing}; sprite-patches-resolved={sprite_resolved}; rotation-zero={rotation_zero}; view-rotated={}; mirrored-selections={mirrored}; sprite-errors=[{}]; billboard-policy=unrealized; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
         things.len(),
         things.len() - unknown,
+        sprite_resolved - rotation_zero,
+        sprite_errors.join(" | "),
     );
 }
 

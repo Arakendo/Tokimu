@@ -227,8 +227,10 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- `
   --map=E1M1 --thing-classification-report
 ```
 
-It classifies all 138 E1M1 `THINGS` records with retained flags and initial
-sprite-prefix evidence, but creates no actors or renderer declarations.
+It classifies all 138 E1M1 `THINGS` records with retained flags and exact
+initial sprite root/frame evidence, then resolves rotation-zero or eight-way
+source patches (including paired-lump mirroring) for the source-spawn view. It
+creates no actors or renderer declarations.
 Projectiles are reported separately as runtime-created objects, not invented
 as map-authored Things.
 

@@ -40,7 +40,8 @@ use doom_map_provider::{
     decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore, DoomSector, DoomThing,
 };
 use doom_raster_provider::{
-    DoomFlatDecodeLimits, DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomTextureComposeLimits,
+    decode_doom_sprite_frame_rotations, DoomFlatDecodeLimits, DoomPatchDecodeLimits,
+    DoomRasterDecodeLimits, DoomSpriteFrameRotation, DoomTextureComposeLimits,
     DoomTextureDecodeLimits,
 };
 use doom_wad_package::{
@@ -357,6 +358,7 @@ struct SceneInput {
     map_name: String,
     available_maps: Vec<String>,
     things: Vec<DoomThing>,
+    sprite_frames: Vec<DoomSpriteFrameRotation>,
     opaque_draws: Vec<StaticDrawPlanEntry>,
     opaque_uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
@@ -579,6 +581,7 @@ fn prepare_scene(
     )?;
     let selection = select_doom_episode_map(&read.observation.wad, map_name)?;
     let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)?;
+    let sprite_frames = decode_doom_sprite_frame_rotations(&read.observation.wad)?;
     let available_maps = read
         .observation
         .wad
@@ -907,6 +910,7 @@ fn prepare_scene(
         map_name: map.map_name.clone(),
         available_maps,
         things: map.things.clone(),
+        sprite_frames,
         opaque_draws: draws,
         opaque_uploads: uploads,
         cutout_draws,

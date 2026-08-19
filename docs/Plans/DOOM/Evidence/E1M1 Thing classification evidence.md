@@ -37,8 +37,22 @@ The report classifies all 138 source records across all 30 observed kinds:
 | Explosive props | 6 | 2035 |
 
 The retained result is `classified=138; unknown=0`. Each classified kind also
-records its initial sprite prefix when one exists, but that observation does
-not yet select a frame, rotation, billboard, animation, or material.
+records its exact initial sprite root and frame when one exists. This matters
+for the corpses: kinds 10/12 begin at `PLAYW`, and kind 15 begins at `PLAYN`,
+not at an invented frame A.
+
+The raster observation now retains horizontal mirroring for the second pair
+in an eight-character sprite lump, matching `R_InitSpriteDefs`. A corpus-local
+resolver applies the released `R_ProjectSprite` eight-way relative-angle rule
+and falls back to rotation zero only for non-rotating frames. At the E1M1
+source-spawn view it resolves all 129 sprite-bearing records: 100 use
+rotation-zero frames, 29 select an eight-way rotation, three select mirrored
+pairs, and no frame or rotation is missing. See id Software's released
+[`r_things.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/r_things.c).
+
+This is still source-selection evidence. Actual-camera vertical billboard
+meshes, patch offsets, categorical coverage, depth interaction, and pitched
+view behavior remain the next implementation refinement.
 
 ## Boundaries established
 

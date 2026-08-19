@@ -159,6 +159,9 @@ pub struct DoomSpriteFrameRotation {
     pub sprite: String,
     pub frame: char,
     pub rotation: u8,
+    /// The second frame/rotation pair in an eight-character lump name uses
+    /// the same patch with horizontal mirroring, matching `R_InitSpriteDefs`.
+    pub mirrored: bool,
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -745,6 +748,7 @@ pub fn decode_doom_sprite_frame_rotations(
                 sprite: sprite.clone(),
                 frame,
                 rotation: rotation - b'0',
+                mirrored: pair == 6,
             });
         }
     }
@@ -1603,7 +1607,9 @@ mod tests {
             ),
             ("TROO", 'A', 2)
         );
+        assert!(!frames[0].mirrored);
         assert_eq!((frames[1].frame, frames[1].rotation), ('A', 8));
+        assert!(frames[1].mirrored);
         assert_eq!(
             (
                 frames[2].sprite.as_str(),
@@ -1612,6 +1618,7 @@ mod tests {
             ),
             ("SARG", 'M', 0)
         );
+        assert!(!frames[2].mirrored);
         assert!(matches!(
             decode_doom_sprite_frame_rotations(&sprite_manifest(&["TROOA9"])),
             Err(DoomRasterDecodeError::InvalidSpriteName { .. })

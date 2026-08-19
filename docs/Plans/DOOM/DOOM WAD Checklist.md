@@ -1180,6 +1180,17 @@ Acceptance criteria:
         record that projectiles are runtime-created rather than authored
         `THINGS` records in E1M1.
 - [ ] Render sprites with frame, rotation, and billboard policy.
+  - [x] Retain the initial frame separately from the four-character sprite
+        root, including E1M1's `PLAYW` bloody-mess and `PLAYN` dead-player
+        records rather than assuming every Thing begins on frame A.
+  - [x] Retain second-pair horizontal mirroring from eight-character sprite
+        lump names and implement the reviewed eight-way view/Thing-angle
+        rotation selection. The source-spawn report resolves all 129
+        sprite-bearing E1M1 records: 100 rotation-zero, 29 view-rotated, with
+        three mirrored selections and no missing frame/rotation.
+  - [ ] Realize those selections as actual-camera vertical billboards with
+        source patch offsets, categorical coverage, depth, and a documented
+        pitched-view policy; preserve starts as non-rendered spawn markers.
 - [ ] Add deterministic thing state machines.
 - [ ] Add pickups, inventory, health, armor, ammo, and keys.
 - [ ] Add hitscan and projectile collision.

@@ -4,6 +4,8 @@
 //! registry. It preserves the distinction between map-authored spawn records
 //! and runtime-created objects such as projectiles.
 
+use doom_raster_provider::DoomSpriteFrameRotation;
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum DoomThingFamily {
     PlayerStart,
@@ -23,6 +25,7 @@ pub struct DoomThingKindClassification {
     pub name: &'static str,
     pub family: DoomThingFamily,
     pub initial_sprite: Option<&'static str>,
+    pub initial_frame: Option<char>,
 }
 
 const fn thing(
@@ -36,6 +39,10 @@ const fn thing(
         name,
         family,
         initial_sprite,
+        initial_frame: match initial_sprite {
+            Some(_) => Some('A'),
+            None => None,
+        },
     }
 }
 
@@ -61,15 +68,33 @@ pub const E1M1_THING_KINDS: &[DoomThingKindClassification] = &[
         None,
     ),
     thing(9, "shotgun-guy", DoomThingFamily::Monster, Some("SPOS")),
-    thing(10, "bloody-mess", DoomThingFamily::Decoration, Some("PLAY")),
+    DoomThingKindClassification {
+        kind: 10,
+        name: "bloody-mess",
+        family: DoomThingFamily::Decoration,
+        initial_sprite: Some("PLAY"),
+        initial_frame: Some('W'),
+    },
     thing(
         11,
         "deathmatch-start",
         DoomThingFamily::MultiplayerStart,
         None,
     ),
-    thing(12, "bloody-mess", DoomThingFamily::Decoration, Some("PLAY")),
-    thing(15, "dead-player", DoomThingFamily::Decoration, Some("PLAY")),
+    DoomThingKindClassification {
+        kind: 12,
+        name: "bloody-mess",
+        family: DoomThingFamily::Decoration,
+        initial_sprite: Some("PLAY"),
+        initial_frame: Some('W'),
+    },
+    DoomThingKindClassification {
+        kind: 15,
+        name: "dead-player",
+        family: DoomThingFamily::Decoration,
+        initial_sprite: Some("PLAY"),
+        initial_frame: Some('N'),
+    },
     thing(
         24,
         "pool-of-gibs",
@@ -160,6 +185,98 @@ pub fn classify_e1m1_thing_kind(kind: u16) -> Option<DoomThingKindClassification
         .map(|index| E1M1_THING_KINDS[index])
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomSpritePatchSelection {
+    pub source_lump_index: u32,
+    pub source_rotation: u8,
+    pub mirrored: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DoomSpritePatchSelectionError {
+    MissingFrame {
+        sprite: String,
+        frame: char,
+    },
+    MissingRotation {
+        sprite: String,
+        frame: char,
+        rotation: u8,
+    },
+    AmbiguousRotation {
+        sprite: String,
+        frame: char,
+        rotation: u8,
+        source_lumps: Vec<u32>,
+    },
+}
+
+/// Selects the classic eight-way source rotation for a map Thing. The result
+/// is 1..=8; rotation-zero sprite frames bypass this value during patch lookup.
+pub fn select_doom_sprite_view_rotation(
+    viewer: [f64; 2],
+    thing: [f64; 2],
+    thing_angle_degrees: f64,
+) -> u8 {
+    let viewer_to_thing = (thing[1] - viewer[1])
+        .atan2(thing[0] - viewer[0])
+        .to_degrees();
+    let relative = (viewer_to_thing - thing_angle_degrees + 202.5).rem_euclid(360.0);
+    (relative / 45.0).floor() as u8 + 1
+}
+
+pub fn resolve_doom_sprite_patch(
+    frames: &[DoomSpriteFrameRotation],
+    sprite: &str,
+    frame: char,
+    view_rotation: u8,
+) -> Result<DoomSpritePatchSelection, DoomSpritePatchSelectionError> {
+    let matching_frame = frames
+        .iter()
+        .filter(|candidate| candidate.sprite.eq_ignore_ascii_case(sprite))
+        .filter(|candidate| candidate.frame == frame)
+        .collect::<Vec<_>>();
+    if matching_frame.is_empty() {
+        return Err(DoomSpritePatchSelectionError::MissingFrame {
+            sprite: sprite.to_owned(),
+            frame,
+        });
+    }
+    let rotation = if matching_frame
+        .iter()
+        .any(|candidate| candidate.rotation == 0)
+    {
+        0
+    } else {
+        view_rotation
+    };
+    let matching_rotation = matching_frame
+        .into_iter()
+        .filter(|candidate| candidate.rotation == rotation)
+        .collect::<Vec<_>>();
+    match matching_rotation.as_slice() {
+        [] => Err(DoomSpritePatchSelectionError::MissingRotation {
+            sprite: sprite.to_owned(),
+            frame,
+            rotation,
+        }),
+        [selected] => Ok(DoomSpritePatchSelection {
+            source_lump_index: selected.source_lump_index,
+            source_rotation: selected.rotation,
+            mirrored: selected.mirrored,
+        }),
+        duplicates => Err(DoomSpritePatchSelectionError::AmbiguousRotation {
+            sprite: sprite.to_owned(),
+            frame,
+            rotation,
+            source_lumps: duplicates
+                .iter()
+                .map(|candidate| candidate.source_lump_index)
+                .collect(),
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,5 +348,55 @@ mod tests {
         assert_eq!(families.get(&DoomThingFamily::Decoration), Some(&27));
         assert_eq!(families.get(&DoomThingFamily::ExplosiveProp), Some(&6));
         assert_eq!(families.values().sum::<usize>(), 138);
+    }
+
+    #[test]
+    fn view_rotation_and_paired_lump_mirroring_are_explicit() {
+        assert_eq!(
+            select_doom_sprite_view_rotation([1.0, 0.0], [0.0, 0.0], 0.0),
+            1
+        );
+        assert_eq!(
+            select_doom_sprite_view_rotation([-1.0, 0.0], [0.0, 0.0], 0.0),
+            5
+        );
+
+        let frames = vec![
+            DoomSpriteFrameRotation {
+                source_lump_index: 10,
+                sprite: "TROO".to_owned(),
+                frame: 'A',
+                rotation: 2,
+                mirrored: false,
+            },
+            DoomSpriteFrameRotation {
+                source_lump_index: 10,
+                sprite: "TROO".to_owned(),
+                frame: 'A',
+                rotation: 8,
+                mirrored: true,
+            },
+            DoomSpriteFrameRotation {
+                source_lump_index: 20,
+                sprite: "BON1".to_owned(),
+                frame: 'A',
+                rotation: 0,
+                mirrored: false,
+            },
+        ];
+        assert_eq!(
+            resolve_doom_sprite_patch(&frames, "TROO", 'A', 8),
+            Ok(DoomSpritePatchSelection {
+                source_lump_index: 10,
+                source_rotation: 8,
+                mirrored: true,
+            })
+        );
+        assert_eq!(
+            resolve_doom_sprite_patch(&frames, "BON1", 'A', 6)
+                .expect("rotation-zero applies to every view")
+                .source_rotation,
+            0
+        );
     }
 }
