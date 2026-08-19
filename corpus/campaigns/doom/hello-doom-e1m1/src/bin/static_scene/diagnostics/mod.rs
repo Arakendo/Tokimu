@@ -71,8 +71,8 @@ pub(super) use source_protocol_traces::{
 pub(super) use source_reports::{
     report_doom_manual_door_runtime, report_doom_membership_union,
     report_doom_moving_floor_runtime, report_doom_progression_sources, report_doom_reject,
-    report_doom_switch_textures, report_doom_topology, report_doom_use_activation,
-    report_flat_normals, report_ordered_occurrence_live_refresh,
+    report_doom_switch_textures, report_doom_thing_classification, report_doom_topology,
+    report_doom_use_activation, report_flat_normals, report_ordered_occurrence_live_refresh,
     report_ordered_occurrence_runtime_snapshots, report_ordered_occurrence_six_ray_handoff,
     report_wall_source,
 };

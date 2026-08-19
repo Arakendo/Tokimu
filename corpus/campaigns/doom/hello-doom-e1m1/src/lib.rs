@@ -11,6 +11,7 @@ pub mod debug_console;
 #[path = "bin/static_scene/presentation/ordered_occurrence.rs"]
 pub mod ordered_occurrence;
 pub mod specials;
+pub mod things;
 
 use doom_geometry_provider::{
     DoomMiddleTextureObservation, DoomSegTexturedWallTriangle, DoomSkySurfaceObservation,

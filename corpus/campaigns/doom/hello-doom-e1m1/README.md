@@ -219,6 +219,19 @@ the console. Noclip inspection is excluded, repeated entry is idempotent, and
 accepted code-11 exit use remains the separate application-owned transition
 to the next bounded WAD map.
 
+The first Slice 9 intake remains headless and source-only:
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --map=E1M1 --thing-classification-report
+```
+
+It classifies all 138 E1M1 `THINGS` records with retained flags and initial
+sprite-prefix evidence, but creates no actors or renderer declarations.
+Projectiles are reported separately as runtime-created objects, not invented
+as map-authored Things.
+
 The first E1M2 preparation audit retains one explicit zero-area BSP-leaf plane
 omission (subsector 45). Walls and the remaining 447 leaves are prepared; no
 plane is fabricated for that degenerate derived region. E1M2 is available for

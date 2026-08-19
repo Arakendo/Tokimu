@@ -37,7 +37,7 @@ use doom_geometry_provider::{DoomSegClassicPlaneInstance, DoomSegClassicPlaneKey
 #[cfg(test)]
 use doom_map_provider::DoomBspChild;
 use doom_map_provider::{
-    decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore, DoomSector,
+    decode_doom_map_core, resolve_doom_player_one_start, DoomMapCore, DoomSector, DoomThing,
 };
 use doom_raster_provider::{
     DoomFlatDecodeLimits, DoomPatchDecodeLimits, DoomRasterDecodeLimits, DoomTextureComposeLimits,
@@ -356,6 +356,7 @@ struct OrderedPreparationIdentity {
 struct SceneInput {
     map_name: String,
     available_maps: Vec<String>,
+    things: Vec<DoomThing>,
     opaque_draws: Vec<StaticDrawPlanEntry>,
     opaque_uploads: Vec<StaticTextureUpload>,
     cutout_draws: Vec<StaticDrawPlanEntry>,
@@ -905,6 +906,7 @@ fn prepare_scene(
     Ok(SceneInput {
         map_name: map.map_name.clone(),
         available_maps,
+        things: map.things.clone(),
         opaque_draws: draws,
         opaque_uploads: uploads,
         cutout_draws,

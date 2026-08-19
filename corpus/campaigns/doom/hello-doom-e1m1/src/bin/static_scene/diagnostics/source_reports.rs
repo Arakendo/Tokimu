@@ -9,6 +9,52 @@ use super::ordered_causality::{
 };
 use super::tokimu_spatial_bake::SpatialRayShadow;
 use hello_doom_e1m1::ordered_occurrence::prepare_ordered_occurrence_declarations;
+use hello_doom_e1m1::things::classify_e1m1_thing_kind;
+
+pub(crate) fn report_doom_thing_classification(things: &[DoomThing]) {
+    let mut family_counts = BTreeMap::new();
+    let mut kind_counts = BTreeMap::new();
+    let mut unknown_counts = BTreeMap::new();
+    for source in things {
+        *kind_counts.entry(source.kind).or_insert(0_usize) += 1;
+        match classify_e1m1_thing_kind(source.kind) {
+            Some(classification) => {
+                *family_counts
+                    .entry(classification.family)
+                    .or_insert(0_usize) += 1;
+            }
+            None => *unknown_counts.entry(source.kind).or_insert(0_usize) += 1,
+        }
+    }
+    let families = family_counts
+        .iter()
+        .map(|(family, count)| format!("{family:?}={count}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let kinds = kind_counts
+        .iter()
+        .map(|(kind, count)| {
+            classify_e1m1_thing_kind(*kind).map_or_else(
+                || format!("{kind}:unknown:{count}"),
+                |classification| {
+                    format!(
+                        "{kind}:{}:{:?}:sprite={}:count={count}",
+                        classification.name,
+                        classification.family,
+                        classification.initial_sprite.unwrap_or("none"),
+                    )
+                },
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" | ");
+    let unknown = unknown_counts.values().sum::<usize>();
+    println!(
+        "E1M1 Slice 9 thing-classification observation: source-things={}; classified={}; unknown={unknown}; families=[{families}]; map-projectiles=0; projectile-policy=runtime-created-not-map-authored; source-flags-retained-not-filtered; runtime-state-created=false; renderer-initialized=false; kinds={kinds}",
+        things.len(),
+        things.len() - unknown,
+    );
+}
 
 /// Exercises the shared Slice 6B entry point as a composition-local refresh
 /// sequence. This is headless structural evidence: it proves complete results

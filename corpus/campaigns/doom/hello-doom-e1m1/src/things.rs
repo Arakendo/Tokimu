@@ -1,0 +1,235 @@
+//! Source-only classification of the `THINGS` kinds present in shareware E1M1.
+//!
+//! This is deliberately a selected-corpus table, not a generic Doom gameplay
+//! registry. It preserves the distinction between map-authored spawn records
+//! and runtime-created objects such as projectiles.
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DoomThingFamily {
+    PlayerStart,
+    MultiplayerStart,
+    Monster,
+    WeaponPickup,
+    AmmoPickup,
+    HealthPickup,
+    ArmorPickup,
+    Decoration,
+    ExplosiveProp,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DoomThingKindClassification {
+    pub kind: u16,
+    pub name: &'static str,
+    pub family: DoomThingFamily,
+    pub initial_sprite: Option<&'static str>,
+}
+
+const fn thing(
+    kind: u16,
+    name: &'static str,
+    family: DoomThingFamily,
+    initial_sprite: Option<&'static str>,
+) -> DoomThingKindClassification {
+    DoomThingKindClassification {
+        kind,
+        name,
+        family,
+        initial_sprite,
+    }
+}
+
+/// Exact numeric kinds observed in the reviewed E1M1 `THINGS` lump.
+pub const E1M1_THING_KINDS: &[DoomThingKindClassification] = &[
+    thing(1, "player-one-start", DoomThingFamily::PlayerStart, None),
+    thing(
+        2,
+        "player-two-start",
+        DoomThingFamily::MultiplayerStart,
+        None,
+    ),
+    thing(
+        3,
+        "player-three-start",
+        DoomThingFamily::MultiplayerStart,
+        None,
+    ),
+    thing(
+        4,
+        "player-four-start",
+        DoomThingFamily::MultiplayerStart,
+        None,
+    ),
+    thing(9, "shotgun-guy", DoomThingFamily::Monster, Some("SPOS")),
+    thing(10, "bloody-mess", DoomThingFamily::Decoration, Some("PLAY")),
+    thing(
+        11,
+        "deathmatch-start",
+        DoomThingFamily::MultiplayerStart,
+        None,
+    ),
+    thing(12, "bloody-mess", DoomThingFamily::Decoration, Some("PLAY")),
+    thing(15, "dead-player", DoomThingFamily::Decoration, Some("PLAY")),
+    thing(
+        24,
+        "pool-of-gibs",
+        DoomThingFamily::Decoration,
+        Some("POL5"),
+    ),
+    thing(35, "candelabra", DoomThingFamily::Decoration, Some("CBRA")),
+    thing(48, "tech-pillar", DoomThingFamily::Decoration, Some("ELEC")),
+    thing(2001, "shotgun", DoomThingFamily::WeaponPickup, Some("SHOT")),
+    thing(
+        2002,
+        "chaingun",
+        DoomThingFamily::WeaponPickup,
+        Some("MGUN"),
+    ),
+    thing(
+        2003,
+        "rocket-launcher",
+        DoomThingFamily::WeaponPickup,
+        Some("LAUN"),
+    ),
+    thing(2007, "ammo-clip", DoomThingFamily::AmmoPickup, Some("CLIP")),
+    thing(
+        2008,
+        "shotgun-shells",
+        DoomThingFamily::AmmoPickup,
+        Some("SHEL"),
+    ),
+    thing(
+        2011,
+        "stimpack",
+        DoomThingFamily::HealthPickup,
+        Some("STIM"),
+    ),
+    thing(2012, "medikit", DoomThingFamily::HealthPickup, Some("MEDI")),
+    thing(
+        2014,
+        "health-bonus",
+        DoomThingFamily::HealthPickup,
+        Some("BON1"),
+    ),
+    thing(
+        2015,
+        "armor-bonus",
+        DoomThingFamily::ArmorPickup,
+        Some("BON2"),
+    ),
+    thing(
+        2018,
+        "green-armor",
+        DoomThingFamily::ArmorPickup,
+        Some("ARM1"),
+    ),
+    thing(
+        2019,
+        "blue-armor",
+        DoomThingFamily::ArmorPickup,
+        Some("ARM2"),
+    ),
+    thing(
+        2028,
+        "floor-lamp",
+        DoomThingFamily::Decoration,
+        Some("COLU"),
+    ),
+    thing(
+        2035,
+        "exploding-barrel",
+        DoomThingFamily::ExplosiveProp,
+        Some("BAR1"),
+    ),
+    thing(
+        2046,
+        "rocket-box",
+        DoomThingFamily::AmmoPickup,
+        Some("BROK"),
+    ),
+    thing(2048, "ammo-box", DoomThingFamily::AmmoPickup, Some("AMMO")),
+    thing(2049, "shell-box", DoomThingFamily::AmmoPickup, Some("SBOX")),
+    thing(3001, "imp", DoomThingFamily::Monster, Some("TROO")),
+    thing(3004, "zombieman", DoomThingFamily::Monster, Some("POSS")),
+];
+
+pub fn classify_e1m1_thing_kind(kind: u16) -> Option<DoomThingKindClassification> {
+    E1M1_THING_KINDS
+        .binary_search_by_key(&kind, |classification| classification.kind)
+        .ok()
+        .map(|index| E1M1_THING_KINDS[index])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn selected_table_is_sorted_unique_and_classifies_boundaries() {
+        assert!(E1M1_THING_KINDS
+            .windows(2)
+            .all(|pair| pair[0].kind < pair[1].kind));
+        assert_eq!(
+            classify_e1m1_thing_kind(1).map(|value| value.family),
+            Some(DoomThingFamily::PlayerStart)
+        );
+        assert_eq!(
+            classify_e1m1_thing_kind(3004).map(|value| value.family),
+            Some(DoomThingFamily::Monster)
+        );
+        assert_eq!(classify_e1m1_thing_kind(999), None);
+    }
+
+    #[test]
+    fn canonical_e1m1_inventory_is_fully_classified_by_family() {
+        let inventory = [
+            (1, 1),
+            (2, 1),
+            (3, 1),
+            (4, 1),
+            (9, 16),
+            (10, 2),
+            (11, 5),
+            (12, 2),
+            (15, 4),
+            (24, 7),
+            (35, 2),
+            (48, 2),
+            (2001, 1),
+            (2002, 1),
+            (2003, 1),
+            (2007, 2),
+            (2008, 3),
+            (2011, 1),
+            (2012, 3),
+            (2014, 13),
+            (2015, 25),
+            (2018, 1),
+            (2019, 1),
+            (2028, 8),
+            (2035, 6),
+            (2046, 3),
+            (2048, 6),
+            (2049, 6),
+            (3001, 4),
+            (3004, 9),
+        ];
+        let mut families = BTreeMap::new();
+        for (kind, count) in inventory {
+            let classification = classify_e1m1_thing_kind(kind).expect("classified E1M1 kind");
+            *families.entry(classification.family).or_insert(0) += count;
+        }
+
+        assert_eq!(families.get(&DoomThingFamily::PlayerStart), Some(&1));
+        assert_eq!(families.get(&DoomThingFamily::MultiplayerStart), Some(&8));
+        assert_eq!(families.get(&DoomThingFamily::Monster), Some(&29));
+        assert_eq!(families.get(&DoomThingFamily::WeaponPickup), Some(&3));
+        assert_eq!(families.get(&DoomThingFamily::AmmoPickup), Some(&20));
+        assert_eq!(families.get(&DoomThingFamily::HealthPickup), Some(&17));
+        assert_eq!(families.get(&DoomThingFamily::ArmorPickup), Some(&27));
+        assert_eq!(families.get(&DoomThingFamily::Decoration), Some(&27));
+        assert_eq!(families.get(&DoomThingFamily::ExplosiveProp), Some(&6));
+        assert_eq!(families.values().sum::<usize>(), 138);
+    }
+}

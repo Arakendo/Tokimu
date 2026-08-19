@@ -1169,7 +1169,16 @@ Acceptance criteria:
 
 ## Slice 9: Things, Combat, And Gameplay
 
-- [ ] Classify decorations, pickups, monsters, projectiles, and weapons.
+- [x] Classify decorations, pickups, monsters, projectiles, and weapons for
+      the admitted E1M1 corpus; retain the source table and observations in
+      [`E1M1 Thing classification evidence.md`](Evidence/E1M1%20Thing%20classification%20evidence.md).
+  - [x] Classify all 138 map-authored records across 30 numeric kinds with
+        zero unknowns, preserving source flags rather than applying a hidden
+        skill/network filter.
+  - [x] Keep map-placed weapons distinct from weapon runtime state, classify
+        the six shootable barrels separately from passive decorations, and
+        record that projectiles are runtime-created rather than authored
+        `THINGS` records in E1M1.
 - [ ] Render sprites with frame, rotation, and billboard policy.
 - [ ] Add deterministic thing state machines.
 - [ ] Add pickups, inventory, health, armor, ammo, and keys.
