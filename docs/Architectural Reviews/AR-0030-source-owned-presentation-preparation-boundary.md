@@ -2414,6 +2414,30 @@ The review moves away from shared admission when:
   sector 63 the authored face is `TEKWALL2`; from sector 65 it is `BIGDOOR4`.
   “Inside” and “outside” are not source semantics for this door.
 
+### Cycle 68 -- 2026-08-18
+
+- Live E1M7 inspection exposed a narrow ground seam. Its frozen ray had no
+  prepared hit under sector-boundary trim, while the unchanged local source
+  control hit subsector 272's sector-99 `FLOOR7_1` at distance `73.105` and
+  source position approximately `(1768.904, -2575.672, 0)`. This isolates the
+  defect to sector trimming rather than grouped sky parity or raster depth.
+- The source representations disagree by less than one map unit at linedef
+  841. The finite BSP/SEG leaf assigns the point to sector 99, while the exact
+  directed LINEDEF boundary puts it approximately `0.25` units across the
+  boundary in sector 98. Both sectors author `FLOOR7_1` at height zero. An
+  infinitely exact LINEDEF rejection therefore converted ordinary node-builder
+  quantization into an uncovered sliver.
+- Sector-boundary classification now retains only complete fragments whose
+  every vertex lies within one source map unit of the same finite authored
+  boundary edge. This is a bounded reconciliation band, not a general sector
+  expansion: a synthetic square accepts a `0.75`-unit-wide exterior sliver and
+  still rejects one `1.25` units wide.
+- The E1M7 replay now hits the original sector-99 floor. The prior E1M1 seam
+  replay continues to hit sector 60, and the E1M2 subsector-36 oversized-plane
+  falsifier remains a no-hit. E1M7 changes from 700 to 716 sector fragments and
+  from 4,108 to 4,222 plane triangles; this amplification remains diagnostic
+  evidence pending live visual confirmation.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

@@ -338,6 +338,27 @@ offsets from `-0.004` through `+0.008` now hit `FLOOR5_2`; the local control
 retains its earlier miss band. Canonical E1M1 now records 169 sector
 refinements, 339 fragments, 201 conformance insertions and 1,920 triangles.
 
+### Sector-boundary quantization reconciliation
+
+An E1M7 walkabout later found a ground seam whose exact replay missed only
+with sector-boundary trim enabled. The local source-boundary control hit
+subsector 272's sector-99 `FLOOR7_1`; the sector candidate removed it. The
+point was inside the finite BSP/SEG support but approximately `0.25` map units
+across linedef 841 according to the exact directed LINEDEF graph. Adjacent
+sectors 98 and 99 both author `FLOOR7_1` at height zero.
+
+The two source representations are allowed to disagree by node-builder
+quantization, but that discrepancy must not become an open plane seam. Sector
+classification therefore admits only a complete fragment whose every vertex
+lies within one source map unit of the same finite authored sector edge. The
+reconciliation is deliberately bounded: it does not promote the LINEDEF graph
+into a fuzzy world-space shell or retain remote or wider exterior fragments.
+
+The retained E1M7 ray now hits at distance `73.105`. The E1M1 sector-60 seam
+control remains covered, while the E1M2 subsector-36 exterior-plane falsifier
+remains absent. A synthetic boundary test fixes the admitted/rejected sides of
+the one-unit band independently of the corpus.
+
 ### Exact-source realization batching
 
 Cross-map walkabout exposed a separate realization cost: grouped parity draws
