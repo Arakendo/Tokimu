@@ -2120,7 +2120,7 @@ The review moves away from shared admission when:
   opaque/cutout coverage into depth, inverts one stencil bit for every
   double-sided paired-skywall fragment before that depth, and renders ordinary
   color only where parity remains even. Source sky ceilings do not toggle it.
-- The required renderer mechanism is admitted generically by ADR-0014 as
+- The required renderer mechanism is admitted generically by ADR-0016 as
   `Disabled`, `InvertOnDepthPass`, and `RequireZero`; no Doom, sky, portal, BSP,
   or volume vocabulary enters `tokimu-render`.
 - A native two-frame Vulkan proof completed with 1,823 opaque draws, 14 facing
@@ -2528,7 +2528,7 @@ The review moves away from shared admission when:
 - `docs/Plans/DOOM/Studies/Doom source-authorized relational contribution classification.md`
 - `docs/Plans/DOOM/Studies/Doom oriented sky-transition parity shadow.md`
 - `docs/Plans/DOOM/Studies/Doom grouped sky-crossing parity shadow.md`
-- `docs/ADR/ADR-0014-single-bit-stencil-mask-pipeline-state.md`
+- `docs/ADR/ADR-0016-single-bit-stencil-mask-pipeline-state.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom visibility clipping evidence.md`
 - `docs/Plans/DOOM/Evidence/Classic Doom renderer dataflow and Tokimu preparation seam.md`
 - `docs/Plans/DOOM/Evidence/Doom authoritative sky-depth realization seam evidence.md`

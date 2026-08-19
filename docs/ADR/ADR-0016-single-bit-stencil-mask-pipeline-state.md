@@ -1,8 +1,8 @@
-# ADR-0014: Single-Bit Stencil Mask Pipeline State
+# ADR-0016: Single-Bit Stencil Mask Pipeline State
 
 ## Status
 
-Accepted
+Accepted — 2026-08-18
 
 ## Context
 

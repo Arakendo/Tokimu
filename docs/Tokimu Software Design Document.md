@@ -440,7 +440,7 @@ decoding, GLB/WAD meaning, continuous Blend ordering/depth semantics,
 renderer-owned sorting, PBR, and material graphs remain outside these
 contracts.
 
-ADR-0014 admits one additional bounded pipeline mechanism: a single low
+ADR-0016 admits one additional bounded pipeline mechanism: a single low
 stencil bit may be inverted by fragments that pass depth, and later pipelines
 may require that bit to be zero. The WGPU backend owns the combined
 depth/stencil attachment and clears the bit per target. Callers continue to own
