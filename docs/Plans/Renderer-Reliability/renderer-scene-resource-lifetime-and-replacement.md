@@ -40,6 +40,22 @@ This plan studies that missing lifetime seam. It does **not** assume that a
 scene arena, explicit release API, renderer allocator, or device reuse policy
 is already the right contract.
 
+This pressure is adjacent to, but distinct from, AR-0030's comparison between
+persistent renderer resources and submission-local/view-local preparation:
+
+```text
+AR-0030 axis
+    persistent renderer resource
+        vs submission-local/view-local work
+
+this plan's axis
+    persistent provider session
+        vs replaceable composition-resource lifetime
+```
+
+The study must not merge those axes into one owner merely because both are
+observed near the renderer.
+
 ## Architectural Question
 
 What is the smallest Tokimu-owned or adapter-private mechanism that can replace
@@ -235,7 +251,20 @@ must be justified separately.
 
 ### Deliverables
 
-- [ ] Prototype Alternative B and C behind private/experimental seams.
+- [ ] Prototype Alternative B first behind a private/experimental seam.
+- [ ] Apply the B-first sufficiency gate before implementing C. Alternative B
+      survives only if it demonstrates all of:
+  - [ ] atomic last-known-good replacement;
+  - [ ] deterministic stale-handle rejection;
+  - [ ] reuse of logical handles in a later scene without aliasing the retired
+        resource set;
+  - [ ] no new device or surface during ordinary scene replacement; and
+  - [ ] bounded logical-retirement evidence that does not claim physical
+        reclamation.
+- [ ] Prototype Alternative C only if B fails atomicity or bounded staging
+      honestly requires two distinguishable resource sets. Record the exact B
+      falsifier that earns C; do not implement C merely because an arena or
+      generation model is convenient.
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
       satisfy.
@@ -266,6 +295,10 @@ must be justified separately.
 
 - [ ] At least one alternative reuses a single provider session/device/surface
       over repeated resource-set replacement while preserving correctness.
+- [ ] If B survives its sufficiency gate, C remains unimplemented unless a
+      retained requirement demonstrates additional semantic value.
+- [ ] If C is implemented, its temporary staging and generation distinction
+      correspond to a retained B failure rather than speculative flexibility.
 - [ ] No prototype exposes WGPU objects or Doom vocabulary through a
       provider-neutral boundary.
 
