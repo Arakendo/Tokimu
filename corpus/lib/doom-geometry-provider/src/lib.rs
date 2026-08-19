@@ -2863,6 +2863,7 @@ pub fn lower_doom_subsector_surfaces(
 #[derive(Clone, Copy, Debug)]
 struct DoomSectorBoundaryEdge {
     source_linedef: DoomSourceRecord,
+    neighboring_sector: Option<u16>,
     start_vertex: u16,
     end_vertex: u16,
     start: [i16; 2],
@@ -2896,6 +2897,7 @@ fn resolve_doom_sector_boundary_support(
         {
             sector.push(DoomSectorBoundaryEdge {
                 source_linedef: linedef.source,
+                neighboring_sector: left_sector,
                 start_vertex: linedef.start_vertex,
                 end_vertex: linedef.end_vertex,
                 start: [start.x, start.y],
@@ -2906,6 +2908,7 @@ fn resolve_doom_sector_boundary_support(
         {
             sector.push(DoomSectorBoundaryEdge {
                 source_linedef: linedef.source,
+                neighboring_sector: right_sector,
                 start_vertex: linedef.end_vertex,
                 end_vertex: linedef.start_vertex,
                 start: [end.x, end.y],
@@ -2936,6 +2939,7 @@ fn resolve_doom_sector_boundary_support(
 fn refine_convex_region_to_sector_boundary(
     vertices: &[[f64; 2]],
     edges: &[DoomSectorBoundaryEdge],
+    reconciliation: Option<(&DoomMapCore, u16, DoomSurfacePlane)>,
 ) -> Option<Vec<Vec<[f64; 2]>>> {
     const MAXIMUM_FRAGMENTS_PER_SUBSECTOR: usize = 4096;
     const AREA_EPSILON: f64 = 1.0e-9;
@@ -2988,10 +2992,13 @@ fn refine_convex_region_to_sector_boundary(
                 let centroid = fragment.iter().fold([0.0, 0.0], |sum, point| {
                     [sum[0] + point[0], sum[1] + point[1]]
                 });
-                point_in_directed_sector_boundary(
-                    [centroid[0] * inverse_count, centroid[1] * inverse_count],
-                    edges,
-                )
+                let centroid = [centroid[0] * inverse_count, centroid[1] * inverse_count];
+                point_in_directed_sector_boundary(centroid, edges)
+                    || reconciliation.is_some_and(|(map, sector_index, plane)| {
+                        point_near_sector_boundary_where(centroid, edges, |edge| {
+                            sector_plane_matches_neighbor(map, sector_index, edge, plane)
+                        })
+                    })
             })
             .collect(),
     )
@@ -3054,18 +3061,11 @@ fn closed_segments_intersect(
 }
 
 fn point_in_directed_sector_boundary(point: [f64; 2], edges: &[DoomSectorBoundaryEdge]) -> bool {
-    // The caller supplies the centroid of a cell already partitioned by every
-    // intersecting sector edge. Node-builder BSP/SEG intersections can differ
-    // from the integer LINEDEF graph by a sub-unit sliver, so a cell whose
-    // representative remains within one source map unit of a finite boundary
-    // fails open. Remote cells retain ordinary nonzero-winding classification.
-    const BOUNDARY_RECONCILIATION_DISTANCE_SQUARED: f64 = 1.0;
     let mut winding = 0_i32;
     for edge in edges {
         let start = edge.start.map(f64::from);
         let end = edge.end.map(f64::from);
-        if point_to_closed_segment_distance_squared(point, start, end)
-            <= BOUNDARY_RECONCILIATION_DISTANCE_SQUARED
+        if cross_2d(start, end, point).abs() <= 1.0e-7 && point_on_closed_segment(point, start, end)
         {
             return true;
         }
@@ -3078,6 +3078,49 @@ fn point_in_directed_sector_boundary(point: [f64; 2], edges: &[DoomSectorBoundar
         }
     }
     winding != 0
+}
+
+fn point_near_sector_boundary_where(
+    point: [f64; 2],
+    edges: &[DoomSectorBoundaryEdge],
+    mut eligible: impl FnMut(&DoomSectorBoundaryEdge) -> bool,
+) -> bool {
+    // The caller supplies the centroid of a cell already partitioned by every
+    // intersecting sector edge. Node-builder BSP/SEG intersections can differ
+    // from the integer LINEDEF graph by a sub-unit sliver. Reconciliation is
+    // permitted only when the neighboring plane has identical presentation
+    // support; a height or texture transition retains exact boundary authority.
+    const BOUNDARY_RECONCILIATION_DISTANCE_SQUARED: f64 = 1.0;
+    edges.iter().filter(|edge| eligible(edge)).any(|edge| {
+        point_to_closed_segment_distance_squared(
+            point,
+            edge.start.map(f64::from),
+            edge.end.map(f64::from),
+        ) <= BOUNDARY_RECONCILIATION_DISTANCE_SQUARED
+    })
+}
+
+fn sector_plane_matches_neighbor(
+    map: &DoomMapCore,
+    sector_index: u16,
+    edge: &DoomSectorBoundaryEdge,
+    plane: DoomSurfacePlane,
+) -> bool {
+    let Some(neighbor_index) = edge.neighboring_sector else {
+        return false;
+    };
+    let sector = &map.sectors[usize::from(sector_index)];
+    let neighbor = &map.sectors[usize::from(neighbor_index)];
+    match plane {
+        DoomSurfacePlane::Floor => {
+            sector.floor_height == neighbor.floor_height
+                && sector.floor_texture == neighbor.floor_texture
+        }
+        DoomSurfacePlane::Ceiling => {
+            sector.ceiling_height == neighbor.ceiling_height
+                && sector.ceiling_texture == neighbor.ceiling_texture
+        }
+    }
 }
 
 fn point_to_closed_segment_distance_squared(
@@ -3226,59 +3269,88 @@ fn lower_doom_bounded_subsector_surfaces(
             continue;
         }
         let original_area = polygon_signed_area(&vertices).abs();
-        let refined_regions = sector_boundaries.as_ref().map(|boundaries| {
+        let boundary_edges = sector_boundaries.as_ref().and_then(|boundaries| {
             boundaries
                 .get(usize::from(ownership.sector_index))
                 .and_then(Option::as_deref)
-                .and_then(|edges| refine_convex_region_to_sector_boundary(&vertices, edges))
         });
-        let prepared_regions = match refined_regions {
-            Some(Some(regions)) if !regions.is_empty() => {
-                sector_boundary_supported_subsectors += 1;
-                sector_boundary_fragments += regions.len();
-                let refined_area = regions
-                    .iter()
-                    .map(|region| polygon_signed_area(region).abs())
-                    .sum::<f64>();
-                if (refined_area - original_area).abs() > AREA_EPSILON || regions.len() > 1 {
-                    sector_boundary_refinements += 1;
-                }
-                regions
+        if let Some(edges) = boundary_edges {
+            let mut refined_subsector = false;
+            let mut omitted_subsector = false;
+            let mut unavailable_subsector = false;
+            for plane in [DoomSurfacePlane::Floor, DoomSurfacePlane::Ceiling] {
+                let refined = refine_convex_region_to_sector_boundary(
+                    &vertices,
+                    edges,
+                    Some((map, ownership.sector_index, plane)),
+                );
+                let prepared_regions = match refined {
+                    Some(regions) if !regions.is_empty() => {
+                        sector_boundary_fragments += regions.len();
+                        let refined_area = regions
+                            .iter()
+                            .map(|region| polygon_signed_area(region).abs())
+                            .sum::<f64>();
+                        refined_subsector |= (refined_area - original_area).abs() > AREA_EPSILON
+                            || regions.len() > 1;
+                        regions
+                    }
+                    Some(_) => {
+                        // A complete disappearance is too strong to install
+                        // from a derived sector graph. Retain this plane's
+                        // local source/BSP result and expose the disagreement.
+                        omitted_subsector = true;
+                        vec![vertices.clone()]
+                    }
+                    None => {
+                        unavailable_subsector = true;
+                        vec![vertices.clone()]
+                    }
+                };
+                prepared_surface_regions.extend(
+                    prepared_regions
+                        .into_iter()
+                        .map(|vertices| (vertices, region.source_subsector, ownership, plane)),
+                );
             }
-            Some(Some(_)) => {
-                // A complete disappearance is too strong to install from a
-                // derived sector graph. Retain the local source/BSP result and
-                // expose the disagreement for corpus review.
+            sector_boundary_supported_subsectors += 1;
+            sector_boundary_refinements += usize::from(refined_subsector);
+            if omitted_subsector {
                 sector_boundary_omissions += 1;
                 sector_boundary_omission_subsectors.push(region.source_subsector);
-                vec![vertices]
             }
-            Some(None) => {
+            if unavailable_subsector {
                 sector_boundary_unavailable_subsectors.push(region.source_subsector);
-                vec![vertices]
             }
-            None => vec![vertices],
-        };
-        prepared_surface_regions.extend(
-            prepared_regions
-                .into_iter()
-                .map(|vertices| (vertices, region.source_subsector, ownership)),
-        );
+        } else {
+            if sector_boundaries.is_some() {
+                sector_boundary_unavailable_subsectors.push(region.source_subsector);
+            }
+            for plane in [DoomSurfacePlane::Floor, DoomSurfacePlane::Ceiling] {
+                prepared_surface_regions.push((
+                    vertices.clone(),
+                    region.source_subsector,
+                    ownership,
+                    plane,
+                ));
+            }
+        }
     }
 
     let edge_conformance_insertions = conform_coplanar_region_edges(
         &mut prepared_surface_regions
             .iter_mut()
-            .map(|(vertices, _, _)| vertices)
+            .map(|(vertices, _, _, _)| vertices)
             .collect::<Vec<_>>(),
     );
-    for (vertices, source_subsector, ownership) in prepared_surface_regions {
-        append_subsector_surface_triangles(
+    for (vertices, source_subsector, ownership, plane) in prepared_surface_regions {
+        append_subsector_surface_plane_triangles(
             &mut surfaces,
             &vertices,
             source_subsector,
             ownership,
             &map.sectors[usize::from(ownership.sector_index)],
+            plane,
         );
     }
 
@@ -3529,40 +3601,53 @@ fn append_subsector_surface_triangles(
     ownership: &DoomSubsectorSectorOwnership,
     sector: &DoomSector,
 ) {
-    for (plane, height, texture_name, face_up) in [
-        (
-            DoomSurfacePlane::Floor,
-            sector.floor_height,
-            sector.floor_texture.as_str(),
-            true,
-        ),
-        (
-            DoomSurfacePlane::Ceiling,
+    for plane in [DoomSurfacePlane::Floor, DoomSurfacePlane::Ceiling] {
+        append_subsector_surface_plane_triangles(
+            triangles,
+            vertices,
+            source_subsector,
+            ownership,
+            sector,
+            plane,
+        );
+    }
+}
+
+fn append_subsector_surface_plane_triangles(
+    triangles: &mut Vec<DoomSurfaceTriangle>,
+    vertices: &[[f64; 2]],
+    source_subsector: DoomSourceRecord,
+    ownership: &DoomSubsectorSectorOwnership,
+    sector: &DoomSector,
+    plane: DoomSurfacePlane,
+) {
+    let (height, texture_name, face_up) = match plane {
+        DoomSurfacePlane::Floor => (sector.floor_height, sector.floor_texture.as_str(), true),
+        DoomSurfacePlane::Ceiling => (
             sector.ceiling_height,
             sector.ceiling_texture.as_str(),
             false,
         ),
-    ] {
-        for points in triangulate_convex_region(vertices) {
-            let counter_clockwise = polygon_signed_area(&points) > 0.0;
-            let reverse = face_up == counter_clockwise;
-            let positions = if reverse {
-                [
-                    doom_point_to_tokimu(points[0], f64::from(height)),
-                    doom_point_to_tokimu(points[2], f64::from(height)),
-                    doom_point_to_tokimu(points[1], f64::from(height)),
-                ]
-            } else {
-                points.map(|point| doom_point_to_tokimu(point, f64::from(height)))
-            };
-            triangles.push(DoomSurfaceTriangle {
-                source_subsector,
-                source_sector: ownership.source_sector,
-                plane,
-                texture_name: texture_name.to_owned(),
-                positions,
-            });
-        }
+    };
+    for points in triangulate_convex_region(vertices) {
+        let counter_clockwise = polygon_signed_area(&points) > 0.0;
+        let reverse = face_up == counter_clockwise;
+        let positions = if reverse {
+            [
+                doom_point_to_tokimu(points[0], f64::from(height)),
+                doom_point_to_tokimu(points[2], f64::from(height)),
+                doom_point_to_tokimu(points[1], f64::from(height)),
+            ]
+        } else {
+            points.map(|point| doom_point_to_tokimu(point, f64::from(height)))
+        };
+        triangles.push(DoomSurfaceTriangle {
+            source_subsector,
+            source_sector: ownership.source_sector,
+            plane,
+            texture_name: texture_name.to_owned(),
+            positions,
+        });
     }
 }
 
@@ -5539,6 +5624,7 @@ mod tests {
         .enumerate()
         .map(|(index, (start, end))| super::DoomSectorBoundaryEdge {
             source_linedef: source(index as u32),
+            neighboring_sector: Some(1),
             start_vertex: index as u16,
             end_vertex: ((index + 1) % 4) as u16,
             start,
@@ -5547,13 +5633,34 @@ mod tests {
         .collect::<Vec<_>>();
 
         assert!(super::point_in_directed_sector_boundary([5.0, 5.0], &edges));
-        assert!(super::point_in_directed_sector_boundary(
+        assert!(!super::point_in_directed_sector_boundary(
             [10.75, 5.0],
             &edges
         ));
-        assert!(!super::point_in_directed_sector_boundary(
+        assert!(super::point_near_sector_boundary_where(
+            [10.75, 5.0],
+            &edges,
+            |_| true,
+        ));
+        assert!(!super::point_near_sector_boundary_where(
             [11.25, 5.0],
-            &edges
+            &edges,
+            |_| true,
+        ));
+
+        let mut map = map_with_linedef(Some(0), Some(1));
+        map.sectors[1].ceiling_height += 64;
+        assert!(super::sector_plane_matches_neighbor(
+            &map,
+            0,
+            &edges[0],
+            DoomSurfacePlane::Floor,
+        ));
+        assert!(!super::sector_plane_matches_neighbor(
+            &map,
+            0,
+            &edges[0],
+            DoomSurfacePlane::Ceiling,
         ));
     }
 

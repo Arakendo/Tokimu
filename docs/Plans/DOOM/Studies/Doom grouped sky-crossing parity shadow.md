@@ -404,6 +404,20 @@ constant. The comparison should judge panorama continuity and distortion at
 normal pitch, `+/-30` degrees, `+/-60` degrees, straight up/down, pitched yaw
 and seam-facing views.
 
+That disposition was reopened by one final E1M7 diagonal seam. Its `LOOK` ray
+hit ordinary wall 816, but a reconciled sector-99 sky ceiling crossed before
+the wall without the matching paired skywall and made parity odd. The floor
+reconciliation had been applied to a shared floor/ceiling footprint even
+though sectors 98 and 99 share their floor presentation but not their ceiling
+heights.
+
+Sector refinement is now plane-specific. The one-unit node-builder
+reconciliation is available only across a boundary whose neighboring sector
+has the same height and texture for that exact plane. The E1M7 floor seams stay
+covered, while the differing sky ceilings retain the authored LINEDEF boundary
+and the diagonal replay remains ordinary world color. This correction does not
+alter the grouped crossing rule or paired skywall geometry.
+
 ## Binding Invariants
 
 1. Global-full geometry remains the world input.

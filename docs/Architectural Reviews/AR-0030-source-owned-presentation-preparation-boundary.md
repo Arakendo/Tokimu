@@ -2476,6 +2476,29 @@ The review moves away from shared admission when:
   yaw and the texture seam. Distortion and continuity are the acceptance
   questions; skywall/parity correctness is held constant.
 
+### Cycle 71 -- 2026-08-18
+
+- A final E1M7 walkabout specimen reopened Cycle 70's visual gate. The ray hit
+  linedef 816's `BROWN144` wall at distance `183.529`, but one sector-99 sky
+  ceiling crossing at `76.736` made grouped parity odd and masked the wall.
+  The visible diagonal was therefore not another missing ground triangle.
+- Exact reconstruction showed the ray crossing linedef 841 at approximately
+  `z=71.79`, just below the paired skywall's authored lower height of `72`.
+  The source-sky ceiling had inherited the floor-oriented boundary
+  reconciliation and extended slightly across the sector-98/99 transition;
+  the exact paired skywall correctly did not extend with it.
+- Sector refinement is now plane-specific. A boundary-adjacent cell may use
+  the one-unit reconciliation only when the neighboring sector authors the
+  same height and texture for that plane. Sectors 98 and 99 share the
+  height-zero `FLOOR7_1` floor, so both retained floor-seam controls remain
+  covered. Their sky ceilings have different heights, so ceiling support keeps
+  the exact LINEDEF boundary.
+- The seam replay now reports no sky-plane or skywall crossing before wall 816,
+  leaves parity even and retains wall color. The E1M2 oversized-plane no-hit and
+  E1M1 floor-seam positive remain unchanged. E1M7 now records 1,418
+  plane-specific sector fragments, 907 conformance insertions and 4,173 plane
+  triangles. The nine-map visual gate requires one more confirmation pass.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
