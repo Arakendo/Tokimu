@@ -2991,7 +2991,7 @@ fn refine_convex_region_to_sector_boundary(
                 point_in_directed_sector_boundary(
                     [centroid[0] * inverse_count, centroid[1] * inverse_count],
                     edges,
-                ) || fragment_within_sector_boundary_reconciliation(fragment, edges)
+                )
             })
             .collect(),
     )
@@ -3054,11 +3054,18 @@ fn closed_segments_intersect(
 }
 
 fn point_in_directed_sector_boundary(point: [f64; 2], edges: &[DoomSectorBoundaryEdge]) -> bool {
+    // The caller supplies the centroid of a cell already partitioned by every
+    // intersecting sector edge. Node-builder BSP/SEG intersections can differ
+    // from the integer LINEDEF graph by a sub-unit sliver, so a cell whose
+    // representative remains within one source map unit of a finite boundary
+    // fails open. Remote cells retain ordinary nonzero-winding classification.
+    const BOUNDARY_RECONCILIATION_DISTANCE_SQUARED: f64 = 1.0;
     let mut winding = 0_i32;
     for edge in edges {
         let start = edge.start.map(f64::from);
         let end = edge.end.map(f64::from);
-        if cross_2d(start, end, point).abs() <= 1.0e-7 && point_on_closed_segment(point, start, end)
+        if point_to_closed_segment_distance_squared(point, start, end)
+            <= BOUNDARY_RECONCILIATION_DISTANCE_SQUARED
         {
             return true;
         }
@@ -3071,28 +3078,6 @@ fn point_in_directed_sector_boundary(point: [f64; 2], edges: &[DoomSectorBoundar
         }
     }
     winding != 0
-}
-
-fn fragment_within_sector_boundary_reconciliation(
-    fragment: &[[f64; 2]],
-    edges: &[DoomSectorBoundaryEdge],
-) -> bool {
-    // Node builders derive BSP/SEG partition intersections independently from
-    // the authored integer LINEDEF graph. Those representations can disagree
-    // by a sub-unit sliver at an otherwise shared boundary. Treating the
-    // LINEDEF graph as infinitely exact rejection authority opens visible
-    // cracks between adjacent leaves. Admit only a complete fragment that fits
-    // inside a one-map-unit strip around one finite authored edge; no remote or
-    // wider exterior fragment gains support from this reconciliation.
-    const BOUNDARY_RECONCILIATION_DISTANCE_SQUARED: f64 = 1.0;
-    edges.iter().any(|edge| {
-        let start = edge.start.map(f64::from);
-        let end = edge.end.map(f64::from);
-        fragment.iter().all(|point| {
-            point_to_closed_segment_distance_squared(*point, start, end)
-                <= BOUNDARY_RECONCILIATION_DISTANCE_SQUARED
-        })
-    })
 }
 
 fn point_to_closed_segment_distance_squared(
@@ -5562,16 +5547,12 @@ mod tests {
         .collect::<Vec<_>>();
 
         assert!(super::point_in_directed_sector_boundary([5.0, 5.0], &edges));
-        assert!(!super::point_in_directed_sector_boundary(
+        assert!(super::point_in_directed_sector_boundary(
             [10.75, 5.0],
             &edges
         ));
-        assert!(super::fragment_within_sector_boundary_reconciliation(
-            &[[10.0, 2.0], [10.75, 2.0], [10.75, 8.0], [10.0, 8.0]],
-            &edges
-        ));
-        assert!(!super::fragment_within_sector_boundary_reconciliation(
-            &[[10.0, 2.0], [11.25, 2.0], [11.25, 8.0], [10.0, 8.0]],
+        assert!(!super::point_in_directed_sector_boundary(
+            [11.25, 5.0],
             &edges
         ));
     }

@@ -359,6 +359,14 @@ control remains covered, while the E1M2 subsector-36 exterior-plane falsifier
 remains absent. A synthetic boundary test fixes the admitted/rejected sides of
 the one-unit band independently of the corpus.
 
+A second E1M7 seam falsified whole-fragment containment as the final rule. Its
+local control hit subsector 248 at approximately
+`(1505.536, -2598.769, 0)`, only `0.06` map units from linedef 841, but the
+already-partitioned cell extended farther than one unit elsewhere. The current
+rule therefore applies the one-unit reconciliation to the centroid of each
+finite cell after all intersecting sector-edge splits. It retains both E1M7
+seam specimens while the E1M2 exterior-plane falsifier remains absent.
+
 ### Exact-source realization batching
 
 Cross-map walkabout exposed a separate realization cost: grouped parity draws

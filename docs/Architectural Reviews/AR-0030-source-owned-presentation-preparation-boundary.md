@@ -2438,6 +2438,27 @@ The review moves away from shared admission when:
   from 4,108 to 4,222 plane triangles; this amplification remains diagnostic
   evidence pending live visual confirmation.
 
+### Cycle 69 -- 2026-08-18
+
+- Further E1M7 inspection found another seam along the same sector-98/99
+  boundary family. With trimming disabled, the frozen ray hit subsector 248's
+  sector-99 `FLOOR7_1` at distance `149.906` and source position approximately
+  `(1505.536, -2598.769, 0)`; sector trimming alone removed it. The point is
+  only about `0.06` source map units from linedef 841.
+- This falsified Cycle 68's whole-fragment containment condition as sufficient.
+  The sector graph had already partitioned the BSP leaf into finite cells, but
+  the affected cell extended more than one unit away elsewhere. Requiring all
+  vertices to fit the reconciliation strip therefore rejected a cell whose
+  observed seam point was almost exactly on the authored boundary.
+- Reconciliation now classifies each already-partitioned cell by its centroid:
+  a centroid within one source map unit of a finite sector edge fails open;
+  more distant cells retain ordinary nonzero-winding classification. The
+  synthetic control admits `0.75` and rejects `1.25` map units.
+- Both retained E1M7 seam rays now hit sector-99 `FLOOR7_1`. The E1M2
+  subsector-36 exterior-plane falsifier remains absent. E1M7 records 723 sector
+  fragments, 457 conformance insertions and 4,270 plane triangles. Live visual
+  confirmation remains required.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
