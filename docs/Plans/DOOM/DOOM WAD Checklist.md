@@ -1245,12 +1245,26 @@ Acceptance criteria:
   - [x] Wire captured left-click to a 2,048-unit actual-camera hitscan probe.
         The corpus application supplies active source-backed monster/barrel
         cylinders and the nearest active prepared opaque surface, then reports
-        actor/world/miss without applying damage.
+        actor/world/miss before the separately owned damage transition.
   - [x] Keep prepared-surface distance explicitly corpus-private rather than
         making presentation geometry generic gameplay authority. Masked-middle
         declarations do not block this first trace. Projectile creation,
-        movement scheduling, impact effects, and damage remain separate work.
-- [ ] Add damage, death, and respawn policy.
+        movement scheduling, and impact effects remain separate work.
+- [x] Add damage, death, and respawn policy.
+  - [x] Retain E1M1 monster/barrel spawn health in application-owned runtime
+        state. Pistol shots consume bullets and use a replayable private copy
+        of Doom's play-RNG table and released `5 * (random % 3 + 1)` damage.
+  - [x] Make death terminal for collision and live sprite participation while
+        retaining the immutable imported Thing. `R` restores the source-spawn
+        observer, inventory, Thing occurrences, actor health, animation clocks,
+        and play-RNG index as one corpus-local respawn operation.
+  - [x] Retain player health/armor damage policy independently: green armor
+        absorbs one third, blue armor one half, bounded by remaining armor;
+        zero health is a deterministic terminal outcome.
+  - [x] Replay two exact pistol ray hits against a source-backed zombieman from
+        reset state and prove identical RNG, damage, and killed state. Death
+        sprites/pain states, drops, barrel explosions, monster attacks, and a
+        general level restart remain explicit later work.
 - [ ] Add monster perception and movement only after observation boundaries are
       useful enough to diagnose behavior.
 - [ ] Add save/replay evidence without treating WAD bytes as mutable world

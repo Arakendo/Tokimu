@@ -367,6 +367,12 @@ pub enum DoomPickupOutcome {
     NotPickup,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DoomPlayerDamageOutcome {
+    Alive { health: u16, armor_points: u16 },
+    Killed,
+}
+
 pub fn e1m1_pickup_touches_player(
     player_xy: [f32; 2],
     player_floor_z: f32,
@@ -393,6 +399,30 @@ pub const fn e1m1_combat_actor_dimensions(kind: u16) -> Option<[f32; 2]> {
 }
 
 impl DoomPlayerInventory {
+    /// Applies Classic Doom's green/blue armor fractions before reducing
+    /// health. Damage sources and death presentation remain caller-owned.
+    pub fn apply_damage(&mut self, damage: u16) -> DoomPlayerDamageOutcome {
+        let saved = match self.armor_type {
+            1 => damage / 3,
+            2 => damage / 2,
+            _ => 0,
+        }
+        .min(self.armor_points);
+        self.armor_points -= saved;
+        if self.armor_points == 0 {
+            self.armor_type = 0;
+        }
+        self.health = self.health.saturating_sub(damage - saved);
+        if self.health == 0 {
+            DoomPlayerDamageOutcome::Killed
+        } else {
+            DoomPlayerDamageOutcome::Alive {
+                health: self.health,
+                armor_points: self.armor_points,
+            }
+        }
+    }
+
     fn give_ammo(&mut self, ammo_index: usize, clip_loads: u16) -> bool {
         const CLIP_AMMO: [u16; 4] = [10, 4, 1, 20];
         const MAX_AMMO: [u16; 4] = [200, 50, 50, 300];
@@ -727,6 +757,37 @@ mod tests {
             state
         };
         assert_eq!(run(), run());
+    }
+
+    #[test]
+    fn player_damage_applies_classic_armor_fractions_and_death() {
+        let mut green = DoomPlayerInventory {
+            armor_points: 100,
+            armor_type: 1,
+            ..DoomPlayerInventory::default()
+        };
+        assert_eq!(
+            green.apply_damage(30),
+            DoomPlayerDamageOutcome::Alive {
+                health: 80,
+                armor_points: 90,
+            }
+        );
+
+        let mut blue = DoomPlayerInventory {
+            armor_points: 5,
+            armor_type: 2,
+            health: 10,
+            ..DoomPlayerInventory::default()
+        };
+        assert_eq!(blue.apply_damage(20), DoomPlayerDamageOutcome::Killed);
+        assert_eq!(blue.health, 0);
+        assert_eq!(blue.armor_points, 0);
+        assert_eq!(blue.armor_type, 0);
+
+        blue = DoomPlayerInventory::default();
+        assert_eq!(blue.health, 100);
+        assert_eq!(blue.armor_points, 0);
     }
 
     #[test]

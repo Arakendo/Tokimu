@@ -118,14 +118,33 @@ Projectile collision uses the same ordering after expanding actor radius and
 vertical support by a finite projectile cylinder over one caller-owned
 movement delta. Tests retain actor/world occlusion, deterministic actor ties,
 pitched vertical misses, and swept-volume contact. Runtime projectile creation,
-tic scheduling, effects, and damage are still deferred.
+tic scheduling, and effects are still deferred.
 
 In the native corpus, the first click captures the pointer and later left
 clicks issue a 2,048-unit ray along the actual yaw/pitch camera direction. The
 application supplies active monsters/barrels plus the nearest active prepared
-opaque surface and prints `actor`, `world`, or `miss`; it deliberately reports
-`damage=deferred`. This use of prepared geometry is a corpus-local live probe,
-not a decision that render declarations own general gameplay collision.
+opaque surface and prints `actor`, `world`, or `miss`. A shot consumes one
+bullet and advances a corpus-private copy of Doom's play RNG before applying
+the released pistol damage expression. See id Software's released
+[`m_random.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/m_random.c)
+and
+[`p_pspr.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_pspr.c).
+This use of prepared geometry is a corpus-local live probe, not a decision that
+render declarations own general gameplay collision.
+
+E1M1 monsters and barrels retain source-backed spawn health in mutable runtime
+state. A killed occurrence stops participating in collision and live sprite
+presentation without changing its decoded Thing record. `R` restores the
+source-spawn observer, default player inventory, all Thing occurrences, actor
+health, Thing animation clocks, and the play-RNG index. It is deliberately not
+a claim to reset unrelated map-special progression. Headless replay traces two
+identical finite rays to a zombieman, applies the first two deterministic pistol
+rolls (15 then 10), and reaches the same killed state from two independent
+resets. Player damage separately retains Classic green/blue armor absorption
+and terminal zero health from released
+[`p_inter.c`](https://raw.githubusercontent.com/id-Software/DOOM/master/linuxdoom-1.10/p_inter.c).
+Pain/death sprites, drops, barrel explosions, and monster-owned attacks remain
+unapplied.
 
 With grouped-sky parity enabled, the same categorically covered sprite quads
 participate in the full-world depth prepass and the even-parity color pass.

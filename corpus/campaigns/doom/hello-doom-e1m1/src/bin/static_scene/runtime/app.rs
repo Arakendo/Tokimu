@@ -25,6 +25,14 @@ impl App {
         if direction == Vec3::ZERO {
             return;
         }
+        if self.player_inventory.ammo[0] == 0 {
+            let diagnostic = format!("{} pistol: result=no-ammo", self.map_name);
+            eprintln!("{diagnostic}");
+            self.debug_console.append(diagnostic);
+            return;
+        }
+        self.player_inventory.ammo[0] -= 1;
+        let damage = self.play_random.pistol_damage();
         let world_distance = self
             .draws
             .iter()
@@ -70,18 +78,30 @@ impl App {
                     .iter()
                     .find(|actor| actor.source_thing == source_thing)
                     .map_or(0, |actor| actor.kind);
+                let sprite_index = self
+                    .thing_sprites
+                    .iter()
+                    .position(|thing| thing.source.record_index == source_thing)
+                    .expect("traced actor must retain a Thing sprite");
+                let outcome = self.thing_combat_states[sprite_index]
+                    .as_mut()
+                    .expect("traced actor must retain combat state")
+                    .apply_damage(damage);
+                if outcome == hello_doom_e1m1::combat::DoomDamageOutcome::Killed {
+                    self.thing_sprite_active[sprite_index] = false;
+                }
                 format!(
-                    "{} hitscan: result=actor source-thing={source_thing} kind={kind} distance={distance:.3} damage=deferred",
-                    self.map_name
+                    "{} pistol: result=actor source-thing={source_thing} kind={kind} distance={distance:.3} damage={damage} outcome={outcome:?} bullets={}",
+                    self.map_name, self.player_inventory.ammo[0]
                 )
             }
             Some(hello_doom_e1m1::combat::DoomCombatHit::World { distance }) => format!(
-                "{} hitscan: result=world distance={distance:.3} damage=not-applicable",
-                self.map_name
+                "{} pistol: result=world distance={distance:.3} damage={damage} outcome=occluded bullets={}",
+                self.map_name, self.player_inventory.ammo[0]
             ),
             None => format!(
-                "{} hitscan: result=miss maximum-distance={HITSCAN_RANGE} damage=not-applicable",
-                self.map_name
+                "{} pistol: result=miss maximum-distance={HITSCAN_RANGE} damage={damage} bullets={}",
+                self.map_name, self.player_inventory.ammo[0]
             ),
         };
         eprintln!("{diagnostic}");
@@ -596,10 +616,27 @@ impl App {
     fn reset_spawn_observer(&mut self) {
         self.spawn_observer = self.initial_spawn_observer;
         self.observer_look = self.initial_observer_look;
-
+        self.player_inventory = hello_doom_e1m1::things::DoomPlayerInventory::default();
+        self.thing_sprite_active.fill(true);
+        for (state, thing) in self.thing_sprite_states.iter_mut().zip(&self.thing_sprites) {
+            *state = hello_doom_e1m1::things::DoomThingRuntimeState::new(
+                hello_doom_e1m1::things::e1m1_thing_state_program(thing.kind),
+                thing.initial_frame,
+            );
+        }
+        self.thing_sprite_tick_accumulator = 0.0;
+        self.thing_sprite_total_ticks = 0;
+        self.sprite_last_viewer_source_position = None;
+        for state in self.thing_combat_states.iter_mut().flatten() {
+            state.respawn();
+        }
+        self.play_random.reset();
         self.last_collision_contacts.clear();
         self.last_floor_transition = None;
-        eprintln!("E1M1 source-spawn observer reset");
+        eprintln!(
+            "{} source-spawn respawn: observer=true inventory=true Things=true thing-clocks=true play-random-index=0",
+            self.map_name
+        );
     }
 
     fn observe_current_secret_sector(&mut self) {

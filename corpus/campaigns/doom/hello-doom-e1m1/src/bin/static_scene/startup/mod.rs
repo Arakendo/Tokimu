@@ -1311,6 +1311,16 @@ pub(crate) fn run() -> PlatformResult<()> {
         })
         .collect();
     let thing_sprite_active = vec![true; scene.thing_sprites.len()];
+    let thing_combat_states = scene
+        .thing_sprites
+        .iter()
+        .map(|thing| {
+            hello_doom_e1m1::combat::DoomCombatActorState::new(
+                thing.source.record_index,
+                thing.kind,
+            )
+        })
+        .collect();
     let mut app = App {
         map_name: scene.map_name.clone(),
         available_maps: scene.available_maps.clone(),
@@ -1340,6 +1350,8 @@ pub(crate) fn run() -> PlatformResult<()> {
         thing_sprite_total_ticks: 0,
         thing_sprite_active,
         player_inventory: hello_doom_e1m1::things::DoomPlayerInventory::default(),
+        thing_combat_states,
+        play_random: hello_doom_e1m1::combat::DoomPlayRandom::default(),
         diagnostic_sky_draws: scene.diagnostic_sky_draws,
         diagnostic_sky_enabled: diagnostic_sky,
         diagnostic_sky_records: scene.diagnostic_sky_records,

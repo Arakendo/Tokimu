@@ -252,6 +252,8 @@ struct App {
     thing_sprite_total_ticks: u64,
     thing_sprite_active: Vec<bool>,
     player_inventory: hello_doom_e1m1::things::DoomPlayerInventory,
+    thing_combat_states: Vec<Option<hello_doom_e1m1::combat::DoomCombatActorState>>,
+    play_random: hello_doom_e1m1::combat::DoomPlayRandom,
     diagnostic_sky_draws: Vec<StaticDrawPlanEntry>,
     diagnostic_sky_enabled: bool,
     diagnostic_sky_records: Vec<String>,
