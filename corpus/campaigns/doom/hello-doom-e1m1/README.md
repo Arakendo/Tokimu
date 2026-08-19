@@ -213,6 +213,21 @@ otherwise oversized fallback leaves, including the subsector 36 floor beyond
 the first outdoor sky transition, while retaining subsector 45 as an explicit
 zero-area omission.
 
+`--sector-boundary-trim` is an opt-in grouped-sky-parity walkabout candidate.
+It reconstructs a balanced directed boundary graph per sector from the same
+LINEDEF/SIDEDEF ownership used by the top-down map SVG, splits each finite
+subsector plane at intersecting authored edges, and retains cells with nonzero
+sector winding. Concave shells, disconnected shells and holes are supported;
+an unavailable graph or a proposed empty leaf fails open to the ordinary
+source-boundary result. It currently requires `--skywall-parity-full` and does
+not replace the accepted E1M1 control.
+
+```powershell
+cargo run -p hello-doom-e1m1 --bin static_scene -- `
+  corpus/assets/DOOM/packages/doom-shareware-corpus-v1.zip DOOM1.WAD `
+  --map=E1M2 --skywall-parity-full --sector-boundary-trim --noclip
+```
+
 The SKY1 panorama remains corpus-local: it uses the real `SKY1` raster, but
 does not claim the original view-dependent sky projection or admit a generic
 sky contract. Masked cutouts use the admitted generic categorical-coverage

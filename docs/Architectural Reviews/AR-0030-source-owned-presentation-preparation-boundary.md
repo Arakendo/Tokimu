@@ -2264,6 +2264,41 @@ The review moves away from shared admission when:
   pipeline switches. Warm command construction was `413 µs`; warm frame CPU
   time was `179,591 µs`. No performance requirement is inferred.
 
+### Cycle 63 -- 2026-08-18
+
+- The top-down WAD map artifact was traced to complete LINEDEF geometry,
+  SIDEDEF sector ownership and directed wall normals. The SVG itself remains a
+  diagnostic and is not consumed by preparation; its source topology now
+  drives a separate Doom-private sector-support candidate.
+- The provider constructs a directed boundary edge for each sector-owning side
+  whose opposite side belongs to another sector or is absent. A sector graph
+  participates only when every source vertex has balanced incoming/outgoing
+  degree. Same-sector two-sided linedefs are internal and do not become false
+  boundaries.
+- Each already-finite convex subsector region is split only where a finite
+  authored sector edge intersects it. Resulting cells are retained by nonzero
+  winding against the complete sector graph, supporting concave shells,
+  disconnected components and holes. This can only shrink existing support.
+  Unavailable graphs and proposed empty leaves fail open.
+- A synthetic clockwise concave L-sector retains exactly 3,072 square map
+  units independently for floor and ceiling while omitting its upper-right
+  quadrant.
+- Canonical E1M1 has balanced sector support for all 237 leaves: 236 install
+  nonempty results, 85 are geometrically refined into 339 cells, and subsector
+  161 proposes empty support and therefore fails open. Canonical E1M2 installs
+  support for all 447 nondegenerate leaves, refining 147 into 638 cells; the
+  known zero-area subsector 45 remains omitted before sector refinement.
+- The candidate is opt-in as `--sector-boundary-trim` and currently requires
+  grouped sky parity. The accepted E1M1 path remains unchanged because the
+  candidate changes too many leaves to promote without live falsification.
+  The three frozen exact positive-plane controls still agree, and the retained
+  E1M2 subsector 36 leak replay still reports no ordinary hit.
+- Native Vulkan two-frame realization completes on both maps. E1M1 emits 4,572
+  draws with nine pipeline switches (`368 µs` warm command construction,
+  `114,964 µs` warm frame CPU); E1M2 emits 9,213 draws with seven switches
+  (`621 µs`, `227,219 µs`). The increase over the unsplit controls is
+  retained as candidate fragmentation evidence, not accepted performance.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

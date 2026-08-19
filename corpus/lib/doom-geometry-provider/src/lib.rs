@@ -219,12 +219,13 @@ pub struct DoomSurfaceTriangle {
     pub positions: [[f64; 3]; 3],
 }
 
-/// Audit for the Doom-private source-loop-refined plane bake. A stitched SEG
-/// loop is used only when the decoded SEG endpoints form one convex cycle
-/// contained by the owning BSP leaf. Every other subsector retains the
-/// existing nondegenerate BSP-path region as a conservative fallback. A leaf
-/// for which every candidate region has zero area emits no plane triangles and
-/// is retained explicitly in the audit.
+/// Audit for the Doom-private source-boundary-refined plane bake. Local SEG
+/// evidence first narrows each BSP leaf. A balanced directed boundary graph
+/// reconstructed from the owning sector's LINEDEF/SIDEDEF topology can then
+/// trim non-convex shells and holes which one leaf's local SEGs do not fully
+/// describe. Unavailable sector topology fails open to the local result. A
+/// leaf for which every candidate region has zero area emits no plane
+/// triangles and is retained explicitly in the audit.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoomSourceBoundedSurfaceAudit {
     pub subsectors: usize,
@@ -234,6 +235,12 @@ pub struct DoomSourceBoundedSurfaceAudit {
     pub seg_half_plane_refinements: usize,
     pub bsp_path_fallbacks: usize,
     pub bsp_path_fallback_subsectors: Vec<DoomSourceRecord>,
+    pub sector_boundary_supported_subsectors: usize,
+    pub sector_boundary_refinements: usize,
+    pub sector_boundary_fragments: usize,
+    pub sector_boundary_omissions: usize,
+    pub sector_boundary_omission_subsectors: Vec<DoomSourceRecord>,
+    pub sector_boundary_unavailable_subsectors: Vec<DoomSourceRecord>,
     pub degenerate_region_omissions: usize,
     pub degenerate_region_subsectors: Vec<DoomSourceRecord>,
     pub surface_triangles: usize,
@@ -2875,6 +2882,230 @@ pub fn lower_doom_subsector_surfaces(
     Ok(triangles)
 }
 
+#[derive(Clone, Copy, Debug)]
+struct DoomSectorBoundaryEdge {
+    source_linedef: DoomSourceRecord,
+    start_vertex: u16,
+    end_vertex: u16,
+    start: [i16; 2],
+    end: [i16; 2],
+}
+
+fn resolve_doom_sector_boundary_support(
+    map: &DoomMapCore,
+) -> Vec<Option<Vec<DoomSectorBoundaryEdge>>> {
+    let mut sector_edges = vec![Vec::new(); map.sectors.len()];
+    for linedef in &map.linedefs {
+        let right_sector = linedef
+            .right_sidedef
+            .and_then(|index| map.sidedefs.get(usize::from(index)))
+            .map(|sidedef| sidedef.sector);
+        let left_sector = linedef
+            .left_sidedef
+            .and_then(|index| map.sidedefs.get(usize::from(index)))
+            .map(|sidedef| sidedef.sector);
+        if right_sector == left_sector {
+            continue;
+        }
+        let Some(start) = map.vertices.get(usize::from(linedef.start_vertex)) else {
+            continue;
+        };
+        let Some(end) = map.vertices.get(usize::from(linedef.end_vertex)) else {
+            continue;
+        };
+        if let Some(sector) =
+            right_sector.and_then(|index| sector_edges.get_mut(usize::from(index)))
+        {
+            sector.push(DoomSectorBoundaryEdge {
+                source_linedef: linedef.source,
+                start_vertex: linedef.start_vertex,
+                end_vertex: linedef.end_vertex,
+                start: [start.x, start.y],
+                end: [end.x, end.y],
+            });
+        }
+        if let Some(sector) = left_sector.and_then(|index| sector_edges.get_mut(usize::from(index)))
+        {
+            sector.push(DoomSectorBoundaryEdge {
+                source_linedef: linedef.source,
+                start_vertex: linedef.end_vertex,
+                end_vertex: linedef.start_vertex,
+                start: [end.x, end.y],
+                end: [start.x, start.y],
+            });
+        }
+    }
+
+    sector_edges
+        .into_iter()
+        .map(|edges| {
+            if edges.len() < 3 {
+                return None;
+            }
+            let mut degrees = BTreeMap::<u16, [usize; 2]>::new();
+            for edge in &edges {
+                degrees.entry(edge.start_vertex).or_default()[0] += 1;
+                degrees.entry(edge.end_vertex).or_default()[1] += 1;
+            }
+            degrees
+                .values()
+                .all(|degree| degree[0] == degree[1])
+                .then_some(edges)
+        })
+        .collect()
+}
+
+fn refine_convex_region_to_sector_boundary(
+    vertices: &[[f64; 2]],
+    edges: &[DoomSectorBoundaryEdge],
+) -> Option<Vec<Vec<[f64; 2]>>> {
+    const MAXIMUM_FRAGMENTS_PER_SUBSECTOR: usize = 4096;
+    const AREA_EPSILON: f64 = 1.0e-9;
+    let mut fragments = vec![vertices.to_vec()];
+    for edge in edges {
+        let mut split_fragments = Vec::with_capacity(fragments.len());
+        for fragment in fragments {
+            if !sector_edge_intersects_convex_region(edge, &fragment) {
+                split_fragments.push(fragment);
+                continue;
+            }
+            let step = DoomBspPathStep {
+                source_node: edge.source_linedef,
+                side: DoomBspSide::Right,
+                origin: edge.start,
+                delta: [
+                    edge.end[0].checked_sub(edge.start[0])?,
+                    edge.end[1].checked_sub(edge.start[1])?,
+                ],
+            };
+            let distances = fragment
+                .iter()
+                .map(|point| partition_distance(*point, &step));
+            let (mut positive, mut negative) = (false, false);
+            for distance in distances {
+                positive |= distance > 1.0e-7;
+                negative |= distance < -1.0e-7;
+            }
+            if !(positive && negative) {
+                split_fragments.push(fragment);
+                continue;
+            }
+            for side in [DoomBspSide::Right, DoomBspSide::Left] {
+                let piece = clip_convex_region(&fragment, &DoomBspPathStep { side, ..step });
+                if piece.len() >= 3 && polygon_signed_area(&piece).abs() > AREA_EPSILON {
+                    split_fragments.push(piece);
+                }
+            }
+        }
+        if split_fragments.len() > MAXIMUM_FRAGMENTS_PER_SUBSECTOR {
+            return None;
+        }
+        fragments = split_fragments;
+    }
+    Some(
+        fragments
+            .into_iter()
+            .filter(|fragment| {
+                let inverse_count = 1.0 / fragment.len() as f64;
+                let centroid = fragment.iter().fold([0.0, 0.0], |sum, point| {
+                    [sum[0] + point[0], sum[1] + point[1]]
+                });
+                point_in_directed_sector_boundary(
+                    [centroid[0] * inverse_count, centroid[1] * inverse_count],
+                    edges,
+                )
+            })
+            .collect(),
+    )
+}
+
+fn sector_edge_intersects_convex_region(
+    edge: &DoomSectorBoundaryEdge,
+    vertices: &[[f64; 2]],
+) -> bool {
+    let start = edge.start.map(f64::from);
+    let end = edge.end.map(f64::from);
+    point_in_convex_polygon(start, vertices)
+        || point_in_convex_polygon(end, vertices)
+        || vertices
+            .iter()
+            .copied()
+            .zip(vertices.iter().copied().cycle().skip(1))
+            .take(vertices.len())
+            .any(|(polygon_start, polygon_end)| {
+                closed_segments_intersect(start, end, polygon_start, polygon_end)
+            })
+}
+
+fn point_in_convex_polygon(point: [f64; 2], vertices: &[[f64; 2]]) -> bool {
+    let mut positive = false;
+    let mut negative = false;
+    for (start, end) in vertices
+        .iter()
+        .copied()
+        .zip(vertices.iter().copied().cycle().skip(1))
+        .take(vertices.len())
+    {
+        let cross = cross_2d(start, end, point);
+        positive |= cross > 1.0e-7;
+        negative |= cross < -1.0e-7;
+        if positive && negative {
+            return false;
+        }
+    }
+    true
+}
+
+fn closed_segments_intersect(
+    first_start: [f64; 2],
+    first_end: [f64; 2],
+    second_start: [f64; 2],
+    second_end: [f64; 2],
+) -> bool {
+    let first_a = cross_2d(first_start, first_end, second_start);
+    let first_b = cross_2d(first_start, first_end, second_end);
+    let second_a = cross_2d(second_start, second_end, first_start);
+    let second_b = cross_2d(second_start, second_end, first_end);
+    (first_a.abs() <= 1.0e-7 && point_on_closed_segment(second_start, first_start, first_end))
+        || (first_b.abs() <= 1.0e-7 && point_on_closed_segment(second_end, first_start, first_end))
+        || (second_a.abs() <= 1.0e-7
+            && point_on_closed_segment(first_start, second_start, second_end))
+        || (second_b.abs() <= 1.0e-7
+            && point_on_closed_segment(first_end, second_start, second_end))
+        || ((first_a > 0.0) != (first_b > 0.0) && (second_a > 0.0) != (second_b > 0.0))
+}
+
+fn point_in_directed_sector_boundary(point: [f64; 2], edges: &[DoomSectorBoundaryEdge]) -> bool {
+    let mut winding = 0_i32;
+    for edge in edges {
+        let start = edge.start.map(f64::from);
+        let end = edge.end.map(f64::from);
+        if cross_2d(start, end, point).abs() <= 1.0e-7 && point_on_closed_segment(point, start, end)
+        {
+            return true;
+        }
+        if start[1] <= point[1] {
+            if end[1] > point[1] && cross_2d(start, end, point) > 1.0e-7 {
+                winding += 1;
+            }
+        } else if end[1] <= point[1] && cross_2d(start, end, point) < -1.0e-7 {
+            winding -= 1;
+        }
+    }
+    winding != 0
+}
+
+fn cross_2d(start: [f64; 2], end: [f64; 2], point: [f64; 2]) -> f64 {
+    (end[0] - start[0]) * (point[1] - start[1]) - (end[1] - start[1]) * (point[0] - start[0])
+}
+
+fn point_on_closed_segment(point: [f64; 2], start: [f64; 2], end: [f64; 2]) -> bool {
+    point[0] >= start[0].min(end[0]) - 1.0e-7
+        && point[0] <= start[0].max(end[0]) + 1.0e-7
+        && point[1] >= start[1].min(end[1]) - 1.0e-7
+        && point[1] <= start[1].max(end[1]) + 1.0e-7
+}
+
 /// Lowers Doom floor and ceiling surfaces from the narrowest validated source
 /// boundary available for each subsector.
 ///
@@ -2888,10 +3119,31 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
     map: &DoomMapCore,
     paths: &[DoomSubsectorBspPath],
 ) -> Result<DoomSourceBoundedSurfaceBake, DoomGeometryError> {
+    lower_doom_bounded_subsector_surfaces(map, paths, false)
+}
+
+/// Extends [`lower_doom_source_bounded_subsector_surfaces`] with a complete
+/// directed LINEDEF/SIDEDEF boundary graph for each sector. This candidate can
+/// trim concave shells and holes which are not recoverable from one leaf's
+/// local SEGs. Only balanced closed sector graphs participate; every
+/// unavailable or empty result fails open to the local source/BSP region.
+pub fn lower_doom_sector_bounded_subsector_surfaces(
+    map: &DoomMapCore,
+    paths: &[DoomSubsectorBspPath],
+) -> Result<DoomSourceBoundedSurfaceBake, DoomGeometryError> {
+    lower_doom_bounded_subsector_surfaces(map, paths, true)
+}
+
+fn lower_doom_bounded_subsector_surfaces(
+    map: &DoomMapCore,
+    paths: &[DoomSubsectorBspPath],
+    sector_boundary_trim: bool,
+) -> Result<DoomSourceBoundedSurfaceBake, DoomGeometryError> {
     const AREA_EPSILON: f64 = 1.0e-9;
 
     let regions = resolve_doom_subsector_regions(map, paths)?;
     let ownership = resolve_doom_subsector_sector_ownership(map)?;
+    let sector_boundaries = sector_boundary_trim.then(|| resolve_doom_sector_boundary_support(map));
     let mut surfaces = Vec::new();
     let mut stitched_seg_loops = 0;
     let mut stitched_loop_refinements = 0;
@@ -2899,6 +3151,12 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
     let mut seg_half_plane_refinements = 0;
     let mut bsp_path_fallbacks = 0;
     let mut bsp_path_fallback_subsectors = Vec::new();
+    let mut sector_boundary_supported_subsectors = 0;
+    let mut sector_boundary_refinements = 0;
+    let mut sector_boundary_fragments = 0;
+    let mut sector_boundary_omissions = 0;
+    let mut sector_boundary_omission_subsectors = Vec::new();
+    let mut sector_boundary_unavailable_subsectors = Vec::new();
     let mut degenerate_region_omissions = 0;
     let mut degenerate_region_subsectors = Vec::new();
 
@@ -2950,13 +3208,49 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
             degenerate_region_subsectors.push(region.source_subsector);
             continue;
         }
-        append_subsector_surface_triangles(
-            &mut surfaces,
-            &vertices,
-            region.source_subsector,
-            ownership,
-            &map.sectors[usize::from(ownership.sector_index)],
-        );
+        let original_area = polygon_signed_area(&vertices).abs();
+        let refined_regions = sector_boundaries.as_ref().map(|boundaries| {
+            boundaries
+                .get(usize::from(ownership.sector_index))
+                .and_then(Option::as_deref)
+                .and_then(|edges| refine_convex_region_to_sector_boundary(&vertices, edges))
+        });
+        let prepared_regions = match refined_regions {
+            Some(Some(regions)) if !regions.is_empty() => {
+                sector_boundary_supported_subsectors += 1;
+                sector_boundary_fragments += regions.len();
+                let refined_area = regions
+                    .iter()
+                    .map(|region| polygon_signed_area(region).abs())
+                    .sum::<f64>();
+                if (refined_area - original_area).abs() > AREA_EPSILON || regions.len() > 1 {
+                    sector_boundary_refinements += 1;
+                }
+                regions
+            }
+            Some(Some(_)) => {
+                // A complete disappearance is too strong to install from a
+                // derived sector graph. Retain the local source/BSP result and
+                // expose the disagreement for corpus review.
+                sector_boundary_omissions += 1;
+                sector_boundary_omission_subsectors.push(region.source_subsector);
+                vec![vertices]
+            }
+            Some(None) => {
+                sector_boundary_unavailable_subsectors.push(region.source_subsector);
+                vec![vertices]
+            }
+            None => vec![vertices],
+        };
+        for prepared_region in prepared_regions {
+            append_subsector_surface_triangles(
+                &mut surfaces,
+                &prepared_region,
+                region.source_subsector,
+                ownership,
+                &map.sectors[usize::from(ownership.sector_index)],
+            );
+        }
     }
 
     Ok(DoomSourceBoundedSurfaceBake {
@@ -2968,6 +3262,12 @@ pub fn lower_doom_source_bounded_subsector_surfaces(
             seg_half_plane_refinements,
             bsp_path_fallbacks,
             bsp_path_fallback_subsectors,
+            sector_boundary_supported_subsectors,
+            sector_boundary_refinements,
+            sector_boundary_fragments,
+            sector_boundary_omissions,
+            sector_boundary_omission_subsectors,
+            sector_boundary_unavailable_subsectors,
             degenerate_region_omissions,
             degenerate_region_subsectors,
             surface_triangles: surfaces.len(),
@@ -4578,11 +4878,11 @@ mod tests {
         classic_ceiling_after_mark_without_upper, classic_ceiling_plane_rows, classic_open_rows,
         clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_direction_to_tokimu,
         doom_point_to_tokimu, locate_doom_point_subsector, lower_doom_one_sided_walls,
-        lower_doom_paired_sky_boundary_triangles, lower_doom_seg_textured_wall_triangles,
-        lower_doom_source_bounded_subsector_surfaces, lower_doom_subsector_surfaces,
-        lower_doom_textured_wall_triangles, lower_doom_two_sided_middle_walls,
-        lower_doom_two_sided_wall_bands, observe_doom_classic_bsp,
-        observe_doom_classic_bsp_far_first_control,
+        lower_doom_paired_sky_boundary_triangles, lower_doom_sector_bounded_subsector_surfaces,
+        lower_doom_seg_textured_wall_triangles, lower_doom_source_bounded_subsector_surfaces,
+        lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles,
+        lower_doom_two_sided_middle_walls, lower_doom_two_sided_wall_bands,
+        observe_doom_classic_bsp, observe_doom_classic_bsp_far_first_control,
         observe_doom_classic_bsp_suppressing_solid_range_source_seg,
         observe_doom_classic_bsp_without_solid_range_pruning, observe_doom_seg_occluders,
         observe_doom_seg_plane_marks, observe_doom_sky_surfaces,
@@ -4851,6 +5151,13 @@ mod tests {
         assert_eq!(bake.audit.stitched_seg_loops, 0);
         assert_eq!(bake.audit.bsp_path_fallbacks, 1);
         assert_eq!(bake.surfaces.len(), 4);
+
+        let sector_bake = lower_doom_sector_bounded_subsector_surfaces(&map, &paths).unwrap();
+        assert_eq!(
+            sector_bake.audit.sector_boundary_unavailable_subsectors,
+            vec![source(0)]
+        );
+        assert_eq!(sector_bake.surfaces, bake.surfaces);
     }
 
     #[test]
@@ -4960,6 +5267,74 @@ mod tests {
             .iter()
             .flat_map(|surface| surface.positions)
             .all(|position| position[2] <= 1657.0));
+    }
+
+    #[test]
+    fn source_bounded_surfaces_trim_a_concave_sector_from_directed_linedefs() {
+        let mut map = map_with_linedef(Some(0), None);
+        map.vertices = [(0, 0), (0, 64), (32, 64), (32, 32), (64, 32), (64, 0)]
+            .into_iter()
+            .enumerate()
+            .map(|(index, (x, y))| DoomVertex {
+                source: source(index as u32),
+                x,
+                y,
+            })
+            .collect();
+        let boundary = [(0_u16, 1_u16), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)];
+        map.linedefs = boundary
+            .iter()
+            .enumerate()
+            .map(|(index, &(start_vertex, end_vertex))| DoomLinedef {
+                source: source(index as u32),
+                start_vertex,
+                end_vertex,
+                flags: 0,
+                special: 0,
+                tag: 0,
+                right_sidedef: Some(0),
+                left_sidedef: None,
+            })
+            .collect();
+        map.segs = boundary
+            .iter()
+            .enumerate()
+            .map(|(index, &(start_vertex, end_vertex))| DoomSeg {
+                source: source(index as u32),
+                start_vertex,
+                end_vertex,
+                angle: 0,
+                linedef: index as u16,
+                direction: 0,
+                offset: 0,
+            })
+            .collect();
+        map.subsectors = vec![DoomSubsector {
+            source: source(0),
+            seg_count: boundary.len() as u16,
+            first_seg: 0,
+        }];
+        let paths = vec![super::DoomSubsectorBspPath {
+            source_subsector: source(0),
+            steps: Vec::new(),
+        }];
+
+        let bake = lower_doom_sector_bounded_subsector_surfaces(&map, &paths).unwrap();
+        let surface_area = bake
+            .surfaces
+            .iter()
+            .map(|triangle| {
+                let [a, b, c] = triangle.positions;
+                ((b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])).abs() * 0.5
+            })
+            .sum::<f64>();
+
+        assert_eq!(bake.audit.bsp_path_fallbacks, 1);
+        assert_eq!(bake.audit.sector_boundary_supported_subsectors, 1);
+        assert_eq!(bake.audit.sector_boundary_refinements, 1);
+        // The clockwise L shell has area 3,072. Floor and ceiling each own
+        // that finite support; the missing upper-right quadrant stays empty.
+        assert!((surface_area - 6144.0).abs() <= 1.0e-7);
     }
 
     #[test]

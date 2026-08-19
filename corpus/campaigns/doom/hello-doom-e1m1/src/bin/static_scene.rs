@@ -15,8 +15,9 @@ use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
 use doom_geometry_provider::{
     clip_doom_seg_textured_wall_triangle_to_linedef_interval, doom_point_to_tokimu,
     locate_doom_point_subsector, lower_doom_paired_sky_boundary_triangles,
-    lower_doom_seg_textured_wall_triangles, lower_doom_source_bounded_subsector_surfaces,
-    lower_doom_subsector_surfaces, lower_doom_textured_wall_triangles, observe_doom_classic_bsp,
+    lower_doom_sector_bounded_subsector_surfaces, lower_doom_seg_textured_wall_triangles,
+    lower_doom_source_bounded_subsector_surfaces, lower_doom_subsector_surfaces,
+    lower_doom_textured_wall_triangles, observe_doom_classic_bsp,
     observe_doom_classic_bsp_suppressing_solid_range_source_seg,
     observe_doom_classic_bsp_without_solid_range_pruning,
     observe_doom_classic_vertical_clip_state as observe_shared_doom_classic_vertical_clip_state,
@@ -493,6 +494,7 @@ fn prepare_scene(
     map_name: &str,
     audit_bsp_bounds: bool,
     source_boundary_trim: bool,
+    sector_boundary_trim: bool,
 ) -> PlatformResult<SceneInput> {
     let bytes = fs::read(package)?;
     let mut space =
@@ -669,7 +671,12 @@ fn prepare_scene(
         ceiling: vertical.ceiling_height,
     };
     let source_bounded_surface_bake = if source_boundary_trim {
-        match lower_doom_source_bounded_subsector_surfaces(&map, &paths) {
+        let result = if sector_boundary_trim {
+            lower_doom_sector_bounded_subsector_surfaces(&map, &paths)
+        } else {
+            lower_doom_source_bounded_subsector_surfaces(&map, &paths)
+        };
+        match result {
             Ok(bake) => Some(bake),
             Err(error) => {
                 eprintln!(
