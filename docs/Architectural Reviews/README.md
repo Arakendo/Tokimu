@@ -254,3 +254,8 @@ across unrelated decisions.
 - [AR-0031: Conservative Spatial-Query Capability](AR-0031-conservative-spatial-query-capability.md)
   — Incubating; portable BVH mechanics have native/WASM and E1M1 lifecycle
   evidence, while Ring 2 admission awaits an independent non-Doom consumer
+- [AR-0032: Atomic Staged Render Resource-Set Replacement](AR-0032-atomic-staged-render-resource-set-replacement.md)
+  — Under Review; semantic, live WGPU, and repeated-pressure evidence support
+  narrow set-level transaction semantics while integrated stale rejection,
+  physical reclamation, and final API/handle shape remain explicit gates or
+  non-decisions

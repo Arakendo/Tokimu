@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | In progress -- Alternative B rejected; Alternative C semantic, real-provider, and repeated-pressure evidence passed; admission review ready |
 | Opened | 2026-08-19 |
-| Related reviews | AR-0024 and AR-0030 |
+| Related reviews | AR-0024, AR-0030, and AR-0032 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017 |
 | First pressure source | Repeated browser/WASM Doom working-map replacement |
 | Scope | Determine the smallest honest lifetime model for replacing a bounded set of renderer resources while retaining a provider session, device, and presentation surface |
