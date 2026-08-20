@@ -2,6 +2,12 @@ mod backend_init;
 mod cpu_timer;
 mod diagnostics;
 mod error;
+#[cfg(feature = "experimental-scene-resource-staging")]
+mod experimental_scene_resource_staging;
+#[cfg(feature = "experimental-scene-resource-staging")]
+pub use experimental_scene_resource_staging::{
+    ExperimentalSceneResourceStage, ExperimentalSceneResourceStageObservation,
+};
 #[cfg(feature = "experimental-submission-local-geometry")]
 mod experimental_submission_local_geometry;
 mod material_resources;
@@ -23,8 +29,15 @@ use crate::{
 use bytemuck::{Pod, Zeroable};
 pub use error::WgpuBackendError;
 use std::collections::HashMap;
+#[cfg(target_arch = "wasm32")]
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use tokimu_core::math::{Mat4, Vec4};
+
+#[cfg(not(target_arch = "wasm32"))]
+type ProviderShared<T> = Arc<T>;
+#[cfg(target_arch = "wasm32")]
+type ProviderShared<T> = Rc<T>;
 
 /// Reports the renderer-private consequences of replacing a render target.
 ///
@@ -154,9 +167,17 @@ struct SurfaceState {
     clear_color: Color,
     depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
-    camera_bind_group_layout: wgpu::BindGroupLayout,
-    material_bind_group_layout: wgpu::BindGroupLayout,
-    instance_bind_group_layout: wgpu::BindGroupLayout,
+    camera_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
+    material_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
+    instance_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
+}
+
+#[cfg(feature = "experimental-scene-resource-staging")]
+struct ExperimentalSceneStageContext {
+    surface_format: wgpu::TextureFormat,
+    camera_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
+    material_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
+    instance_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
 }
 
 #[repr(C)]
@@ -220,15 +241,71 @@ pub struct WgpuBackend {
     textures: HashMap<TextureHandle, GpuTexture>,
     cameras: HashMap<crate::resources::CameraHandle, Camera>,
     active_camera: crate::resources::CameraHandle,
-    _instance: wgpu::Instance,
-    _device: wgpu::Device,
-    _queue: wgpu::Queue,
+    _instance: ProviderShared<wgpu::Instance>,
+    _device: ProviderShared<wgpu::Device>,
+    _queue: ProviderShared<wgpu::Queue>,
     adapter_info: wgpu::AdapterInfo,
     surface_state: Option<SurfaceState>,
     backend_diagnostic_messages: Arc<Mutex<Vec<String>>>,
+    #[cfg(feature = "experimental-scene-resource-staging")]
+    experimental_stage_context: Option<ExperimentalSceneStageContext>,
+    #[cfg(feature = "experimental-scene-resource-staging")]
+    experimental_provider_session: Arc<()>,
 }
 
 impl WgpuBackend {
+    fn material_bind_group_layout(&self) -> Option<&wgpu::BindGroupLayout> {
+        self.surface_state
+            .as_ref()
+            .map(|state| state.material_bind_group_layout.as_ref())
+            .or_else(|| {
+                #[cfg(feature = "experimental-scene-resource-staging")]
+                {
+                    self.experimental_stage_context
+                        .as_ref()
+                        .map(|context| context.material_bind_group_layout.as_ref())
+                }
+                #[cfg(not(feature = "experimental-scene-resource-staging"))]
+                {
+                    None
+                }
+            })
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn pipeline_compilation_context(
+        &self,
+    ) -> Option<(
+        wgpu::TextureFormat,
+        &wgpu::BindGroupLayout,
+        &wgpu::BindGroupLayout,
+        &wgpu::BindGroupLayout,
+    )> {
+        if let Some(state) = self.surface_state.as_ref() {
+            return Some((
+                state.config.format,
+                state.material_bind_group_layout.as_ref(),
+                state.instance_bind_group_layout.as_ref(),
+                state.camera_bind_group_layout.as_ref(),
+            ));
+        }
+        #[cfg(feature = "experimental-scene-resource-staging")]
+        {
+            self.experimental_stage_context.as_ref().map(|context| {
+                (
+                    context.surface_format,
+                    context.material_bind_group_layout.as_ref(),
+                    context.instance_bind_group_layout.as_ref(),
+                    context.camera_bind_group_layout.as_ref(),
+                )
+            })
+        }
+        #[cfg(not(feature = "experimental-scene-resource-staging"))]
+        {
+            None
+        }
+    }
+
     pub fn upload_renderable(&mut self, handle: RenderableHandle, renderable: Renderable) {
         self.renderables.insert(handle, renderable);
     }

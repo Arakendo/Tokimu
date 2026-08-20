@@ -355,6 +355,93 @@ impl BrowserReplacementPressure {
         ))
     }
 
+    /// Exercises real WGPU allocation overlap without changing the public
+    /// renderer lifetime contract. A remains live while a deliberately invalid
+    /// B is populated, presents again after that failure, and is replaced only
+    /// after a complete second B stage validates.
+    pub async fn probe_provider_staging(
+        &mut self,
+        canvas: HtmlCanvasElement,
+    ) -> Result<String, JsValue> {
+        const RESOURCE_COUNT: u64 = 8;
+        const TEXTURE_WIDTH: u32 = 16;
+        const TEXTURE_HEIGHT: u32 = 16;
+
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        let mut renderer = WgpuBackend::for_window(canvas, width, height)
+            .await
+            .map_err(js_debug)?;
+        self.backend_creations = self.backend_creations.saturating_add(1);
+        let backend = renderer.backend_api();
+        let device = renderer.device_kind();
+        let adapter = renderer.adapter_name().to_owned();
+
+        let commands_a = upload_provider_stage_fixture_to_backend(
+            &mut renderer,
+            0,
+            RESOURCE_COUNT,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        )?;
+        renderer.begin_frame();
+        renderer.submit(&commands_a);
+        let initial_a = renderer.present().map_err(js_debug)?;
+
+        let mut failed_b = renderer
+            .experimental_begin_scene_resource_stage()
+            .map_err(js_debug)?;
+        upload_provider_stage_fixture_to_stage(
+            &mut failed_b,
+            1,
+            RESOURCE_COUNT,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        )?;
+        let staged_before_failure = RESOURCE_COUNT * 3 + 2;
+        let forced_failure = failed_b
+            .upload_material(
+                MaterialHandle(RESOURCE_COUNT + 1),
+                &Material::new("forced-late-stage-failure", Color::rgb(1.0, 1.0, 1.0))
+                    .with_texture(TextureHandle(RESOURCE_COUNT + 1)),
+            )
+            .expect_err("missing staged texture must fail before commit");
+        drop(failed_b);
+
+        renderer.begin_frame();
+        renderer.submit(&commands_a);
+        let a_after_failure = renderer.present().map_err(js_debug)?;
+
+        let mut committed_b = renderer
+            .experimental_begin_scene_resource_stage()
+            .map_err(js_debug)?;
+        let commands_b = upload_provider_stage_fixture_to_stage(
+            &mut committed_b,
+            1,
+            RESOURCE_COUNT,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        )?;
+        committed_b.begin_frame();
+        committed_b.submit(&commands_b);
+        let commit = renderer
+            .experimental_commit_scene_resource_stage(committed_b)
+            .map_err(js_debug)?;
+        let committed_b_frame = renderer.present().map_err(js_debug)?;
+        let diagnostic_count = renderer.drain_diagnostics().len();
+        self.renderer = Some(renderer);
+
+        Ok(format!(
+            "status=complete; lifetime-alternative=C-corpus-private-real-provider-staging; sequence=present-A>stage-B-late-failure>present-A>stage-B-complete>atomic-commit-B>present-B; backend-creations=1; device-creations=1; surface-creations=1; retained-provider-session=true; staged-before-failure={staged_before_failure}; forced-stage-failure={forced_failure:?}; A-draws-initial={}; A-draws-after-failed-B={}; last-known-good-preserved={}; commit-observation={commit:?}; B-draws-after-commit={}; retired-A-predictable={}; provider-diagnostics={diagnostic_count}; overlap-physical-bytes=unmeasured; retired-physical-reclamation=unobserved; repeated-replacement-pressure=not-exercised; public-handle-contract=unchanged; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
+            initial_a.frame.draw_calls,
+            a_after_failure.frame.draw_calls,
+            initial_a.frame.draw_calls == a_after_failure.frame.draw_calls,
+            committed_b_frame.frame.draw_calls,
+            commit.retired_meshes == RESOURCE_COUNT as u32
+                && commit.committed_meshes == RESOURCE_COUNT as u32,
+        ))
+    }
+
     /// Submits a command whose bare handles are indistinguishable from an old
     /// scene's handles after those numeric values have been reused by the
     /// current scene. Successful presentation is the B stale-identity
@@ -430,6 +517,147 @@ impl BrowserReplacementPressure {
         Ok(format!(
             "status=falsified; lifetime-alternative=adapter-private-scene-reset; requirement=atomic-last-known-good-replacement; reset-observation={reset:?}; forced-successor-staging-failure={staging_failure:?}; old-scene-after-failure={old_scene_resolution:?}; stale-handle-rejection=deterministic; last-known-good-preserved=false; physical-gpu-reclamation=unobserved"
         ))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn upload_provider_stage_fixture_to_backend(
+    renderer: &mut WgpuBackend,
+    scene_index: u32,
+    resource_count: u64,
+    texture_width: u32,
+    texture_height: u32,
+) -> Result<Vec<RenderCommand>, JsValue> {
+    let pipeline = renderer
+        .register_pipeline(&Pipeline::new(
+            format!("provider-stage-{scene_index}"),
+            PipelineKind::LitColor3d,
+        ))
+        .map_err(js_debug)?;
+    renderer.upload_camera(CameraHandle(1), Camera::default());
+    let descriptor =
+        Rgba8TextureDescriptor::new(texture_width, texture_height, Rgba8TextureColorSpace::Srgb);
+    let mut commands = provider_stage_commands(resource_count, pipeline, scene_index);
+    for resource_index in 0..resource_count {
+        let rgba8 =
+            provider_stage_texture(scene_index, resource_index, texture_width, texture_height);
+        renderer
+            .create_texture_rgba8(TextureHandle(resource_index + 1), descriptor, &rgba8)
+            .map_err(js_debug)?;
+        renderer
+            .upload_material(
+                MaterialHandle(resource_index + 1),
+                &Material::new(
+                    format!("provider-stage-{scene_index}-material-{resource_index}"),
+                    Color::rgb(1.0, 1.0, 1.0),
+                )
+                .with_texture(TextureHandle(resource_index + 1)),
+            )
+            .map_err(js_debug)?;
+        renderer.upload_mesh(
+            MeshHandle(resource_index + 1),
+            &provider_stage_mesh(scene_index, resource_index),
+        );
+    }
+    commands.shrink_to_fit();
+    Ok(commands)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn upload_provider_stage_fixture_to_stage(
+    stage: &mut tokimu::ExperimentalSceneResourceStage,
+    scene_index: u32,
+    resource_count: u64,
+    texture_width: u32,
+    texture_height: u32,
+) -> Result<Vec<RenderCommand>, JsValue> {
+    let pipeline = stage
+        .register_pipeline(&Pipeline::new(
+            format!("provider-stage-{scene_index}"),
+            PipelineKind::LitColor3d,
+        ))
+        .map_err(js_debug)?;
+    stage.upload_camera(CameraHandle(1), Camera::default());
+    let descriptor =
+        Rgba8TextureDescriptor::new(texture_width, texture_height, Rgba8TextureColorSpace::Srgb);
+    let mut commands = provider_stage_commands(resource_count, pipeline, scene_index);
+    for resource_index in 0..resource_count {
+        let rgba8 =
+            provider_stage_texture(scene_index, resource_index, texture_width, texture_height);
+        stage
+            .create_texture_rgba8(TextureHandle(resource_index + 1), descriptor, &rgba8)
+            .map_err(js_debug)?;
+        stage
+            .upload_material(
+                MaterialHandle(resource_index + 1),
+                &Material::new(
+                    format!("provider-stage-{scene_index}-material-{resource_index}"),
+                    Color::rgb(1.0, 1.0, 1.0),
+                )
+                .with_texture(TextureHandle(resource_index + 1)),
+            )
+            .map_err(js_debug)?;
+        stage.upload_mesh(
+            MeshHandle(resource_index + 1),
+            &provider_stage_mesh(scene_index, resource_index),
+        );
+    }
+    commands.shrink_to_fit();
+    Ok(commands)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn provider_stage_commands(
+    resource_count: u64,
+    pipeline: tokimu::PipelineHandle,
+    scene_index: u32,
+) -> Vec<RenderCommand> {
+    let mut commands = Vec::with_capacity(resource_count as usize + 1);
+    commands.push(RenderCommand::Clear(ClearCommand {
+        color: if scene_index == 0 {
+            Color::rgb(0.02, 0.03, 0.08)
+        } else {
+            Color::rgb(0.08, 0.02, 0.03)
+        },
+    }));
+    for resource_index in 0..resource_count {
+        let column = (resource_index % 4) as f32;
+        let row = (resource_index / 4) as f32;
+        commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+            mesh: MeshHandle(resource_index + 1),
+            material: MaterialHandle(resource_index + 1),
+            pipeline,
+            instance: Instance2d::new([-0.75 + column * 0.5, -0.35 + row * 0.7], [0.16, 0.24], 0.0),
+            camera: Some(CameraHandle(1)),
+            viewport: None,
+        }));
+    }
+    commands
+}
+
+#[cfg(target_arch = "wasm32")]
+fn provider_stage_texture(
+    scene_index: u32,
+    resource_index: u64,
+    width: u32,
+    height: u32,
+) -> Vec<u8> {
+    let shade = scene_index
+        .wrapping_mul(79)
+        .wrapping_add(resource_index as u32 * 23) as u8;
+    let mut rgba8 = vec![0; (width * height * 4) as usize];
+    for pixel in rgba8.chunks_exact_mut(4) {
+        pixel.copy_from_slice(&[shade, 255 - shade, shade.wrapping_add(61), 255]);
+    }
+    rgba8
+}
+
+#[cfg(target_arch = "wasm32")]
+fn provider_stage_mesh(scene_index: u32, resource_index: u64) -> Mesh {
+    if (u64::from(scene_index) + resource_index) % 2 == 0 {
+        Mesh::triangle()
+    } else {
+        Mesh::diamond()
     }
 }
 

@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Reopened -- scene-resource lifetime study ready |
+| Status | In progress -- real-provider staging implemented; live browser probe pending |
 | Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
 | Related reviews | AR-0024, AR-0027, and AR-0030 |
 | Current disposition | Earlier identity/failure plan remains complete with no shared allocation contract; repeated browser composition replacement now supplies stronger cross-lifetime pressure |
-| Next action | Review whether the completed semantic and heterogeneous-inventory evidence earns a corpus-private real-provider staging prototype; admit no reset, arena, generation, or handle vocabulary yet |
+| Next action | Run the bounded A / failed-B / retained-A / committed-B browser probe; admit no reset, arena, generation, or handle vocabulary yet |
 
 The completed
 [resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)

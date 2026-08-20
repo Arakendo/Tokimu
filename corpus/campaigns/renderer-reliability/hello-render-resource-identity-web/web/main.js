@@ -15,12 +15,14 @@ const runRetainedPressure = document.querySelector("#run-retained-pressure");
 const probeRetainedAliasing = document.querySelector("#probe-retained-aliasing");
 const probeRetainedAtomicity = document.querySelector("#probe-retained-atomicity");
 const runGenerationPrototype = document.querySelector("#run-generation-prototype");
+const probeProviderStaging = document.querySelector("#probe-provider-staging");
 const status = document.querySelector("#status");
 const canvas = document.querySelector("#scene");
 
 await init();
 const replacementPressure = new BrowserReplacementPressure();
 const retainedPressure = new BrowserReplacementPressure();
+const providerStagingPressure = new BrowserReplacementPressure();
 
 function setControlsDisabled(disabled) {
   run.disabled = disabled;
@@ -29,6 +31,7 @@ function setControlsDisabled(disabled) {
   probeRetainedAliasing.disabled = disabled;
   probeRetainedAtomicity.disabled = disabled;
   runGenerationPrototype.disabled = disabled;
+  probeProviderStaging.disabled = disabled;
 }
 
 async function runReplacementSequence(pressure, replacementMethod, alternative) {
@@ -144,6 +147,22 @@ runGenerationPrototype.addEventListener("click", () => {
   setControlsDisabled(true);
   try {
     status.textContent = run_scene_generation_prototype();
+    completeObservedOperation(operation);
+  } catch (error) {
+    status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation(operation, error?.stack ?? error);
+  } finally {
+    setControlsDisabled(false);
+  }
+});
+
+probeProviderStaging.addEventListener("click", async () => {
+  const operation = "resource-lifetime-C-real-provider-staging";
+  beginObservedOperation(operation);
+  setControlsDisabled(true);
+  status.textContent = "running real-provider A / failed-B / committed-B probe";
+  try {
+    status.textContent = await providerStagingPressure.probe_provider_staging(canvas);
     completeObservedOperation(operation);
   } catch (error) {
     status.textContent = `failed | ${error?.stack ?? error}`;

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -18,7 +17,7 @@ use super::pipeline_support::{
     create_camera_bind_group_layout, create_depth_texture, create_instance_bind_group_layout,
     create_material_bind_group_layout,
 };
-use super::{SurfaceState, WgpuBackend, WgpuBackendError};
+use super::{ProviderShared, SurfaceState, WgpuBackend, WgpuBackendError};
 
 impl WgpuBackend {
     pub fn new() -> Result<Self, WgpuBackendError> {
@@ -71,12 +70,16 @@ impl WgpuBackend {
             textures: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
-            _instance: instance,
-            _device: device,
-            _queue: queue,
+            _instance: ProviderShared::new(instance),
+            _device: ProviderShared::new(device),
+            _queue: ProviderShared::new(queue),
             adapter_info,
             surface_state: None,
             backend_diagnostic_messages,
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_stage_context: None,
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_provider_session: Arc::new(()),
         })
     }
 
@@ -146,9 +149,9 @@ impl WgpuBackend {
             textures: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
-            _instance: instance,
-            _device: device,
-            _queue: queue,
+            _instance: ProviderShared::new(instance),
+            _device: ProviderShared::new(device),
+            _queue: ProviderShared::new(queue),
             adapter_info,
             surface_state: Some(SurfaceState {
                 surface,
@@ -156,11 +159,15 @@ impl WgpuBackend {
                 clear_color: Color::BLACK,
                 depth_texture,
                 depth_view,
-                camera_bind_group_layout,
-                material_bind_group_layout,
-                instance_bind_group_layout,
+                camera_bind_group_layout: ProviderShared::new(camera_bind_group_layout),
+                material_bind_group_layout: ProviderShared::new(material_bind_group_layout),
+                instance_bind_group_layout: ProviderShared::new(instance_bind_group_layout),
             }),
             backend_diagnostic_messages,
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_stage_context: None,
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_provider_session: Arc::new(()),
         })
     }
 
@@ -240,9 +247,9 @@ impl WgpuBackend {
             textures: HashMap::new(),
             cameras: HashMap::new(),
             active_camera: crate::resources::CameraHandle::default(),
-            _instance: instance,
-            _device: device,
-            _queue: queue,
+            _instance: ProviderShared::new(instance),
+            _device: ProviderShared::new(device),
+            _queue: ProviderShared::new(queue),
             adapter_info,
             surface_state: Some(SurfaceState {
                 surface,
@@ -250,11 +257,15 @@ impl WgpuBackend {
                 clear_color: Color::BLACK,
                 depth_texture,
                 depth_view,
-                camera_bind_group_layout,
-                material_bind_group_layout,
-                instance_bind_group_layout,
+                camera_bind_group_layout: ProviderShared::new(camera_bind_group_layout),
+                material_bind_group_layout: ProviderShared::new(material_bind_group_layout),
+                instance_bind_group_layout: ProviderShared::new(instance_bind_group_layout),
             }),
             backend_diagnostic_messages,
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_stage_context: None,
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_provider_session: Arc::new(()),
         })
     }
 

@@ -291,6 +291,15 @@ Initial implementation and the current ownership inventory are retained in
       the generation-0 handle rejected stale, and generation 1 resolved reused
       mesh key 1. The shadow is explicitly not evidence that the current
       provider replacement is atomic.
+- [ ] Execute the separately authorized corpus-private real-provider staging
+      probe in a live browser. The feature-gated implementation and generated
+      WASM fixture are complete: A remains untouched while a candidate B owns
+      separate meshes, textures, materials, pipelines, cameras, and commands on
+      the same provider session; candidate validation precedes a backend-local
+      commit. Structural validation passes, but live WebGPU evidence remains
+      pending because the managed browser connection rejected its installed
+      runtime. See
+      [Alternative C Real-Provider Staging Evidence](Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md).
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
       satisfy.
@@ -319,6 +328,10 @@ Initial implementation and the current ownership inventory are retained in
       and bounded to current plus candidate. Failure drops the candidate;
       commit replaces current in one state mutation. Provider residency is not
       exercised or claimed.
+- [x] In the real-provider C prototype, temporary A/B allocation overlap is
+      explicit and candidate resources cannot enter live resolution before
+      validation and commit. Physical byte overlap and reclamation remain
+      unobserved.
 - [ ] Commands cannot resolve a resource from the wrong set/generation.
 - [ ] Intentional same-handle replacement remains supported and distinct from
       cross-set stale identity.

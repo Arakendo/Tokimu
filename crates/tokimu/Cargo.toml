@@ -17,6 +17,10 @@ experimental-scene-resource-reset = [
     "render",
     "tokimu-render/experimental-scene-resource-reset",
 ]
+experimental-scene-resource-staging = [
+    "render",
+    "tokimu-render/experimental-scene-resource-staging",
+]
 
 [dependencies]
 tokimu-assets = { path = "../tokimu-assets" }

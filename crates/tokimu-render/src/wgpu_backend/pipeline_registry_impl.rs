@@ -18,7 +18,9 @@ impl WgpuBackend {
             ));
             return Err(error.into());
         }
-        let Some(surface_state) = self.surface_state.as_ref() else {
+        let Some((surface_format, material_layout, instance_layout, camera_layout)) =
+            self.pipeline_compilation_context()
+        else {
             return Ok(());
         };
         let shader_label = pipeline.backend_shader_label();
@@ -26,21 +28,21 @@ impl WgpuBackend {
         let compiled = match pipeline.kind {
             PipelineKind::SolidColor2d => create_solid_color_pipeline(
                 &self._device,
-                surface_state.config.format,
+                surface_format,
                 DEPTH_FORMAT,
-                &surface_state.material_bind_group_layout,
-                &surface_state.instance_bind_group_layout,
-                &surface_state.camera_bind_group_layout,
+                material_layout,
+                instance_layout,
+                camera_layout,
                 pipeline.render_state,
                 pipeline.stencil_mode,
             ),
             PipelineKind::Texture2d => create_custom_pipeline(
                 &self._device,
-                surface_state.config.format,
+                surface_format,
                 DEPTH_FORMAT,
-                &surface_state.material_bind_group_layout,
-                &surface_state.instance_bind_group_layout,
-                &surface_state.camera_bind_group_layout,
+                material_layout,
+                instance_layout,
+                camera_layout,
                 &pipeline.label,
                 &shader_label,
                 pipeline
@@ -57,11 +59,11 @@ impl WgpuBackend {
             | PipelineKind::Textured3d
             | PipelineKind::Textured3dCutout => create_custom_pipeline(
                 &self._device,
-                surface_state.config.format,
+                surface_format,
                 DEPTH_FORMAT,
-                &surface_state.material_bind_group_layout,
-                &surface_state.instance_bind_group_layout,
-                &surface_state.camera_bind_group_layout,
+                material_layout,
+                instance_layout,
+                camera_layout,
                 &pipeline.label,
                 &shader_label,
                 pipeline
@@ -76,11 +78,11 @@ impl WgpuBackend {
             ),
             PipelineKind::CustomWgsl2d => create_custom_pipeline(
                 &self._device,
-                surface_state.config.format,
+                surface_format,
                 DEPTH_FORMAT,
-                &surface_state.material_bind_group_layout,
-                &surface_state.instance_bind_group_layout,
-                &surface_state.camera_bind_group_layout,
+                material_layout,
+                instance_layout,
+                camera_layout,
                 &pipeline.label,
                 &shader_label,
                 pipeline

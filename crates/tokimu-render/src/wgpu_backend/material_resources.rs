@@ -59,7 +59,7 @@ impl WgpuBackend {
         handle: MaterialHandle,
         material: &Material,
     ) -> Result<(), WgpuBackendError> {
-        let Some(surface_state) = self.surface_state.as_ref() else {
+        let Some(material_bind_group_layout) = self.material_bind_group_layout() else {
             return Ok(());
         };
 
@@ -142,7 +142,7 @@ impl WgpuBackend {
             };
         let bind_group = self._device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("tokimu-material-bind-group"),
-            layout: &surface_state.material_bind_group_layout,
+            layout: material_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

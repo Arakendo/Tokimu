@@ -12,6 +12,12 @@ pub enum WgpuBackendError {
     SurfaceCreation(String),
     #[error("surface did not report any supported texture formats")]
     SurfaceFormatUnavailable,
+    #[cfg(feature = "experimental-scene-resource-staging")]
+    #[error("experimental scene staging requires an initialized render surface")]
+    ExperimentalSceneStageRequiresSurface,
+    #[cfg(feature = "experimental-scene-resource-staging")]
+    #[error("experimental scene candidate belongs to a different provider session")]
+    ExperimentalSceneStageWrongProviderSession,
     #[error("failed to acquire the current surface texture: {0}")]
     SurfaceAcquire(String),
     #[error("mesh handle {0} has not been uploaded")]

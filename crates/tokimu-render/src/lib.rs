@@ -53,6 +53,8 @@ pub use texture::{
 };
 #[cfg(feature = "experimental-scene-resource-reset")]
 pub use wgpu_backend::ExperimentalSceneResourceResetObservation;
+#[cfg(feature = "experimental-scene-resource-staging")]
+pub use wgpu_backend::{ExperimentalSceneResourceStage, ExperimentalSceneResourceStageObservation};
 pub use wgpu_backend::{
     RenderTargetReplacement, RenderTargetResourceObservation, WgpuBackend, WgpuBackendError,
 };
