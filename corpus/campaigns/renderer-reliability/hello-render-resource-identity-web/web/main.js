@@ -1,4 +1,8 @@
-import init, { BrowserReplacementPressure, run_fixture } from "./pkg/hello-render-resource-identity-web.js";
+import init, {
+  BrowserReplacementPressure,
+  run_fixture,
+  run_scene_generation_prototype,
+} from "./pkg/hello-render-resource-identity-web.js";
 import {
   beginObservedOperation,
   completeObservedOperation,
@@ -10,6 +14,7 @@ const runPressure = document.querySelector("#run-pressure");
 const runRetainedPressure = document.querySelector("#run-retained-pressure");
 const probeRetainedAliasing = document.querySelector("#probe-retained-aliasing");
 const probeRetainedAtomicity = document.querySelector("#probe-retained-atomicity");
+const runGenerationPrototype = document.querySelector("#run-generation-prototype");
 const status = document.querySelector("#status");
 const canvas = document.querySelector("#scene");
 
@@ -23,6 +28,7 @@ function setControlsDisabled(disabled) {
   runRetainedPressure.disabled = disabled;
   probeRetainedAliasing.disabled = disabled;
   probeRetainedAtomicity.disabled = disabled;
+  runGenerationPrototype.disabled = disabled;
 }
 
 async function runReplacementSequence(pressure, replacementMethod, alternative) {
@@ -127,6 +133,21 @@ probeRetainedAtomicity.addEventListener("click", () => {
   } catch (error) {
     status.textContent = `failed | ${error?.stack ?? error}`;
     rejectObservedOperation("resource-lifetime-B-adapter-private-reset", error?.stack ?? error);
+  } finally {
+    setControlsDisabled(false);
+  }
+});
+
+runGenerationPrototype.addEventListener("click", () => {
+  const operation = "resource-lifetime-C-semantic-prototype";
+  beginObservedOperation(operation);
+  setControlsDisabled(true);
+  try {
+    status.textContent = run_scene_generation_prototype();
+    completeObservedOperation(operation);
+  } catch (error) {
+    status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation(operation, error?.stack ?? error);
   } finally {
     setControlsDisabled(false);
   }

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- Slices 1 and 2 accepted; Alternative B implemented and under live falsification |
+| Status | In progress -- Slices 1 and 2 accepted; Alternative B rejected by retained falsifiers; corpus-private Alternative C semantic prototype implemented |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024 and AR-0030 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017 |
@@ -260,30 +260,41 @@ Initial implementation and the current ownership inventory are retained in
 ### Deliverables
 
 - [x] Prototype Alternative B first behind a private/experimental seam.
-- [ ] Apply the B-first sufficiency gate before implementing C. Alternative B
-      survives only if it demonstrates all of:
-  - [ ] atomic last-known-good replacement;
-  - [ ] deterministic stale-handle rejection;
-  - [ ] reuse of logical handles in a later scene without aliasing the retired
-        resource set;
-  - [ ] no new device or surface during ordinary scene replacement; and
-  - [ ] bounded logical-retirement evidence that does not claim physical
-        reclamation.
-- [ ] Prototype Alternative C only if B fails atomicity or bounded staging
-      honestly requires two distinguishable resource sets. Record the exact B
-      falsifier that earns C; do not implement C merely because an arena or
-      generation model is convenient.
+- [x] Apply the B-first sufficiency gate before implementing C. Alternative B
+      is rejected, not promoted:
+  - [x] Atomic last-known-good replacement was evaluated and falsified because
+        reset retires the current scene before successor staging can succeed.
+  - [x] Deterministic stale-handle rejection was evaluated and falsified
+        because an old bare handle aliases a successor resource with the same
+        numeric value.
+  - [x] Logical-handle reuse without retired-set aliasing was evaluated and
+        falsified by that same live browser probe.
+  - [x] No new device or surface during ordinary replacement was demonstrated.
+  - [x] Bounded logical-retirement evidence was demonstrated without claiming
+        physical reclamation.
+- [x] Prototype Alternative C only after the two retained B falsifiers earned
+      it. The first implementation is a pure corpus Rust model: it stages an
+      E1M2 candidate beside committed E1M1, injects a material-stage failure,
+      proves E1M1 remains current, commits a complete E1M2 candidate, and then
+      rejects the retained E1M1 handle as stale while the same local key
+      resolves E1M2. Native and WASM execute the same model. It does not yet
+      stage renderer/provider resources; see
+      [Alternative C Semantic Generation Prototype Evidence](Evidence/renderer-scene-resource-alternative-c-semantic-generation-evidence.md).
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
       satisfy.
 - [ ] Retain E and F as comparison controls unless evidence justifies code.
 - [ ] For each implemented alternative, exercise:
-  - [ ] complete resource-set creation;
+  - [x] complete resource-set creation in the semantic C model, including draw
+        reference validation before candidate construction succeeds;
   - [ ] intentional same-handle mesh replacement within the current set;
-  - [ ] candidate construction followed by successful atomic installation;
-  - [ ] candidate construction failure with previous composition retained;
-  - [ ] stale command/reference after retirement;
-  - [ ] handle reuse in a later resource set;
+  - [x] candidate construction followed by successful atomic semantic
+        installation;
+  - [x] candidate construction failure with previous composition retained and
+        resolvable;
+  - [x] stale resource reference after generation retirement;
+  - [x] reuse of the same local resource key in a later generation without
+        aliasing the retired handle;
   - [ ] bounded repeated replacement;
   - [ ] shutdown during or immediately after replacement.
 - [ ] Keep Doom source preparation and render declarations identical across the
@@ -291,9 +302,12 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Validation
 
-- [ ] At steady state, at most one current scene-resource set is addressable.
-- [ ] During atomic replacement, any temporary dual residency is explicit,
-      measured, bounded, and released in a deterministic logical order.
+- [x] In the semantic C model, at most one committed scene-resource set is
+      addressable; staged candidates are not resolved through current state.
+- [x] In the semantic C model, temporary dual logical residency is explicit
+      and bounded to current plus candidate. Failure drops the candidate;
+      commit replaces current in one state mutation. Provider residency is not
+      exercised or claimed.
 - [ ] Commands cannot resolve a resource from the wrong set/generation.
 - [ ] Intentional same-handle replacement remains supported and distinct from
       cross-set stale identity.
@@ -305,8 +319,9 @@ Initial implementation and the current ownership inventory are retained in
       over repeated resource-set replacement while preserving correctness.
 - [ ] If B survives its sufficiency gate, C remains unimplemented unless a
       retained requirement demonstrates additional semantic value.
-- [ ] If C is implemented, its temporary staging and generation distinction
-      correspond to a retained B failure rather than speculative flexibility.
+- [x] C's temporary staging answers B's atomicity failure, and its generation
+      distinction answers B's stale-aliasing failure. No other semantic value
+      is claimed yet.
 - [ ] No prototype exposes WGPU objects or Doom vocabulary through a
       provider-neutral boundary.
 

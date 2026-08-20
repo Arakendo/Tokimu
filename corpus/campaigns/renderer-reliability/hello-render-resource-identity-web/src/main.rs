@@ -1,7 +1,8 @@
 #[cfg(target_arch = "wasm32")]
 use hello_render_resource_identity::{
-    observe_failure_boundary_fixture, ApplicationMeshRegistry, ExplicitLifecycleLedger,
-    FailureObservationCategory, GenerationalMeshRegistry, LogicalMesh,
+    observe_e1m1_e1m2_generation_replacement, observe_failure_boundary_fixture,
+    ApplicationMeshRegistry, ExplicitLifecycleLedger, FailureObservationCategory,
+    GenerationalMeshRegistry, LogicalMesh,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
@@ -21,6 +22,27 @@ fn main() {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {}
+
+/// Runs the pure-Rust Alternative-C semantic experiment in browser WASM. It
+/// does not stage WGPU resources or admit generation vocabulary to Tokimu.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn run_scene_generation_prototype() -> String {
+    let evidence = observe_e1m1_e1m2_generation_replacement();
+    format!(
+        "status=complete; lifetime-alternative=C-corpus-private-generation; sequence=commit-E1M1-A>reject-E1M2-B>retain-E1M1-A>commit-E1M2-B>reject-stale-E1M1-A; generation-a={}; failed-generation-b={:?}; map-after-failed-stage={:?}; generation-a-after-failed-stage={:?}; generation-b={}; retired-map={:?}; map-after-commit={:?}; committed-draws={}; generation-a-after-commit={:?}; generation-b-after-commit={:?}; renderer-resources=not-exercised; provider-session=not-exercised; physical-gpu-reclamation=not-applicable; admission=none",
+        evidence.generation_a,
+        evidence.failed_generation_b,
+        evidence.map_after_failed_stage,
+        evidence.generation_a_after_failed_stage,
+        evidence.generation_b,
+        evidence.retired_map,
+        evidence.map_after_commit,
+        evidence.committed_draw_count,
+        evidence.generation_a_after_commit,
+        evidence.generation_b_after_commit,
+    )
+}
 
 /// Independent whole-backend replacement baseline for the renderer lifetime
 /// study. It deliberately retains application-owned handles and exposes no

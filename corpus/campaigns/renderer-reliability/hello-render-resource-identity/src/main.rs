@@ -1,7 +1,8 @@
 use hello_render_resource_identity::{
     compare_failure_presentation, observe_caller_staged_recovery, observe_churn,
-    observe_diagnostic_presentation_fixture, observe_failure_boundary_fixture,
-    observe_fixed_disjoint_ranges, representation_evidence, reproduce_mutable_offset_alias,
+    observe_diagnostic_presentation_fixture, observe_e1m1_e1m2_generation_replacement,
+    observe_failure_boundary_fixture, observe_fixed_disjoint_ranges, representation_evidence,
+    reproduce_mutable_offset_alias,
 };
 
 fn main() {
@@ -40,6 +41,10 @@ fn main() {
     println!(
         "AR-0024/0027 caller-staged recovery: {:?}",
         observe_caller_staged_recovery()
+    );
+    println!(
+        "renderer lifetime Alternative-C corpus prototype: {:?}",
+        observe_e1m1_e1m2_generation_replacement()
     );
     for comparison in observe_diagnostic_presentation_fixture()
         .retained()

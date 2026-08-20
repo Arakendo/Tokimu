@@ -6,7 +6,7 @@
 | Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
 | Related reviews | AR-0024, AR-0027, and AR-0030 |
 | Current disposition | Earlier identity/failure plan remains complete with no shared allocation contract; repeated browser composition replacement now supplies stronger cross-lifetime pressure |
-| Next action | Execute lifetime-plan Slices 1 and 2 before admitting reset, release, arena, or generation vocabulary |
+| Next action | Correlate the corpus-private Alternative C semantic prototype with real Doom-prepared and independent resource-rich inventories; admit no reset, arena, generation, or handle vocabulary yet |
 
 The completed
 [resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)

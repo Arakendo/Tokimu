@@ -32,6 +32,13 @@ These are falsification instruments. A successful reset cycle does not make
 the experimental reset seam stable, generational, atomic, or proof of physical
 GPU reclamation.
 
+The **Run Alternative C semantic prototype** control is deliberately narrower
+than either WGPU pressure path. Pure Rust/WASM commits an E1M1 logical
+generation A, injects failure while staging E1M2 generation B, proves A remains
+usable, commits a complete B, then proves A's retained handle is stale while
+the same local resource key resolves B. It exercises no renderer resources,
+provider session, or physical reclamation and admits no engine API.
+
 Build and serve the fixture from the repository root:
 
 ```powershell

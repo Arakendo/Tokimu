@@ -9,6 +9,14 @@ use std::time::{Duration, Instant};
 
 use tokimu_render::MeshHandle;
 
+mod scene_generation_experiment;
+
+pub use scene_generation_experiment::{
+    observe_e1m1_e1m2_generation_replacement, CorpusSceneGenerationError,
+    CorpusSceneGenerationEvidence, CorpusSceneResource, CorpusSceneResourceHandle,
+    CorpusSceneResourceKey, CorpusSceneResourceKind,
+};
+
 /// Logical identity retained only by this corpus fixture. The current renderer
 /// sees a typed handle and mesh bytes; it does not receive this distinction.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
