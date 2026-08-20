@@ -489,7 +489,7 @@ Initial implementation and the current ownership inventory are retained in
         before any ordinary WGPU command or local resource handle is resolved.
   - [x] Pass native set-authority tests, release WASM compilation, and the
         workspace test suite.
-  - [ ] Retain a live browser WGPU record showing a retired A command batch
+  - [x] Retained a live browser WGPU record showing a retired A command batch
         rejects after B reuses A's local keys while scoped B still presents.
 - [ ] Run the applicable performance, verification/recovery, provenance, and
       security gates for any Native Ring or stable shared candidate. Mark a

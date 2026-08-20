@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation and cross-target build complete; live browser WGPU observation pending |
+| Status | Integrated experimental-candidate gate complete |
 | Date | 2026-08-20 |
 | Scope | Provisional provider-neutral set-scoped command validation integrated with the corpus-private WGPU staging path |
 | Authority | Structural and executable evidence; not final API admission or physical reclamation evidence |
@@ -86,18 +86,46 @@ provider-diagnostics=0
 - The regenerated WASM package and local fixture both serve successfully over
   HTTP 200 at the documented paths.
 
-## Pending Live Observation
+## Live Browser WGPU Observation
 
-The repository-side browser fixture is ready at `http://127.0.0.1:4177/` under
-**Probe staged replacement + stale command rejection**. This run has not yet
-been retained as live WGPU evidence. The in-app browser controller failed to
-initialize because its own trusted-code-path setup rejected its browser service
-dependency; that is tool availability, not a Tokimu or fixture failure.
+The maintainer ran **Probe staged replacement + stale command rejection** on
+2026-08-20. The retained result was:
 
-Until the live record is captured, this evidence establishes implementation
-shape, provider-neutral rejection semantics, native tests, and WASM
-compatibility. It does not yet close ADR-0018's provider-backed conformance
-gate.
+```text
+status=complete
+backend=browser-webgpu
+backend-creations=1
+device-creations=1
+surface-creations=1
+retained-provider-session=true
+staged-before-failure=26
+forced-stage-failure=MissingTexture(9)
+A-draws-initial=8
+A-draws-after-failed-B=8
+last-known-good-preserved=true
+resource-set-A=1
+resource-set-B=3
+retained-A-command-after-B=StaleResourceSet(requested=1,current=3)
+reused-local-resource-keys=true
+stale-rejected-before-resource-resolution=true
+B-draws-after-commit=8
+scoped-B-draws=8
+retired-A-predictable=true
+provider-diagnostics=0
+overlap-physical-bytes=unmeasured
+retired-physical-reclamation=unobserved
+```
+
+The resource-set jump from 1 to 3 is expected: the deliberately failed B stage
+consumed set identity 2 without changing current authority, and the complete B
+stage received identity 3. A remained presentable across that failure. After B
+committed with A's local keys, the retained A command rejected with the exact
+requested/current set identities before ordinary command resolution. B then
+presented once from committed queued commands and again from its scoped batch,
+both with eight draws and no delivered provider diagnostics.
+
+This closes AR-0032 Finding 5 for the feature-gated experimental candidate. It
+does not promote that candidate unchanged or settle the non-claims below.
 
 ## Non-Claims
 

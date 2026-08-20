@@ -330,11 +330,13 @@ If Alternative A is accepted:
       the SDD renderer section.
 - [x] Designed a provisional provider-neutral set-scoped command batch without
       choosing a permanent handle bit layout.
-- [ ] Integrate generation/set scope with real provider commands and prove an
+- [x] Integrated generation/set scope with real provider commands and proved an
       old retained command rejects after successor key reuse.
   - [x] Integrated validation before WGPU command resolution and passed native
         tests plus the release WASM build.
-  - [ ] Retain the live browser WGPU success record.
+  - [x] Retained the live browser WGPU success record: A remained at eight
+        draws after late failure, stale A rejected as set 1 against current set
+        3, and scoped B presented eight draws with zero provider diagnostics.
 - [ ] Prove failed provider staging preserves all current resource families
       through the provider-neutral contract.
 - [ ] Exercise the accepted contract on native and browser WGPU plus the
@@ -391,6 +393,22 @@ After disposition, reopen or supersede this review if:
   semantics.
 - Resulting ADR or documentation change: ADR-0018 and the SDD renderer
   lifecycle update.
+
+### Cycle 3 -- 2026-08-20
+
+- Status entering review: Accepted with implementation-conformance Finding 5
+  open.
+- New evidence: native authority tests, release WASM compilation, and a live
+  browser WGPU run retaining A's real command batch across B's commit with
+  reused local resource keys.
+- Participants or reviewers: maintainer and Codex
+- Findings: set-scoped validation rejects retired A before ordinary handle
+  resolution; the failed candidate leaves A presentable; current scoped B
+  remains usable after commit.
+- Disposition: Finding 5 closed for the feature-gated experimental candidate;
+  stable contract realization and the existing non-decisions remain open.
+- Resulting ADR or documentation change: integrated command conformance
+  evidence retained; no change to ADR-0018's admitted boundary.
 
 ## References
 
