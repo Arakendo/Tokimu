@@ -12,8 +12,10 @@ use tokimu_render::MeshHandle;
 mod scene_generation_experiment;
 
 pub use scene_generation_experiment::{
-    observe_e1m1_e1m2_generation_replacement, CorpusSceneGenerationError,
-    CorpusSceneGenerationEvidence, CorpusSceneResource, CorpusSceneResourceHandle,
+    correlate_scene_resource_inventories, observe_e1m1_e1m2_generation_replacement,
+    CorpusSceneGenerationError, CorpusSceneGenerationEvidence,
+    CorpusSceneInventoryCorrelationError, CorpusSceneInventoryCorrelationEvidence,
+    CorpusSceneResource, CorpusSceneResourceHandle, CorpusSceneResourceInventory,
     CorpusSceneResourceKey, CorpusSceneResourceKind,
 };
 

@@ -39,6 +39,11 @@ usable, commits a complete B, then proves A's retained handle is stale while
 the same local resource key resolves B. It exercises no renderer resources,
 provider session, or physical reclamation and admits no engine API.
 
+The whole-backend pressure path also correlates each successfully presented
+64-resource-family inventory with its predecessor through the same semantic
+shadow. The returned record labels this as correlation rather than provider
+lifetime evidence: existing WGPU staging remains unchanged and non-atomic.
+
 Build and serve the fixture from the repository root:
 
 ```powershell

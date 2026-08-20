@@ -280,6 +280,14 @@ Initial implementation and the current ownership inventory are retained in
       resolves E1M2. Native and WASM execute the same model. It does not yet
       stage renderer/provider resources; see
       [Alternative C Semantic Generation Prototype Evidence](Evidence/renderer-scene-resource-alternative-c-semantic-generation-evidence.md).
+- [ ] Correlate C with heterogeneous real-caller inventories before considering
+      provider staging. The independent 64-mesh/texture/material caller now
+      executes the same semantic shadow in generated WASM, and the Doom browser
+      workbench projects each successfully presented map's actual prepared
+      mesh/texture/material/pipeline/camera/command counts into that shadow.
+      Native tests and both WASM builds pass; a live E1M1-to-E1M2 browser record
+      remains required before this item is complete. The shadow is explicitly
+      not evidence that the current provider replacement is atomic.
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
       satisfy.

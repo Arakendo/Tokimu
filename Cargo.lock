@@ -987,6 +987,7 @@ dependencies = [
  "doom-wad-package",
  "doom-wad-provider",
  "hello-doom-e1m1",
+ "hello-render-resource-identity",
  "raster-image-corpus",
  "resource-space",
  "resource-space-archive",

@@ -16,6 +16,7 @@ doom-map-provider = { path = "../../../lib/doom-map-provider" }
 doom-geometry-provider = { path = "../../../lib/doom-geometry-provider" }
 doom-raster-provider = { path = "../../../lib/doom-raster-provider" }
 hello-doom-e1m1 = { path = "../../../campaigns/doom/hello-doom-e1m1" }
+hello-render-resource-identity = { path = "../../../campaigns/renderer-reliability/hello-render-resource-identity" }
 raster-image-corpus = { path = "../../../lib/raster-image-corpus" }
 resource-space = { path = "../../../lib/resource-space" }
 resource-space-archive = { path = "../../../lib/resource-space-archive" }

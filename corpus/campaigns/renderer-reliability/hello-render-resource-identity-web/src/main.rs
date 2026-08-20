@@ -1,8 +1,8 @@
 #[cfg(target_arch = "wasm32")]
 use hello_render_resource_identity::{
-    observe_e1m1_e1m2_generation_replacement, observe_failure_boundary_fixture,
-    ApplicationMeshRegistry, ExplicitLifecycleLedger, FailureObservationCategory,
-    GenerationalMeshRegistry, LogicalMesh,
+    correlate_scene_resource_inventories, observe_e1m1_e1m2_generation_replacement,
+    observe_failure_boundary_fixture, ApplicationMeshRegistry, CorpusSceneResourceInventory,
+    ExplicitLifecycleLedger, FailureObservationCategory, GenerationalMeshRegistry, LogicalMesh,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
@@ -29,8 +29,13 @@ fn main() {}
 #[wasm_bindgen]
 pub fn run_scene_generation_prototype() -> String {
     let evidence = observe_e1m1_e1m2_generation_replacement();
+    let independent = correlate_scene_resource_inventories(
+        independent_semantic_inventory(0, 65),
+        independent_semantic_inventory(1, 65),
+    )
+    .expect("the fixed independent inventories must correlate");
     format!(
-        "status=complete; lifetime-alternative=C-corpus-private-generation; sequence=commit-E1M1-A>reject-E1M2-B>retain-E1M1-A>commit-E1M2-B>reject-stale-E1M1-A; generation-a={}; failed-generation-b={:?}; map-after-failed-stage={:?}; generation-a-after-failed-stage={:?}; generation-b={}; retired-map={:?}; map-after-commit={:?}; committed-draws={}; generation-a-after-commit={:?}; generation-b-after-commit={:?}; renderer-resources=not-exercised; provider-session=not-exercised; physical-gpu-reclamation=not-applicable; admission=none",
+        "status=complete; lifetime-alternative=C-corpus-private-generation; sequence=commit-E1M1-A>reject-E1M2-B>retain-E1M1-A>commit-E1M2-B>reject-stale-E1M1-A; generation-a={}; failed-generation-b={:?}; map-after-failed-stage={:?}; generation-a-after-failed-stage={:?}; generation-b={}; retired-map={:?}; map-after-commit={:?}; committed-draws={}; generation-a-after-commit={:?}; generation-b-after-commit={:?}; independent-resource-rich-correlation={independent:?}; renderer-resources=not-exercised; provider-session=not-exercised; physical-gpu-reclamation=not-applicable; admission=none",
         evidence.generation_a,
         evidence.failed_generation_b,
         evidence.map_after_failed_stage,
@@ -44,6 +49,19 @@ pub fn run_scene_generation_prototype() -> String {
     )
 }
 
+#[cfg(target_arch = "wasm32")]
+fn independent_semantic_inventory(scene_index: u32, commands: u64) -> CorpusSceneResourceInventory {
+    CorpusSceneResourceInventory {
+        source_label: format!("independent pressure scene {scene_index}"),
+        meshes: 64,
+        textures: 64,
+        materials: 64,
+        pipelines: 1,
+        cameras: 1,
+        commands,
+    }
+}
+
 /// Independent whole-backend replacement baseline for the renderer lifetime
 /// study. It deliberately retains application-owned handles and exposes no
 /// reset/arena/release contract.
@@ -55,6 +73,7 @@ pub struct BrowserReplacementPressure {
     replacements_presented: u32,
     backend_creations: u32,
     retired_logical_sets: u32,
+    previous_semantic_inventory: Option<CorpusSceneResourceInventory>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -68,6 +87,7 @@ impl BrowserReplacementPressure {
             replacements_presented: 0,
             backend_creations: 0,
             retired_logical_sets: 0,
+            previous_semantic_inventory: None,
         }
     }
 
@@ -178,8 +198,23 @@ impl BrowserReplacementPressure {
         self.replacements_presented = self.replacements_presented.saturating_add(1);
         self.renderer = Some(renderer);
 
+        let current_semantic_inventory =
+            independent_semantic_inventory(scene_index, commands.len() as u64);
+        let semantic_correlation = self
+            .previous_semantic_inventory
+            .as_ref()
+            .map(|previous| {
+                correlate_scene_resource_inventories(
+                    previous.clone(),
+                    current_semantic_inventory.clone(),
+                )
+            })
+            .transpose()
+            .map_err(js_debug)?;
+        self.previous_semantic_inventory = Some(current_semantic_inventory);
+
         Ok(format!(
-            "status=presented; caller=non-doom-resource-lifetime-pressure; lifetime-baseline=whole-backend-replacement; scene-index={scene_index}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; current-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{}]; current-logical-uploads=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; physical-gpu-reclamation=unobserved; draws={}; backend={backend}; device={device}; adapter={adapter}; canvas={}x{}",
+            "status=presented; caller=non-doom-resource-lifetime-pressure; lifetime-baseline=whole-backend-replacement; scene-index={scene_index}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; current-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{}]; current-logical-uploads=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; alternative-c-inventory-correlation={semantic_correlation:?}; alternative-c-authority=semantic-shadow-not-provider-lifetime; physical-gpu-reclamation=unobserved; draws={}; backend={backend}; device={device}; adapter={adapter}; canvas={}x{}",
             self.replacement_attempts,
             self.replacements_presented,
             self.backend_creations,

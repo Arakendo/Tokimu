@@ -188,6 +188,14 @@ provide collision, doors/platforms, Things, or audio. The initial observation
 reports the selected map, complete stage sequence, ordinary/cutout/sky
 contribution counts, boundary-trim audit, adapter, and canvas size.
 
+After a second successfully presented map, the observation also reports a
+corpus-private Alternative C inventory correlation. The input is the exact
+`WorkingLogicalResources` count produced by each prepared map. The semantic
+shadow exercises failed staging, atomic logical commit, and stale generation
+rejection over those heterogeneous counts, but it neither wraps nor changes
+the WGPU replacement path. Its authority is explicitly
+`semantic-shadow-not-provider-lifetime`.
+
 Build and serve it with:
 
 ```powershell

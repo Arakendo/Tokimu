@@ -41,6 +41,10 @@ use hello_doom_e1m1::{
     StaticDrawSource, StaticTextureEligibility,
 };
 #[cfg(target_arch = "wasm32")]
+use hello_render_resource_identity::correlate_scene_resource_inventories;
+#[cfg(any(target_arch = "wasm32", test))]
+use hello_render_resource_identity::CorpusSceneResourceInventory;
+#[cfg(target_arch = "wasm32")]
 use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, TextureUse};
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
@@ -165,6 +169,7 @@ struct BrowserWorkingModel {
     renderer: WgpuBackend,
     commands: Vec<RenderCommand>,
     logical_resources: WorkingLogicalResources,
+    semantic_inventory: CorpusSceneResourceInventory,
     position: Vec3,
     yaw: f32,
     pitch: f32,
@@ -222,6 +227,22 @@ fn validate_browser_working_model_budget(resources: WorkingLogicalResources) -> 
         }
     }
     Ok(())
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn working_semantic_inventory(
+    source_label: String,
+    resources: WorkingLogicalResources,
+) -> CorpusSceneResourceInventory {
+    CorpusSceneResourceInventory {
+        source_label,
+        meshes: resources.meshes,
+        textures: resources.textures,
+        materials: resources.materials,
+        pipelines: resources.pipelines,
+        cameras: resources.cameras,
+        commands: resources.commands,
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -772,6 +793,14 @@ impl BrowserIntakeSession {
                 .saturating_add(sky_texture.rgba8.len() as u64),
         };
         validate_browser_working_model_budget(logical_resources)?;
+        let current_semantic_inventory = working_semantic_inventory(
+            format!("DOOM {} prepared inventory", map.map_name),
+            logical_resources,
+        );
+        let previous_semantic_inventory = self
+            .working_model
+            .as_ref()
+            .map(|previous| previous.semantic_inventory.clone());
         // CPU preparation above coexists with the current map. Alternative A
         // then replaces the whole backend; the private Alternative-B path
         // keeps its provider session but retires the old logical scene before
@@ -785,6 +814,7 @@ impl BrowserIntakeSession {
                 let BrowserWorkingModel {
                     mut renderer,
                     logical_resources: _,
+                    semantic_inventory: _,
                     commands: _,
                     position: _,
                     yaw: _,
@@ -1072,10 +1102,18 @@ impl BrowserIntakeSession {
             .replacements_presented
             .saturating_add(1);
 
+        let semantic_correlation = previous_semantic_inventory
+            .map(|previous| {
+                correlate_scene_resource_inventories(previous, current_semantic_inventory.clone())
+            })
+            .transpose()
+            .map_err(|error| format!("Alternative-C inventory correlation failed: {error:?}"))?;
+
         self.working_model = Some(BrowserWorkingModel {
             renderer,
             commands,
             logical_resources,
+            semantic_inventory: current_semantic_inventory,
             position: observer,
             yaw,
             pitch,
@@ -1090,7 +1128,7 @@ impl BrowserIntakeSession {
             "whole-backend-replacement"
         };
         Ok(format!(
-            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-alternative={}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; scene-resets={}; reset-observation={:?}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retained-provider-session={}; physical-gpu-reclamation=unobserved",
+            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-alternative={}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; scene-resets={}; reset-observation={:?}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retained-provider-session={}; alternative-c-inventory-correlation={semantic_correlation:?}; alternative-c-authority=semantic-shadow-not-provider-lifetime; physical-gpu-reclamation=unobserved",
             map.map_name,
             draws.len(),
             cutout_draws.len(),
@@ -1899,5 +1937,28 @@ mod tests {
             let error = validate_browser_working_model_budget(overage).unwrap_err();
             assert!(error.contains(&format!("resource={resource}")));
         }
+    }
+
+    #[test]
+    fn semantic_inventory_preserves_every_measured_working_resource_family() {
+        let resources = WorkingLogicalResources {
+            meshes: 1_921,
+            textures: 83,
+            materials: 85,
+            pipelines: 7,
+            cameras: 1,
+            commands: 3_844,
+            mesh_vertex_bytes: 123_456,
+            source_texture_payload_bytes: 654_321,
+        };
+        let inventory =
+            working_semantic_inventory("DOOM E1M2 prepared inventory".into(), resources);
+        assert_eq!(inventory.source_label, "DOOM E1M2 prepared inventory");
+        assert_eq!(inventory.meshes, resources.meshes);
+        assert_eq!(inventory.textures, resources.textures);
+        assert_eq!(inventory.materials, resources.materials);
+        assert_eq!(inventory.pipelines, resources.pipelines);
+        assert_eq!(inventory.cameras, resources.cameras);
+        assert_eq!(inventory.commands, resources.commands);
     }
 }

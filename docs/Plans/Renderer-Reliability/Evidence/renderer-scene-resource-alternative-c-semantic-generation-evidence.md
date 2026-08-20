@@ -92,3 +92,44 @@ The next C slice must correlate these semantics with real Doom-prepared
 resource inventories and an independent resource-rich caller before deciding
 whether any adapter-private mechanism is required. No Native Ring contract has
 been changed.
+
+## Heterogeneous Inventory Correlation Increment
+
+The corpus-private model now accepts an observed resource inventory containing
+mesh, texture, material, pipeline, camera, and command counts. It executes the
+same stateful sequence over that inventory shape: commit A, inject a material-
+stage failure for B, resolve A after failure, commit complete B, reject A's
+retained mesh key as stale, and resolve the same local mesh key in B. Required
+command resource families are validated before staging.
+
+Two real caller paths supply those counts without changing renderer contracts:
+
+- the independent browser pressure caller supplies the exact 64 meshes, 64
+  textures, 64 materials, one pipeline, one camera, and generated command count
+  used by each presented scene; and
+- the Doom browser workbench projects `WorkingLogicalResources`, computed from
+  each map's actual prepared draws, texture uploads, sky boundaries, sky
+  planes, pipelines, camera, and command accounting.
+
+Both paths label the result
+`alternative-c-authority=semantic-shadow-not-provider-lifetime`. The
+correlation happens after successful presentation and cannot make the current
+Alternative A or B provider replacement atomic.
+
+The regenerated independent WASM executed headlessly and reported 194
+resources for both scenes, failure after 129 staged resources, A retained after
+failure, A stale after commit, and B resolving reused mesh key 1. The Doom path
+compiled for WASM and its native projection test preserved every counted
+resource family. A live E1M1-to-E1M2 browser record is still pending because
+the available in-app browser automation failed its own trusted-path bootstrap;
+no substitute browser surface was used and no live result is claimed.
+
+Additional validation:
+
+- `cargo test -p hello-render-resource-identity` (24 passed);
+- `cargo test -p doom-ts-boundary-workbench-engine` (6 passed);
+- strict `hello-render-resource-identity` clippy with warnings denied;
+- both browser consumers checked for `wasm32-unknown-unknown`;
+- both generated binding/build paths completed; and
+- direct execution of `run_scene_generation_prototype()` from regenerated
+  WASM retained the independent inventory result above.

@@ -325,6 +325,270 @@ pub struct CorpusSceneGenerationEvidence {
     pub generation_b_after_commit: CorpusSceneResource,
 }
 
+/// Counts observed from an actual corpus composition before renderer upload.
+/// This is intentionally a correlation input rather than a renderer contract.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorpusSceneResourceInventory {
+    pub source_label: String,
+    pub meshes: u64,
+    pub textures: u64,
+    pub materials: u64,
+    pub pipelines: u64,
+    pub cameras: u64,
+    pub commands: u64,
+}
+
+impl CorpusSceneResourceInventory {
+    fn count(&self, kind: CorpusSceneResourceKind) -> u64 {
+        match kind {
+            CorpusSceneResourceKind::Mesh => self.meshes,
+            CorpusSceneResourceKind::Texture => self.textures,
+            CorpusSceneResourceKind::Material => self.materials,
+            CorpusSceneResourceKind::Pipeline => self.pipelines,
+            CorpusSceneResourceKind::Camera => self.cameras,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CorpusSceneInventoryCorrelationError {
+    EmptyRequiredFamily {
+        source_label: String,
+        family: CorpusSceneResourceKind,
+        commands: u64,
+    },
+    InjectedStagingFailure {
+        source_label: String,
+        family: CorpusSceneResourceKind,
+        staged_resources: u64,
+    },
+    StaleGeneration {
+        requested_generation: u32,
+        current_generation: u32,
+    },
+    CandidatePredecessorChanged {
+        expected_generation: Option<u32>,
+        current_generation: Option<u32>,
+    },
+    MissingResource {
+        generation: u32,
+        family: CorpusSceneResourceKind,
+        index: u64,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorpusSceneInventoryCorrelationEvidence {
+    pub source_a: String,
+    pub source_b: String,
+    pub generation_a: u32,
+    pub generation_b: u32,
+    pub generation_a_resources: u64,
+    pub generation_b_resources: u64,
+    pub failed_stage: CorpusSceneInventoryCorrelationError,
+    pub source_after_failed_stage: String,
+    pub retired_source: String,
+    pub source_after_commit: String,
+    pub generation_a_after_commit: CorpusSceneInventoryCorrelationError,
+    pub generation_b_reused_mesh_key_resolves: bool,
+}
+
+fn validate_inventory(
+    inventory: &CorpusSceneResourceInventory,
+) -> Result<(), CorpusSceneInventoryCorrelationError> {
+    for family in [
+        CorpusSceneResourceKind::Mesh,
+        CorpusSceneResourceKind::Material,
+        CorpusSceneResourceKind::Pipeline,
+        CorpusSceneResourceKind::Camera,
+    ] {
+        if inventory.count(family) == 0 {
+            return Err(CorpusSceneInventoryCorrelationError::EmptyRequiredFamily {
+                source_label: inventory.source_label.clone(),
+                family,
+                commands: inventory.commands,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct InventoryHandle {
+    generation: u32,
+    family: CorpusSceneResourceKind,
+    index: u64,
+}
+
+#[derive(Debug)]
+struct StagedInventory {
+    generation: u32,
+    expected_predecessor: Option<u32>,
+    inventory: CorpusSceneResourceInventory,
+}
+
+#[derive(Default)]
+struct InventoryGenerationExperiment {
+    current: Option<(u32, CorpusSceneResourceInventory)>,
+}
+
+impl InventoryGenerationExperiment {
+    fn stage(
+        &self,
+        inventory: CorpusSceneResourceInventory,
+        injected_failure: Option<CorpusSceneResourceKind>,
+    ) -> Result<StagedInventory, CorpusSceneInventoryCorrelationError> {
+        validate_inventory(&inventory)?;
+        let expected_predecessor = self.current.as_ref().map(|(generation, _)| *generation);
+        let generation = expected_predecessor.map_or(0, |value| value + 1);
+        let mut staged_resources = 0_u64;
+        for family in [
+            CorpusSceneResourceKind::Mesh,
+            CorpusSceneResourceKind::Texture,
+            CorpusSceneResourceKind::Material,
+            CorpusSceneResourceKind::Pipeline,
+            CorpusSceneResourceKind::Camera,
+        ] {
+            let count = inventory.count(family);
+            if injected_failure == Some(family) {
+                return Err(
+                    CorpusSceneInventoryCorrelationError::InjectedStagingFailure {
+                        source_label: inventory.source_label,
+                        family,
+                        staged_resources: staged_resources.saturating_add(count.min(1)),
+                    },
+                );
+            }
+            staged_resources = staged_resources.saturating_add(count);
+        }
+        Ok(StagedInventory {
+            generation,
+            expected_predecessor,
+            inventory,
+        })
+    }
+
+    fn commit(
+        &mut self,
+        candidate: StagedInventory,
+    ) -> Result<Option<CorpusSceneResourceInventory>, CorpusSceneInventoryCorrelationError> {
+        let current_generation = self.current.as_ref().map(|(generation, _)| *generation);
+        if candidate.expected_predecessor != current_generation {
+            return Err(
+                CorpusSceneInventoryCorrelationError::CandidatePredecessorChanged {
+                    expected_generation: candidate.expected_predecessor,
+                    current_generation,
+                },
+            );
+        }
+        Ok(self
+            .current
+            .replace((candidate.generation, candidate.inventory))
+            .map(|(_, inventory)| inventory))
+    }
+
+    fn handle(
+        &self,
+        family: CorpusSceneResourceKind,
+        index: u64,
+    ) -> Result<InventoryHandle, CorpusSceneInventoryCorrelationError> {
+        let (generation, inventory) = self.current.as_ref().expect("committed inventory required");
+        if index == 0 || index > inventory.count(family) {
+            return Err(CorpusSceneInventoryCorrelationError::MissingResource {
+                generation: *generation,
+                family,
+                index,
+            });
+        }
+        Ok(InventoryHandle {
+            generation: *generation,
+            family,
+            index,
+        })
+    }
+
+    fn resolve(&self, handle: InventoryHandle) -> Result<(), CorpusSceneInventoryCorrelationError> {
+        let (current_generation, inventory) =
+            self.current.as_ref().expect("committed inventory required");
+        if handle.generation != *current_generation {
+            return Err(CorpusSceneInventoryCorrelationError::StaleGeneration {
+                requested_generation: handle.generation,
+                current_generation: *current_generation,
+            });
+        }
+        if handle.index == 0 || handle.index > inventory.count(handle.family) {
+            return Err(CorpusSceneInventoryCorrelationError::MissingResource {
+                generation: *current_generation,
+                family: handle.family,
+                index: handle.index,
+            });
+        }
+        Ok(())
+    }
+}
+
+fn inventory_resource_count(inventory: &CorpusSceneResourceInventory) -> u64 {
+    inventory
+        .meshes
+        .saturating_add(inventory.textures)
+        .saturating_add(inventory.materials)
+        .saturating_add(inventory.pipelines)
+        .saturating_add(inventory.cameras)
+}
+
+/// Replays the proven A/fail-B/commit-B generation sequence over two resource
+/// inventories measured by real corpus compositions. It remains a semantic
+/// shadow: no provider resource is staged, committed, or reclaimed here.
+pub fn correlate_scene_resource_inventories(
+    generation_a: CorpusSceneResourceInventory,
+    generation_b: CorpusSceneResourceInventory,
+) -> Result<CorpusSceneInventoryCorrelationEvidence, CorpusSceneInventoryCorrelationError> {
+    let mut experiment = InventoryGenerationExperiment::default();
+    let staged_a = experiment.stage(generation_a.clone(), None)?;
+    experiment.commit(staged_a)?;
+    let handle_a = experiment.handle(CorpusSceneResourceKind::Mesh, 1)?;
+
+    let failed_stage = experiment
+        .stage(
+            generation_b.clone(),
+            Some(CorpusSceneResourceKind::Material),
+        )
+        .expect_err("the correlation failure point must reject staging");
+    experiment.resolve(handle_a)?;
+    let source_after_failed_stage = experiment
+        .current
+        .as_ref()
+        .expect("generation A remains committed")
+        .1
+        .source_label
+        .clone();
+
+    let staged_b = experiment.stage(generation_b.clone(), None)?;
+    let retired = experiment
+        .commit(staged_b)?
+        .expect("generation B must retire generation A");
+    let generation_a_after_commit = experiment
+        .resolve(handle_a)
+        .expect_err("generation A must be stale after generation B commits");
+    let handle_b = experiment.handle(CorpusSceneResourceKind::Mesh, 1)?;
+    let generation_b_reused_mesh_key_resolves = experiment.resolve(handle_b).is_ok();
+
+    Ok(CorpusSceneInventoryCorrelationEvidence {
+        source_a: generation_a.source_label.clone(),
+        source_b: generation_b.source_label.clone(),
+        generation_a: 0,
+        generation_b: 1,
+        generation_a_resources: inventory_resource_count(&generation_a),
+        generation_b_resources: inventory_resource_count(&generation_b),
+        failed_stage,
+        source_after_failed_stage,
+        retired_source: retired.source_label,
+        source_after_commit: generation_b.source_label,
+        generation_a_after_commit,
+        generation_b_reused_mesh_key_resolves,
+    })
+}
+
 /// Executes the exact Alternative-C proof sequence without a renderer or GPU:
 /// commit E1M1 A, fail E1M2 B staging, prove A survives, commit a complete E1M2
 /// B, then prove A is stale while the same local resource identity resolves B.
@@ -478,5 +742,74 @@ mod tests {
             }
         );
         assert_eq!(experiment.current_map(), Some("MAX"));
+    }
+
+    #[test]
+    fn heterogeneous_inventory_shapes_preserve_generation_semantics() {
+        let evidence = correlate_scene_resource_inventories(
+            CorpusSceneResourceInventory {
+                source_label: "representative resource-rich A".into(),
+                meshes: 2_325,
+                textures: 71,
+                materials: 73,
+                pipelines: 7,
+                cameras: 1,
+                commands: 4_652,
+            },
+            CorpusSceneResourceInventory {
+                source_label: "representative resource-rich B".into(),
+                meshes: 1_921,
+                textures: 83,
+                materials: 85,
+                pipelines: 7,
+                cameras: 1,
+                commands: 3_844,
+            },
+        )
+        .unwrap();
+        assert_eq!(evidence.source_after_failed_stage, evidence.source_a);
+        assert_eq!(evidence.retired_source, evidence.source_a);
+        assert_eq!(evidence.source_after_commit, evidence.source_b);
+        assert_eq!(
+            evidence.generation_a_after_commit,
+            CorpusSceneInventoryCorrelationError::StaleGeneration {
+                requested_generation: 0,
+                current_generation: 1,
+            }
+        );
+        assert!(evidence.generation_b_reused_mesh_key_resolves);
+    }
+
+    #[test]
+    fn inventory_with_commands_but_no_camera_rejects_before_staging() {
+        let error = correlate_scene_resource_inventories(
+            CorpusSceneResourceInventory {
+                source_label: "broken A".into(),
+                meshes: 1,
+                textures: 1,
+                materials: 1,
+                pipelines: 1,
+                cameras: 0,
+                commands: 1,
+            },
+            CorpusSceneResourceInventory {
+                source_label: "unused B".into(),
+                meshes: 1,
+                textures: 1,
+                materials: 1,
+                pipelines: 1,
+                cameras: 1,
+                commands: 1,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            CorpusSceneInventoryCorrelationError::EmptyRequiredFamily {
+                source_label: "broken A".into(),
+                family: CorpusSceneResourceKind::Camera,
+                commands: 1,
+            }
+        );
     }
 }
