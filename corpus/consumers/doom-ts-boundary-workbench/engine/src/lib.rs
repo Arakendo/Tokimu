@@ -58,6 +58,22 @@ use web_sys::HtmlCanvasElement;
 
 pub const SCHEMA_VERSION: u32 = 1;
 pub const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_MESHES: u64 = 20_000;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_TEXTURES: u64 = 2_048;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_MATERIALS: u64 = 2_050;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_PIPELINES: u64 = 16;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_CAMERAS: u64 = 1;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_COMMANDS: u64 = 100_000;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_MESH_VERTEX_BYTES: u64 = 64 * 1024 * 1024;
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BROWSER_WORKING_TEXTURE_PAYLOAD_BYTES: u64 = 128 * 1024 * 1024;
 
 #[cfg(target_arch = "wasm32")]
 const WAD_LIMITS: WadReadLimits =
@@ -157,7 +173,7 @@ struct BrowserWorkingModel {
     far_plane: f32,
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", test))]
 #[derive(Clone, Copy, Debug, Default)]
 struct WorkingLogicalResources {
     meshes: u64,
@@ -168,6 +184,44 @@ struct WorkingLogicalResources {
     commands: u64,
     mesh_vertex_bytes: u64,
     source_texture_payload_bytes: u64,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn validate_browser_working_model_budget(resources: WorkingLogicalResources) -> Result<(), String> {
+    let limits = [
+        ("meshes", resources.meshes, MAX_BROWSER_WORKING_MESHES),
+        ("textures", resources.textures, MAX_BROWSER_WORKING_TEXTURES),
+        (
+            "materials",
+            resources.materials,
+            MAX_BROWSER_WORKING_MATERIALS,
+        ),
+        (
+            "pipelines",
+            resources.pipelines,
+            MAX_BROWSER_WORKING_PIPELINES,
+        ),
+        ("cameras", resources.cameras, MAX_BROWSER_WORKING_CAMERAS),
+        ("commands", resources.commands, MAX_BROWSER_WORKING_COMMANDS),
+        (
+            "mesh-vertex-bytes",
+            resources.mesh_vertex_bytes,
+            MAX_BROWSER_WORKING_MESH_VERTEX_BYTES,
+        ),
+        (
+            "source-texture-payload-bytes",
+            resources.source_texture_payload_bytes,
+            MAX_BROWSER_WORKING_TEXTURE_PAYLOAD_BYTES,
+        ),
+    ];
+    for (resource, observed, limit) in limits {
+        if observed > limit {
+            return Err(format!(
+                "browser working-model budget exceeded: resource={resource}; observed={observed}; limit={limit}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -687,6 +741,11 @@ impl BrowserIntakeSession {
 
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
+        let expected_commands = 2_usize
+            .saturating_add(draws.len().saturating_mul(2))
+            .saturating_add(cutout_draws.len().saturating_mul(2))
+            .saturating_add(skywall_meshes.len())
+            .saturating_add(sky_plane_meshes.len());
         let logical_resources = WorkingLogicalResources {
             meshes: (1
                 + draws.len()
@@ -697,8 +756,7 @@ impl BrowserIntakeSession {
             materials: (uploads.len() + cutout_uploads.len() + 2) as u64,
             pipelines: 7,
             cameras: 1,
-            // Filled after the immutable command list is assembled.
-            commands: 0,
+            commands: expected_commands as u64,
             mesh_vertex_bytes: working_mesh_vertex_bytes(
                 &draws,
                 &cutout_draws,
@@ -713,6 +771,7 @@ impl BrowserIntakeSession {
                 .sum::<u64>()
                 .saturating_add(sky_texture.rgba8.len() as u64),
         };
+        validate_browser_working_model_budget(logical_resources)?;
         // CPU preparation above coexists with the current map. Alternative A
         // then replaces the whole backend; the private Alternative-B path
         // keeps its provider session but retires the old logical scene before
@@ -992,6 +1051,12 @@ impl BrowserIntakeSession {
                 viewport: None,
             }));
         }
+        if commands.len() != expected_commands {
+            return Err(format!(
+                "browser working-model command accounting mismatch: expected={expected_commands}; actual={}",
+                commands.len()
+            ));
+        }
         renderer.begin_frame();
         renderer.submit(&commands);
         renderer.present().map_err(|error| error.to_string())?;
@@ -1002,10 +1067,6 @@ impl BrowserIntakeSession {
             ));
         }
 
-        let logical_resources = WorkingLogicalResources {
-            commands: commands.len() as u64,
-            ..logical_resources
-        };
         self.working_lifetime.replacements_presented = self
             .working_lifetime
             .replacements_presented
@@ -1760,5 +1821,83 @@ mod tests {
             session.import_selected_package_inner("large.zip", "application/zip", &oversized);
         assert!(result.unwrap_err().contains("exceeding the limit"));
         assert_eq!(session.space.summary().resources(), 0);
+    }
+
+    #[test]
+    fn browser_working_model_budget_accepts_limits_and_names_each_rejection() {
+        let at_limits = WorkingLogicalResources {
+            meshes: MAX_BROWSER_WORKING_MESHES,
+            textures: MAX_BROWSER_WORKING_TEXTURES,
+            materials: MAX_BROWSER_WORKING_MATERIALS,
+            pipelines: MAX_BROWSER_WORKING_PIPELINES,
+            cameras: MAX_BROWSER_WORKING_CAMERAS,
+            commands: MAX_BROWSER_WORKING_COMMANDS,
+            mesh_vertex_bytes: MAX_BROWSER_WORKING_MESH_VERTEX_BYTES,
+            source_texture_payload_bytes: MAX_BROWSER_WORKING_TEXTURE_PAYLOAD_BYTES,
+        };
+        validate_browser_working_model_budget(at_limits).unwrap();
+
+        let overages = [
+            (
+                "meshes",
+                WorkingLogicalResources {
+                    meshes: MAX_BROWSER_WORKING_MESHES + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "textures",
+                WorkingLogicalResources {
+                    textures: MAX_BROWSER_WORKING_TEXTURES + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "materials",
+                WorkingLogicalResources {
+                    materials: MAX_BROWSER_WORKING_MATERIALS + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "pipelines",
+                WorkingLogicalResources {
+                    pipelines: MAX_BROWSER_WORKING_PIPELINES + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "cameras",
+                WorkingLogicalResources {
+                    cameras: MAX_BROWSER_WORKING_CAMERAS + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "commands",
+                WorkingLogicalResources {
+                    commands: MAX_BROWSER_WORKING_COMMANDS + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "mesh-vertex-bytes",
+                WorkingLogicalResources {
+                    mesh_vertex_bytes: MAX_BROWSER_WORKING_MESH_VERTEX_BYTES + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+            (
+                "source-texture-payload-bytes",
+                WorkingLogicalResources {
+                    source_texture_payload_bytes: MAX_BROWSER_WORKING_TEXTURE_PAYLOAD_BYTES + 1,
+                    ..WorkingLogicalResources::default()
+                },
+            ),
+        ];
+        for (resource, overage) in overages {
+            let error = validate_browser_working_model_budget(overage).unwrap_err();
+            assert!(error.contains(&format!("resource={resource}")));
+        }
     }
 }

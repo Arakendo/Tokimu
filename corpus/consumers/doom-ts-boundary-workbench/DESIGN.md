@@ -71,6 +71,20 @@ selection to the same bounded Rust/WASM request without interpreting package
 contents and return only retained/cancelled/rejected presentation outcomes.
 The picker clears the browser input after each request.
 
+## Bounded Browser Work
+
+The corpus build rejects more than 12 MiB of uncompressed emitted startup
+payload across the HTML, reachable JavaScript, generated WASM bridge, and WASM
+module. Runtime intake and all archive, WAD, map, raster, and texture decoders
+retain explicit limits. Before a working-model replacement resets the retained
+provider scene or uploads successor resources, Rust also validates bounded
+mesh, texture, material, pipeline, camera, command, mesh-vertex-byte, and
+source-texture-byte estimates. The exact command count is checked again before
+installation.
+
+These limits bound work requested by this corpus. They do not claim exact
+physical Edge, WGPU, driver, or GPU residency or synchronous reclamation.
+
 ## Static E1M1 Browser Bridge
 
 The generated `render_static_e1m1(canvas)` request is available only in the

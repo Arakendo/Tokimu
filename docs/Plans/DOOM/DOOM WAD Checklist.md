@@ -1494,7 +1494,14 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
       642 edge-conformance insertions. Both paths use the same Rust package,
       map, geometry, and application-lowering implementations; see
       [Doom E1M2 Native/WASM Structural Parity Evidence](Evidence/Doom%20E1M2%20native%20WASM%20structural%20parity%20evidence.md).
-- [ ] Bound startup payload, decoded resources, and browser memory.
+- [x] Bound startup payload, decoded resources, and browser resource pressure.
+      The build rejects more than 12 MiB of uncompressed emitted startup
+      files; Rust retains explicit package/archive/WAD/map/raster/texture
+      limits and rejects working scenes above bounded logical-resource,
+      command, mesh-vertex, or source-texture payload budgets before successor
+      upload. These bounds do not falsely claim exact physical Edge/WGPU/GPU
+      residency; see
+      [Doom Browser Resource Bounds Evidence](Evidence/Doom%20browser%20resource%20bounds%20evidence.md).
 
 Acceptance criteria:
 
