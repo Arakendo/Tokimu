@@ -273,6 +273,12 @@ representation as part of this review.
    browser targets. A second rendering backend is absent. This limits claims
    about provider implementation universality but does not make the proposed
    semantics WGPU-specific.
+9. The stable-surface command-batch candidate has a bypass: the existing
+   `Renderer::submit(&[RenderCommand])` accepts retained ordinary A commands
+   without set validation. After B reuses A's local keys, that path can resolve
+   the retained commands against B. Correct rejection through
+   `submit_render_command_set` does not satisfy the accepted invariant while
+   the unscoped path remains equally public and usable.
 
 ## Proposed Admission Boundary
 
@@ -337,14 +343,19 @@ If Alternative A is accepted:
   - [x] Retained the live browser WGPU success record: A remained at eight
         draws after late failure, stale A rejected as set 1 against current set
         3, and scoped B presented eight draws with zero provider diagnostics.
-- [ ] Prove failed provider staging preserves all current resource families
+- [x] Prove failed provider staging preserves all current resource families
       through the provider-neutral contract.
 - [ ] Exercise the accepted contract on native and browser WGPU plus the
       independent resource-rich caller.
 - [ ] Keep physical reclamation, incremental release, and device-loss recovery
       outside implementation acceptance unless separately admitted.
-- [ ] Retire or narrow the feature-gated reset/staging experiments after the
-      stable contract either replaces or rejects them.
+- [x] Replaced the feature-gated staging API in the implementation candidate
+      with the narrow `RenderResourceSetLifecycle` surface while retaining the
+      reset experiment separately and keeping the old staging feature as a
+      compatibility no-op.
+- [ ] Resolve Finding 9 before promoting the stable-surface candidate. This
+      requires architectural judgment about ordinary submission authority; it
+      must not be hidden by documentation advising callers to avoid the bypass.
 
 ## Reopening Triggers
 
@@ -410,6 +421,25 @@ After disposition, reopen or supersede this review if:
 - Resulting ADR or documentation change: integrated command conformance
   evidence retained; no change to ADR-0018's admitted boundary.
 
+### Cycle 4 -- 2026-08-20
+
+- Status entering review: Accepted; stable contract realization open.
+- New evidence: provider-neutral lifecycle and command-set unit tests, default
+  replacement failure/commit exercise, ordinary native compilation, and release
+  WASM compilation of the independent resource-rich WGPU caller without the
+  staging feature gate.
+- Participants or reviewers: maintainer and Codex.
+- Findings: the candidate preserves provider-owned population and leaves
+  physical reclamation undecided. Native WGPU passed the all-family failure and
+  retained-command sequence, but ordinary unscoped `Renderer::submit` bypasses
+  the candidate's command-set validation after key reuse.
+- Disposition: accepted ADR semantics remain; stable implementation promotion
+  is paused on Finding 9. Browser rerun is secondary until submission authority
+  is resolved.
+- Resulting ADR or documentation change: SDD and ADR-0018 implementation record
+  updated; feature-gated staging seam retired; native WGPU conformance evidence
+  retained.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -426,3 +456,4 @@ After disposition, reopen or supersede this review if:
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-adr-0018-integrated-command-conformance.md`
+- `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-adr-0018-stable-native-conformance.md`

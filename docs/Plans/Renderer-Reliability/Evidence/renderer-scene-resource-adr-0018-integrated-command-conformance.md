@@ -17,7 +17,7 @@ This is the integrated Finding 5 gate retained by AR-0032 and ADR-0018.
 
 ## Implemented Seam
 
-The feature-gated experiment adds a provider-neutral command batch with:
+The feature-gated experiment originally added a provider-neutral command batch with:
 
 - a private authority token that callers cannot forge from a numeric ID;
 - an opaque resource-set ID;
@@ -31,9 +31,11 @@ validation succeeds. Failed candidates consume an identity but cannot change
 the current one. Commit changes resources and set authority in the same
 backend-local operation.
 
-The seam remains named `Experimental*`, feature-gated by
-`experimental-scene-resource-staging`, and hidden from generated documentation.
-It does not select the final public transaction or handle representation.
+At the time of this retained run, the seam remained named `Experimental*` and
+feature-gated by `experimental-scene-resource-staging`. It has since been
+realized as the stable `RenderResourceSetLifecycle` and `RenderCommandSet`
+surface without changing the evidence recorded here. Individual resource-handle
+encoding remains undecided.
 
 ## Executable Falsifiers
 
@@ -144,6 +146,6 @@ This slice does not establish:
 - `docs/Architectural Reviews/AR-0032-atomic-staged-render-resource-set-replacement.md`
 - `docs/Plans/Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md`
-- `crates/tokimu-render/src/experimental_render_resource_set.rs`
-- `crates/tokimu-render/src/wgpu_backend/experimental_scene_resource_staging.rs`
+- `crates/tokimu-render/src/resource_set.rs`
+- `crates/tokimu-render/src/wgpu_backend/resource_set_staging.rs`
 - `corpus/campaigns/renderer-reliability/hello-render-resource-identity-web/src/main.rs`

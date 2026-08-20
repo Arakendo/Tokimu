@@ -2,12 +2,8 @@ mod backend_init;
 mod cpu_timer;
 mod diagnostics;
 mod error;
-#[cfg(feature = "experimental-scene-resource-staging")]
-mod experimental_scene_resource_staging;
-#[cfg(feature = "experimental-scene-resource-staging")]
-pub use experimental_scene_resource_staging::{
-    ExperimentalSceneResourceStage, ExperimentalSceneResourceStageObservation,
-};
+mod resource_set_staging;
+pub use resource_set_staging::{WgpuResourceSetCommitObservation, WgpuResourceSetStage};
 #[cfg(feature = "experimental-submission-local-geometry")]
 mod experimental_submission_local_geometry;
 mod material_resources;
@@ -21,10 +17,7 @@ mod renderer_impl;
 mod texture_resources;
 mod texture_support;
 
-#[cfg(feature = "experimental-scene-resource-staging")]
-use crate::experimental_render_resource_set::{
-    ExperimentalRenderResourceSetAuthority, ExperimentalRenderResourceSetId,
-};
+use crate::resource_set::{RenderResourceSetAuthority, RenderResourceSetId};
 use crate::{
     Camera, CameraHandle, Color, Instance2d, MaterialHandle, MaterialOverride, MeshHandle,
     PipelineHandle, PipelineRegistry, Renderable, RenderableHandle, Rgba8TextureDescriptor,
@@ -176,8 +169,7 @@ struct SurfaceState {
     instance_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
 }
 
-#[cfg(feature = "experimental-scene-resource-staging")]
-struct ExperimentalSceneStageContext {
+struct ResourceSetStageContext {
     surface_format: wgpu::TextureFormat,
     camera_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
     material_bind_group_layout: ProviderShared<wgpu::BindGroupLayout>,
@@ -251,12 +243,9 @@ pub struct WgpuBackend {
     adapter_info: wgpu::AdapterInfo,
     surface_state: Option<SurfaceState>,
     backend_diagnostic_messages: Arc<Mutex<Vec<String>>>,
-    #[cfg(feature = "experimental-scene-resource-staging")]
-    experimental_stage_context: Option<ExperimentalSceneStageContext>,
-    #[cfg(feature = "experimental-scene-resource-staging")]
-    experimental_resource_set_authority: Arc<ExperimentalRenderResourceSetAuthority>,
-    #[cfg(feature = "experimental-scene-resource-staging")]
-    experimental_current_resource_set: ExperimentalRenderResourceSetId,
+    resource_set_stage_context: Option<ResourceSetStageContext>,
+    resource_set_authority: Arc<RenderResourceSetAuthority>,
+    current_resource_set: RenderResourceSetId,
 }
 
 impl WgpuBackend {
@@ -265,16 +254,9 @@ impl WgpuBackend {
             .as_ref()
             .map(|state| state.material_bind_group_layout.as_ref())
             .or_else(|| {
-                #[cfg(feature = "experimental-scene-resource-staging")]
-                {
-                    self.experimental_stage_context
-                        .as_ref()
-                        .map(|context| context.material_bind_group_layout.as_ref())
-                }
-                #[cfg(not(feature = "experimental-scene-resource-staging"))]
-                {
-                    None
-                }
+                self.resource_set_stage_context
+                    .as_ref()
+                    .map(|context| context.material_bind_group_layout.as_ref())
             })
     }
 
@@ -295,21 +277,14 @@ impl WgpuBackend {
                 state.camera_bind_group_layout.as_ref(),
             ));
         }
-        #[cfg(feature = "experimental-scene-resource-staging")]
-        {
-            self.experimental_stage_context.as_ref().map(|context| {
-                (
-                    context.surface_format,
-                    context.material_bind_group_layout.as_ref(),
-                    context.instance_bind_group_layout.as_ref(),
-                    context.camera_bind_group_layout.as_ref(),
-                )
-            })
-        }
-        #[cfg(not(feature = "experimental-scene-resource-staging"))]
-        {
-            None
-        }
+        self.resource_set_stage_context.as_ref().map(|context| {
+            (
+                context.surface_format,
+                context.material_bind_group_layout.as_ref(),
+                context.instance_bind_group_layout.as_ref(),
+                context.camera_bind_group_layout.as_ref(),
+            )
+        })
     }
 
     pub fn upload_renderable(&mut self, handle: RenderableHandle, renderable: Renderable) {

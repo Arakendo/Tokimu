@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- ADR-0018 admits narrow set-level replacement semantics; provider-neutral implementation conformance remains gated on integrated stale-command rejection |
+| Status | In progress -- ADR-0018 candidate passes native/all-family gates but unscoped `Renderer::submit` bypasses stale-set validation |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024, AR-0030, and AR-0032 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017, ADR-0018 |
@@ -491,6 +491,20 @@ Initial implementation and the current ownership inventory are retained in
         workspace test suite.
   - [x] Retained a live browser WGPU record showing a retired A command batch
         rejects after B reuses A's local keys while scoped B still presents.
+- [x] Implemented a stable-surface candidate for the admitted invariant using
+      `RenderResourceSetLifecycle`, provider-owned candidate population, and
+      opaque set-scoped command validation.
+  - [x] Removed the WGPU staging feature gate and migrated the independent
+        resource-rich browser fixture to the ordinary renderer feature.
+  - [x] Proved the default replacement sequence with a provider-neutral mock
+        and compiled the migrated caller for release WASM.
+  - [ ] Retain a live browser WGPU record from the stable surface.
+  - [x] Added equivalent native WGPU provider evidence and the complete
+        all-resource-family late-failure matrix; A, B, and scoped B each
+        presented one draw with zero provider diagnostics.
+  - [ ] Resolve the architectural falsifier that ordinary retained
+        `RenderCommand` values can bypass the scoped batch through
+        `Renderer::submit` and alias reused successor keys.
 - [ ] Run the applicable performance, verification/recovery, provenance, and
       security gates for any Native Ring or stable shared candidate. Mark a
       gate not applicable explicitly rather than implying it passed.

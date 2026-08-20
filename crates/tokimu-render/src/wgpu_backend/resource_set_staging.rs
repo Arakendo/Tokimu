@@ -1,23 +1,21 @@
-//! Corpus-only real-provider staging experiment.
+//! WGPU realization of ADR-0018 atomic staged resource-set replacement.
 //!
-//! This module deliberately does not define stable generations, handles,
-//! reclamation, or a general renderer lifecycle contract. It tests whether a
-//! complete successor resource set can be allocated on the current WGPU
-//! provider session before replacing the live set.
+//! Provider allocation and reclamation remain WGPU-private. The stable
+//! provider-neutral surface is [`crate::RenderResourceSetLifecycle`].
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    Camera, CameraHandle, Color, ExperimentalRenderCommandSet, Material, MaterialHandle, Mesh,
-    MeshHandle, Pipeline, PipelineHandle, RenderCommand, Renderer, Rgba8TextureDescriptor,
-    TextureHandle,
+    Camera, CameraHandle, Color, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
+    PipelineHandle, RenderCommand, RenderCommandSet, RenderResourceSetId,
+    RenderResourceSetLifecycle, Renderer, Rgba8TextureDescriptor, TextureHandle,
 };
 
-use super::{ExperimentalSceneStageContext, PipelineRegistry, WgpuBackend, WgpuBackendError};
+use super::{PipelineRegistry, ResourceSetStageContext, WgpuBackend, WgpuBackendError};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct ExperimentalSceneResourceStageObservation {
+pub struct WgpuResourceSetCommitObservation {
     pub retired_queued_draws: u32,
     pub retired_materials: u32,
     pub retired_textures: u32,
@@ -33,20 +31,16 @@ pub struct ExperimentalSceneResourceStageObservation {
     pub retained_instance_bindings: u32,
 }
 
-#[doc(hidden)]
-pub struct ExperimentalSceneResourceStage {
+pub struct WgpuResourceSetStage {
     backend: WgpuBackend,
     clear_color: Color,
 }
 
-impl ExperimentalSceneResourceStage {
-    pub fn scope_render_commands(
-        &self,
-        commands: &[RenderCommand],
-    ) -> ExperimentalRenderCommandSet {
-        ExperimentalRenderCommandSet::new(
-            Arc::clone(&self.backend.experimental_resource_set_authority),
-            self.backend.experimental_current_resource_set,
+impl WgpuResourceSetStage {
+    pub fn scope_render_commands(&self, commands: &[RenderCommand]) -> RenderCommandSet {
+        RenderCommandSet::new(
+            Arc::clone(&self.backend.resource_set_authority),
+            self.backend.current_resource_set,
             commands,
         )
     }
@@ -128,54 +122,40 @@ impl ExperimentalSceneResourceStage {
 }
 
 impl WgpuBackend {
-    #[doc(hidden)]
-    pub fn experimental_scope_render_commands(
-        &self,
-        commands: &[RenderCommand],
-    ) -> ExperimentalRenderCommandSet {
-        ExperimentalRenderCommandSet::new(
-            Arc::clone(&self.experimental_resource_set_authority),
-            self.experimental_current_resource_set,
+    pub fn scope_render_commands(&self, commands: &[RenderCommand]) -> RenderCommandSet {
+        RenderCommandSet::new(
+            Arc::clone(&self.resource_set_authority),
+            self.current_resource_set,
             commands,
         )
     }
 
-    #[doc(hidden)]
-    pub fn experimental_submit_render_command_set(
+    pub fn submit_render_command_set(
         &mut self,
-        command_set: &ExperimentalRenderCommandSet,
+        command_set: &RenderCommandSet,
     ) -> Result<(), WgpuBackendError> {
-        command_set.validate_for(
-            &self.experimental_resource_set_authority,
-            self.experimental_current_resource_set,
-        )?;
+        command_set.validate_for(&self.resource_set_authority, self.current_resource_set)?;
         self.submit(command_set.commands());
         Ok(())
     }
 
-    #[doc(hidden)]
-    pub const fn experimental_current_resource_set(
-        &self,
-    ) -> crate::ExperimentalRenderResourceSetId {
-        self.experimental_current_resource_set
+    pub const fn current_resource_set(&self) -> RenderResourceSetId {
+        self.current_resource_set
     }
 
-    #[doc(hidden)]
-    pub fn experimental_begin_scene_resource_stage(
-        &self,
-    ) -> Result<ExperimentalSceneResourceStage, WgpuBackendError> {
+    pub fn begin_resource_set_stage(&self) -> Result<WgpuResourceSetStage, WgpuBackendError> {
         let surface = self
             .surface_state
             .as_ref()
-            .ok_or(WgpuBackendError::ExperimentalSceneStageRequiresSurface)?;
-        let stage_context = ExperimentalSceneStageContext {
+            .ok_or(WgpuBackendError::ResourceSetStageRequiresSurface)?;
+        let stage_context = ResourceSetStageContext {
             surface_format: surface.config.format,
             camera_bind_group_layout: surface.camera_bind_group_layout.clone(),
             material_bind_group_layout: surface.material_bind_group_layout.clone(),
             instance_bind_group_layout: surface.instance_bind_group_layout.clone(),
         };
-        let candidate_resource_set = self.experimental_resource_set_authority.allocate_id()?;
-        Ok(ExperimentalSceneResourceStage {
+        let candidate_resource_set = self.resource_set_authority.allocate_id()?;
+        Ok(WgpuResourceSetStage {
             clear_color: surface.clear_color,
             backend: WgpuBackend {
                 stats: crate::renderer::RenderStatsTracker::default(),
@@ -199,29 +179,26 @@ impl WgpuBackend {
                 adapter_info: self.adapter_info.clone(),
                 surface_state: None,
                 backend_diagnostic_messages: Arc::clone(&self.backend_diagnostic_messages),
-                experimental_stage_context: Some(stage_context),
-                experimental_resource_set_authority: Arc::clone(
-                    &self.experimental_resource_set_authority,
-                ),
-                experimental_current_resource_set: candidate_resource_set,
+                resource_set_stage_context: Some(stage_context),
+                resource_set_authority: Arc::clone(&self.resource_set_authority),
+                current_resource_set: candidate_resource_set,
             },
         })
     }
 
-    #[doc(hidden)]
-    pub fn experimental_commit_scene_resource_stage(
+    pub fn commit_resource_set_stage(
         &mut self,
-        mut stage: ExperimentalSceneResourceStage,
-    ) -> Result<ExperimentalSceneResourceStageObservation, WgpuBackendError> {
+        mut stage: WgpuResourceSetStage,
+    ) -> Result<WgpuResourceSetCommitObservation, WgpuBackendError> {
         if !Arc::ptr_eq(
-            &self.experimental_resource_set_authority,
-            &stage.backend.experimental_resource_set_authority,
+            &self.resource_set_authority,
+            &stage.backend.resource_set_authority,
         ) {
-            return Err(WgpuBackendError::ExperimentalSceneStageWrongProviderSession);
+            return Err(WgpuBackendError::ResourceSetStageWrongProviderSession);
         }
         stage.validate()?;
 
-        let observation = ExperimentalSceneResourceStageObservation {
+        let observation = WgpuResourceSetCommitObservation {
             retired_queued_draws: self.queued_draws.len() as u32,
             retired_materials: self.materials.len() as u32,
             retired_textures: self.textures.len() as u32,
@@ -250,7 +227,7 @@ impl WgpuBackend {
         );
         self.cameras = std::mem::take(&mut stage.backend.cameras);
         self.active_camera = stage.backend.active_camera;
-        self.experimental_current_resource_set = stage.backend.experimental_current_resource_set;
+        self.current_resource_set = stage.backend.current_resource_set;
         self.camera_bindings.clear();
         #[cfg(feature = "experimental-submission-local-geometry")]
         {
@@ -262,5 +239,33 @@ impl WgpuBackend {
         }
 
         Ok(observation)
+    }
+}
+
+impl RenderResourceSetLifecycle for WgpuBackend {
+    type Candidate = WgpuResourceSetStage;
+    type Error = WgpuBackendError;
+    type CommitObservation = WgpuResourceSetCommitObservation;
+
+    fn begin_resource_set_stage(&self) -> Result<Self::Candidate, Self::Error> {
+        WgpuBackend::begin_resource_set_stage(self)
+    }
+
+    fn commit_resource_set_stage(
+        &mut self,
+        candidate: Self::Candidate,
+    ) -> Result<Self::CommitObservation, Self::Error> {
+        WgpuBackend::commit_resource_set_stage(self, candidate)
+    }
+
+    fn scope_render_commands(&self, commands: &[RenderCommand]) -> RenderCommandSet {
+        WgpuBackend::scope_render_commands(self, commands)
+    }
+
+    fn submit_render_command_set(
+        &mut self,
+        command_set: &RenderCommandSet,
+    ) -> Result<(), Self::Error> {
+        WgpuBackend::submit_render_command_set(self, command_set)
     }
 }

@@ -433,12 +433,20 @@ resources when local keys are reused. Backends own concrete allocation,
 upload, synchronization, drop, and reclamation mechanisms without becoming
 owners of scene membership or simulation truth.
 
-This lifecycle contract does not choose a final handle encoding, promise
+The current implementation candidate is deliberately small:
+`RenderResourceSetLifecycle` owns begin, commit, command scoping, and scoped
+submission; its associated candidate keeps provider-specific resource
+population private. `RenderCommandSet` combines ordinary commands with opaque
+set and renderer-session authority so a retired or foreign batch rejects before
+local handles are resolved. Native WGPU evidence proves that path, but the
+candidate is not yet conformant because the existing unscoped
+`Renderer::submit` path can bypass set validation after local-key reuse.
+
+This lifecycle contract does not choose an individual handle encoding, promise
 physical GPU-memory reclamation timing, admit a general allocator, or combine
-ordinary replacement with device-loss recovery. The current corpus-private
-WGPU staging prototype remains provisional until an integrated provider-backed
-test proves that a retained command from retired set A rejects after set B
-commits with reused local resource keys.
+ordinary replacement with device-loss recovery. Whether the stable validation
+boundary belongs on command batches, resource handles, renderer submission
+authority, or another smaller shape remains under review.
 
 Pipeline choice should remain explicit at draw submission time rather than
 being hidden inside material state. Materials describe bound data, while draw

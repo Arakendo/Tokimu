@@ -2,7 +2,7 @@
 
 Browser/WASM pressure for the AR-0024/AR-0032 resource identity and replacement
 alternatives. ADR-0018 now admits the narrow set-level replacement semantics,
-while this fixture continues to pressure the provisional implementation. It
+while this fixture continues to pressure the stable lifecycle implementation. It
 also uploads two different meshes to one existing WGPU mesh handle to retain
 the provider's intentional in-set replacement behavior.
 
@@ -40,16 +40,18 @@ usable, commits a complete B, then proves A's retained handle is stale while
 the same local resource key resolves B. It exercises no renderer resources,
 provider session, or physical reclamation and admits no engine API.
 
-The feature-gated **Probe Alternative C real-provider staging** control is the
-next, separately bounded experiment. It creates one WGPU provider session,
+The **Probe ADR-0018 real-provider staging** control exercises the stable
+provider-neutral lifecycle. It creates one WGPU provider session,
 presents resource set A, allocates most of B alongside A, injects a late B
 failure, and proves A still presents. Before the second complete B commits, the
 fixture retains a set-scoped batch containing A's real draw commands. B reuses
 A's local mesh, material, pipeline, and camera keys. After the one-swap commit,
 the provider must reject the retained A batch as stale before resolving any of
-those handles, while B's scoped batch must still present. The record does not
-claim when WGPU physically reclaims A, quantify overlap memory, define public
-generation handles, or exercise repeated replacement pressure.
+those handles, while B's scoped batch must still present. The successful B
+path uses `RenderResourceSetLifecycle::replace_resource_set`; candidate upload
+remains WGPU-owned. The record does not claim when WGPU physically reclaims A,
+quantify overlap memory, define individual set-scoped resource handles, or
+exercise repeated replacement pressure.
 
 The separate **Run 27 Alternative C staged replacements** control holds that
 mechanism fixed and alternates two 64-mesh/texture/material sets on one browser

@@ -89,10 +89,11 @@ current resource families and leaves current commands presentable. Native and
 WASM implementations must share the observable contract even where backend
 storage and synchronization differ.
 
-The corpus-private Alternative C semantic model and feature-gated WGPU staging
-prototype are evidence for this decision. They are not promoted unchanged by
-this ADR and do not satisfy the integrated stale-command gate merely because
-they proved its semantic and provider halves separately.
+The corpus-private Alternative C semantic model and original feature-gated WGPU
+staging prototype are evidence for this decision. Their later stable
+realization uses a provider-neutral lifecycle trait, provider-owned candidate,
+opaque set identity, and set-scoped command batch. This realization does not
+promote the prototype's internal storage or settle individual handle encoding.
 
 ## Consequences
 
@@ -145,6 +146,20 @@ This ADR does not:
 - An independent resource-rich caller must exercise the accepted semantics
   before the implementation is treated as broadly conformant rather than a
   Doom-specific realization.
+
+### Post-decision implementation record
+
+On 2026-08-20, `tokimu-render` prototyped the provider-neutral
+`RenderResourceSetLifecycle`, `RenderResourceSetId`, and `RenderCommandSet`
+surface. The WGPU backend candidate implements it without feature gating. Native unit
+tests prove failure preservation, atomic authority turnover, foreign-authority
+rejection, and stale-command rejection after key reuse; the independent
+resource-identity browser fixture compiles for release WASM against the stable
+surface, and native WGPU passed the complete all-resource-family sequence.
+However, ordinary unscoped `Renderer::submit` remains a bypass: retained A
+commands can be submitted without encountering set validation. The candidate
+therefore remains non-conformant pending an explicit submission-authority
+decision. This does not change the admitted invariant.
 
 ## References
 

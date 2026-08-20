@@ -8,6 +8,8 @@ repository.workspace = true
 [features]
 default = []
 experimental-scene-resource-reset = []
+# Compatibility switch for historical corpus commands. ADR-0018 resource-set
+# staging is now part of the ordinary tokimu-render surface.
 experimental-scene-resource-staging = []
 experimental-submission-local-geometry = []
 

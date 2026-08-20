@@ -77,14 +77,9 @@ impl WgpuBackend {
             adapter_info,
             surface_state: None,
             backend_diagnostic_messages,
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_stage_context: None,
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_resource_set_authority:
-                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::new(),
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_current_resource_set:
-                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::initial_id(),
+            resource_set_stage_context: None,
+            resource_set_authority: crate::resource_set::RenderResourceSetAuthority::new(),
+            current_resource_set: crate::resource_set::RenderResourceSetAuthority::initial_id(),
         })
     }
 
@@ -169,14 +164,9 @@ impl WgpuBackend {
                 instance_bind_group_layout: ProviderShared::new(instance_bind_group_layout),
             }),
             backend_diagnostic_messages,
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_stage_context: None,
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_resource_set_authority:
-                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::new(),
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_current_resource_set:
-                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::initial_id(),
+            resource_set_stage_context: None,
+            resource_set_authority: crate::resource_set::RenderResourceSetAuthority::new(),
+            current_resource_set: crate::resource_set::RenderResourceSetAuthority::initial_id(),
         })
     }
 
@@ -271,14 +261,9 @@ impl WgpuBackend {
                 instance_bind_group_layout: ProviderShared::new(instance_bind_group_layout),
             }),
             backend_diagnostic_messages,
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_stage_context: None,
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_resource_set_authority:
-                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::new(),
-            #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_current_resource_set:
-                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::initial_id(),
+            resource_set_stage_context: None,
+            resource_set_authority: crate::resource_set::RenderResourceSetAuthority::new(),
+            current_resource_set: crate::resource_set::RenderResourceSetAuthority::initial_id(),
         })
     }
 

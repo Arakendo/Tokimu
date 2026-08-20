@@ -1,8 +1,6 @@
 pub mod camera;
 pub mod color;
 pub mod commands;
-#[cfg(feature = "experimental-scene-resource-staging")]
-mod experimental_render_resource_set;
 #[cfg(feature = "experimental-submission-local-geometry")]
 #[doc(hidden)]
 pub mod experimental_submission_local_geometry;
@@ -12,6 +10,7 @@ pub mod mesh;
 pub mod pipeline;
 pub mod renderable;
 pub mod renderer;
+pub mod resource_set;
 pub mod resources;
 pub mod shader;
 pub mod texture;
@@ -22,12 +21,6 @@ pub use color::Color;
 pub use commands::{
     ClearCommand, DrawMeshCommand, DrawMeshMaterialOverrideCommand, DrawRenderableCommand,
     RenderCommand, ViewportRect,
-};
-#[cfg(feature = "experimental-scene-resource-staging")]
-#[doc(hidden)]
-pub use experimental_render_resource_set::{
-    ExperimentalRenderCommandSet, ExperimentalRenderCommandSetError,
-    ExperimentalRenderResourceSetId,
 };
 pub use instance::Instance2d;
 pub use material::{
@@ -47,6 +40,9 @@ pub use renderable::Renderable;
 pub use renderer::{
     RenderFrameCpuTimings, RenderFrameStats, RenderLifetimeStats, RenderStats, Renderer,
 };
+pub use resource_set::{
+    RenderCommandSet, RenderCommandSetError, RenderResourceSetId, RenderResourceSetLifecycle,
+};
 pub use resources::{
     CameraHandle, MaterialHandle, MeshHandle, PipelineHandle, RenderableHandle, TextureHandle,
 };
@@ -61,8 +57,7 @@ pub use texture::{
 };
 #[cfg(feature = "experimental-scene-resource-reset")]
 pub use wgpu_backend::ExperimentalSceneResourceResetObservation;
-#[cfg(feature = "experimental-scene-resource-staging")]
-pub use wgpu_backend::{ExperimentalSceneResourceStage, ExperimentalSceneResourceStageObservation};
 pub use wgpu_backend::{
     RenderTargetReplacement, RenderTargetResourceObservation, WgpuBackend, WgpuBackendError,
+    WgpuResourceSetCommitObservation, WgpuResourceSetStage,
 };

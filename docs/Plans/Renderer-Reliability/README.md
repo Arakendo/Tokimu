@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- repeated real-provider pressure passed; admission decision ready |
+| Status | In progress -- ADR-0018 lifecycle candidate passes native WGPU but has an unscoped submission bypass |
 | Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
 | Related reviews | AR-0024, AR-0027, AR-0030, and AR-0032 |
 | Current disposition | ADR-0018 admits narrow atomic staged resource-set replacement semantics; it does not admit a shared allocator, final handle encoding, or physical reclamation policy |
-| Next action | Realize ADR-0018 through the smallest provider-neutral staged-set contract, prove late failure preserves every current resource family, and exercise native/browser WGPU plus the independent caller; physical reclamation and final handle shape remain unresolved |
+| Next action | Decide how retired-set authority reaches or constrains ordinary `Renderer::submit`; do not promote the command-batch candidate while unscoped submission can alias reused successor keys |
 
 The completed
 [resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)
