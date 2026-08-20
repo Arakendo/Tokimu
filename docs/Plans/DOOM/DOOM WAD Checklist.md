@@ -937,7 +937,12 @@ Acceptance criteria:
 - [ ] Expose importer warnings separately from runtime warnings.
 - [ ] Capture parse, decode, lowering, upload, and frame timing boundaries.
 - [ ] Record draw, material, texture, mesh, and allocation counts.
-- [ ] Add deterministic screenshots and structural artifacts.
+- [x] Add deterministic screenshots and structural artifacts. The bounded WAD
+      inspector now emits a fixed 1024-by-768 CPU source-sector map image;
+      independent executions produced identical bytes. The retained BMP and
+      manifest are structural evidence, not a GPU framebuffer or pixel-parity
+      claim; see
+      [Doom E1M1 Headless Structural Image Evidence](Evidence/Doom%20E1M1%20headless%20structural%20image%20evidence.md).
 - [ ] Make unsupported specials, assets, and object kinds visible in the UI.
 - [ ] Add a small observation-shell catalog for read-only map inspection.
 
@@ -1539,7 +1544,11 @@ silently widen the initial Doom-format contract.
 - [x] `E1M1` map and visual assets decode through Rust-owned providers.
 - [x] Tokimu renders a recognizable textured static scene.
 - [x] A player can walk through the start area with collision.
-- [ ] Headless structural artifacts and a deterministic screenshot are saved.
+- [x] Headless structural artifacts and a deterministic screenshot are saved.
+      The first milestone retains the reviewed E1M1 structural reports plus a
+      deterministic CPU top-down source-sector BMP and provenance manifest.
+      Native/browser textured-frame captures remain separately open because
+      backend pixels are not the deterministic contract.
 - [x] Unsupported map, asset, and gameplay semantics are listed explicitly in
       the slice deferrals and surfaced by bounded importer/runtime diagnostics.
 - [x] No Doom-specific type appears in renderer or trusted-core public APIs.

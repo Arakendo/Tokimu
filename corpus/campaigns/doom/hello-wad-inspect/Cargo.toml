@@ -14,3 +14,4 @@ doom-raster-provider = { path = "../../../lib/doom-raster-provider" }
 doom-wad-provider = { path = "../../../lib/doom-wad-provider" }
 resource-space = { path = "../../../lib/resource-space" }
 resource-space-archive = { path = "../../../lib/resource-space-archive" }
+screenshot = { path = "../../../lib/screenshot" }

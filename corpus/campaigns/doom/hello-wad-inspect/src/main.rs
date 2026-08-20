@@ -38,6 +38,7 @@ use resource_space::{
     ResourceRootDescriptor, ResourceRootId, StoreId,
 };
 use resource_space_archive::InspectArchiveResourceRequest;
+use screenshot::{write_bmp, Rgba8Image};
 
 const LIMITS: WadReadLimits =
     WadReadLimits::new(64 * 1024 * 1024, 8_192, 16 * 1024 * 1024, 64 * 1024 * 1024);
@@ -100,6 +101,11 @@ struct MapSvgRequest {
     mode: MapSvgMode,
 }
 
+#[derive(Clone, Debug)]
+struct MapBmpRequest {
+    output: OsString,
+}
+
 #[derive(Default)]
 struct ZipInspection<'a> {
     map: Option<&'a OsString>,
@@ -109,6 +115,7 @@ struct ZipInspection<'a> {
     ppm_output: Option<&'a OsString>,
     sprite: Option<&'a OsString>,
     map_svg_request: Option<MapSvgRequest>,
+    map_bmp_request: Option<MapBmpRequest>,
 }
 
 fn main() -> ExitCode {
@@ -269,6 +276,21 @@ fn main() -> ExitCode {
                 },
             )
         }
+        [flag, package, member, artifact_flag, map, output]
+            if flag == "--zip" && artifact_flag == "--map-sector-bmp" =>
+        {
+            inspect_zip_member(
+                package,
+                member,
+                ZipInspection {
+                    map: Some(map),
+                    map_bmp_request: Some(MapBmpRequest {
+                        output: output.clone(),
+                    }),
+                    ..ZipInspection::default()
+                },
+            )
+        }
         _ => {
             eprintln!("usage: hello-wad-inspect <path-to-iwad-or-pwad>");
             eprintln!(
@@ -286,6 +308,7 @@ fn main() -> ExitCode {
             eprintln!("       hello-wad-inspect --zip <package.zip> <member-name> --map-svg <E#M#> <output.svg>");
             eprintln!("       hello-wad-inspect --zip <package.zip> <member-name> --map-sector-svg <E#M#> <output.svg>");
             eprintln!("       hello-wad-inspect --zip <package.zip> <member-name> --map-normal-svg <E#M#> <output.svg>");
+            eprintln!("       hello-wad-inspect --zip <package.zip> <member-name> --map-sector-bmp <E#M#> <output.bmp>");
             ExitCode::from(2)
         }
     }
@@ -325,6 +348,7 @@ fn inspect_zip_member(
         ppm_output,
         sprite,
         map_svg_request,
+        map_bmp_request,
     } = inspection;
     let package_label = package.to_string_lossy().into_owned();
     let member_name = member.to_string_lossy().into_owned();
@@ -488,7 +512,7 @@ fn inspect_zip_member(
         );
         match decode_doom_map_core(&package_read.bytes, &selection, MAP_LIMITS) {
             Ok(core) => {
-                if let Some(request) = map_svg_request {
+                if let Some(request) = map_svg_request.as_ref() {
                     if let Err(error) = write_map_svg(&request.output, &core, request.mode) {
                         eprintln!(
                             "unable to write map SVG `{}`: {error}",
@@ -501,6 +525,22 @@ fn inspect_zip_member(
                         map_svg_mode_label(request.mode),
                         request.output.to_string_lossy()
                     );
+                }
+                if let Some(request) = map_bmp_request.as_ref() {
+                    if let Err(error) = write_map_sector_bmp(&request.output, &core) {
+                        eprintln!(
+                            "unable to write map sector BMP `{}`: {error}",
+                            request.output.to_string_lossy()
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                    println!(
+                        "map BMP: deterministic CPU top-down source-sector diagnostic written to `{}`",
+                        request.output.to_string_lossy()
+                    );
+                }
+                if map_svg_request.is_some() || map_bmp_request.is_some() {
+                    return ExitCode::SUCCESS;
                 }
                 println!(
                     "map core: things={}, vertices={}, linedefs={}, sidedefs={}, sectors={}, segs={}, subsectors={}, nodes={}",
@@ -1240,6 +1280,225 @@ fn write_map_svg(path: &OsString, core: &DoomMapCore, mode: MapSvgMode) -> Resul
     fs::write(path, document).map_err(|error| error.to_string())
 }
 
+/// Writes a deterministic CPU-rasterized source-map image. This is structural
+/// evidence, not a GPU framebuffer capture or a rendering-equivalence oracle.
+fn write_map_sector_bmp(path: &OsString, core: &DoomMapCore) -> Result<(), String> {
+    const WIDTH: u32 = 1024;
+    const HEIGHT: u32 = 768;
+    const PADDING: i64 = 24;
+    const BACKGROUND: [u8; 4] = [7, 17, 18, 255];
+
+    let minimum_x = core
+        .vertices
+        .iter()
+        .map(|vertex| i64::from(vertex.x))
+        .min()
+        .ok_or_else(|| "map has no vertices".to_owned())?;
+    let maximum_x = core
+        .vertices
+        .iter()
+        .map(|vertex| i64::from(vertex.x))
+        .max()
+        .expect("the non-empty vertex set already has a maximum");
+    let minimum_y = core
+        .vertices
+        .iter()
+        .map(|vertex| i64::from(vertex.y))
+        .min()
+        .expect("the non-empty vertex set already has a minimum");
+    let maximum_y = core
+        .vertices
+        .iter()
+        .map(|vertex| i64::from(vertex.y))
+        .max()
+        .expect("the non-empty vertex set already has a maximum");
+    let transform = MapRasterTransform::new(
+        minimum_x, maximum_x, minimum_y, maximum_y, WIDTH, HEIGHT, PADDING,
+    )?;
+    let mut pixels = vec![0_u8; WIDTH as usize * HEIGHT as usize * 4];
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel.copy_from_slice(&BACKGROUND);
+    }
+
+    for linedef in &core.linedefs {
+        let start = &core.vertices[usize::from(linedef.start_vertex)];
+        let end = &core.vertices[usize::from(linedef.end_vertex)];
+        let sector = linedef
+            .right_sidedef
+            .or(linedef.left_sidedef)
+            .map(|sidedef| core.sidedefs[usize::from(sidedef)].sector);
+        draw_map_line(
+            &mut pixels,
+            WIDTH,
+            HEIGHT,
+            transform.map(i64::from(start.x), i64::from(start.y)),
+            transform.map(i64::from(end.x), i64::from(end.y)),
+            sector_diagnostic_rgba(sector),
+            2,
+        );
+    }
+    for thing in &core.things {
+        let color = if thing.kind == 1 {
+            [34, 211, 238, 255]
+        } else {
+            [251, 191, 36, 255]
+        };
+        let radius = if thing.kind == 1 { 5 } else { 2 };
+        draw_map_point(
+            &mut pixels,
+            WIDTH,
+            HEIGHT,
+            transform.map(i64::from(thing.x), i64::from(thing.y)),
+            color,
+            radius,
+        );
+    }
+
+    write_bmp(
+        path,
+        Rgba8Image {
+            width: WIDTH,
+            height: HEIGHT,
+            pixels: &pixels,
+        },
+    )
+}
+
+#[derive(Clone, Copy, Debug)]
+struct MapRasterTransform {
+    minimum_x: i64,
+    maximum_y: i64,
+    offset_x: i64,
+    offset_y: i64,
+    scaled_width: i64,
+    scaled_height: i64,
+    source_width: i64,
+    source_height: i64,
+}
+
+impl MapRasterTransform {
+    fn new(
+        minimum_x: i64,
+        maximum_x: i64,
+        minimum_y: i64,
+        maximum_y: i64,
+        width: u32,
+        height: u32,
+        padding: i64,
+    ) -> Result<Self, String> {
+        let source_width = (maximum_x - minimum_x).max(1);
+        let source_height = (maximum_y - minimum_y).max(1);
+        let available_width = i64::from(width)
+            .checked_sub(padding * 2)
+            .filter(|value| *value > 0)
+            .ok_or_else(|| "map raster width is smaller than its padding".to_owned())?;
+        let available_height = i64::from(height)
+            .checked_sub(padding * 2)
+            .filter(|value| *value > 0)
+            .ok_or_else(|| "map raster height is smaller than its padding".to_owned())?;
+        let (scaled_width, scaled_height) =
+            if available_width * source_height <= available_height * source_width {
+                (
+                    available_width,
+                    (source_height * available_width / source_width).max(1),
+                )
+            } else {
+                (
+                    (source_width * available_height / source_height).max(1),
+                    available_height,
+                )
+            };
+        Ok(Self {
+            minimum_x,
+            maximum_y,
+            offset_x: (i64::from(width) - scaled_width) / 2,
+            offset_y: (i64::from(height) - scaled_height) / 2,
+            scaled_width,
+            scaled_height,
+            source_width,
+            source_height,
+        })
+    }
+
+    fn map(self, x: i64, y: i64) -> (i32, i32) {
+        (
+            (self.offset_x + (x - self.minimum_x) * self.scaled_width / self.source_width) as i32,
+            (self.offset_y + (self.maximum_y - y) * self.scaled_height / self.source_height) as i32,
+        )
+    }
+}
+
+fn draw_map_line(
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    start: (i32, i32),
+    end: (i32, i32),
+    color: [u8; 4],
+    radius: i32,
+) {
+    let (mut x, mut y) = start;
+    let delta_x = (end.0 - start.0).abs();
+    let step_x = if start.0 < end.0 { 1 } else { -1 };
+    let delta_y = -(end.1 - start.1).abs();
+    let step_y = if start.1 < end.1 { 1 } else { -1 };
+    let mut error = delta_x + delta_y;
+    loop {
+        draw_map_point(pixels, width, height, (x, y), color, radius);
+        if (x, y) == end {
+            break;
+        }
+        let doubled = error * 2;
+        if doubled >= delta_y {
+            error += delta_y;
+            x += step_x;
+        }
+        if doubled <= delta_x {
+            error += delta_x;
+            y += step_y;
+        }
+    }
+}
+
+fn draw_map_point(
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    point: (i32, i32),
+    color: [u8; 4],
+    radius: i32,
+) {
+    for y in point.1 - radius..=point.1 + radius {
+        for x in point.0 - radius..=point.0 + radius {
+            if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
+                continue;
+            }
+            let offset = (y as usize * width as usize + x as usize) * 4;
+            pixels[offset..offset + 4].copy_from_slice(&color);
+        }
+    }
+}
+
+fn sector_diagnostic_rgba(sector: Option<u16>) -> [u8; 4] {
+    const COLORS: [[u8; 4]; 12] = [
+        [34, 211, 238, 255],
+        [163, 230, 53, 255],
+        [251, 191, 36, 255],
+        [251, 113, 133, 255],
+        [192, 132, 252, 255],
+        [251, 146, 60, 255],
+        [45, 212, 191, 255],
+        [96, 165, 250, 255],
+        [244, 114, 182, 255],
+        [190, 242, 100, 255],
+        [250, 204, 21, 255],
+        [129, 140, 248, 255],
+    ];
+    sector
+        .map(|index| COLORS[usize::from(index) % COLORS.len()])
+        .unwrap_or([248, 250, 252, 255])
+}
+
 fn map_svg_mode_label(mode: MapSvgMode) -> &'static str {
     match mode {
         MapSvgMode::SourceTopology => "top-down source topology",
@@ -1352,5 +1611,31 @@ fn print_manifest(manifest: &WadManifest) {
             "#{:04} {:<8} offset={} bytes={}",
             lump.index, lump.name, lump.offset, lump.size
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn map_raster_transform_preserves_corners_and_flips_source_y() {
+        let transform = MapRasterTransform::new(-10, 10, -5, 5, 100, 60, 10).unwrap();
+        assert_eq!(transform.map(-10, 5), (10, 10));
+        assert_eq!(transform.map(10, -5), (90, 50));
+    }
+
+    #[test]
+    fn map_line_rasterization_is_bounded_and_deterministic() {
+        let mut first = vec![0_u8; 5 * 5 * 4];
+        let mut second = first.clone();
+        let color = [1, 2, 3, 255];
+        draw_map_line(&mut first, 5, 5, (-2, 2), (6, 2), color, 0);
+        draw_map_line(&mut second, 5, 5, (-2, 2), (6, 2), color, 0);
+        assert_eq!(first, second);
+        for x in 0..5 {
+            let offset = (2 * 5 + x) * 4;
+            assert_eq!(&first[offset..offset + 4], &color);
+        }
     }
 }
