@@ -1487,7 +1487,13 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
       repository inventory marks compact derived fixtures internal-only, bars
       bare-WAD endpoints, and keeps the reviewed complete source archives as
       the authoritative redistribution units. No commercial WAD is admitted.
-- [ ] Record native/WASM importer and geometry parity.
+- [x] Record native/WASM importer and geometry parity. The retained real
+      browser-WebGPU E1M2 observation and the native headless report agree
+      exactly on 1,921 opaque declarations, zero cutouts, 20 paired-skywall
+      triangles, 242 sky-plane triangles, 3,635 source-boundary triangles, and
+      642 edge-conformance insertions. Both paths use the same Rust package,
+      map, geometry, and application-lowering implementations; see
+      [Doom E1M2 Native/WASM Structural Parity Evidence](Evidence/Doom%20E1M2%20native%20WASM%20structural%20parity%20evidence.md).
 - [ ] Bound startup payload, decoded resources, and browser memory.
 
 Acceptance criteria:

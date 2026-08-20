@@ -995,6 +995,19 @@ pub(crate) fn run() -> PlatformResult<()> {
             ),
             inventory.records.len(),
         );
+        let surface_audit = inventory_scene.source_bounded_surface_audit.as_ref();
+        println!(
+            "{} native/browser structural comparison: importer=shared-rust-wad-package+doom-map-provider; geometry=shared-rust-doom-geometry-provider+hello-doom-e1m1-lowering; opaque={}; cutouts={}; skywalls={}; sky-planes={}; source-boundary-triangles={}; edge-conformance-insertions={}; inventory-records={}; inventory-hash={:016x}; authority=native-headless-structure-for-comparison-with-real-browser-webgpu-observation-not-rendered-pixel-parity",
+            inventory_scene.map_name,
+            inventory_scene.opaque_draws.len(),
+            inventory_scene.cutout_draws.len(),
+            inventory_scene.doom_sky_boundary_draws.len(),
+            inventory_scene.diagnostic_sky_draws.len(),
+            surface_audit.map_or(0, |audit| audit.surface_triangles),
+            surface_audit.map_or(0, |audit| audit.edge_conformance_insertions),
+            inventory.records.len(),
+            inventory.aggregate_hash,
+        );
         if let Some(observation) = ordered_occurrence_observation.as_ref() {
             println!(
                 "E1M1 ordered source occurrence observation: strategy={strategy_name}; {}; renderer-mutation=false; original-contributions=all-fail-open",
