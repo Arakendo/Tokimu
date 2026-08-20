@@ -1418,7 +1418,11 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
       normalized keyboard/mouse input, collision, runtime doors/platforms,
       diagnostics, map rotation, and the reviewed E1M1-E1M9 walkabout; a
       cosmetic binary rename to `hello-doom-walk` is not a separate milestone.
-- [ ] Add drag-and-drop WAD inspection to the Asset Workbench.
+- [x] Add drag-and-drop WAD inspection to the browser workbench. The drop
+      target accepts exactly one explicit local `File`, transports its bytes
+      through the same bounded Rust/WASM intake as the picker, rejects ambiguous
+      multi-file drops, and does not parse package or WAD semantics in
+      TypeScript.
 - [ ] Add a bounded WASM map viewer only after native static rendering is
       stable.
   - [x] Add the browser working-model test surface. After explicit local ZIP
@@ -1429,7 +1433,7 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
         TypeScript never receives WAD geometry or presentation policy.
   - [x] Add a corpus-private browser walkabout over the retained working-model
         scene. Rust owns the camera and WebGPU submissions; pointer-lock mouse
-        look plus W/A/S/D, Space/Ctrl, and Shift provide noclip inspection
+        look plus W/A/S/D, Space/C, and Shift provide noclip inspection
         without claiming browser Doom player simulation or a public camera API.
         Idle animation frames do not resubmit the scene, and map replacement
         pauses input until the complete replacement is presented.
@@ -1445,8 +1449,11 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
             [renderer scene-resource lifetime and replacement plan](../Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md)
             before treating rotation as
             accepted. E1M3 survived after eliminating simultaneous canvas
-            surfaces, but a later E1M5/E1M6 switch still closed the Edge test
-            window. Each switch currently creates a fresh WGPU device/backend;
+            surfaces. A later supervised orderly Edge shutdown was correlated
+            with the workbench's former `Ctrl`-descend plus `W`-forward binding,
+            which invoked Edge's `Ctrl+W` close shortcut; descend now uses `C`.
+            Older unsupervised E1M5/E1M6 closure evidence remains unknown. Each
+            Alternative-A switch creates a fresh WGPU device/backend;
             reusing one backend requires an explicit renderer resource-lifetime
             decision because sampleable texture creation rejects an existing
             handle and no scene-resource release/reset operation exists.
@@ -1464,7 +1471,11 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
           source sky planes, 3,635 surface triangles, and 642 edge-conformance
           insertions. The user-observed frame showed the source-spawn interior;
           E1M1 plus an explicit live map-swap/walkabout capture remains open.
-- [ ] Keep user-supplied WAD bytes in the browser session.
+- [x] Keep user-supplied WAD bytes in the browser session. The Rust/WASM
+      `BrowserIntakeSession` retains exactly one bounded package selection in
+      Resource Space, atomically replaces prior bytes, releases them on
+      disposal, and exposes only compact observations to TypeScript. Focused
+      tests cover replacement, empty and oversized rejection, and disposal.
 - [ ] Avoid publishing unreviewed commercial or shareware data.
 - [ ] Record native/WASM importer and geometry parity.
 - [ ] Bound startup payload, decoded resources, and browser memory.

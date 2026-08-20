@@ -1747,7 +1747,7 @@ mod tests {
         session
             .import_selected_package_inner("selected.zip", "application/zip", b"bytes")
             .unwrap();
-        session = BrowserIntakeSession::new_inner().unwrap();
+        session.dispose().unwrap();
         assert_eq!(session.space.summary().resources(), 0);
         assert_eq!(session.space.summary().retained_bytes(), 0);
     }

@@ -1,5 +1,5 @@
 import init, { BrowserIntakeSession } from "../pkg/doom_ts_boundary_workbench_engine.js";
-import { bindLocalPackagePicker, disposeIntake } from "./intake.js";
+import { bindLocalPackageDrop, bindLocalPackagePicker, disposeIntake, type IntakeResult } from "./intake.js";
 import {
   beginObservedOperation,
   completeObservedOperation,
@@ -25,9 +25,10 @@ const renderExitsign = document.querySelector<HTMLButtonElement>("#render-exitsi
 const download = document.querySelector<HTMLButtonElement>("#download");
 const clear = document.querySelector<HTMLButtonElement>("#clear");
 const input = document.querySelector<HTMLInputElement>("#package");
+const dropTarget = document.querySelector<HTMLElement>("#drop-package");
 const result = document.querySelector<HTMLElement>("#result");
 const canvas = document.querySelector<HTMLCanvasElement>("#scene");
-if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null) throw new Error("intake DOM is incomplete");
+if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || dropTarget === null || result === null || canvas === null) throw new Error("intake DOM is incomplete");
 
 const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"] as const;
 let workingMapIndex = 0;
@@ -214,7 +215,7 @@ async function renderCurrentWorkingMap(): Promise<void> {
 
 await init();
 const session = new BrowserIntakeSession();
-const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
+const receiveIntakeOutcome = (outcome: IntakeResult) => {
   stopWorkingWalkabout();
   result.textContent = JSON.stringify(outcome, null, 2);
   packageRetained = outcome.kind === "retained";
@@ -227,7 +228,9 @@ const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
   download.disabled = true;
   clear.disabled = outcome.kind !== "retained";
   updateWorkingMapControls();
-});
+};
+const unbindPicker = bindLocalPackagePicker(button, input, session, receiveIntakeOutcome);
+const unbindDrop = bindLocalPackageDrop(dropTarget, session, receiveIntakeOutcome);
 clear.addEventListener("click", () => {
   workingRotationCancellationRequested = true;
   stopWorkingWalkabout();
@@ -418,4 +421,8 @@ download.addEventListener("click", () => {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }, "image/png");
 });
-addEventListener("pagehide", () => { unbind(); disposeIntake(session); }, { once: true });
+addEventListener("pagehide", () => {
+  unbindPicker();
+  unbindDrop();
+  disposeIntake(session);
+}, { once: true });

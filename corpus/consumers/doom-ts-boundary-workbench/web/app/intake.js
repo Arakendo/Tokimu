@@ -42,3 +42,56 @@ export function bindLocalPackagePicker(button, input, session, report) {
         input.removeEventListener("change", receiveSelection);
     };
 }
+/**
+ * Binds an explicit local drag/drop gesture to the same Rust-owned intake
+ * boundary as the file picker. TypeScript transports one File's bytes and
+ * never interprets WAD/package contents.
+ */
+export function bindLocalPackageDrop(target, session, report) {
+    const setActive = (active) => {
+        target.dataset.dragActive = String(active);
+        target.setAttribute("aria-label", active
+            ? "Release one reviewed Doom package to inspect it"
+            : "Drop one reviewed Doom package here");
+    };
+    const acceptDrag = (event) => {
+        event.preventDefault();
+        if (event.dataTransfer !== null)
+            event.dataTransfer.dropEffect = "copy";
+        setActive(true);
+    };
+    const leaveDrag = (event) => {
+        event.preventDefault();
+        if (event.relatedTarget instanceof Node && target.contains(event.relatedTarget))
+            return;
+        setActive(false);
+    };
+    const receiveDrop = async (event) => {
+        event.preventDefault();
+        setActive(false);
+        const files = event.dataTransfer?.files;
+        if (files === undefined || files.length === 0) {
+            report({ kind: "cancelled" });
+            return;
+        }
+        if (files.length !== 1) {
+            report({
+                kind: "rejected",
+                diagnostic: `drop exactly one reviewed package; received ${files.length}`,
+            });
+            return;
+        }
+        report(await submitSelectedPackage(files.item(0) ?? undefined, session));
+    };
+    target.addEventListener("dragenter", acceptDrag);
+    target.addEventListener("dragover", acceptDrag);
+    target.addEventListener("dragleave", leaveDrag);
+    target.addEventListener("drop", receiveDrop);
+    setActive(false);
+    return () => {
+        target.removeEventListener("dragenter", acceptDrag);
+        target.removeEventListener("dragover", acceptDrag);
+        target.removeEventListener("dragleave", leaveDrag);
+        target.removeEventListener("drop", receiveDrop);
+    };
+}

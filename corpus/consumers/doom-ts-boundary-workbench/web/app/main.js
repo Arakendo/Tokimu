@@ -1,5 +1,5 @@
 import init, { BrowserIntakeSession } from "../pkg/doom_ts_boundary_workbench_engine.js";
-import { bindLocalPackagePicker, disposeIntake } from "./intake.js";
+import { bindLocalPackageDrop, bindLocalPackagePicker, disposeIntake } from "./intake.js";
 import { beginObservedOperation, completeObservedOperation, operatorCompleted, rejectObservedOperation, terminalObservationEnabled, } from "./terminal-observer.js";
 const button = document.querySelector("#select");
 const inspect = document.querySelector("#inspect");
@@ -18,9 +18,10 @@ const renderExitsign = document.querySelector("#render-exitsign");
 const download = document.querySelector("#download");
 const clear = document.querySelector("#clear");
 const input = document.querySelector("#package");
+const dropTarget = document.querySelector("#drop-package");
 const result = document.querySelector("#result");
 const canvas = document.querySelector("#scene");
-if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null)
+if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || dropTarget === null || result === null || canvas === null)
     throw new Error("intake DOM is incomplete");
 const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"];
 let workingMapIndex = 0;
@@ -196,7 +197,7 @@ async function renderCurrentWorkingMap() {
 }
 await init();
 const session = new BrowserIntakeSession();
-const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
+const receiveIntakeOutcome = (outcome) => {
     stopWorkingWalkabout();
     result.textContent = JSON.stringify(outcome, null, 2);
     packageRetained = outcome.kind === "retained";
@@ -209,7 +210,9 @@ const unbind = bindLocalPackagePicker(button, input, session, (outcome) => {
     download.disabled = true;
     clear.disabled = outcome.kind !== "retained";
     updateWorkingMapControls();
-});
+};
+const unbindPicker = bindLocalPackagePicker(button, input, session, receiveIntakeOutcome);
+const unbindDrop = bindLocalPackageDrop(dropTarget, session, receiveIntakeOutcome);
 clear.addEventListener("click", () => {
     workingRotationCancellationRequested = true;
     stopWorkingWalkabout();
@@ -407,4 +410,8 @@ download.addEventListener("click", () => {
         setTimeout(() => URL.revokeObjectURL(url), 0);
     }, "image/png");
 });
-addEventListener("pagehide", () => { unbind(); disposeIntake(session); }, { once: true });
+addEventListener("pagehide", () => {
+    unbindPicker();
+    unbindDrop();
+    disposeIntake(session);
+}, { once: true });

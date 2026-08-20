@@ -65,9 +65,11 @@ and retained-byte count, and replaces/disposes previous session bytes through
 Rust-owned state. It intentionally does not yet claim archive or WAD success.
 
 `web/src/intake.ts` is the corresponding browser/presentation mechanism. Its
-picker binding opens a file input only from a visible button-click gesture,
-forwards one selected `File` to the Rust/WASM request, clears the browser input
-afterward, and returns only retained/cancelled/rejected presentation outcomes.
+picker binding opens a file input only from a visible button-click gesture; its
+drop binding accepts exactly one explicitly dropped `File`. Both forward the
+selection to the same bounded Rust/WASM request without interpreting package
+contents and return only retained/cancelled/rejected presentation outcomes.
+The picker clears the browser input after each request.
 
 ## Static E1M1 Browser Bridge
 
@@ -154,7 +156,7 @@ rewrite their retained evidence.
 
 After the initial source-spawn frame, Rust retains the prepared renderer,
 commands, and camera for a corpus-private noclip inspection loop. Click the
-canvas for pointer-lock mouse look; use W/A/S/D to move, Space/Ctrl vertically,
+canvas for pointer-lock mouse look; use W/A/S/D to move, Space/C vertically,
 Shift to run, and Escape to release the mouse. TypeScript supplies normalized
 input deltas only. Rust owns camera mutation and frame submission, and idle
 animation frames do not resubmit the scene. Live input is coalesced behind an
