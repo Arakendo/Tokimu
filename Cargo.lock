@@ -1441,6 +1441,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hello-browser-terminal-observer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "hello-bulk-compute-web"
 version = "0.1.0"
 dependencies = [

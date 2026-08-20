@@ -1,4 +1,9 @@
 import init, { BrowserReplacementPressure, run_fixture } from "./pkg/hello-render-resource-identity-web.js";
+import {
+  beginObservedOperation,
+  completeObservedOperation,
+  rejectObservedOperation,
+} from "./terminal-observer.js";
 
 const run = document.querySelector("#run");
 const runPressure = document.querySelector("#run-pressure");
@@ -21,6 +26,8 @@ function setControlsDisabled(disabled) {
 }
 
 async function runReplacementSequence(pressure, replacementMethod, alternative) {
+  const operation = `resource-lifetime-${alternative}`;
+  beginObservedOperation(operation);
   setControlsDisabled(true);
   const records = [];
   const started = performance.now();
@@ -51,6 +58,9 @@ async function runReplacementSequence(pressure, replacementMethod, alternative) 
       physicalGpuReclamation: "unobserved",
       records,
     }, null, 2);
+    if (alternative === "A-whole-backend") {
+      completeObservedOperation(operation);
+    }
   } catch (error) {
     status.textContent = JSON.stringify({
       status: "failed",
@@ -60,18 +70,23 @@ async function runReplacementSequence(pressure, replacementMethod, alternative) 
       diagnostic: String(error?.stack ?? error),
       records,
     }, null, 2);
+    rejectObservedOperation(operation, error?.stack ?? error);
   } finally {
     setControlsDisabled(false);
   }
 }
 
 run.addEventListener("click", async () => {
+  const operation = "resource-identity-fixture";
+  beginObservedOperation(operation);
   run.disabled = true;
   status.textContent = "running";
   try {
     status.textContent = await run_fixture(canvas);
+    completeObservedOperation(operation);
   } catch (error) {
     status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation(operation, error?.stack ?? error);
   } finally {
     run.disabled = false;
   }
@@ -108,8 +123,10 @@ probeRetainedAtomicity.addEventListener("click", () => {
   setControlsDisabled(true);
   try {
     status.textContent = retainedPressure.probe_retained_reset_atomicity();
+    completeObservedOperation("resource-lifetime-B-adapter-private-reset");
   } catch (error) {
     status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation("resource-lifetime-B-adapter-private-reset", error?.stack ?? error);
   } finally {
     setControlsDisabled(false);
   }

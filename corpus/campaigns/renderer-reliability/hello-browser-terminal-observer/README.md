@@ -1,0 +1,72 @@
+# Hello Browser Terminal Observer
+
+Windows/Edge-focused, corpus-private evidence for ADR-0017. The observer runs
+outside the page, owns an isolated Edge process, receives bounded loopback
+heartbeats and terminal events, and classifies exactly one run as:
+
+- `completed`;
+- `structured-failure`;
+- `externally-terminated`; or
+- `unresolved-disappearance`.
+
+It does not diagnose OOM, WGPU, browser, driver, or hardware failure from
+missing evidence. It is not a general process supervisor or a stable Tokimu
+API.
+
+First serve the desired fixture. For the independent renderer-lifetime page:
+
+```powershell
+python -m http.server 4177 --bind 127.0.0.1 --directory corpus/campaigns/renderer-reliability/hello-render-resource-identity-web/web
+```
+
+In another terminal, launch an isolated Edge process under observation:
+
+```powershell
+cargo run -p hello-browser-terminal-observer -- `
+  --browser "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" `
+  --url "http://127.0.0.1:4177/" `
+  --startup-timeout-seconds 60 `
+  --heartbeat-timeout-seconds 60 `
+  --overall-timeout-seconds 900
+```
+
+For the Doom browser workbench, serve its built web directory and point the
+same observer at port 4176:
+
+```powershell
+python -m http.server 4176 --bind 127.0.0.1 --directory corpus/consumers/doom-ts-boundary-workbench/web
+
+cargo run -p hello-browser-terminal-observer -- `
+  --browser "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" `
+  --url "http://127.0.0.1:4176/" `
+  --startup-timeout-seconds 60 `
+  --heartbeat-timeout-seconds 60 `
+  --overall-timeout-seconds 1800
+```
+
+The observer creates a unique profile, browser log, and structured terminal
+JSON record below `target/`. It terminates only the isolated browser process it
+launched after a terminal outcome or timeout. A page reload or replacement
+before that outcome changes the page-subject identity and is retained as an
+unresolved disappearance rather than silently becoming a new run.
+
+For Alternative B, run the retained-session sequence, then the stale-aliasing
+probe, then the destructive atomicity probe. The atomicity probe closes the
+observed workflow. For the Doom workbench, a completed three-round rotation
+closes the workflow automatically. A manual walkabout remains open until the
+operator presses **Complete observed walkabout**.
+
+Exit codes are stable fixture evidence:
+
+| Code | Classification |
+| ---: | --- |
+| 0 | Completed |
+| 2 | Structured failure |
+| 3 | Browser process terminated before a page terminal record |
+| 4 | Unresolved disappearance or liveness timeout |
+| 64 | Harness configuration/startup rejection |
+
+The browser log and retained terminal JSON must be reviewed together. An exit
+code alone does not establish physical cause. The harness observes the owned
+browser process and page subject; it does not yet independently identify the
+browser's renderer or GPU subprocesses.

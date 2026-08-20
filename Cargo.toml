@@ -80,6 +80,7 @@ members = [
     "corpus/campaigns/textured-presentation/hello-texture-color-space",
     "corpus/campaigns/renderer-reliability/hello-render-resource-identity",
     "corpus/campaigns/renderer-reliability/hello-render-resource-identity-web",
+    "corpus/campaigns/renderer-reliability/hello-browser-terminal-observer",
 
     # Networking corpus.
     "corpus/focused/networking/hello-network-loopback",

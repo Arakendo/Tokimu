@@ -355,12 +355,26 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Deliverables
 
+- [x] Add a corpus-private external browser supervisor that owns an isolated
+      browser process, correlates a unique run and page-subject identity, and
+      classifies completion, structured rejection, owned-process exit, page
+      heartbeat loss, and page replacement/reload without guessing a cause.
+- [x] Instrument both the Doom workbench and independent resource-lifetime
+      fixture with bounded operation, heartbeat, page-error, and terminal
+      records. Keep the observer outside the page failure domain.
 - [ ] Exercise the surviving alternative on native WGPU and browser WebGPU.
 - [ ] Run the automated E1M1-through-E1M9 rotation for at least three complete
       rounds, followed by the adversarial manual walkabout/map-switch test.
 - [ ] Observe browser/page/renderer/GPU-process liveness from outside the page
       failure domain; an in-page returned record alone does not satisfy
       ADR-0017.
+  - [x] External browser-process and page-subject observation implemented and
+        controlled subject termination classified end to end.
+  - [ ] Live Edge/WGPU rotation and adversarial walkabout observed with the new
+        harness.
+  - [ ] Renderer- and GPU-process identity remain unsupported by the current
+        corpus-private harness and must not be claimed from browser-log text
+        alone.
 - [ ] Exercise the independent non-Doom fixture with equivalent resource-set
       replacement and stale-reference cases.
 - [ ] Include dynamic replacement within one scene so arena reset does not

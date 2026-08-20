@@ -247,6 +247,50 @@ manual Doom walkabout. No shared renderer contract is admitted by this
 evidence. The plan may now advance to the feature-gated, corpus-private
 Alternative B prototype.
 
+## External Terminal-Outcome Observer
+
+ADR-0017 follow-up added the corpus-private
+`hello-browser-terminal-observer` supervisor. It launches one isolated browser
+profile that it owns, hosts a bounded loopback observation endpoint outside the
+page, and correlates every record with both a run identity and a page-subject
+identity. The independent renderer fixture and Doom browser workbench now emit:
+
+```text
+subject-started
+operation-started
+heartbeat
+page-error
+operation-completed | operator-completed | structured-rejection
+```
+
+The separate page-subject identity is required because a renderer/page crash
+followed by automatic reload could otherwise resume heartbeats under the same
+run identity and conceal the lost operation. A changed subject before a
+terminal record is therefore classified as `unresolved-disappearance`, not as
+recovery or a fresh success.
+
+The observer bounds request and field sizes, uses a unique profile and browser
+log per run, terminates only the browser process it launched, and reports an
+unknown physical cause unless the host explicitly supplied one. It currently
+observes the owned browser process and page liveness. It does not independently
+enumerate renderer or GPU processes, and browser-log text is not promoted into
+that missing process identity evidence.
+
+Focused validation retained on 2026-08-19:
+
+- `cargo test -p hello-browser-terminal-observer` (7 passed);
+- `cargo clippy -p hello-browser-terminal-observer --all-targets -- -D warnings`;
+- Doom workbench TypeScript build and strict typecheck;
+- JavaScript syntax checks for both instrumented fixtures; and
+- a deliberately terminating external subject, classified by the supervisor
+  as `externally-terminated`, exit code 3, with `cause=unknown`, and retained
+  as a schema-versioned terminal JSON artifact.
+
+The actual Edge/WebGPU rotation and adversarial Doom walkabout have not yet run
+under this observer. This section is implementation and controlled-harness
+evidence, not a browser survival result and not a resolution of the earlier
+Edge disappearance.
+
 ## Alternative-B Prototype Boundary
 
 The feature-gated `experimental-scene-resource-reset` seam now clears the

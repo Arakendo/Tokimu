@@ -1,5 +1,12 @@
 import init, { BrowserIntakeSession } from "../pkg/doom_ts_boundary_workbench_engine.js";
 import { bindLocalPackagePicker, disposeIntake } from "./intake.js";
+import {
+  beginObservedOperation,
+  completeObservedOperation,
+  operatorCompleted,
+  rejectObservedOperation,
+  terminalObservationEnabled,
+} from "./terminal-observer.js";
 
 const button = document.querySelector<HTMLButtonElement>("#select");
 const inspect = document.querySelector<HTMLButtonElement>("#inspect");
@@ -7,6 +14,7 @@ const render = document.querySelector<HTMLButtonElement>("#render");
 const renderWorking = document.querySelector<HTMLButtonElement>("#render-working");
 const runRotation = document.querySelector<HTMLButtonElement>("#run-rotation");
 const runRetainedRotation = document.querySelector<HTMLButtonElement>("#run-retained-rotation");
+const completeObservedWalkabout = document.querySelector<HTMLButtonElement>("#complete-observed-walkabout");
 const mapPrevious = document.querySelector<HTMLButtonElement>("#map-previous");
 const mapNext = document.querySelector<HTMLButtonElement>("#map-next");
 const workingMap = document.querySelector<HTMLElement>("#working-map");
@@ -19,7 +27,7 @@ const clear = document.querySelector<HTMLButtonElement>("#clear");
 const input = document.querySelector<HTMLInputElement>("#package");
 const result = document.querySelector<HTMLElement>("#result");
 const canvas = document.querySelector<HTMLCanvasElement>("#scene");
-if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null) throw new Error("intake DOM is incomplete");
+if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || result === null || canvas === null) throw new Error("intake DOM is incomplete");
 
 const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"] as const;
 let workingMapIndex = 0;
@@ -52,6 +60,7 @@ function updateWorkingMapControls(): void {
   runRotation!.textContent = "Run 3x map rotation";
   runRetainedRotation!.disabled = !packageRetained;
   runRetainedRotation!.textContent = "Run 3x retained-session rotation";
+  completeObservedWalkabout!.disabled = !terminalObservationEnabled || !workingWalkaboutActive;
   mapPrevious!.disabled = !packageRetained;
   mapNext!.disabled = !packageRetained;
 }
@@ -77,6 +86,11 @@ async function runWorkingMapRotation(retainedSession = false): Promise<void> {
     return;
   }
   if (!packageRetained || workingMapRendering) return;
+
+  const observedOperation = retainedSession
+    ? "doom-retained-session-rotation"
+    : "doom-whole-backend-rotation";
+  beginObservedOperation(observedOperation);
 
   stopWorkingWalkabout();
   workingMapRendering = true;
@@ -165,6 +179,11 @@ async function runWorkingMapRotation(retainedSession = false): Promise<void> {
     diagnostic,
     records,
   }, null, 2);
+  if (diagnostic === undefined) {
+    completeObservedOperation(observedOperation);
+  } else {
+    rejectObservedOperation(observedOperation, diagnostic);
+  }
 }
 
 async function renderCurrentWorkingMap(): Promise<void> {
@@ -172,6 +191,8 @@ async function renderCurrentWorkingMap(): Promise<void> {
   stopWorkingWalkabout();
   workingMapRendering = true;
   const mapName = episodeMaps[workingMapIndex];
+  const observedOperation = "doom-manual-walkabout";
+  beginObservedOperation(observedOperation);
   renderWorking!.disabled = true;
   mapPrevious!.disabled = true;
   mapNext!.disabled = true;
@@ -184,6 +205,7 @@ async function renderCurrentWorkingMap(): Promise<void> {
     download!.disabled = false;
   } catch (error) {
     result!.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error), map: mapName }, null, 2);
+    rejectObservedOperation(observedOperation, error);
   } finally {
     workingMapRendering = false;
     updateWorkingMapControls();
@@ -225,6 +247,14 @@ clear.addEventListener("click", () => {
 renderWorking.addEventListener("click", () => void renderCurrentWorkingMap());
 runRotation.addEventListener("click", () => void runWorkingMapRotation());
 runRetainedRotation.addEventListener("click", () => void runWorkingMapRotation(true));
+completeObservedWalkabout.addEventListener("click", () => {
+  operatorCompleted("doom-manual-walkabout");
+  completeObservedWalkabout.disabled = true;
+  result.textContent = JSON.stringify({
+    kind: "operator-completed",
+    observation: "manual Doom walkabout completed under the external terminal observer",
+  }, null, 2);
+});
 mapPrevious.addEventListener("click", () => {
   workingMapIndex = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
   void renderCurrentWorkingMap();

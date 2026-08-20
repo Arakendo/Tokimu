@@ -499,3 +499,25 @@ demonstrated a second rendering API.
   survival claims. AR-0024 retains first-causal-failure ownership; it does not
   turn unknown external termination into a renderer diagnostic or admit a
   global diagnostic owner.
+
+### Cycle 16 -- 2026-08-19
+
+- Status entering review: ADR-0017 accepted; an external browser/page observer
+  was required before further survival or crash-containment claims.
+- New evidence: the corpus-private `hello-browser-terminal-observer` now owns an
+  isolated browser process and receives bounded loopback records from both the
+  Doom workbench and independent resource-lifetime fixture. Run identity alone
+  was found insufficient: automatic page reload could resume heartbeats after
+  losing the prior operation, so the protocol also correlates a unique page-
+  subject identity and treats replacement before a terminal record as an
+  unresolved disappearance. A controlled terminating subject was classified
+  externally with its exit status and no invented cause.
+- Findings: heartbeat, operation completion, process exit, and page-subject
+  continuity are distinct facts. This is corpus supervision owned outside the
+  tested page, not renderer diagnostic ownership. Renderer- and GPU-process
+  identity remain unobserved by this harness.
+- Disposition: retain Accepted and keep ADR-0017 binding. Authorize live Edge/
+  WGPU rotation and walkabout under the supervisor, but retain the earlier Edge
+  disappearance as unresolved adverse evidence until a supervised reproduction
+  classifies it. Admit no shared renderer lifecycle or diagnostic API from the
+  observer implementation.
