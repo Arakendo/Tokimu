@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- Slices 1 and 2 accepted; Alternative B rejected by retained falsifiers; corpus-private Alternative C semantic prototype implemented |
+| Status | In progress -- Alternative B rejected; Alternative C semantic, real-provider, and repeated-pressure evidence passed; admission review ready |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024 and AR-0030 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017 |
@@ -300,13 +300,14 @@ Initial implementation and the current ownership inventory are retained in
       draws with zero provider diagnostics. Physical overlap bytes and
       reclamation remain unobserved. See
       [Alternative C Real-Provider Staging Evidence](Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md).
-- [ ] Execute the authorized repeated-provider pressure harness. The fixed
-      staging mechanism now has a 27-cycle browser workload alternating two
-      64-resource-family sets with a late complete-candidate failure every
-      fifth cycle. Each cycle enforces one post-commit logical set, two sets
-      only during staging, complete inventory symmetry, 64 presented draws,
-      one provider session, and zero provider diagnostics. Live execution is
-      pending; see
+- [x] Execute the authorized repeated-provider pressure harness. One browser
+      WGPU session completed 27 alternating 64-resource-family replacements
+      with five injected late failures. All five failures reported
+      `MissingTexture(65)` and preserved all 64 current draws; all 27 commits
+      retained exact inventory symmetry, presented 64 successor draws, and
+      reported zero provider diagnostics. Logical residency returned to one
+      set after every commit and reached two only during staging. Physical GPU
+      reclamation remains unobserved; see
       [Alternative C Repeated Provider Pressure Evidence](Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md).
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
@@ -323,7 +324,7 @@ Initial implementation and the current ownership inventory are retained in
   - [x] stale resource reference after generation retirement;
   - [x] reuse of the same local resource key in a later generation without
         aliasing the retired handle;
-  - [ ] bounded repeated replacement;
+  - [x] bounded repeated replacement;
   - [ ] shutdown during or immediately after replacement.
 - [ ] Keep Doom source preparation and render declarations identical across the
       A/B comparison; only resource/provider lifetime may differ.
@@ -348,7 +349,7 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Acceptance Criteria
 
-- [ ] At least one alternative reuses a single provider session/device/surface
+- [x] Alternative C reuses a single provider session/device/surface
       over repeated resource-set replacement while preserving correctness.
 - [ ] If B survives its sufficiency gate, C remains unimplemented unless a
       retained requirement demonstrates additional semantic value.

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Date | 2026-08-19 |
-| Status | Harness implemented; live browser run pending |
+| Status | Complete -- 27-cycle browser WebGPU pressure passed |
 | Scope | Sustainability pressure for the fixed corpus-private WGPU staging mechanism |
 | Stable API admission | None |
 
@@ -65,8 +65,40 @@ object owners, but physical reclamation remains unobserved.
 - browser JavaScript syntax check passed;
 - strict `tokimu-render` clippy remained clean.
 
-Run `http://127.0.0.1:4177/` and select **Run 27 Alternative C staged
-replacements** to produce the live pressure record.
+## Live Browser Result
+
+The browser WebGPU run completed all 27 alternating replacements in 1,244.3
+ms on one backend/device/surface session.
+
+| Observation | Result |
+| --- | ---: |
+| committed replacements | 27 / 27 |
+| injected late failures | 5 / 5 |
+| failures reporting `MissingTexture(65)` | 5 / 5 |
+| failures preserving 64 current draws | 5 / 5 |
+| cycles presenting 64 successor draws | 27 / 27 |
+| cycles retaining the exact steady logical inventory | 27 / 27 |
+| cycles reporting zero provider diagnostics | 27 / 27 |
+| cycles retaining one backend/device/surface | 27 / 27 |
+| post-commit logical sets | 1 |
+| maximum logical sets during staging | 2 |
+| estimated live source bytes | 74,752 |
+| estimated overlap source bytes | 149,504 |
+
+After excluding the first 108.3 ms provider/setup-bearing replacement, warm
+replacement observations ranged from 2.8 to 6.7 ms and averaged 3.854 ms.
+These timings describe this fixture and machine only; they are not an engine
+budget or portable performance guarantee.
+
+Every commit reported symmetric retirement and installation of 64 meshes,
+textures, materials, and commands plus one pipeline and one camera. The
+instance-binding cache remained at 64 entries rather than accumulating with
+replacement count.
+
+The run shows no obvious logical accumulation, lifecycle corruption, provider
+diagnostic, or failure-containment regression under the defined workload. Each
+commit issued drops for the retired provider-object owners. Physical GPU
+reclamation timing remains unobserved.
 
 ## Limits
 

@@ -618,3 +618,26 @@ demonstrated a second rendering API.
   work now requires an explicit decision between repeated-pressure/reclamation
   study and architectural admission review; do not infer either from this
   single replacement.
+
+### Cycle 22 -- 2026-08-19
+
+- Status entering review: the bounded real-provider staging mechanism passed
+  once; sustainability across repeated replacements remained unproven.
+- New evidence: one browser WGPU backend/device/surface completed 27
+  alternating replacements of 64 meshes, textures, materials, and commands
+  plus one pipeline and camera. Five complete candidate sets were deliberately
+  followed by `MissingTexture(65)` failures; all five retained and presented
+  the preceding 64 draws before retry. Every successful commit retired and
+  installed symmetric inventories, returned to one logical live set, presented
+  64 draws, retained 64 instance bindings, and reported zero provider
+  diagnostics. Logical overlap was bounded to current plus candidate. Warm
+  fixture observations ranged from 2.8 to 6.7 ms.
+- Findings: the fixed staging mechanism shows no obvious logical accumulation,
+  lifecycle corruption, diagnostic escalation, or failure-containment loss
+  under the defined workload. The run issues drops for retired provider-object
+  owners but does not observe physical GPU reclamation or establish a portable
+  timing budget.
+- Disposition: the semantic, real-provider, and repeated-pressure evidence
+  layers are now complete enough to open an architectural admission review.
+  Do not infer final public handles, reclamation policy, or provider-neutral
+  vocabulary from the corpus types before that review.
