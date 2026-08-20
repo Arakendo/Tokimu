@@ -45,10 +45,13 @@ cargo run -p hello-browser-terminal-observer -- `
 ```
 
 The observer creates a unique profile, browser log, and structured terminal
-JSON record below `target/`. It terminates only the isolated browser process it
-launched after a terminal outcome or timeout. A page reload or replacement
-before that outcome changes the page-subject identity and is retained as an
-unresolved disappearance rather than silently becoming a new run.
+JSON record below `target/`. After a completed or structured-failure record it
+leaves the isolated browser open for inspection by default. Pass
+`--close-browser-on-terminal` for automated cleanup. It still terminates the
+browser it owns after an unresolved liveness/identity outcome. A page reload or
+replacement before a terminal outcome changes the page-subject identity and is
+retained as an unresolved disappearance rather than silently becoming a new
+run.
 
 The launch PID is not treated as an owned browser until the instrumented page
 acknowledges the observer. A browser launcher that prints `Opening in existing
@@ -65,7 +68,7 @@ Exit codes are stable fixture evidence:
 
 | Code | Classification |
 | ---: | --- |
-| 0 | Completed |
+| 0 | Completed; browser remains open unless cleanup was requested |
 | 2 | Structured failure |
 | 3 | Browser process terminated before a page terminal record |
 | 4 | Unresolved disappearance or liveness timeout |

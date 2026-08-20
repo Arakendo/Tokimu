@@ -27,6 +27,7 @@ struct Config {
     startup_timeout: Duration,
     heartbeat_timeout: Duration,
     overall_timeout: Duration,
+    close_browser_on_terminal: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -55,6 +56,7 @@ struct TerminalRecord<'a> {
     browser_log: String,
     profile: String,
     physical_cause: &'static str,
+    browser_disposition: &'a str,
 }
 
 fn main() -> ExitCode {
@@ -217,7 +219,23 @@ fn run() -> Result<ExitCode, String> {
 
     stop.store(true, Ordering::Release);
     let _ = server.join();
-    terminate_owned_browser(&mut browser);
+    let browser_disposition = match &outcome {
+        TerminalOutcome::Completed { .. } | TerminalOutcome::StructuredFailure { .. }
+            if config.close_browser_on_terminal =>
+        {
+            terminate_owned_browser(&mut browser);
+            "terminated-by-observer-on-request-after-terminal-record"
+        }
+        TerminalOutcome::Completed { .. } | TerminalOutcome::StructuredFailure { .. } => {
+            "left-running-after-terminal-record"
+        }
+        TerminalOutcome::ExternallyTerminated { .. } => "already-exited-before-terminal-record",
+        TerminalOutcome::UnresolvedDisappearance { .. } => {
+            terminate_owned_browser(&mut browser);
+            "terminated-by-observer-after-unresolved-observation"
+        }
+        TerminalOutcome::Running => unreachable!(),
+    };
     let elapsed = started_at.elapsed();
     let (classification, exit_code, reason) = match outcome {
         TerminalOutcome::Completed { operation } => ("completed", 0, operation),
@@ -247,6 +265,7 @@ fn run() -> Result<ExitCode, String> {
         browser_log: log.display().to_string(),
         profile: profile.display().to_string(),
         physical_cause: "unknown-unless-explicitly-reported",
+        browser_disposition,
     };
     let result_bytes = serde_json::to_vec_pretty(&terminal_record)
         .map_err(|error| format!("failed to encode terminal result: {error}"))?;
@@ -256,7 +275,7 @@ fn run() -> Result<ExitCode, String> {
     fs::rename(&temporary_result, &result)
         .map_err(|error| format!("failed to install terminal result: {error}"))?;
     println!(
-        "browser-terminal-observer terminal: run-id={run_id}; classification={classification}; elapsed-ms={:.3}; subject-started={subject_started}; last-sequence={last_sequence:?}; reason={}; browser-log={}; profile={}; result={}; physical-cause=unknown-unless-explicitly-reported",
+        "browser-terminal-observer terminal: run-id={run_id}; classification={classification}; elapsed-ms={:.3}; subject-started={subject_started}; last-sequence={last_sequence:?}; reason={}; browser-disposition={browser_disposition}; browser-log={}; profile={}; result={}; physical-cause=unknown-unless-explicitly-reported",
         elapsed.as_secs_f64() * 1000.0,
         bounded(&reason),
         log.display(),
@@ -276,6 +295,7 @@ fn parse_config() -> Result<Config, String> {
     let mut startup_timeout = Duration::from_secs(30);
     let mut heartbeat_timeout = Duration::from_secs(30);
     let mut overall_timeout = Duration::from_secs(15 * 60);
+    let mut close_browser_on_terminal = false;
     let mut arguments = env::args().skip(1);
     while let Some(argument) = arguments.next() {
         let value = |arguments: &mut std::iter::Skip<std::env::Args>| {
@@ -303,6 +323,7 @@ fn parse_config() -> Result<Config, String> {
             "--overall-timeout-seconds" => {
                 overall_timeout = parse_duration(&argument, &mut arguments)?
             }
+            "--close-browser-on-terminal" => close_browser_on_terminal = true,
             "--help" | "-h" => return Err(usage().to_owned()),
             _ => return Err(format!("unknown argument {argument}\n{}", usage())),
         }
@@ -329,6 +350,7 @@ fn parse_config() -> Result<Config, String> {
         startup_timeout,
         heartbeat_timeout,
         overall_timeout,
+        close_browser_on_terminal,
     })
 }
 
@@ -348,7 +370,7 @@ fn parse_duration(
 }
 
 fn usage() -> &'static str {
-    "usage: hello-browser-terminal-observer --browser <path> --url <loopback-url> [--profile <path>] [--log <path>] [--result <path>] [--observer-port <u16>] [--startup-timeout-seconds <n>] [--heartbeat-timeout-seconds <n>] [--overall-timeout-seconds <n>]"
+    "usage: hello-browser-terminal-observer --browser <path> --url <loopback-url> [--profile <path>] [--log <path>] [--result <path>] [--observer-port <u16>] [--startup-timeout-seconds <n>] [--heartbeat-timeout-seconds <n>] [--overall-timeout-seconds <n>] [--close-browser-on-terminal]"
 }
 
 fn absolute_path(path: &Path) -> Result<PathBuf, String> {

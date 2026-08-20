@@ -539,3 +539,23 @@ demonstrated a second rendering API.
   launcher exit as unresolved disappearance. Repeat the live run; retain the
   56.473 ms record only as harness-falsification evidence. No shared contract
   changes.
+
+### Cycle 18 -- 2026-08-19
+
+- Status entering review: corrected supervisor ownership; retained-session
+  Doom rotation awaiting a classified live result.
+- New evidence: run `46044-1787188803903131100` acknowledged its page subject,
+  retained 130 events, and explicitly completed the retained-session rotation
+  after 576,189.115 ms. The Edge log contains no WGPU, device-loss, OOM, fatal,
+  or crash marker. The supervisor then deliberately killed the isolated Edge
+  process under its original cleanup policy, which the operator reasonably
+  perceived as a crash.
+- Findings: subject survival through a terminal record is distinct from
+  supervisor cleanup after that record. Cleanup must be recorded as observer
+  action and must not visually impersonate the failure being studied.
+- Disposition: accept this run as supervised retained-session rotation success,
+  not crash evidence. Leave the browser open after completed or structured
+  terminal outcomes by default, retain explicit opt-in cleanup for automation,
+  and continue to terminate only after unresolved evidence where containment
+  requires it. The adversarial walkabout remains pending; Alternative B's
+  atomicity and stale-identity falsifiers remain unchanged.

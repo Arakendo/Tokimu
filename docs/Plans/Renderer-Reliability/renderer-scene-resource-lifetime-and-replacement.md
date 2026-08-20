@@ -372,6 +372,11 @@ Initial implementation and the current ownership inventory are retained in
         controlled subject termination classified end to end.
   - [ ] Live Edge/WGPU rotation and adversarial walkabout observed with the new
         harness.
+    - [x] Retained-session E1M1-through-E1M9 rotation completed under external
+          supervision (`run-id=46044-1787188803903131100`, 576,189.115 ms,
+          130 acknowledged events).
+    - [ ] Adversarial manual walkabout/map switching completed under external
+          supervision.
   - [ ] Renderer- and GPU-process identity remain unsupported by the current
         corpus-private harness and must not be claimed from browser-log text
         alone.

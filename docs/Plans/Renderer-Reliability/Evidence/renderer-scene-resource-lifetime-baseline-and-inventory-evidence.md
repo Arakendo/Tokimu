@@ -302,6 +302,33 @@ profile paths, and labels the initial PID as a launcher with ownership pending.
 That first record is retained as harness-falsification evidence, not a Doom or
 Edge crash result.
 
+## Live Supervised Retained-Session Rotation
+
+The corrected supervisor then observed Doom run
+`46044-1787188803903131100`. The page acknowledged its subject identity and
+retained 130 observation events before reporting
+`doom-retained-session-rotation` completed after 576,189.115 ms. The terminal
+JSON therefore classifies the operation as `completed`, not externally
+terminated or unresolved.
+
+The 6,197,344-byte Edge log contains no retained WGPU, WebGPU device-loss,
+out-of-memory, fatal, or crash marker. Two Edge fallback-task-provider warnings
+occurred long before completion and identify an Edge task-manager invariant,
+not a Tokimu or WGPU causal failure. USB enumeration messages around terminal
+cleanup are likewise not renderer evidence.
+
+The browser window closed because the first supervisor policy deliberately
+terminated its owned process after every terminal result. That behavior made a
+successful interactive run look like a crash. Successful and structured-
+failure outcomes now leave the browser open by default; automated callers may
+request `--close-browser-on-terminal`. Unresolved liveness/identity outcomes
+still terminate the owned isolated browser after evidence is retained.
+
+This run supplies external browser/page survival evidence for one bounded
+retained-session rotation. It does not satisfy the separate adversarial manual
+walkabout, renderer/GPU subprocess identity, physical reclamation, or
+Alternative B atomicity/stale-identity gates.
+
 ## Alternative-B Prototype Boundary
 
 The feature-gated `experimental-scene-resource-reset` seam now clears the
