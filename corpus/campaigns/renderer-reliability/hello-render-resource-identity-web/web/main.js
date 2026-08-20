@@ -16,6 +16,7 @@ const probeRetainedAliasing = document.querySelector("#probe-retained-aliasing")
 const probeRetainedAtomicity = document.querySelector("#probe-retained-atomicity");
 const runGenerationPrototype = document.querySelector("#run-generation-prototype");
 const probeProviderStaging = document.querySelector("#probe-provider-staging");
+const runProviderStagingPressure = document.querySelector("#run-provider-staging-pressure");
 const status = document.querySelector("#status");
 const canvas = document.querySelector("#scene");
 
@@ -23,6 +24,7 @@ await init();
 const replacementPressure = new BrowserReplacementPressure();
 const retainedPressure = new BrowserReplacementPressure();
 const providerStagingPressure = new BrowserReplacementPressure();
+const repeatedProviderStagingPressure = new BrowserReplacementPressure();
 
 function setControlsDisabled(disabled) {
   run.disabled = disabled;
@@ -32,6 +34,7 @@ function setControlsDisabled(disabled) {
   probeRetainedAtomicity.disabled = disabled;
   runGenerationPrototype.disabled = disabled;
   probeProviderStaging.disabled = disabled;
+  runProviderStagingPressure.disabled = disabled;
 }
 
 async function runReplacementSequence(pressure, replacementMethod, alternative) {
@@ -166,6 +169,68 @@ probeProviderStaging.addEventListener("click", async () => {
     completeObservedOperation(operation);
   } catch (error) {
     status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation(operation, error?.stack ?? error);
+  } finally {
+    setControlsDisabled(false);
+  }
+});
+
+runProviderStagingPressure.addEventListener("click", async () => {
+  const operation = "resource-lifetime-C-real-provider-staging-pressure";
+  beginObservedOperation(operation);
+  setControlsDisabled(true);
+  const records = [];
+  const started = performance.now();
+  try {
+    for (let sequence = 1; sequence <= 27; sequence += 1) {
+      const targetScene = sequence % 2;
+      const injectLateFailure = sequence % 5 === 0;
+      status.textContent = JSON.stringify({
+        status: "running",
+        alternative: "C-real-provider-staging-pressure",
+        sequence,
+        total: 27,
+        targetScene,
+        injectLateFailure,
+      }, null, 2);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const replacementStarted = performance.now();
+      const observation = await repeatedProviderStagingPressure.replace_scene_staged(
+        canvas,
+        targetScene,
+        injectLateFailure,
+      );
+      records.push({
+        sequence,
+        targetScene,
+        injectLateFailure,
+        elapsedMilliseconds: performance.now() - replacementStarted,
+        observation,
+      });
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    status.textContent = JSON.stringify({
+      status: "complete",
+      alternative: "C-real-provider-staging-pressure",
+      replacements: records.length,
+      injectedLateFailures: records.filter((record) => record.injectLateFailure).length,
+      elapsedMilliseconds: performance.now() - started,
+      providerSessions: 1,
+      steadyLogicalSetsAfterCommit: 1,
+      maximumLogicalSetsDuringStage: 2,
+      physicalGpuReclamation: "unobserved",
+      records,
+    }, null, 2);
+    completeObservedOperation(operation);
+  } catch (error) {
+    status.textContent = JSON.stringify({
+      status: "failed",
+      alternative: "C-real-provider-staging-pressure",
+      completedReplacements: records.length,
+      elapsedMilliseconds: performance.now() - started,
+      diagnostic: String(error?.stack ?? error),
+      records,
+    }, null, 2);
     rejectObservedOperation(operation, error?.stack ?? error);
   } finally {
     setControlsDisabled(false);

@@ -47,6 +47,16 @@ one backend-local swap and presented while the retired A set drops. The record
 does not claim when WGPU physically reclaims A, quantify overlap memory, define
 public generation handles, or exercise repeated replacement pressure.
 
+The separate **Run 27 Alternative C staged replacements** control holds that
+mechanism fixed and alternates two 64-mesh/texture/material sets on one browser
+WGPU session. Every fifth replacement first stages a complete candidate and
+then forces a missing-texture material failure; the preceding set must present
+all 64 draws before the valid candidate is retried. JavaScript yields across
+animation frames between replacements. Each record requires the same logical
+inventory after commit, reports the bounded current-plus-candidate source-byte
+estimate during overlap, and keeps physical GPU reclamation explicitly
+unobserved.
+
 The whole-backend pressure path also correlates each successfully presented
 64-resource-family inventory with its predecessor through the same semantic
 shadow. The returned record labels this as correlation rather than provider

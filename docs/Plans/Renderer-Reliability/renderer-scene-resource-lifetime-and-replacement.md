@@ -300,6 +300,14 @@ Initial implementation and the current ownership inventory are retained in
       draws with zero provider diagnostics. Physical overlap bytes and
       reclamation remain unobserved. See
       [Alternative C Real-Provider Staging Evidence](Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md).
+- [ ] Execute the authorized repeated-provider pressure harness. The fixed
+      staging mechanism now has a 27-cycle browser workload alternating two
+      64-resource-family sets with a late complete-candidate failure every
+      fifth cycle. Each cycle enforces one post-commit logical set, two sets
+      only during staging, complete inventory symmetry, 64 presented draws,
+      one provider session, and zero provider diagnostics. Live execution is
+      pending; see
+      [Alternative C Repeated Provider Pressure Evidence](Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md).
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
       satisfy.

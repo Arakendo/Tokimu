@@ -74,6 +74,9 @@ pub struct BrowserReplacementPressure {
     backend_creations: u32,
     retired_logical_sets: u32,
     previous_semantic_inventory: Option<CorpusSceneResourceInventory>,
+    provider_staging_current_scene: Option<u32>,
+    provider_staging_commits: u32,
+    provider_staging_failures: u32,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -88,6 +91,9 @@ impl BrowserReplacementPressure {
             backend_creations: 0,
             retired_logical_sets: 0,
             previous_semantic_inventory: None,
+            provider_staging_current_scene: None,
+            provider_staging_commits: 0,
+            provider_staging_failures: 0,
         }
     }
 
@@ -442,6 +448,159 @@ impl BrowserReplacementPressure {
         ))
     }
 
+    /// Performs one yielded step of the fixed Alternative-C provider pressure
+    /// workload. JavaScript owns pacing between calls so WGPU and the browser
+    /// event loop receive an ordinary presentation boundary after every
+    /// replacement.
+    pub async fn replace_scene_staged(
+        &mut self,
+        canvas: HtmlCanvasElement,
+        scene_index: u32,
+        inject_late_failure: bool,
+    ) -> Result<String, JsValue> {
+        const RESOURCE_COUNT: u64 = 64;
+        const TEXTURE_WIDTH: u32 = 16;
+        const TEXTURE_HEIGHT: u32 = 16;
+
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        if self.renderer.is_none() {
+            let mut renderer = WgpuBackend::for_window(canvas, width, height)
+                .await
+                .map_err(js_debug)?;
+            self.backend_creations = self.backend_creations.saturating_add(1);
+            let commands = upload_provider_stage_fixture_to_backend(
+                &mut renderer,
+                0,
+                RESOURCE_COUNT,
+                TEXTURE_WIDTH,
+                TEXTURE_HEIGHT,
+            )?;
+            renderer.begin_frame();
+            renderer.submit(&commands);
+            let initial = renderer.present().map_err(js_debug)?;
+            if initial.frame.draw_calls != RESOURCE_COUNT as u32 {
+                return Err(JsValue::from_str(
+                    "initial provider-pressure scene did not present its complete draw set",
+                ));
+            }
+            self.renderer = Some(renderer);
+            self.provider_staging_current_scene = Some(0);
+        }
+
+        self.replacement_attempts = self.replacement_attempts.saturating_add(1);
+        let renderer = self
+            .renderer
+            .as_mut()
+            .expect("provider-pressure renderer initialized above");
+        let previous_scene = self
+            .provider_staging_current_scene
+            .expect("provider-pressure scene initialized above");
+        let backend = renderer.backend_api();
+        let device = renderer.device_kind();
+        let adapter = renderer.adapter_name().to_owned();
+        let mut preserved_draws_after_failure = None;
+        let mut forced_failure = None;
+
+        if inject_late_failure {
+            let mut failed_candidate = renderer
+                .experimental_begin_scene_resource_stage()
+                .map_err(js_debug)?;
+            upload_provider_stage_fixture_to_stage(
+                &mut failed_candidate,
+                scene_index,
+                RESOURCE_COUNT,
+                TEXTURE_WIDTH,
+                TEXTURE_HEIGHT,
+            )?;
+            let failure = failed_candidate
+                .upload_material(
+                    MaterialHandle(RESOURCE_COUNT + 1),
+                    &Material::new(
+                        format!("pressure-{scene_index}-late-failure"),
+                        Color::rgb(1.0, 1.0, 1.0),
+                    )
+                    .with_texture(TextureHandle(RESOURCE_COUNT + 1)),
+                )
+                .expect_err("missing candidate texture must reject the pressure stage");
+            drop(failed_candidate);
+            self.provider_staging_failures = self.provider_staging_failures.saturating_add(1);
+
+            let previous_commands =
+                provider_stage_commands(RESOURCE_COUNT, tokimu::PipelineHandle(0), previous_scene);
+            renderer.begin_frame();
+            renderer.submit(&previous_commands);
+            let preserved = renderer.present().map_err(js_debug)?;
+            if preserved.frame.draw_calls != RESOURCE_COUNT as u32 {
+                return Err(JsValue::from_str(
+                    "late candidate failure did not preserve the complete current draw set",
+                ));
+            }
+            preserved_draws_after_failure = Some(preserved.frame.draw_calls);
+            forced_failure = Some(failure);
+        }
+
+        let mut candidate = renderer
+            .experimental_begin_scene_resource_stage()
+            .map_err(js_debug)?;
+        let candidate_commands = upload_provider_stage_fixture_to_stage(
+            &mut candidate,
+            scene_index,
+            RESOURCE_COUNT,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        )?;
+        candidate.begin_frame();
+        candidate.submit(&candidate_commands);
+        let commit = renderer
+            .experimental_commit_scene_resource_stage(candidate)
+            .map_err(js_debug)?;
+        let presented = renderer.present().map_err(js_debug)?;
+        let diagnostics = renderer.drain_diagnostics();
+        if !diagnostics.is_empty() {
+            return Err(JsValue::from_str(&format!(
+                "provider staging pressure produced diagnostics: {diagnostics:?}"
+            )));
+        }
+        if presented.frame.draw_calls != RESOURCE_COUNT as u32
+            || commit.retired_meshes != RESOURCE_COUNT as u32
+            || commit.committed_meshes != RESOURCE_COUNT as u32
+            || commit.retired_textures != RESOURCE_COUNT as u32
+            || commit.committed_textures != RESOURCE_COUNT as u32
+            || commit.retired_materials != RESOURCE_COUNT as u32
+            || commit.committed_materials != RESOURCE_COUNT as u32
+            || commit.retired_queued_draws != RESOURCE_COUNT as u32
+            || commit.committed_queued_draws != RESOURCE_COUNT as u32
+        {
+            return Err(JsValue::from_str(
+                "provider staging pressure departed from its steady logical inventory",
+            ));
+        }
+
+        self.provider_staging_commits = self.provider_staging_commits.saturating_add(1);
+        self.replacements_presented = self.replacements_presented.saturating_add(1);
+        self.retired_logical_sets = self.retired_logical_sets.saturating_add(1);
+        self.provider_staging_current_scene = Some(scene_index);
+
+        let live_estimated_bytes = provider_stage_estimated_source_bytes(
+            scene_index,
+            RESOURCE_COUNT,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        );
+        let overlap_estimated_bytes = live_estimated_bytes.saturating_mul(2);
+        Ok(format!(
+            "status=presented; lifetime-alternative=C-corpus-private-real-provider-staging-pressure; replacement-attempt={}; committed-replacements={}; target-scene={scene_index}; previous-scene={previous_scene}; injected-late-failure={inject_late_failure}; forced-stage-failure={forced_failure:?}; preserved-draws-after-failure={preserved_draws_after_failure:?}; total-injected-failures={}; draws={}; steady-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{RESOURCE_COUNT}]; commit-observation={commit:?}; logical-overlap-sets-during-stage=2; estimated-source-bytes-live={live_estimated_bytes}; estimated-source-bytes-at-overlap={overlap_estimated_bytes}; post-commit-logical-sets=1; provider-object-drop-issued=true; physical-gpu-reclamation=unobserved; provider-diagnostics=0; backend-creations={}; device-creations={}; surface-creations={}; retained-provider-session=true; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
+            self.replacement_attempts,
+            self.provider_staging_commits,
+            self.provider_staging_failures,
+            presented.frame.draw_calls,
+            self.backend_creations,
+            self.backend_creations,
+            self.backend_creations,
+        ))
+    }
+
     /// Submits a command whose bare handles are indistinguishable from an old
     /// scene's handles after those numeric values have been reused by the
     /// current scene. Successful presentation is the B stale-identity
@@ -659,6 +818,24 @@ fn provider_stage_mesh(scene_index: u32, resource_index: u64) -> Mesh {
     } else {
         Mesh::diamond()
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn provider_stage_estimated_source_bytes(
+    scene_index: u32,
+    resource_count: u64,
+    texture_width: u32,
+    texture_height: u32,
+) -> u64 {
+    let texture_bytes = resource_count
+        .saturating_mul(u64::from(texture_width))
+        .saturating_mul(u64::from(texture_height))
+        .saturating_mul(4);
+    let mesh_vertex_bytes = (0..resource_count).fold(0_u64, |total, resource_index| {
+        let mesh = provider_stage_mesh(scene_index, resource_index);
+        total.saturating_add(mesh.positions.len() as u64 * 8 * 4)
+    });
+    texture_bytes.saturating_add(mesh_vertex_bytes)
 }
 
 #[cfg(target_arch = "wasm32")]

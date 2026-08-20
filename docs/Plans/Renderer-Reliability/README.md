@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- bounded real-provider staging probe passed |
+| Status | In progress -- repeated real-provider pressure harness ready |
 | Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
 | Related reviews | AR-0024, AR-0027, and AR-0030 |
 | Current disposition | Earlier identity/failure plan remains complete with no shared allocation contract; repeated browser composition replacement now supplies stronger cross-lifetime pressure |
-| Next action | Review whether the bounded provider result earns repeated-pressure/reclamation work or an architectural admission proposal; admit no reset, arena, generation, or handle vocabulary implicitly |
+| Next action | Run the 27-cycle alternating provider-staging pressure fixture and retain its bounded overlap, failure, steady-inventory, and diagnostic evidence |
 
 The completed
 [resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)
