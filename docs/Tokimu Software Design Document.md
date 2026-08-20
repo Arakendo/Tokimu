@@ -422,6 +422,24 @@ Tokimu's public renderer API should not simply expose `wgpu` everywhere. The
 backend should stay behind Tokimu-owned concepts such as renderer traits,
 render commands, and resource handles.
 
+ADR-0018 admits atomic staged replacement for a bounded render resource set.
+Applications and compositions own which resources belong to a successor and
+when replacement is attempted. `tokimu-render` owns the provider-neutral
+transaction invariant: the current set remains authoritative while an isolated
+candidate is constructed and validated; candidate failure preserves the
+current set; successful commit changes authority once and retires the prior
+set; and retained identities from the retired set cannot alias successor
+resources when local keys are reused. Backends own concrete allocation,
+upload, synchronization, drop, and reclamation mechanisms without becoming
+owners of scene membership or simulation truth.
+
+This lifecycle contract does not choose a final handle encoding, promise
+physical GPU-memory reclamation timing, admit a general allocator, or combine
+ordinary replacement with device-loss recovery. The current corpus-private
+WGPU staging prototype remains provisional until an integrated provider-backed
+test proves that a retained command from retired set A rejects after set B
+commits with reused local resource keys.
+
 Pipeline choice should remain explicit at draw submission time rather than
 being hidden inside material state. Materials describe bound data, while draw
 commands decide which mesh, material, and pipeline resources participate in a

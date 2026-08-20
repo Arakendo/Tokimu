@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- Alternative B rejected; Alternative C semantic, real-provider, and repeated-pressure evidence passed; admission review ready |
+| Status | In progress -- ADR-0018 admits narrow set-level replacement semantics; provider-neutral implementation conformance remains gated on integrated stale-command rejection |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024, AR-0030, and AR-0032 |
-| Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017 |
+| Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017, ADR-0018 |
 | First pressure source | Repeated browser/WASM Doom working-map replacement |
 | Scope | Determine the smallest honest lifetime model for replacing a bounded set of renderer resources while retaining a provider session, device, and presentation surface |
 
@@ -468,18 +468,20 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Deliverables
 
-- [ ] Compare the final evidence against these dispositions:
-  - [ ] adapter-private reset only;
-  - [ ] renderer-owned replaceable resource-set boundary with
+- [x] Compare the final evidence against these dispositions:
+  - [x] adapter-private reset only -- rejected for the required atomicity and
+        stale-key guarantees;
+  - [x] renderer-owned replaceable resource-set boundary with
         application-owned logical identity;
-  - [ ] explicit renderer release operations;
-  - [ ] application/corpus helper only;
-  - [ ] whole-session/page replacement;
-  - [ ] no shared admission.
+  - [x] explicit renderer release operations -- not admitted;
+  - [x] application/corpus helper only -- rejected by cross-caller evidence;
+  - [x] whole-session/page replacement -- retained only as a control;
+  - [x] no shared admission -- rejected by the accepted evidence.
 - [ ] Reopen AR-0024 for renderer resource-lifetime/identity implications and
       update AR-0030 with the Doom/browser evidence.
-- [ ] Decide whether the accepted mechanism changes a stable/public renderer
-      contract. If it does, record the decision in an ADR and update the SDD.
+- [x] Decided that the semantic invariant belongs in the stable renderer
+      architecture; ADR-0018 records it and the SDD is updated. The final
+      public API and handle representation remain undecided.
 - [ ] Run the applicable performance, verification/recovery, provenance, and
       security gates for any Native Ring or stable shared candidate. Mark a
       gate not applicable explicitly rather than implying it passed.
@@ -487,11 +489,11 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Validation
 
-- [ ] The proposed owner is the smallest layer capable of maintaining the
+- [x] The proposed owner is the smallest layer capable of maintaining the
       invariant across both callers and both targets.
-- [ ] The decision preserves application-owned scene membership and recovery
+- [x] The decision preserves application-owned scene membership and recovery
       policy while keeping provider reclamation details private.
-- [ ] No accepted wording promises immediate GPU-memory reclamation unless a
+- [x] No accepted wording promises immediate GPU-memory reclamation unless a
       provider can actually prove it.
 
 ### Acceptance Criteria

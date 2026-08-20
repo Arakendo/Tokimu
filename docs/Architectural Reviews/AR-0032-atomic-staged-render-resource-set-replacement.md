@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Under Review |
+| Status | Accepted |
 | Opened | 2026-08-19 |
 | Last reviewed | 2026-08-19 |
 | Scope | Foundational rendering service / provider lifetime boundary |
 | Trigger | Alternative B reset falsifiers plus semantic, live WGPU, and repeated-pressure evidence for Alternative C |
-| Related ADRs | ADR-0001, ADR-0003, ADR-0005, ADR-0009, ADR-0017 |
+| Related ADRs | ADR-0001, ADR-0003, ADR-0005, ADR-0009, ADR-0017, ADR-0018 |
 | Related evidence | AR-0024; renderer scene-resource lifetime plan and its Alternative C evidence |
 | Admission exception | None |
 
@@ -298,10 +298,12 @@ Explicit non-decisions:
 
 ## Disposition
 
-**Under Review.** The evidence supports Alternative A as the narrow admission
-candidate. No binding ADR is created by opening this record. Acceptance must
-retain the integrated stale-rejection gate and the explicit physical-
-reclamation/API-shape non-decisions above.
+**Accepted -- Alternative A: narrow set-level replacement semantics.**
+
+ADR-0018 records the accepted semantic boundary and the SDD renderer section
+now reflects its ownership and lifecycle invariant. The current experimental
+implementation is not promoted unchanged. Its provider-neutral conformance
+remains gated on the integrated stale-command test from Finding 5.
 
 ## Consequences
 
@@ -323,8 +325,8 @@ If Alternative A is accepted:
 
 ## Required Follow-Up
 
-- [ ] Maintainer accepts, revises, or rejects the proposed admission boundary.
-- [ ] If accepted, create a focused ADR for the set-level semantics and update
+- [x] Maintainer accepted Alternative A's proposed admission boundary.
+- [x] Created ADR-0018 for the set-level semantics and updated
       the SDD renderer section.
 - [ ] Design the smallest provider-neutral contract shape without choosing a
       permanent handle bit layout.
@@ -372,6 +374,21 @@ After disposition, reopen or supersede this review if:
 - Disposition: Under Review; Alternative A recommended for maintainer decision.
 - Resulting ADR or documentation change: none yet.
 
+### Cycle 2 -- 2026-08-19
+
+- Status entering review: Under Review
+- New evidence: maintainer review confirmed that the three evidence layers
+  support the narrow semantic contract while Finding 5 remains an
+  implementation-conformance gate.
+- Participants or reviewers: maintainer, Monday, and Codex
+- Findings: architecture admission does not require choosing the final handle
+  representation or physical reclamation policy; it does require the retained
+  command from retired set A to reject after set B reuses A's local keys.
+- Disposition: Accepted -- Alternative A, narrow set-level replacement
+  semantics.
+- Resulting ADR or documentation change: ADR-0018 and the SDD renderer
+  lifecycle update.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -381,6 +398,7 @@ After disposition, reopen or supersede this review if:
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/ADR/ADR-0017-observable-terminal-failure-and-host-crash-conformance.md`
+- `docs/ADR/ADR-0018-atomic-staged-render-resource-set-replacement.md`
 - `docs/Architectural Reviews/AR-0024-renderer-failure-observation-and-diagnostic-boundary.md`
 - `docs/Plans/Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-semantic-generation-evidence.md`
