@@ -218,6 +218,47 @@ This ADR does not:
 - Long-running renderer/resource tests must retain page/window/process survival
   evidence alongside provider diagnostics and logical resource observations.
 
+## Post-Decision Validation Case
+
+The incident that prompted this ADR later produced a useful validation of the
+decision's restraint. External supervision separated three outcomes that had
+previously looked alike to the operator:
+
+1. an Edge launcher handed a URL to an existing session and exited before page
+   acknowledgement;
+2. a retained-session Doom rotation completed and the supervisor deliberately
+   closed its owned browser during cleanup; and
+3. an acknowledged Doom walkabout ended when Edge performed an orderly,
+   code-zero browser shutdown before Tokimu emitted a terminal record.
+
+The third run retained no Crashpad dump, WGPU/device-loss, OOM, fatal, or crash
+record. Subsequent input audit found that the browser workbench mapped descend
+to `Ctrl` and forward to `W`, colliding with Edge's reserved `Ctrl+W` close
+shortcut. Browser descend now uses `C`.
+
+This is strong evidence for a host-input explanation, but the precise causal
+link remains pending an exact reproduction/falsification run. The earlier
+records are therefore not retroactively relabeled as GPU, browser, input, or
+renderer failures beyond what each observer actually established.
+
+The case demonstrates why terminal outcome closure is independent of the
+eventual defect mechanism:
+
+```text
+unexplained disappearance
+    -> preserve unknown cause
+    -> add out-of-domain observation
+    -> distinguish launcher handoff, observer cleanup, and orderly host exit
+    -> discover a radically different causal candidate without rewriting
+       missing evidence as an earlier diagnosis
+```
+
+Had the original disappearance been labeled WebGPU OOM from silence, the
+browser-reserved shortcut collision would have been hidden behind a false
+renderer diagnosis. ADR-0017 remains applicable even if the shortcut is
+confirmed as the full cause: the invariant concerns honest terminal evidence,
+not whether the eventual defect belongs to Tokimu, its host, or its controls.
+
 ## References
 
 - `docs/diagnostics-model.md`

@@ -348,6 +348,11 @@ this run. Browser descend now uses `C`; `Ctrl` is no longer a working-model
 control. A repeat adversarial walkabout must falsify or reproduce the orderly
 exit before the lifetime/provider mechanism is blamed.
 
+This finding also validates ADR-0017 independently of whether `Ctrl+W` is
+confirmed. The original evidence was retained as unknown rather than assigned
+to WGPU or memory pressure; external observation could therefore narrow the
+terminal boundary without having to unwind a fabricated renderer diagnosis.
+
 ## Alternative-B Prototype Boundary
 
 The feature-gated `experimental-scene-resource-reset` seam now clears the
