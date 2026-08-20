@@ -1476,7 +1476,11 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
       Resource Space, atomically replaces prior bytes, releases them on
       disposal, and exposes only compact observations to TypeScript. Focused
       tests cover replacement, empty and oversized rejection, and disposal.
-- [ ] Avoid publishing unreviewed commercial or shareware data.
+- [x] Avoid publishing unreviewed commercial or shareware data. The browser
+      consumer accepts only explicit local bytes and fetches or bundles no WAD;
+      repository inventory marks compact derived fixtures internal-only, bars
+      bare-WAD endpoints, and keeps the reviewed complete source archives as
+      the authoritative redistribution units. No commercial WAD is admitted.
 - [ ] Record native/WASM importer and geometry parity.
 - [ ] Bound startup payload, decoded resources, and browser memory.
 
