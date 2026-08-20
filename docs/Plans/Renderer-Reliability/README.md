@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- real-provider staging implemented; live browser probe pending |
+| Status | In progress -- bounded real-provider staging probe passed |
 | Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
 | Related reviews | AR-0024, AR-0027, and AR-0030 |
 | Current disposition | Earlier identity/failure plan remains complete with no shared allocation contract; repeated browser composition replacement now supplies stronger cross-lifetime pressure |
-| Next action | Run the bounded A / failed-B / retained-A / committed-B browser probe; admit no reset, arena, generation, or handle vocabulary yet |
+| Next action | Review whether the bounded provider result earns repeated-pressure/reclamation work or an architectural admission proposal; admit no reset, arena, generation, or handle vocabulary implicitly |
 
 The completed
 [resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)

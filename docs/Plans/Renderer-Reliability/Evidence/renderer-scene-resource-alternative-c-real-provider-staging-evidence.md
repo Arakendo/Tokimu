@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Date | 2026-08-19 |
-| Status | Implemented; live browser execution pending |
+| Status | Complete -- live browser WebGPU probe passed |
 | Scope | Corpus-private WGPU resource-set staging |
 | Stable API admission | None |
 
@@ -56,6 +56,45 @@ The failure is late: eight textures, eight materials, eight meshes, one
 pipeline, and one camera are staged before the intentionally invalid material
 is attempted. No reset or mutation of A precedes that failure.
 
+## Live Browser Result
+
+The 640x360 browser WebGPU probe completed with one backend, device, and
+surface creation:
+
+```text
+staged-before-failure=26
+forced-stage-failure=MissingTexture(9)
+
+A-draws-initial=8
+A-draws-after-failed-B=8
+last-known-good-preserved=true
+
+retired-A:
+    queued-draws=8
+    materials=8
+    textures=8
+    meshes=8
+    pipelines=1
+    cameras=1
+
+committed-B:
+    queued-draws=8
+    materials=8
+    textures=8
+    meshes=8
+    pipelines=1
+    cameras=1
+
+B-draws-after-commit=8
+retained-instance-bindings=8
+retired-A-predictable=true
+provider-diagnostics=0
+```
+
+This establishes the bounded proposition under study: failed real-provider
+staging did not disturb A, and a complete B became presentable after one
+backend-local commit on the retained browser WGPU session.
+
 ## Structural Validation
 
 - `cargo clippy -p tokimu-render --features experimental-scene-resource-staging --all-targets -- -D warnings`
@@ -67,15 +106,14 @@ is attempted. No reset or mutation of A precedes that failure.
 - `cargo build -p hello-render-resource-identity-web --target wasm32-unknown-unknown --release`
 - `cargo check --workspace`
 
-The generated browser package was rebuilt successfully. Live execution was not
-claimed because the managed browser connection rejected its own installed
-browser runtime as outside the configured trusted code path. The fixture is
-available at `http://127.0.0.1:4177/` through **Probe Alternative C
-real-provider staging**.
+The generated browser package was rebuilt successfully. The managed browser
+automation connection rejected its installed runtime as outside the configured
+trusted code path, so the live record above was supplied from the visible
+fixture rather than attributed to automation.
 
 ## Authority And Limits
 
-Successful live execution may establish that:
+Live execution establishes that:
 
 - A and candidate B use one instance/device/queue/surface session;
 - failed B allocation leaves A presentable;

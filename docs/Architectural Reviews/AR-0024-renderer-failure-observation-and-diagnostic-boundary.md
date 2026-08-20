@@ -594,3 +594,27 @@ demonstrated a second rendering API.
   adversarial walkabout without unexpected termination as regression evidence.
   ADR-0017 remains validated: the unknown cause was preserved until external
   lifecycle evidence and operator input provenance converged.
+
+### Cycle 21 -- 2026-08-19
+
+- Status entering review: Alternative C's semantic generation model and
+  heterogeneous Doom/independent inventory correlation had passed; actual WGPU
+  provider lifetime remained unexercised.
+- New evidence: the feature-gated browser WGPU prototype retained one backend,
+  device, and surface. Candidate B staged 26 real provider resources before an
+  explicit `MissingTexture(9)` failure. A presented eight draws both before and
+  after that failure. A complete second B then atomically replaced eight
+  meshes, textures, materials, and commands plus one pipeline and camera; B
+  presented eight draws with zero provider diagnostics. The retirement record
+  accounted for the complete logical A set.
+- Findings: corpus-private candidate allocation can overlap a still-presentable
+  WGPU set and can preserve last-known-good presentation across a late staging
+  failure. Successful commit can replace the complete logical provider set on
+  one retained session. This does not measure peak physical overlap, prove GPU
+  reclamation timing, exercise repeated replacement pressure, or decide public
+  generation/handle semantics.
+- Disposition: accept the bounded real-provider staging result as viable
+  mechanism evidence, not as an admitted renderer lifecycle contract. Further
+  work now requires an explicit decision between repeated-pressure/reclamation
+  study and architectural admission review; do not infer either from this
+  single replacement.

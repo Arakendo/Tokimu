@@ -291,14 +291,14 @@ Initial implementation and the current ownership inventory are retained in
       the generation-0 handle rejected stale, and generation 1 resolved reused
       mesh key 1. The shadow is explicitly not evidence that the current
       provider replacement is atomic.
-- [ ] Execute the separately authorized corpus-private real-provider staging
-      probe in a live browser. The feature-gated implementation and generated
-      WASM fixture are complete: A remains untouched while a candidate B owns
-      separate meshes, textures, materials, pipelines, cameras, and commands on
-      the same provider session; candidate validation precedes a backend-local
-      commit. Structural validation passes, but live WebGPU evidence remains
-      pending because the managed browser connection rejected its installed
-      runtime. See
+- [x] Execute the separately authorized corpus-private real-provider staging
+      probe in a live browser. One browser WGPU backend/device/surface presented
+      eight draws from A, staged 26 B resources before an explicit
+      `MissingTexture(9)` failure, then presented the same eight A draws again.
+      A complete second B retired and replaced eight meshes, textures,
+      materials, commands, one pipeline, and one camera; B presented eight
+      draws with zero provider diagnostics. Physical overlap bytes and
+      reclamation remain unobserved. See
       [Alternative C Real-Provider Staging Evidence](Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md).
 - [ ] Prototype D only if the inventory or independent caller demonstrates a
       real incremental-release requirement that whole-set replacement cannot
@@ -335,7 +335,8 @@ Initial implementation and the current ownership inventory are retained in
 - [ ] Commands cannot resolve a resource from the wrong set/generation.
 - [ ] Intentional same-handle replacement remains supported and distinct from
       cross-set stale identity.
-- [ ] Reset/replacement never silently substitutes a missing resource.
+- [x] The real-provider staging probe rejects its missing texture explicitly,
+      preserves A, and performs no missing-resource substitution.
 
 ### Acceptance Criteria
 
@@ -346,14 +347,14 @@ Initial implementation and the current ownership inventory are retained in
 - [x] C's temporary staging answers B's atomicity failure, and its generation
       distinction answers B's stale-aliasing failure. No other semantic value
       is claimed yet.
-- [ ] No prototype exposes WGPU objects or Doom vocabulary through a
+- [x] No prototype exposes WGPU objects or Doom vocabulary through a
       provider-neutral boundary.
 
 ## Slice 4: Atomicity, Failure, And Recovery
 
 ### Deliverables
 
-- [ ] Define and test the candidate lifecycle without making the vocabulary
+- [x] Define and test the candidate lifecycle without making the vocabulary
       stable:
 
   ```text
@@ -369,7 +370,7 @@ Initial implementation and the current ownership inventory are retained in
       staging where applicable.
 - [ ] Inject surface acquisition/presentation failure independently of
       resource-set replacement.
-- [ ] Preserve the first causal failure and the last known-good composition
+- [x] Preserve the first causal failure and the last known-good composition
       whenever continued presentation is safe.
 - [ ] Define the escalation boundary at which device loss ends the provider
       session rather than masquerading as an ordinary scene reset.
