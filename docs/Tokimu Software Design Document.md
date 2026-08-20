@@ -1506,6 +1506,16 @@ console_error_panic_hook
 tracing-wasm
 ```
 
+ADR-0017 additionally requires terminal outcome closure across native and WASM
+hosts. Every started run or bounded operation must end as observed success,
+structured rejection/fatal, or independently observed external termination.
+An unexplained process, browser window, page, worker, renderer/GPU-process, or
+device-domain disappearance is an immediate conformance failure and blocks the
+affected admission or recovery claim. In-process panic hooks, console bridges,
+DOM surfaces, and device callbacks remain useful, but cannot alone prove
+behavior after their own failure domain disappears. Unknown termination must
+remain unknown rather than being inferred as OOM, device loss, or driver fault.
+
 ## 11. Project Skeleton
 
 This section records the current or near-term factual workspace shape. It is

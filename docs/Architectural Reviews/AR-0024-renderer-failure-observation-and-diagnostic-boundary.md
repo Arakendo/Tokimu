@@ -481,3 +481,21 @@ demonstrated a second rendering API.
   admitted lifecycle contract. These concrete atomicity and identity failures
   earn investigation of Alternative C. Live browser execution remains needed
   to confirm bounded retained-session operation and the provider-path probes.
+
+### Cycle 15 -- 2026-08-19
+
+- Status entering review: the earlier Edge disappearance remained retained as
+  adverse lifetime evidence but had no binding terminal-outcome classification.
+- New evidence: the browser window closed without a returned Rust/WASM error,
+  structured fatal diagnostic, device-loss record, or independently retained
+  causal termination record. Later successful automation narrowed
+  reproducibility but did not repair that missing terminal outcome.
+- Findings: in-process DOM, console, panic-hook, and WGPU diagnostic paths share
+  enough of the browser failure domain that their silence cannot prove safe
+  failure. The event violates ADR-0009's visible-fatal intent and ADR-0011's
+  availability evidence, while its cause remains unknown.
+- Disposition: ADR-0017 now makes unresolved disappearance an immediate
+  conformance failure and requires an out-of-domain observer for browser/process
+  survival claims. AR-0024 retains first-causal-failure ownership; it does not
+  turn unknown external termination into a renderer diagnostic or admit a
+  global diagnostic owner.

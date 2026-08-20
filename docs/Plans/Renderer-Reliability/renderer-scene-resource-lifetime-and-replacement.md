@@ -5,7 +5,7 @@
 | Status | In progress -- Slices 1 and 2 accepted; Alternative B implemented and under live falsification |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024 and AR-0030 |
-| Related ADRs | ADR-0001, ADR-0003, ADR-0007 |
+| Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017 |
 | First pressure source | Repeated browser/WASM Doom working-map replacement |
 | Scope | Determine the smallest honest lifetime model for replacing a bounded set of renderer resources while retaining a provider session, device, and presentation surface |
 
@@ -206,6 +206,9 @@ Initial implementation and the current ownership inventory are retained in
 - [x] The harness distinguishes a returned Rust/WASM error, device loss,
       renderer-process termination, GPU-process restart, and whole-window exit
       when the host exposes those facts.
+- [x] The earlier whole-window disappearance is classified as an unresolved
+      terminal outcome and immediate conformance failure under ADR-0017; later
+      successful runs narrow reproduction but do not erase it.
 - [x] A successful cycle does not become proof of synchronous reclamation.
 - [x] The E1M3 overlap repair remains in force: no replacement creates two live
       WGPU surfaces for the same canvas.
@@ -355,6 +358,9 @@ Initial implementation and the current ownership inventory are retained in
 - [ ] Exercise the surviving alternative on native WGPU and browser WebGPU.
 - [ ] Run the automated E1M1-through-E1M9 rotation for at least three complete
       rounds, followed by the adversarial manual walkabout/map-switch test.
+- [ ] Observe browser/page/renderer/GPU-process liveness from outside the page
+      failure domain; an in-page returned record alone does not satisfy
+      ADR-0017.
 - [ ] Exercise the independent non-Doom fixture with equivalent resource-set
       replacement and stale-reference cases.
 - [ ] Include dynamic replacement within one scene so arena reset does not
@@ -379,6 +385,9 @@ Initial implementation and the current ownership inventory are retained in
 - [ ] Repeated browser rotation and manual movement complete without a closed
       window, lost interaction, unexplained blank frame, or unbounded logical
       resource growth on the tested target.
+- [ ] Every started browser run closes as success, structured rejection/fatal,
+      or independently observed external termination. Any unresolved
+      disappearance fails acceptance immediately.
 - [ ] At least one independent caller demonstrates that the surviving lifetime
       meaning is not merely a Doom workaround.
 

@@ -29,6 +29,11 @@ recovery proof as a Native Ring transaction or scheduler change. Outer code
 must still handle external inputs, lifecycle failure, and boundary errors
 honestly.
 
+ADR-0017 specializes this gate for terminal outcome closure. A process, page,
+worker, renderer, device domain, or window that disappears without a causal
+Tokimu record or independently retained termination observation is an immediate
+conformance failure, not an ordinary error path.
+
 ## Decision
 
 Tokimu adopts a full verification and resilience gate for Native Ring changes
@@ -128,6 +133,12 @@ maintainer may mark an item not applicable, but must record why.
 - [ ] Native and WASM presentation edges make fatal startup or runtime failure
       visible rather than leaving a silent process, window, canvas, or loading
       state.
+- [ ] Every started lifecycle observation closes as success, structured
+      rejection/fatal, independently observed external termination, or an
+      explicit unresolved disappearance; disappearance is never inferred to be
+      success or one guessed cause.
+- [ ] A survival or crash-containment claim uses a liveness/terminal observer
+      outside the failure domain whose loss is under test.
 
 #### Failure containment and state integrity
 
@@ -163,6 +174,10 @@ maintainer may mark an item not applicable, but must record why.
       crash isolation.
 - [ ] Irrecoverable states terminate through an explicit fatal path after
       preserving the bounded evidence that is safe and available.
+- [ ] Crash-to-desktop, browser/page/worker disappearance, abort, renderer or
+      GPU-process loss, and equivalent terminal loss without causal or external
+      termination evidence immediately fail the affected conformance claim
+      under ADR-0017.
 - [ ] Subprocess or process-level isolation is used when a provider can abort,
       violate memory safety, or poison process state and the application claims
       continued operation after that failure.
@@ -200,6 +215,9 @@ Every non-mechanical Outer Ring behavior change must satisfy this smaller gate:
       leak owned resources or leave host state altered.
 - [ ] Provider/backend errors remain distinguishable from Tokimu contract
       errors and do not redefine Native Ring semantics.
+- [ ] The exercised run ends in an observed terminal category; unexplained
+      process, page, window, worker, or device-domain disappearance fails the
+      check immediately rather than becoming `skipped` or `unavailable`.
 - [ ] Manual, visual, hardware, or target-specific evidence is labeled honestly
       and is not reported as an unattended automated pass.
 - [ ] A fixed regression retains a focused test when practical.
@@ -248,6 +266,10 @@ panics, and catastrophic device or host failures are not assumed recoverable.
 If an application requires continued operation across such failures, the
 responsible Outer Ring must provide and test an isolation boundary strong
 enough for that claim.
+
+Unknown termination remains unknown. Missing in-process evidence does not
+authorize a diagnosis of OOM, device loss, panic, driver failure, or host fault.
+ADR-0017 defines the required external observation and admission consequence.
 
 ### Review proportionality and checklist maintenance
 
@@ -307,6 +329,7 @@ fails predictably, preserves evidence, and leaves the engine in a known state.
 - `docs/ADR/ADR-0006-native-execution-policy.md`
 - `docs/ADR/ADR-0007-kernel-performance-diagnostics.md`
 - `docs/ADR/ADR-0008-native-kernel-ring-performance-and-code-quality.md`
+- `docs/ADR/ADR-0017-observable-terminal-failure-and-host-crash-conformance.md`
 - `docs/testing-strategy.md`
 - `docs/diagnostics-model.md`
 - `docs/kernel-principles.md`

@@ -5,7 +5,7 @@
 | Status     | Draft — grow-then-fold                                       |
 | Scope      | Diagnostic classification, codes, provenance, and presentation. Not yet v0. |
 | Relates to | SDD 10 Diagnostics, SDD 3.1 guiding principle 7 (visible diagnostics) |
-| Relates to | SDD M9 Inspector, ADR-0001 Engine Boundaries                 |
+| Relates to | SDD M9 Inspector, ADR-0001, ADR-0009, ADR-0017               |
 
 ## 1. Purpose
 
@@ -32,6 +32,8 @@ Design goals:
 * Determinism-friendly: emitting a diagnostic must not change simulation truth.
 * Native and WASM parity: the same diagnostic renders through platform-specific
   sinks without changing its identity or meaning.
+* Terminal outcome closure: a run cannot disappear between "started" and an
+  observed success, structured failure, or independently observed termination.
 
 ## 2. Design Constraints
 
@@ -85,8 +87,10 @@ Two important separations:
 | `error`   | An operation failed; a feature or asset is unusable. | Usually    |
 | `fatal`   | The engine cannot continue in a coherent state.      | No         |
 
-`fatal` is the only severity that is allowed to end a run. Everything else is
-recoverable and must leave the engine in a describable state. The distinction
+`fatal` is the only Tokimu diagnostic severity that is allowed to end a run.
+An externally killed process or browser is not retroactively a `fatal`
+diagnostic unless Tokimu actually emitted one. Everything else is recoverable
+and must leave the engine in a describable state. The distinction
 between `error` and `fatal` is deliberate: a missing texture is an `error`; a
 failed GPU device or event loop is `fatal`.
 
@@ -176,6 +180,41 @@ Presentation policy, not identity, is what varies by platform:
 A single diagnostic may fan out to multiple sinks. The mapping from
 `(severity, class)` to sinks is a policy table owned by the runtime/platform
 edge, not by the emitting subsystem.
+
+### 6.1 Terminal Outcome Closure
+
+ADR-0017 makes terminal outcome closure binding even while this broader model
+remains draft. Every started run or bounded operation must yield one of:
+
+```text
+completed
+structured rejection or fatal
+independently observed external termination
+unresolved disappearance (conformance failure)
+```
+
+An in-process console hook, panic hook, DOM panel, callback, or ring buffer
+cannot observe its own failure domain after that domain disappears. Tests that
+claim browser survival, crash containment, device-loss behavior, or fatal
+visibility therefore need a bounded observer outside the subject failure
+domain. This external observation is related evidence, not permission to
+fabricate a diagnostic cause.
+
+Diagnostic principles at a terminal boundary:
+
+* preserve the first trustworthy cause;
+* never diagnose OOM, device loss, panic, or driver failure merely because
+  later evidence is absent;
+* distinguish capture, presentation, containment, recovery, and termination;
+* treat unexplained crash-to-desktop, page/window/worker loss, abort, or
+  renderer/GPU-process loss as an immediate failed conformance result;
+* bound liveness checks, logs, and retained crash evidence; and
+* retain target and operation provenance without copying secrets or arbitrary
+  user data.
+
+If the host remains trustworthy, a fatal condition should leave a visible
+bounded page/window state. If the host itself dies, only an out-of-domain
+observer can close the outcome honestly.
 
 ## 7. Developer vs. End-User Presentation
 

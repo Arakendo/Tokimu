@@ -33,6 +33,8 @@ Recent cross-cutting decisions:
 - [ADR-0005: Admission Evidence and Maintainer Exceptions](ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md)
 - [ADR-0006: Native Execution Policy](ADR/ADR-0006-native-execution-policy.md)
 - [ADR-0015: Source Unit Cohesion, Size Pressure, and Decomposition](ADR/ADR-0015-source-unit-cohesion-size-pressure-and-decomposition.md)
+- [ADR-0016: Single-Bit Stencil Mask Pipeline State](ADR/ADR-0016-single-bit-stencil-mask-pipeline-state.md)
+- [ADR-0017: Observable Terminal Failure and Host-Crash Conformance](ADR/ADR-0017-observable-terminal-failure-and-host-crash-conformance.md)
 
 ## Active Work
 

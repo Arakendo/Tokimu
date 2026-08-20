@@ -28,7 +28,9 @@ This ADR complements, rather than replaces:
 - ADR-0003, which decides whether meaning belongs to Native Tokimu;
 - ADR-0005, which governs provisional admission and evidence exceptions;
 - ADR-0008, which applies proportional performance and code-quality gates;
-- ADR-0009, which governs verification, failure containment, and recovery; and
+- ADR-0009, which governs verification, failure containment, and recovery;
+- ADR-0017, which makes unexplained host/process disappearance an immediate
+  availability and diagnostic conformance failure; and
 - ADR-0010, which governs the identity and auditability of third-party source
   admitted to Ring 0.
 
@@ -307,6 +309,9 @@ artifact; unchecked boxes do not indicate incomplete work in this ADR.
       stale or revoked authority, and malformed hostile input as applicable.
 - [ ] Resource-exhaustion and availability abuse cases are tested at practical
       bounds rather than requiring unsafe machine-wide exhaustion.
+- [ ] A provider, browser, worker, renderer, device, or process disappearance
+      cannot be mistaken for a denied request, successful containment, or an
+      unavailable measurement; terminal outcome closure follows ADR-0017.
 - [ ] Network or asynchronous boundaries test replay, duplicate, rate, timeout,
       cancellation, and disconnect behavior as applicable.
 - [ ] Unsafe or foreign boundaries retain focused tests for invalid lengths,
@@ -408,6 +413,7 @@ defines the authority and trust discipline they must satisfy.
 - `docs/ADR/ADR-0005-admission-evidence-and-maintainer-exceptions.md`
 - `docs/ADR/ADR-0008-native-kernel-ring-performance-and-code-quality.md`
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
+- `docs/ADR/ADR-0017-observable-terminal-failure-and-host-crash-conformance.md`
 - `docs/ADR/ADR-0010-ring-zero-third-party-source-admission.md`
 - `docs/kernel-principles.md`
 - `docs/semantic-kernel-map.md`

@@ -100,6 +100,11 @@ Tonesu projects.
   kernel-native. Producers own measurements, applications and tools supply
   budgets and policy, and presentation remains outside the kernel. It does not
   admit a general profiler, aggregation service, or asset-cost model.
+- `ADR-0017-observable-terminal-failure-and-host-crash-conformance.md` requires
+  terminal outcome closure. Unexplained process, page/window/worker,
+  renderer/GPU-process, or device-domain disappearance immediately fails the
+  affected conformance claim; survival claims require an observer outside the
+  failure domain. Unknown termination must not be assigned a guessed cause.
 
 ## AI Implementation Principles
 

@@ -4,7 +4,7 @@
 | ---------- | ----- |
 | Status     | Draft -- implementation-guiding |
 | Scope      | Unit, integration, contract, platform, golden, and corpus validation across the Tokimu workspace |
-| Relates to | SDD section 16, `docs/roadmap.md`, `docs/example-philosophy.md`, ADR-0001, ADR-0003, ADR-0004 |
+| Relates to | SDD section 16, `docs/roadmap.md`, `docs/example-philosophy.md`, ADR-0001, ADR-0003, ADR-0004, ADR-0009, ADR-0017 |
 
 ## 1. Purpose
 
@@ -51,6 +51,14 @@ Missing providers, stale handles, unsupported targets, malformed assets, absent
 glyphs, unavailable GPU features, and startup failures should produce explicit,
 testable diagnostics. A test that proves deterministic failure is often as
 important as a success-path test.
+
+Every started lifecycle test must also close with an observed terminal outcome.
+An unexplained process, window, page, worker, renderer, GPU-process, or device-
+domain disappearance immediately fails the test under ADR-0017. A later
+successful rerun does not rewrite that earlier outcome. Tests that claim
+survival or crash containment must observe liveness from outside the failure
+domain under test; missing evidence remains unknown rather than becoming a
+guessed OOM, panic, or driver diagnosis.
 
 ### 2.5 Examples and tests have different jobs
 
@@ -324,6 +332,8 @@ Browser consumers should separate unattended checks from visible validation:
 - semantic importer or runtime behavior should have deterministic local tests;
 - interactive drag/drop and visual rendering may remain a labeled manual
   validation slice;
+- browser/page/renderer survival claims require bounded liveness and terminal
+  observation outside the in-page JavaScript/WASM failure domain;
 - generated JavaScript and WASM bindings remain build output.
 
 ## 4. Golden and Snapshot Validation
