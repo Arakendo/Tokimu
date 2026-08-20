@@ -342,16 +342,20 @@ fatal, or crash record.
 
 The browser workbench exposed one concrete host-shortcut collision during
 audit: `Ctrl` meant descend while `W` meant forward, producing Edge's reserved
-`Ctrl+W` close shortcut during ordinary combined movement. That collision is a
-strong candidate for the clean exit but is not proven as the exact trigger of
-this run. Browser descend now uses `C`; `Ctrl` is no longer a working-model
-control. A repeat adversarial walkabout must falsify or reproduce the orderly
-exit before the lifetime/provider mechanism is blamed.
+`Ctrl+W` close shortcut during ordinary combined movement. The operator
+confirmed that this terminating walkabout combined forward movement with
+downward clipping, establishing that exact chord for this run. It is therefore
+retained as an operator-correlated host keyboard close, not a renderer crash.
+Browser descend now uses `C`; `Ctrl` is no longer a working-model control. A
+repeat adversarial walkabout remains required to validate the repaired control
+scheme, while older unsupervised closures remain unknown unless their input
+history supplies the same correlation.
 
-This finding also validates ADR-0017 independently of whether `Ctrl+W` is
-confirmed. The original evidence was retained as unknown rather than assigned
-to WGPU or memory pressure; external observation could therefore narrow the
-terminal boundary without having to unwind a fabricated renderer diagnosis.
+This finding also validates ADR-0017 despite `Ctrl+W` being operator-correlated
+as the cause of this run. The original evidence was retained as unknown rather
+than assigned to WGPU or memory pressure; external observation could therefore
+narrow the terminal boundary without having to unwind a fabricated renderer
+diagnosis.
 
 ## Alternative-B Prototype Boundary
 

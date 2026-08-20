@@ -578,3 +578,19 @@ demonstrated a second rendering API.
   external-termination record, and repeat the same adversarial walkabout before
   attributing the outcome to renderer resource lifetime. No shared diagnostic
   or renderer contract changes.
+
+### Cycle 20 -- 2026-08-19
+
+- Status entering review: orderly external shutdown retained; `Ctrl+W` was the
+  leading but not yet operator-correlated cause.
+- New evidence: the operator confirmed that the supervised terminating
+  walkabout combined forward movement with downward clipping, exactly matching
+  the old `W` plus `Ctrl` bindings and Edge's close shortcut.
+- Findings: run `42780-1787189735516555800` can now be classified as an
+  operator-correlated host keyboard close rather than a renderer crash. This
+  does not retroactively classify older unsupervised closures whose input
+  history is absent.
+- Disposition: retain the `C` descend repair and require one supervised
+  adversarial walkabout without unexpected termination as regression evidence.
+  ADR-0017 remains validated: the unknown cause was preserved until external
+  lifecycle evidence and operator input provenance converged.

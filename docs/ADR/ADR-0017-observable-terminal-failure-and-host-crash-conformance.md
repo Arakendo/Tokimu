@@ -236,10 +236,12 @@ record. Subsequent input audit found that the browser workbench mapped descend
 to `Ctrl` and forward to `W`, colliding with Edge's reserved `Ctrl+W` close
 shortcut. Browser descend now uses `C`.
 
-This is strong evidence for a host-input explanation, but the precise causal
-link remains pending an exact reproduction/falsification run. The earlier
-records are therefore not retroactively relabeled as GPU, browser, input, or
-renderer failures beyond what each observer actually established.
+The operator then confirmed that the terminating walkabout combined forward
+movement with downward clipping: exactly the workbench's `Ctrl+W` chord. The
+supervised run is therefore classified as an operator-correlated host keyboard
+close, not a renderer crash. A repeat walkabout with `C` descend remains the
+regression check. Older unsupervised records are not retroactively relabeled
+unless their input history supplies the same correlation.
 
 The case demonstrates why terminal outcome closure is independent of the
 eventual defect mechanism:
@@ -255,9 +257,10 @@ unexplained disappearance
 
 Had the original disappearance been labeled WebGPU OOM from silence, the
 browser-reserved shortcut collision would have been hidden behind a false
-renderer diagnosis. ADR-0017 remains applicable even if the shortcut is
-confirmed as the full cause: the invariant concerns honest terminal evidence,
-not whether the eventual defect belongs to Tokimu, its host, or its controls.
+renderer diagnosis. ADR-0017 remains applicable now that the shortcut is
+operator-correlated as the cause of this run: the invariant concerns honest
+terminal evidence, not whether the eventual defect belongs to Tokimu, its
+host, or its controls.
 
 ## References
 
