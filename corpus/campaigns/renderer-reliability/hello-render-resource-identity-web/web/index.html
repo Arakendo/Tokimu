@@ -7,14 +7,14 @@
   </head>
   <body style="background:#061012;color:#8fffea;font-family:monospace">
     <h1>Renderer resource identity</h1>
-    <p>AR-0024 / AR-0027 browser/WASM evidence; no shared contract admitted.</p>
+    <p>AR-0024 / AR-0032 browser/WASM evidence; ADR-0018 semantics admitted, implementation conformance provisional.</p>
     <button id="run">Run browser identity fixture</button>
     <button id="run-pressure">Run 27 whole-backend replacements</button>
     <button id="run-retained-pressure">Run 27 retained-session replacements</button>
     <button id="probe-retained-aliasing">Probe retained-session stale aliasing</button>
     <button id="probe-retained-atomicity">Probe retained-session atomicity</button>
     <button id="run-generation-prototype">Run Alternative C semantic prototype</button>
-    <button id="probe-provider-staging">Probe Alternative C real-provider staging</button>
+    <button id="probe-provider-staging">Probe staged replacement + stale command rejection</button>
     <button id="run-provider-staging-pressure">Run 27 Alternative C staged replacements</button>
     <pre id="status">ready</pre>
     <canvas id="scene" width="640" height="360" style="border:1px solid #285c59"></canvas>

@@ -1,9 +1,10 @@
 # Hello Render Resource Identity Web
 
-Browser/WASM pressure for the corpus-local AR-0024/AR-0027 resource identity
-alternatives. It repeats the application-owned, generational, and explicit
-lifecycle cases and then uploads two different meshes to one existing WGPU
-mesh handle to retain the provider's intentional replacement behavior.
+Browser/WASM pressure for the AR-0024/AR-0032 resource identity and replacement
+alternatives. ADR-0018 now admits the narrow set-level replacement semantics,
+while this fixture continues to pressure the provisional implementation. It
+also uploads two different meshes to one existing WGPU mesh handle to retain
+the provider's intentional in-set replacement behavior.
 
 The returned DOM record remains caller-owned after the renderer returns. This
 does not admit a shared identity registry, terminal-record owner, diagnostic
@@ -42,10 +43,13 @@ provider session, or physical reclamation and admits no engine API.
 The feature-gated **Probe Alternative C real-provider staging** control is the
 next, separately bounded experiment. It creates one WGPU provider session,
 presents resource set A, allocates most of B alongside A, injects a late B
-failure, and proves A still presents. A second complete B is then committed in
-one backend-local swap and presented while the retired A set drops. The record
-does not claim when WGPU physically reclaims A, quantify overlap memory, define
-public generation handles, or exercise repeated replacement pressure.
+failure, and proves A still presents. Before the second complete B commits, the
+fixture retains a set-scoped batch containing A's real draw commands. B reuses
+A's local mesh, material, pipeline, and camera keys. After the one-swap commit,
+the provider must reject the retained A batch as stale before resolving any of
+those handles, while B's scoped batch must still present. The record does not
+claim when WGPU physically reclaims A, quantify overlap memory, define public
+generation handles, or exercise repeated replacement pressure.
 
 The separate **Run 27 Alternative C staged replacements** control holds that
 mechanism fixed and alternates two 64-mesh/texture/material sets on one browser
@@ -72,5 +76,7 @@ python -m http.server 4177 --directory corpus/campaigns/renderer-reliability/hel
 
 Open `http://127.0.0.1:4177`. Run the whole-backend and retained-session
 sequences on fresh pressure objects, then run the stale-aliasing probe before
-the destructive atomicity probe. The real-provider staging probe is independent
-and may be run directly on its own fresh pressure object.
+the destructive atomicity probe. The staged replacement/stale-command probe is
+independent and may be run directly on its own fresh pressure object. Its
+successful record must include `stale-rejected-before-resource-resolution=true`
+and equal nonzero B draw counts before and after scoped submission.

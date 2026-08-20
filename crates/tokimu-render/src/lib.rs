@@ -1,6 +1,8 @@
 pub mod camera;
 pub mod color;
 pub mod commands;
+#[cfg(feature = "experimental-scene-resource-staging")]
+mod experimental_render_resource_set;
 #[cfg(feature = "experimental-submission-local-geometry")]
 #[doc(hidden)]
 pub mod experimental_submission_local_geometry;
@@ -20,6 +22,12 @@ pub use color::Color;
 pub use commands::{
     ClearCommand, DrawMeshCommand, DrawMeshMaterialOverrideCommand, DrawRenderableCommand,
     RenderCommand, ViewportRect,
+};
+#[cfg(feature = "experimental-scene-resource-staging")]
+#[doc(hidden)]
+pub use experimental_render_resource_set::{
+    ExperimentalRenderCommandSet, ExperimentalRenderCommandSetError,
+    ExperimentalRenderResourceSetId,
 };
 pub use instance::Instance2d;
 pub use material::{

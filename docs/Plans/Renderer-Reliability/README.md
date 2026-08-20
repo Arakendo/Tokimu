@@ -6,7 +6,7 @@
 | Controlling plan | [Renderer Scene-Resource Lifetime And Replacement](renderer-scene-resource-lifetime-and-replacement.md) |
 | Related reviews | AR-0024, AR-0027, AR-0030, and AR-0032 |
 | Current disposition | ADR-0018 admits narrow atomic staged resource-set replacement semantics; it does not admit a shared allocator, final handle encoding, or physical reclamation policy |
-| Next action | Implement ADR-0018's smallest provider-neutral contract and prove integrated provider stale-command rejection after successor key reuse; physical reclamation and final public handle shape remain unresolved |
+| Next action | Run the live browser WGPU staged-replacement probe and retain its integrated stale-command result; implementation and WASM build are ready, while physical reclamation and final public handle shape remain unresolved |
 
 The completed
 [resource-identity and failure-presentation plan](renderer-resource-identity-and-failure-presentation.md)

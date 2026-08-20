@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+#[cfg(feature = "experimental-scene-resource-staging")]
+use crate::ExperimentalRenderCommandSetError;
 use crate::{PipelineValidationError, TextureValidationError};
 
 #[derive(Debug, Error)]
@@ -18,6 +20,9 @@ pub enum WgpuBackendError {
     #[cfg(feature = "experimental-scene-resource-staging")]
     #[error("experimental scene candidate belongs to a different provider session")]
     ExperimentalSceneStageWrongProviderSession,
+    #[cfg(feature = "experimental-scene-resource-staging")]
+    #[error("render command set rejected: {0}")]
+    ExperimentalRenderCommandSet(#[from] ExperimentalRenderCommandSetError),
     #[error("failed to acquire the current surface texture: {0}")]
     SurfaceAcquire(String),
     #[error("mesh handle {0} has not been uploaded")]

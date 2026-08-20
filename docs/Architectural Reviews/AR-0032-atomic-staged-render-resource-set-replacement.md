@@ -328,10 +328,13 @@ If Alternative A is accepted:
 - [x] Maintainer accepted Alternative A's proposed admission boundary.
 - [x] Created ADR-0018 for the set-level semantics and updated
       the SDD renderer section.
-- [ ] Design the smallest provider-neutral contract shape without choosing a
-      permanent handle bit layout.
+- [x] Designed a provisional provider-neutral set-scoped command batch without
+      choosing a permanent handle bit layout.
 - [ ] Integrate generation/set scope with real provider commands and prove an
       old retained command rejects after successor key reuse.
+  - [x] Integrated validation before WGPU command resolution and passed native
+        tests plus the release WASM build.
+  - [ ] Retain the live browser WGPU success record.
 - [ ] Prove failed provider staging preserves all current resource families
       through the provider-neutral contract.
 - [ ] Exercise the accepted contract on native and browser WGPU plus the
@@ -404,3 +407,4 @@ After disposition, reopen or supersede this review if:
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-semantic-generation-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md`
+- `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-adr-0018-integrated-command-conformance.md`

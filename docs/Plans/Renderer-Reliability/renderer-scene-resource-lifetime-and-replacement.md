@@ -482,6 +482,15 @@ Initial implementation and the current ownership inventory are retained in
 - [x] Decided that the semantic invariant belongs in the stable renderer
       architecture; ADR-0018 records it and the SDD is updated. The final
       public API and handle representation remain undecided.
+- [x] Refined ADR-0018 implementation conformance into a provisional
+      provider-neutral set-scoped command batch and a separate live-provider
+      observation gate.
+  - [x] Validate the complete command batch's private authority and set identity
+        before any ordinary WGPU command or local resource handle is resolved.
+  - [x] Pass native set-authority tests, release WASM compilation, and the
+        workspace test suite.
+  - [ ] Retain a live browser WGPU record showing a retired A command batch
+        rejects after B reuses A's local keys while scoped B still presents.
 - [ ] Run the applicable performance, verification/recovery, provenance, and
       security gates for any Native Ring or stable shared candidate. Mark a
       gate not applicable explicitly rather than implying it passed.

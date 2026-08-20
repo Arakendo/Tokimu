@@ -163,7 +163,7 @@ probeProviderStaging.addEventListener("click", async () => {
   const operation = "resource-lifetime-C-real-provider-staging";
   beginObservedOperation(operation);
   setControlsDisabled(true);
-  status.textContent = "running real-provider A / failed-B / committed-B probe";
+  status.textContent = "running provider A / failed-B / committed-B / stale-A-command probe";
   try {
     status.textContent = await providerStagingPressure.probe_provider_staging(canvas);
     completeObservedOperation(operation);

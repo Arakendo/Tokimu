@@ -9,8 +9,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    Camera, CameraHandle, Color, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
-    PipelineHandle, RenderCommand, Renderer, Rgba8TextureDescriptor, TextureHandle,
+    Camera, CameraHandle, Color, ExperimentalRenderCommandSet, Material, MaterialHandle, Mesh,
+    MeshHandle, Pipeline, PipelineHandle, RenderCommand, Renderer, Rgba8TextureDescriptor,
+    TextureHandle,
 };
 
 use super::{ExperimentalSceneStageContext, PipelineRegistry, WgpuBackend, WgpuBackendError};
@@ -39,6 +40,17 @@ pub struct ExperimentalSceneResourceStage {
 }
 
 impl ExperimentalSceneResourceStage {
+    pub fn scope_render_commands(
+        &self,
+        commands: &[RenderCommand],
+    ) -> ExperimentalRenderCommandSet {
+        ExperimentalRenderCommandSet::new(
+            Arc::clone(&self.backend.experimental_resource_set_authority),
+            self.backend.experimental_current_resource_set,
+            commands,
+        )
+    }
+
     pub fn upload_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) {
         self.backend.upload_mesh(handle, mesh);
     }
@@ -117,6 +129,38 @@ impl ExperimentalSceneResourceStage {
 
 impl WgpuBackend {
     #[doc(hidden)]
+    pub fn experimental_scope_render_commands(
+        &self,
+        commands: &[RenderCommand],
+    ) -> ExperimentalRenderCommandSet {
+        ExperimentalRenderCommandSet::new(
+            Arc::clone(&self.experimental_resource_set_authority),
+            self.experimental_current_resource_set,
+            commands,
+        )
+    }
+
+    #[doc(hidden)]
+    pub fn experimental_submit_render_command_set(
+        &mut self,
+        command_set: &ExperimentalRenderCommandSet,
+    ) -> Result<(), WgpuBackendError> {
+        command_set.validate_for(
+            &self.experimental_resource_set_authority,
+            self.experimental_current_resource_set,
+        )?;
+        self.submit(command_set.commands());
+        Ok(())
+    }
+
+    #[doc(hidden)]
+    pub const fn experimental_current_resource_set(
+        &self,
+    ) -> crate::ExperimentalRenderResourceSetId {
+        self.experimental_current_resource_set
+    }
+
+    #[doc(hidden)]
     pub fn experimental_begin_scene_resource_stage(
         &self,
     ) -> Result<ExperimentalSceneResourceStage, WgpuBackendError> {
@@ -130,6 +174,7 @@ impl WgpuBackend {
             material_bind_group_layout: surface.material_bind_group_layout.clone(),
             instance_bind_group_layout: surface.instance_bind_group_layout.clone(),
         };
+        let candidate_resource_set = self.experimental_resource_set_authority.allocate_id()?;
         Ok(ExperimentalSceneResourceStage {
             clear_color: surface.clear_color,
             backend: WgpuBackend {
@@ -155,7 +200,10 @@ impl WgpuBackend {
                 surface_state: None,
                 backend_diagnostic_messages: Arc::clone(&self.backend_diagnostic_messages),
                 experimental_stage_context: Some(stage_context),
-                experimental_provider_session: Arc::clone(&self.experimental_provider_session),
+                experimental_resource_set_authority: Arc::clone(
+                    &self.experimental_resource_set_authority,
+                ),
+                experimental_current_resource_set: candidate_resource_set,
             },
         })
     }
@@ -166,8 +214,8 @@ impl WgpuBackend {
         mut stage: ExperimentalSceneResourceStage,
     ) -> Result<ExperimentalSceneResourceStageObservation, WgpuBackendError> {
         if !Arc::ptr_eq(
-            &self.experimental_provider_session,
-            &stage.backend.experimental_provider_session,
+            &self.experimental_resource_set_authority,
+            &stage.backend.experimental_resource_set_authority,
         ) {
             return Err(WgpuBackendError::ExperimentalSceneStageWrongProviderSession);
         }
@@ -202,6 +250,7 @@ impl WgpuBackend {
         );
         self.cameras = std::mem::take(&mut stage.backend.cameras);
         self.active_camera = stage.backend.active_camera;
+        self.experimental_current_resource_set = stage.backend.experimental_current_resource_set;
         self.camera_bindings.clear();
         #[cfg(feature = "experimental-submission-local-geometry")]
         {

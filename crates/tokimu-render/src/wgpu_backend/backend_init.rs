@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -79,7 +80,11 @@ impl WgpuBackend {
             #[cfg(feature = "experimental-scene-resource-staging")]
             experimental_stage_context: None,
             #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_provider_session: Arc::new(()),
+            experimental_resource_set_authority:
+                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::new(),
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_current_resource_set:
+                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::initial_id(),
         })
     }
 
@@ -167,7 +172,11 @@ impl WgpuBackend {
             #[cfg(feature = "experimental-scene-resource-staging")]
             experimental_stage_context: None,
             #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_provider_session: Arc::new(()),
+            experimental_resource_set_authority:
+                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::new(),
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_current_resource_set:
+                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::initial_id(),
         })
     }
 
@@ -265,7 +274,11 @@ impl WgpuBackend {
             #[cfg(feature = "experimental-scene-resource-staging")]
             experimental_stage_context: None,
             #[cfg(feature = "experimental-scene-resource-staging")]
-            experimental_provider_session: Arc::new(()),
+            experimental_resource_set_authority:
+                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::new(),
+            #[cfg(feature = "experimental-scene-resource-staging")]
+            experimental_current_resource_set:
+                crate::experimental_render_resource_set::ExperimentalRenderResourceSetAuthority::initial_id(),
         })
     }
 

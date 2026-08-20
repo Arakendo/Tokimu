@@ -21,6 +21,10 @@ mod renderer_impl;
 mod texture_resources;
 mod texture_support;
 
+#[cfg(feature = "experimental-scene-resource-staging")]
+use crate::experimental_render_resource_set::{
+    ExperimentalRenderResourceSetAuthority, ExperimentalRenderResourceSetId,
+};
 use crate::{
     Camera, CameraHandle, Color, Instance2d, MaterialHandle, MaterialOverride, MeshHandle,
     PipelineHandle, PipelineRegistry, Renderable, RenderableHandle, Rgba8TextureDescriptor,
@@ -250,7 +254,9 @@ pub struct WgpuBackend {
     #[cfg(feature = "experimental-scene-resource-staging")]
     experimental_stage_context: Option<ExperimentalSceneStageContext>,
     #[cfg(feature = "experimental-scene-resource-staging")]
-    experimental_provider_session: Arc<()>,
+    experimental_resource_set_authority: Arc<ExperimentalRenderResourceSetAuthority>,
+    #[cfg(feature = "experimental-scene-resource-staging")]
+    experimental_current_resource_set: ExperimentalRenderResourceSetId,
 }
 
 impl WgpuBackend {

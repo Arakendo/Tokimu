@@ -6,9 +6,10 @@ use hello_render_resource_identity::{
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
-    Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, Instance2d, Material,
-    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand, Renderer,
-    Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend,
+    Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, ExperimentalRenderCommandSetError,
+    Instance2d, Material, MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend,
+    WgpuBackendError,
 };
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -165,7 +166,7 @@ impl BrowserReplacementPressure {
                     .with_texture(texture),
                 )
                 .map_err(js_debug)?;
-            let mesh_value = if (scene_index + resource_index as u32) % 2 == 0 {
+            let mesh_value = if (scene_index + resource_index as u32).is_multiple_of(2) {
                 Mesh::triangle()
             } else {
                 Mesh::diamond()
@@ -307,7 +308,7 @@ impl BrowserReplacementPressure {
                     .with_texture(texture),
                 )
                 .map_err(js_debug)?;
-            let mesh_value = if (scene_index + resource_index as u32) % 2 == 0 {
+            let mesh_value = if (scene_index + resource_index as u32).is_multiple_of(2) {
                 Mesh::triangle()
             } else {
                 Mesh::diamond()
@@ -390,6 +391,8 @@ impl BrowserReplacementPressure {
             TEXTURE_WIDTH,
             TEXTURE_HEIGHT,
         )?;
+        let retained_commands_a = renderer.experimental_scope_render_commands(&commands_a);
+        let resource_set_a = retained_commands_a.resource_set();
         renderer.begin_frame();
         renderer.submit(&commands_a);
         let initial_a = renderer.present().map_err(js_debug)?;
@@ -428,21 +431,47 @@ impl BrowserReplacementPressure {
             TEXTURE_WIDTH,
             TEXTURE_HEIGHT,
         )?;
+        let current_commands_b = committed_b.scope_render_commands(&commands_b);
+        let resource_set_b = current_commands_b.resource_set();
         committed_b.begin_frame();
         committed_b.submit(&commands_b);
         let commit = renderer
             .experimental_commit_scene_resource_stage(committed_b)
             .map_err(js_debug)?;
+        let stale_a = renderer
+            .experimental_submit_render_command_set(&retained_commands_a)
+            .expect_err("retired A commands must reject before resolving reused B handles");
+        if !matches!(
+            &stale_a,
+            WgpuBackendError::ExperimentalRenderCommandSet(
+                ExperimentalRenderCommandSetError::StaleResourceSet {
+                    requested,
+                    current,
+                }
+            ) if *requested == resource_set_a && *current == resource_set_b
+        ) {
+            return Err(JsValue::from_str(&format!(
+                "retired A command rejection had the wrong identity evidence: {stale_a:?}"
+            )));
+        }
         let committed_b_frame = renderer.present().map_err(js_debug)?;
+        renderer.begin_frame();
+        renderer
+            .experimental_submit_render_command_set(&current_commands_b)
+            .map_err(js_debug)?;
+        let scoped_b_frame = renderer.present().map_err(js_debug)?;
         let diagnostic_count = renderer.drain_diagnostics().len();
         self.renderer = Some(renderer);
 
         Ok(format!(
-            "status=complete; lifetime-alternative=C-corpus-private-real-provider-staging; sequence=present-A>stage-B-late-failure>present-A>stage-B-complete>atomic-commit-B>present-B; backend-creations=1; device-creations=1; surface-creations=1; retained-provider-session=true; staged-before-failure={staged_before_failure}; forced-stage-failure={forced_failure:?}; A-draws-initial={}; A-draws-after-failed-B={}; last-known-good-preserved={}; commit-observation={commit:?}; B-draws-after-commit={}; retired-A-predictable={}; provider-diagnostics={diagnostic_count}; overlap-physical-bytes=unmeasured; retired-physical-reclamation=unobserved; repeated-replacement-pressure=not-exercised; public-handle-contract=unchanged; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
+            "status=complete; lifetime-alternative=C-corpus-private-real-provider-staging; sequence=present-A>stage-B-late-failure>present-A>stage-B-complete>atomic-commit-B>reject-retained-A-command>present-B>submit-scoped-B>present-B; backend-creations=1; device-creations=1; surface-creations=1; retained-provider-session=true; staged-before-failure={staged_before_failure}; forced-stage-failure={forced_failure:?}; A-draws-initial={}; A-draws-after-failed-B={}; last-known-good-preserved={}; commit-observation={commit:?}; resource-set-A={}; resource-set-B={}; retained-A-command-after-B={stale_a:?}; reused-local-resource-keys=true; stale-rejected-before-resource-resolution=true; B-draws-after-commit={}; scoped-B-draws={}; retired-A-predictable={}; provider-diagnostics={diagnostic_count}; overlap-physical-bytes=unmeasured; retired-physical-reclamation=unobserved; repeated-replacement-pressure=not-exercised; public-handle-contract=provisional-set-scoped-command-batch; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
             initial_a.frame.draw_calls,
             a_after_failure.frame.draw_calls,
             initial_a.frame.draw_calls == a_after_failure.frame.draw_calls,
+            resource_set_a.value(),
+            resource_set_b.value(),
             committed_b_frame.frame.draw_calls,
+            scoped_b_frame.frame.draw_calls,
             commit.retired_meshes == RESOURCE_COUNT as u32
                 && commit.committed_meshes == RESOURCE_COUNT as u32,
         ))
@@ -813,7 +842,7 @@ fn provider_stage_texture(
 
 #[cfg(target_arch = "wasm32")]
 fn provider_stage_mesh(scene_index: u32, resource_index: u64) -> Mesh {
-    if (u64::from(scene_index) + resource_index) % 2 == 0 {
+    if (u64::from(scene_index) + resource_index).is_multiple_of(2) {
         Mesh::triangle()
     } else {
         Mesh::diamond()
