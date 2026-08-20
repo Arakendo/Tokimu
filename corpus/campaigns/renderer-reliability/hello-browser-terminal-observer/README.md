@@ -50,6 +50,11 @@ launched after a terminal outcome or timeout. A page reload or replacement
 before that outcome changes the page-subject identity and is retained as an
 unresolved disappearance rather than silently becoming a new run.
 
+The launch PID is not treated as an owned browser until the instrumented page
+acknowledges the observer. A browser launcher that prints `Opening in existing
+browser session` and exits before that acknowledgement is an unresolved
+startup/ownership failure, not an externally observed browser termination.
+
 For Alternative B, run the retained-session sequence, then the stale-aliasing
 probe, then the destructive atomicity probe. The atomicity probe closes the
 observed workflow. For the Doom workbench, a completed three-round rotation

@@ -521,3 +521,21 @@ demonstrated a second rendering API.
   disappearance as unresolved adverse evidence until a supervised reproduction
   classifies it. Admit no shared renderer lifecycle or diagnostic API from the
   observer implementation.
+
+### Cycle 17 -- 2026-08-19
+
+- Status entering review: external supervisor implemented; first live Doom run
+  attempted.
+- New evidence: Edge printed `Opening in existing browser session`; the process
+  returned code zero after 56.473 ms without a page acknowledgement. The
+  initial supervisor record incorrectly called the launcher exit an externally
+  terminated browser.
+- Findings: launching a process and owning the browser/page failure domain are
+  separate facts. A PID is only correlated strongly enough for this fixture
+  after the instrumented page acknowledges the run. Pre-ack handoff or exit
+  proves observer startup failure, not browser termination or Doom failure.
+- Disposition: repair the corpus harness to use absolute unique profile paths,
+  label ownership pending until page acknowledgement, and classify pre-ack
+  launcher exit as unresolved disappearance. Repeat the live run; retain the
+  56.473 ms record only as harness-falsification evidence. No shared contract
+  changes.

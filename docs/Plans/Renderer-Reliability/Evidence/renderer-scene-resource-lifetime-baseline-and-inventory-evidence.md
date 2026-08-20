@@ -291,6 +291,17 @@ under this observer. This section is implementation and controlled-harness
 evidence, not a browser survival result and not a resolution of the earlier
 Edge disappearance.
 
+The first attempted live launch exposed a supervisor falsifier before Doom ran:
+Edge printed `Opening in existing browser session`, its launcher exited with
+code zero after 56.473 ms, and no page acknowledgement arrived. The initial
+harness called that `externally-terminated`, but the PID had never been proven
+to own the browser/page failure domain. The classifier now treats any pre-ack
+launcher exit as `unresolved-disappearance` with reason
+`browser-launcher-exited-before-page-acknowledgement`, uses absolute unique
+profile paths, and labels the initial PID as a launcher with ownership pending.
+That first record is retained as harness-falsification evidence, not a Doom or
+Edge crash result.
+
 ## Alternative-B Prototype Boundary
 
 The feature-gated `experimental-scene-resource-reset` seam now clears the

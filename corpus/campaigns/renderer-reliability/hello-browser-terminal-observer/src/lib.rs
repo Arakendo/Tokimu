@@ -54,6 +54,12 @@ pub fn classify_terminal_outcome(
         };
     }
 
+    if !subject_started && matches!(process_state, SubjectProcessState::Exited { .. }) {
+        return TerminalOutcome::UnresolvedDisappearance {
+            reason: "browser-launcher-exited-before-page-acknowledgement",
+        };
+    }
+
     if let SubjectProcessState::Exited { code } = process_state {
         return TerminalOutcome::ExternallyTerminated { exit_code: code };
     }
@@ -121,6 +127,21 @@ mod tests {
                 true,
             ),
             TerminalOutcome::ExternallyTerminated { exit_code: Some(9) }
+        );
+    }
+
+    #[test]
+    fn launcher_handoff_before_page_acknowledgement_is_not_browser_termination() {
+        assert_eq!(
+            classify_terminal_outcome(
+                None,
+                SubjectProcessState::Exited { code: Some(0) },
+                false,
+                false,
+            ),
+            TerminalOutcome::UnresolvedDisappearance {
+                reason: "browser-launcher-exited-before-page-acknowledgement",
+            }
         );
     }
 

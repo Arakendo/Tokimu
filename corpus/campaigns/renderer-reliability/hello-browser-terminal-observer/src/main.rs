@@ -117,6 +117,9 @@ fn run() -> Result<ExitCode, String> {
         ));
     }
     fs::create_dir_all(&profile).map_err(|error| error.to_string())?;
+    let profile = absolute_path(&profile)?;
+    let log = absolute_path(&log)?;
+    let result = absolute_path(&result)?;
 
     let (sender, receiver) = mpsc::channel();
     let stop = Arc::new(AtomicBool::new(false));
@@ -127,7 +130,7 @@ fn run() -> Result<ExitCode, String> {
 
     let mut browser = launch_browser(&config, &profile, &log, &target_url)?;
     println!(
-        "browser-terminal-observer started: run-id={run_id}; subject-pid={}; observer={observer_url}; url={}; startup-timeout-ms={}; heartbeat-timeout-ms={}; overall-timeout-ms={}; cause=unassigned",
+        "browser-terminal-observer started: run-id={run_id}; launcher-pid={}; ownership=pending-page-acknowledgement; observer={observer_url}; url={}; startup-timeout-ms={}; heartbeat-timeout-ms={}; overall-timeout-ms={}; cause=unassigned",
         browser.id(),
         config.url,
         config.startup_timeout.as_millis(),
@@ -346,6 +349,16 @@ fn parse_duration(
 
 fn usage() -> &'static str {
     "usage: hello-browser-terminal-observer --browser <path> --url <loopback-url> [--profile <path>] [--log <path>] [--result <path>] [--observer-port <u16>] [--startup-timeout-seconds <n>] [--heartbeat-timeout-seconds <n>] [--overall-timeout-seconds <n>]"
+}
+
+fn absolute_path(path: &Path) -> Result<PathBuf, String> {
+    if path.is_absolute() {
+        Ok(path.to_owned())
+    } else {
+        env::current_dir()
+            .map(|directory| directory.join(path))
+            .map_err(|error| format!("failed to resolve absolute observer path: {error}"))
+    }
 }
 
 fn launch_browser(
