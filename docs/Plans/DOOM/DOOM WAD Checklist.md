@@ -1437,9 +1437,13 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
         without claiming browser Doom player simulation or a public camera API.
         Idle animation frames do not resubmit the scene, and map replacement
         pauses input until the complete replacement is presented.
-    - [ ] Complete an E1M2-to-E1M3 map-switch plus sustained-movement browser
-          falsifier. The first live attempt closed its isolated Edge window
-          while moving toward an outdoor area. A later trace showed Edge
+    - [x] Complete an E1M2-to-E1M3 map-switch plus sustained-movement browser
+          falsifier. On 2026-08-19 the user repeated the walkabout across
+          E1M1, E1M2, and E1M3, including forward-plus-descend movement with
+          `W+C`, and observed normal map replacement, interaction, and sky/map
+          presentation without a closed window. The first live attempt had
+          closed its isolated Edge window while moving toward an outdoor area.
+          A later trace showed Edge
           replacing its GPU process after the switch. The browser consumer had
           overlapped two WGPU backends on the same canvas during replacement;
           it now completes CPU preparation, drops the old canvas backend, and
@@ -1453,7 +1457,9 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
             with the workbench's former `Ctrl`-descend plus `W`-forward binding,
             which invoked Edge's `Ctrl+W` close shortcut; descend now uses `C`.
             Older unsupervised E1M5/E1M6 closure evidence remains unknown. Each
-            Alternative-A switch creates a fresh WGPU device/backend;
+            Alternative-A switch creates a fresh WGPU device/backend. The
+            successful manual `W+C` falsifier closes the input-chord defect but
+            does not by itself complete external terminal-outcome observation;
             reusing one backend requires an explicit renderer resource-lifetime
             decision because sampleable texture creation rejects an existing
             handle and no scene-resource release/reset operation exists.

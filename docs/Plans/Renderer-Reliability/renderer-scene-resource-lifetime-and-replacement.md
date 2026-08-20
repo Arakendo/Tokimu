@@ -375,6 +375,11 @@ Initial implementation and the current ownership inventory are retained in
     - [x] Retained-session E1M1-through-E1M9 rotation completed under external
           supervision (`run-id=46044-1787188803903131100`, 576,189.115 ms,
           130 acknowledged events).
+    - [x] Manual adversarial E1M1-to-E1M3 switching and sustained movement,
+          including `W+C` forward-plus-descend input, passed user visual
+          inspection after descend moved away from Edge's `Ctrl+W` shortcut.
+          This is interaction/presentation evidence, not external terminal
+          closure evidence.
     - [ ] Adversarial manual walkabout/map switching completed under external
           supervision.
   - [ ] Renderer- and GPU-process identity remain unsupported by the current
