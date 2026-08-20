@@ -120,9 +120,47 @@ The regenerated independent WASM executed headlessly and reported 194
 resources for both scenes, failure after 129 staged resources, A retained after
 failure, A stale after commit, and B resolving reused mesh key 1. The Doom path
 compiled for WASM and its native projection test preserved every counted
-resource family. A live E1M1-to-E1M2 browser record is still pending because
-the available in-app browser automation failed its own trusted-path bootstrap;
-no substitute browser surface was used and no live result is claimed.
+resource family.
+
+## Live Doom E1M1 To E1M2 Correlation
+
+The maintainer supplied the missing live browser record. E1M1 presented first
+with this prepared inventory:
+
+```text
+meshes=1117 textures=55 materials=56 pipelines=7 cameras=1 commands=2068
+logical-resource-total=1236
+alternative-c-inventory-correlation=None
+```
+
+E1M2 then presented in the same browser session with:
+
+```text
+meshes=2184 textures=80 materials=81 pipelines=7 cameras=1 commands=4106
+logical-resource-total=2353
+retired-E1M1-resource-total=1236
+```
+
+The E1M2 record contained the complete correlation result:
+
+```text
+generation-a=0
+generation-b=1
+failed-stage-family=Material
+failed-stage-resources=2265
+source-after-failed-stage=DOOM E1M1 prepared inventory
+retired-source=DOOM E1M1 prepared inventory
+source-after-commit=DOOM E1M2 prepared inventory
+generation-a-after-commit=StaleGeneration(requested=0,current=1)
+generation-b-reused-mesh-key-resolves=true
+authority=semantic-shadow-not-provider-lifetime
+```
+
+The arithmetic is consistent with the caller's accounting: `1117 + 55 + 56 +
+7 + 1 = 1236`, `2184 + 80 + 81 + 7 + 1 = 2353`, and injected material
+failure occurred after `2184 + 80 + 1 = 2265` staged resources. This completes
+the heterogeneous real-caller correlation gate. It does not prove atomic WGPU
+staging, retained-provider reclamation, or a public generation contract.
 
 Additional validation:
 
