@@ -198,7 +198,7 @@ async function renderCurrentWorkingMap(): Promise<void> {
   mapNext!.disabled = true;
   result!.textContent = `Preparing ${mapName} with grouped sky parity and sector-boundary trim...`;
   try {
-    result!.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas!, mapName), controls: "Click canvas for mouse look; W/A/S/D move; Space/Ctrl vertical; Shift runs; Escape releases mouse." }, null, 2);
+    result!.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas!, mapName), controls: "Click canvas for mouse look; W/A/S/D move; Space/C vertical; Shift runs; Escape releases mouse." }, null, 2);
     workingWalkaboutActive = true;
     previousWalkStepTime = performance.now();
     nextWorkingPresentationTime = 0;
@@ -274,7 +274,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (workingWalkaboutActive) {
     pressedKeys.add(event.code);
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight"].includes(event.code)) event.preventDefault();
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyC", "ShiftLeft", "ShiftRight"].includes(event.code)) event.preventDefault();
   }
 });
 document.addEventListener("keyup", (event) => pressedKeys.delete(event.code));
@@ -293,7 +293,7 @@ function animateWorkingWalkabout(frameTime: number): void {
   if (workingWalkaboutActive && !workingMapRendering) {
     const forward = Number(pressedKeys.has("KeyW")) - Number(pressedKeys.has("KeyS"));
     const strafe = Number(pressedKeys.has("KeyD")) - Number(pressedKeys.has("KeyA"));
-    const vertical = Number(pressedKeys.has("Space")) - Number(pressedKeys.has("ControlLeft") || pressedKeys.has("ControlRight"));
+    const vertical = Number(pressedKeys.has("Space")) - Number(pressedKeys.has("KeyC"));
     const hasInput = forward !== 0 || strafe !== 0 || vertical !== 0 || mouseDeltaX !== 0 || mouseDeltaY !== 0;
     if (!hasInput) {
       previousWalkStepTime = frameTime;

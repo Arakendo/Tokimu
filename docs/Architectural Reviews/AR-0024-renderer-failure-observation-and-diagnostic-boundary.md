@@ -559,3 +559,22 @@ demonstrated a second rendering API.
   and continue to terminate only after unresolved evidence where containment
   requires it. The adversarial walkabout remains pending; Alternative B's
   atomicity and stale-identity falsifiers remain unchanged.
+
+### Cycle 19 -- 2026-08-19
+
+- Status entering review: supervised retained-session rotation passed; manual
+  adversarial walkabout remained pending.
+- New evidence: run `42780-1787189735516555800` retained 112 page events over
+  407,827.602 ms, then Edge exited with code zero before a terminal Tokimu
+  record. The final browser log records orderly window and browser shutdown,
+  with no Crashpad dump, WGPU/device-loss, OOM, fatal, or crash record. Audit
+  found the browser controls assigned descend to `Ctrl` and forward to `W`,
+  colliding with Edge's `Ctrl+W` close shortcut.
+- Findings: an unexpected clean host shutdown remains an external termination,
+  but it is not interchangeable with a process crash. Application controls must
+  not appropriate browser-reserved terminal shortcuts during a survival test.
+  The shortcut collision is a plausible trigger, not yet proven causally.
+- Disposition: replace browser descend `Ctrl` with `C`, retain the supervised
+  external-termination record, and repeat the same adversarial walkabout before
+  attributing the outcome to renderer resource lifetime. No shared diagnostic
+  or renderer contract changes.

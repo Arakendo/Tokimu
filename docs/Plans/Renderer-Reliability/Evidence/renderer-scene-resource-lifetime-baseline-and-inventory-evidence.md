@@ -329,6 +329,25 @@ retained-session rotation. It does not satisfy the separate adversarial manual
 walkabout, renderer/GPU subprocess identity, physical reclamation, or
 Alternative B atomicity/stale-identity gates.
 
+## Live Supervised Orderly External Shutdown
+
+Run `42780-1787189735516555800` acknowledged its page subject and retained 112
+events over 407,827.602 ms, then the owned Edge browser exited with code zero
+before a Tokimu terminal record. The supervisor correctly classified it as
+`externally-terminated` and did not kill the process. Edge's final log shows an
+orderly window/browser shutdown (`OnPaneClose`, removal of the browser-window
+keepalive, `OnAppTerminating`, and subsystem shutdown), not a process abort.
+Crashpad contains no dump, and the log contains no WGPU, device-loss, OOM,
+fatal, or crash record.
+
+The browser workbench exposed one concrete host-shortcut collision during
+audit: `Ctrl` meant descend while `W` meant forward, producing Edge's reserved
+`Ctrl+W` close shortcut during ordinary combined movement. That collision is a
+strong candidate for the clean exit but is not proven as the exact trigger of
+this run. Browser descend now uses `C`; `Ctrl` is no longer a working-model
+control. A repeat adversarial walkabout must falsify or reproduce the orderly
+exit before the lifetime/provider mechanism is blamed.
+
 ## Alternative-B Prototype Boundary
 
 The feature-gated `experimental-scene-resource-reset` seam now clears the
