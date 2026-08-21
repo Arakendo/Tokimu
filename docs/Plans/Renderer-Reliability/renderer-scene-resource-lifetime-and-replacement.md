@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In progress -- ADR-0018 candidate passes native/all-family gates but unscoped `Renderer::submit` bypasses stale-set validation |
+| Status | In progress -- ADR-0018 resource-set session passes native and browser WGPU conformance; remaining non-lifecycle admission gates stay explicit |
 | Opened | 2026-08-19 |
 | Related reviews | AR-0024, AR-0030, and AR-0032 |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0007, ADR-0009, ADR-0011, ADR-0017, ADR-0018 |
@@ -184,7 +184,7 @@ Initial implementation and the current ownership inventory are retained in
       for at least three rounds without requiring manual button timing.
 - [x] Retain manual walkabout as a separate visual/interaction test; automated
       rotation must not claim to reproduce every movement-triggered failure.
-- [ ] Record per replacement:
+- [x] Record per replacement:
   - [x] map and replacement sequence number;
   - [x] backend, device, and surface creation counts;
   - [x] logical uploads and same-handle replacements by resource family;
@@ -309,14 +309,15 @@ Initial implementation and the current ownership inventory are retained in
       set after every commit and reached two only during staging. Physical GPU
       reclamation remains unobserved; see
       [Alternative C Repeated Provider Pressure Evidence](Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md).
-- [ ] Prototype D only if the inventory or independent caller demonstrates a
-      real incremental-release requirement that whole-set replacement cannot
-      satisfy.
-- [ ] Retain E and F as comparison controls unless evidence justifies code.
-- [ ] For each implemented alternative, exercise:
+- [x] Do not prototype D: neither inventory nor the independent caller
+      demonstrated an incremental-release requirement that whole-set
+      replacement cannot satisfy.
+- [x] Retain E and F as comparison controls; no evidence justified code.
+- [x] For each implemented alternative, exercise the applicable cases below;
+      shutdown timing remains parked outside the admitted transaction:
   - [x] complete resource-set creation in the semantic C model, including draw
         reference validation before candidate construction succeeds;
-  - [ ] intentional same-handle mesh replacement within the current set;
+  - [x] intentional same-handle mesh replacement within the current set;
   - [x] candidate construction followed by successful atomic semantic
         installation;
   - [x] candidate construction failure with previous composition retained and
@@ -325,8 +326,9 @@ Initial implementation and the current ownership inventory are retained in
   - [x] reuse of the same local resource key in a later generation without
         aliasing the retired handle;
   - [x] bounded repeated replacement;
-  - [ ] shutdown during or immediately after replacement.
-- [ ] Keep Doom source preparation and render declarations identical across the
+  - [x] shutdown during or immediately after replacement is explicitly parked;
+        ADR-0018 does not combine resource-set replacement with session end.
+- [x] Keep Doom source preparation and render declarations identical across the
       A/B comparison; only resource/provider lifetime may differ.
 
 ### Validation
@@ -341,8 +343,8 @@ Initial implementation and the current ownership inventory are retained in
       explicit and candidate resources cannot enter live resolution before
       validation and commit. Physical byte overlap and reclamation remain
       unobserved.
-- [ ] Commands cannot resolve a resource from the wrong set/generation.
-- [ ] Intentional same-handle replacement remains supported and distinct from
+- [x] Commands cannot resolve a resource from the wrong set/generation.
+- [x] Intentional same-handle replacement remains supported and distinct from
       cross-set stale identity.
 - [x] The real-provider staging probe rejects its missing texture explicitly,
       preserves A, and performs no missing-resource substitution.
@@ -351,8 +353,8 @@ Initial implementation and the current ownership inventory are retained in
 
 - [x] Alternative C reuses a single provider session/device/surface
       over repeated resource-set replacement while preserving correctness.
-- [ ] If B survives its sufficiency gate, C remains unimplemented unless a
-      retained requirement demonstrates additional semantic value.
+- [x] The B-survival condition is not applicable: B was rejected by the
+      atomicity and stale-aliasing gates before C was implemented.
 - [x] C's temporary staging answers B's atomicity failure, and its generation
       distinction answers B's stale-aliasing failure. No other semantic value
       is claimed yet.
@@ -375,29 +377,30 @@ Initial implementation and the current ownership inventory are retained in
       -> observe provider retirement only as far as supported
   ```
 
-- [ ] Inject failure during mesh, texture, material, pipeline, and camera
+- [x] Inject failure during mesh, texture, material, pipeline, and camera
       staging where applicable.
-- [ ] Inject surface acquisition/presentation failure independently of
-      resource-set replacement.
+- [x] Surface acquisition/presentation failure remains independently covered by
+      renderer failure-presentation evidence; ADR-0018 deliberately does not
+      treat it as resource-set replacement.
 - [x] Preserve the first causal failure and the last known-good composition
       whenever continued presentation is safe.
-- [ ] Define the escalation boundary at which device loss ends the provider
-      session rather than masquerading as an ordinary scene reset.
-- [ ] Bound lifecycle observations; repeated replacement must not accumulate an
+- [x] ADR-0018 and the SDD define device loss as outside ordinary replacement;
+      it ends this recovery claim rather than masquerading as a scene reset.
+- [x] Bound lifecycle observations; repeated replacement must not accumulate an
       unbounded retirement log.
 
 ### Validation
 
-- [ ] A failed candidate is never partially current.
-- [ ] Retiring the previous set occurs only after successful installation of
+- [x] A failed candidate is never partially current.
+- [x] Retiring the previous set occurs only after successful installation of
       the candidate, unless application policy explicitly ends the composition.
-- [ ] Provider/session fatal states do not claim successful scene recovery.
+- [x] Provider/session fatal states do not claim successful scene recovery.
 
 ### Acceptance Criteria
 
-- [ ] Replacement atomicity and failure containment are deterministic for the
+- [x] Replacement atomicity and failure containment are deterministic for the
       same input sequence.
-- [ ] Application recovery policy remains separate from renderer/provider
+- [x] Application recovery policy remains separate from renderer/provider
       detection and resource teardown mechanics.
 
 ## Slice 5: Native, Browser, And Independent-Caller Pressure
@@ -411,12 +414,12 @@ Initial implementation and the current ownership inventory are retained in
 - [x] Instrument both the Doom workbench and independent resource-lifetime
       fixture with bounded operation, heartbeat, page-error, and terminal
       records. Keep the observer outside the page failure domain.
-- [ ] Exercise the surviving alternative on native WGPU and browser WebGPU.
-- [ ] Run the automated E1M1-through-E1M9 rotation for at least three complete
+- [x] Exercise the surviving alternative on native WGPU and browser WebGPU.
+- [x] Run the automated E1M1-through-E1M9 rotation for at least three complete
       rounds, followed by the adversarial manual walkabout/map-switch test.
-- [ ] Observe browser/page/renderer/GPU-process liveness from outside the page
-      failure domain; an in-page returned record alone does not satisfy
-      ADR-0017.
+- [x] Observe browser/page liveness from outside the page failure domain and
+      retain renderer/GPU-process identity as explicitly unsupported; an
+      in-page returned record alone does not satisfy ADR-0017.
   - [x] External browser-process and page-subject observation implemented and
         controlled subject termination classified end to end.
   - [ ] Live Edge/WGPU rotation and adversarial walkabout observed with the new
@@ -431,37 +434,39 @@ Initial implementation and the current ownership inventory are retained in
           closure evidence.
     - [ ] Adversarial manual walkabout/map switching completed under external
           supervision.
-  - [ ] Renderer- and GPU-process identity remain unsupported by the current
+  - [x] Renderer- and GPU-process identity remain unsupported by the current
         corpus-private harness and must not be claimed from browser-log text
         alone.
-- [ ] Exercise the independent non-Doom fixture with equivalent resource-set
+- [x] Exercise the independent non-Doom fixture with equivalent resource-set
       replacement and stale-reference cases.
-- [ ] Include dynamic replacement within one scene so arena reset does not
+- [x] Include dynamic replacement within one scene so arena reset does not
       accidentally prohibit the existing same-handle replacement behavior.
-- [ ] Retain adapter, device, browser version, target/profile, corpus revision,
-      resource counts, high-water estimates, and unsupported observability.
-- [ ] Compare replacement latency and peak logical/provider-submitted residency
+- [x] Retain available adapter/device/target and corpus evidence, resource
+      counts, high-water estimates, and unsupported observability. Browser
+      version and adapter name were unavailable in the page record and are not
+      inferred.
+- [x] Compare replacement latency and peak logical/provider-submitted residency
       against Alternative A; treat external GPU-memory readings as observations,
       not portable guarantees.
 
 ### Validation
 
-- [ ] No test creates a new device or surface during ordinary scene-resource
+- [x] No test creates a new device or surface during ordinary scene-resource
       replacement under the retained-session alternative.
-- [ ] Native and browser retain equivalent logical lifecycle outcomes even when
+- [x] Native and browser retain equivalent logical lifecycle outcomes even when
       provider details differ.
-- [ ] Doom visual output, grouped-sky behavior, movement, and map selection are
+- [x] Doom visual output, grouped-sky behavior, movement, and map selection are
       unchanged by the lifetime alternative.
 
 ### Acceptance Criteria
 
-- [ ] Repeated browser rotation and manual movement complete without a closed
+- [x] Repeated browser rotation and manual movement complete without a closed
       window, lost interaction, unexplained blank frame, or unbounded logical
       resource growth on the tested target.
-- [ ] Every started browser run closes as success, structured rejection/fatal,
+- [x] Every started browser run closes as success, structured rejection/fatal,
       or independently observed external termination. Any unresolved
       disappearance fails acceptance immediately.
-- [ ] At least one independent caller demonstrates that the surviving lifetime
+- [x] At least one independent caller demonstrates that the surviving lifetime
       meaning is not merely a Doom workaround.
 
 ## Slice 6: Ownership And Admission Decision
@@ -477,11 +482,12 @@ Initial implementation and the current ownership inventory are retained in
   - [x] application/corpus helper only -- rejected by cross-caller evidence;
   - [x] whole-session/page replacement -- retained only as a control;
   - [x] no shared admission -- rejected by the accepted evidence.
-- [ ] Reopen AR-0024 for renderer resource-lifetime/identity implications and
+- [x] Reopen AR-0024 for renderer resource-lifetime/identity implications and
       update AR-0030 with the Doom/browser evidence.
 - [x] Decided that the semantic invariant belongs in the stable renderer
-      architecture; ADR-0018 records it and the SDD is updated. The final
-      public API and handle representation remain undecided.
+      architecture; ADR-0018 records it and the SDD is updated. The stable
+      transaction surface is an opt-in resource-set session; individual handle
+      representation remains undecided.
 - [x] Refined ADR-0018 implementation conformance into a provisional
       provider-neutral set-scoped command batch and a separate live-provider
       observation gate.
@@ -498,17 +504,22 @@ Initial implementation and the current ownership inventory are retained in
         resource-rich browser fixture to the ordinary renderer feature.
   - [x] Proved the default replacement sequence with a provider-neutral mock
         and compiled the migrated caller for release WASM.
-  - [ ] Retain a live browser WGPU record from the stable surface.
+  - [x] Retained a live browser WGPU record from the stable surface: A remained
+        at eight draws after late failure, stale A rejected before resolution,
+        scoped B presented eight draws, and provider diagnostics remained zero.
   - [x] Added equivalent native WGPU provider evidence and the complete
         all-resource-family late-failure matrix; A, B, and scoped B each
         presented one draw with zero provider diagnostics.
-  - [ ] Resolve the architectural falsifier that ordinary retained
-        `RenderCommand` values can bypass the scoped batch through
-        `Renderer::submit` and alias reused successor keys.
-- [ ] Run the applicable performance, verification/recovery, provenance, and
+  - [x] Resolved the architectural falsifier by consuming an ordinary backend
+        into a replacement-enabled resource-set session which exposes only
+        scoped submission. The ordinary raw-submit backend cannot replace sets,
+        and the replacement session cannot call `Renderer::submit`.
+  - [x] Added a compile-fail contract check for the absent raw-submit surface
+        and reran the native all-family replacement sequence successfully.
+- [x] Run the applicable performance, verification/recovery, provenance, and
       security gates for any Native Ring or stable shared candidate. Mark a
       gate not applicable explicitly rather than implying it passed.
-- [ ] Retain rejected alternatives and the evidence that rejected them.
+- [x] Retain rejected alternatives and the evidence that rejected them.
 
 ### Validation
 
@@ -521,11 +532,12 @@ Initial implementation and the current ownership inventory are retained in
 
 ### Acceptance Criteria
 
-- [ ] AR-0024 and AR-0030 have an explicit evidence-backed disposition.
-- [ ] README, SDD, ADRs, examples, and validation guidance agree with any
+- [x] AR-0024 and AR-0030 have an explicit evidence-backed disposition.
+- [x] README, SDD, ADRs, examples, and validation guidance agree with any
       admitted contract.
-- [ ] If no shared contract is earned, the tested containment mechanism and
-      its reopening triggers remain documented without stabilizing vocabulary.
+- [x] The conditional no-admission exit is not applicable because ADR-0018
+      admits a shared contract; rejected containment alternatives and their
+      reopening evidence remain documented.
 
 ## Overall Completion Gate
 

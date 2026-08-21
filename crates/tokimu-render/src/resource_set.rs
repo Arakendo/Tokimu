@@ -10,7 +10,7 @@ use std::sync::{
 
 use thiserror::Error;
 
-use crate::{RenderCommand, Renderer};
+use crate::{RenderCommand, Rgba8TextureDescriptor, TextureHandle};
 
 /// Opaque identity of one authoritative render resource set.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -79,7 +79,7 @@ impl RenderCommandSet {
         self.resource_set
     }
 
-    pub fn commands(&self) -> &[RenderCommand] {
+    pub(crate) fn commands(&self) -> &[RenderCommand] {
         &self.commands
     }
 
@@ -119,7 +119,7 @@ pub enum RenderCommandSetError {
 /// The associated candidate remains provider-owned. Resource upload and
 /// validation mechanics therefore do not leak into this contract. Dropping a
 /// candidate before commit must leave the current set authoritative.
-pub trait RenderResourceSetLifecycle: Renderer {
+pub trait RenderResourceSetLifecycle {
     type Candidate;
     type Error;
     type CommitObservation;
@@ -154,10 +154,43 @@ pub trait RenderResourceSetLifecycle: Renderer {
     }
 }
 
+/// Successful replacement of the content realization behind one existing
+/// texture identity in the still-current authoritative resource set.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TextureContentUpdateCommitObservation {
+    pub resource_set: RenderResourceSetId,
+    pub texture: TextureHandle,
+    pub descriptor: Rgba8TextureDescriptor,
+    pub source_bytes: u64,
+    pub dependent_materials: u32,
+}
+
+/// Provider-neutral lifecycle for ADR-0019 fixed-descriptor texture-content
+/// replacement inside one current resource set.
+///
+/// The provider owns the isolated candidate. Dropping it must leave the prior
+/// realization authoritative. Commit must reject foreign or retired set scope
+/// before resolving the candidate's local texture identity.
+pub trait RenderTextureContentUpdateLifecycle {
+    type Candidate;
+    type Error;
+
+    fn prepare_texture_content_update(
+        &self,
+        texture: TextureHandle,
+        rgba8: &[u8],
+    ) -> Result<Self::Candidate, Self::Error>;
+
+    fn commit_texture_content_update(
+        &mut self,
+        candidate: Self::Candidate,
+    ) -> Result<TextureContentUpdateCommitObservation, Self::Error>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ClearCommand, Color, RenderStats};
+    use crate::{ClearCommand, Color, RenderStats, Renderer};
 
     struct MockCandidate {
         id: RenderResourceSetId,

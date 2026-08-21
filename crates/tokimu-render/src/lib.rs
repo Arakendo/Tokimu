@@ -42,6 +42,7 @@ pub use renderer::{
 };
 pub use resource_set::{
     RenderCommandSet, RenderCommandSetError, RenderResourceSetId, RenderResourceSetLifecycle,
+    RenderTextureContentUpdateLifecycle, TextureContentUpdateCommitObservation,
 };
 pub use resources::{
     CameraHandle, MaterialHandle, MeshHandle, PipelineHandle, RenderableHandle, TextureHandle,
@@ -59,5 +60,6 @@ pub use texture::{
 pub use wgpu_backend::ExperimentalSceneResourceResetObservation;
 pub use wgpu_backend::{
     RenderTargetReplacement, RenderTargetResourceObservation, WgpuBackend, WgpuBackendError,
-    WgpuResourceSetCommitObservation, WgpuResourceSetStage,
+    WgpuResourceSetCommitObservation, WgpuResourceSetSession, WgpuResourceSetStage,
+    WgpuTextureContentUpdateCandidate,
 };

@@ -3,6 +3,9 @@
 //! Browser code supplies only user-selected bytes and descriptive metadata.
 //! This session owns limits, retained resource identity, and observations.
 
+#[cfg(any(target_arch = "wasm32", test))]
+mod ar0033_update_study;
+
 use archive_provider::{ArchiveFormat, ArchiveReadLimits, ZipArchiveProvider};
 use doom_wad_package::{read_wad_package_member, InspectWadPackageRequest};
 use doom_wad_provider::WadReadLimits;
@@ -25,6 +28,8 @@ use doom_geometry_provider::{
 use doom_map_provider::{decode_doom_map_core, resolve_doom_player_one_start};
 #[cfg(target_arch = "wasm32")]
 use doom_wad_package::select_doom_episode_map;
+#[cfg(any(target_arch = "wasm32", test))]
+use hello_doom_e1m1::debug_console::DoomDebugConsole;
 #[cfg(target_arch = "wasm32")]
 use hello_doom_e1m1::{
     assemble_experimental_masked_middle_cutouts, assemble_static_opaque_flats,
@@ -49,14 +54,17 @@ use raster_image_corpus::{decode_png, prepare_renderer_texture, DecodeLimits, Te
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
     BlendMode, Camera, CameraHandle, CategoricalCutout, ClearCommand, Color, ColorWriteMask,
-    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand,
-    ExperimentalSceneResourceResetObservation, Instance2d, Material, MaterialHandle, Mesh,
-    MeshHandle, Pipeline, PipelineKind, PipelineRenderState, RenderCommand, Renderer,
-    Rgba8TextureColorSpace, Rgba8TextureDescriptor, StencilMode, TextureAddressMode, TextureFilter,
-    TextureHandle, TextureSampler, WgpuBackend,
+    CullMode, CutoutComparison, CutoutThreshold, DepthTest, DrawMeshCommand, Instance2d, Material,
+    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineHandle, PipelineKind, PipelineRenderState,
+    RenderCommand, RenderCommandSet, RenderResourceSetLifecycle,
+    RenderTextureContentUpdateLifecycle, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
+    StencilMode, TextureAddressMode, TextureFilter, TextureHandle, TextureSampler, WgpuBackend,
+    WgpuResourceSetSession, WgpuResourceSetStage,
 };
 #[cfg(target_arch = "wasm32")]
 use tokimu_core::math::Vec3;
+#[cfg(target_arch = "wasm32")]
+use ui_tools::provider::UiFontRasterizer;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
 
@@ -71,7 +79,7 @@ const MAX_BROWSER_WORKING_MATERIALS: u64 = 2_050;
 #[cfg(any(target_arch = "wasm32", test))]
 const MAX_BROWSER_WORKING_PIPELINES: u64 = 16;
 #[cfg(any(target_arch = "wasm32", test))]
-const MAX_BROWSER_WORKING_CAMERAS: u64 = 1;
+const MAX_BROWSER_WORKING_CAMERAS: u64 = 2;
 #[cfg(any(target_arch = "wasm32", test))]
 const MAX_BROWSER_WORKING_COMMANDS: u64 = 100_000;
 #[cfg(any(target_arch = "wasm32", test))]
@@ -120,6 +128,14 @@ const WORKING_SKY_BOUNDARY_MATERIAL: MaterialHandle = MaterialHandle(9_100_001);
 #[cfg(target_arch = "wasm32")]
 const WORKING_CAMERA: CameraHandle = CameraHandle(91);
 #[cfg(target_arch = "wasm32")]
+const WORKING_CONSOLE_CAMERA: CameraHandle = CameraHandle(92);
+#[cfg(target_arch = "wasm32")]
+const WORKING_CONSOLE_TEXTURE: TextureHandle = TextureHandle(9_100_010);
+#[cfg(target_arch = "wasm32")]
+const WORKING_CONSOLE_MATERIAL: MaterialHandle = MaterialHandle(9_100_010);
+#[cfg(target_arch = "wasm32")]
+const WORKING_CONSOLE_MESH: MeshHandle = MeshHandle(9_100_010);
+#[cfg(target_arch = "wasm32")]
 const FLAT_LIMITS: doom_raster_provider::DoomFlatDecodeLimits =
     doom_raster_provider::DoomFlatDecodeLimits {
         max_flat_bytes: 4096,
@@ -151,6 +167,28 @@ const COMPOSE_LIMITS: doom_raster_provider::DoomTextureComposeLimits =
         max_pixels: 16 * 1024 * 1024,
     };
 
+#[cfg(target_arch = "wasm32")]
+fn browser_debug_font() -> Result<UiFontRasterizer, String> {
+    UiFontRasterizer::from_bytes(
+        include_bytes!("../../../../lib/ui-tools/fixtures/NotoSans-Regular.otf").to_vec(),
+    )
+    .map_err(|error| format!("embedded browser debug-console font is invalid: {error}"))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn browser_console_rgba8(
+    console: &DoomDebugConsole,
+    font: &UiFontRasterizer,
+    width: u32,
+) -> Vec<u8> {
+    let [raster_width, raster_height] = DoomDebugConsole::raster_dimensions(width);
+    if console.is_open() {
+        console.rasterize(font, raster_width).rgba8
+    } else {
+        vec![0; raster_width as usize * raster_height as usize * 4]
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct IntakeObservation {
@@ -166,8 +204,9 @@ struct IntakeObservation {
 
 #[cfg(target_arch = "wasm32")]
 struct BrowserWorkingModel {
-    renderer: WgpuBackend,
-    commands: Vec<RenderCommand>,
+    map_name: String,
+    renderer: WgpuResourceSetSession,
+    commands: RenderCommandSet,
     logical_resources: WorkingLogicalResources,
     semantic_inventory: CorpusSceneResourceInventory,
     position: Vec3,
@@ -176,6 +215,131 @@ struct BrowserWorkingModel {
     width: u32,
     height: u32,
     far_plane: f32,
+    debug_console: DoomDebugConsole,
+    debug_font: UiFontRasterizer,
+    console_updates: u64,
+}
+
+#[cfg(target_arch = "wasm32")]
+trait WorkingSceneResourceWriter {
+    fn create_texture_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+        rgba8: &[u8],
+    ) -> Result<(), String>;
+    fn upload_material(
+        &mut self,
+        handle: MaterialHandle,
+        material: &Material,
+    ) -> Result<(), String>;
+    fn upload_mesh(&mut self, handle: MeshHandle, mesh: &Mesh);
+    fn register_pipeline(&mut self, pipeline: &Pipeline) -> Result<PipelineHandle, String>;
+    fn upload_camera(&mut self, handle: CameraHandle, camera: Camera);
+    fn begin_candidate_frame(&mut self);
+    fn submit_candidate(&mut self, commands: &[RenderCommand]);
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WorkingSceneResourceWriter for WgpuBackend {
+    fn create_texture_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+        rgba8: &[u8],
+    ) -> Result<(), String> {
+        WgpuBackend::create_texture_rgba8(self, handle, descriptor, rgba8)
+            .map_err(|error| error.to_string())
+    }
+
+    fn upload_material(
+        &mut self,
+        handle: MaterialHandle,
+        material: &Material,
+    ) -> Result<(), String> {
+        WgpuBackend::upload_material(self, handle, material).map_err(|error| error.to_string())
+    }
+
+    fn upload_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) {
+        WgpuBackend::upload_mesh(self, handle, mesh);
+    }
+
+    fn register_pipeline(&mut self, pipeline: &Pipeline) -> Result<PipelineHandle, String> {
+        WgpuBackend::register_pipeline(self, pipeline).map_err(|error| error.to_string())
+    }
+
+    fn upload_camera(&mut self, handle: CameraHandle, camera: Camera) {
+        WgpuBackend::upload_camera(self, handle, camera);
+    }
+
+    fn begin_candidate_frame(&mut self) {
+        <WgpuBackend as Renderer>::begin_frame(self);
+    }
+
+    fn submit_candidate(&mut self, commands: &[RenderCommand]) {
+        <WgpuBackend as Renderer>::submit(self, commands);
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WorkingSceneResourceWriter for WgpuResourceSetStage {
+    fn create_texture_rgba8(
+        &mut self,
+        handle: TextureHandle,
+        descriptor: Rgba8TextureDescriptor,
+        rgba8: &[u8],
+    ) -> Result<(), String> {
+        WgpuResourceSetStage::create_texture_rgba8(self, handle, descriptor, rgba8)
+            .map_err(|error| error.to_string())
+    }
+
+    fn upload_material(
+        &mut self,
+        handle: MaterialHandle,
+        material: &Material,
+    ) -> Result<(), String> {
+        WgpuResourceSetStage::upload_material(self, handle, material)
+            .map_err(|error| error.to_string())
+    }
+
+    fn upload_mesh(&mut self, handle: MeshHandle, mesh: &Mesh) {
+        WgpuResourceSetStage::upload_mesh(self, handle, mesh);
+    }
+
+    fn register_pipeline(&mut self, pipeline: &Pipeline) -> Result<PipelineHandle, String> {
+        WgpuResourceSetStage::register_pipeline(self, pipeline).map_err(|error| error.to_string())
+    }
+
+    fn upload_camera(&mut self, handle: CameraHandle, camera: Camera) {
+        WgpuResourceSetStage::upload_camera(self, handle, camera);
+    }
+
+    fn begin_candidate_frame(&mut self) {
+        WgpuResourceSetStage::begin_frame(self);
+    }
+
+    fn submit_candidate(&mut self, commands: &[RenderCommand]) {
+        WgpuResourceSetStage::submit(self, commands);
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+enum WorkingSceneCandidate {
+    Initial(WgpuBackend),
+    Replacement {
+        current: Box<BrowserWorkingModel>,
+        stage: WgpuResourceSetStage,
+    },
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WorkingSceneCandidate {
+    fn writer(&mut self) -> &mut dyn WorkingSceneResourceWriter {
+        match self {
+            Self::Initial(backend) => backend,
+            Self::Replacement { stage, .. } => stage,
+        }
+    }
 }
 
 #[cfg(any(target_arch = "wasm32", test))]
@@ -189,6 +353,175 @@ struct WorkingLogicalResources {
     commands: u64,
     mesh_vertex_bytes: u64,
     source_texture_payload_bytes: u64,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Ar0033ConsoleEditInventory {
+    changing_textures: u64,
+    changing_meshes: u64,
+    changing_materials: u64,
+    changing_pipelines: u64,
+    changing_cameras: u64,
+    changing_commands: u64,
+    stable_console_meshes: u64,
+    stable_console_materials: u64,
+    stable_console_pipelines: u64,
+    stable_console_cameras: u64,
+    stable_console_commands: u64,
+    raster_width: u32,
+    raster_height: u32,
+    raster_rgba8_bytes: u64,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+impl Ar0033ConsoleEditInventory {
+    fn for_canvas_width(canvas_width: u32) -> Self {
+        let [raster_width, raster_height] = DoomDebugConsole::raster_dimensions(canvas_width);
+        Self {
+            changing_textures: 1,
+            changing_meshes: 0,
+            changing_materials: 0,
+            changing_pipelines: 0,
+            changing_cameras: 0,
+            changing_commands: 0,
+            stable_console_meshes: 1,
+            stable_console_materials: 1,
+            stable_console_pipelines: 1,
+            stable_console_cameras: 1,
+            stable_console_commands: 1,
+            raster_width,
+            raster_height,
+            raster_rgba8_bytes: u64::from(raster_width)
+                .saturating_mul(u64::from(raster_height))
+                .saturating_mul(4),
+        }
+    }
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Ar0033WholeSetControlObservation {
+    status: &'static str,
+    review: &'static str,
+    alternative: &'static str,
+    map: String,
+    current_resource_set: u64,
+    edit_inventory: Ar0033ConsoleEditInventory,
+    authoritative_scene: WorkingLogicalResourcesObservation,
+    modeled_candidate: WorkingLogicalResourcesObservation,
+    changing_logical_resources: u64,
+    staged_logical_resources: u64,
+    logical_resource_amplification: f64,
+    changed_source_bytes: u64,
+    staged_source_bytes: u64,
+    source_byte_amplification: f64,
+    regenerated_commands: u64,
+    unchanged_commands: u64,
+    set_turnovers_per_edit: u64,
+    provider_execution: &'static str,
+    physical_gpu_reclamation: &'static str,
+    authority: &'static str,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkingLogicalResourcesObservation {
+    meshes: u64,
+    textures: u64,
+    materials: u64,
+    pipelines: u64,
+    cameras: u64,
+    commands: u64,
+    mesh_vertex_bytes: u64,
+    source_texture_payload_bytes: u64,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+impl From<WorkingLogicalResources> for WorkingLogicalResourcesObservation {
+    fn from(resources: WorkingLogicalResources) -> Self {
+        Self {
+            meshes: resources.meshes,
+            textures: resources.textures,
+            materials: resources.materials,
+            pipelines: resources.pipelines,
+            cameras: resources.cameras,
+            commands: resources.commands,
+            mesh_vertex_bytes: resources.mesh_vertex_bytes,
+            source_texture_payload_bytes: resources.source_texture_payload_bytes,
+        }
+    }
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn observe_ar0033_whole_set_control(
+    map: String,
+    current_resource_set: u64,
+    scene: WorkingLogicalResources,
+    canvas_width: u32,
+) -> Ar0033WholeSetControlObservation {
+    let edit_inventory = Ar0033ConsoleEditInventory::for_canvas_width(canvas_width);
+    let candidate = WorkingLogicalResources {
+        meshes: scene
+            .meshes
+            .saturating_add(edit_inventory.stable_console_meshes),
+        textures: scene
+            .textures
+            .saturating_add(edit_inventory.changing_textures),
+        materials: scene
+            .materials
+            .saturating_add(edit_inventory.stable_console_materials),
+        pipelines: scene
+            .pipelines
+            .saturating_add(edit_inventory.stable_console_pipelines),
+        cameras: scene
+            .cameras
+            .saturating_add(edit_inventory.stable_console_cameras),
+        commands: scene
+            .commands
+            .saturating_add(edit_inventory.stable_console_commands),
+        mesh_vertex_bytes: scene.mesh_vertex_bytes,
+        source_texture_payload_bytes: scene
+            .source_texture_payload_bytes
+            .saturating_add(edit_inventory.raster_rgba8_bytes),
+    };
+    let changing_logical_resources = 1;
+    let staged_logical_resources = candidate
+        .meshes
+        .saturating_add(candidate.textures)
+        .saturating_add(candidate.materials)
+        .saturating_add(candidate.pipelines)
+        .saturating_add(candidate.cameras);
+    let changed_source_bytes = edit_inventory.raster_rgba8_bytes;
+    let staged_source_bytes = candidate
+        .mesh_vertex_bytes
+        .saturating_add(candidate.source_texture_payload_bytes);
+    Ar0033WholeSetControlObservation {
+        status: "complete",
+        review: "AR-0033-slice-0",
+        alternative: "A-whole-set-replacement-per-console-edit-accounting-control",
+        map,
+        current_resource_set,
+        edit_inventory,
+        authoritative_scene: scene.into(),
+        modeled_candidate: candidate.into(),
+        changing_logical_resources,
+        staged_logical_resources,
+        logical_resource_amplification: staged_logical_resources as f64
+            / changing_logical_resources as f64,
+        changed_source_bytes,
+        staged_source_bytes,
+        source_byte_amplification: staged_source_bytes as f64 / changed_source_bytes as f64,
+        regenerated_commands: candidate.commands,
+        unchanged_commands: scene.commands,
+        set_turnovers_per_edit: 1,
+        provider_execution: "not-run-accounting-model-only",
+        physical_gpu_reclamation: "unobserved",
+        authority: "corpus-private-accounting-not-update-contract-or-performance-proof",
+    }
 }
 
 #[cfg(any(target_arch = "wasm32", test))]
@@ -253,7 +586,6 @@ struct WorkingLifetimeObservation {
     backend_creations: u64,
     device_creations: u64,
     surface_creations: u64,
-    scene_resets: u64,
     retired_sets: u64,
     retired_resources: WorkingLogicalResources,
 }
@@ -409,7 +741,7 @@ impl BrowserIntakeSession {
         canvas: HtmlCanvasElement,
         map_name: &str,
     ) -> Result<String, JsValue> {
-        self.render_working_map_inner(canvas, map_name, false)
+        self.render_working_map_inner(canvas, map_name, false, false)
             .await
             .map_err(js_error)
     }
@@ -423,7 +755,20 @@ impl BrowserIntakeSession {
         canvas: HtmlCanvasElement,
         map_name: &str,
     ) -> Result<String, JsValue> {
-        self.render_working_map_inner(canvas, map_name, true)
+        self.render_working_map_inner(canvas, map_name, true, false)
+            .await
+            .map_err(js_error)
+    }
+
+    /// Fully prepares a successor map, injects a failure before provider
+    /// staging, and re-presents the prior authoritative map unchanged.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn verify_failed_working_map_preserves_current(
+        &mut self,
+        canvas: HtmlCanvasElement,
+        map_name: &str,
+    ) -> Result<String, JsValue> {
+        self.render_working_map_inner(canvas, map_name, true, true)
             .await
             .map_err(js_error)
     }
@@ -431,6 +776,7 @@ impl BrowserIntakeSession {
     /// Advances and presents the retained working-model scene. This is an
     /// explicit browser noclip inspection camera, not Doom player simulation.
     #[cfg(target_arch = "wasm32")]
+    #[allow(clippy::too_many_arguments)]
     pub fn step_working_model(
         &mut self,
         delta_seconds: f32,
@@ -451,6 +797,122 @@ impl BrowserIntakeSession {
             running,
         )
         .map_err(js_error)
+    }
+
+    /// Opens or closes the embedded Doom console and publishes its fixed-size
+    /// raster through the ADR-0019 transaction. The map resource set and its
+    /// scoped command batch remain authoritative and unchanged.
+    #[cfg(target_arch = "wasm32")]
+    pub fn set_working_console_open(&mut self, open: bool) -> Result<String, JsValue> {
+        let model = self
+            .working_model
+            .as_mut()
+            .ok_or_else(|| js_error("no browser working-model scene is retained".to_owned()))?;
+        model.debug_console.set_open(open);
+        Self::refresh_working_console(model).map_err(js_error)
+    }
+
+    /// Appends browser text input to the corpus-owned console prompt and
+    /// publishes only the resulting texture realization.
+    #[cfg(target_arch = "wasm32")]
+    pub fn insert_working_console_text(&mut self, text: &str) -> Result<String, JsValue> {
+        let model = self
+            .working_model
+            .as_mut()
+            .ok_or_else(|| js_error("no browser working-model scene is retained".to_owned()))?;
+        if !model.debug_console.is_open() {
+            return Err(js_error("browser Doom console is closed".to_owned()));
+        }
+        model.debug_console.insert_text(text);
+        Self::refresh_working_console(model).map_err(js_error)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn backspace_working_console(&mut self) -> Result<String, JsValue> {
+        let model = self
+            .working_model
+            .as_mut()
+            .ok_or_else(|| js_error("no browser working-model scene is retained".to_owned()))?;
+        if !model.debug_console.is_open() {
+            return Err(js_error("browser Doom console is closed".to_owned()));
+        }
+        model.debug_console.backspace();
+        Self::refresh_working_console(model).map_err(js_error)
+    }
+
+    /// Executes the bounded browser inspection vocabulary. It deliberately
+    /// owns no simulation mutation or renderer command authority.
+    #[cfg(target_arch = "wasm32")]
+    pub fn submit_working_console(&mut self) -> Result<String, JsValue> {
+        let model = self
+            .working_model
+            .as_mut()
+            .ok_or_else(|| js_error("no browser working-model scene is retained".to_owned()))?;
+        if !model.debug_console.is_open() {
+            return Err(js_error("browser Doom console is closed".to_owned()));
+        }
+        if let Some(command) = model.debug_console.take_submission() {
+            let normalized = command.trim().to_ascii_uppercase();
+            match normalized.as_str() {
+                "HELP" => model
+                    .debug_console
+                    .append("commands: HELP, CLEAR, CAMERA, STATUS, NOCLIP (inspection only)"),
+                "CLEAR" => model.debug_console.clear(),
+                "CAMERA" | "STATUS" => model.debug_console.append(format!(
+                    "map={} xyz=({:.3},{:.3},{:.3}) yaw={:.3} pitch={:.3} set={} updates={}",
+                    model.map_name,
+                    model.position.x,
+                    model.position.y,
+                    model.position.z,
+                    model.yaw,
+                    model.pitch,
+                    model.renderer.current_resource_set().diagnostic_value(),
+                    model.console_updates,
+                )),
+                "NOCLIP" => model
+                    .debug_console
+                    .append("noclip=true; authority=browser inspection camera"),
+                _ => model
+                    .debug_console
+                    .append(format!("unknown command: {command}; HELP lists commands")),
+            }
+        }
+        Self::refresh_working_console(model).map_err(js_error)
+    }
+
+    /// Reports the AR-0033 Alternative-A accounting control for one console
+    /// edit against the currently authoritative Doom map. It deliberately
+    /// does not perform a replacement or claim provider timing: Slice 0 first
+    /// measures how much unchanged state the known-safe whole-set transaction
+    /// would restage for one changing raster texture.
+    #[cfg(target_arch = "wasm32")]
+    pub fn observe_ar0033_console_whole_set_control(&self) -> Result<String, JsValue> {
+        let model = self
+            .working_model
+            .as_ref()
+            .ok_or_else(|| js_error("no browser working-model scene is retained".to_owned()))?;
+        let observation = observe_ar0033_whole_set_control(
+            model.map_name.clone(),
+            model.renderer.current_resource_set().diagnostic_value(),
+            model.logical_resources,
+            model.width,
+        );
+        serde_json::to_string(&observation)
+            .map_err(|error| js_error(format!("AR-0033 control serialization failed: {error}")))
+    }
+
+    /// Runs the corpus-private AR-0033 B/C/D semantic comparison. The result
+    /// proves only local identity, failure, and ordering behavior; it does not
+    /// mutate or inspect the retained provider session.
+    #[cfg(target_arch = "wasm32")]
+    pub fn observe_ar0033_console_semantic_shadows(&self) -> Result<String, JsValue> {
+        if self.working_model.is_none() {
+            return Err(js_error(
+                "no browser working-model scene is retained".to_owned(),
+            ));
+        }
+        serde_json::to_string(&ar0033_update_study::observe_semantic_shadows())
+            .map_err(|error| js_error(format!("AR-0033 shadow serialization failed: {error}")))
     }
 }
 
@@ -574,11 +1036,55 @@ impl BrowserIntakeSession {
     }
 
     #[cfg(target_arch = "wasm32")]
+    fn refresh_working_console(model: &mut BrowserWorkingModel) -> Result<String, String> {
+        let rgba8 = browser_console_rgba8(&model.debug_console, &model.debug_font, model.width);
+        let candidate = model
+            .renderer
+            .prepare_texture_content_update(WORKING_CONSOLE_TEXTURE, &rgba8)
+            .map_err(|error| error.to_string())?;
+        let observation = model
+            .renderer
+            .commit_texture_content_update(candidate)
+            .map_err(|error| error.to_string())?;
+        let _ = model.debug_console.take_dirty();
+        model.console_updates = model.console_updates.saturating_add(1);
+
+        model.renderer.begin_frame();
+        model
+            .renderer
+            .submit_render_command_set(&model.commands)
+            .map_err(|error| error.to_string())?;
+        model
+            .renderer
+            .present()
+            .map_err(|error| error.to_string())?;
+        if let Some(record) = model.renderer.drain_diagnostics().into_iter().next() {
+            return Err(format!(
+                "browser console WebGPU diagnostic: category={:?}; source={}; message={}",
+                record.kind, record.source, record.message
+            ));
+        }
+        Ok(format!(
+            "browser Doom console refreshed: contract=ADR-0019; map={}; open={}; resource-set={}; texture={:?}; descriptor={}x{}; source-bytes={}; dependent-materials={}; commands-retained=true; update-count={}; provider-diagnostics=0",
+            model.map_name,
+            model.debug_console.is_open(),
+            observation.resource_set.diagnostic_value(),
+            observation.texture,
+            observation.descriptor.width,
+            observation.descriptor.height,
+            observation.source_bytes,
+            observation.dependent_materials,
+            model.console_updates,
+        ))
+    }
+
+    #[cfg(target_arch = "wasm32")]
     async fn render_working_map_inner(
         &mut self,
         canvas: HtmlCanvasElement,
         map_name: &str,
-        retain_provider_session: bool,
+        _retain_provider_session: bool,
+        inject_late_preparation_failure: bool,
     ) -> Result<String, String> {
         self.working_lifetime.replacement_attempts =
             self.working_lifetime.replacement_attempts.saturating_add(1);
@@ -762,21 +1268,34 @@ impl BrowserIntakeSession {
 
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
-        let expected_commands = 2_usize
+        let mut debug_console = self
+            .working_model
+            .as_ref()
+            .map(|model| model.debug_console.clone())
+            .unwrap_or_default();
+        let console_updates = self
+            .working_model
+            .as_ref()
+            .map_or(0, |model| model.console_updates);
+        debug_console.invalidate();
+        let debug_font = browser_debug_font()?;
+        let [console_width, console_height] = DoomDebugConsole::raster_dimensions(width);
+        let console_rgba8 = browser_console_rgba8(&debug_console, &debug_font, width);
+        let expected_commands = 3_usize
             .saturating_add(draws.len().saturating_mul(2))
             .saturating_add(cutout_draws.len().saturating_mul(2))
             .saturating_add(skywall_meshes.len())
             .saturating_add(sky_plane_meshes.len());
         let logical_resources = WorkingLogicalResources {
-            meshes: (1
+            meshes: (2
                 + draws.len()
                 + cutout_draws.len()
                 + skywall_meshes.len()
                 + sky_plane_meshes.len()) as u64,
-            textures: (uploads.len() + cutout_uploads.len() + 1) as u64,
-            materials: (uploads.len() + cutout_uploads.len() + 2) as u64,
-            pipelines: 7,
-            cameras: 1,
+            textures: (uploads.len() + cutout_uploads.len() + 2) as u64,
+            materials: (uploads.len() + cutout_uploads.len() + 3) as u64,
+            pipelines: 8,
+            cameras: 2,
             commands: expected_commands as u64,
             mesh_vertex_bytes: working_mesh_vertex_bytes(
                 &draws,
@@ -784,56 +1303,81 @@ impl BrowserIntakeSession {
                 &skywall_meshes,
                 &sky_plane_meshes,
                 &sky_mesh,
+            )
+            .saturating_add(
+                (Mesh::quad().positions.len() * std::mem::size_of::<[f32; 3]>()) as u64,
             ),
             source_texture_payload_bytes: uploads
                 .iter()
                 .chain(&cutout_uploads)
                 .map(|upload| upload.rgba8.len() as u64)
                 .sum::<u64>()
-                .saturating_add(sky_texture.rgba8.len() as u64),
+                .saturating_add(sky_texture.rgba8.len() as u64)
+                .saturating_add(console_rgba8.len() as u64),
         };
         validate_browser_working_model_budget(logical_resources)?;
         let current_semantic_inventory = working_semantic_inventory(
             format!("DOOM {} prepared inventory", map.map_name),
             logical_resources,
         );
+        if inject_late_preparation_failure {
+            let current = self.working_model.as_mut().ok_or_else(|| {
+                "failed-map preservation probe requires an authoritative working map".to_owned()
+            })?;
+            let preserved_map = current.map_name.clone();
+            let preserved_set = current.renderer.current_resource_set();
+            current.renderer.begin_frame();
+            current
+                .renderer
+                .submit_render_command_set(&current.commands)
+                .map_err(|error| error.to_string())?;
+            current
+                .renderer
+                .present()
+                .map_err(|error| error.to_string())?;
+            if let Some(record) = current.renderer.drain_diagnostics().into_iter().next() {
+                return Err(format!(
+                    "failed-map preservation WebGPU diagnostic: category={:?}; source={}; message={}",
+                    record.kind, record.source, record.message
+                ));
+            }
+            return Ok(format!(
+                "status=complete; probe=late-map-preparation-failure; candidate-map={}; forced-failure=before-provider-staging; preserved-map={preserved_map}; preserved-resource-set={}; last-known-good-presented=true; backend-creations={}; device-creations={}; surface-creations={}; replacement-attempts={}; replacements-presented={}; authority=ADR-0018-current-set-remains-authoritative",
+                map.map_name,
+                preserved_set.diagnostic_value(),
+                self.working_lifetime.backend_creations,
+                self.working_lifetime.device_creations,
+                self.working_lifetime.surface_creations,
+                self.working_lifetime.replacement_attempts,
+                self.working_lifetime.replacements_presented,
+            ));
+        }
         let previous_semantic_inventory = self
             .working_model
             .as_ref()
             .map(|previous| previous.semantic_inventory.clone());
-        // CPU preparation above coexists with the current map. Alternative A
-        // then replaces the whole backend; the private Alternative-B path
-        // keeps its provider session but retires the old logical scene before
-        // uploading the successor. The latter is intentionally not claimed to
-        // preserve the last-known-good scene if GPU staging fails.
-        let mut retained_renderer = None;
-        let mut reset_observation: Option<ExperimentalSceneResourceResetObservation> = None;
-        if let Some(previous) = self.working_model.take() {
-            self.working_lifetime.retire(previous.logical_resources);
-            if retain_provider_session && previous.width == width && previous.height == height {
-                let BrowserWorkingModel {
-                    mut renderer,
-                    logical_resources: _,
-                    semantic_inventory: _,
-                    commands: _,
-                    position: _,
-                    yaw: _,
-                    pitch: _,
-                    width: _,
-                    height: _,
-                    far_plane: _,
-                } = previous;
-                let observation = renderer.experimental_reset_scene_resources();
-                self.working_lifetime.scene_resets =
-                    self.working_lifetime.scene_resets.saturating_add(1);
-                reset_observation = Some(observation);
-                retained_renderer = Some(renderer);
+        // CPU preparation above coexists with the current authoritative map.
+        // Provider realization now stages beside that map and cannot mutate it
+        // until the complete candidate validates and commits.
+        let previous = self.working_model.take();
+        let mut candidate = if let Some(current) = previous {
+            if current.width != width || current.height != height {
+                self.working_model = Some(current);
+                return Err("working-model canvas dimensions changed during retained resource-set replacement".into());
             }
-        }
-        let mut renderer = if let Some(renderer) = retained_renderer {
-            renderer
+            let stage = match current.renderer.begin_resource_set_stage() {
+                Ok(stage) => stage,
+                Err(error) => {
+                    self.working_model = Some(current);
+                    return Err(error.to_string());
+                }
+            };
+            WorkingSceneCandidate::Replacement {
+                current: Box::new(current),
+                stage,
+            }
         } else {
-            let renderer = WgpuBackend::for_window(canvas, width, height)
+            let backend = WgpuBackend::for_window(canvas, width, height)
                 .await
                 .map_err(|error| error.to_string())?;
             self.working_lifetime.backend_creations =
@@ -842,265 +1386,320 @@ impl BrowserIntakeSession {
                 self.working_lifetime.device_creations.saturating_add(1);
             self.working_lifetime.surface_creations =
                 self.working_lifetime.surface_creations.saturating_add(1);
-            renderer
+            WorkingSceneCandidate::Initial(backend)
         };
-        let adapter_name = renderer.adapter_name().to_owned();
-        let backend_api = renderer.backend_api();
-        let device_kind = renderer.device_kind();
-        for upload in uploads.iter().chain(&cutout_uploads) {
+        let (adapter_name, backend_api, device_kind) = match &candidate {
+            WorkingSceneCandidate::Initial(backend) => (
+                backend.adapter_name().to_owned(),
+                backend.backend_api(),
+                backend.device_kind(),
+            ),
+            WorkingSceneCandidate::Replacement { current, .. } => (
+                current.renderer.adapter_name().to_owned(),
+                current.renderer.backend_api(),
+                current.renderer.device_kind(),
+            ),
+        };
+        let far_plane = radius * 8.0;
+        let yaw = observer_yaw_from_forward(forward);
+        let pitch = 0.0;
+        let population_result = (|| -> Result<Vec<RenderCommand>, String> {
+            let renderer = candidate.writer();
+            for upload in uploads.iter().chain(&cutout_uploads) {
+                renderer
+                    .create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)
+                    .map_err(|error| error.to_string())?;
+                renderer
+                    .upload_material(upload.material, &upload.material_value)
+                    .map_err(|error| error.to_string())?;
+            }
             renderer
-                .create_texture_rgba8(upload.texture, upload.descriptor, &upload.rgba8)
+                .create_texture_rgba8(WORKING_SKY_TEXTURE, sky_info.descriptor, &sky_texture.rgba8)
                 .map_err(|error| error.to_string())?;
             renderer
-                .upload_material(upload.material, &upload.material_value)
+                .upload_material(
+                    WORKING_SKY_MATERIAL,
+                    &Material::new("doom-browser-working-sky", Color::rgb(1.0, 1.0, 1.0))
+                        .with_texture(WORKING_SKY_TEXTURE)
+                        .with_texture_sampler(sky_info.sampler),
+                )
                 .map_err(|error| error.to_string())?;
-        }
-        renderer
-            .create_texture_rgba8(WORKING_SKY_TEXTURE, sky_info.descriptor, &sky_texture.rgba8)
-            .map_err(|error| error.to_string())?;
-        renderer
-            .upload_material(
-                WORKING_SKY_MATERIAL,
-                &Material::new("doom-browser-working-sky", Color::rgb(1.0, 1.0, 1.0))
-                    .with_texture(WORKING_SKY_TEXTURE)
-                    .with_texture_sampler(sky_info.sampler),
-            )
-            .map_err(|error| error.to_string())?;
-        renderer
-            .upload_material(
-                WORKING_SKY_BOUNDARY_MATERIAL,
-                &Material::new(
-                    "doom-browser-working-sky-boundary",
-                    Color::rgb(0.0, 0.0, 0.0),
-                ),
-            )
-            .map_err(|error| error.to_string())?;
-
-        const SKY_MESH: MeshHandle = MeshHandle(9_100_000);
-        const OPAQUE_MESH_BASE: u64 = 1;
-        let cutout_mesh_base = draws.len() as u64 + 1;
-        let skywall_mesh_base = cutout_mesh_base + cutout_draws.len() as u64;
-        let sky_plane_mesh_base = skywall_mesh_base + skywall_meshes.len() as u64;
-        renderer.upload_mesh(SKY_MESH, &sky_mesh);
-        for (index, draw) in draws.iter().enumerate() {
-            renderer.upload_mesh(MeshHandle(OPAQUE_MESH_BASE + index as u64), &draw.mesh);
-        }
-        for (index, draw) in cutout_draws.iter().enumerate() {
-            renderer.upload_mesh(MeshHandle(cutout_mesh_base + index as u64), &draw.mesh);
-        }
-        for (index, mesh) in skywall_meshes.iter().enumerate() {
-            renderer.upload_mesh(MeshHandle(skywall_mesh_base + index as u64), mesh);
-        }
-        for (index, mesh) in sky_plane_meshes.iter().enumerate() {
-            renderer.upload_mesh(MeshHandle(sky_plane_mesh_base + index as u64), mesh);
-        }
-
-        let opaque_state = PipelineRenderState {
-            blend: BlendMode::Opaque,
-            depth_test: DepthTest::LessEqual,
-            depth_write: true,
-            cull_mode: CullMode::Back,
-            color_write: ColorWriteMask::ALL,
-        };
-        let opaque_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::new("doom-browser-working-opaque", PipelineKind::Textured3d)
-                    .with_render_state(opaque_state)
-                    .map_err(|error| error.to_string())?
-                    .with_stencil_mode(StencilMode::RequireZero),
-            )
-            .map_err(|error| error.to_string())?;
-        let opaque_depth_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::new(
-                    "doom-browser-working-opaque-depth",
-                    PipelineKind::Textured3d,
+            renderer
+                .upload_material(
+                    WORKING_SKY_BOUNDARY_MATERIAL,
+                    &Material::new(
+                        "doom-browser-working-sky-boundary",
+                        Color::rgb(0.0, 0.0, 0.0),
+                    ),
                 )
-                .with_render_state(PipelineRenderState {
-                    color_write: ColorWriteMask::NONE,
-                    ..opaque_state
-                })
-                .map_err(|error| error.to_string())?,
-            )
-            .map_err(|error| error.to_string())?;
-        let one_sided_depth_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::new(
-                    "doom-browser-working-one-sided-depth",
-                    PipelineKind::Textured3d,
+                .map_err(|error| error.to_string())?;
+            renderer
+                .create_texture_rgba8(
+                    WORKING_CONSOLE_TEXTURE,
+                    Rgba8TextureDescriptor::new(
+                        console_width,
+                        console_height,
+                        Rgba8TextureColorSpace::Srgb,
+                    ),
+                    &console_rgba8,
                 )
-                .with_render_state(PipelineRenderState {
-                    cull_mode: CullMode::None,
-                    color_write: ColorWriteMask::NONE,
-                    ..opaque_state
-                })
-                .map_err(|error| error.to_string())?,
-            )
-            .map_err(|error| error.to_string())?;
-        let sky_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::new("doom-browser-working-panorama", PipelineKind::Textured3d)
+                .map_err(|error| error.to_string())?;
+            renderer
+                .upload_material(
+                    WORKING_CONSOLE_MATERIAL,
+                    &Material::new("doom-browser-debug-console", Color::rgb(1.0, 1.0, 1.0))
+                        .with_texture(WORKING_CONSOLE_TEXTURE),
+                )
+                .map_err(|error| error.to_string())?;
+
+            const SKY_MESH: MeshHandle = MeshHandle(9_100_000);
+            const OPAQUE_MESH_BASE: u64 = 1;
+            let cutout_mesh_base = draws.len() as u64 + 1;
+            let skywall_mesh_base = cutout_mesh_base + cutout_draws.len() as u64;
+            let sky_plane_mesh_base = skywall_mesh_base + skywall_meshes.len() as u64;
+            renderer.upload_mesh(SKY_MESH, &sky_mesh);
+            renderer.upload_mesh(WORKING_CONSOLE_MESH, &Mesh::quad());
+            for (index, draw) in draws.iter().enumerate() {
+                renderer.upload_mesh(MeshHandle(OPAQUE_MESH_BASE + index as u64), &draw.mesh);
+            }
+            for (index, draw) in cutout_draws.iter().enumerate() {
+                renderer.upload_mesh(MeshHandle(cutout_mesh_base + index as u64), &draw.mesh);
+            }
+            for (index, mesh) in skywall_meshes.iter().enumerate() {
+                renderer.upload_mesh(MeshHandle(skywall_mesh_base + index as u64), mesh);
+            }
+            for (index, mesh) in sky_plane_meshes.iter().enumerate() {
+                renderer.upload_mesh(MeshHandle(sky_plane_mesh_base + index as u64), mesh);
+            }
+
+            let opaque_state = PipelineRenderState {
+                blend: BlendMode::Opaque,
+                depth_test: DepthTest::LessEqual,
+                depth_write: true,
+                cull_mode: CullMode::Back,
+                color_write: ColorWriteMask::ALL,
+            };
+            let opaque_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::new("doom-browser-working-opaque", PipelineKind::Textured3d)
+                        .with_render_state(opaque_state)
+                        .map_err(|error| error.to_string())?
+                        .with_stencil_mode(StencilMode::RequireZero),
+                )
+                .map_err(|error| error.to_string())?;
+            let opaque_depth_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::new(
+                        "doom-browser-working-opaque-depth",
+                        PipelineKind::Textured3d,
+                    )
+                    .with_render_state(PipelineRenderState {
+                        color_write: ColorWriteMask::NONE,
+                        ..opaque_state
+                    })
+                    .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())?;
+            let one_sided_depth_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::new(
+                        "doom-browser-working-one-sided-depth",
+                        PipelineKind::Textured3d,
+                    )
+                    .with_render_state(PipelineRenderState {
+                        cull_mode: CullMode::None,
+                        color_write: ColorWriteMask::NONE,
+                        ..opaque_state
+                    })
+                    .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())?;
+            let sky_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::new("doom-browser-working-panorama", PipelineKind::Textured3d)
+                        .with_render_state(PipelineRenderState {
+                            blend: BlendMode::Opaque,
+                            depth_test: DepthTest::LessEqual,
+                            depth_write: false,
+                            cull_mode: CullMode::None,
+                            color_write: ColorWriteMask::ALL,
+                        })
+                        .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())?;
+            let boundary_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::new(
+                        "doom-browser-working-sky-boundary",
+                        PipelineKind::LitColor3d,
+                    )
                     .with_render_state(PipelineRenderState {
                         blend: BlendMode::Opaque,
                         depth_test: DepthTest::LessEqual,
                         depth_write: false,
                         cull_mode: CullMode::None,
-                        color_write: ColorWriteMask::ALL,
+                        color_write: ColorWriteMask::NONE,
                     })
-                    .map_err(|error| error.to_string())?,
-            )
-            .map_err(|error| error.to_string())?;
-        let boundary_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::new(
-                    "doom-browser-working-sky-boundary",
-                    PipelineKind::LitColor3d,
+                    .map_err(|error| error.to_string())?
+                    .with_stencil_mode(StencilMode::InvertOnDepthPass),
                 )
-                .with_render_state(PipelineRenderState {
-                    blend: BlendMode::Opaque,
-                    depth_test: DepthTest::LessEqual,
-                    depth_write: false,
-                    cull_mode: CullMode::None,
-                    color_write: ColorWriteMask::NONE,
-                })
-                .map_err(|error| error.to_string())?
-                .with_stencil_mode(StencilMode::InvertOnDepthPass),
-            )
-            .map_err(|error| error.to_string())?;
-        let cutout = CategoricalCutout::new(
-            CutoutThreshold::new(0.0).map_err(|error| error.to_string())?,
-            CutoutComparison::DiscardAtOrBelow,
-        );
-        let cutout_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::textured_3d_cutout("doom-browser-working-cutout", cutout)
-                    .with_stencil_mode(StencilMode::RequireZero),
-            )
-            .map_err(|error| error.to_string())?;
-        let cutout_depth_pipeline = renderer
-            .register_pipeline(
-                &Pipeline::textured_3d_cutout("doom-browser-working-cutout-depth", cutout)
-                    .with_render_state(PipelineRenderState::categorical_cutout_depth_prepass_3d())
-                    .map_err(|error| error.to_string())?,
-            )
-            .map_err(|error| error.to_string())?;
+                .map_err(|error| error.to_string())?;
+            let cutout = CategoricalCutout::new(
+                CutoutThreshold::new(0.0).map_err(|error| error.to_string())?,
+                CutoutComparison::DiscardAtOrBelow,
+            );
+            let cutout_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::textured_3d_cutout("doom-browser-working-cutout", cutout)
+                        .with_stencil_mode(StencilMode::RequireZero),
+                )
+                .map_err(|error| error.to_string())?;
+            let cutout_depth_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::textured_3d_cutout("doom-browser-working-cutout-depth", cutout)
+                        .with_render_state(
+                            PipelineRenderState::categorical_cutout_depth_prepass_3d(),
+                        )
+                        .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())?;
+            let console_pipeline = renderer
+                .register_pipeline(
+                    &Pipeline::new("doom-browser-debug-console", PipelineKind::Texture2d)
+                        .with_render_state(PipelineRenderState::painter_ordered_2d())
+                        .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())?;
 
-        let far_plane = radius * 8.0;
-        let yaw = observer_yaw_from_forward(forward);
-        let pitch = 0.0;
-        let mut camera = Camera::perspective_3d(width as f32, height as f32);
-        camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
-            60_f32.to_radians(),
-            width as f32 / height as f32,
-            0.1,
-            far_plane,
-        )
-        .ok_or_else(|| "working-model camera projection is invalid".to_owned())?;
-        camera.view = tokimu_core::math::try_view_look_at_rh(
-            observer,
-            observer + observer_direction(yaw, pitch) * 128.0,
-            Vec3::Y,
-        )
-        .ok_or_else(|| "working-model source-spawn camera basis is invalid".to_owned())?;
-        renderer.upload_camera(WORKING_CAMERA, camera);
+            let mut camera = Camera::perspective_3d(width as f32, height as f32);
+            camera.projection = tokimu_core::math::try_projection_perspective_rh_gl(
+                60_f32.to_radians(),
+                width as f32 / height as f32,
+                0.1,
+                far_plane,
+            )
+            .ok_or_else(|| "working-model camera projection is invalid".to_owned())?;
+            camera.view = tokimu_core::math::try_view_look_at_rh(
+                observer,
+                observer + observer_direction(yaw, pitch) * 128.0,
+                Vec3::Y,
+            )
+            .ok_or_else(|| "working-model source-spawn camera basis is invalid".to_owned())?;
+            renderer.upload_camera(WORKING_CAMERA, camera);
+            renderer.upload_camera(
+                WORKING_CONSOLE_CAMERA,
+                Camera::orthographic_2d(width as f32, height as f32),
+            );
 
-        let mut commands = vec![
-            RenderCommand::Clear(ClearCommand {
-                color: Color::rgb(0.015, 0.02, 0.025),
-            }),
-            RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: SKY_MESH,
-                material: WORKING_SKY_MATERIAL,
-                pipeline: sky_pipeline,
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
-                viewport: None,
-            }),
-        ];
-        for (index, draw) in draws.iter().enumerate() {
+            let mut commands = vec![
+                RenderCommand::Clear(ClearCommand {
+                    color: Color::rgb(0.015, 0.02, 0.025),
+                }),
+                RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: SKY_MESH,
+                    material: WORKING_SKY_MATERIAL,
+                    pipeline: sky_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }),
+            ];
+            for (index, draw) in draws.iter().enumerate() {
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(OPAQUE_MESH_BASE + index as u64),
+                    material: draw.material,
+                    pipeline: if is_working_one_sided_wall(draw, &map) {
+                        one_sided_depth_pipeline
+                    } else {
+                        opaque_depth_pipeline
+                    },
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }));
+            }
+            for (index, draw) in cutout_draws.iter().enumerate() {
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(cutout_mesh_base + index as u64),
+                    material: draw.material,
+                    pipeline: cutout_depth_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }));
+            }
+            for index in 0..skywall_meshes.len() {
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(skywall_mesh_base + index as u64),
+                    material: WORKING_SKY_BOUNDARY_MATERIAL,
+                    pipeline: boundary_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }));
+            }
+            for index in 0..sky_plane_meshes.len() {
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(sky_plane_mesh_base + index as u64),
+                    material: WORKING_SKY_BOUNDARY_MATERIAL,
+                    pipeline: boundary_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }));
+            }
+            for (index, draw) in draws.iter().enumerate() {
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(OPAQUE_MESH_BASE + index as u64),
+                    material: draw.material,
+                    pipeline: opaque_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }));
+            }
+            for (index, draw) in cutout_draws.iter().enumerate() {
+                commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
+                    mesh: MeshHandle(cutout_mesh_base + index as u64),
+                    material: draw.material,
+                    pipeline: cutout_pipeline,
+                    instance: Instance2d::identity(),
+                    camera: Some(WORKING_CAMERA),
+                    viewport: None,
+                }));
+            }
+            let console_height_world = 2.0 * console_height as f32 / height as f32;
             commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: MeshHandle(OPAQUE_MESH_BASE + index as u64),
-                material: draw.material,
-                pipeline: if is_working_one_sided_wall(draw, &map) {
-                    one_sided_depth_pipeline
-                } else {
-                    opaque_depth_pipeline
-                },
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
+                mesh: WORKING_CONSOLE_MESH,
+                material: WORKING_CONSOLE_MATERIAL,
+                pipeline: console_pipeline,
+                instance: Instance2d::new(
+                    [0.0, 1.0 - console_height_world * 0.5],
+                    [2.0 * width as f32 / height as f32, console_height_world],
+                    0.0,
+                ),
+                camera: Some(WORKING_CONSOLE_CAMERA),
                 viewport: None,
             }));
-        }
-        for (index, draw) in cutout_draws.iter().enumerate() {
-            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: MeshHandle(cutout_mesh_base + index as u64),
-                material: draw.material,
-                pipeline: cutout_depth_pipeline,
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
-                viewport: None,
-            }));
-        }
-        for index in 0..skywall_meshes.len() {
-            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: MeshHandle(skywall_mesh_base + index as u64),
-                material: WORKING_SKY_BOUNDARY_MATERIAL,
-                pipeline: boundary_pipeline,
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
-                viewport: None,
-            }));
-        }
-        for index in 0..sky_plane_meshes.len() {
-            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: MeshHandle(sky_plane_mesh_base + index as u64),
-                material: WORKING_SKY_BOUNDARY_MATERIAL,
-                pipeline: boundary_pipeline,
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
-                viewport: None,
-            }));
-        }
-        for (index, draw) in draws.iter().enumerate() {
-            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: MeshHandle(OPAQUE_MESH_BASE + index as u64),
-                material: draw.material,
-                pipeline: opaque_pipeline,
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
-                viewport: None,
-            }));
-        }
-        for (index, draw) in cutout_draws.iter().enumerate() {
-            commands.push(RenderCommand::DrawMesh(DrawMeshCommand {
-                mesh: MeshHandle(cutout_mesh_base + index as u64),
-                material: draw.material,
-                pipeline: cutout_pipeline,
-                instance: Instance2d::identity(),
-                camera: Some(WORKING_CAMERA),
-                viewport: None,
-            }));
-        }
-        if commands.len() != expected_commands {
-            return Err(format!(
+            if commands.len() != expected_commands {
+                return Err(format!(
                 "browser working-model command accounting mismatch: expected={expected_commands}; actual={}",
                 commands.len()
             ));
-        }
-        renderer.begin_frame();
-        renderer.submit(&commands);
-        renderer.present().map_err(|error| error.to_string())?;
-        if let Some(record) = renderer.drain_diagnostics().into_iter().next() {
-            return Err(format!(
-                "working-model initial WebGPU diagnostic: category={:?}; source={}; message={}",
-                record.kind, record.source, record.message
-            ));
-        }
-
-        self.working_lifetime.replacements_presented = self
-            .working_lifetime
-            .replacements_presented
-            .saturating_add(1);
+            }
+            renderer.begin_candidate_frame();
+            renderer.submit_candidate(&commands);
+            Ok(commands)
+        })();
+        let commands = match population_result {
+            Ok(commands) => commands,
+            Err(error) => {
+                if let WorkingSceneCandidate::Replacement { current, .. } = candidate {
+                    self.working_model = Some(*current);
+                }
+                return Err(error);
+            }
+        };
 
         let semantic_correlation = previous_semantic_inventory
             .map(|previous| {
@@ -1109,9 +1708,58 @@ impl BrowserIntakeSession {
             .transpose()
             .map_err(|error| format!("Alternative-C inventory correlation failed: {error:?}"))?;
 
+        let (renderer, command_set, commit_observation) = match candidate {
+            WorkingSceneCandidate::Initial(mut backend) => {
+                backend.present().map_err(|error| error.to_string())?;
+                if let Some(record) = backend.drain_diagnostics().into_iter().next() {
+                    return Err(format!(
+                        "working-model initial WebGPU diagnostic: category={:?}; source={}; message={}",
+                        record.kind, record.source, record.message
+                    ));
+                }
+                let renderer = backend.into_resource_set_session();
+                let command_set = renderer.scope_render_commands(&commands);
+                (renderer, command_set, None)
+            }
+            WorkingSceneCandidate::Replacement { current, stage } => {
+                let mut current = *current;
+                let command_set = stage.scope_render_commands(&commands);
+                let observation = match current.renderer.commit_resource_set_stage(stage) {
+                    Ok(observation) => observation,
+                    Err(error) => {
+                        self.working_model = Some(current);
+                        return Err(error.to_string());
+                    }
+                };
+                current.renderer.begin_frame();
+                current
+                    .renderer
+                    .submit_render_command_set(&command_set)
+                    .map_err(|error| error.to_string())?;
+                current
+                    .renderer
+                    .present()
+                    .map_err(|error| error.to_string())?;
+                if let Some(record) = current.renderer.drain_diagnostics().into_iter().next() {
+                    return Err(format!(
+                        "working-model replacement WebGPU diagnostic: category={:?}; source={}; message={}",
+                        record.kind, record.source, record.message
+                    ));
+                }
+                self.working_lifetime.retire(current.logical_resources);
+                (current.renderer, command_set, Some(observation))
+            }
+        };
+
+        self.working_lifetime.replacements_presented = self
+            .working_lifetime
+            .replacements_presented
+            .saturating_add(1);
+
         self.working_model = Some(BrowserWorkingModel {
+            map_name: map.map_name.clone(),
             renderer,
-            commands,
+            commands: command_set,
             logical_resources,
             semantic_inventory: current_semantic_inventory,
             position: observer,
@@ -1120,15 +1768,14 @@ impl BrowserIntakeSession {
             width,
             height,
             far_plane,
+            debug_console,
+            debug_font,
+            console_updates,
         });
 
-        let lifetime_alternative = if retain_provider_session {
-            "adapter-private-scene-reset"
-        } else {
-            "whole-backend-replacement"
-        };
+        let lifetime_alternative = "ADR-0018-retained-resource-set-session";
         Ok(format!(
-            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-alternative={}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; scene-resets={}; reset-observation={:?}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retained-provider-session={}; alternative-c-inventory-correlation={semantic_correlation:?}; alternative-c-authority=semantic-shadow-not-provider-lifetime; physical-gpu-reclamation=unobserved",
+            "browser working-model frame presented: map={}; strategy=global-full-plus-grouped-sky-parity; stages=sky-panorama>full-world-depth-prepass>paired-skywall-and-source-sky-plane-stencil-inversion>even-parity-world-color; sector-boundary-trim=true; opaque={}; cutouts={}; skywalls={}; sky-planes={}; surface-triangles={}; edge-conformance-insertions={}; camera=source-spawn; embedding=preserve-north; backend={backend_api}; device={device_kind}; adapter={adapter_name}; canvas={}x{}; lifetime-alternative={}; replacement-attempts={}; replacements-presented={}; backend-creations={}; device-creations={}; surface-creations={}; resource-set-commit={commit_observation:?}; current-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; current-logical-uploads=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{}]; current-same-handle-replacements=[meshes:0,textures:0,materials:0,pipelines:0,cameras:0]; current-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retired-logical-sets={}; retired-logical-resources=[meshes:{},textures:{},materials:{},pipelines:{},cameras:{},commands:{}]; retired-estimated-bytes=[mesh-vertices:{},source-texture-payloads:{}]; retained-provider-session=true; alternative-c-inventory-correlation={semantic_correlation:?}; resource-set-authority=ADR-0018-provider-neutral-resource-set-session; physical-gpu-reclamation=unobserved",
             map.map_name,
             draws.len(),
             cutout_draws.len(),
@@ -1144,8 +1791,6 @@ impl BrowserIntakeSession {
             self.working_lifetime.backend_creations,
             self.working_lifetime.device_creations,
             self.working_lifetime.surface_creations,
-            self.working_lifetime.scene_resets,
-            reset_observation,
             logical_resources.meshes,
             logical_resources.textures,
             logical_resources.materials,
@@ -1170,7 +1815,6 @@ impl BrowserIntakeSession {
             self.working_lifetime
                 .retired_resources
                 .source_texture_payload_bytes,
-            retain_provider_session,
         ))
     }
 
@@ -1207,6 +1851,19 @@ impl BrowserIntakeSession {
                 record.kind, record.source, record.message
             ));
         }
+        if model.debug_console.is_open() {
+            model.renderer.begin_frame();
+            model
+                .renderer
+                .submit_render_command_set(&model.commands)
+                .map_err(|error| error.to_string())?;
+            model
+                .renderer
+                .present()
+                .map(|_| ())
+                .map_err(|error| error.to_string())?;
+            return Ok(());
+        }
         let delta_seconds = delta_seconds.clamp(0.0, 0.25);
         model.yaw += yaw_delta.clamp(-0.5, 0.5);
         model.pitch = (model.pitch + pitch_delta.clamp(-0.5, 0.5)).clamp(-1.5, 1.5);
@@ -1238,7 +1895,10 @@ impl BrowserIntakeSession {
         .ok_or_else(|| "working-model inspection camera basis is invalid".to_owned())?;
         model.renderer.upload_camera(WORKING_CAMERA, camera);
         model.renderer.begin_frame();
-        model.renderer.submit(&model.commands);
+        model
+            .renderer
+            .submit_render_command_set(&model.commands)
+            .map_err(|error| error.to_string())?;
         model
             .renderer
             .present()
@@ -1960,5 +2620,54 @@ mod tests {
         assert_eq!(inventory.pipelines, resources.pipelines);
         assert_eq!(inventory.cameras, resources.cameras);
         assert_eq!(inventory.commands, resources.commands);
+    }
+
+    #[test]
+    fn ar0033_console_edit_changes_only_one_fixed_size_texture() {
+        let inventory = Ar0033ConsoleEditInventory::for_canvas_width(960);
+        assert_eq!(inventory.changing_textures, 1);
+        assert_eq!(inventory.changing_meshes, 0);
+        assert_eq!(inventory.changing_materials, 0);
+        assert_eq!(inventory.changing_pipelines, 0);
+        assert_eq!(inventory.changing_cameras, 0);
+        assert_eq!(inventory.changing_commands, 0);
+        assert_eq!(inventory.stable_console_meshes, 1);
+        assert_eq!(inventory.stable_console_materials, 1);
+        assert_eq!(inventory.stable_console_pipelines, 1);
+        assert_eq!(inventory.stable_console_cameras, 1);
+        assert_eq!(inventory.stable_console_commands, 1);
+        assert_eq!(
+            (inventory.raster_width, inventory.raster_height),
+            (960, 264)
+        );
+        assert_eq!(inventory.raster_rgba8_bytes, 1_013_760);
+    }
+
+    #[test]
+    fn ar0033_whole_set_control_exposes_unchanged_staging_amplification() {
+        let scene = WorkingLogicalResources {
+            meshes: 1_117,
+            textures: 55,
+            materials: 56,
+            pipelines: 7,
+            cameras: 1,
+            commands: 2_068,
+            mesh_vertex_bytes: 284_736,
+            source_texture_payload_bytes: 1_879_040,
+        };
+        let observation = observe_ar0033_whole_set_control("E1M1".to_owned(), 7, scene, 960);
+
+        assert_eq!(observation.current_resource_set, 7);
+        assert_eq!(observation.changing_logical_resources, 1);
+        assert_eq!(observation.staged_logical_resources, 1_241);
+        assert_eq!(observation.regenerated_commands, 2_069);
+        assert_eq!(observation.unchanged_commands, 2_068);
+        assert_eq!(observation.set_turnovers_per_edit, 1);
+        assert_eq!(
+            observation.provider_execution,
+            "not-run-accounting-model-only"
+        );
+        assert!(observation.logical_resource_amplification > 1_000.0);
+        assert!(observation.source_byte_amplification > 3.0);
     }
 }

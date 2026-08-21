@@ -225,6 +225,11 @@ const DOOM_TIC_SECONDS: f64 = 1.0 / 35.0;
 
 struct App {
     map_name: String,
+    import_warnings: Vec<String>,
+    runtime_warnings: Vec<String>,
+    preparation_timings: DoomPreparationTimings,
+    upload_cpu_us: Option<u128>,
+    last_frame_cpu_us: Option<u128>,
     available_maps: Vec<String>,
     launch_arguments: Vec<String>,
     map_rotation_exit_requested: bool,
@@ -383,6 +388,8 @@ struct OrderedPreparationIdentity {
 #[derive(Clone)]
 struct SceneInput {
     map_name: String,
+    import_warnings: Vec<String>,
+    preparation_timings: DoomPreparationTimings,
     audio_assets: Option<DoomLiveAudioAssets>,
     available_maps: Vec<String>,
     things: Vec<DoomThing>,
@@ -409,6 +416,13 @@ struct SceneInput {
     membership_selection: DoomMembershipSelectionInput,
     activation_source: DoomLineActivationSource,
     door_geometry_source: DoomDynamicDoorGeometrySource,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct DoomPreparationTimings {
+    wad_parse_us: u128,
+    map_decode_us: u128,
+    lowering_us: u128,
 }
 
 #[derive(Clone, Debug)]
@@ -760,6 +774,7 @@ fn prepare_scene(
     sector_boundary_trim: bool,
     prepare_audio: bool,
 ) -> PlatformResult<SceneInput> {
+    let mut import_warnings = Vec::new();
     let bytes = fs::read(package)?;
     let mut space =
         InMemoryResourceSpace::new(StoreId::from_u128(5_101), AddressCasePolicy::Sensitive);
@@ -771,6 +786,7 @@ fn prepare_scene(
     )?;
     let name = ResourceName::parse("canonical-doom-package.zip", AddressCasePolicy::Sensitive)?;
     space.insert_resource(folder, name.clone(), bytes, ResourceMetadata::default())?;
+    let wad_parse_started = Instant::now();
     let read = read_wad_package_member(
         &space,
         InspectWadPackageRequest {
@@ -792,21 +808,50 @@ fn prepare_scene(
         },
         &ZipArchiveProvider,
     )?;
+    let wad_parse_us = wad_parse_started.elapsed().as_micros();
     let audio_assets = if prepare_audio {
         match prepare_doom_live_audio_assets(&read.bytes, &read.observation.wad, map_name) {
             Ok(assets) => Some(assets),
             Err(error) => {
-                eprintln!(
-                    "{map_name} live audio preparation unavailable: {error}; gameplay-continues=true"
-                );
+                let warning =
+                    format!("live-audio-preparation-unavailable:{error}; gameplay-continues=true");
+                eprintln!("{map_name} {warning}");
+                import_warnings.push(warning);
                 None
             }
         }
     } else {
         None
     };
+    let map_decode_started = Instant::now();
     let selection = select_doom_episode_map(&read.observation.wad, map_name)?;
     let map = decode_doom_map_core(&read.bytes, &selection, MAP_LIMITS)?;
+    let map_decode_us = map_decode_started.elapsed().as_micros();
+    let lowering_started = Instant::now();
+    let unsupported_linedefs = map
+        .linedefs
+        .iter()
+        .filter(|linedef| !matches!(linedef.special, 0 | 1 | 11 | 36 | 48 | 88))
+        .map(|linedef| (linedef.source.record_index, linedef.special))
+        .collect::<Vec<_>>();
+    if let Some(warning) = bounded_source_warning(
+        "unsupported-linedef-specials",
+        "special",
+        &unsupported_linedefs,
+    ) {
+        import_warnings.push(warning);
+    }
+    let unsupported_things = map
+        .things
+        .iter()
+        .filter(|thing| hello_doom_e1m1::things::classify_e1m1_thing_kind(thing.kind).is_none())
+        .map(|thing| (thing.source.record_index, thing.kind))
+        .collect::<Vec<_>>();
+    if let Some(warning) =
+        bounded_source_warning("unsupported-thing-kinds", "kind", &unsupported_things)
+    {
+        import_warnings.push(warning);
+    }
     let sprite_frames = decode_doom_sprite_frame_rotations(&read.observation.wad)?;
     let available_maps = read
         .observation
@@ -1063,10 +1108,11 @@ fn prepare_scene(
         match result {
             Ok(bake) => Some(bake),
             Err(error) => {
-                eprintln!(
-                    "{} source-boundary surface trim unavailable: {error}; fallback=finite-bsp-path-subsector-surfaces",
-                    map.map_name
+                let warning = format!(
+                    "source-boundary-surface-trim-unavailable:{error}; fallback=finite-bsp-path-subsector-surfaces"
                 );
+                eprintln!("{} {warning}", map.map_name);
+                import_warnings.push(warning);
                 None
             }
         }
@@ -1237,8 +1283,15 @@ fn prepare_scene(
     let cutout_uploads =
         build_experimental_cutout_texture_uploads(&masked_textures, uploads.len() as u64 + 1);
     let cutout_draws = build_experimental_cutout_draw_plan(&cutouts, &cutout_uploads)?;
+    let preparation_timings = DoomPreparationTimings {
+        wad_parse_us,
+        map_decode_us,
+        lowering_us: lowering_started.elapsed().as_micros(),
+    };
     Ok(SceneInput {
         map_name: map.map_name.clone(),
+        import_warnings,
+        preparation_timings,
         audio_assets,
         available_maps,
         things: map.things.clone(),
@@ -1269,6 +1322,22 @@ fn prepare_scene(
             wall_extents,
             wall_materials,
         },
+    })
+}
+
+fn bounded_source_warning(
+    family: &str,
+    value_label: &str,
+    records: &[(u32, u16)],
+) -> Option<String> {
+    (!records.is_empty()).then(|| {
+        let samples = records
+            .iter()
+            .take(8)
+            .map(|(record, value)| format!("{record}:{value_label}{value}"))
+            .collect::<Vec<_>>()
+            .join("|");
+        format!("{family}:count={}:samples={samples}", records.len())
     })
 }
 

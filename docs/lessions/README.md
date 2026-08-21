@@ -25,6 +25,10 @@ ADR, or an active Architectural Review.
 - [Bounds authority follows the bounded representation](bounds-authority-follows-bounded-representation.md)
   — audit raw data, declared source members, and derived geometry separately
   before granting a hierarchy bound rejection authority.
+- [Host shortcuts are input-boundary constraints](host-shortcuts-are-input-boundary-constraints.md)
+  — test complete chords, preserve externally observed terminal outcomes, and
+  consider platform-reported binding conflicts without moving application
+  action policy into the engine core.
 
 ## Maintenance Rule
 

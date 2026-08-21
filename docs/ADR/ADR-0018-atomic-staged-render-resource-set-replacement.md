@@ -125,7 +125,8 @@ This ADR does not:
 - combine ordinary resource-set replacement with device-loss recovery, backend
   recreation, surface lifecycle, or process/page restart;
 - change existing same-handle replacement semantics within one authoritative
-  set; or
+  set (ADR-0019 later admits one orthogonal fixed-descriptor texture-content
+  transaction); or
 - promote the current corpus-private WGPU prototype to stable API.
 
 ## Verification
@@ -149,17 +150,34 @@ This ADR does not:
 
 ### Post-decision implementation record
 
-On 2026-08-20, `tokimu-render` prototyped the provider-neutral
+On 2026-08-20, `tokimu-render` implemented the provider-neutral
 `RenderResourceSetLifecycle`, `RenderResourceSetId`, and `RenderCommandSet`
-surface. The WGPU backend candidate implements it without feature gating. Native unit
-tests prove failure preservation, atomic authority turnover, foreign-authority
-rejection, and stale-command rejection after key reuse; the independent
-resource-identity browser fixture compiles for release WASM against the stable
-surface, and native WGPU passed the complete all-resource-family sequence.
-However, ordinary unscoped `Renderer::submit` remains a bypass: retained A
-commands can be submitted without encountering set validation. The candidate
-therefore remains non-conformant pending an explicit submission-authority
-decision. This does not change the admitted invariant.
+surface. Its first WGPU realization exposed replacement and ordinary unscoped
+`Renderer::submit` on the same object. Native evidence falsified that shape:
+retained A commands bypassed set validation and resolved B's reused local keys.
+
+The selected transaction shape consumes an ordinary backend into an opt-in
+resource-set session. The session implements `RenderResourceSetLifecycle`, does
+not implement `Renderer`, does not expose the underlying backend, and accepts
+only opaque set-scoped command batches. Ordinary backends retain raw submission
+but cannot perform set replacement. Native unit and WGPU evidence prove failure
+preservation, atomic authority turnover, foreign-authority rejection, and
+stale-command rejection after key reuse; a compile-fail contract test proves
+that unscoped submission is unavailable on the replacement session. The
+independent resource-rich browser fixture compiles for release WASM and passes
+the same live browser WGPU sequence with eight draws before failure, after
+failure, after commit, and after current scoped submission, with zero provider
+diagnostics. Native and browser implementation conformance therefore pass for
+the selected transaction surface. This does not expand the admitted invariant.
+
+The Doom browser working model then exercised the same stable surface with a
+heterogeneous real caller. External observer run
+`42344-1787260772989661700` completed 27 E1M1-through-E1M9 presentations in
+one backend/device/surface session. A fully prepared E1M2 candidate was first
+failed before provider staging and E1M1 re-presented unchanged. All successor
+maps then committed through set-scoped batches while grouped-sky preparation
+remained application-owned. This closes the independent resource-rich caller
+gate without deciding physical GPU reclamation.
 
 ## References
 
@@ -168,8 +186,10 @@ decision. This does not change the admitted invariant.
 - `docs/ADR/ADR-0003-capability-ownership-boundary.md`
 - `docs/ADR/ADR-0009-ring-based-verification-failure-containment-and-recovery.md`
 - `docs/ADR/ADR-0017-observable-terminal-failure-and-host-crash-conformance.md`
+- `docs/ADR/ADR-0019-fixed-descriptor-set-scoped-texture-content-replacement.md`
 - `docs/Architectural Reviews/AR-0032-atomic-staged-render-resource-set-replacement.md`
 - `docs/Plans/Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-semantic-generation-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-real-provider-staging-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md`
+- `docs/Plans/DOOM/Evidence/Doom browser retained resource-set rotation evidence.md`

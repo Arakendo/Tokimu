@@ -53,16 +53,25 @@ replacement before a terminal outcome changes the page-subject identity and is
 retained as an unresolved disappearance rather than silently becoming a new
 run.
 
+The owned Chromium-family launch disables background mode and Edge startup
+boost. If the host still hands the launch to another process before page
+acknowledgement, the observer waits for the bounded page acknowledgement rather
+than calling the launcher exit a browser termination. After handoff, page
+identity, heartbeat, and terminal events remain authoritative; missing
+acknowledgement or heartbeat still closes as an unresolved disappearance.
+
 The launch PID is not treated as an owned browser until the instrumented page
 acknowledges the observer. A browser launcher that prints `Opening in existing
 browser session` and exits before that acknowledgement is an unresolved
 startup/ownership failure, not an externally observed browser termination.
 
-For Alternative B, run the retained-session sequence, then the stale-aliasing
-probe, then the destructive atomicity probe. The atomicity probe closes the
-observed workflow. For the Doom workbench, a completed three-round rotation
-closes the workflow automatically. A manual walkabout remains open until the
-operator presses **Complete observed walkabout**.
+For the historical Alternative B fixture, run the retained-session sequence,
+then the stale-aliasing probe, then the destructive atomicity probe. The
+atomicity probe closes that observed workflow. For the Doom workbench, a
+completed three-round ADR-0018 rotation closes the workflow automatically and
+its bounded success detail is retained in the terminal record. A manual
+walkabout remains open until the operator presses **Complete observed
+walkabout**.
 
 Exit codes are stable fixture evidence:
 

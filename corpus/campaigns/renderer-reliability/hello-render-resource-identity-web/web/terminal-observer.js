@@ -36,8 +36,8 @@ export function beginObservedOperation(operation) {
   emit("operation-started", operation);
 }
 
-export function completeObservedOperation(operation = currentOperation) {
-  emit("operation-completed", operation);
+export function completeObservedOperation(operation = currentOperation, detail = "") {
+  emit("operation-completed", operation, detail);
 }
 
 export function rejectObservedOperation(operation, detail) {

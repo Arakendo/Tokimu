@@ -15,6 +15,7 @@ pub enum SubjectTerminalEvent {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SubjectProcessState {
     Running,
+    LauncherHandedOff,
     Exited { code: Option<i32> },
 }
 
@@ -54,22 +55,21 @@ pub fn classify_terminal_outcome(
         };
     }
 
-    if !subject_started && matches!(process_state, SubjectProcessState::Exited { .. }) {
-        return TerminalOutcome::UnresolvedDisappearance {
-            reason: "browser-launcher-exited-before-page-acknowledgement",
-        };
-    }
-
     if let SubjectProcessState::Exited { code } = process_state {
         return TerminalOutcome::ExternallyTerminated { exit_code: code };
     }
 
     if heartbeat_expired {
         return TerminalOutcome::UnresolvedDisappearance {
-            reason: if subject_started {
-                "page-heartbeat-expired-while-browser-process-remained-live"
-            } else {
-                "page-never-acknowledged-observer-before-start-deadline"
+            reason: match (subject_started, process_state) {
+                (true, SubjectProcessState::LauncherHandedOff) => {
+                    "page-heartbeat-expired-after-launcher-handoff"
+                }
+                (true, _) => "page-heartbeat-expired-while-browser-process-remained-live",
+                (false, SubjectProcessState::LauncherHandedOff) => {
+                    "page-never-acknowledged-observer-after-launcher-handoff"
+                }
+                (false, _) => "page-never-acknowledged-observer-before-start-deadline",
             },
         };
     }
@@ -131,16 +131,19 @@ mod tests {
     }
 
     #[test]
-    fn launcher_handoff_before_page_acknowledgement_is_not_browser_termination() {
+    fn launcher_handoff_waits_for_page_acknowledgement() {
         assert_eq!(
-            classify_terminal_outcome(
-                None,
-                SubjectProcessState::Exited { code: Some(0) },
-                false,
-                false,
-            ),
+            classify_terminal_outcome(None, SubjectProcessState::LauncherHandedOff, false, false,),
+            TerminalOutcome::Running
+        );
+    }
+
+    #[test]
+    fn launcher_handoff_without_page_acknowledgement_expires_unresolved() {
+        assert_eq!(
+            classify_terminal_outcome(None, SubjectProcessState::LauncherHandedOff, true, false,),
             TerminalOutcome::UnresolvedDisappearance {
-                reason: "browser-launcher-exited-before-page-acknowledgement",
+                reason: "page-never-acknowledged-observer-after-launcher-handoff",
             }
         );
     }

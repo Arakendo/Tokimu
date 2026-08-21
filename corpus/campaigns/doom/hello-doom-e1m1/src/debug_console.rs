@@ -35,6 +35,16 @@ impl Default for DoomDebugConsole {
 }
 
 impl DoomDebugConsole {
+    /// Reports the fixed presentation extent used by the current corpus
+    /// console without requiring a font provider or performing raster work.
+    /// This is useful when inventorying which resources change on an edit.
+    pub const fn raster_dimensions(width: u32) -> [u32; 2] {
+        [
+            if width < 320 { 320 } else { width },
+            PADDING * 2 + LINE_HEIGHT * (VISIBLE_TRANSCRIPT_LINES as u32 + 2),
+        ]
+    }
+
     pub const fn is_open(&self) -> bool {
         self.open
     }
@@ -95,8 +105,7 @@ impl DoomDebugConsole {
     }
 
     pub fn rasterize(&self, font: &UiFontRasterizer, width: u32) -> DebugConsoleRaster {
-        let width = width.max(320);
-        let height = PADDING * 2 + LINE_HEIGHT * (VISIBLE_TRANSCRIPT_LINES as u32 + 2);
+        let [width, height] = Self::raster_dimensions(width);
         let mut rgba8 = vec![0_u8; width as usize * height as usize * 4];
         for pixel in rgba8.chunks_exact_mut(4) {
             pixel.copy_from_slice(&[3, 13, 16, 248]);
@@ -243,6 +252,12 @@ mod tests {
         let mut console = DoomDebugConsole::default();
         console.insert_text("`camera~");
         assert_eq!(console.take_submission().as_deref(), Some("camera"));
+    }
+
+    #[test]
+    fn raster_dimensions_are_fixed_except_for_bounded_width() {
+        assert_eq!(DoomDebugConsole::raster_dimensions(200), [320, 264]);
+        assert_eq!(DoomDebugConsole::raster_dimensions(960), [960, 264]);
     }
 
     #[test]

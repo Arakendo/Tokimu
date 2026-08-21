@@ -33,8 +33,8 @@ export function beginObservedOperation(operation) {
     currentOperation = operation;
     emit("operation-started", operation);
 }
-export function completeObservedOperation(operation = currentOperation) {
-    emit("operation-completed", operation);
+export function completeObservedOperation(operation = currentOperation, detail = "") {
+    emit("operation-completed", operation, detail);
 }
 export function rejectObservedOperation(operation, detail) {
     emit("structured-rejection", operation, String(detail));

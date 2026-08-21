@@ -10,6 +10,10 @@ pub(crate) enum DebugCommand {
     Clear,
     Camera,
     Status,
+    Catalog,
+    Inventory,
+    Warnings,
+    Timings,
     Collision,
     Look(String),
     Scan(String),
@@ -32,6 +36,10 @@ pub(crate) fn parse_debug_command(command: &str) -> DebugCommand {
         "clear" => DebugCommand::Clear,
         "camera" => DebugCommand::Camera,
         "status" => DebugCommand::Status,
+        "catalog" => DebugCommand::Catalog,
+        "inventory" => DebugCommand::Inventory,
+        "warnings" => DebugCommand::Warnings,
+        "timings" => DebugCommand::Timings,
         "collision" => DebugCommand::Collision,
         command
             if command == "look"
@@ -78,6 +86,10 @@ mod tests {
             parse_debug_command("USE 151"),
             DebugCommand::Use("use 151".to_owned())
         );
+        assert_eq!(parse_debug_command("CATALOG"), DebugCommand::Catalog);
+        assert_eq!(parse_debug_command("INVENTORY"), DebugCommand::Inventory);
+        assert_eq!(parse_debug_command("WARNINGS"), DebugCommand::Warnings);
+        assert_eq!(parse_debug_command("TIMINGS"), DebugCommand::Timings);
     }
 
     #[test]

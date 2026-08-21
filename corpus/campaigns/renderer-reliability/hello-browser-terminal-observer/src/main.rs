@@ -53,6 +53,7 @@ struct TerminalRecord<'a> {
     subject_started: bool,
     last_sequence: Option<u64>,
     reason: &'a str,
+    subject_detail: &'a str,
     browser_log: String,
     profile: String,
     physical_cause: &'static str,
@@ -146,6 +147,8 @@ fn run() -> Result<ExitCode, String> {
     let mut last_heartbeat = started_at;
     let mut last_sequence = None;
     let mut terminal_event = None;
+    let mut terminal_detail = String::new();
+    let mut launcher_handed_off = false;
     let outcome = 'observe: loop {
         while let Ok(observation) = receiver.try_recv() {
             if subject_id
@@ -168,11 +171,13 @@ fn run() -> Result<ExitCode, String> {
                     last_heartbeat = Instant::now();
                 }
                 "operation-completed" | "operator-completed" => {
+                    terminal_detail = observation.detail;
                     terminal_event = Some(SubjectTerminalEvent::Completed {
                         operation: observation.operation,
                     });
                 }
                 "structured-rejection" => {
+                    terminal_detail = observation.detail.clone();
                     terminal_event = Some(SubjectTerminalEvent::StructuredFailure {
                         operation: observation.operation,
                         detail: observation.detail,
@@ -190,9 +195,17 @@ fn run() -> Result<ExitCode, String> {
             }
         }
 
-        let process_state = match browser.try_wait().map_err(|error| error.to_string())? {
-            Some(status) => SubjectProcessState::from(status),
-            None => SubjectProcessState::Running,
+        let process_state = if launcher_handed_off {
+            SubjectProcessState::LauncherHandedOff
+        } else {
+            match browser.try_wait().map_err(|error| error.to_string())? {
+                Some(_status) if !subject_started => {
+                    launcher_handed_off = true;
+                    SubjectProcessState::LauncherHandedOff
+                }
+                Some(status) => SubjectProcessState::from(status),
+                None => SubjectProcessState::Running,
+            }
         };
         let now = Instant::now();
         let heartbeat_expired = if subject_started {
@@ -221,6 +234,11 @@ fn run() -> Result<ExitCode, String> {
     let _ = server.join();
     let browser_disposition = match &outcome {
         TerminalOutcome::Completed { .. } | TerminalOutcome::StructuredFailure { .. }
+            if launcher_handed_off =>
+        {
+            "launcher-handed-off-browser-not-process-owned-after-terminal-record"
+        }
+        TerminalOutcome::Completed { .. } | TerminalOutcome::StructuredFailure { .. }
             if config.close_browser_on_terminal =>
         {
             terminate_owned_browser(&mut browser);
@@ -230,6 +248,9 @@ fn run() -> Result<ExitCode, String> {
             "left-running-after-terminal-record"
         }
         TerminalOutcome::ExternallyTerminated { .. } => "already-exited-before-terminal-record",
+        TerminalOutcome::UnresolvedDisappearance { .. } if launcher_handed_off => {
+            "launcher-handed-off-browser-not-process-owned-after-unresolved-observation"
+        }
         TerminalOutcome::UnresolvedDisappearance { .. } => {
             terminate_owned_browser(&mut browser);
             "terminated-by-observer-after-unresolved-observation"
@@ -262,6 +283,7 @@ fn run() -> Result<ExitCode, String> {
         subject_started,
         last_sequence,
         reason: &reason,
+        subject_detail: &terminal_detail,
         browser_log: log.display().to_string(),
         profile: profile.display().to_string(),
         physical_cause: "unknown-unless-explicitly-reported",
@@ -275,9 +297,10 @@ fn run() -> Result<ExitCode, String> {
     fs::rename(&temporary_result, &result)
         .map_err(|error| format!("failed to install terminal result: {error}"))?;
     println!(
-        "browser-terminal-observer terminal: run-id={run_id}; classification={classification}; elapsed-ms={:.3}; subject-started={subject_started}; last-sequence={last_sequence:?}; reason={}; browser-disposition={browser_disposition}; browser-log={}; profile={}; result={}; physical-cause=unknown-unless-explicitly-reported",
+        "browser-terminal-observer terminal: run-id={run_id}; classification={classification}; elapsed-ms={:.3}; subject-started={subject_started}; last-sequence={last_sequence:?}; reason={}; subject-detail={}; browser-disposition={browser_disposition}; browser-log={}; profile={}; result={}; physical-cause=unknown-unless-explicitly-reported",
         elapsed.as_secs_f64() * 1000.0,
         bounded(&reason),
+        bounded(&terminal_detail),
         log.display(),
         profile.display(),
         result.display(),
@@ -392,7 +415,10 @@ fn launch_browser(
     Command::new(&config.browser)
         .arg(format!("--user-data-dir={}", profile.display()))
         .arg("--no-first-run")
+        .arg("--no-default-browser-check")
         .arg("--new-window")
+        .arg("--disable-background-mode")
+        .arg("--disable-features=msEdgeStartupBoost")
         .arg("--enable-logging")
         .arg("--v=1")
         .arg(format!("--log-file={}", log.display()))

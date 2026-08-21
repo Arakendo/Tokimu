@@ -641,3 +641,24 @@ demonstrated a second rendering API.
   layers are now complete enough to open an architectural admission review.
   Do not infer final public handles, reclamation policy, or provider-neutral
   vocabulary from the corpus types before that review.
+
+### Cycle 23 -- 2026-08-20
+
+- Status entering review: accepted diagnostic ownership; ADR-0018 browser
+  implementation conformance passed in the independent renderer fixture while
+  Doom still used whole-backend/private-reset replacement.
+- New evidence: external observer run `42344-1787260772989661700` completed a
+  27-presentation Doom E1M1-through-E1M9 rotation through one stable resource-
+  set session. The page retained a bounded completion summary, including one
+  late E1M2 preparation failure that re-presented E1M1, final E1M9 grouped-sky
+  counters, and one backend/device/surface. Provider diagnostics remained
+  empty. The observer independently classified the page terminal outcome as
+  completed after an Edge launcher handoff.
+- Findings: a successful `present()` remains only one part of the evidence.
+  The useful record joins application preparation outcome, resource-set commit
+  accounting, provider diagnostics, final presentation metadata, and an
+  external terminal event. The observer now retains bounded subject detail for
+  successful operations instead of discarding it after classification.
+- Disposition: no decision change. AR-0024 remains accepted and the Doom run
+  satisfies its failure-observation boundary for this slice. Physical GPU
+  reclamation remains unobserved and is not inferred from clean diagnostics.

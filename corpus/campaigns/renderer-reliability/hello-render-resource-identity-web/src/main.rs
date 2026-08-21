@@ -7,9 +7,10 @@ use hello_render_resource_identity::{
 #[cfg(target_arch = "wasm32")]
 use tokimu::{
     Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, Instance2d, Material,
-    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand, RenderCommandSetError,
-    RenderResourceSetLifecycle, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
-    TextureHandle, WgpuBackend, WgpuBackendError,
+    MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand, RenderCommandSet,
+    RenderCommandSetError, RenderResourceSetLifecycle, RenderTextureContentUpdateLifecycle,
+    Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor, TextureHandle, WgpuBackend,
+    WgpuBackendError, WgpuResourceSetSession,
 };
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -70,6 +71,8 @@ fn independent_semantic_inventory(scene_index: u32, commands: u64) -> CorpusScen
 #[wasm_bindgen]
 pub struct BrowserReplacementPressure {
     renderer: Option<WgpuBackend>,
+    staged_renderer: Option<WgpuResourceSetSession>,
+    provider_staging_current_commands: Option<RenderCommandSet>,
     replacement_attempts: u32,
     replacements_presented: u32,
     backend_creations: u32,
@@ -78,6 +81,10 @@ pub struct BrowserReplacementPressure {
     provider_staging_current_scene: Option<u32>,
     provider_staging_commits: u32,
     provider_staging_failures: u32,
+    scoped_update_commands: Option<RenderCommandSet>,
+    scoped_update_set: Option<tokimu::RenderResourceSetId>,
+    scoped_update_commits: u32,
+    scoped_update_failures: u32,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -87,6 +94,8 @@ impl BrowserReplacementPressure {
     pub fn new() -> Self {
         Self {
             renderer: None,
+            staged_renderer: None,
+            provider_staging_current_commands: None,
             replacement_attempts: 0,
             replacements_presented: 0,
             backend_creations: 0,
@@ -95,6 +104,10 @@ impl BrowserReplacementPressure {
             provider_staging_current_scene: None,
             provider_staging_commits: 0,
             provider_staging_failures: 0,
+            scoped_update_commands: None,
+            scoped_update_set: None,
+            scoped_update_commits: 0,
+            scoped_update_failures: 0,
         }
     }
 
@@ -376,26 +389,29 @@ impl BrowserReplacementPressure {
 
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
-        let mut renderer = WgpuBackend::for_window(canvas, width, height)
+        let mut backend = WgpuBackend::for_window(canvas, width, height)
             .await
             .map_err(js_debug)?;
         self.backend_creations = self.backend_creations.saturating_add(1);
-        let backend = renderer.backend_api();
-        let device = renderer.device_kind();
-        let adapter = renderer.adapter_name().to_owned();
+        let backend_api = backend.backend_api();
+        let device = backend.device_kind();
+        let adapter = backend.adapter_name().to_owned();
 
         let commands_a = upload_provider_stage_fixture_to_backend(
-            &mut renderer,
+            &mut backend,
             0,
             RESOURCE_COUNT,
             TEXTURE_WIDTH,
             TEXTURE_HEIGHT,
         )
         .map_err(js_debug)?;
+        let mut renderer = backend.into_resource_set_session();
         let retained_commands_a = renderer.scope_render_commands(&commands_a);
         let resource_set_a = retained_commands_a.resource_set();
         renderer.begin_frame();
-        renderer.submit(&commands_a);
+        renderer
+            .submit_render_command_set(&retained_commands_a)
+            .map_err(js_debug)?;
         let initial_a = renderer.present().map_err(js_debug)?;
 
         let mut failed_b = renderer.begin_resource_set_stage().map_err(js_debug)?;
@@ -420,7 +436,9 @@ impl BrowserReplacementPressure {
         drop(failed_b);
 
         renderer.begin_frame();
-        renderer.submit(&commands_a);
+        renderer
+            .submit_render_command_set(&retained_commands_a)
+            .map_err(js_debug)?;
         let a_after_failure = renderer.present().map_err(js_debug)?;
 
         let mut current_commands_b = None;
@@ -465,10 +483,10 @@ impl BrowserReplacementPressure {
             .map_err(js_debug)?;
         let scoped_b_frame = renderer.present().map_err(js_debug)?;
         let diagnostic_count = renderer.drain_diagnostics().len();
-        self.renderer = Some(renderer);
+        self.staged_renderer = Some(renderer);
 
         Ok(format!(
-            "status=complete; lifetime-alternative=C-corpus-private-real-provider-staging; sequence=present-A>stage-B-all-families>late-failure>present-A>stage-B-complete>atomic-commit-B>reject-retained-A-command>present-B>submit-scoped-B>present-B; backend-creations=1; device-creations=1; surface-creations=1; retained-provider-session=true; staged-before-failure={staged_before_failure}; staged-families-before-failure=meshes+textures+materials+pipelines+cameras+commands; forced-stage-failure={forced_failure:?}; A-draws-initial={}; A-draws-after-failed-B={}; last-known-good-preserved={}; commit-observation={commit:?}; resource-set-A={}; resource-set-B={}; retained-A-command-after-B={stale_a:?}; reused-local-resource-keys=true; stale-rejected-before-resource-resolution=true; B-draws-after-commit={}; scoped-B-draws={}; retired-A-predictable={}; provider-diagnostics={diagnostic_count}; overlap-physical-bytes=unmeasured; retired-physical-reclamation=unobserved; repeated-replacement-pressure=not-exercised; resource-set-contract=ADR-0018-provider-neutral-lifecycle; individual-handle-encoding=undecided; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
+            "status=complete; lifetime-alternative=C-corpus-private-real-provider-staging; sequence=populate-A>enter-resource-set-session>present-A>stage-B-all-families>late-failure>present-A>stage-B-complete>atomic-commit-B>reject-retained-A-command>present-B>submit-scoped-B>present-B; backend-creations=1; device-creations=1; surface-creations=1; retained-provider-session=true; staged-before-failure={staged_before_failure}; staged-families-before-failure=meshes+textures+materials+pipelines+cameras+commands; forced-stage-failure={forced_failure:?}; A-draws-initial={}; A-draws-after-failed-B={}; last-known-good-preserved={}; commit-observation={commit:?}; resource-set-A={}; resource-set-B={}; retained-A-command-after-B={stale_a:?}; reused-local-resource-keys=true; stale-rejected-before-resource-resolution=true; unscoped-submit-surface=absent; B-draws-after-commit={}; scoped-B-draws={}; retired-A-predictable={}; provider-diagnostics={diagnostic_count}; overlap-physical-bytes=unmeasured; retired-physical-reclamation=unobserved; repeated-replacement-pressure=not-exercised; resource-set-contract=ADR-0018-provider-neutral-resource-set-session; individual-handle-encoding=undecided; backend={backend_api}; device={device}; adapter={adapter}; canvas={width}x{height}",
             initial_a.frame.draw_calls,
             a_after_failure.frame.draw_calls,
             initial_a.frame.draw_calls == a_after_failure.frame.draw_calls,
@@ -478,6 +496,249 @@ impl BrowserReplacementPressure {
             scoped_b_frame.frame.draw_calls,
             commit.retired_meshes == RESOURCE_COUNT as u32
                 && commit.committed_meshes == RESOURCE_COUNT as u32,
+        ))
+    }
+
+    /// AR-0033 real-provider proof for one fixed-descriptor texture realization
+    /// update inside the still-current authoritative resource set. The same
+    /// scoped command batch presents before and after commit. A complete
+    /// whole-set replacement remains the correctness/timing control.
+    pub async fn probe_scoped_texture_update(
+        &mut self,
+        canvas: HtmlCanvasElement,
+    ) -> Result<String, JsValue> {
+        const RESOURCE_COUNT: u64 = 8;
+        const TEXTURE_WIDTH: u32 = 16;
+        const TEXTURE_HEIGHT: u32 = 16;
+        const TARGET: TextureHandle = TextureHandle(1);
+
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        let mut backend = WgpuBackend::for_window(canvas, width, height)
+            .await
+            .map_err(js_debug)?;
+        self.backend_creations = self.backend_creations.saturating_add(1);
+        let backend_api = backend.backend_api();
+        let device = backend.device_kind();
+        let adapter = backend.adapter_name().to_owned();
+
+        let commands_a = upload_provider_stage_fixture_to_backend(
+            &mut backend,
+            0,
+            RESOURCE_COUNT,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        )
+        .map_err(js_debug)?;
+        let mut renderer = backend.into_resource_set_session();
+        let scoped_a = renderer.scope_render_commands(&commands_a);
+        let set_a = scoped_a.resource_set();
+        renderer.begin_frame();
+        renderer
+            .submit_render_command_set(&scoped_a)
+            .map_err(js_debug)?;
+        let initial = renderer.present().map_err(js_debug)?;
+
+        let replacement_pixels = provider_stage_texture(1, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+        let failed_candidate = renderer
+            .prepare_texture_content_update(TARGET, &replacement_pixels)
+            .map_err(js_debug)?;
+        drop(failed_candidate);
+        renderer.begin_frame();
+        renderer
+            .submit_render_command_set(&scoped_a)
+            .map_err(js_debug)?;
+        let after_failed_candidate = renderer.present().map_err(js_debug)?;
+
+        let update_started = js_sys::Date::now();
+        let update_candidate = renderer
+            .prepare_texture_content_update(TARGET, &replacement_pixels)
+            .map_err(js_debug)?;
+        let update_prepared_ms = js_sys::Date::now() - update_started;
+        let update_commit = renderer
+            .commit_texture_content_update(update_candidate)
+            .map_err(js_debug)?;
+        let update_total_ms = js_sys::Date::now() - update_started;
+        let set_after_update = renderer.current_resource_set();
+        renderer.begin_frame();
+        renderer
+            .submit_render_command_set(&scoped_a)
+            .map_err(js_debug)?;
+        let after_update = renderer.present().map_err(js_debug)?;
+
+        let stale_candidate_pixels = provider_stage_texture(2, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+        let stale_candidate = renderer
+            .prepare_texture_content_update(TARGET, &stale_candidate_pixels)
+            .map_err(js_debug)?;
+        let whole_set_started = js_sys::Date::now();
+        let mut scoped_b = None;
+        let whole_set_commit = renderer
+            .replace_resource_set(|candidate| {
+                let commands_b = upload_provider_stage_fixture_to_stage(
+                    candidate,
+                    2,
+                    RESOURCE_COUNT,
+                    TEXTURE_WIDTH,
+                    TEXTURE_HEIGHT,
+                )?;
+                scoped_b = Some(candidate.scope_render_commands(&commands_b));
+                candidate.begin_frame();
+                candidate.submit(&commands_b);
+                Ok(())
+            })
+            .map_err(js_debug)?;
+        let whole_set_total_ms = js_sys::Date::now() - whole_set_started;
+        let scoped_b = scoped_b.expect("complete Alternative-A stage scopes its commands");
+        let set_b = scoped_b.resource_set();
+        let stale_update = renderer
+            .commit_texture_content_update(stale_candidate)
+            .expect_err("whole-set commit must retire the older update candidate");
+        if !matches!(
+            stale_update,
+            WgpuBackendError::TextureContentUpdateStaleResourceSet {
+                requested,
+                current,
+            } if requested == set_a && current == set_b
+        ) {
+            return Err(JsValue::from_str(&format!(
+                "older in-set candidate produced wrong rejection: {stale_update:?}"
+            )));
+        }
+        renderer.begin_frame();
+        renderer
+            .submit_render_command_set(&scoped_b)
+            .map_err(js_debug)?;
+        let after_whole_set = renderer.present().map_err(js_debug)?;
+        let diagnostics = renderer.drain_diagnostics();
+        if !diagnostics.is_empty() {
+            return Err(JsValue::from_str(&format!(
+                "AR-0033 provider probe produced diagnostics: {diagnostics:?}"
+            )));
+        }
+        self.staged_renderer = Some(renderer);
+        self.provider_staging_current_commands = Some(scoped_b);
+
+        Ok(format!(
+            "status=complete; contract=ADR-0019-fixed-descriptor-texture-content-replacement; target=browser-webgpu; sequence=populate-A>present-A>prepare-update>drop-candidate>present-A>prepare-update>atomic-realization-swap>present-same-A-command>prepare-stale-update>Alternative-A-whole-set-commit>reject-stale-update>present-B; set-A={}; set-after-update={}; set-B={}; set-remained-authoritative={}; initial-draws={}; after-failed-update-draws={}; failed-update-preserved={}; after-update-draws={}; existing-command-remained-valid={}; update-commit={update_commit:?}; update-prepared-ms={update_prepared_ms:.3}; update-total-ms={update_total_ms:.3}; Alternative-A-staged-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{}]; Alternative-A-commit={whole_set_commit:?}; Alternative-A-total-ms={whole_set_total_ms:.3}; after-whole-set-draws={}; stale-update-after-whole-set={stale_update:?}; stale-rejected-before-resource-lookup=true; descriptor-change=not-authorized; mesh-update=not-authorized; material-semantic-rebind=not-authorized; pipeline-update=not-authorized; raw-backend-escape=absent; provider-diagnostics=0; backend-creations=1; device-creations=1; surface-creations=1; physical-gpu-reclamation=unobserved; broader-resource-mutation=not-admitted; backend={backend_api}; device={device}; adapter={adapter}; canvas={width}x{height}",
+            set_a.diagnostic_value(),
+            set_after_update.diagnostic_value(),
+            set_b.diagnostic_value(),
+            set_a == set_after_update,
+            initial.frame.draw_calls,
+            after_failed_candidate.frame.draw_calls,
+            initial.frame.draw_calls == after_failed_candidate.frame.draw_calls,
+            after_update.frame.draw_calls,
+            initial.frame.draw_calls == after_update.frame.draw_calls,
+            commands_a.len(),
+            after_whole_set.frame.draw_calls,
+        ))
+    }
+
+    /// Performs one yielded AR-0033 pressure step against one console-sized
+    /// fixed-descriptor texture. JavaScript owns pacing between calls.
+    pub async fn update_console_texture_scoped(
+        &mut self,
+        canvas: HtmlCanvasElement,
+        revision: u32,
+        inject_prepared_drop: bool,
+    ) -> Result<String, JsValue> {
+        const WIDTH: u32 = 960;
+        const HEIGHT: u32 = 264;
+        const TARGET: TextureHandle = TextureHandle(1);
+
+        let canvas_width = canvas.width().max(1);
+        let canvas_height = canvas.height().max(1);
+        if self.staged_renderer.is_none() {
+            let mut backend = WgpuBackend::for_window(canvas, canvas_width, canvas_height)
+                .await
+                .map_err(js_debug)?;
+            self.backend_creations = self.backend_creations.saturating_add(1);
+            let commands =
+                upload_provider_stage_fixture_to_backend(&mut backend, 0, 1, WIDTH, HEIGHT)
+                    .map_err(js_debug)?;
+            let mut renderer = backend.into_resource_set_session();
+            let scoped = renderer.scope_render_commands(&commands);
+            let set = scoped.resource_set();
+            renderer.begin_frame();
+            renderer
+                .submit_render_command_set(&scoped)
+                .map_err(js_debug)?;
+            if renderer.present().map_err(js_debug)?.frame.draw_calls != 1 {
+                return Err(JsValue::from_str(
+                    "AR-0033 pressure fixture did not present its initial draw",
+                ));
+            }
+            self.scoped_update_commands = Some(scoped);
+            self.scoped_update_set = Some(set);
+            self.staged_renderer = Some(renderer);
+        }
+
+        let renderer = self
+            .staged_renderer
+            .as_mut()
+            .expect("AR-0033 pressure renderer initialized above");
+        let commands = self
+            .scoped_update_commands
+            .as_ref()
+            .expect("AR-0033 pressure commands initialized above");
+        let resource_set = self
+            .scoped_update_set
+            .expect("AR-0033 pressure set initialized above");
+        let pixels = provider_stage_texture(revision, 0, WIDTH, HEIGHT);
+        let mut preserved_draws = None;
+        if inject_prepared_drop {
+            let failed_candidate = renderer
+                .prepare_texture_content_update(TARGET, &pixels)
+                .map_err(js_debug)?;
+            drop(failed_candidate);
+            self.scoped_update_failures = self.scoped_update_failures.saturating_add(1);
+            renderer.begin_frame();
+            renderer
+                .submit_render_command_set(commands)
+                .map_err(js_debug)?;
+            let preserved = renderer.present().map_err(js_debug)?;
+            if preserved.frame.draw_calls != 1 {
+                return Err(JsValue::from_str(
+                    "prepared-and-dropped update did not preserve the current draw",
+                ));
+            }
+            preserved_draws = Some(preserved.frame.draw_calls);
+        }
+
+        let started = js_sys::Date::now();
+        let candidate = renderer
+            .prepare_texture_content_update(TARGET, &pixels)
+            .map_err(js_debug)?;
+        let prepared_ms = js_sys::Date::now() - started;
+        let commit = renderer
+            .commit_texture_content_update(candidate)
+            .map_err(js_debug)?;
+        let total_ms = js_sys::Date::now() - started;
+        if renderer.current_resource_set() != resource_set {
+            return Err(JsValue::from_str(
+                "scoped update unexpectedly changed the authoritative set",
+            ));
+        }
+        renderer.begin_frame();
+        renderer
+            .submit_render_command_set(commands)
+            .map_err(js_debug)?;
+        let presented = renderer.present().map_err(js_debug)?;
+        let diagnostics = renderer.drain_diagnostics();
+        if presented.frame.draw_calls != 1 || !diagnostics.is_empty() {
+            return Err(JsValue::from_str(&format!(
+                "AR-0033 pressure step failed presentation/diagnostics: draws={}; diagnostics={diagnostics:?}",
+                presented.frame.draw_calls
+            )));
+        }
+        self.scoped_update_commits = self.scoped_update_commits.saturating_add(1);
+
+        Ok(format!(
+            "status=presented; review=AR-0033; pressure=fixed-descriptor-console-texture; revision={revision}; resource-set={}; resource-set-unchanged=true; injected-prepared-drop={inject_prepared_drop}; preserved-draws={preserved_draws:?}; committed-updates={}; prepared-drops={}; commit={commit:?}; prepared-ms={prepared_ms:.3}; total-ms={total_ms:.3}; steady-logical-resources=[textures:1,materials:1,meshes:1,pipelines:1,cameras:1,commands:2]; source-bytes={}; draws=1; provider-diagnostics=0; physical-gpu-reclamation=unobserved; backend-creations=1; device-creations=1; surface-creations=1",
+            resource_set.diagnostic_value(),
+            self.scoped_update_commits,
+            self.scoped_update_failures,
+            u64::from(WIDTH) * u64::from(HEIGHT) * 4,
         ))
     }
 
@@ -497,34 +758,39 @@ impl BrowserReplacementPressure {
 
         let width = canvas.width().max(1);
         let height = canvas.height().max(1);
-        if self.renderer.is_none() {
-            let mut renderer = WgpuBackend::for_window(canvas, width, height)
+        if self.staged_renderer.is_none() {
+            let mut backend = WgpuBackend::for_window(canvas, width, height)
                 .await
                 .map_err(js_debug)?;
             self.backend_creations = self.backend_creations.saturating_add(1);
             let commands = upload_provider_stage_fixture_to_backend(
-                &mut renderer,
+                &mut backend,
                 0,
                 RESOURCE_COUNT,
                 TEXTURE_WIDTH,
                 TEXTURE_HEIGHT,
             )
             .map_err(js_debug)?;
+            let mut renderer = backend.into_resource_set_session();
+            let scoped_commands = renderer.scope_render_commands(&commands);
             renderer.begin_frame();
-            renderer.submit(&commands);
+            renderer
+                .submit_render_command_set(&scoped_commands)
+                .map_err(js_debug)?;
             let initial = renderer.present().map_err(js_debug)?;
             if initial.frame.draw_calls != RESOURCE_COUNT as u32 {
                 return Err(JsValue::from_str(
                     "initial provider-pressure scene did not present its complete draw set",
                 ));
             }
-            self.renderer = Some(renderer);
+            self.provider_staging_current_commands = Some(scoped_commands);
+            self.staged_renderer = Some(renderer);
             self.provider_staging_current_scene = Some(0);
         }
 
         self.replacement_attempts = self.replacement_attempts.saturating_add(1);
         let renderer = self
-            .renderer
+            .staged_renderer
             .as_mut()
             .expect("provider-pressure renderer initialized above");
         let previous_scene = self
@@ -561,10 +827,14 @@ impl BrowserReplacementPressure {
             drop(failed_candidate);
             self.provider_staging_failures = self.provider_staging_failures.saturating_add(1);
 
-            let previous_commands =
-                provider_stage_commands(RESOURCE_COUNT, tokimu::PipelineHandle(0), previous_scene);
+            let previous_commands = self
+                .provider_staging_current_commands
+                .as_ref()
+                .expect("current staged commands initialized with the renderer");
             renderer.begin_frame();
-            renderer.submit(&previous_commands);
+            renderer
+                .submit_render_command_set(previous_commands)
+                .map_err(js_debug)?;
             let preserved = renderer.present().map_err(js_debug)?;
             if preserved.frame.draw_calls != RESOURCE_COUNT as u32 {
                 return Err(JsValue::from_str(
@@ -586,6 +856,7 @@ impl BrowserReplacementPressure {
         .map_err(js_debug)?;
         candidate.begin_frame();
         candidate.submit(&candidate_commands);
+        let scoped_candidate_commands = candidate.scope_render_commands(&candidate_commands);
         let commit = renderer
             .commit_resource_set_stage(candidate)
             .map_err(js_debug)?;
@@ -615,6 +886,7 @@ impl BrowserReplacementPressure {
         self.replacements_presented = self.replacements_presented.saturating_add(1);
         self.retired_logical_sets = self.retired_logical_sets.saturating_add(1);
         self.provider_staging_current_scene = Some(scene_index);
+        self.provider_staging_current_commands = Some(scoped_candidate_commands);
 
         let live_estimated_bytes = provider_stage_estimated_source_bytes(
             scene_index,
@@ -624,7 +896,7 @@ impl BrowserReplacementPressure {
         );
         let overlap_estimated_bytes = live_estimated_bytes.saturating_mul(2);
         Ok(format!(
-            "status=presented; lifetime-alternative=C-corpus-private-real-provider-staging-pressure; replacement-attempt={}; committed-replacements={}; target-scene={scene_index}; previous-scene={previous_scene}; injected-late-failure={inject_late_failure}; forced-stage-failure={forced_failure:?}; preserved-draws-after-failure={preserved_draws_after_failure:?}; total-injected-failures={}; draws={}; steady-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{RESOURCE_COUNT}]; commit-observation={commit:?}; logical-overlap-sets-during-stage=2; estimated-source-bytes-live={live_estimated_bytes}; estimated-source-bytes-at-overlap={overlap_estimated_bytes}; post-commit-logical-sets=1; provider-object-drop-issued=true; physical-gpu-reclamation=unobserved; provider-diagnostics=0; backend-creations={}; device-creations={}; surface-creations={}; retained-provider-session=true; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
+            "status=presented; lifetime-alternative=C-corpus-private-real-provider-staging-pressure; resource-set-contract=ADR-0018-provider-neutral-resource-set-session; replacement-attempt={}; committed-replacements={}; target-scene={scene_index}; previous-scene={previous_scene}; injected-late-failure={inject_late_failure}; forced-stage-failure={forced_failure:?}; preserved-draws-after-failure={preserved_draws_after_failure:?}; total-injected-failures={}; draws={}; steady-logical-resources=[meshes:{RESOURCE_COUNT},textures:{RESOURCE_COUNT},materials:{RESOURCE_COUNT},pipelines:1,cameras:1,commands:{RESOURCE_COUNT}]; commit-observation={commit:?}; logical-overlap-sets-during-stage=2; estimated-source-bytes-live={live_estimated_bytes}; estimated-source-bytes-at-overlap={overlap_estimated_bytes}; post-commit-logical-sets=1; unscoped-submit-surface=absent; provider-object-drop-issued=true; physical-gpu-reclamation=unobserved; provider-diagnostics=0; backend-creations={}; device-creations={}; surface-creations={}; retained-provider-session=true; backend={backend}; device={device}; adapter={adapter}; canvas={width}x{height}",
             self.replacement_attempts,
             self.provider_staging_commits,
             self.provider_staging_failures,

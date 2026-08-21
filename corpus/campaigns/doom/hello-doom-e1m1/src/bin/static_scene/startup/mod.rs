@@ -1377,27 +1377,36 @@ pub(crate) fn run() -> PlatformResult<()> {
             )
         })
         .collect();
-    let mut app = App {
-        map_name: scene.map_name.clone(),
-        available_maps: scene.available_maps.clone(),
-        launch_arguments,
-        map_rotation_exit_requested: false,
-        source_exit_level_requested: false,
-        live_audio: scene.audio_assets.take().and_then(|assets| {
-            match DoomLiveAudio::open(assets) {
+    let mut runtime_warnings = Vec::new();
+    let live_audio =
+        scene
+            .audio_assets
+            .take()
+            .and_then(|assets| match DoomLiveAudio::open(assets) {
                 Ok((audio, diagnostic)) => {
                     eprintln!("{} live {diagnostic}", scene.map_name);
                     Some(audio)
                 }
                 Err(error) => {
-                    eprintln!(
-                        "{} live audio unavailable: {error}; gameplay-continues=true",
-                        scene.map_name
-                    );
+                    let warning =
+                        format!("live-audio-open-unavailable:{error}; gameplay-continues=true");
+                    eprintln!("{} {warning}", scene.map_name);
+                    runtime_warnings.push(warning);
                     None
                 }
-            }
-        }),
+            });
+    let mut app = App {
+        map_name: scene.map_name.clone(),
+        import_warnings: scene.import_warnings,
+        runtime_warnings,
+        preparation_timings: scene.preparation_timings,
+        upload_cpu_us: None,
+        last_frame_cpu_us: None,
+        available_maps: scene.available_maps.clone(),
+        launch_arguments,
+        map_rotation_exit_requested: false,
+        source_exit_level_requested: false,
+        live_audio,
         discovered_secret_sectors: BTreeSet::new(),
         secret_sector_total,
         renderer: None,

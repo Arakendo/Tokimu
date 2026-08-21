@@ -41,15 +41,18 @@ the same local resource key resolves B. It exercises no renderer resources,
 provider session, or physical reclamation and admits no engine API.
 
 The **Probe ADR-0018 real-provider staging** control exercises the stable
-provider-neutral lifecycle. It creates one WGPU provider session,
-presents resource set A, allocates most of B alongside A, injects a late B
+provider-neutral lifecycle. It creates and populates one ordinary WGPU backend,
+then consumes it into a replacement-enabled resource-set session which exposes
+scoped submission but no raw `Renderer::submit` path. It presents resource set
+A, allocates most of B alongside A, injects a late B
 failure, and proves A still presents. Before the second complete B commits, the
 fixture retains a set-scoped batch containing A's real draw commands. B reuses
 A's local mesh, material, pipeline, and camera keys. After the one-swap commit,
 the provider must reject the retained A batch as stale before resolving any of
 those handles, while B's scoped batch must still present. The successful B
-path uses `RenderResourceSetLifecycle::replace_resource_set`; candidate upload
-remains WGPU-owned. The record does not claim when WGPU physically reclaims A,
+path uses `RenderResourceSetLifecycle::replace_resource_set`; a compile-fail
+contract check independently guards the absent raw-submit surface. Candidate
+upload remains WGPU-owned. The record does not claim when WGPU physically reclaims A,
 quantify overlap memory, define individual set-scoped resource handles, or
 exercise repeated replacement pressure.
 
@@ -62,6 +65,19 @@ animation frames between replacements. Each record requires the same logical
 inventory after commit, reports the bounded current-plus-candidate source-byte
 estimate during overlap, and keeps physical GPU reclamation explicitly
 unobserved.
+
+The **Probe ADR-0019 scoped texture update** control is a separate
+procedural-texture caller for the in-set update study. It prepares a new 16x16
+RGBA8 realization without mutating the current set, drops one prepared
+candidate to prove last-known-good presentation, commits a second candidate,
+and presents the same set-scoped commands. It then commits a complete
+Alternative-A successor set and requires the older in-set candidate to reject
+as stale before local texture lookup. The companion **Run 27 AR-0033 console
+texture updates** control holds one 960x264 texture descriptor, resource set,
+and command batch fixed across 27 updates; five iterations first allocate and
+drop a complete candidate. These controls do not admit mesh updates,
+descriptor changes, material-semantic rebinding, physical GPU reclamation, or
+anything broader than ADR-0019's fixed-descriptor texture-content transaction.
 
 The whole-backend pressure path also correlates each successfully presented
 64-resource-family inventory with its predecessor through the same semantic
@@ -82,3 +98,15 @@ the destructive atomicity probe. The staged replacement/stale-command probe is
 independent and may be run directly on its own fresh pressure object. Its
 successful record must include `stale-rejected-before-resource-resolution=true`
 and equal nonzero B draw counts before and after scoped submission.
+
+The ADR-0018 provider probes may also be driven without UI input for an
+external terminal observer:
+
+```text
+?tokimu_autorun=provider-staging
+?tokimu_autorun=provider-staging-pressure
+?tokimu_autorun=scoped-texture-update
+?tokimu_autorun=scoped-texture-pressure
+```
+
+Unknown autorun values fail visibly and do not select another experiment.

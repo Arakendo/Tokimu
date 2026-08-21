@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use tokimu_core::FrameOutcome;
 use tokimu_platform::{
@@ -8,8 +9,8 @@ use tokimu_platform::{
 use tokimu_render::{
     Camera, CameraHandle, ClearCommand, Color, DrawMeshCommand, Instance2d, Material,
     MaterialHandle, Mesh, MeshHandle, Pipeline, PipelineKind, RenderCommand, RenderCommandSetError,
-    RenderResourceSetLifecycle, Renderer, Rgba8TextureColorSpace, Rgba8TextureDescriptor,
-    TextureHandle, WgpuBackend, WgpuBackendError, WgpuResourceSetStage,
+    RenderResourceSetLifecycle, RenderTextureContentUpdateLifecycle, Rgba8TextureColorSpace,
+    Rgba8TextureDescriptor, TextureHandle, WgpuBackend, WgpuBackendError, WgpuResourceSetStage,
 };
 
 const MESH: MeshHandle = MeshHandle(1);
@@ -36,12 +37,13 @@ struct NativeResourceSetProbe {
 
 impl NativeResourceSetProbe {
     fn run_probe(&mut self) -> PlatformResult<()> {
-        let renderer = self.renderer.as_mut().expect("window initializes renderer");
-        let commands_a = populate_backend(renderer, 0)?;
+        let mut backend = self.renderer.take().expect("window initializes renderer");
+        let commands_a = populate_backend(&mut backend, 0)?;
+        let mut renderer = backend.into_resource_set_session();
         let retained_a = renderer.scope_render_commands(&commands_a);
         let set_a = retained_a.resource_set();
         renderer.begin_frame();
-        renderer.submit(&commands_a);
+        renderer.submit_render_command_set(&retained_a)?;
         let presented_a = renderer.present()?;
 
         let mut failed_b = renderer.begin_resource_set_stage()?;
@@ -58,7 +60,7 @@ impl NativeResourceSetProbe {
         drop(failed_b);
 
         renderer.begin_frame();
-        renderer.submit(&commands_a);
+        renderer.submit_render_command_set(&retained_a)?;
         let preserved_a = renderer.present()?;
 
         let mut scoped_b = None;
@@ -83,21 +85,95 @@ impl NativeResourceSetProbe {
         ));
         let presented_b = renderer.present()?;
         renderer.begin_frame();
-        renderer.submit(&commands_a);
-        let unscoped_a_after_b = renderer.present()?;
-        renderer.begin_frame();
         renderer.submit_render_command_set(&scoped_b)?;
         let presented_scoped_b = renderer.present()?;
+
+        let failed_update = renderer.prepare_texture_content_update(TEXTURE, &texture_pixels(2))?;
+        drop(failed_update);
+        renderer.begin_frame();
+        renderer.submit_render_command_set(&scoped_b)?;
+        let presented_b_after_failed_update = renderer.present()?;
+
+        let update_started = Instant::now();
+        let update_candidate =
+            renderer.prepare_texture_content_update(TEXTURE, &texture_pixels(2))?;
+        let update_prepared_us = update_started.elapsed().as_micros();
+        let update_commit = renderer.commit_texture_content_update(update_candidate)?;
+        let update_total_us = update_started.elapsed().as_micros();
+        assert_eq!(renderer.current_resource_set(), set_b);
+        renderer.begin_frame();
+        renderer.submit_render_command_set(&scoped_b)?;
+        let presented_b_after_update = renderer.present()?;
+
+        let pressure_started = Instant::now();
+        let mut pressure_failures = 0_u32;
+        for revision in 1..=27_u8 {
+            if revision % 5 == 0 {
+                let failed_candidate =
+                    renderer.prepare_texture_content_update(TEXTURE, &texture_pixels(revision))?;
+                drop(failed_candidate);
+                pressure_failures = pressure_failures.saturating_add(1);
+                renderer.begin_frame();
+                renderer.submit_render_command_set(&scoped_b)?;
+                assert_eq!(renderer.present()?.frame.draw_calls, 1);
+            }
+            let candidate =
+                renderer.prepare_texture_content_update(TEXTURE, &texture_pixels(revision))?;
+            let observation = renderer.commit_texture_content_update(candidate)?;
+            assert_eq!(observation.resource_set, set_b);
+            assert_eq!(observation.dependent_materials, 1);
+            renderer.begin_frame();
+            renderer.submit_render_command_set(&scoped_b)?;
+            assert_eq!(renderer.present()?.frame.draw_calls, 1);
+        }
+        let pressure_total_us = pressure_started.elapsed().as_micros();
+
+        let stale_update = renderer.prepare_texture_content_update(TEXTURE, &texture_pixels(3))?;
+        let whole_set_started = Instant::now();
+        let mut scoped_c = None;
+        let whole_set_commit = renderer.replace_resource_set(|candidate| {
+            let commands_c = populate_stage(candidate, 3)?;
+            scoped_c = Some(candidate.scope_render_commands(&commands_c));
+            candidate.begin_frame();
+            candidate.submit(&commands_c);
+            Ok(())
+        })?;
+        let whole_set_total_us = whole_set_started.elapsed().as_micros();
+        let set_c = renderer.current_resource_set();
+        let stale_update_after_whole_set = renderer
+            .commit_texture_content_update(stale_update)
+            .expect_err("whole-set commit must make an older in-set candidate stale");
+        assert!(matches!(
+            stale_update_after_whole_set,
+            WgpuBackendError::TextureContentUpdateStaleResourceSet {
+                requested,
+                current,
+            } if requested == set_b && current == set_c
+        ));
+        let scoped_c = scoped_c.expect("successful whole-set replacement scopes C commands");
+        renderer.begin_frame();
+        renderer.submit_render_command_set(&scoped_c)?;
+        let presented_c = renderer.present()?;
         let diagnostics = renderer.drain_diagnostics();
 
         println!(
-            "status=falsified; contract=ADR-0018-provider-neutral-lifecycle-candidate; target=native-wgpu; sequence=present-A>stage-B-all-families>late-failure>present-A>replace-B>reject-scoped-A>present-B>submit-unscoped-A>present-aliased-B>submit-scoped-B>present-B; A-draws={}; A-after-failure-draws={}; B-draws={}; unscoped-A-after-B-draws={}; scoped-B-draws={}; set-A={}; set-B={}; forced-failure={forced_failure:?}; commit={commit:?}; scoped-stale-A={stale_a:?}; unscoped-submit-bypass=true; provider-diagnostics={}; backend={}; device={}; adapter={}",
+            "stable-contract=ADR-0019-fixed-descriptor-set-scoped-texture-content-replacement; provider-candidate=WgpuTextureContentUpdateCandidate; descriptor-input=absent; raw-backend-escape=absent"
+        );
+        println!(
+            "status=complete; contract=ADR-0018-provider-neutral-resource-set-session+ADR-0019-fixed-descriptor-texture-content-replacement; target=native-wgpu; sequence=populate-A>enter-resource-set-session>present-A>stage-B-all-families>late-failure>present-A>replace-B>reject-scoped-A>present-B>submit-scoped-B>present-B>prepare-texture-update>drop-candidate>present-B>prepare-texture-update>atomic-realization-swap>present-same-B-command>27-repeated-updates>prepare-stale-update>whole-set-commit-C>reject-stale-update>present-C; A-draws={}; A-after-failure-draws={}; B-draws={}; scoped-B-draws={}; B-after-failed-update-draws={}; B-after-update-draws={}; C-draws={}; set-A={}; set-B={}; set-C={}; forced-failure={forced_failure:?}; set-commit={commit:?}; scoped-stale-A={stale_a:?}; update-commit={update_commit:?}; failed-update-preserved={}; command-topology-retained={}; update-prepared-us={update_prepared_us}; update-total-us={update_total_us}; repeated-updates=27; repeated-prepared-drops={pressure_failures}; repeated-total-us={pressure_total_us}; repeated-final-set={}; repeated-logical-counts=[textures:1,materials:1,meshes:1,pipelines:1,cameras:1,commands:2]; alternative-A-whole-set-commit={whole_set_commit:?}; alternative-A-total-us={whole_set_total_us}; stale-update-after-whole-set={stale_update_after_whole_set:?}; stale-rejected-before-resource-lookup=true; unscoped-submit-surface=absent; provider-diagnostics={}; physical-gpu-reclamation=unobserved; backend={}; device={}; adapter={}",
             presented_a.frame.draw_calls,
             preserved_a.frame.draw_calls,
             presented_b.frame.draw_calls,
-            unscoped_a_after_b.frame.draw_calls,
             presented_scoped_b.frame.draw_calls,
+            presented_b_after_failed_update.frame.draw_calls,
+            presented_b_after_update.frame.draw_calls,
+            presented_c.frame.draw_calls,
             set_a.diagnostic_value(),
+            set_b.diagnostic_value(),
+            set_c.diagnostic_value(),
+            presented_b_after_failed_update.frame.draw_calls
+                == presented_scoped_b.frame.draw_calls,
+            presented_b_after_update.frame.draw_calls == presented_scoped_b.frame.draw_calls,
             set_b.diagnostic_value(),
             diagnostics.len(),
             renderer.backend_api(),
@@ -173,7 +249,7 @@ fn texture_descriptor() -> Rgba8TextureDescriptor {
 }
 
 fn texture_pixels(scene: u8) -> [u8; 16] {
-    let shade = if scene == 0 { 80 } else { 180 };
+    let shade = scene.wrapping_mul(53).wrapping_add(80);
     [
         shade, 40, 200, 255, shade, 40, 200, 255, shade, 40, 200, 255, shade, 40, 200, 255,
     ]

@@ -433,20 +433,43 @@ resources when local keys are reused. Backends own concrete allocation,
 upload, synchronization, drop, and reclamation mechanisms without becoming
 owners of scene membership or simulation truth.
 
-The current implementation candidate is deliberately small:
+The stable transaction shape is deliberately small and opt-in.
 `RenderResourceSetLifecycle` owns begin, commit, command scoping, and scoped
 submission; its associated candidate keeps provider-specific resource
-population private. `RenderCommandSet` combines ordinary commands with opaque
-set and renderer-session authority so a retired or foreign batch rejects before
-local handles are resolved. Native WGPU evidence proves that path, but the
-candidate is not yet conformant because the existing unscoped
-`Renderer::submit` path can bypass set validation after local-key reuse.
+population private. A backend enters replacement mode by being consumed into a
+resource-set session. That session exposes only set-scoped submission and does
+not implement the ordinary unscoped `Renderer` interface. `RenderCommandSet`
+combines ordinary declarations with opaque set and renderer-session authority
+so a retired or foreign batch rejects before local handles are resolved.
+Ordinary backends retain raw submission but cannot perform resource-set
+turnover, so reused successor keys cannot arise on that surface.
+Native Vulkan/WGPU and browser WebGPU evidence both pass the complete
+late-failure, atomic-commit, reused-key stale-rejection, and current scoped
+submission sequence.
 
 This lifecycle contract does not choose an individual handle encoding, promise
 physical GPU-memory reclamation timing, admit a general allocator, or combine
-ordinary replacement with device-loss recovery. Whether the stable validation
-boundary belongs on command batches, resource handles, renderer submission
-authority, or another smaller shape remains under review.
+ordinary replacement with device-loss recovery. The selected validation
+boundary is the set-scoped command batch within the replacement-enabled
+session; individual resource-handle encoding remains undecided.
+
+ADR-0019 separately admits one narrow transaction inside the still-current
+resource set: fixed-descriptor texture-content replacement. The
+`RenderTextureContentUpdateLifecycle` prepares an isolated provider-owned
+candidate from replacement RGBA8 bytes for one existing source-texture handle.
+Failure or abandonment preserves the prior realization. Commit atomically
+replaces the texture and the provider bindings needed by its existing material
+dependencies while preserving resource-set identity and already scoped command
+validity. A whole-set commit makes older texture candidates stale before local
+handle lookup.
+
+The operation deliberately accepts no replacement descriptor. Texture size,
+format, color-space interpretation, sampler, and semantic role remain fixed.
+It does not admit general resource mutation, a dynamic-resource class, texture
+resize, mesh updates, material-semantic rebinding, pipeline mutation, partial
+texture regions, or physical GPU-reclamation guarantees. Applications retain
+source-pixel and update-policy ownership; providers retain allocation, upload,
+synchronization, swap, and reclamation mechanics.
 
 Pipeline choice should remain explicit at draw submission time rather than
 being hidden inside material state. Materials describe bound data, while draw

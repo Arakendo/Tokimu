@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::{
     Camera, CameraHandle, Color, Material, MaterialHandle, Mesh, MeshHandle, Pipeline,
     PipelineHandle, RenderCommand, RenderCommandSet, RenderResourceSetId,
-    RenderResourceSetLifecycle, Renderer, Rgba8TextureDescriptor, TextureHandle,
+    RenderResourceSetLifecycle, RenderStats, Renderer, Rgba8TextureDescriptor, TextureHandle,
 };
 
 use super::{PipelineRegistry, ResourceSetStageContext, WgpuBackend, WgpuBackendError};
@@ -34,6 +34,74 @@ pub struct WgpuResourceSetCommitObservation {
 pub struct WgpuResourceSetStage {
     backend: WgpuBackend,
     clear_color: Color,
+}
+
+/// Replacement-enabled WGPU session with authoritative set-scoped submission.
+///
+/// The wrapper intentionally does not implement [`Renderer`] or expose its
+/// inner backend. Once a backend enters this lifecycle, ordinary unscoped
+/// submission cannot bypass retired-set validation.
+///
+/// ```compile_fail
+/// use tokimu_render::{RenderCommand, Renderer, WgpuResourceSetSession};
+///
+/// fn bypass(session: &mut WgpuResourceSetSession, commands: &[RenderCommand]) {
+///     session.submit(commands);
+/// }
+/// ```
+pub struct WgpuResourceSetSession {
+    backend: WgpuBackend,
+}
+
+impl WgpuResourceSetSession {
+    pub(super) fn backend(&self) -> &WgpuBackend {
+        &self.backend
+    }
+
+    pub(super) fn backend_mut(&mut self) -> &mut WgpuBackend {
+        &mut self.backend
+    }
+
+    pub fn begin_frame(&mut self) {
+        self.backend.begin_frame();
+    }
+
+    pub fn present(&mut self) -> Result<RenderStats, WgpuBackendError> {
+        self.backend.present()
+    }
+
+    pub fn resize_surface(&mut self, width: u32, height: u32) {
+        self.backend.resize_surface(width, height);
+    }
+
+    pub fn adapter_name(&self) -> &str {
+        self.backend.adapter_name()
+    }
+
+    pub fn backend_api(&self) -> &'static str {
+        self.backend.backend_api()
+    }
+
+    pub fn device_kind(&self) -> &'static str {
+        self.backend.device_kind()
+    }
+
+    pub fn drain_diagnostics(&self) -> Vec<tokimu_core::DiagnosticRecord> {
+        self.backend.drain_diagnostics()
+    }
+
+    pub fn current_resource_set(&self) -> RenderResourceSetId {
+        self.backend.current_resource_set
+    }
+
+    /// Replaces camera data inside the current authoritative set.
+    ///
+    /// This preserves live-view updates without reopening unscoped command
+    /// submission. Scene replacement still goes through an isolated candidate
+    /// and atomic commit.
+    pub fn upload_camera(&mut self, handle: CameraHandle, camera: Camera) {
+        self.backend.upload_camera(handle, camera);
+    }
 }
 
 impl WgpuResourceSetStage {
@@ -122,7 +190,12 @@ impl WgpuResourceSetStage {
 }
 
 impl WgpuBackend {
-    pub fn scope_render_commands(&self, commands: &[RenderCommand]) -> RenderCommandSet {
+    /// Consumes an ordinary backend and enters the replacement-enabled session.
+    pub fn into_resource_set_session(self) -> WgpuResourceSetSession {
+        WgpuResourceSetSession { backend: self }
+    }
+
+    fn scope_resource_set_commands(&self, commands: &[RenderCommand]) -> RenderCommandSet {
         RenderCommandSet::new(
             Arc::clone(&self.resource_set_authority),
             self.current_resource_set,
@@ -130,7 +203,7 @@ impl WgpuBackend {
         )
     }
 
-    pub fn submit_render_command_set(
+    fn submit_resource_set_commands(
         &mut self,
         command_set: &RenderCommandSet,
     ) -> Result<(), WgpuBackendError> {
@@ -139,11 +212,7 @@ impl WgpuBackend {
         Ok(())
     }
 
-    pub const fn current_resource_set(&self) -> RenderResourceSetId {
-        self.current_resource_set
-    }
-
-    pub fn begin_resource_set_stage(&self) -> Result<WgpuResourceSetStage, WgpuBackendError> {
+    fn begin_resource_set_stage(&self) -> Result<WgpuResourceSetStage, WgpuBackendError> {
         let surface = self
             .surface_state
             .as_ref()
@@ -186,7 +255,7 @@ impl WgpuBackend {
         })
     }
 
-    pub fn commit_resource_set_stage(
+    fn commit_resource_set_stage(
         &mut self,
         mut stage: WgpuResourceSetStage,
     ) -> Result<WgpuResourceSetCommitObservation, WgpuBackendError> {
@@ -242,30 +311,30 @@ impl WgpuBackend {
     }
 }
 
-impl RenderResourceSetLifecycle for WgpuBackend {
+impl RenderResourceSetLifecycle for WgpuResourceSetSession {
     type Candidate = WgpuResourceSetStage;
     type Error = WgpuBackendError;
     type CommitObservation = WgpuResourceSetCommitObservation;
 
     fn begin_resource_set_stage(&self) -> Result<Self::Candidate, Self::Error> {
-        WgpuBackend::begin_resource_set_stage(self)
+        self.backend.begin_resource_set_stage()
     }
 
     fn commit_resource_set_stage(
         &mut self,
         candidate: Self::Candidate,
     ) -> Result<Self::CommitObservation, Self::Error> {
-        WgpuBackend::commit_resource_set_stage(self, candidate)
+        self.backend.commit_resource_set_stage(candidate)
     }
 
     fn scope_render_commands(&self, commands: &[RenderCommand]) -> RenderCommandSet {
-        WgpuBackend::scope_render_commands(self, commands)
+        self.backend.scope_resource_set_commands(commands)
     }
 
     fn submit_render_command_set(
         &mut self,
         command_set: &RenderCommandSet,
     ) -> Result<(), Self::Error> {
-        WgpuBackend::submit_render_command_set(self, command_set)
+        self.backend.submit_resource_set_commands(command_set)
     }
 }

@@ -259,3 +259,8 @@ across unrelated decisions.
   semantics while integrated provider stale-command rejection remains an
   implementation-conformance gate and physical reclamation/final handle shape
   remain non-decisions
+- [AR-0033: Scoped In-Set Presentation Resource Updates](AR-0033-scoped-in-set-presentation-resource-updates.md)
+  — Accepted; resulted in ADR-0019 admitting only fixed-descriptor,
+  set-scoped atomic texture-content replacement while meshes, descriptor
+  changes, broad dynamic-resource vocabulary, and physical reclamation remain
+  outside the contract

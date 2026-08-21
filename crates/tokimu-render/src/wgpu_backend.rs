@@ -3,7 +3,11 @@ mod cpu_timer;
 mod diagnostics;
 mod error;
 mod resource_set_staging;
-pub use resource_set_staging::{WgpuResourceSetCommitObservation, WgpuResourceSetStage};
+pub use resource_set_staging::{
+    WgpuResourceSetCommitObservation, WgpuResourceSetSession, WgpuResourceSetStage,
+};
+mod scoped_texture_update;
+pub use scoped_texture_update::WgpuTextureContentUpdateCandidate;
 #[cfg(feature = "experimental-submission-local-geometry")]
 mod experimental_submission_local_geometry;
 mod material_resources;

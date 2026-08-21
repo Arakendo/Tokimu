@@ -2675,6 +2675,27 @@ The review moves away from shared admission when:
   preparation or authorize the renderer to own scene membership. It earns a
   bounded candidate/current resource-set comparison under the lifetime plan.
 
+### Cycle 82 -- 2026-08-20
+
+- ADR-0018's admitted resource-set session replaced both the Doom browser's
+  whole-backend path and the falsified adapter-private reset. One retained
+  backend/device/surface completed 27 E1M1-through-E1M9 presentations under an
+  external terminal observer. A late E1M2 preparation failure preserved and
+  re-presented E1M1 before any provider staging began.
+- Doom preparation still owns sector-boundary geometry, grouped sky parity,
+  source identities, map selection, and the complete ordinary command batch.
+  The renderer owns candidate realization, validation, atomic resource-set
+  authority turnover, and scoped submission. Live camera replacement is an
+  in-set update and does not reopen raw command authority.
+- This is positive evidence for AR-0030's ownership direction: source-specific
+  preparation can remain outside the renderer while its ordinary realization
+  receives transactional lifetime containment. It does not decide whether a
+  richer stable preparation framework is needed beyond the existing ordinary
+  declarations and set-scoped command batch.
+- Disposition: retain `Under Review`. The resource-lifetime question is now
+  separated and resolved by ADR-0018; do not use that success to silently
+  admit Doom vocabulary or a new generic preparation layer.
+
 ## References
 
 - `docs/contribution-admission-guide.md`

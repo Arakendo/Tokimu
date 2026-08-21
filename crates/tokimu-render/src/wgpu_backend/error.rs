@@ -16,6 +16,15 @@ pub enum WgpuBackendError {
     ResourceSetStageRequiresSurface,
     #[error("resource-set candidate belongs to a different provider session")]
     ResourceSetStageWrongProviderSession,
+    #[error("texture-content update candidate belongs to a different provider session")]
+    TextureContentUpdateWrongProviderSession,
+    #[error(
+        "scoped texture-update candidate targets retired set {requested:?}; current set is {current:?}"
+    )]
+    TextureContentUpdateStaleResourceSet {
+        requested: crate::RenderResourceSetId,
+        current: crate::RenderResourceSetId,
+    },
     #[error("render command set rejected: {0}")]
     RenderCommandSet(#[from] RenderCommandSetError),
     #[error("failed to acquire the current surface texture: {0}")]

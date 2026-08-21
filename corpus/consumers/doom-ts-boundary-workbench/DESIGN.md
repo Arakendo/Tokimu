@@ -178,23 +178,21 @@ adaptive recovery interval based on the preceding synchronous presentation
 cost; this keeps heavier maps from continuously saturating the browser renderer
 process. Map replacement disables the loop until a complete replacement has
 been prepared and presented. CPU preparation may coexist with the previous
-map, but the previous WGPU backend is explicitly released before a replacement
-surface is requested for the same canvas; two live backends never overlap on
-that canvas. Retained WebGPU provider diagnostics are checked before and after
-each inspection presentation and stop the loop visibly.
+map. Provider resources are then staged through the ADR-0018 resource-set
+session; a failed candidate leaves the current set authoritative, while a
+successful candidate commits atomically without recreating the backend,
+device, or surface. Retained WebGPU provider diagnostics are checked before
+and after each inspection presentation and stop the loop visibly.
 
 This is a visual inspection camera, not Doom player simulation. It does not
 provide collision, doors/platforms, Things, or audio. The initial observation
 reports the selected map, complete stage sequence, ordinary/cutout/sky
 contribution counts, boundary-trim audit, adapter, and canvas size.
 
-After a second successfully presented map, the observation also reports a
-corpus-private Alternative C inventory correlation. The input is the exact
-`WorkingLogicalResources` count produced by each prepared map. The semantic
-shadow exercises failed staging, atomic logical commit, and stale generation
-rejection over those heterogeneous counts, but it neither wraps nor changes
-the WGPU replacement path. Its authority is explicitly
-`semantic-shadow-not-provider-lifetime`.
+After a second successfully presented map, the observation also reports the
+historical corpus-private Alternative C inventory correlation. That semantic
+shadow remains diagnostic evidence, while actual map replacement now uses the
+stable ADR-0018 provider-neutral resource-set session.
 
 Build and serve it with:
 
@@ -208,9 +206,24 @@ python -m http.server 4176 --bind 127.0.0.1 --directory web
 Then open `http://127.0.0.1:4176/`, select the reviewed local ZIP, choose
 **Render working model**, and use `[` / `]` to rotate maps.
 
-The separate **Run 3x map rotation** control is the Alternative-A baseline for
-the renderer scene-resource lifetime plan. It deterministically renders E1M1
-through E1M9 three times and retains one bounded record per replacement. Rust
+The retained working model includes one transparent textured-2D console draw
+in its scoped command batch. Backquote opens or closes it; while open, browser
+text, Backspace, Enter, and Escape route to the corpus-owned Doom console and
+movement remains suppressed. Each edit prepares and atomically commits only
+the fixed 960x264 texture content through ADR-0019. The set, descriptor,
+material role, mesh, pipeline, camera, and command batch remain unchanged.
+
+After a working map is retained, **Exercise ADR-0019 console** opens the
+console, types and submits `CAMERA`, and reports the live provider result beside
+the historical AR-0033 whole-set accounting control and semantic shadows. It
+does not claim physical reclamation, generalized resource mutation, a DOM
+overlay, or parity with native source-ray commands whose caller data this host
+does not retain.
+
+The separate **Run 3x ADR-0018 rotation** control deterministically renders
+E1M1 through E1M9 three times through one retained provider session and keeps
+one bounded record per replacement. Before the rotation it injects a late CPU
+preparation failure and proves that the previous map remains presentable. Rust
 reports logical current/retired resource counts, estimated mesh-vertex and
 source-texture payload bytes, and backend/device/surface creation counts.
 `physical-gpu-reclamation=unobserved` is deliberate: neither a Rust drop nor a

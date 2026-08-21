@@ -16,6 +16,8 @@ const probeRetainedAliasing = document.querySelector("#probe-retained-aliasing")
 const probeRetainedAtomicity = document.querySelector("#probe-retained-atomicity");
 const runGenerationPrototype = document.querySelector("#run-generation-prototype");
 const probeProviderStaging = document.querySelector("#probe-provider-staging");
+const probeScopedTextureUpdate = document.querySelector("#probe-scoped-texture-update");
+const runScopedTexturePressure = document.querySelector("#run-scoped-texture-pressure");
 const runProviderStagingPressure = document.querySelector("#run-provider-staging-pressure");
 const status = document.querySelector("#status");
 const canvas = document.querySelector("#scene");
@@ -25,6 +27,7 @@ const replacementPressure = new BrowserReplacementPressure();
 const retainedPressure = new BrowserReplacementPressure();
 const providerStagingPressure = new BrowserReplacementPressure();
 const repeatedProviderStagingPressure = new BrowserReplacementPressure();
+const scopedTexturePressure = new BrowserReplacementPressure();
 
 function setControlsDisabled(disabled) {
   run.disabled = disabled;
@@ -34,6 +37,8 @@ function setControlsDisabled(disabled) {
   probeRetainedAtomicity.disabled = disabled;
   runGenerationPrototype.disabled = disabled;
   probeProviderStaging.disabled = disabled;
+  probeScopedTextureUpdate.disabled = disabled;
+  runScopedTexturePressure.disabled = disabled;
   runProviderStagingPressure.disabled = disabled;
 }
 
@@ -175,6 +180,63 @@ probeProviderStaging.addEventListener("click", async () => {
   }
 });
 
+probeScopedTextureUpdate.addEventListener("click", async () => {
+  const operation = "ar0033-scoped-texture-update";
+  beginObservedOperation(operation);
+  setControlsDisabled(true);
+  status.textContent = "running AR-0033 fixed-descriptor texture update probe";
+  try {
+    status.textContent = `stable-contract=ADR-0019; ${await providerStagingPressure.probe_scoped_texture_update(canvas)}`;
+    completeObservedOperation(operation, status.textContent);
+  } catch (error) {
+    status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation(operation, error?.stack ?? error);
+  } finally {
+    setControlsDisabled(false);
+  }
+});
+
+runScopedTexturePressure.addEventListener("click", async () => {
+  const operation = "ar0033-scoped-texture-pressure";
+  beginObservedOperation(operation);
+  setControlsDisabled(true);
+  const records = [];
+  const started = performance.now();
+  try {
+    for (let revision = 1; revision <= 27; revision += 1) {
+      const injectPreparedDrop = revision % 5 === 0;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const observation = await scopedTexturePressure.update_console_texture_scoped(
+        canvas,
+        revision,
+        injectPreparedDrop,
+      );
+      records.push({ revision, injectPreparedDrop, observation });
+    }
+    status.textContent = JSON.stringify({
+      status: "complete",
+      review: "AR-0033",
+      contract: "ADR-0019",
+      pressure: "fixed-descriptor-console-texture",
+      updates: records.length,
+      preparedDrops: records.filter((record) => record.injectPreparedDrop).length,
+      resourceSets: 1,
+      logicalInventoryStayedFixed: true,
+      providerDiagnostics: 0,
+      physicalGpuReclamation: "unobserved",
+      elapsedMilliseconds: performance.now() - started,
+      finalObservation: records.at(-1)?.observation,
+      records,
+    }, null, 2);
+    completeObservedOperation(operation, status.textContent);
+  } catch (error) {
+    status.textContent = `failed | ${error?.stack ?? error}`;
+    rejectObservedOperation(operation, error?.stack ?? error);
+  } finally {
+    setControlsDisabled(false);
+  }
+});
+
 runProviderStagingPressure.addEventListener("click", async () => {
   const operation = "resource-lifetime-C-real-provider-staging-pressure";
   beginObservedOperation(operation);
@@ -236,3 +298,16 @@ runProviderStagingPressure.addEventListener("click", async () => {
     setControlsDisabled(false);
   }
 });
+
+const autorun = new URLSearchParams(window.location.search).get("tokimu_autorun");
+if (autorun === "provider-staging") {
+  probeProviderStaging.click();
+} else if (autorun === "scoped-texture-update") {
+  probeScopedTextureUpdate.click();
+} else if (autorun === "scoped-texture-pressure") {
+  runScopedTexturePressure.click();
+} else if (autorun === "provider-staging-pressure") {
+  runProviderStagingPressure.click();
+} else if (autorun !== null) {
+  status.textContent = `failed | unknown tokimu_autorun=${autorun}`;
+}

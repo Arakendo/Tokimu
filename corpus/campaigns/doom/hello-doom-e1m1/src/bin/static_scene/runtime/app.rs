@@ -18,18 +18,57 @@ fn active_thing_indices(active: &[bool]) -> impl Iterator<Item = usize> + '_ {
         .filter_map(|(index, active)| active.then_some(index))
 }
 
+fn format_player_status(
+    observer: Option<SpawnObserver>,
+    look: Option<ObserverLook>,
+    embedding: DoomComparativeEmbedding,
+    health: u16,
+) -> String {
+    observer.map_or_else(
+        || "player=unavailable".to_owned(),
+        |observer| {
+            let look = look.unwrap_or(ObserverLook {
+                yaw: 0.0,
+                pitch: 0.0,
+                last_cursor: None,
+            });
+            let (source_position, source_angle) =
+                observer_doom_source_pose(observer, look, embedding);
+            format!(
+                "player_thing={} source_position=({},{}) source_angle_degrees={:.3} sector={} health={health}",
+                observer.source_record,
+                source_position[0],
+                source_position[1],
+                source_angle.to_degrees(),
+                observer.sector,
+            )
+        },
+    )
+}
+
 impl App {
+    fn record_runtime_warning(&mut self, warning: String) {
+        const MAX_RUNTIME_WARNINGS: usize = 16;
+        if self.runtime_warnings.len() == MAX_RUNTIME_WARNINGS {
+            self.runtime_warnings.remove(0);
+        }
+        self.runtime_warnings.push(warning);
+    }
+
     fn emit_audio_event(&mut self, event: hello_doom_e1m1::sound::DoomGameplaySoundEvent) {
         let Some(audio) = self.live_audio.as_mut() else {
             return;
         };
-        let diagnostic = match audio.emit(event) {
-            Ok(observation) => format!("{} {observation}", self.map_name),
-            Err(error) => format!(
-                "{} audio cue failed: {error}; gameplay-continues=true",
-                self.map_name
-            ),
+        let (diagnostic, warning) = match audio.emit(event) {
+            Ok(observation) => (format!("{} {observation}", self.map_name), None),
+            Err(error) => {
+                let warning = format!("audio-cue-failed:{error}; gameplay-continues=true");
+                (format!("{} {warning}", self.map_name), Some(warning))
+            }
         };
+        if let Some(warning) = warning {
+            self.record_runtime_warning(warning);
+        }
         eprintln!("{diagnostic}");
         self.debug_console.append(diagnostic);
     }
@@ -1028,13 +1067,73 @@ impl App {
         self.debug_console.append(message);
     }
 
+    fn format_resource_inventory(&self) -> String {
+        let cutout_uploads = usize::from(self.include_cutouts) * self.cutout_uploads.len();
+        let textures = self.uploads.len()
+            + cutout_uploads
+            + self.sprite_uploads.len()
+            + usize::from(self.diagnostic_sky_enabled)
+            + usize::from(self.doom_sky_enabled);
+        let materials = self.uploads.len()
+            + cutout_uploads
+            + self.sprite_uploads.len()
+            + usize::from(self.diagnostic_sky_enabled)
+            + usize::from(self.doom_sky_enabled) * 2
+            + usize::from(self.candidate1_sky_depth_enabled)
+            + 1;
+        let sky_boundary_meshes =
+            usize::from(self.skywall_parity_enabled || self.diagnostic_sky_enabled)
+                * self.doom_sky_boundary_draws.len();
+        let source_sky_plane_meshes =
+            usize::from(self.source_sky_plane_depth_global_control || self.skywall_parity_enabled)
+                * self.diagnostic_sky_draws.len();
+        let diagnostic_sky_meshes =
+            usize::from(self.diagnostic_sky_enabled) * self.diagnostic_sky_draws.len();
+        let meshes = self.draws.len()
+            + usize::from(self.include_cutouts) * self.cutout_draws.len()
+            + self.sprite_meshes.len()
+            + usize::from(self.doom_sky_enabled)
+            + sky_boundary_meshes
+            + source_sky_plane_meshes
+            + diagnostic_sky_meshes
+            + self.dynamic_door_mesh_handles.len()
+            + 1;
+        let pipelines = 1 + [
+            self.opaque_depth_prepass_pipeline,
+            self.one_sided_wall_depth_prepass_pipeline,
+            self.cutout_pipeline,
+            self.cutout_depth_prepass_pipeline,
+            self.sprite_pipeline,
+            self.sprite_depth_prepass_pipeline,
+            self.doom_sky_pipeline,
+            self.doom_sky_boundary_pipeline,
+            self.diagnostic_sky_pipeline,
+            self.candidate1_sky_depth_pipeline,
+            self.debug_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        .count();
+        let known_live_handles = meshes + textures + materials + pipelines + 1;
+        format!(
+            "inventory: map={} draws=[opaque:{},cutout:{},active-things:{},commands:{}] resources=[meshes:{meshes},textures:{textures},materials:{materials},pipelines:{pipelines},cameras:1,known-live-handles:{known_live_handles}] dynamic=[door-meshes:{}] authority=app-owned-upload-inventory-not-physical-gpu-allocation",
+            self.map_name,
+            self.draws.len(),
+            usize::from(self.include_cutouts) * self.cutout_draws.len(),
+            active_thing_indices(&self.thing_sprite_active).count(),
+            self.commands.len(),
+            self.dynamic_door_mesh_handles.len(),
+        )
+    }
+
     fn submit_debug_console(&mut self) {
         let Some(command) = self.debug_console.take_submission() else {
             return;
         };
         eprintln!("[doom-console] > {command}");
         let response = match parse_debug_command(&command) {
-            DebugCommand::Help => "commands: HELP | CLEAR | STATUS | CAMERA | COLLISION | LOOK [PIXEL x y|NDC x y] | SCAN [columns rows] | USE <linedef> | NOCLIP [ON|OFF|TOGGLE]".to_owned(),
+            DebugCommand::Help => "commands: HELP | CATALOG | CLEAR | STATUS | INVENTORY | WARNINGS | TIMINGS | CAMERA | COLLISION | LOOK [PIXEL x y|NDC x y] | SCAN [columns rows] | USE <linedef> | NOCLIP [ON|OFF|TOGGLE]".to_owned(),
+            DebugCommand::Catalog => "catalog: read-only=[STATUS,INVENTORY,WARNINGS,TIMINGS,CAMERA,COLLISION,LOOK,SCAN] mutating=[USE,NOCLIP] transcript=[HELP,CATALOG,CLEAR] scope=corpus-local-doom-observation-shell".to_owned(),
             DebugCommand::Clear => {
                 self.debug_console.clear();
                 eprintln!("[doom-console] [doom] transcript cleared");
@@ -1081,37 +1180,71 @@ impl App {
                     )
                 },
             ),
-            DebugCommand::Status => format!(
-                "status: frame={} draws={} cutouts={} selection={:?} mouse_capture={} noclip={} monster_chase_live={} awake_monsters={} active_manual_doors={} details={}",
-                self.frame_index,
-                self.draws.len(),
-                self.cutout_draws.len(),
-                self.candidate_selection,
-                self.mouse_captured,
-                self.noclip,
-                self.monster_chase_live,
-                self.monster_runtime_states
-                    .iter()
-                    .flatten()
-                    .filter(|monster| monster.awake)
-                    .count(),
-                self.active_manual_doors
-                    .iter()
-                    .filter(|door| door.phase != DoomManualDoorPhase::Closed)
-                    .count(),
-                self.active_manual_doors
-                    .iter()
-                    .filter(|door| door.phase != DoomManualDoorPhase::Closed)
-                    .map(|door| format!(
-                        "sector{}:{}/{}/{}:{:?}",
-                        door.target_sector.record_index,
-                        door.current_ceiling_height,
-                        door.closed_ceiling_height,
-                        door.open_ceiling_height,
-                        door.phase,
-                    ))
-                    .collect::<Vec<_>>()
-                    .join("|"),
+            DebugCommand::Status => {
+                let player = format_player_status(
+                    self.spawn_observer,
+                    self.observer_look,
+                    self.comparative_embedding,
+                    self.player_inventory.health,
+                );
+                format!(
+                    "status: map={} {} frame={} draws={} cutouts={} selection={:?} mouse_capture={} noclip={} monster_chase_live={} awake_monsters={} active_manual_doors={} details={}",
+                    self.map_name,
+                    player,
+                    self.frame_index,
+                    self.draws.len(),
+                    self.cutout_draws.len(),
+                    self.candidate_selection,
+                    self.mouse_captured,
+                    self.noclip,
+                    self.monster_chase_live,
+                    self.monster_runtime_states
+                        .iter()
+                        .flatten()
+                        .filter(|monster| monster.awake)
+                        .count(),
+                    self.active_manual_doors
+                        .iter()
+                        .filter(|door| door.phase != DoomManualDoorPhase::Closed)
+                        .count(),
+                    self.active_manual_doors
+                        .iter()
+                        .filter(|door| door.phase != DoomManualDoorPhase::Closed)
+                        .map(|door| format!(
+                            "sector{}:{}/{}/{}:{:?}",
+                            door.target_sector.record_index,
+                            door.current_ceiling_height,
+                            door.closed_ceiling_height,
+                            door.open_ceiling_height,
+                            door.phase,
+                        ))
+                        .collect::<Vec<_>>()
+                        .join("|"),
+                )
+            }
+            DebugCommand::Inventory => self.format_resource_inventory(),
+            DebugCommand::Warnings => format!(
+                "warnings: map={} import=[{}] runtime=[{}] asset-resolution=complete-for-presented-scene fatal-asset-errors=prevent-presentation authority=bounded-corpus-observation",
+                self.map_name,
+                if self.import_warnings.is_empty() {
+                    "none".to_owned()
+                } else {
+                    self.import_warnings.join(" | ")
+                },
+                if self.runtime_warnings.is_empty() {
+                    "none".to_owned()
+                } else {
+                    self.runtime_warnings.join(" | ")
+                },
+            ),
+            DebugCommand::Timings => format!(
+                "timings: map={} wad-package-parse-us={} map-decode-us={} scene-lowering-us={} upload-and-pipeline-setup-us={} last-frame-us={} authority=cpu-boundaries audio-preparation=not-separated",
+                self.map_name,
+                self.preparation_timings.wad_parse_us,
+                self.preparation_timings.map_decode_us,
+                self.preparation_timings.lowering_us,
+                self.upload_cpu_us.map_or_else(|| "unavailable".to_owned(), |value| value.to_string()),
+                self.last_frame_cpu_us.map_or_else(|| "unavailable".to_owned(), |value| value.to_string()),
             ),
             DebugCommand::Collision => self.walk_collision.as_ref().map_or_else(
                 || "collision: unavailable; run with --walk-collision".to_owned(),
@@ -2307,6 +2440,11 @@ impl App {
             hit,
             self.skywall_parity_enabled,
         );
+        let thing = self.inspect_thing_ray(
+            observer.position,
+            direction,
+            hit.map(|ordinary| ordinary.distance),
+        );
         let (source_xy, source_eye_height) = self
             .comparative_embedding
             .lower_direction(observer.position);
@@ -2397,7 +2535,49 @@ impl App {
             },
         );
         format!(
-            "{ordinary}\n{grouped_sky_parity}\n{one_sided_wall_boundary}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
+            "{ordinary}\n{thing}\n{grouped_sky_parity}\n{one_sided_wall_boundary}\n{global_control}\n{classic}\n{plane_occurrence}\n{bsp}"
+        )
+    }
+
+    fn inspect_thing_ray(
+        &self,
+        origin: Vec3,
+        direction: Vec3,
+        ordinary_distance: Option<f32>,
+    ) -> String {
+        let nearest = self
+            .sprite_meshes
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| self.thing_sprite_active[*index])
+            .filter_map(|(index, mesh)| {
+                nearest_mesh_ray_hit(origin, direction, mesh).map(|distance| (index, distance))
+            })
+            .min_by(|left, right| left.1.total_cmp(&right.1));
+        let Some((index, distance)) = nearest else {
+            return "thing_prepared_hit=none".to_owned();
+        };
+        let thing = &self.thing_sprites[index];
+        let (source_position, floor_height, source_angle_degrees, source_sector) =
+            self.thing_source_pose(index);
+        let relation = ordinary_distance.map_or("no-ordinary-hit", |ordinary| {
+            if distance < ordinary {
+                "before-ordinary-hit"
+            } else {
+                "behind-ordinary-hit"
+            }
+        });
+        let combat_health = self.thing_combat_states[index].as_ref().map_or_else(
+            || "not-applicable".to_owned(),
+            |state| state.health.to_string(),
+        );
+        format!(
+            "thing_prepared_hit=distance:{distance:.3},relation:{relation},source:thing record={} lump={},kind={},source_position=({:.3},{:.3}),source_angle_degrees={source_angle_degrees:.3},floor={floor_height},sector={source_sector},combat_health={combat_health},authority=exact-current-billboard-triangle",
+            thing.source.record_index,
+            thing.source.lump_index,
+            thing.kind,
+            source_position[0],
+            source_position[1],
         )
     }
 
@@ -2424,7 +2604,8 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-    use super::active_thing_indices;
+    use super::{active_thing_indices, format_player_status};
+    use crate::{DoomComparativeEmbedding, ObserverLook, SpawnObserver, Vec3};
 
     #[test]
     fn active_thing_indices_retain_source_identity_across_inactive_records() {
@@ -2432,6 +2613,35 @@ mod tests {
             active_thing_indices(&[false, true, false, true]).collect::<Vec<_>>(),
             vec![1, 3]
         );
+    }
+
+    #[test]
+    fn player_status_retains_live_source_identity_pose_sector_and_health() {
+        let observation = format_player_status(
+            Some(SpawnObserver {
+                position: Vec3::new(-1056.0, 36.0, -3616.0),
+                forward: Vec3::Z,
+                source_record: 0,
+                source_position: [1056, -3616],
+                source_angle: 90,
+                sector: 38,
+                floor: 0,
+                ceiling: 72,
+            }),
+            Some(ObserverLook {
+                yaw: 0.0,
+                pitch: 0.0,
+                last_cursor: None,
+            }),
+            DoomComparativeEmbedding::PreserveNorth,
+            87,
+        );
+
+        assert!(observation.contains("player_thing=0"));
+        assert!(observation.contains("source_position=(1056,-3616)"));
+        assert!(observation.contains("source_angle_degrees="));
+        assert!(observation.contains("sector=38"));
+        assert!(observation.contains("health=87"));
     }
 }
 
@@ -2689,6 +2899,7 @@ impl PlatformEventHandler for App {
         let size = window.inner_size();
         self.size = [size.width.max(1) as f32, size.height.max(1) as f32];
         let mut renderer = WgpuBackend::for_window(window.clone(), size.width, size.height)?;
+        let upload_started = Instant::now();
         window.set_ime_allowed(true);
         self.window = Some(window);
         for upload in &self.uploads {
@@ -3136,6 +3347,7 @@ impl PlatformEventHandler for App {
             renderer.device_kind(),
             renderer.adapter_name(),
         );
+        self.upload_cpu_us = Some(upload_started.elapsed().as_micros());
         self.renderer = Some(renderer);
         Ok(())
     }
@@ -3267,6 +3479,7 @@ impl PlatformEventHandler for App {
             .as_mut()
             .and_then(DoomLiveAudio::poll_diagnostic)
         {
+            self.record_runtime_warning(diagnostic.clone());
             let diagnostic = format!("{} {diagnostic}", self.map_name);
             eprintln!("{diagnostic}");
             self.debug_console.append(diagnostic);
@@ -3808,6 +4021,8 @@ impl PlatformEventHandler for App {
         renderer.submit(&self.commands[candidate1_insertion_index..]);
         renderer.present()?;
         let stats = renderer.end_frame();
+        let frame_cpu_us = frame_started.elapsed().as_micros();
+        self.last_frame_cpu_us = Some(frame_cpu_us);
         if self.candidate1_sky_depth_enabled && self.frame_index < 2 {
             if let Some(candidate) = candidate1_sky_depth_batch.as_ref() {
                 eprintln!(
@@ -3848,7 +4063,7 @@ impl PlatformEventHandler for App {
                 selection.rejected_by_plane[5],
                 selection_time.as_micros(),
                 command_time.as_micros(),
-                frame_started.elapsed().as_micros(),
+                frame_cpu_us,
                 stats.frame.draw_calls,
                 stats.frame.material_resolutions,
                 stats.frame.pipeline_switches,

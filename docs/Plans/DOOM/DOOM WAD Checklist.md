@@ -455,7 +455,7 @@ Implementation sequence:
         apply the classic sky-to-sky upper-band omission in the Doom geometry
         provider. Dual-sky and one-sky controls retain the bounded rule; see
         [`E1M1 hut sky-boundary evidence.md`](Evidence/E1M1%20hut%20sky-boundary%20evidence.md).
-  - [ ] Exercise an actual E1 sky presentation without weakening the retained
+  - [x] Exercise an actual E1 sky presentation without weakening the retained
         source classification or turning sky into an ordinary flat texture.
     - [x] Compose `SKY1` through the bounded Doom raster provider and expose an
           opt-in `--doom-sky` corpus path distinct from the purple AR-0027
@@ -569,11 +569,13 @@ Implementation sequence:
             retained source sky spans directly. Do not restore flat filtering,
             add overlap epsilon, or hide the remaining hut geometry with a
             broader depth wall.
-    - [ ] Retain native visual evidence that the exterior has no purple or
+    - [x] Retain native visual evidence that the exterior has no purple or
           black sky gaps, the panorama seam is acceptable, and ordinary world
           surfaces continue to occlude the enclosure.
-    - [ ] Exercise the same bounded presentation in the browser/WASM consumer
-          before treating the experiment as cross-target evidence.
+    - [x] Exercise the same bounded presentation in the browser/WASM consumer.
+          The retained-session E1M1-E1M9 rotation completed 27/27 grouped-sky
+          presentations on browser WebGPU; see
+          [Doom browser retained resource-set rotation evidence](Evidence/Doom%20browser%20retained%20resource-set%20rotation%20evidence.md).
 - [x] Preserve source linedef, sidedef, sector, and subsector identities on
       lowered presentation records. Focused lowering tests now assert the
       required identities across BSP surfaces, one-sided walls, and two-sided
@@ -932,19 +934,49 @@ Acceptance criteria:
 
 ## Slice 7: Runtime Observation And Diagnostics
 
-- [ ] Observe current map, player thing, position, angle, sector, and health.
-- [ ] Observe selected linedef, sidedef, sector, and thing source identities.
-- [ ] Expose importer warnings separately from runtime warnings.
-- [ ] Capture parse, decode, lowering, upload, and frame timing boundaries.
-- [ ] Record draw, material, texture, mesh, and allocation counts.
+- [x] Observe current map, player Thing, position, angle, sector, and health.
+      The corpus-local `STATUS` command now emits one bounded live source record
+      containing map, player-start Thing record, current source position and
+      heading, current sector, and player health alongside frame state.
+- [x] Observe selected linedef, sidedef, sector, and Thing source identities.
+      Existing exact prepared wall/flat `LOOK` provenance is joined by the
+      nearest active current Thing billboard triangle, including source
+      Thing record/lump, kind, live source pose, sector, combat health, and its
+      before/behind relation to the nearest ordinary world hit.
+- [x] Expose importer warnings separately from runtime warnings. `WARNINGS`
+      retains bounded import/preparation findings independently from live
+      runtime failures. Runtime audio failures retain only the latest 16
+      entries; missing assets remain fatal before presentation and therefore
+      cannot masquerade as a warning on a visibly incomplete scene.
+- [x] Capture parse, decode, lowering, upload, and frame timing boundaries.
+      The read-only `TIMINGS` command separates WAD-package parse, selected-map
+      decode, remaining scene lowering, provider upload/pipeline setup, and the
+      latest frame CPU interval. These are application-owned CPU boundaries;
+      audio preparation is explicitly not separated and no GPU duration is
+      inferred.
+- [x] Record draw, material, texture, mesh, and allocation counts. The
+      corpus-local read-only `INVENTORY` command reports prepared opaque,
+      cutout, active-Thing, and command counts plus the application-owned live
+      mesh, texture, material, pipeline, and camera handle inventory. Its
+      authority is explicitly logical upload/handle ownership, not physical
+      GPU allocation or reclamation timing.
 - [x] Add deterministic screenshots and structural artifacts. The bounded WAD
       inspector now emits a fixed 1024-by-768 CPU source-sector map image;
       independent executions produced identical bytes. The retained BMP and
       manifest are structural evidence, not a GPU framebuffer or pixel-parity
       claim; see
       [Doom E1M1 Headless Structural Image Evidence](Evidence/Doom%20E1M1%20headless%20structural%20image%20evidence.md).
-- [ ] Make unsupported specials, assets, and object kinds visible in the UI.
-- [ ] Add a small observation-shell catalog for read-only map inspection.
+- [x] Make unsupported specials, assets, and object kinds visible in the UI.
+      Preparation compares nonzero linedef specials and source Thing kinds
+      with the corpus's existing supported tables, retaining counts and up to
+      eight source-record samples per family in `WARNINGS`. Successful asset
+      resolution is stated only for the presented scene; unresolved required
+      assets still fail preparation rather than being silently omitted.
+- [x] Add a small observation-shell catalog for read-only map inspection.
+      `CATALOG` partitions `STATUS`, `INVENTORY`, `WARNINGS`, `TIMINGS`,
+      `CAMERA`, `COLLISION`, `LOOK`, and `SCAN` from mutating `USE`/`NOCLIP`
+      commands; `HELP` exposes the catalog without promoting this corpus
+      vocabulary into Tokimu.
 
 Acceptance criteria:
 
@@ -958,12 +990,20 @@ This is application/tooling evidence for the Doom corpus. It composes the
 existing Tokimu console interaction and text-presentation work, but does not
 make Doom commands, picking, or an embedded shell part of Ring 0.
 
-- [ ] Toggle a bounded embedded console with the physical backquote/tilde key
+- [x] Toggle a bounded embedded console with the physical backquote/tilde key
       (`~`), using the normalized Tokimu key identity on native and browser
       hosts.
   - [x] Add normalized physical `Backquote` identity in native and browser
         platform adapters and use it to toggle the native Doom console.
-  - [ ] Exercise the embedded console through the browser/WASM Doom host.
+  - [x] Exercise the embedded console through the browser/WASM Doom host.
+        The browser working model has the required persistent input/frame
+        lifecycle. AR-0033 is accepted and ADR-0019 now supplies the narrow
+        fixed-descriptor, set-scoped texture-content transaction needed by the
+        console raster without reopening raw submission. Apply that stable
+        seam; do not generalize it to console ownership, mesh mutation, or a
+        browser DOM overlay. The browser now keeps one transparent overlay
+        draw in the scoped command batch and changes only its fixed 960x264
+        texture realization while opening, typing, submitting, and closing.
 - [x] Transfer focus explicitly: opening the console releases captured mouse
       look and suppresses movement; closing it does not synthesize gameplay
       input.
@@ -977,7 +1017,7 @@ make Doom commands, picking, or an embedded shell part of Ring 0.
         and whether the result came from opaque or cutout preparation.
   - [x] Label initial AABB or triangle-ray results precisely; do not call a
         conservative candidate an exact selected surface.
-- [ ] Add source-aware Doom inspection after the generic draw candidate:
+- [x] Add source-aware Doom inspection after the generic draw candidate:
       linedef/sidedef/sector/thing identities remain owned by the Doom corpus.
   - [x] Retain compact linedef/sidedef/sector identity for wall hits and
         subsector/sector/plane identity for flat hits; these remain
@@ -999,18 +1039,26 @@ make Doom commands, picking, or an embedded shell part of Ring 0.
         target SEG admission, and watched BSP elisions so a global-shell hit
         can be distinguished from a surface Doom source preparation would not
         submit.
-  - [ ] Add Thing inspection when Things enter prepared caller data. Do not
-        invent a diagnostic radius, height, or billboard solely to make a
-        source point selectable.
+  - [x] Add Thing inspection after Things entered prepared caller data. `LOOK`
+        intersects the exact current billboard mesh already used for
+        presentation and reports retained source/runtime identity; it does not
+        invent a diagnostic radius or height.
 - [x] Make “no candidate,” unavailable source identity, unsupported command,
       and truncated transcript states explicit.
-- [ ] Retain native and browser/WASM observations before claiming target
+- [x] Retain native and browser/WASM observations before claiming target
       parity.
   - [x] Retain the first native console observation in
         [`D1 debug console evidence.md`](Evidence/D1%20debug%20console%20evidence.md).
-  - [ ] Exercise the console through a persistent browser/WASM input/frame
-        host; the current intake intentionally presents one frame and exits
-        its renderer lifecycle.
+  - [x] Exercise the console through a persistent browser/WASM input/frame
+        host. The working model supplies persistence, movement, map
+        replacement, browser WebGPU presentation, and ADR-0019 update
+        authority. The externally observed Edge run completed the
+        `open>type-CAMERA>submit>close>reopen>present` sequence on resource set
+        1 with the original scoped command batch, five ADR-0019 commits, and
+        zero provider diagnostics. Live operator evidence additionally shows
+        the overlay closing while E1M1 remains presented. The browser
+        inspection vocabulary remains intentionally smaller than the native
+        source-ray vocabulary.
 - [x] Review whether repeated non-Doom pressure justifies extracting any
       embedded-console or picking contract; until then this remains corpus
       composition under AR-0013.
@@ -1030,13 +1078,13 @@ Acceptance criteria:
   source meaning remains outside renderer and generic shell vocabulary.
 - Unsupported or approximate inspection claims are visible in the transcript.
 
-Current disposition: the native D.1 console/cursor evidence is sufficient for
-continued Doom investigation. Browser parity is parked until the browser
-workbench has a persistent renderer/input/frame lifecycle. Sidedef, sector, and
-Thing inspection are parked until those identities are carried into the
-prepared caller data; neither gap is silently promoted into a generic engine
-contract. The extraction review is complete and retains corpus-local
-composition under AR-0013.
+Current disposition: native and browser hosts both present the corpus-owned
+console through ordinary Tokimu texture, material, mesh, pipeline, camera, and
+scoped-command seams. The browser uses ADR-0019 rather than whole-map
+replacement or a DOM overlay. Browser input/presentation and transaction
+parity are demonstrated; native-only exact source-ray commands are not claimed
+as browser command-vocabulary parity. The extraction review remains
+corpus-local composition under AR-0013.
 
 ## Slice 8: Interactive Map Semantics
 
@@ -1428,7 +1476,7 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
       through the same bounded Rust/WASM intake as the picker, rejects ambiguous
       multi-file drops, and does not parse package or WAD semantics in
       TypeScript.
-- [ ] Add a bounded WASM map viewer only after native static rendering is
+- [x] Add a bounded WASM map viewer only after native static rendering is
       stable.
   - [x] Add the browser working-model test surface. After explicit local ZIP
         selection, Rust/WASM accepts only E1M1-E1M9 markers and prepares one
@@ -1448,32 +1496,43 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
           `W+C`, and observed normal map replacement, interaction, and sky/map
           presentation without a closed window. The first live attempt had
           closed its isolated Edge window while moving toward an outdoor area.
-          A later trace showed Edge
-          replacing its GPU process after the switch. The browser consumer had
-          overlapped two WGPU backends on the same canvas during replacement;
-          it now completes CPU preparation, drops the old canvas backend, and
-          only then creates the replacement. Input pacing and retained provider
-          diagnostics remain additional containment.
-      - [ ] Resolve repeated-map GPU lifetime through the
+          A later trace showed Edge replacing its GPU process after the switch.
+          That historical whole-backend containment has since been superseded:
+          the browser consumer now completes CPU preparation and atomically
+          commits a staged ADR-0018 resource set through one retained provider
+          session. Input pacing and retained provider diagnostics remain
+          additional containment.
+      - [x] Resolve repeated-map logical GPU-resource lifetime through the
             [renderer scene-resource lifetime and replacement plan](../Renderer-Reliability/renderer-scene-resource-lifetime-and-replacement.md)
             before treating rotation as
             accepted. E1M3 survived after eliminating simultaneous canvas
             surfaces. A later supervised orderly Edge shutdown was correlated
             with the workbench's former `Ctrl`-descend plus `W`-forward binding,
             which invoked Edge's `Ctrl+W` close shortcut; descend now uses `C`.
-            Older unsupervised E1M5/E1M6 closure evidence remains unknown. Each
-            Alternative-A switch creates a fresh WGPU device/backend. The
-            successful manual `W+C` falsifier closes the input-chord defect but
-            does not by itself complete external terminal-outcome observation;
-            reusing one backend requires an explicit renderer resource-lifetime
-            decision because sampleable texture creation rejects an existing
-            handle and no scene-resource release/reset operation exists.
+            Older unsupervised E1M5/E1M6 closure evidence remains unknown. The
+            admitted ADR-0018 session now retains one backend/device/surface,
+            stages complete successor resource sets, commits once, and rejects
+            retired command identity before resource lookup. Physical GPU
+            reclamation timing remains explicitly unobserved.
         - [x] Add the deterministic Alternative-A browser harness: E1M1 through
               E1M9 for three rounds, with one bounded lifetime record per map.
         - [x] Execute the 27 replacements and join browser completion with
               Edge/GPU-process evidence: all 27 completed in 19,657.4 ms with
               no new GPU-process start or retained device-loss/OOM/fatal
               record. Physical reclamation remains unobserved.
+        - [x] Replace the Doom working model's whole-backend/private-reset path
+              with the stable ADR-0018 resource-set session. External observer
+              run `42344-1787260772989661700` completed 27/27 E1M1-E1M9
+              presentations in 19,217.1 ms with one backend, device, and
+              surface. A late E1M2 preparation failure re-presented E1M1 before
+              provider staging; the real successor then committed normally.
+        - [x] Accept the follow-up browser walkabout observation. The operator
+              inspected map switching and movement across the working model and
+              accepted presentation on 2026-08-20. One E1M2 ceiling/wall join
+              exposes a bounded hairline, mostly white sky crack. It is parked
+              as a presentation-tolerance limitation because it does not widen,
+              flicker, or expose recognizable remote geometry; a wider or
+              movement-unstable recurrence reopens edge conformance.
   - [ ] Retain a real WebGPU observation and capture for at least E1M1 plus one
         swapped map. WASM compilation and strict TypeScript checking are only
         readiness evidence until the browser executes the stencil path.
@@ -1481,14 +1540,18 @@ cargo run -p hello-doom-e1m1 --bin static_scene -- corpus/assets/DOOM/packages/d
           WebGPU at 960x600 with 1,921 opaque draws, 20 paired skywalls, 242
           source sky planes, 3,635 surface triangles, and 642 edge-conformance
           insertions. The user-observed frame showed the source-spawn interior;
-          E1M1 plus an explicit live map-swap/walkabout capture remains open.
+          The later E1M1-E1M9 working-model walkabout is operator-accepted;
+          committing representative image captures with full provenance
+          remains open.
 - [x] Keep user-supplied WAD bytes in the browser session. The Rust/WASM
       `BrowserIntakeSession` retains exactly one bounded package selection in
       Resource Space, atomically replaces prior bytes, releases them on
       disposal, and exposes only compact observations to TypeScript. Focused
       tests cover replacement, empty and oversized rejection, and disposal.
-- [x] Avoid publishing unreviewed commercial or shareware data. The browser
-      consumer accepts only explicit local bytes and fetches or bundles no WAD;
+- [x] Avoid publishing unreviewed commercial or shareware data. The ordinary
+      browser consumer accepts only explicit local bytes and bundles no WAD;
+      the external-observer autorun may fetch only an explicitly named reviewed
+      package from the same loopback test server into that identical intake;
       repository inventory marks compact derived fixtures internal-only, bars
       bare-WAD endpoints, and keeps the reviewed complete source archives as
       the authoritative redistribution units. No commercial WAD is admitted.

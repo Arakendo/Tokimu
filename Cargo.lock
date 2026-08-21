@@ -995,6 +995,7 @@ dependencies = [
  "serde_json",
  "tokimu",
  "tokimu-core",
+ "ui-tools",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -1725,6 +1726,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "hello-render-resource-identity",
+ "js-sys",
  "tokimu",
  "wasm-bindgen",
  "wasm-bindgen-futures",

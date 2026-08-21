@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Accepted |
 | Opened | 2026-08-19 |
-| Last reviewed | 2026-08-19 |
+| Last reviewed | 2026-08-20 |
 | Scope | Foundational rendering service / provider lifetime boundary |
 | Trigger | Alternative B reset falsifiers plus semantic, live WGPU, and repeated-pressure evidence for Alternative C |
 | Related ADRs | ADR-0001, ADR-0003, ADR-0005, ADR-0009, ADR-0017, ADR-0018 |
@@ -16,6 +16,10 @@
 Should Tokimu admit provider-neutral atomic staged replacement semantics for a
 complete render resource set, while leaving handle encoding, physical GPU
 reclamation, provider synchronization, and final public API shape undecided?
+
+The review admitted the invariant before selecting a transaction API. Cycle 5
+later selected an opt-in resource-set session as the stable transaction shape;
+individual handle encoding and physical provider policy remain undecided.
 
 The candidate invariant is:
 
@@ -109,19 +113,16 @@ unobserved.
 
 ### Important evidence separation
 
-The stale-identity invariant and provider staging have not yet been exercised
-as one integrated provider-neutral contract. The semantic model carries a
-generation with each reference. The current WGPU fixture rebuilds commands for
-each candidate and uses ordinary local `MeshHandle`, `TextureHandle`, and
-related values inside the private set. An old bare command submitted after
-commit could still alias a reused successor key if it bypassed set-scoped
-validation.
+The first provider prototype and the stale-identity semantic model were proven
+separately. The first stable-surface candidate then integrated them but exposed
+ordinary unscoped submission alongside replacement; retained declarations
+could bypass set validation and alias reused successor keys. That candidate was
+falsified and retained as Finding 9.
 
-This does not falsify the proposed invariant. It does mean a stable
-implementation cannot claim conformance merely by promoting the current WGPU
-stage type. Cross-generation stale rejection must be proven at the combined
-semantic/provider boundary without first deciding one permanent bit layout for
-handles.
+Cycle 5 closes the integration gap without choosing a permanent bit layout for
+individual handles. The replacement-enabled session accepts only opaque
+set-scoped command batches and rejects a retired batch before resolving any
+ordinary local handle. Physical reclamation remains separate and unobserved.
 
 ## Ownership Analysis
 
@@ -262,9 +263,10 @@ representation as part of this review.
    support on native/WASM compositions and browser WGPU.
 4. Bounded logical overlap is proven. Bounded physical VRAM overlap, exact
    reclamation timing, and leak freedom are not.
-5. The current WGPU prototype proves provider realization but does not itself
-   implement cross-generation stale rejection. The shared semantic proof and
-   provider proof must be integrated before stable implementation conformance.
+5. The original WGPU prototype proved provider realization but did not itself
+   implement cross-generation stale rejection. The selected resource-set
+   session now integrates provider staging and set-scoped rejection; the
+   historical separation remains relevant to what the earlier evidence proved.
 6. The renderer should own transaction invariants, not candidate membership or
    application continuation policy.
 7. No evidence requires a per-resource allocator, public arena, reclamation
@@ -279,6 +281,14 @@ representation as part of this review.
    the retained commands against B. Correct rejection through
    `submit_render_command_set` does not satisfy the accepted invariant while
    the unscoped path remains equally public and usable.
+10. Finding 9 is resolved by separating ordinary rendering from replacement
+    authority structurally. An ordinary backend supports raw submission but
+    cannot replace its resource set. Entering replacement mode consumes it into
+    a resource-set session that exposes lifecycle operations and scoped command
+    submission, does not implement `Renderer`, and does not expose the
+    underlying backend. Retained declarations can be scoped only as an explicit
+    authorization for the current set; a retired scoped batch rejects before
+    local resource resolution.
 
 ## Proposed Admission Boundary
 
@@ -307,9 +317,10 @@ Explicit non-decisions:
 **Accepted -- Alternative A: narrow set-level replacement semantics.**
 
 ADR-0018 records the accepted semantic boundary and the SDD renderer section
-now reflects its ownership and lifecycle invariant. The current experimental
-implementation is not promoted unchanged. Its provider-neutral conformance
-remains gated on the integrated stale-command test from Finding 5.
+now reflects its ownership and lifecycle invariant. The feature-gated
+experimental implementation was not promoted unchanged. The stable
+resource-set session integrates provider staging with stale-command authority;
+native and live browser WGPU conformance pass.
 
 ## Consequences
 
@@ -345,17 +356,23 @@ If Alternative A is accepted:
         3, and scoped B presented eight draws with zero provider diagnostics.
 - [x] Prove failed provider staging preserves all current resource families
       through the provider-neutral contract.
-- [ ] Exercise the accepted contract on native and browser WGPU plus the
+- [x] Exercise the accepted contract on native and browser WGPU plus the
       independent resource-rich caller.
+  - [x] Native WGPU and release-WASM compilation pass through the selected
+        resource-set session.
+  - [x] Retained a live browser WGPU record through the selected session: late
+        all-family failure preserved eight A draws, stale A rejected before
+        resolution, B presented eight draws, and provider diagnostics remained
+        zero.
 - [ ] Keep physical reclamation, incremental release, and device-loss recovery
       outside implementation acceptance unless separately admitted.
 - [x] Replaced the feature-gated staging API in the implementation candidate
       with the narrow `RenderResourceSetLifecycle` surface while retaining the
       reset experiment separately and keeping the old staging feature as a
       compatibility no-op.
-- [ ] Resolve Finding 9 before promoting the stable-surface candidate. This
-      requires architectural judgment about ordinary submission authority; it
-      must not be hidden by documentation advising callers to avoid the bypass.
+- [x] Resolved Finding 9 structurally: replacement consumes the backend into a
+      resource-set session with no ordinary `Renderer::submit` surface. A
+      compile-fail contract test guards the boundary; this is not caller advice.
 
 ## Reopening Triggers
 
@@ -440,6 +457,45 @@ After disposition, reopen or supersede this review if:
   updated; feature-gated staging seam retired; native WGPU conformance evidence
   retained.
 
+### Cycle 5 -- 2026-08-20
+
+- Status entering review: Accepted; stable implementation paused on Finding 9.
+- New evidence: an opt-in `WgpuResourceSetSession` consumes the ordinary
+  backend, implements the provider-neutral lifecycle, exposes only scoped
+  command submission, and does not implement `Renderer` or expose the backend.
+  Native WGPU passed the complete failure/commit/stale-rejection sequence with
+  reused local keys and zero provider diagnostics. Release WASM compilation
+  passed against the same surface.
+- Participants or reviewers: maintainer and Codex.
+- Findings: raw submission and set replacement need not coexist on one public
+  object. Separating them makes the accepted stale-identity invariant
+  structural without choosing individual handle encoding or physical
+  reclamation policy.
+- Disposition: Finding 9 closed. Stable native conformance passes; live browser
+  WGPU confirmation remains the implementation acceptance gate.
+- Resulting ADR or documentation change: ADR-0018 implementation record, SDD,
+  renderer-reliability plan, and native evidence updated to the selected
+  resource-set session transaction shape.
+
+### Cycle 6 -- 2026-08-20
+
+- Status entering review: Accepted; live browser implementation conformance
+  pending.
+- New evidence: Browser WASM/WebGPU completed the stable resource-set session
+  sequence with one retained backend/device/surface, a late all-family failure,
+  eight A draws before and after failure, atomic B commit, stale A rejection
+  before reused-key resolution, eight B draws through current scoped
+  submission, an absent raw-submit surface, and zero provider diagnostics. An
+  observer outside the page recorded a completed terminal outcome.
+- Participants or reviewers: maintainer and Codex.
+- Findings: the selected stable transaction surface now has native and browser
+  real-provider conformance. Physical reclamation and individual handle
+  encoding remain unproven and undecided.
+- Disposition: stable cross-target implementation conformance complete for the
+  admitted ADR-0018 transaction invariant.
+- Resulting ADR or documentation change: stable browser evidence retained and
+  the ADR, SDD, review, and renderer-reliability checklist updated.
+
 ## References
 
 - `docs/contribution-admission-guide.md`
@@ -457,3 +513,4 @@ After disposition, reopen or supersede this review if:
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-alternative-c-repeated-provider-pressure-evidence.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-adr-0018-integrated-command-conformance.md`
 - `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-adr-0018-stable-native-conformance.md`
+- `docs/Plans/Renderer-Reliability/Evidence/renderer-scene-resource-adr-0018-stable-browser-conformance.md`

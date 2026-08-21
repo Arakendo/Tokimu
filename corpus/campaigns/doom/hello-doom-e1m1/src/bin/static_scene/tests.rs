@@ -3,10 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
-    advance_scrolling_wall_uvs, arguments_for_rotated_map, build_doom_sky_cylinder,
-    build_doom_thing_sprite_mesh, carry_observer_with_floor, diagnostic_skywall_mesh,
-    discover_secret_sector, finalize_doom_seg_classic_plane_spans, merge_solid_range,
-    mesh_owning_side_visible, nearest_mesh_ray_hit, ray_triangle_distance,
+    advance_scrolling_wall_uvs, arguments_for_rotated_map, bounded_source_warning,
+    build_doom_sky_cylinder, build_doom_thing_sprite_mesh, carry_observer_with_floor,
+    diagnostic_skywall_mesh, discover_secret_sector, finalize_doom_seg_classic_plane_spans,
+    merge_solid_range, mesh_owning_side_visible, nearest_mesh_ray_hit, ray_triangle_distance,
     retain_doom_seg_classic_plane_range, source_bbox_fov_column_interval,
     source_fov_column_interval, source_motion_special_crossings,
     source_point_segment_distance_squared, source_ray_segment_depth, source_seg_facing,
@@ -15,6 +15,21 @@ use super::{
     DoomSegClassicPlaneKey, DoomSegClassicPlaneKind, DoomSegClassicPlaneSpanObservation,
     DoomSpriteTextureUpload, DoomThingSprite, SourceBBoxProjection, SourceSegFacing, SpawnObserver,
 };
+
+#[test]
+fn source_warning_samples_are_bounded_without_losing_the_total() {
+    let records = (0..12)
+        .map(|index| (index, index as u16 + 100))
+        .collect::<Vec<_>>();
+    let warning = bounded_source_warning("unsupported-things", "kind", &records)
+        .expect("nonempty unsupported records must produce a warning");
+
+    assert!(warning.contains("count=12"));
+    assert!(warning.contains("0:kind100"));
+    assert!(warning.contains("7:kind107"));
+    assert!(!warning.contains("8:kind108"));
+    assert_eq!(bounded_source_warning("unused", "kind", &[]), None);
+}
 
 #[test]
 fn diagnostic_skywall_mesh_supplies_repeating_planar_texture_coordinates() {

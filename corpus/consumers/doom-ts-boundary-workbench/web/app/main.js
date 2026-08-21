@@ -1,12 +1,12 @@
 import init, { BrowserIntakeSession } from "../pkg/doom_ts_boundary_workbench_engine.js";
-import { bindLocalPackageDrop, bindLocalPackagePicker, disposeIntake } from "./intake.js";
+import { bindLocalPackageDrop, bindLocalPackagePicker, disposeIntake, submitSelectedPackage } from "./intake.js";
 import { beginObservedOperation, completeObservedOperation, operatorCompleted, rejectObservedOperation, terminalObservationEnabled, } from "./terminal-observer.js";
 const button = document.querySelector("#select");
 const inspect = document.querySelector("#inspect");
 const render = document.querySelector("#render");
 const renderWorking = document.querySelector("#render-working");
+const observeConsoleControl = document.querySelector("#observe-console-control");
 const runRotation = document.querySelector("#run-rotation");
-const runRetainedRotation = document.querySelector("#run-retained-rotation");
 const completeObservedWalkabout = document.querySelector("#complete-observed-walkabout");
 const mapPrevious = document.querySelector("#map-previous");
 const mapNext = document.querySelector("#map-next");
@@ -21,7 +21,7 @@ const input = document.querySelector("#package");
 const dropTarget = document.querySelector("#drop-package");
 const result = document.querySelector("#result");
 const canvas = document.querySelector("#scene");
-if (button === null || inspect === null || render === null || renderWorking === null || runRotation === null || runRetainedRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || dropTarget === null || result === null || canvas === null)
+if (button === null || inspect === null || render === null || renderWorking === null || observeConsoleControl === null || runRotation === null || completeObservedWalkabout === null || mapPrevious === null || mapNext === null || workingMap === null || renderCutouts === null || renderSelected === null || renderDiagnosticSky === null || renderExitsign === null || download === null || clear === null || input === null || dropTarget === null || result === null || canvas === null)
     throw new Error("intake DOM is incomplete");
 const episodeMaps = ["E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9"];
 let workingMapIndex = 0;
@@ -30,6 +30,7 @@ let workingMapRendering = false;
 let workingRotationActive = false;
 let workingRotationCancellationRequested = false;
 let workingWalkaboutActive = false;
+let workingConsoleOpen = false;
 let previousWalkStepTime = performance.now();
 let nextWorkingPresentationTime = 0;
 let mouseDeltaX = 0;
@@ -41,6 +42,30 @@ function stopWorkingWalkabout() {
     mouseDeltaX = 0;
     mouseDeltaY = 0;
 }
+function applyWorkingConsole(action) {
+    try {
+        const observation = action();
+        result.textContent = JSON.stringify({
+            kind: "browser-doom-console-updated",
+            observation,
+            controls: "Backquote toggles; Enter submits; Backspace edits; Escape closes.",
+        }, null, 2);
+    }
+    catch (error) {
+        result.textContent = JSON.stringify({
+            kind: "rejected",
+            diagnostic: String(error),
+            phase: "browser-doom-console-update",
+        }, null, 2);
+    }
+}
+function setWorkingConsoleOpen(open) {
+    workingConsoleOpen = open;
+    pressedKeys.clear();
+    if (open && document.pointerLockElement !== null)
+        document.exitPointerLock();
+    applyWorkingConsole(() => session.set_working_console_open(open));
+}
 function updateWorkingMapControls() {
     const previous = (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length;
     const next = (workingMapIndex + 1) % episodeMaps.length;
@@ -48,30 +73,39 @@ function updateWorkingMapControls() {
     mapPrevious.textContent = `[ ${episodeMaps[previous]}`;
     mapNext.textContent = `${episodeMaps[next]} ]`;
     renderWorking.disabled = !packageRetained;
+    observeConsoleControl.disabled = !workingWalkaboutActive;
     runRotation.disabled = !packageRetained;
-    runRotation.textContent = "Run 3x map rotation";
-    runRetainedRotation.disabled = !packageRetained;
-    runRetainedRotation.textContent = "Run 3x retained-session rotation";
+    runRotation.textContent = "Run 3x ADR-0018 rotation";
     completeObservedWalkabout.disabled = !terminalObservationEnabled || !workingWalkaboutActive;
     mapPrevious.disabled = !packageRetained;
     mapNext.disabled = !packageRetained;
 }
 function nextAnimationFrame() {
-    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    return new Promise((resolve) => {
+        let complete = false;
+        const finish = () => {
+            if (complete)
+                return;
+            complete = true;
+            resolve();
+        };
+        requestAnimationFrame(finish);
+        // Automated evidence may run in a background Edge window where rAF is
+        // aggressively throttled. The timer only yields browser work; it does not
+        // replace or certify presentation.
+        setTimeout(finish, 250);
+    });
 }
-async function runWorkingMapRotation(retainedSession = false) {
+async function runWorkingMapRotation() {
     if (workingRotationActive) {
         workingRotationCancellationRequested = true;
         runRotation.disabled = true;
-        runRetainedRotation.disabled = true;
         runRotation.textContent = "Stopping after current map...";
         return;
     }
     if (!packageRetained || workingMapRendering)
         return;
-    const observedOperation = retainedSession
-        ? "doom-retained-session-rotation"
-        : "doom-whole-backend-rotation";
+    const observedOperation = "doom-retained-session-rotation";
     beginObservedOperation(observedOperation);
     stopWorkingWalkabout();
     workingMapRendering = true;
@@ -90,8 +124,8 @@ async function runWorkingMapRotation(retainedSession = false) {
     mapPrevious.disabled = true;
     mapNext.disabled = true;
     runRotation.textContent = "Stop rotation";
-    runRetainedRotation.disabled = true;
     const records = [];
+    let failedPreparationProbe;
     let diagnostic;
     const started = performance.now();
     outer: for (let round = 1; round <= 3; round += 1) {
@@ -112,9 +146,10 @@ async function runWorkingMapRotation(retainedSession = false) {
             await nextAnimationFrame();
             const replacementStarted = performance.now();
             try {
-                const observation = retainedSession
-                    ? await session.render_working_map_retained_session(canvas, episodeMaps[mapIndex])
-                    : await session.render_working_map(canvas, episodeMaps[mapIndex]);
+                if (sequence === 2) {
+                    failedPreparationProbe = await session.verify_failed_working_map_preserves_current(canvas, episodeMaps[mapIndex]);
+                }
+                const observation = await session.render_working_map_retained_session(canvas, episodeMaps[mapIndex]);
                 records.push({
                     sequence,
                     round,
@@ -156,12 +191,18 @@ async function runWorkingMapRotation(retainedSession = false) {
         completedReplacements: records.length,
         elapsedMilliseconds: performance.now() - started,
         physicalGpuReclamation: "unobserved",
-        lifetimeAlternative: retainedSession ? "B-adapter-private-reset" : "A-whole-backend",
+        lifetimeAlternative: "ADR-0018-retained-resource-set-session",
+        failedPreparationProbe,
         diagnostic,
         records,
     }, null, 2);
     if (diagnostic === undefined) {
-        completeObservedOperation(observedOperation);
+        completeObservedOperation(observedOperation, JSON.stringify({
+            completedReplacements: records.length,
+            requestedReplacements: episodeMaps.length * 3,
+            failedPreparationProbe,
+            finalObservation: records.at(-1)?.observation,
+        }));
     }
     else {
         rejectObservedOperation(observedOperation, diagnostic);
@@ -180,7 +221,7 @@ async function renderCurrentWorkingMap() {
     mapNext.disabled = true;
     result.textContent = `Preparing ${mapName} with grouped sky parity and sector-boundary trim...`;
     try {
-        result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas, mapName), controls: "Click canvas for mouse look; W/A/S/D move; Space/C vertical; Shift runs; Escape releases mouse." }, null, 2);
+        result.textContent = JSON.stringify({ kind: "presented", observation: await session.render_working_map(canvas, mapName), controls: "Click canvas for mouse look; W/A/S/D move; Space/C vertical; Shift runs; Backquote opens the embedded console; Escape releases mouse." }, null, 2);
         workingWalkaboutActive = true;
         previousWalkStepTime = performance.now();
         nextWorkingPresentationTime = 0;
@@ -230,8 +271,37 @@ clear.addEventListener("click", () => {
     result.textContent = JSON.stringify({ kind: "disposed", retainedResources: 0, retainedBytes: 0 }, null, 2);
 });
 renderWorking.addEventListener("click", () => void renderCurrentWorkingMap());
+function runWorkingConsoleProof() {
+    const observedOperation = "doom-browser-console-adr0019";
+    beginObservedOperation(observedOperation);
+    try {
+        workingConsoleOpen = true;
+        const opened = session.set_working_console_open(true);
+        const typed = session.insert_working_console_text("CAMERA");
+        const submitted = session.submit_working_console();
+        const closed = session.set_working_console_open(false);
+        const reopened = session.set_working_console_open(true);
+        const detail = {
+            contract: "ADR-0019",
+            sequence: "open>type-CAMERA>submit>close>reopen>present",
+            opened,
+            typed,
+            submitted,
+            closed,
+            reopened,
+            wholeSetControl: JSON.parse(session.observe_ar0033_console_whole_set_control()),
+            semanticShadows: JSON.parse(session.observe_ar0033_console_semantic_shadows()),
+        };
+        result.textContent = JSON.stringify({ kind: "browser-doom-console-complete", ...detail }, null, 2);
+        completeObservedOperation(observedOperation, JSON.stringify(detail));
+    }
+    catch (error) {
+        result.textContent = JSON.stringify({ kind: "rejected", diagnostic: String(error), phase: "browser-doom-console-adr0019" }, null, 2);
+        rejectObservedOperation(observedOperation, error);
+    }
+}
+observeConsoleControl.addEventListener("click", runWorkingConsoleProof);
 runRotation.addEventListener("click", () => void runWorkingMapRotation());
-runRetainedRotation.addEventListener("click", () => void runWorkingMapRotation(true));
 completeObservedWalkabout.addEventListener("click", () => {
     operatorCompleted("doom-manual-walkabout");
     completeObservedWalkabout.disabled = true;
@@ -251,6 +321,27 @@ mapNext.addEventListener("click", () => {
 document.addEventListener("keydown", (event) => {
     if (!packageRetained || workingMapRendering)
         return;
+    if (!event.repeat && event.code === "Backquote" && workingWalkaboutActive) {
+        event.preventDefault();
+        setWorkingConsoleOpen(!workingConsoleOpen);
+        return;
+    }
+    if (workingConsoleOpen) {
+        event.preventDefault();
+        if (event.code === "Escape") {
+            setWorkingConsoleOpen(false);
+        }
+        else if (event.code === "Enter") {
+            applyWorkingConsole(() => session.submit_working_console());
+        }
+        else if (event.code === "Backspace") {
+            applyWorkingConsole(() => session.backspace_working_console());
+        }
+        else if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+            applyWorkingConsole(() => session.insert_working_console_text(event.key));
+        }
+        return;
+    }
     if (!event.repeat && (event.key === "[" || event.key === "]")) {
         workingMapIndex = event.key === "["
             ? (workingMapIndex + episodeMaps.length - 1) % episodeMaps.length
@@ -267,7 +358,7 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("keyup", (event) => pressedKeys.delete(event.code));
 addEventListener("blur", () => pressedKeys.clear());
 canvas.addEventListener("click", () => {
-    if (workingWalkaboutActive)
+    if (workingWalkaboutActive && !workingConsoleOpen)
         void canvas.requestPointerLock();
 });
 document.addEventListener("mousemove", (event) => {
@@ -277,7 +368,7 @@ document.addEventListener("mousemove", (event) => {
     }
 });
 function animateWorkingWalkabout(frameTime) {
-    if (workingWalkaboutActive && !workingMapRendering) {
+    if (workingWalkaboutActive && !workingMapRendering && !workingConsoleOpen) {
         const forward = Number(pressedKeys.has("KeyW")) - Number(pressedKeys.has("KeyS"));
         const strafe = Number(pressedKeys.has("KeyD")) - Number(pressedKeys.has("KeyA"));
         const vertical = Number(pressedKeys.has("Space")) - Number(pressedKeys.has("KeyC"));
@@ -415,3 +506,53 @@ addEventListener("pagehide", () => {
     unbindDrop();
     disposeIntake(session);
 }, { once: true });
+const autorunParameters = new URLSearchParams(window.location.search);
+if (autorunParameters.get("tokimu_autorun") === "doom-retained-rotation") {
+    const packageUrl = autorunParameters.get("tokimu_package");
+    if (packageUrl === null) {
+        rejectObservedOperation("doom-retained-session-rotation", "tokimu_package is required");
+        throw new Error("doom retained-session autorun requires tokimu_package");
+    }
+    try {
+        const response = await fetch(packageUrl, { cache: "no-store" });
+        if (!response.ok)
+            throw new Error(`reviewed package fetch failed: ${response.status}`);
+        const packageFile = new File([await response.blob()], "doom-shareware-corpus-v1.zip", { type: "application/zip" });
+        const outcome = await submitSelectedPackage(packageFile, session);
+        receiveIntakeOutcome(outcome);
+        if (outcome.kind !== "retained") {
+            throw new Error(`reviewed package intake failed: ${JSON.stringify(outcome)}`);
+        }
+        await runWorkingMapRotation();
+    }
+    catch (error) {
+        result.textContent = JSON.stringify({ kind: "autorun-rejected", diagnostic: String(error) }, null, 2);
+        rejectObservedOperation("doom-retained-session-rotation", error);
+    }
+}
+if (autorunParameters.get("tokimu_autorun") === "doom-browser-console-adr0019") {
+    const packageUrl = autorunParameters.get("tokimu_package");
+    if (packageUrl === null) {
+        rejectObservedOperation("doom-browser-console-adr0019", "tokimu_package is required");
+        throw new Error("Doom browser-console autorun requires tokimu_package");
+    }
+    try {
+        const response = await fetch(packageUrl, { cache: "no-store" });
+        if (!response.ok)
+            throw new Error(`reviewed package fetch failed: ${response.status}`);
+        const packageFile = new File([await response.blob()], "doom-shareware-corpus-v1.zip", { type: "application/zip" });
+        const outcome = await submitSelectedPackage(packageFile, session);
+        receiveIntakeOutcome(outcome);
+        if (outcome.kind !== "retained") {
+            throw new Error(`reviewed package intake failed: ${JSON.stringify(outcome)}`);
+        }
+        await session.render_working_map(canvas, "E1M1");
+        workingWalkaboutActive = true;
+        updateWorkingMapControls();
+        runWorkingConsoleProof();
+    }
+    catch (error) {
+        result.textContent = JSON.stringify({ kind: "autorun-rejected", diagnostic: String(error) }, null, 2);
+        rejectObservedOperation("doom-browser-console-adr0019", error);
+    }
+}
